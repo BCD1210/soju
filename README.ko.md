@@ -20,7 +20,15 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 
 함정 하나: 실행 체인에 애플 보호 바이너리(`nohup`, `arch` 등)를 두면 macOS가 `DYLD_*` 변수를 제거해 라이브러리를 못 찾는다.
 
-## 빠른 시작 (처음부터) — CrossOver 불필요
+## 설치 (한 줄)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BCD1210/soju/main/install.sh | bash
+```
+
+프리빌드 엔진(~350MB)을 받고, 애플 무료 GPTK 다운로드(애플이 재배포 금지한 파일 1개)를 안내하고, 블리자드 공식 설치기로 Battle.net을 자동 설치한 뒤 `~/Applications/Battle.net.app`을 만들어줍니다. 로그인하고 플레이하세요.
+
+## 직접 빌드하고 싶다면 — CrossOver 불필요
 
 이 레포의 스크립트 밖에서 받는 것은 애플의 무료 Game Porting Toolkit 파일 하나뿐입니다 (무료 Apple ID 필요 — 애플이 재배포를 금지해서 직접 받아야 합니다).
 

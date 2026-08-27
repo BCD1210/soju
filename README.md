@@ -24,7 +24,15 @@ Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern
 
 Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the launch chain — macOS strips `DYLD_*` variables when exec'ing them.
 
-## Quick start (from zero) — no CrossOver required
+## Install (one line)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BCD1210/soju/main/install.sh | bash
+```
+
+Downloads the prebuilt engine (~350 MB), walks you through Apple's free GPTK download (the one file Apple forbids redistributing), auto-installs Battle.net with Blizzard's official installer, and drops a `Battle.net.app` in `~/Applications`. Log in and play.
+
+## Build it yourself instead — no CrossOver required
 
 The only thing you download outside this repo's scripts is Apple's free Game Porting Toolkit (one file, needs a free Apple ID) — Apple forbids redistributing it.
 
