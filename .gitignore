@@ -1,0 +1,12 @@
+# 엔진/게임/계정 자산은 커밋하지 않는다 (용량 + 저작권)
+*.tar.xz
+*.tar.gz
+*.dmg
+winecx24/
+wswine.bundle/
+drive_c/
+*.reg
+
+# macOS
+.DS_Store
+.omc/

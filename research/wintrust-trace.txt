@@ -1,0 +1,20 @@
+0110:trace:wintrust:dump_file_info pcwszFilePath: L"C:\\Program Files (x86)\\Battle.net\\battle.net.dll"
+0110:trace:wintrust:SOFTPUB_OpenFile returning 2
+0110:trace:wintrust:dump_file_info pcwszFilePath: L"C:\\Program Files (x86)\\Battle.net\\Battle.net.17731\\battle.net.dll"
+0144:trace:wintrust:dump_file_info pcwszFilePath: L"C:/ProgramData/Battle.net/Agent/Agent.exe"
+014c:trace:wintrust:dump_file_info pcwszFilePath: L"C:/ProgramData/Battle.net/Agent/Agent.9700/Agent.exe"
+01ec:trace:wintrust:dump_file_info pcwszFilePath: L"Battle.net.exe"
+01ec:trace:wintrust:SOFTPUB_OpenFile returning 2
+01e0:trace:wintrust:dump_file_info pcwszFilePath: L"Battle.net.exe"
+01e0:trace:wintrust:SOFTPUB_OpenFile returning 2
+0250:trace:wintrust:dump_file_info pcwszFilePath: L"C:\\Program Files (x86)\\Battle.net\\Battle.net.17731\\Battle.net Helper.dll"
+026c:trace:wintrust:dump_file_info pcwszFilePath: L"C:\\Program Files (x86)\\Battle.net\\Battle.net.17731\\Battle.net Helper.dll"
+01e4:trace:wintrust:dump_file_info pcwszFilePath: L"Battle.net.exe"
+01e4:trace:wintrust:SOFTPUB_OpenFile returning 2
+01e8:trace:wintrust:dump_file_info pcwszFilePath: L"Battle.net.exe"
+01e8:trace:wintrust:SOFTPUB_OpenFile returning 2
+01ec:trace:wintrust:dump_file_info pcwszFilePath: L"Battle.net.exe"
+01ec:trace:wintrust:SOFTPUB_OpenFile returning 2
+01e0:trace:wintrust:dump_file_info pcwszFilePath: L"Battle.net.exe"
+01e0:trace:wintrust:SOFTPUB_OpenFile returning 2
+01e4:trace:wintrust:dump_file_info pcwszFilePath: L"Battle.net.exe"

@@ -1,0 +1,14 @@
+=== 해결 후 로그(발췌): Agent 통과 + D2R playable ===
+D 2026-08-27 00:54:41.813413 [ProductState] {Main} InstallState (osi): currentOperation=Update currentOperationStatus=New installed=1 selectedRegion=us localVersion=0.0.0.0
+D 2026-08-27 00:54:43.078649 [ProductState] {Main} InstallState (osi): currentOperation=UpToDate currentOperationStatus=Paused optionalPackageInstalled=1 hasInstallModificationOptions=1 installPath=C:/Program Files (x86)/Diablo II Resurrected playable=1 canCreateShortcut=1 activeConfigKey=623f7a1f73eabb08ccb2b2046e3f9164 regionalVersions=(eu: {playable:true config_key:623f7a1f73eabb08ccb2b2046e3f9164}, kr: {playable:true config_key:623f7a1f73eabb08ccb2b2046e3f9164}, us: {playable:true config_key:623f7a1f73eabb08ccb2b2046e3f9164}) repairSupported=true localVersion=3.3.93847 latestVersion=93847 currentStage=Complete
+D 2026-08-27 00:54:43.470576 [ProductState] {Main} InstallState (osi): currentOperation=Update currentOperationStatus=New playable=0 regionalVersions=(eu: {playable:false config_key:623f7a1f73eabb08ccb2b2046e3f9164}, kr: {playable:false config_key:623f7a1f73eabb08ccb2b2046e3f9164}, us: {playable:false config_key:623f7a1f73eabb08ccb2b2046e3f9164}) currentStage=Setup
+D 2026-08-27 00:54:57.265334 [ProductState] {Main} InstallState (osi): currentOperationStatus=Waiting
+D 2026-08-27 00:54:57.909801 [ProductState] {Main} InstallState (osi): currentOperationStatus=Initializing downloadRemainingExists=1
+D 2026-08-27 00:54:58.409234 [ProductState] {Main} InstallState (osi):
+D 2026-08-27 00:54:59.009669 [ProductState] {Main} InstallState (osi):
+D 2026-08-27 00:54:59.010238 [ProductState] {Main} InstallState (osi): playable=1 regionalVersions=(eu: {playable:true config_key:623f7a1f73eabb08ccb2b2046e3f9164}, kr: {playable:true config_key:623f7a1f73eabb08ccb2b2046e3f9164}, us: {playable:true config_key:623f7a1f73eabb08ccb2b2046e3f9164})
+D 2026-08-27 00:54:59.662481 [ProductState] {Main} InstallState (osi): currentOperationStatus=Waiting
+D 2026-08-27 00:54:59.663388 [ProductState] {Main} InstallState (osi): currentStage=Complete
+D 2026-08-27 00:54:59.664853 [ProductState] {Main} InstallState (osi): currentOperation=UpToDate currentOperationStatus=Paused
+D 2026-08-27 00:54:59.970909 [GameController] {Main} Selecting game family by id: OSI
+agent unix cwd = 버전 하위폴더 Battle.net.17731 (lsof 확인)
