@@ -52,3 +52,12 @@ D2R 완주에 필요한 것 = **CrossOver 26급 wine32on64**(구식 32-on-64 + �
 이후 그래픽은 D3DMetal 심링크 레이아웃(lib/external 실물 + x86_64-unix 심링크, 복사 금지)과 GPTK PE dll(d3d11/d3d12/dxgi) + `CX_ACTIVE_GRAPHICS_BACKEND=d3dmetal`로 해결. 자체 빌드 wine 11.0(신형 WoW64)에서 **D2R 인게임 렌더링 확인** (메모리 2.7GB, CPU 175%, D3DMetal 로그).
 
 전체 실행 조합은 `scripts/play.sh` 참고. wine32on64가 필요하다던 중간 결론도 폐기 — 신형 WoW64로도 CEF·게임 모두 동작한다(벽1의 진짜 원인은 엔진 계열이 아니라 조합 문제였음).
+
+## 추가 발견 (2026-08-27): libd3dshared는 그래픽이 아니라 '로더 통과'에 필요하다
+
+순수 vkd3d(D3D12→Vulkan→MoltenVK) 경로 실험 결과:
+
+- `ROSETTA_ADVERTISE_AVX=1`만으로는 부족 — libd3dshared 없이는 여전히 86MB 정지.
+- `CX_APPLEGPTK_LIBD3DSHARED_PATH`를 지정하면(ntdll의 `init_non_native_support`가 dlopen하여 `register_non_native_code_region`을 확보) **D3DMetal 그래픽 없이 vkd3d만으로도 게임이 완주**한다 (2.7GB/CPU 600%+, MoltenVK 렌더링).
+
+**결론: D2R 로더(안티치트)의 Rosetta 통과 조건 = AVX 광고 + GPTK의 비네이티브 코드영역 등록, 두 가지 모두.** libd3dshared는 이 후자를 제공하는 유일한 공급원이므로, GPTK(또는 CrossOver)에서 이 파일 하나는 반드시 조달해야 한다. 그래픽 백엔드는 vkd3d(완전 오픈소스)로 대체 가능.
