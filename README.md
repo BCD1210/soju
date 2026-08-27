@@ -24,22 +24,35 @@ Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern
 
 Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the launch chain — macOS strips `DYLD_*` variables when exec'ing them.
 
-## Quick start
+## Quick start (from zero)
+
+**Step 0 — one-time component harvest.** Install the [CrossOver free trial](https://www.codeweavers.com/crossover), and inside it install Battle.net and your game (this also downloads D3DMetal, wine-mono, and the x86_64 dylibs the build needs). You only need CrossOver once; after setup it can be removed.
 
 ```bash
-# 1. Build the engine from GPL sources (takes a while; downloads ~150 MB source)
+# 1. Get the scripts
+git clone https://github.com/BCD1210/soju.git && cd soju
+
+# 2. Build the engine from GPL sources (30-60 min; downloads ~150 MB source)
 scripts/build-engine.sh
 
-# 2. Create a bottle (copies an existing Battle.net install, registry included)
+# 3. Create your bottle (clones your CrossOver Battle.net bottle, registry included)
 DEST=~/.battlenet-macos/bottle scripts/setup-bottle.sh
 
-# 3. Play
-scripts/play.sh battlenet   # launcher → log in → hit Play
-scripts/play.sh d2r         # direct game launch
+# 4. Play
+scripts/play.sh battlenet   # launcher -> log in -> hit Play
+scripts/play.sh d2r         # direct game launch (offline)
 scripts/play.sh kill        # stop everything
 ```
 
-**Prerequisites**: Apple Silicon Mac, Rosetta 2, Xcode Command Line Tools, Homebrew, and your own copies of the game/Battle.net (this repo ships no Blizzard files). Initial components (the bottle, D3DMetal, and a few x86_64 dylibs) are harvested **once** from a local CrossOver install — the free trial is sufficient. Nothing from Apple, Blizzard, or CodeWeavers is redistributed by this repo.
+Optional: make a double-clickable app that runs `play.sh battlenet` (an Automator "Run Shell Script" app works fine).
+
+### Troubleshooting
+
+- **"Wine Mono Installer" popup** → the mono import in step 2 didn't find CrossOver; click Cancel and re-run `build-engine.sh` with CrossOver installed.
+- **Game hangs forever at ~86 MB RAM, 0% CPU** → `ROSETTA_ADVERTISE_AVX=1` is not reaching the game. Launch via `play.sh` only.
+- **Libraries not found (gnutls/freetype errors)** → you launched wine through `nohup`/`arch`/another Apple-signed binary, which strips `DYLD_*` vars. Launch via `play.sh`.
+- **Battle.net login webview may flicker (~once a minute)** → known cosmetic issue; it recovers automatically and login works.
+- **BLZBNTBNA00000005** → `play.sh` seeds the signed exe automatically; make sure you launch through it.
 
 ## What's in the repo
 
