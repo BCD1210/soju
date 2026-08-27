@@ -24,35 +24,49 @@ Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern
 
 Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the launch chain — macOS strips `DYLD_*` variables when exec'ing them.
 
-## Quick start (from zero)
+## Quick start (from zero) — no CrossOver required
 
-**Step 0 — one-time component harvest.** Install the [CrossOver free trial](https://www.codeweavers.com/crossover), and inside it install Battle.net and your game (this also downloads D3DMetal, wine-mono, and the x86_64 dylibs the build needs). You only need CrossOver once; after setup it can be removed.
+The only thing you download outside this repo's scripts is Apple's free Game Porting Toolkit (one file, needs a free Apple ID) — Apple forbids redistributing it.
 
 ```bash
 # 1. Get the scripts
 git clone https://github.com/BCD1210/soju.git && cd soju
 
-# 2. Build the engine from GPL sources (30-60 min; downloads ~150 MB source)
+# 2. Fetch runtime components (x86_64 dylibs + wine-mono, all from free GPL releases)
+scripts/get-components.sh
+
+# 3. Build the engine from GPL sources (30-60 min)
 scripts/build-engine.sh
 
-# 3. Create your bottle (clones your CrossOver Battle.net bottle, registry included)
-DEST=~/.battlenet-macos/bottle scripts/setup-bottle.sh
+# 4. Install Apple GPTK payload (download the GPTK dmg from
+#    https://developer.apple.com/games/game-porting-toolkit/ , mount it, then:)
+scripts/get-gptk.sh
+#    (if you happen to have CrossOver installed, the script auto-extracts from it instead)
 
-# 4. Play
-scripts/play.sh battlenet   # launcher -> log in -> hit Play
+# 5. Create a bottle + install Battle.net (official Blizzard installer, fully automatic)
+scripts/create-bottle.sh
+
+# 6. Play
+scripts/play.sh battlenet   # launcher -> log in -> install & play your game
 scripts/play.sh d2r         # direct game launch (offline)
 scripts/play.sh kill        # stop everything
 ```
 
-Optional: make a double-clickable app that runs `play.sh battlenet` (an Automator "Run Shell Script" app works fine).
+Already have a CrossOver bottle with games installed? `scripts/setup-bottle.sh` clones it (28 GB game re-download avoided).
+
+**Prerequisites**: Apple Silicon Mac, Rosetta 2, Xcode Command Line Tools, Homebrew, your own Battle.net account/games, and a free Apple ID for the GPTK download. Nothing from Apple, Blizzard, or CodeWeavers is redistributed by this repo.
+
+### Why is GPTK needed at all?
+
+`libd3dshared.dylib` (inside GPTK) is not just graphics: D2R's loader requires its *non-native code region registration* to get through Rosetta 2 — without it the game freezes at launch even with AVX advertised. Graphics itself can run on pure open-source vkd3d/MoltenVK if D3DMetal is absent.
 
 ### Troubleshooting
 
-- **"Wine Mono Installer" popup** → the mono import in step 2 didn't find CrossOver; click Cancel and re-run `build-engine.sh` with CrossOver installed.
-- **Game hangs forever at ~86 MB RAM, 0% CPU** → `ROSETTA_ADVERTISE_AVX=1` is not reaching the game. Launch via `play.sh` only.
-- **Libraries not found (gnutls/freetype errors)** → you launched wine through `nohup`/`arch`/another Apple-signed binary, which strips `DYLD_*` vars. Launch via `play.sh`.
-- **Battle.net login webview may flicker (~once a minute)** → known cosmetic issue; it recovers automatically and login works.
-- **BLZBNTBNA00000005** → `play.sh` seeds the signed exe automatically; make sure you launch through it.
+- **"Wine Mono Installer" popup** -> step 2 was skipped; run `get-components.sh` then re-run `build-engine.sh`.
+- **Game hangs forever at ~86 MB RAM, 0% CPU** -> `ROSETTA_ADVERTISE_AVX=1` or `libd3dshared` not reaching the game. Launch via `play.sh` only, and check step 4.
+- **Libraries not found (gnutls/freetype errors)** -> you launched wine through `nohup`/`arch`/another Apple-signed binary, which strips `DYLD_*` vars. Launch via `play.sh`.
+- **Battle.net login webview may flicker (~once a minute)** -> known cosmetic issue; it recovers automatically and login works.
+- **BLZBNTBNA00000005** -> `play.sh` seeds the signed exe automatically; make sure you launch through it.
 
 ## What's in the repo
 

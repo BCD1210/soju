@@ -20,35 +20,49 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 
 함정 하나: 실행 체인에 애플 보호 바이너리(`nohup`, `arch` 등)를 두면 macOS가 `DYLD_*` 변수를 제거해 라이브러리를 못 찾는다.
 
-## 빠른 시작 (처음부터)
+## 빠른 시작 (처음부터) — CrossOver 불필요
 
-**0단계 — 구성요소 1회 수집.** [CrossOver 무료 체험판](https://www.codeweavers.com/crossover)을 설치하고, 그 안에서 배틀넷과 게임을 설치하세요 (이 과정에서 빌드에 필요한 D3DMetal·wine-mono·x86_64 dylib도 함께 확보됩니다). CrossOver는 이때 한 번만 필요하고, 세팅 후 삭제해도 됩니다.
+이 레포의 스크립트 밖에서 받는 것은 애플의 무료 Game Porting Toolkit 파일 하나뿐입니다 (무료 Apple ID 필요 — 애플이 재배포를 금지해서 직접 받아야 합니다).
 
 ```bash
 # 1. 스크립트 받기
 git clone https://github.com/BCD1210/soju.git && cd soju
 
-# 2. GPL 소스에서 엔진 빌드 (30~60분, 소스 ~150MB 다운로드)
+# 2. 런타임 구성요소 확보 (x86_64 dylib + wine-mono, 전부 무료 GPL 릴리스에서)
+scripts/get-components.sh
+
+# 3. GPL 소스에서 엔진 빌드 (30~60분)
 scripts/build-engine.sh
 
-# 3. 보틀 생성 (CrossOver의 배틀넷 보틀을 레지스트리째 복제)
-DEST=~/.battlenet-macos/bottle scripts/setup-bottle.sh
+# 4. 애플 GPTK 설치 (https://developer.apple.com/games/game-porting-toolkit/ 에서
+#    dmg 다운로드 후 마운트한 상태로:)
+scripts/get-gptk.sh
+#    (CrossOver가 설치돼 있으면 거기서 자동 추출)
 
-# 4. 플레이
-scripts/play.sh battlenet   # 런처 → 로그인 → Play
+# 5. 보틀 생성 + Battle.net 설치 (블리자드 공식 설치기, 완전 자동)
+scripts/create-bottle.sh
+
+# 6. 플레이
+scripts/play.sh battlenet   # 런처 → 로그인 → 게임 설치·플레이
 scripts/play.sh d2r         # 게임 직접 실행 (오프라인)
 scripts/play.sh kill        # 전부 종료
 ```
 
-더블클릭 앱을 원하면 Automator "셸 스크립트 실행"으로 `play.sh battlenet`을 감싸면 됩니다.
+이미 CrossOver 보틀에 게임이 설치돼 있다면 `scripts/setup-bottle.sh`로 복제하세요 (28GB 재다운로드 회피).
+
+**전제조건**: Apple Silicon 맥, Rosetta 2, Xcode CLT, Homebrew, 본인 배틀넷 계정, GPTK용 무료 Apple ID.
+
+### GPTK가 왜 필요한가?
+
+GPTK 안의 `libd3dshared.dylib`는 그래픽만이 아닙니다 — **D2R 로더(안티치트)가 Rosetta 2를 통과하려면 이 파일의 '비네이티브 코드영역 등록' 기능이 필수**입니다. 없으면 AVX를 켜도 실행 직후 멈춥니다. 그래픽 자체는 D3DMetal 없이 순수 오픈소스 vkd3d/MoltenVK로도 돌아갑니다.
 
 ### 문제 해결
 
-- **"Wine Mono Installer" 팝업** → 2단계에서 mono를 못 찾은 것. Cancel 누르고 CrossOver 설치 상태에서 `build-engine.sh` 재실행.
-- **게임이 86MB/0% CPU로 영원히 멈춤** → `ROSETTA_ADVERTISE_AVX=1`이 게임에 전달되지 않은 것. 반드시 `play.sh`로 실행.
-- **라이브러리 로드 실패(gnutls/freetype)** → `nohup`/`arch` 등 애플 서명 바이너리를 거쳐 실행하면 `DYLD_*`가 제거됨. `play.sh`로 실행.
-- **배틀넷 로그인 화면이 가끔 깜빡임(~1분 1회)** → 알려진 외관 이슈, 자동 복구되며 로그인 정상 동작.
-- **BLZBNTBNA00000005** → `play.sh`가 서명 exe를 자동 시드함. `play.sh`로 실행했는지 확인.
+- **"Wine Mono Installer" 팝업** → 2단계 생략됨. `get-components.sh` 후 `build-engine.sh` 재실행.
+- **게임이 86MB/0% CPU로 영원히 멈춤** → AVX 변수 또는 libd3dshared가 게임에 전달되지 않음. 반드시 `play.sh`로 실행하고 4단계 확인.
+- **라이브러리 로드 실패(gnutls/freetype)** → `nohup`/`arch` 등 애플 서명 바이너리를 거치면 `DYLD_*`가 제거됨. `play.sh`로 실행.
+- **배틀넷 로그인 화면이 가끔 깜빡임(~1분 1회)** → 알려진 외관 이슈, 자동 복구됨.
+- **BLZBNTBNA00000005** → `play.sh`가 서명 exe를 자동 시드함.
 
 ## 라이선스
 

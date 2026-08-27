@@ -4,6 +4,7 @@
 # 주의: 처음부터 끝까지 한 번에 재실행은 미검증 — 이슈 환영.
 #
 # 요구: Apple Silicon + Rosetta 2, Xcode CLT, Homebrew(arm64).
+# 사전 실행: scripts/get-components.sh (dylib+mono 자동 확보 — CrossOver 불필요)
 set -euo pipefail
 
 WORK="${WORK:-$HOME/.battlenet-macos/build}"
@@ -11,9 +12,7 @@ SRC_URL="https://media.codeweavers.com/pub/crossover/source/crossover-sources-26
 FT_URL="https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.gz"
 DEPS="$WORK/deps"
 ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
-# x86_64 dylib 공급처(gnutls 스택/MoltenVK): 설치된 CrossOver 또는 Whisky 엔진
-DYLIB_SRC="${DYLIB_SRC:-/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64}"
-CXG="/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk/external"
+# x86_64 dylib은 get-components.sh가 $DEPS/lib에 미리 받아둔다 (frankea GPL 릴리스)
 
 echo "==> 빌드 도구 설치 (bison 3.x, mingw-w64)"
 brew list bison >/dev/null 2>&1 || brew install bison
@@ -36,12 +35,9 @@ tar -xzf "$WORK/ft.tar.gz" -C "$WORK"
     --enable-shared --disable-static CC="clang -arch x86_64" \
   && arch -x86_64 make -j"$(sysctl -n hw.ncpu)" && arch -x86_64 make install )
 
-echo "==> x86_64 의존 dylib 확보 (gnutls 스택, MoltenVK)"
-# gnutls/nettle/gmp/... + libMoltenVK (CrossOver lib64 또는 Whisky 엔진 lib에서 조달)
-for d in libgnutls.30 libnettle.8 libhogweed.6 libgmp.10 libidn2.0 libunistring.5 \
-         libtasn1.6 libp11-kit.0 libintl.8 libiconv.2 libMoltenVK; do
-  find "$DYLIB_SRC" -name "$d*.dylib" -exec cp -c {} "$DEPS/lib/" \; 2>/dev/null || true
-done
+echo "==> x86_64 의존 dylib 확인 (get-components.sh 산출물)"
+ls "$DEPS/lib/libgnutls.30.dylib" "$DEPS/lib/libMoltenVK.dylib" >/dev/null 2>&1 \
+  || { echo "dylib 없음 — 먼저 scripts/get-components.sh 를 실행하세요"; exit 1; }
 
 echo "==> wine configure (x86_64, new-wow64 i386+x86_64)"
 mkdir -p "$WORK/wine-build"; cd "$WORK/wine-build"
@@ -61,17 +57,12 @@ echo "==> 엔진 조립 (dylib 배치 + D3DMetal + rpath + entitlement 서명)"
 rm -rf "$ENGINE"; mkdir -p "$ENGINE"
 cp -Rc "$WORK/install/usr/local/." "$ENGINE/"
 cp -c "$DEPS/lib/"*.dylib "$ENGINE/lib/" 2>/dev/null || true
-# D3DMetal(Apple GPTK, 재배포 불가 → 설치된 CrossOver에서 조달) — 그래픽용
-# 중요: 실물은 lib/external에, x86_64-unix엔 반드시 '심링크'(복사 금지 — @loader_path 어긋나 assertion 루프)
-mkdir -p "$ENGINE/lib/external"
-cp -Rc "$CXG/D3DMetal.framework" "$CXG/libd3dshared.dylib" "$ENGINE/lib/external/" 2>/dev/null || true
-GW="/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk/wine"
-cp -fc "$GW/x86_64-windows/"{d3d11,d3d12,dxgi}.dll "$ENGINE/lib/wine/x86_64-windows/" 2>/dev/null || true
-( cd "$ENGINE/lib/wine/x86_64-unix" && for f in d3d10.so d3d11.so d3d12.so dxgi.so; do ln -sf ../../external/libd3dshared.dylib "$f"; done )
-# wine-mono 10.4.1 (CrossOver에서 조달) — .NET 앱용
+# D3DMetal/libd3dshared(Apple GPTK)는 별도 단계: scripts/get-gptk.sh 실행
+# (libd3dshared는 게임 로더의 Rosetta 통과에 필수. 그래픽은 없으면 vkd3d로 동작)
+# wine-mono 10.4.1 (get-components.sh가 받아둔 공식 릴리스)
 mkdir -p "$ENGINE/share/wine/mono"
-cp -Rc "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/share/wine/mono/wine-mono-10.4.1" \
-   "$ENGINE/share/wine/mono/" 2>/dev/null || true
+cp -Rc "$WORK/mono/wine-mono-10.4.1" "$ENGINE/share/wine/mono/" 2>/dev/null \
+  || echo "경고: mono 없음 — get-components.sh 실행 여부 확인"
 # rpath + entitlement 서명 (Rosetta/실행메모리)
 cat > "$WORK/ent.plist" <<'PL'
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
