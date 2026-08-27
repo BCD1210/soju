@@ -19,6 +19,18 @@ echo "==> 프리픽스 초기화: $WINEPREFIX"
 "$ENGINE/bin/wine" wineboot -u >/dev/null 2>&1 || true
 "$ENGINE/bin/wineserver" -w
 
+echo "==> 크래시 대화상자 무음화 (무해한 시작 크래시 2건이 창을 띄우지 않도록)"
+# 배틀넷은 시작 시 보조 스레드 2개가 무해하게 죽는데, 기본 설정에선 매번 에러 창이 뜬다.
+# 스레드를 조용히 동결시키는 디버거로 교체 (상세: docs/DIAGNOSIS.md)
+W="$ENGINE/bin/wine"
+"$W" reg add "HKCU\\Software\\Wine\\WineDbg" /v ShowCrashDialog /t REG_DWORD /d 0 /f >/dev/null 2>&1
+for HIVE in "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AeDebug" \
+            "HKLM\\Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\AeDebug"; do
+  "$W" reg add "$HIVE" /v Debugger /t REG_SZ /d "C:\\windows\\system32\\rundll32.exe kernel32.dll,Sleep" /f >/dev/null 2>&1
+  "$W" reg add "$HIVE" /v Auto /t REG_SZ /d 1 /f >/dev/null 2>&1
+done
+"$ENGINE/bin/wineserver" -w
+
 echo "==> Battle.net 설치기 다운로드 (Blizzard 공식)"
 SETUP="$WORK/Battle.net-Setup.exe"
 [ -f "$SETUP" ] || curl -fL "https://downloader.battle.net/download/getInstaller?os=win&installer=Battle.net-Setup.exe" -o "$SETUP"
