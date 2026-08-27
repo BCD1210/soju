@@ -1,5 +1,7 @@
 # Soju (한국어)
 
+> *Wine → Whisky → Kegworks… 그리고 한국의 차례: **Soju** 🍶*
+
 **Apple Silicon 맥에서 Battle.net과 디아블로 II: 레저렉션을 — 완전 무료 오픈소스 Wine 스택으로.**
 
 CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)를 이 레포의 스크립트로 직접 빌드·조립합니다. 유료 소프트웨어 불필요.

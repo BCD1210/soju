@@ -1,5 +1,7 @@
 # Soju
 
+> *Wine → Whisky → Kegworks… and now a Korean round: **Soju** 🍶*
+
 **Run Battle.net and Diablo II: Resurrected on Apple Silicon Macs — with a fully free, open-source Wine stack.**
 
 Built from CodeWeavers' published GPL sources (Wine 11.0, CrossOver 26.3 source drop), compiled and assembled by scripts in this repo. No paid software required.
