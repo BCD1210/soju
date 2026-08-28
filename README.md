@@ -24,6 +24,8 @@ Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern
 
 Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the launch chain — macOS strips `DYLD_*` variables when exec'ing them.
 
+**Guides:** [D2R on Apple Silicon](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) · [Windows Steam client](https://bcd1210.github.io/soju/guides/steam-windows-client-apple-silicon.html) · [Whisky alternatives](https://bcd1210.github.io/soju/guides/whisky-alternative.html)
+
 ## Install (one line)
 
 ```bash

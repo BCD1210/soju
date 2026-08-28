@@ -20,6 +20,8 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 
 함정 하나: 실행 체인에 애플 보호 바이너리(`nohup`, `arch` 등)를 두면 macOS가 `DYLD_*` 변수를 제거해 라이브러리를 못 찾는다.
 
+**가이드:** [맥에서 디아2 돌리기](https://bcd1210.github.io/soju/guides/ko/diablo-2-mac.html) · [영문 가이드 모음](https://bcd1210.github.io/soju/)
+
 ## 설치 (한 줄)
 
 ```bash
