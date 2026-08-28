@@ -17,25 +17,25 @@ TTY=/dev/tty
 
 say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 
-[ "$(uname -m)" = "arm64" ] || { echo "Apple Silicon Mac 전용입니다."; exit 1; }
-/usr/bin/pgrep -q oahd || { echo "Rosetta 2가 필요합니다: softwareupdate --install-rosetta"; exit 1; }
+[ "$(uname -m)" = "arm64" ] || { echo "This installer is for Apple Silicon Macs only."; exit 1; }
+/usr/bin/pgrep -q oahd || { echo "Rosetta 2 is required: softwareupdate --install-rosetta"; exit 1; }
 
 mkdir -p "$BASE"
 
-# ---------- 1. 엔진 ----------
+# ---------- 1. Engine ----------
 if [ -x "$ENGINE/bin/wine" ]; then
-  say "[1/4] 엔진이 이미 있습니다 — 건너뜀"
+  say "[1/4] Engine already present - skipping"
 else
-  say "[1/4] 프리빌드 엔진 다운로드 (~수백MB, GPL — 소스: CodeWeavers 공개 Wine)"
+  say "[1/4] Downloading prebuilt engine (~350MB, GPL - built from CodeWeavers' published Wine sources)"
   URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
         | grep -o '"browser_download_url": *"[^"]*soju-engine[^"]*"' | head -1 | grep -o 'https[^"]*')
-  [ -n "$URL" ] || { echo "릴리스 자산을 찾지 못했습니다."; exit 1; }
+  [ -n "$URL" ] || { echo "Could not find the engine release asset."; exit 1; }
   curl -fL "$URL" -o "$BASE/engine.tar.xz"
   mkdir -p "$ENGINE"
   tar -xJf "$BASE/engine.tar.xz" -C "$ENGINE"
   rm -f "$BASE/engine.tar.xz"
   DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version >/dev/null \
-    && echo "엔진 확인: $(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version)"
+    && echo "Engine OK: $(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version)"
 fi
 
 # ---------- 2. Apple GPTK ----------
@@ -58,37 +58,37 @@ install_gptk(){
     && for f in d3d10.so d3d11.so d3d12.so dxgi.so; do ln -sf ../../external/libd3dshared.dylib "$f"; done )
 }
 if GPTK_OK; then
-  say "[2/4] Apple GPTK 이미 설치됨 — 건너뜀"
+  say "[2/4] Apple GPTK already installed - skipping"
 else
-  say "[2/4] Apple Game Porting Toolkit 필요 (무료, 1회)"
+  say "[2/4] Apple Game Porting Toolkit needed (free, one time)"
   if SRC=$(find_gptk); then
-    echo "발견: $SRC — 자동 설치"
+    echo "Found: $SRC - installing automatically"
     install_gptk "$SRC"
   else
     cat <<'EOT'
-  게임 실행에 애플의 파일 하나(libd3dshared)가 필요합니다. 애플이 재배포를 금지해서
-  직접 받아야 합니다 (무료 Apple ID면 됩니다):
-    1) https://developer.apple.com/games/game-porting-toolkit/ 접속
-    2) "Game Porting Toolkit" dmg 다운로드 후 더블클릭(마운트)
-    3) 이 창으로 돌아와 Enter
+  Running games needs one Apple file (libd3dshared). Apple forbids redistributing
+  it, so you have to download it yourself (a free Apple ID is enough):
+    1) Open https://developer.apple.com/games/game-porting-toolkit/
+    2) Download the "Game Porting Toolkit" dmg and double-click it (mount)
+    3) Come back to this window and press Enter
 EOT
     while true; do
-      read -r -p "  준비되면 Enter (건너뛰려면 s): " ans < "$TTY" || ans=s
-      [ "$ans" = "s" ] && { echo "  건너뜀 — 나중에 scripts/get-gptk.sh 실행"; break; }
-      if SRC=$(find_gptk); then install_gptk "$SRC"; echo "  설치됨"; break; fi
-      echo "  아직 못 찾음 — dmg가 마운트됐는지 확인하세요"
+      read -r -p "  Press Enter when ready (or s to skip): " ans < "$TTY" || ans=s
+      [ "$ans" = "s" ] && { echo "  Skipped - run scripts/get-gptk.sh later"; break; }
+      if SRC=$(find_gptk); then install_gptk "$SRC"; echo "  Installed"; break; fi
+      echo "  Not found yet - make sure the dmg is mounted"
     done
   fi
 fi
 
-# ---------- 3. 보틀 + Battle.net ----------
+# ---------- 3. Bottle + Battle.net ----------
 export WINEPREFIX="$BOTTLE" WINEDEBUG=fixme-all WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 if [ -f "$BOTTLE/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" ]; then
-  say "[3/4] Battle.net 이미 설치됨 — 건너뜀"
+  say "[3/4] Battle.net already installed - skipping"
 else
-  say "[3/4] 보틀 생성 + Battle.net 자동 설치 (5~10분)"
+  say "[3/4] Creating the bottle + installing Battle.net automatically (5-10 min)"
   "$ENGINE/bin/wine" wineboot -u >/dev/null 2>&1 || true
   "$ENGINE/bin/wineserver" -w
   W="$ENGINE/bin/wine"
@@ -106,13 +106,13 @@ else
     [ -f "$BOTTLE/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" ] && break; sleep 10
   done
   [ -f "$BOTTLE/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" ] \
-    || { echo "설치 실패 — $BOTTLE/drive_c/ProgramData/Battle.net/Setup 로그 확인"; exit 1; }
+    || { echo "Install failed - check the logs in $BOTTLE/drive_c/ProgramData/Battle.net/Setup"; exit 1; }
   "$ENGINE/bin/wineserver" -k 2>/dev/null || true
-  echo "Battle.net 설치 완료"
+  echo "Battle.net installed"
 fi
 
-# ---------- 4. 앱 아이콘 ----------
-say "[4/4] Battle.net.app 생성"
+# ---------- 4. App bundle ----------
+say "[4/4] Creating Battle.net.app"
 APP="$HOME/Applications/Battle.net.app"
 mkdir -p "$APP/Contents/MacOS"
 cat > "$APP/Contents/MacOS/launcher" <<EOF
@@ -137,5 +137,5 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
 EOF
 codesign -f -s - "$APP" 2>/dev/null || true
 
-say "완료! 🍶  ~/Applications/Battle.net.app 을 더블클릭 → 로그인 → 게임 설치·플레이"
-GPTK_OK || echo "※ GPTK를 건너뛰었습니다 — 게임 실행 전 scripts/get-gptk.sh 를 꼭 실행하세요."
+say "Done! 🍶  Double-click ~/Applications/Battle.net.app, log in, install and play"
+GPTK_OK || echo "NOTE: GPTK was skipped - run scripts/get-gptk.sh before launching a game."

@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
-# 디아블로 II 레저렉션 — 완전 무료 스택 실행 스크립트 (최종 검증 조합)
+# Diablo II: Resurrected — fully free stack launcher (final verified combination)
 #
-# 구성: 자체 빌드 wine 11.0 (CrossOver 26.3 GPL 소스) + D3DMetal(Apple GPTK)
-# 검증: 2026-08-27 — Battle.net 로그인/Agent/D2R 인게임 구동 확인
+# Stack: self-built wine 11.0 (CrossOver 26.3 GPL sources) + D3DMetal (Apple GPTK)
+# Verified 2026-08-27: Battle.net login / Agent / D2R in-game.
 #
-# 핵심 열쇠 3개 (이걸 몰라서 며칠 걸렸다):
-#  1) ROSETTA_ADVERTISE_AVX=1   — D2R 로더가 AVX 명령어 필수. 없으면 무한 대기(86MB 정지).
-#  2) D3DMetal 심링크 레이아웃  — lib/external에 실물, x86_64-unix엔 심링크.
-#     복사하면 @loader_path가 어긋나 assertion 루프. (frankea README 참고)
-#  3) Apple 보호 바이너리(nohup/arch 등)를 실행 체인에 두지 말 것 — DYLD_* 가 제거됨.
+# The three keys (finding these took days):
+#  1) ROSETTA_ADVERTISE_AVX=1   — D2R's loader requires AVX. Without it the game
+#     waits forever (stuck at ~86MB RAM).
+#  2) D3DMetal symlink layout   — real files in lib/external, symlinks in
+#     x86_64-unix. Copying breaks @loader_path and causes an assertion loop
+#     (frankea's README warns about this).
+#  3) Never put Apple-protected binaries (nohup/arch, ...) in the launch chain —
+#     macOS strips DYLD_* when exec'ing them.
 set -euo pipefail
 
 ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
 MODE="${1:-battlenet}"
 
-# 보틀(가상 C드라이브) 경로 — 모드별 기본값 (Battle.net과 Steam은 별도 보틀)
+# Bottle (virtual C: drive) path — per-mode default (Battle.net and Steam use separate bottles)
 if [[ "$MODE" == steam* ]]; then
   export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/steam-bottle}"
 else
@@ -29,7 +32,7 @@ export CX_GRAPHICS_BACKEND=d3dmetal
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 
-# Agent 서명검증 fix: 버전 하위폴더에 서명된 exe 동기화
+# Agent signature-check fix: sync the signed exe into each versioned subfolder
 BN="$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
 if [[ -f "$BN/Battle.net.exe" ]]; then
   for v in "$BN"/Battle.net.[0-9]*; do
@@ -38,28 +41,29 @@ if [[ -f "$BN/Battle.net.exe" ]]; then
 fi
 
 case "$MODE" in
-  battlenet)   # 배틀넷 런처 (로그인 → Play로 온라인 플레이)
+  battlenet)   # Battle.net launcher (log in, then Play for online)
     exec "$ENGINE/bin/wine" \
       "C:\\Program Files (x86)\\Battle.net\\Battle.net Launcher.exe" \
       --disable-gpu-compositing
     ;;
-  d2r)         # 게임 직접 실행 (오프라인/이전 세션)
+  d2r)         # Launch the game directly (offline / previous session)
     cd "$WINEPREFIX/drive_c/Program Files (x86)/Diablo II Resurrected"
     exec "$ENGINE/bin/wine" "D2R.exe" "${@:2}"
     ;;
-  steam)       # Steam 클라이언트 — wine-stable + webhelper 래퍼 (검증: 2026-08-27)
-    # CX 엔진에선 Steam CEF가 렌더링되지 않는다 (검은 화면 / SEGV 폭풍).
-    # 검증된 조합은 homebrew wine-stable 11 + steamwebhelper 래퍼(--disable-gpu
-    # --single-process 강제) + -no-cef-sandbox -cef-single-process.
-    # 출처: github.com/notpop/steam-on-m1-wine (MIT) — third_party/ 참고.
+  steam)       # Steam client — wine-stable + webhelper wrapper (verified 2026-08-27)
+    # Steam's CEF does not render on the CX engine (black screen / SEGV storm).
+    # The verified combination is Homebrew wine-stable 11 + the steamwebhelper
+    # wrapper (forces --disable-gpu --single-process) + -no-cef-sandbox
+    # -cef-single-process. Source: github.com/notpop/steam-on-m1-wine (MIT),
+    # vendored in third_party/.
     WINESTABLE="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine"
-    [[ -x "$WINESTABLE" ]] || { echo "wine-stable 없음 — brew install --cask wine-stable"; exit 1; }
+    [[ -x "$WINESTABLE" ]] || { echo "wine-stable not found — brew install --cask wine-stable"; exit 1; }
     ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
-    [[ -f "$ST" ]] || { echo "Steam 없음 — scripts/create-steam-bottle.sh 먼저"; exit 1; }
-    # 1) 크래시 잔여물 청소 (남으면 다음 실행이 창 없는 --silent 모드로 빠짐)
+    [[ -f "$ST" ]] || { echo "Steam not found — run scripts/create-steam-bottle.sh first"; exit 1; }
+    # 1) Clean crash leftovers (a stale lock makes the next launch a windowless --silent one)
     find "$WINEPREFIX/drive_c/users/"*/AppData/Local/Steam/htmlcache -maxdepth 2 \
       \( -name "Singleton*" -o -name "*.lock" \) -delete 2>/dev/null || true
-    # 2) 래퍼 재배치 (Steam 업데이트가 래퍼를 원본으로 되돌리므로 매번 확인)
+    # 2) Redeploy the wrapper (Steam updates restore the original, so check every launch)
     WRAP="$HOME/.battlenet-macos/steam-support/steamwebhelper-wrapper.exe"
     for d in "$WINEPREFIX/drive_c/Program Files (x86)/Steam/bin/cef"/cef.win*; do
       [[ -f "$d/steamwebhelper.exe" ]] || continue
@@ -68,9 +72,10 @@ case "$MODE" in
         cp -f "$WRAP" "$d/steamwebhelper.exe"
       fi
     done
-    # 3) 가상 데스크톱 — 이 macdrv(gcenx wine 11)는 가상 데스크톱을 무시함이 확인돼
-    #    기본 비활성. 독 아이콘 단일화는 WINE_NO_DOCK_ICON(winemac 패치)으로 해결.
-    #    켜려면 WINE_VIRTUAL_DESKTOP=auto (또는 1600x900 등 해상도 지정).
+    # 3) Virtual desktop — this macdrv (gcenx wine 11) ignores virtual desktops,
+    #    so it is off by default. The single Dock icon is handled by
+    #    WINE_NO_DOCK_ICON (winemac patch) instead.
+    #    To enable anyway: WINE_VIRTUAL_DESKTOP=auto (or a resolution like 1600x900).
     VD="${WINE_VIRTUAL_DESKTOP-}"
     if [[ "$VD" == "auto" ]]; then
       B=$(osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null || true)
@@ -80,11 +85,11 @@ case "$MODE" in
         VD="1728x1080"
       fi
     fi
-    # 가상 데스크톱 창이 고정되지 않게 macdrv 설정 (1회성 레지스트리)
+    # Keep virtual-desktop windows movable (one-time registry setting)
     grep -q 'AllowImmovableWindows' "$WINEPREFIX/user.reg" 2>/dev/null || {
       printf '\n[Software\\\\Wine\\\\Mac Driver]\n"AllowImmovableWindows"="n"\n' >> "$WINEPREFIX/user.reg"
     }
-    # 4) 실행 — CX 엔진 env 없이 wine-stable 순정 환경
+    # 4) Launch — plain wine-stable environment, without the CX engine env
     STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process -noverifyfiles "${@:2}")
     [[ -n "$VD" ]] && STEAM_CMD=(explorer.exe "/desktop=soju-steam,$VD" "${STEAM_CMD[@]}")
     env -u DYLD_FALLBACK_LIBRARY_PATH -u CX_ACTIVE_GRAPHICS_BACKEND -u CX_GRAPHICS_BACKEND \
@@ -94,7 +99,7 @@ case "$MODE" in
       WINE_NO_DOCK_ICON="steam.exe;steamservice.exe" \
       "$WINESTABLE" "${STEAM_CMD[@]}"
     ;;
-  kill|steam-kill)  # 종료 (kill=배틀넷 보틀, steam-kill=Steam 보틀)
+  kill|steam-kill)  # Stop everything (kill = Battle.net bottle, steam-kill = Steam bottle)
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     ;;
   *) echo "usage: play.sh [battlenet|d2r|steam|kill|steam-kill]"; exit 1;;

@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Steam(Windows판) 설치 — Steam판 D2R(Infernal Edition) 등 Steam 게임용.
+# Install Steam (Windows build) — for Steam games such as the Steam edition of
+# D2R (Infernal Edition).
 #
-# 중요: Steam은 Battle.net과 달리 CX 소스 엔진이 아니라 homebrew wine-stable로 돌린다.
-# CX 계열 빌드에서는 Steam의 CEF UI가 렌더링되지 않는 문제(검은 화면)가 있고,
-# 검증된 무료 조합은 wine-stable 11 + steamwebhelper 래퍼다.
-# 래퍼 출처: github.com/notpop/steam-on-m1-wine (MIT) — third_party/ 에 소스+라이선스 동봉.
-# 검증: 2026-08-27, M4 Pro / macOS 26.5 — 로그인 화면 렌더링 확인.
+# Important: unlike Battle.net, Steam runs on Homebrew wine-stable, not the CX
+# source engine. CX-derived builds cannot render Steam's CEF UI (black screen);
+# the verified free combination is wine-stable 11 + the steamwebhelper wrapper.
+# Wrapper source: github.com/notpop/steam-on-m1-wine (MIT) — source and license
+# vendored in third_party/.
+# Verified 2026-08-27 on M4 Pro / macOS 26.5 — login screen renders.
 set -euo pipefail
 
 export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/steam-bottle}"
@@ -17,18 +19,18 @@ WINE="$WINESTABLE_APP/Contents/Resources/wine/bin/wine"
 
 # ---------- 1. wine-stable ----------
 if [ ! -x "$WINE" ]; then
-  echo "==> homebrew wine-stable 설치 (무료, ~500MB)"
-  # gstreamer-runtime 의존성이 sudo를 요구하므로 건너뛴다 (Steam UI에는 불필요)
+  echo "==> Installing Homebrew wine-stable (free, ~500MB)"
+  # The gstreamer-runtime cask dependency demands sudo, so skip it (Steam's UI doesn't need it)
   brew install --cask --skip-cask-deps wine-stable
-  echo "==> Gatekeeper 격리 해제 (수 분 소요)"
+  echo "==> Removing the Gatekeeper quarantine flag (takes a few minutes)"
   xattr -dr com.apple.quarantine "$WINESTABLE_APP" 2>/dev/null || true
 fi
 "$WINE" --version
 
-# ---------- 2. webhelper 래퍼 ----------
-# Steam의 CEF를 --disable-gpu --single-process로 강제해 검은 화면을 우회한다.
+# ---------- 2. webhelper wrapper ----------
+# Forces Steam's CEF into --disable-gpu --single-process to avoid the black screen.
 if [ ! -f "$SUPPORT/steamwebhelper-wrapper.exe" ]; then
-  echo "==> 래퍼 빌드 (mingw-w64)"
+  echo "==> Building the wrapper (mingw-w64)"
   command -v x86_64-w64-mingw32-gcc >/dev/null || brew install mingw-w64
   x86_64-w64-mingw32-gcc -O2 -Wall -municode -DUNICODE -D_UNICODE \
     -o "$SUPPORT/steamwebhelper-wrapper.exe" \
@@ -36,19 +38,19 @@ if [ ! -f "$SUPPORT/steamwebhelper-wrapper.exe" ]; then
     -static -lshell32 -mwindows
 fi
 
-# ---------- 3. 프리픽스 + Steam 설치 ----------
-echo "==> 프리픽스 초기화: $WINEPREFIX"
+# ---------- 3. Prefix + Steam install ----------
+echo "==> Initializing the prefix: $WINEPREFIX"
 "$WINE" wineboot -u >/dev/null 2>&1 || true
 "$WINESTABLE_APP/Contents/Resources/wine/bin/wineserver" -w 2>/dev/null || true
 
 SETUP="$WORK/SteamSetup.exe"
 [ -f "$SETUP" ] || curl -fL "https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe" -o "$SETUP"
-echo "==> Steam 무인 설치"
+echo "==> Installing Steam silently"
 "$WINE" "$SETUP" /S >/dev/null 2>&1 || true
 "$WINESTABLE_APP/Contents/Resources/wine/bin/wineserver" -w 2>/dev/null || true
-[ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ] || { echo "설치 실패"; exit 1; }
+[ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ] || { echo "Install failed"; exit 1; }
 
-# ---------- 4. 마무리 ----------
+# ---------- 4. Finish ----------
 cp -f /etc/ssl/cert.pem "$WINEPREFIX/drive_c/windows/cacert.pem" 2>/dev/null || true
-echo "==> 완료. 실행: scripts/play.sh steam  (래퍼는 play.sh가 자동 배치)"
-echo "    입력이 ?? 로 보이면 macOS 입력기를 영어(ABC)로 전환하세요."
+echo "==> Done. Run: scripts/play.sh steam  (play.sh deploys the wrapper automatically)"
+echo "    If typed text shows up as ??, switch the macOS input source to English (ABC)."

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# CrossOver 없이 새 보틀을 만들고 Blizzard 공식 설치기로 Battle.net을 설치한다.
-# 검증: 2026-08-27 — 순정 보틀에서 설치·로그인 화면까지 자동 완료 확인.
+# Create a fresh bottle without CrossOver and install Battle.net with Blizzard's
+# official installer.
+# Verified 2026-08-27: automatic install through to the login screen on a pristine bottle.
 set -euo pipefail
 
 ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
@@ -10,18 +11,19 @@ export WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 
-[ -x "$ENGINE/bin/wine" ] || { echo "엔진 없음 — build-engine.sh 먼저"; exit 1; }
-[ -f "$CX_APPLEGPTK_LIBD3DSHARED_PATH" ] || { echo "libd3dshared 없음 — get-gptk.sh 먼저"; exit 1; }
+[ -x "$ENGINE/bin/wine" ] || { echo "Engine not found — run build-engine.sh first"; exit 1; }
+[ -f "$CX_APPLEGPTK_LIBD3DSHARED_PATH" ] || { echo "libd3dshared not found — run get-gptk.sh first"; exit 1; }
 
 WORK="${WORK:-$HOME/.battlenet-macos/build}"; mkdir -p "$WORK"
 
-echo "==> 프리픽스 초기화: $WINEPREFIX"
+echo "==> Initializing the prefix: $WINEPREFIX"
 "$ENGINE/bin/wine" wineboot -u >/dev/null 2>&1 || true
 "$ENGINE/bin/wineserver" -w
 
-echo "==> 크래시 대화상자 무음화 (무해한 시작 크래시 2건이 창을 띄우지 않도록)"
-# 배틀넷은 시작 시 보조 스레드 2개가 무해하게 죽는데, 기본 설정에선 매번 에러 창이 뜬다.
-# 스레드를 조용히 동결시키는 디버거로 교체 (상세: docs/DIAGNOSIS.md)
+echo "==> Silencing crash dialogs (two harmless startup crashes would pop windows)"
+# Battle.net harmlessly loses two helper threads at startup; by default each one
+# pops an error dialog. Swap in a debugger that quietly freezes the thread
+# (details: docs/DIAGNOSIS.md).
 W="$ENGINE/bin/wine"
 "$W" reg add "HKCU\\Software\\Wine\\WineDbg" /v ShowCrashDialog /t REG_DWORD /d 0 /f >/dev/null 2>&1
 for HIVE in "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AeDebug" \
@@ -31,22 +33,22 @@ for HIVE in "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AeDebug" \
 done
 "$ENGINE/bin/wineserver" -w
 
-echo "==> Battle.net 설치기 다운로드 (Blizzard 공식)"
+echo "==> Downloading the Battle.net installer (official Blizzard)"
 SETUP="$WORK/Battle.net-Setup.exe"
 [ -f "$SETUP" ] || curl -fL "https://downloader.battle.net/download/getInstaller?os=win&installer=Battle.net-Setup.exe" -o "$SETUP"
 
-echo "==> 설치 실행 (몇 분 소요, 자동 진행)"
+echo "==> Running the installer (a few minutes, fully automatic)"
 "$ENGINE/bin/wine" "$SETUP" --lang=enUS >/dev/null 2>&1 || true
 
-# 설치 완료 대기 (최대 10분)
+# Wait for the install to finish (up to 10 minutes)
 for i in $(seq 1 60); do
   [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" ] && break
   sleep 10
 done
 BN="$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
-[ -f "$BN/Battle.net.exe" ] || { echo "설치 실패 — 로그: $WINEPREFIX/drive_c/ProgramData/Battle.net/Setup"; exit 1; }
-echo "==> Battle.net 설치 완료"
+[ -f "$BN/Battle.net.exe" ] || { echo "Install failed — logs: $WINEPREFIX/drive_c/ProgramData/Battle.net/Setup"; exit 1; }
+echo "==> Battle.net installed"
 
 "$ENGINE/bin/wineserver" -k 2>/dev/null || true
-echo "==> 끝. 이제 실행: scripts/play.sh battlenet"
-echo "    (게임은 배틀넷 로그인 후 앱 내에서 설치하면 됩니다)"
+echo "==> Done. Now run: scripts/play.sh battlenet"
+echo "    (Install games inside the app after logging in to Battle.net)"

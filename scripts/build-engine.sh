@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# CrossOver 26.3의 GPL 공개 소스에서 wine 11.0 엔진을 직접 빌드한다 (무료·합법).
-# 검증: 이 레시피의 각 단계는 2026-08 실제 빌드에서 개별 검증됨 (Battle.net + D2R 인게임 구동 확인).
-# 주의: 처음부터 끝까지 한 번에 재실행은 미검증 — 이슈 환영.
+# Build the wine 11.0 engine from CrossOver 26.3's published GPL sources (free and legal).
+# Verified: each step of this recipe was verified individually during the real
+# 2026-08 build (Battle.net + D2R in-game). Caveat: a single clean end-to-end
+# re-run is untested — issues welcome.
 #
-# 요구: Apple Silicon + Rosetta 2, Xcode CLT, Homebrew(arm64).
-# 사전 실행: scripts/get-components.sh (dylib+mono 자동 확보 — CrossOver 불필요)
+# Requirements: Apple Silicon + Rosetta 2, Xcode CLT, Homebrew (arm64).
+# Run first: scripts/get-components.sh (fetches dylibs+mono — no CrossOver needed)
 set -euo pipefail
 
 WORK="${WORK:-$HOME/.battlenet-macos/build}"
@@ -12,22 +13,22 @@ SRC_URL="https://media.codeweavers.com/pub/crossover/source/crossover-sources-26
 FT_URL="https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.gz"
 DEPS="$WORK/deps"
 ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
-# x86_64 dylib은 get-components.sh가 $DEPS/lib에 미리 받아둔다 (frankea GPL 릴리스)
+# get-components.sh pre-fetches the x86_64 dylibs into $DEPS/lib (frankea GPL release)
 
-echo "==> 빌드 도구 설치 (bison 3.x, mingw-w64)"
+echo "==> Installing build tools (bison 3.x, mingw-w64)"
 brew list bison >/dev/null 2>&1 || brew install bison
 brew list mingw-w64 >/dev/null 2>&1 || brew install mingw-w64
-brew list gnutls >/dev/null 2>&1 || brew install gnutls   # 헤더용
+brew list gnutls >/dev/null 2>&1 || brew install gnutls   # for headers
 export PATH="/opt/homebrew/opt/bison/bin:/opt/homebrew/bin:$PATH"
 
 mkdir -p "$WORK" "$DEPS"
 
-echo "==> CrossOver 26.3 소스 + freetype 다운로드"
+echo "==> Downloading CrossOver 26.3 sources + freetype"
 [ -f "$WORK/cx-src.tar.gz" ] || curl -fL "$SRC_URL" -o "$WORK/cx-src.tar.gz"
 tar -xzf "$WORK/cx-src.tar.gz" -C "$WORK" sources/wine
 WINE="$WORK/sources/wine"
 
-echo "==> x86_64 freetype 빌드 (Rosetta)"
+echo "==> Building x86_64 freetype (Rosetta)"
 [ -f "$WORK/ft.tar.gz" ] || curl -fL "$FT_URL" -o "$WORK/ft.tar.gz"
 tar -xzf "$WORK/ft.tar.gz" -C "$WORK"
 ( cd "$WORK/freetype-2.13.3" && arch -x86_64 ./configure --prefix="$DEPS" \
@@ -35,9 +36,9 @@ tar -xzf "$WORK/ft.tar.gz" -C "$WORK"
     --enable-shared --disable-static CC="clang -arch x86_64" \
   && arch -x86_64 make -j"$(sysctl -n hw.ncpu)" && arch -x86_64 make install )
 
-echo "==> x86_64 의존 dylib 확인 (get-components.sh 산출물)"
+echo "==> Checking the x86_64 dependency dylibs (get-components.sh output)"
 ls "$DEPS/lib/libgnutls.30.dylib" "$DEPS/lib/libMoltenVK.dylib" >/dev/null 2>&1 \
-  || { echo "dylib 없음 — 먼저 scripts/get-components.sh 를 실행하세요"; exit 1; }
+  || { echo "dylibs missing — run scripts/get-components.sh first"; exit 1; }
 
 echo "==> wine configure (x86_64, new-wow64 i386+x86_64)"
 mkdir -p "$WORK/wine-build"; cd "$WORK/wine-build"
@@ -46,24 +47,25 @@ arch -x86_64 "$WINE/configure" \
   FREETYPE_CFLAGS="-I$DEPS/include/freetype2" FREETYPE_LIBS="-L$DEPS/lib -lfreetype" \
   GNUTLS_CFLAGS="-I/opt/homebrew/include" GNUTLS_LIBS="-L$DEPS/lib -lgnutls" \
   LDFLAGS="-L$DEPS/lib" CC="clang -arch x86_64" CXX="clang++ -arch x86_64"
-# soname 보정 (dylib 실제 이름으로)
+# Fix the soname to the dylib's real name
 sed -i '' 's|#define SONAME_LIBGNUTLS.*|#define SONAME_LIBGNUTLS "libgnutls.30.dylib"|' include/config.h
 
 echo "==> wine make"
 arch -x86_64 make -j"$(sysctl -n hw.ncpu)"
 arch -x86_64 make install DESTDIR="$WORK/install"
 
-echo "==> 엔진 조립 (dylib 배치 + D3DMetal + rpath + entitlement 서명)"
+echo "==> Assembling the engine (dylibs + D3DMetal + rpath + entitlement signing)"
 rm -rf "$ENGINE"; mkdir -p "$ENGINE"
 cp -Rc "$WORK/install/usr/local/." "$ENGINE/"
 cp -c "$DEPS/lib/"*.dylib "$ENGINE/lib/" 2>/dev/null || true
-# D3DMetal/libd3dshared(Apple GPTK)는 별도 단계: scripts/get-gptk.sh 실행
-# (libd3dshared는 게임 로더의 Rosetta 통과에 필수. 그래픽은 없으면 vkd3d로 동작)
-# wine-mono 10.4.1 (get-components.sh가 받아둔 공식 릴리스)
+# D3DMetal/libd3dshared (Apple GPTK) is a separate step: run scripts/get-gptk.sh
+# (libd3dshared is required for the game loader to pass Rosetta; without it,
+# graphics fall back to vkd3d)
+# wine-mono 10.4.1 (official release fetched by get-components.sh)
 mkdir -p "$ENGINE/share/wine/mono"
 cp -Rc "$WORK/mono/wine-mono-10.4.1" "$ENGINE/share/wine/mono/" 2>/dev/null \
-  || echo "경고: mono 없음 — get-components.sh 실행 여부 확인"
-# rpath + entitlement 서명 (Rosetta/실행메모리)
+  || echo "WARNING: mono missing — check that get-components.sh was run"
+# rpath + entitlement signing (Rosetta / executable memory)
 cat > "$WORK/ent.plist" <<'PL'
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -79,11 +81,11 @@ for b in wine wine64 wineserver wine-preloader; do
   codesign -f -s - --entitlements "$WORK/ent.plist" "$f" 2>/dev/null || true
 done
 
-echo "==> 완료: $ENGINE"
+echo "==> Done: $ENGINE"
 DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version
 echo
-echo "실행 예:"
-echo "  export WINEPREFIX=<보틀> CX_GRAPHICS_BACKEND=d3dmetal WINEMSYNC=1"
+echo "Example launch:"
+echo "  export WINEPREFIX=<bottle> CX_GRAPHICS_BACKEND=d3dmetal WINEMSYNC=1"
 echo "  export DYLD_FALLBACK_LIBRARY_PATH='$ENGINE/lib:/usr/lib'"
 echo "  '$ENGINE/bin/wine' 'C:\\\\Program Files (x86)\\\\Battle.net\\\\Battle.net Launcher.exe' --disable-gpu-compositing"
-echo "  (Apple 보호 바이너리(nohup 등)를 체인에 두면 DYLD_* 가 제거되니 서브셸 &로 백그라운드 실행)"
+echo "  (Apple-protected binaries (nohup, ...) in the chain strip DYLD_* — background it with a subshell & instead)"
