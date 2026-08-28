@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>맥에서 디아블로 II 레저렉션 돌리기 — 무료 방법 (애플 실리콘, 2026)</title>
+<meta name="description" content="M1/M2/M3/M4 맥에서 디아블로2 레저렉션이 실행 안 되는 진짜 이유(AVX)와, 크로스오버 없이 완전 무료로 돌리는 오픈소스 방법. 배틀넷 로그인부터 인게임까지 검증됨.">
+<link rel="canonical" href="https://bcd1210.github.io/soju/guides/ko/diablo-2-mac.html">
+<meta property="og:title" content="맥에서 디아2 레저렉션 — 무료로 돌리는 법">
+<meta property="og:description" content="애플 실리콘 맥에서 D2R이 멈추는 원인과 무료 해결법">
+<meta property="og:type" content="article">
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../../">🍶 Soju</a>
+  <a href="../diablo-2-resurrected-apple-silicon.html">English</a>
+  <a href="https://github.com/BCD1210/soju/blob/main/README.ko.md">한국어 README</a>
+  <a href="https://github.com/BCD1210/soju">GitHub</a>
+</div></nav>
+<main>
+<h1>맥에서 디아블로 II: 레저렉션 돌리기</h1>
+<p class="lead">애플 실리콘 맥(M1~M4)에서 디아2 레저렉션이 "실행이 안 되는" 진짜
+이유와, 크로스오버(연 $74) 없이 완전 무료로 돌리는 방법입니다. M4 Pro / macOS 26에서
+배틀넷 로그인 → 온라인 인게임까지 검증했습니다.</p>
+
+<h2>빠른 설치</h2>
+<pre><code>brew install BCD1210/soju/soju
+soju install      # 엔진 + 애플 GPTK 안내 + 배틀넷 자동 설치
+soju battlenet    # 로그인 후 앱에서 디아2 설치 → 플레이</code></pre>
+<p>Homebrew가 없다면:</p>
+<pre><code>curl -fsSL https://raw.githubusercontent.com/BCD1210/soju/main/install.sh | bash</code></pre>
+
+<h2>왜 맥에서 디아2가 안 됐던 걸까</h2>
+<h3>1. 실행하면 영원히 멈춤 (메모리 86MB에서 정지)</h3>
+<p>디아2 로더는 <strong>AVX 명령어</strong>를 요구합니다. 로제타2는 AVX를 지원하지만,
+비공개 환경변수 <code>ROSETTA_ADVERTISE_AVX=1</code>을 설정해야만 프로세스에 AVX를
+"광고"합니다. 이게 없으면 그래픽 초기화 전에 무한 대기합니다. 크로스오버는 이걸
+런처에서 몰래 설정하기 때문에 되고, 무료 래퍼들은 안 됐던 겁니다.</p>
+
+<h3>2. 배틀넷 로그인 후 BLZBNTBNA00000005 에러</h3>
+<p>배틀넷 Agent는 접속한 프로세스의 서명을 검증하는데, 이때 PID를 전체 실행파일
+경로로 변환해야 합니다. 맥에는 <code>/proc</code>이 없어서 맥 전용 코드가 필요한데,
+커뮤니티 wine 빌드 대부분엔 이게 없습니다. Soju 엔진은 코드위버스가 공개한
+크로스오버 GPL 소스로 빌드해서 이 문제가 없습니다.</p>
+
+<h3>3. 그래픽 크래시 루프</h3>
+<p>애플 게임 포팅 툴킷(GPTK) 라이브러리는 반드시 심링크 구조로 배치해야 합니다 —
+복사하면 <code>@loader_path</code>가 어긋나 어설션 루프로 죽습니다. Soju가 자동으로
+처리합니다.</p>
+
+<h2>준비물</h2>
+<ul>
+  <li>애플 실리콘 맥 (M1 이상)</li>
+  <li><strong>macOS 26.4 이상 권장</strong> — 2026년 블리자드 안티치트 업데이트가
+  로제타 버그를 유발했고, 애플이 26.4에서 수정했습니다</li>
+  <li>로제타2: <code>softwareupdate --install-rosetta</code></li>
+  <li>무료 Apple ID (GPTK 1회 다운로드용 — 애플이 재배포를 금지해서 직접 받아야 합니다)</li>
+  <li>본인 배틀넷 계정 + 디아2 레저렉션 소지</li>
+</ul>
+
+<h2>문제 해결</h2>
+<table>
+  <tr><th>증상</th><th>해결</th></tr>
+  <tr><td>실행 후 무한 정지 (86MB)</td><td><code>soju battlenet</code>/<code>soju d2r</code>로 실행하세요 — AVX 변수가 빠진 겁니다</td></tr>
+  <tr><td>BLZBNTBNA00000005</td><td>Soju 엔진인지 확인 (일반 wine 빌드는 안 됩니다)</td></tr>
+  <tr><td>"Failed to initialize graphics"</td><td>GPTK 미설치 — <code>scripts/get-gptk.sh</code> 실행</td></tr>
+  <tr><td>한글 입력이 ??로 표시</td><td>wine 창에서는 macOS 입력기를 영어(ABC)로 전환</td></tr>
+</table>
+
+<h2>합법인가요?</h2>
+<p>네. 엔진은 코드위버스가 공개한 GPL 소스를 컴파일한 것이고, GPTK는 애플 공식
+무료 배포본을 본인이 직접 받으며, 게임은 본인 배틀넷 계정으로 정식 서버에
+접속합니다. 크랙·에뮬레이션이 아닙니다.</p>
+
+<p><a class="btn" href="https://github.com/BCD1210/soju">GitHub에서 받기</a></p>
+</main>
+<footer>
+  Soju는 GPL-3.0 오픈소스입니다 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
+  블리자드·밸브·애플·코드위버스와 무관한 프로젝트입니다.
+</footer>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to play Diablo II: Resurrected on Apple Silicon Macs (free, 2026)</title>
+<meta name="description" content="D2R hangs at launch on M1/M2/M3/M4 Macs because of an AVX detection quirk in Rosetta 2. Here is the root cause and a fully free, open-source way to play — no CrossOver needed.">
+<link rel="canonical" href="https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html">
+<meta property="og:title" content="Diablo II: Resurrected on Apple Silicon — the fix and a free setup">
+<meta property="og:description" content="The real reason D2R hangs on M-series Macs, and a free open-source Wine setup that runs it.">
+<meta property="og:type" content="article">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../">🍶 Soju</a>
+  <a href="steam-windows-client-apple-silicon.html">Steam guide</a>
+  <a href="whisky-alternative.html">Whisky alternatives</a>
+  <a href="https://github.com/BCD1210/soju">GitHub</a>
+</div></nav>
+<main>
+<h1>Diablo II: Resurrected on Apple Silicon</h1>
+<p class="lead">Why it hangs at launch on M-series Macs, and how to play it
+completely free with an open-source Wine stack. Verified in-game (online, with
+Battle.net login) on an M4 Pro running macOS 26.</p>
+
+<h2>The quick version</h2>
+<pre><code>brew install BCD1210/soju/soju
+soju install      # engine + Apple GPTK walkthrough + Battle.net
+soju battlenet    # log in, install D2R inside Battle.net, press Play</code></pre>
+<p>That's it. The installer downloads a prebuilt GPL Wine engine, walks you
+through Apple's free Game Porting Toolkit download once (Apple forbids
+redistributing it), and installs Battle.net with Blizzard's official installer.</p>
+
+<h2>Why D2R "doesn't work" on Apple Silicon</h2>
+<p>If you've tried Wine wrappers before, you probably hit one of these three
+walls. Each has a real, specific cause:</p>
+
+<h3>1. The game hangs forever at launch (~86MB RAM, 0% CPU)</h3>
+<p>D2R's loader requires <strong>AVX instructions</strong>. Rosetta 2 supports
+AVX, but only <em>advertises</em> it to a process when the undocumented
+environment variable <code>ROSETTA_ADVERTISE_AVX=1</code> is set. Without it the
+loader waits forever before graphics initialization. This single variable is why
+CrossOver works while most free wrappers appear broken — CrossOver sets it in its
+launcher.</p>
+
+<h3>2. Battle.net shows "BLZBNTBNA00000005" (the "Oops" page)</h3>
+<p>Battle.net's Agent verifies the <em>signature of the process connecting to
+it</em>, which requires resolving a PID to a full executable path. macOS has no
+<code>/proc</code>, so this needs a macOS-specific code path that most community
+Wine builds don't implement. Soju's engine is built from CodeWeavers' published
+CrossOver sources, which do.</p>
+
+<h3>3. Graphics crash loops with D3DMetal</h3>
+<p>Apple's Game Porting Toolkit libraries must live in <code>lib/external/</code>
+with the wine <code>.so</code> files as <em>symlinks</em> into it — copying the
+files breaks <code>@loader_path</code> resolution and D3DMetal dies in an
+assertion loop. <code>libd3dshared</code> is also required for the loader to pass
+Rosetta at all (it registers non-native code regions), not just for graphics.</p>
+
+<div class="note">All of this is documented in depth, with logs, in the
+<a href="https://github.com/BCD1210/soju/blob/main/docs/DIAGNOSIS.md">diagnosis writeup</a>
+— useful even if you use a different Wine frontend.</div>
+
+<h2>Requirements</h2>
+<ul>
+  <li>Apple Silicon Mac (M1 or newer) — verified on M4 Pro</li>
+  <li><strong>macOS 26.4 or newer recommended</strong>: a 2026 Blizzard anti-cheat
+  update triggered a Rosetta 2 bug that Apple fixed in 26.4. On older macOS the
+  game can stall even with everything else correct.</li>
+  <li>Rosetta 2 (<code>softwareupdate --install-rosetta</code>)</li>
+  <li>A free Apple ID (for the one-time Game Porting Toolkit download)</li>
+  <li>Your own Battle.net account and a D2R license</li>
+</ul>
+
+<h2>Step by step</h2>
+<ol>
+  <li><strong>Install:</strong> <code>brew install BCD1210/soju/soju</code> (or the
+  <a href="https://github.com/BCD1210/soju#install-one-line">one-line installer</a>)</li>
+  <li><strong>Run</strong> <code>soju install</code> — it downloads the engine
+  (~350MB), then asks you to download Apple's Game Porting Toolkit dmg and press
+  Enter. It then installs Battle.net automatically (5–10 minutes).</li>
+  <li><strong>Play:</strong> double-click <code>~/Applications/Battle.net.app</code>
+  (or run <code>soju battlenet</code>), log in, install D2R inside the app, press
+  Play. For offline sessions afterwards: <code>soju d2r</code>.</li>
+</ol>
+
+<h2>Troubleshooting</h2>
+<table>
+  <tr><th>Symptom</th><th>Fix</th></tr>
+  <tr><td>Game stuck at launch, ~86MB RAM</td>
+      <td>You're not using Soju's launcher — <code>ROSETTA_ADVERTISE_AVX=1</code> is missing. Launch via <code>soju battlenet</code> / <code>soju d2r</code>.</td></tr>
+  <tr><td>BLZBNTBNA00000005 after login</td>
+      <td>Engine problem — make sure you're on Soju's engine, not a generic wine build.</td></tr>
+  <tr><td>"Failed to initialize graphics"</td>
+      <td>GPTK not installed — run <code>scripts/get-gptk.sh</code>.</td></tr>
+  <tr><td>Typed text shows as ??</td>
+      <td>Switch the macOS input source to English (ABC) while typing in Wine windows.</td></tr>
+</table>
+
+<h2>Is this legal?</h2>
+<p>Yes. The engine is compiled from the GPL Wine sources CodeWeavers publishes,
+Apple's Game Porting Toolkit is a free download from Apple (you download it
+yourself; it is never redistributed), and you play on your own Battle.net
+account. Nothing is cracked or emulated — D2R runs against the real Battle.net.</p>
+
+<p><a class="btn" href="https://github.com/BCD1210/soju">Get Soju on GitHub</a></p>
+</main>
+<footer>
+  Soju is GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
+  not affiliated with Blizzard, Valve, Apple or CodeWeavers.
+</footer>
+</body>
+</html>

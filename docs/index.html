@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soju — Free Battle.net, Diablo II: Resurrected &amp; Steam on Apple Silicon</title>
+<meta name="description" content="Soju is a free, open-source (GPL) toolchain that runs Battle.net, Diablo II: Resurrected and the Windows Steam client with D3D11 games on Apple Silicon Macs — no CrossOver license needed.">
+<link rel="canonical" href="https://bcd1210.github.io/soju/">
+<meta property="og:title" content="Soju — free Windows gaming on Apple Silicon">
+<meta property="og:description" content="Battle.net, Diablo II: Resurrected and the Windows Steam client on M-series Macs, fully free and open source.">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="./">🍶 Soju</a>
+  <a href="guides/diablo-2-resurrected-apple-silicon.html">D2R guide</a>
+  <a href="guides/steam-windows-client-apple-silicon.html">Steam guide</a>
+  <a href="guides/whisky-alternative.html">Whisky alternatives</a>
+  <a href="https://github.com/BCD1210/soju">GitHub</a>
+</div></nav>
+<main>
+<h1>Free Windows gaming on Apple Silicon</h1>
+<p class="lead">Soju is a free, open-source (GPL-3.0) toolchain that runs Battle.net,
+Diablo&nbsp;II: Resurrected and the Windows Steam client — including D3D11 games —
+on M-series Macs. No CrossOver license needed.</p>
+
+<pre><code>brew install BCD1210/soju/soju
+soju install     # Battle.net + Diablo II: Resurrected
+soju steam-install</code></pre>
+<p>Or without Homebrew:</p>
+<pre><code>curl -fsSL https://raw.githubusercontent.com/BCD1210/soju/main/install.sh | bash</code></pre>
+<p><a class="btn" href="https://github.com/BCD1210/soju">View on GitHub</a></p>
+
+<h2>Guides</h2>
+<div class="cards">
+  <a class="card" href="guides/diablo-2-resurrected-apple-silicon.html">
+    <h3>Diablo II: Resurrected on Apple Silicon</h3>
+    <p>Why it hangs at launch (the AVX root cause) and how to play it for free.</p>
+  </a>
+  <a class="card" href="guides/steam-windows-client-apple-silicon.html">
+    <h3>Windows Steam client on M-series Macs</h3>
+    <p>Get the Steam client and D3D11 games rendering with wine-stable + DXMT.</p>
+  </a>
+  <a class="card" href="guides/whisky-alternative.html">
+    <h3>Whisky was discontinued — what now?</h3>
+    <p>An honest comparison of the free and paid options left in 2026.</p>
+  </a>
+  <a class="card" href="guides/ko/diablo-2-mac.html">
+    <h3>맥에서 디아블로 II 레저렉션 (한국어)</h3>
+    <p>애플 실리콘 맥에서 무료로 디아2를 돌리는 방법.</p>
+  </a>
+</div>
+
+<h2>What actually works</h2>
+<p>Everything below was verified end-to-end on an M4 Pro running macOS 26:</p>
+<table>
+  <tr><th>Target</th><th>Status</th></tr>
+  <tr><td>Battle.net (install, login, game management)</td><td>✅ works</td></tr>
+  <tr><td>Diablo II: Resurrected (online, in-game)</td><td>✅ works</td></tr>
+  <tr><td>Windows Steam client (login, library)</td><td>✅ works</td></tr>
+  <tr><td>Steam D3D11 games (via DXMT)</td><td>✅ works</td></tr>
+</table>
+
+<h2>How it's free</h2>
+<p>The Wine engine is built from
+<a href="https://www.codeweavers.com/crossover/source">CodeWeavers' published GPL sources</a>
+(the same code CrossOver ships), graphics come from Apple's free
+<a href="https://developer.apple.com/games/game-porting-toolkit/">Game Porting Toolkit</a>,
+and Steam rendering uses <a href="https://github.com/3Shain/dxmt">DXMT</a> (LGPL).
+Nothing proprietary is redistributed — the one Apple file you need is downloaded
+from Apple directly, once.</p>
+
+<h2>Not just scripts — root causes</h2>
+<p>Every fix in Soju is documented with its underlying cause, so other Wine
+projects can reuse them: the <code>ROSETTA_ADVERTISE_AVX</code> discovery behind the
+famous D2R launch hang, Battle.net Agent's process-signature verification, and the
+Steam-client-vs-DXMT conflict. Start with the
+<a href="https://github.com/BCD1210/soju/blob/main/docs/STEAM-GAMES.md">Steam writeup</a>
+and the <a href="https://github.com/BCD1210/soju/blob/main/docs/DIAGNOSIS.md">Battle.net diagnosis</a>.</p>
+</main>
+<footer>
+  Soju is GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
+  not affiliated with Blizzard, Valve, Apple or CodeWeavers.
+</footer>
+</body>
+</html>

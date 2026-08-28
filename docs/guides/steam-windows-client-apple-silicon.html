@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run the Windows Steam client on Apple Silicon Macs (free, 2026)</title>
+<meta name="description" content="How to run the Windows Steam client and D3D11 games on M1/M2/M3/M4 Macs for free: wine-stable + a steamwebhelper wrapper + DXMT, with the black-screen and rendering problems actually explained.">
+<link rel="canonical" href="https://bcd1210.github.io/soju/guides/steam-windows-client-apple-silicon.html">
+<meta property="og:title" content="Windows Steam client on Apple Silicon — the working free setup">
+<meta property="og:description" content="Steam client login, library and D3D11 in-game rendering on M-series Macs, fully free.">
+<meta property="og:type" content="article">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../">🍶 Soju</a>
+  <a href="diablo-2-resurrected-apple-silicon.html">D2R guide</a>
+  <a href="whisky-alternative.html">Whisky alternatives</a>
+  <a href="https://github.com/BCD1210/soju">GitHub</a>
+</div></nav>
+<main>
+<h1>The Windows Steam client on Apple Silicon</h1>
+<p class="lead">Yes, the actual Windows Steam client — not just macOS Steam — runs
+on M-series Macs for free, including D3D11 games rendering in-game. Verified on an
+M4 Pro / macOS 26 with the August 2026 Steam client.</p>
+
+<div class="note">Why would you want this? Windows-only games, Windows-only
+editions (like D2R's Steam release), and mods/tools that only exist for the
+Windows client.</div>
+
+<h2>The quick version</h2>
+<pre><code>brew install BCD1210/soju/soju
+soju steam-install    # wine-stable + wrapper + Steam
+soju steam            # log in and play
+soju steam-games      # optional: wire DXMT so D3D11 games render</code></pre>
+
+<h2>Why Steam black-screens on most Wine setups</h2>
+<p>The modern Steam client is basically a Chromium (CEF) app. Two separate things
+break it on macOS Wine:</p>
+<ul>
+  <li>The <strong>CEF GPU process crash-loops</strong> under Wine's sandbox
+  (0xC0000005), leaving a black window.</li>
+  <li>Cross-process presentation isn't supported by the Metal translation layers
+  (<a href="https://github.com/3Shain/dxmt/issues/141">DXMT #141</a>), so even when
+  the client runs, its composer can't show helper-rendered frames.</li>
+</ul>
+<p>The fix (from <a href="https://github.com/notpop/steam-on-m1-wine">notpop's
+steam-on-m1-wine</a>, MIT) is a tiny wrapper around <code>steamwebhelper.exe</code>
+that forces <code>--disable-gpu --single-process</code>, plus launching Steam with
+<code>-no-cef-sandbox -cef-single-process</code>. Soju builds and redeploys the
+wrapper automatically — Steam updates keep restoring the original, so this must
+happen on every launch.</p>
+
+<h2>Making games actually render (DXMT)</h2>
+<p>The Steam client and games have opposite needs in the same Wine prefix:
+the client needs vanilla wined3d (it restart-loops on DXMT), while D3D11 games
+need <a href="https://github.com/3Shain/dxmt">DXMT</a> (D3D11→Metal). Soju's
+<code>steam-games</code> step wires both:</p>
+<ul>
+  <li>DXMT installed as 64-bit Wine <em>builtins</em> (as natives they can't attach
+  their Metal unixlib)</li>
+  <li>A <code>winemetal.dll</code> placeholder in <code>system32</code> (without it,
+  by-name lookup fails with <code>c0000135</code> — Unity's "Failed to initialize
+  graphics")</li>
+  <li>Marker-stripped vanilla d3d DLLs served to the Steam client per-app via the
+  registry (a 1-byte patch defeats Wine's fake-DLL redirect)</li>
+  <li>A rebuilt <code>winemac.so</code> exporting macdrv symbols so DXMT can present,
+  plus a <code>WINE_NO_DOCK_ICON</code> patch for a single Dock icon</li>
+</ul>
+<p>The full story — ten hard-won facts, each one a wall we hit — is in
+<a href="https://github.com/BCD1210/soju/blob/main/docs/STEAM-GAMES.md">docs/STEAM-GAMES.md</a>.</p>
+
+<h2>Practical notes</h2>
+<table>
+  <tr><th>Issue</th><th>Fix</th></tr>
+  <tr><td>Black window on launch</td>
+      <td>A crashed session leaves a <code>SingletonLock</code>; <code>soju steam</code> cleans it automatically. If launching manually, delete it from htmlcache.</td></tr>
+  <tr><td>Steam shows a "not responding" dialog while updating</td>
+      <td>Normal on first run — let it finish.</td></tr>
+  <tr><td>Typed text appears as ??</td>
+      <td>Switch macOS input to English (ABC).</td></tr>
+  <tr><td>Game forces fullscreen</td>
+      <td>Steam tags games with a fullscreen AppCompat flag; <code>soju steam-games</code> scrubs it. Unity titles also accept <code>-screen-fullscreen 0</code>.</td></tr>
+</table>
+
+<p><a class="btn" href="https://github.com/BCD1210/soju">Get Soju on GitHub</a></p>
+</main>
+<footer>
+  Soju is GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
+  not affiliated with Blizzard, Valve, Apple or CodeWeavers.
+</footer>
+</body>
+</html>

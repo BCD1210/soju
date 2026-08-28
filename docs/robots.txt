@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://bcd1210.github.io/soju/sitemap.xml
