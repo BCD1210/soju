@@ -68,13 +68,31 @@ case "$MODE" in
         cp -f "$WRAP" "$d/steamwebhelper.exe"
       fi
     done
-    # 3) 실행 — CX 엔진 env 없이 wine-stable 순정 환경
+    # 3) 가상 데스크톱 — 이 macdrv(gcenx wine 11)는 가상 데스크톱을 무시함이 확인돼
+    #    기본 비활성. 독 아이콘 단일화는 WINE_NO_DOCK_ICON(winemac 패치)으로 해결.
+    #    켜려면 WINE_VIRTUAL_DESKTOP=auto (또는 1600x900 등 해상도 지정).
+    VD="${WINE_VIRTUAL_DESKTOP-}"
+    if [[ "$VD" == "auto" ]]; then
+      B=$(osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null || true)
+      if [[ "$B" =~ ,[[:space:]]*([0-9]+),[[:space:]]*([0-9]+)$ ]]; then
+        VD="${BASH_REMATCH[1]}x${BASH_REMATCH[2]}"
+      else
+        VD="1728x1080"
+      fi
+    fi
+    # 가상 데스크톱 창이 고정되지 않게 macdrv 설정 (1회성 레지스트리)
+    grep -q 'AllowImmovableWindows' "$WINEPREFIX/user.reg" 2>/dev/null || {
+      printf '\n[Software\\\\Wine\\\\Mac Driver]\n"AllowImmovableWindows"="n"\n' >> "$WINEPREFIX/user.reg"
+    }
+    # 4) 실행 — CX 엔진 env 없이 wine-stable 순정 환경
+    STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process -noverifyfiles "${@:2}")
+    [[ -n "$VD" ]] && STEAM_CMD=(explorer.exe "/desktop=soju-steam,$VD" "${STEAM_CMD[@]}")
     env -u DYLD_FALLBACK_LIBRARY_PATH -u CX_ACTIVE_GRAPHICS_BACKEND -u CX_GRAPHICS_BACKEND \
         -u CX_APPLEGPTK_LIBD3DSHARED_PATH -u WINEMSYNC -u ROSETTA_ADVERTISE_AVX \
       WINEPREFIX="$WINEPREFIX" WINEDEBUG="${WINEDEBUG:-fixme-all}" \
-      WINEDLLOVERRIDES="d3d11,d3d10core,dxgi=b;winemetal=d;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d" \
-      "$WINESTABLE" "C:\\Program Files (x86)\\Steam\\steam.exe" \
-      -no-cef-sandbox -cef-single-process -noverifyfiles "${@:2}"
+      WINEDLLOVERRIDES="bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d" \
+      WINE_NO_DOCK_ICON="steam.exe;steamservice.exe" \
+      "$WINESTABLE" "${STEAM_CMD[@]}"
     ;;
   kill|steam-kill)  # 종료 (kill=배틀넷 보틀, steam-kill=Steam 보틀)
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true

@@ -68,7 +68,7 @@ scripts/play.sh steam            # 로그인 → 게임 설치·플레이
 scripts/play.sh steam-kill       # Steam 보틀 종료
 ```
 
-검증: M4 Pro / macOS 26.5 — 로그인 UI 렌더링·인증 확인. 참고: Steam 입력 시 macOS 입력기를 영어(ABC)로 전환하세요 (한글 IME 조합이 `?`로 보입니다). 게임(D3D11) 렌더링까지 가려면 업스트림 프로젝트의 DXMT 포크 빌드가 추가로 필요할 수 있습니다 — 해당 레포의 `docs/building-for-games.md` 참고.
+검증: M4 Pro / macOS 26.5 — 로그인·라이브러리·실제 D3D11(Unity) 게임 인게임 렌더링까지 (DXMT 포크). 전체 배선은 `docs/STEAM-GAMES.md` + `scripts/setup-steam-games.sh` 참고. 참고: Steam 입력 시 macOS 입력기를 영어(ABC)로 전환하세요 (한글 IME 조합이 `?`로 보입니다). 게임(D3D11) 렌더링까지 가려면 업스트림 프로젝트의 DXMT 포크 빌드가 추가로 필요할 수 있습니다 — 해당 레포의 `docs/building-for-games.md` 참고.
 
 **전제조건**: Apple Silicon 맥, Rosetta 2, Xcode CLT, Homebrew, 본인 배틀넷 계정, GPTK용 무료 Apple ID.
 

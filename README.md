@@ -72,7 +72,7 @@ scripts/play.sh steam            # log in -> install & play
 scripts/play.sh steam-kill       # stop the Steam bottle
 ```
 
-Verified on M4 Pro / macOS 26.5: login UI renders and a real account login succeeds. Notes: switch your macOS input source to English (ABC) when typing in Steam (IME composition shows as `?` otherwise). D3D11 game rendering under this stack may additionally want the DXMT fork from the upstream project — see their `docs/building-for-games.md`.
+Verified on M4 Pro / macOS 26.5: login, library, and an actual D3D11 (Unity) game rendering in-game via a DXMT fork — see `docs/STEAM-GAMES.md` for the full wiring (`scripts/setup-steam-games.sh`). Notes: switch your macOS input source to English (ABC) when typing in Steam (IME composition shows as `?` otherwise). D3D11 game rendering under this stack may additionally want the DXMT fork from the upstream project — see their `docs/building-for-games.md`.
 
 **Prerequisites**: Apple Silicon Mac, Rosetta 2, Xcode Command Line Tools, Homebrew, your own Battle.net account/games, and a free Apple ID for the GPTK download. Nothing from Apple, Blizzard, or CodeWeavers is redistributed by this repo.
 
