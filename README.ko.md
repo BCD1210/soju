@@ -58,6 +58,18 @@ scripts/play.sh kill        # 전부 종료
 
 이미 CrossOver 보틀에 게임이 설치돼 있다면 `scripts/setup-bottle.sh`로 복제하세요 (28GB 재다운로드 회피).
 
+## Steam 지원 (Steam판 D2R 포함)
+
+D2R은 2026년 2월 Steam에도 *Infernal Edition*으로 출시됐습니다. Steam은 **다른 무료 엔진**을 씁니다: 최신 Steam 클라이언트의 CEF UI는 CrossOver 소스 계열 빌드에서 렌더링되지 않지만(검은 창 — 크로스 프로세스 스왑체인 + CEF 샌드박스 문제), homebrew `wine-stable` 11 + `steamwebhelper` 래퍼(`--disable-gpu --single-process` 강제)로는 동작합니다. 이 해법은 [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)(MIT, 래퍼 소스는 `third_party/`에 동봉)에서 왔습니다. Steam은 별도 보틀이라 두 스택이 서로 간섭하지 않습니다:
+
+```bash
+scripts/create-steam-bottle.sh   # wine-stable + 래퍼 + Valve 공식 설치기
+scripts/play.sh steam            # 로그인 → 게임 설치·플레이
+scripts/play.sh steam-kill       # Steam 보틀 종료
+```
+
+검증: M4 Pro / macOS 26.5 — 로그인 UI 렌더링·인증 확인. 참고: Steam 입력 시 macOS 입력기를 영어(ABC)로 전환하세요 (한글 IME 조합이 `?`로 보입니다). 게임(D3D11) 렌더링까지 가려면 업스트림 프로젝트의 DXMT 포크 빌드가 추가로 필요할 수 있습니다 — 해당 레포의 `docs/building-for-games.md` 참고.
+
 **전제조건**: Apple Silicon 맥, Rosetta 2, Xcode CLT, Homebrew, 본인 배틀넷 계정, GPTK용 무료 Apple ID.
 
 ### GPTK가 왜 필요한가?

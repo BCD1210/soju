@@ -1,0 +1,88 @@
+steam-on-m1-wine
+Copyright (c) 2026 notpop
+Licensed under the MIT License (see LICENSE for full text).
+
+================================================================================
+Third-party components
+================================================================================
+
+This project orchestrates several third-party software components,
+each distributed under its own license. THIS REPOSITORY NEITHER
+REDISTRIBUTES NOR BUNDLES ANY OF THEIR BINARIES OR SOURCE — every
+component is either installed through its upstream distribution
+channel (Homebrew cask, GitHub Releases, upstream CDN) or downloaded
+at setup time from the vendor. No third-party source is vendored into
+the repo tree; see `.gitignore`, which excludes `vendor/`, `*.dll`,
+`*.exe`, `*.so`, and `.wine-*`.
+
+--------------------------------------------------------------------------------
+Runtime dependencies
+--------------------------------------------------------------------------------
+
+Wine (stable)
+    License: LGPL-2.1-or-later
+    Source:  https://www.winehq.org/
+    Notes:   Installed via Homebrew Cask `wine-stable` (Gcenx build).
+             The optional `-fvisibility=default` rebuild clones upstream
+             Wine source from https://gitlab.winehq.org/wine/wine at
+             tag `wine-11.0`, builds locally, and copies only
+             `dlls/winemac.drv/winemac.so` over the Homebrew cask.
+             The original winemac.so is preserved as
+             winemac.so.gcenx-backup.
+
+Winetricks
+    License: LGPL-2.1-or-later
+    Source:  https://github.com/Winetricks/winetricks
+
+DXMT
+    License: MIT License
+    Copyright: (c) 2023 Feifan He
+    Source:  https://github.com/3Shain/dxmt
+    Notes:   `scripts/04-install-dxmt.sh` fetches an official release
+             tarball. `scripts/07-build-dxmt-fork.sh` builds the fork
+             branch `notpop/dxmt@debug/present-path-tracing` from
+             source.
+
+GStreamer runtime
+    License: LGPL-2.1
+    Source:  https://gstreamer.freedesktop.org/
+
+Steam client (installed on demand by the end user)
+    License: Steam Subscriber Agreement
+             https://store.steampowered.com/subscriber_agreement/
+    Notes:   Fetched from the official Valve CDN at runtime. This
+             repository does not redistribute any Steam binaries.
+
+--------------------------------------------------------------------------------
+Build-time dependencies (only invoked when compiling from source)
+--------------------------------------------------------------------------------
+
+Homebrew
+    License: BSD-2-Clause
+    Source:  https://brew.sh/
+
+mingw-w64 toolchain
+    License: runtime is public domain / MIT-like; build tools are GPL
+    Source:  https://www.mingw-w64.org/
+    Notes:   Only used to cross-compile `wrapper/steamwebhelper.exe`.
+             The resulting binary is not tracked in this repository.
+
+LLVM 15
+    License: Apache-2.0 with LLVM Exceptions
+    Source:  https://llvm.org/
+    Notes:   Self-built by `scripts/07-build-dxmt-fork.sh` as an
+             x86_64 LLVM needed by the DXMT shader compiler.
+
+3Shain Wine tarball (v8.16-3shain)
+    License: LGPL-2.1-or-later (inherited from Wine)
+    Source:  https://github.com/3Shain/wine
+    Notes:   Downloaded as a link-time input for the DXMT build.
+
+Meson, Ninja, CMake, Bison, Flex, gettext, pkg-config, freetype
+    Each under its own upstream license. Fetched via Homebrew at
+    install time.
+
+================================================================================
+
+No secrets, no tokens, no game binaries, and no personal data are
+committed to this repository.

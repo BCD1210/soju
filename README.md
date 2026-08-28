@@ -62,6 +62,18 @@ scripts/play.sh kill        # stop everything
 
 Already have a CrossOver bottle with games installed? `scripts/setup-bottle.sh` clones it (28 GB game re-download avoided).
 
+## Steam (including the Steam version of D2R)
+
+D2R shipped on Steam in Feb 2026 as the *Infernal Edition*. Steam support uses a **different free engine**: the modern Steam client's CEF UI does not render on CrossOver-source builds (black window — cross-process swapchain + CEF sandbox issues), but it works on Homebrew's `wine-stable` 11 with a tiny `steamwebhelper` wrapper that forces `--disable-gpu --single-process`. That fix comes from [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) (MIT — wrapper source vendored in `third_party/`). Steam gets its own bottle so the two stacks never interfere:
+
+```bash
+scripts/create-steam-bottle.sh   # installs wine-stable + wrapper + official Valve installer
+scripts/play.sh steam            # log in -> install & play
+scripts/play.sh steam-kill       # stop the Steam bottle
+```
+
+Verified on M4 Pro / macOS 26.5: login UI renders and authenticates. Notes: switch your macOS input source to English (ABC) when typing in Steam (IME composition shows as `?` otherwise). D3D11 game rendering under this stack may additionally want the DXMT fork from the upstream project — see their `docs/building-for-games.md`.
+
 **Prerequisites**: Apple Silicon Mac, Rosetta 2, Xcode Command Line Tools, Homebrew, your own Battle.net account/games, and a free Apple ID for the GPTK download. Nothing from Apple, Blizzard, or CodeWeavers is redistributed by this repo.
 
 ### Why is GPTK needed at all?
