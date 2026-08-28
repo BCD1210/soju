@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# soju — command-line entry point (used by the Homebrew formula)
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+usage() {
+  cat <<'EOF'
+soju — free Battle.net / Diablo II: Resurrected / Steam on Apple Silicon
+
+Usage:
+  soju install        Set up the Wine engine, Apple GPTK and Battle.net
+  soju battlenet      Launch Battle.net (default bottle)
+  soju d2r            Launch Diablo II: Resurrected directly
+  soju kill           Stop everything in the Battle.net bottle
+
+  soju steam-install  Set up the Steam bottle (wine-stable + wrapper + Steam)
+  soju steam-games    Wire DXMT so D3D11 games render (needs built artifacts)
+  soju steam          Launch Steam
+  soju steam-kill     Stop everything in the Steam bottle
+
+Docs: https://github.com/BCD1210/soju
+EOF
+}
+
+case "${1:-}" in
+  install)        shift; exec bash "$ROOT/install.sh" "$@" ;;
+  steam-install)  shift; exec bash "$ROOT/scripts/create-steam-bottle.sh" "$@" ;;
+  steam-games)    shift; exec bash "$ROOT/scripts/setup-steam-games.sh" "$@" ;;
+  battlenet|d2r|steam|kill|steam-kill)
+                  exec bash "$ROOT/scripts/play.sh" "$@" ;;
+  -h|--help|help|"") usage ;;
+  *) echo "soju: unknown command '$1'" >&2; usage >&2; exit 64 ;;
+esac

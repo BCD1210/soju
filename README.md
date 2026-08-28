@@ -30,6 +30,13 @@ Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the l
 curl -fsSL https://raw.githubusercontent.com/BCD1210/soju/main/install.sh | bash
 ```
 
+Or via Homebrew:
+
+```bash
+brew install BCD1210/soju/soju
+soju install     # then: soju battlenet / soju d2r / soju steam
+```
+
 Downloads the prebuilt engine (~350 MB), walks you through Apple's free GPTK download (the one file Apple forbids redistributing), auto-installs Battle.net with Blizzard's official installer, and drops a `Battle.net.app` in `~/Applications`. Log in and play.
 
 ## Build it yourself instead — no CrossOver required
