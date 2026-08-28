@@ -69,6 +69,11 @@ three fixes we needed on macOS 26.5 / current Homebrew:
 - The Dock-icon patch on top of the visibility rebuild lives in
   `transformProcessToForeground:` (see `scripts/setup-steam-games.sh` header).
 
+DXMT is LGPL-2.1+ (Copyright Feifan He for CodeWeavers); the wrapper is MIT
+(vendored in `third_party/`); our winemac patch is published as
+`patches/winemac-no-dock-icon.patch` (LGPL-2.1+, matching Wine). Nothing
+proprietary is redistributed.
+
 Artifacts land in `~/.battlenet-macos/steam-support/` and
 `scripts/setup-steam-games.sh` wires everything idempotently.
 
