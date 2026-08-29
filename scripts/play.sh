@@ -57,10 +57,15 @@ start_reaper(){
 
 case "$MODE" in
   battlenet)   # Battle.net launcher (log in, then Play for online)
+    # Battle.net.exe is started directly, not through "Battle.net Launcher.exe":
+    # CrossOver's private compat DB (compatdb-*.dat) injects
+    # --in-process-gpu --use-gl=swiftshader for Battle.net.exe. Without them CEF
+    # spawns a separate GPU process that dies on init and the frameless main
+    # window stays fully transparent (Dock icon, no window). See docs/DIAGNOSIS.md.
     start_reaper
     exec "$ENGINE/bin/wine" \
-      "C:\\Program Files (x86)\\Battle.net\\Battle.net Launcher.exe" \
-      --disable-gpu-compositing
+      "C:\\Program Files (x86)\\Battle.net\\Battle.net.exe" \
+      --disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader
     ;;
   d2r)         # Launch the game directly (offline / previous session)
     start_reaper

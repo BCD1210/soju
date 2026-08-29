@@ -60,6 +60,24 @@ stock Whisky / frankea 엔진(v3.1.1, v4.5beta, v2.5.0)은 전부 **신형 WoW64
 해결: 모든 실행 경로(`install.sh`, `scripts/play.sh`, `scripts/create-bottle.sh`)에 `WINE_SIMULATE_WRITECOPY=1`.
 CrossOver 바이너리 의존 0.
 
+## 벽 1-b — CX 의존 #2: 투명한 메인창 (`--in-process-gpu --use-gl=swiftshader`) (2026-08-29)
+
+`WINE_SIMULATE_WRITECOPY=1`만으로는 렌더러는 살지만 **Dock 아이콘만 뜨고 창이 안 보인다**. `CGWindowListCopyWindowInfo`로
+보면 1600×1000 창이 화면 정중앙에 "존재"(alpha 1)하지만 내용이 없다 — Battle.net 메인창은 frameless라 내용이 안 그려지면
+완전히 투명하다. libcef 로그 비교:
+
+- CX ntdll: GPU 프로세스 없음(NtCreateUserProcess `--type=gpu-process` 0건), 브라우저 프로세스 안에서 GLES 컨텍스트 생성.
+- 우리 ntdll: `--type=gpu-process`가 생성되고 `Exiting GPU process due to errors during initialization` ×9 →
+  `GL is disabled` → 아무것도 합성되지 않음.
+
+원인: A에서 Battle.net.exe가 받는 인자가 `--disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader`.
+`Battle.net Launcher.exe`는 양쪽 다 앞의 두 개만 넘기고(`+relay`로 확인), 뒤의 두 개는 **CX ntdll.so의 NtCreateUserProcess
+내부에서 주입**된다. 출처는 CodeWeavers의 비공개·암호화 호환 DB(`~/Library/Application Support/CrossOver/compatdb-26.dat`,
+`cxcompatdb.so`)의 앱별 규칙 — GPL 소스에도, 바이너리 문자열에도 없다.
+
+해결: Launcher.exe를 거치지 않고 `Battle.net.exe --disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader`를
+직접 실행 (`install.sh` 런처, `scripts/play.sh`). 검증: GPU 프로세스 0, GLES 컨텍스트 생성, 렌더러 6, 로그인·메인창, **화면 표시·게임 실행 사용자 확인**.
+
 ## 벽 2 — Battle.net Agent caller 서명 검증 실패 (해결됨)
 
 ### 증상
