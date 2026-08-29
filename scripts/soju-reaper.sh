@@ -11,15 +11,16 @@
 # Window detection uses CGWindowListCopyWindowInfo via python3+ctypes — no
 # Accessibility permission needed, nothing to install.
 #
-# Usage: soju-reaper.sh <WINEPREFIX> <wineserver-path> [battlenet|steam]
+# Usage: soju-reaper.sh <WINEPREFIX> <wineserver-path> [battlenet|steam|epic]
 #        (backgrounded by play.sh / the Battle.net.app launcher)
 #
 # steam mode: closing the Steam window parks it in a tray (as on Windows; the
 # Dock icon brings it back via WINE_DOCK_REOPEN_CMD). Once steam.exe itself has
 # exited, the leftovers (steamservice, winedevice, wineserver) are shut down.
+# epic mode: same tray semantics, keyed on EpicGamesLauncher.exe.
 set -u
 
-PREFIX="${1:?usage: soju-reaper.sh <WINEPREFIX> <wineserver> [battlenet|steam]}"
+PREFIX="${1:?usage: soju-reaper.sh <WINEPREFIX> <wineserver> [battlenet|steam|epic]}"
 WINESERVER="${2:?}"
 MODE="${3:-battlenet}"
 INTERVAL=20
@@ -27,6 +28,12 @@ case "$MODE" in
   steam)
     GAME_RE='Steam\\steamapps\\'                      # games live under steamapps
     UI_RE='steam\.exe|steamwebhelper'
+    TRAY_RE='steam\.exe'; TRAY_KILL_RE="$UI_RE|steamservice\.exe"
+    ;;
+  epic)
+    GAME_RE='__none__'
+    UI_RE='EpicGamesLauncher\.exe|EpicWebHelper\.exe|EpicOnlineServices'
+    TRAY_RE='EpicGamesLauncher\.exe'; TRAY_KILL_RE="$UI_RE"
     ;;
   *)
     GAME_RE='D2R\.exe|BlizzardError\.exe'
@@ -67,18 +74,18 @@ PY
 declare -A STRIKES
 IDLE_STRIKES=0
 
-if [ "$MODE" = "steam" ]; then
+if [ "$MODE" = "steam" ] || [ "$MODE" = "epic" ]; then
   # Steam parks itself in an (invisible on macOS) tray when its window is closed,
   # so a missing window means nothing here. Only once steam.exe has really gone
   # (Steam menu > Exit) do we shut the rest of the bottle down.
   while true; do
     sleep "$INTERVAL"
-    if ! pgrep -f 'steam\.exe' >/dev/null 2>&1; then
+    if ! pgrep -f "$TRAY_RE" >/dev/null 2>&1; then
       IDLE_STRIKES=$((IDLE_STRIKES + 1))
       if [ "$IDLE_STRIKES" -ge 2 ]; then
         WINEPREFIX="$PREFIX" "$WINESERVER" -k 2>/dev/null || true
         sleep 3
-        pkill -9 -f "$UI_RE|steamservice\.exe" 2>/dev/null || true
+        pkill -9 -f "$TRAY_KILL_RE" 2>/dev/null || true
         exit 0
       fi
     else
