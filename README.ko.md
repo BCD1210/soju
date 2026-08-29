@@ -2,7 +2,7 @@
 
 > *Wine → Whisky → Kegworks… 그리고 한국의 차례: **Soju** 🍶*
 
-**Apple Silicon 맥에서 Battle.net과 디아블로 II: 레저렉션을 — 완전 무료 오픈소스 Wine 스택으로.**
+**Apple Silicon 맥에서 Battle.net·디아블로 II: 레저렉션·Epic Games Launcher·Steam을 — 완전 무료 오픈소스 Wine 스택으로.**
 
 CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)를 이 레포의 스크립트로 직접 빌드·조립합니다. 유료 소프트웨어 불필요.
 
@@ -66,6 +66,18 @@ scripts/play.sh kill        # 전부 종료
 ```
 
 이미 CrossOver 보틀에 게임이 설치돼 있다면 `scripts/setup-bottle.sh`로 복제하세요 (28GB 재다운로드 회피).
+
+## Epic Games Launcher
+
+같은 엔진, 별도 보틀, 추가 트릭 없음: Epic의 CEF는 이 빌드에서 GPU 프로세스가 죽지 않아 런처가 기본 커맨드라인 그대로 뜹니다. 검증 2026-08-29: 공식 MSI 무인 설치(~30초), 런처 UI, 로그인.
+
+```bash
+scripts/create-epic-bottle.sh    # 공식 Epic MSI, 무인 설치
+scripts/play.sh epic             # 로그인 → 게임 설치·플레이
+scripts/play.sh epic-kill        # Epic 보틀 종료 (창을 닫아도 런처는 살아 있음 — macOS 메뉴바의 Epic 아이콘을 **우클릭**해 열기/Exit, Windows 트레이와 동일 — 좌클릭 한 번엔 반응 없음)
+```
+
+게임은 아직 폭넓게 테스트하지 않았습니다. 커널 안티치트(EAC/BattlEye)가 필요한 게임은 Wine에서 돌지 않습니다.
 
 ## Steam 지원 (Steam판 D2R 포함)
 

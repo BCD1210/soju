@@ -27,7 +27,9 @@ if [ -x "$ENGINE/bin/wine" ]; then
   say "[1/4] Engine already present - skipping"
 else
   say "[1/4] Downloading prebuilt engine (~350MB, GPL - built from CodeWeavers' published Wine sources)"
-  URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
+  # The engine ships on its own "engine-*" release, which is not necessarily the
+  # newest release — scan all releases and take the first (newest) engine asset.
+  URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
         | grep -o '"browser_download_url": *"[^"]*soju-engine[^"]*"' | head -1 | grep -o 'https[^"]*')
   [ -n "$URL" ] || { echo "Could not find the engine release asset."; exit 1; }
   curl -fL "$URL" -o "$BASE/engine.tar.xz"

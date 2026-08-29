@@ -27,6 +27,13 @@ echo "==> Downloading CrossOver 26.3 sources + freetype"
 [ -f "$WORK/cx-src.tar.gz" ] || curl -fL "$SRC_URL" -o "$WORK/cx-src.tar.gz"
 tar -xzf "$WORK/cx-src.tar.gz" -C "$WORK" sources/wine
 WINE="$WORK/sources/wine"
+# Soju winemac patch: WINE_NO_DOCK_ICON (hide helper-process Dock icons) and
+# WINE_DOCK_REOPEN_CMD (Dock click brings a tray-parked launcher back). Used by
+# the Epic and Steam modes of play.sh.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! grep -q WINE_DOCK_REOPEN_CMD "$WINE/dlls/winemac.drv/cocoa_app.m"; then
+  patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/winemac-no-dock-icon.patch"
+fi
 
 echo "==> Building x86_64 freetype (Rosetta)"
 [ -f "$WORK/ft.tar.gz" ] || curl -fL "$FT_URL" -o "$WORK/ft.tar.gz"

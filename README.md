@@ -2,11 +2,11 @@
 
 > *Wine → Whisky → Kegworks… and now a Korean round: **Soju** 🍶*
 
-**Run Battle.net and Diablo II: Resurrected on Apple Silicon Macs — with a fully free, open-source Wine stack.**
+**Run Battle.net, Diablo II: Resurrected, the Epic Games Launcher and Steam on Apple Silicon Macs — with a fully free, open-source Wine stack.**
 
 Built from CodeWeavers' published GPL sources (Wine 11.0, CrossOver 26.3 source drop), compiled and assembled by scripts in this repo. No paid software required.
 
-> Status (2026-08): **Working end-to-end** — Battle.net login, Agent, and D2R in-game rendering (D3DMetal), verified on an M4 Pro running macOS 26.5.
+> Status (2026-08): **Working end-to-end** — Battle.net login, Agent, and D2R in-game rendering (D3DMetal); Epic Games Launcher login; Steam client + D3D11 games. Verified on an M4 Pro running macOS 26.5.
 
 *[한국어 README](README.ko.md)*
 
@@ -36,7 +36,7 @@ Or via Homebrew:
 
 ```bash
 brew install BCD1210/soju/soju
-soju install     # then: soju battlenet / soju d2r / soju steam
+soju install     # then: soju battlenet / soju d2r / soju epic / soju steam
 ```
 
 Downloads the prebuilt engine (~350 MB), walks you through Apple's free GPTK download (the one file Apple forbids redistributing), auto-installs Battle.net with Blizzard's official installer, and drops a `Battle.net.app` in `~/Applications`. Log in and play.
@@ -70,6 +70,18 @@ scripts/play.sh kill        # stop everything
 ```
 
 Already have a CrossOver bottle with games installed? `scripts/setup-bottle.sh` clones it (28 GB game re-download avoided).
+
+## Epic Games Launcher
+
+Same engine, own bottle, no extra tricks: Epic's CEF keeps its GPU process alive on this build, so the launcher runs with its stock command line. Verified 2026-08-29: unattended install from the official MSI (~30 s), launcher UI, login.
+
+```bash
+scripts/create-epic-bottle.sh    # official Epic MSI, unattended
+scripts/play.sh epic             # log in -> install & play
+scripts/play.sh epic-kill        # stop the Epic bottle (closing the window keeps the launcher running; right-click the Epic icon in the macOS menu bar to reopen or Exit — same as the Windows tray; a plain left click does nothing, as Epic only reacts to the menu)
+```
+
+Games have not been broadly tested yet; anything that needs kernel anti-cheat (EAC/BattlEye) will not run under Wine.
 
 ## Steam (including the Steam version of D2R)
 
