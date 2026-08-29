@@ -50,6 +50,7 @@ if [[ -f "$BN/Battle.net.exe" ]]; then
 fi
 
 REAPER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju-reaper.sh"
+SWEEP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju-sweep.sh"   # orphaned-service cleanup
 start_reaper(){
   # Watchdog: reaps game processes that outlive their windows, and shuts the
   # prefix down once everything is closed — so "quit" really means quit.
@@ -92,6 +93,7 @@ case "$MODE" in
   epic-kill)   # Stop everything in the Epic bottle
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
   steam)       # Steam client — wine-stable + webhelper wrapper (verified 2026-08-27)
     # Steam's CEF does not render on the CX engine (black screen / SEGV storm).
@@ -160,6 +162,7 @@ case "$MODE" in
   kill)        # Stop everything in the Battle.net bottle
     pkill -f "soju-reaper.sh" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
   steam-kill)  # Stop everything in the Steam bottle — note this bottle runs on
     # wine-stable, so it needs wine-stable's wineserver. Killing the CX engine's
@@ -167,6 +170,7 @@ case "$MODE" in
     # respawning steamwebhelper (it looks like "Steam relaunches itself").
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver" -k 2>/dev/null || true
+    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
   *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|steam|kill|steam-kill]"; exit 1;;
 esac

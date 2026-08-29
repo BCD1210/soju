@@ -109,6 +109,10 @@ Verified on M4 Pro / macOS 26.5: login, library, and an actual D3D11 (Unity) gam
 - **Battle.net login webview may flicker (~once a minute)** -> known cosmetic issue; it recovers automatically and login works.
 - **BLZBNTBNA00000005** -> `play.sh` seeds the signed exe automatically; make sure you launch through it.
 
+### Leftover Wine processes
+
+Every bottle start also spawns idle Windows service processes (`services.exe`, `winedevice.exe`, `plugplay.exe`, `rpcss.exe`, `explorer.exe /desktop`, ~100 MB per set). If a bottle's `wineserver` is killed abruptly (a crash, an aborted run), those services never notice and linger. `scripts/soju-sweep.sh` removes them, and `play.sh kill` / `epic-kill` / `steam-kill` and the reaper call it automatically — but only when no `wineserver` is running at all, so a live game or launcher is never touched.
+
 ## What's in the repo
 
 - `scripts/build-engine.sh` — full engine build recipe (freetype cross-build, gnutls wiring, GPTK layout, entitlements)
