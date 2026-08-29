@@ -79,7 +79,7 @@ case "$MODE" in
     # so none of the Battle.net command-line switches are needed.
     # Closing the window hides it, exactly like on Windows: Epic's tray icon
     # lands in the macOS menu bar (winemac systray -> NSStatusItem), and its
-    # menu reopens the window or exits. Do NOT force the hidden window back via
+    # right-click menu reopens the window or exits (left click is ignored by Epic). Do NOT force the hidden window back via
     # ShowWindow() from outside — Slate keeps its "minimized" state and the
     # window comes back unresponsive.
     EPIC="C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe"
