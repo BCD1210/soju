@@ -113,6 +113,9 @@ fi
 
 # ---------- 4. App bundle ----------
 say "[4/4] Creating Battle.net.app"
+REAPER="$BASE/soju-reaper.sh"
+[ -f "$REAPER" ] || curl -fsSL "https://raw.githubusercontent.com/$REPO/main/scripts/soju-reaper.sh" -o "$REAPER" 2>/dev/null || true
+chmod +x "$REAPER" 2>/dev/null || true
 APP="$HOME/Applications/Battle.net.app"
 mkdir -p "$APP/Contents/MacOS"
 cat > "$APP/Contents/MacOS/launcher" <<EOF
@@ -122,6 +125,8 @@ export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 BN="\$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
 for v in "\$BN"/Battle.net.[0-9]*; do [ -d "\$v" ] && cp -f "\$BN/Battle.net.exe" "\$v/Battle.net.exe" 2>/dev/null; done
+# Reap zombie game processes so quitting the game really quits it
+pgrep -f "soju-reaper.sh \$WINEPREFIX" >/dev/null 2>&1 || { [ -x "$REAPER" ] && ( "$REAPER" "\$WINEPREFIX" "$ENGINE/bin/wineserver" >/dev/null 2>&1 & ); }
 exec "$ENGINE/bin/wine" "C:\\\\Program Files (x86)\\\\Battle.net\\\\Battle.net Launcher.exe" --disable-gpu-compositing
 EOF
 chmod +x "$APP/Contents/MacOS/launcher"

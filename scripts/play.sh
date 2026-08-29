@@ -40,13 +40,23 @@ if [[ -f "$BN/Battle.net.exe" ]]; then
   done
 fi
 
+REAPER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju-reaper.sh"
+start_reaper(){
+  # Watchdog: reaps game processes that outlive their windows, and shuts the
+  # prefix down once everything is closed — so "quit" really means quit.
+  pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 && return 0
+  [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" >/dev/null 2>&1 & )
+}
+
 case "$MODE" in
   battlenet)   # Battle.net launcher (log in, then Play for online)
+    start_reaper
     exec "$ENGINE/bin/wine" \
       "C:\\Program Files (x86)\\Battle.net\\Battle.net Launcher.exe" \
       --disable-gpu-compositing
     ;;
   d2r)         # Launch the game directly (offline / previous session)
+    start_reaper
     cd "$WINEPREFIX/drive_c/Program Files (x86)/Diablo II Resurrected"
     exec "$ENGINE/bin/wine" "D2R.exe" "${@:2}"
     ;;
@@ -105,6 +115,7 @@ case "$MODE" in
       "$WINESTABLE" "${STEAM_CMD[@]}"
     ;;
   kill)        # Stop everything in the Battle.net bottle
+    pkill -f "soju-reaper.sh" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     ;;
   steam-kill)  # Stop everything in the Steam bottle — note this bottle runs on
