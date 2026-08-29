@@ -78,7 +78,7 @@ D2R shipped on Steam in Feb 2026 as the *Infernal Edition*. Steam support uses a
 ```bash
 scripts/create-steam-bottle.sh   # installs wine-stable + wrapper + official Valve installer
 scripts/play.sh steam            # log in -> install & play
-scripts/play.sh steam-kill       # stop the Steam bottle
+scripts/play.sh steam-kill       # stop the Steam bottle (closing the window keeps Steam running; click the Dock icon to bring it back, Steam > Exit quits)
 ```
 
 Verified on M4 Pro / macOS 26.5: login, library, and an actual D3D11 (Unity) game rendering in-game via a DXMT fork — see `docs/STEAM-GAMES.md` for the full wiring (`scripts/setup-steam-games.sh`). Notes: switch your macOS input source to English (ABC) when typing in Steam (IME composition shows as `?` otherwise).

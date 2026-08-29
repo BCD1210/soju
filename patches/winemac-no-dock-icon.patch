@@ -1,5 +1,5 @@
 diff --git a/dlls/winemac.drv/cocoa_app.m b/dlls/winemac.drv/cocoa_app.m
-index 2a9dab2..63e871b 100644
+index 2a9dab2..7d41ce8 100644
 --- a/dlls/winemac.drv/cocoa_app.m
 +++ b/dlls/winemac.drv/cocoa_app.m
 @@ -230,6 +230,34 @@ - (void) transformProcessToForeground:(BOOL)activateIfTransformed
@@ -37,3 +37,38 @@ index 2a9dab2..63e871b 100644
              [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
  
              if (activateIfTransformed)
+@@ -2232,6 +2260,34 @@ - (BOOL) applicationShouldHandleReopen:(NSApplication*)theApplication hasVisible
+         // Note that "flag" is often wrong.  WineWindows are NSPanels and NSPanels
+         // don't count as "visible windows" for this purpose.
+         [self unminimizeWindowIfNoneVisible];
++
++        /* Soju: WINE_DOCK_REOPEN_CMD — Windows apps that "close to the tray"
++           (Steam) hide their window; there is no tray on macOS, so a Dock click
++           would do nothing. If nothing is visible after the unminimize attempt,
++           run the command (e.g. "steam.exe steam://open/main") to bring it back. */
++        {
++            const char* cmd = getenv("WINE_DOCK_REOPEN_CMD");
++            if (cmd && *cmd)
++            {
++                BOOL anyVisible = NO;
++                for (NSWindow* w in [NSApp windows])
++                {
++                    if ([w isKindOfClass:[WineWindow class]] && [w isVisible] && ![w isMiniaturized])
++                    {
++                        anyVisible = YES;
++                        break;
++                    }
++                }
++                if (!anyVisible)
++                {
++                    NSTask* task = [[NSTask alloc] init];
++                    task.launchPath = @"/bin/sh";
++                    task.arguments = @[@"-c", [NSString stringWithUTF8String:cmd]];
++                    @try { [task launch]; } @catch (NSException* e) { NSLog(@"WINE_DOCK_REOPEN_CMD failed: %@", e); }
++                    [task release];
++                }
++            }
++        }
+         return YES;
+     }
+ 
