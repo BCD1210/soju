@@ -24,6 +24,7 @@ PREFIX="${1:?usage: soju-reaper.sh <WINEPREFIX> <wineserver> [battlenet|steam|ep
 WINESERVER="${2:?}"
 MODE="${3:-battlenet}"
 INTERVAL=20
+SWEEP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju-sweep.sh"
 case "$MODE" in
   steam)
     GAME_RE='Steam\\steamapps\\'                      # games live under steamapps
@@ -84,6 +85,7 @@ if [ "$MODE" = "steam" ] || [ "$MODE" = "epic" ]; then
       IDLE_STRIKES=$((IDLE_STRIKES + 1))
       if [ "$IDLE_STRIKES" -ge 2 ]; then
         WINEPREFIX="$PREFIX" "$WINESERVER" -k 2>/dev/null || true
+        sleep 3; [ -x "$SWEEP" ] && "$SWEEP" >/dev/null 2>&1
         sleep 3
         pkill -9 -f "$TRAY_KILL_RE" 2>/dev/null || true
         exit 0
@@ -106,6 +108,7 @@ while true; do
     # Two idle checks in a row: tear down leftover services (Agent, winedevice…)
     if [ "$IDLE_STRIKES" -ge 2 ]; then
       WINEPREFIX="$PREFIX" "$WINESERVER" -k 2>/dev/null || true
+      sleep 3; [ -x "$SWEEP" ] && "$SWEEP" >/dev/null 2>&1
       exit 0
     fi
     continue
