@@ -15,7 +15,9 @@ set -u
 if pgrep -x wineserver >/dev/null 2>&1 || pgrep -x wineserver64 >/dev/null 2>&1; then
   exit 0   # something is live — do nothing
 fi
-RE='(explorer\.exe /desktop|services\.exe|winedevice\.exe|plugplay\.exe|rpcss\.exe|svchost\.exe|conhost\.exe|tabtip\.exe)'
+# Also Wine's own prompts (the "Wine Mono Installer" dialog is control.exe
+# appwiz.cpl install_mono) — orphaned, they sit in the Dock as "wine" for hours.
+RE='(explorer\.exe /desktop|services\.exe|winedevice\.exe|plugplay\.exe|rpcss\.exe|svchost\.exe|conhost\.exe|tabtip\.exe|control\.exe appwiz\.cpl|wineboot\.exe|winedbg\.exe)'
 PIDS=$(pgrep -f "$RE" 2>/dev/null || true)
 [ -n "$PIDS" ] || exit 0
 echo "soju-sweep: removing orphaned Wine services: $(echo $PIDS | wc -w | tr -d ' ') processes"
