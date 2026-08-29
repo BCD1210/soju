@@ -82,7 +82,7 @@ EOT
 fi
 
 # ---------- 3. Bottle + Battle.net ----------
-export WINEPREFIX="$BOTTLE" WINEDEBUG=fixme-all WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1
+export WINEPREFIX="$BOTTLE" WINEDEBUG=fixme-all WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1 WINE_SIMULATE_WRITECOPY=1
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 if [ -f "$BOTTLE/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" ]; then
@@ -120,7 +120,7 @@ APP="$HOME/Applications/Battle.net.app"
 mkdir -p "$APP/Contents/MacOS"
 cat > "$APP/Contents/MacOS/launcher" <<EOF
 #!/bin/bash
-export WINEPREFIX="$BOTTLE" WINEDEBUG=fixme-all WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1
+export WINEPREFIX="$BOTTLE" WINEDEBUG=fixme-all WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1 WINE_SIMULATE_WRITECOPY=1
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 BN="\$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"

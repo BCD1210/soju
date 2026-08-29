@@ -1,0 +1,28 @@
+=== CEF renderer int3 root cause (2026-08-29) ===
+crash thread (renderer initial thread), WINEDEBUG=+seh,+virtual,+loaddll,+process, cx26-engine (our ntdll):
+
+0394:trace:loaddll:build_module Loaded L"C:\\Program Files (x86)\\Battle.net\\Battle.net.17731\\libcef.dll" at 678C0000: native
+...
+0394:trace:virtual:NtProtectVirtualMemory 0xffffffffffffffff 0x710a9000 00001000 00000002
+0394:trace:virtual:get_vprot_range_size base 0x710a9000, size 0x1000, mask 0x20.
+0394:trace:virtual:dump_view View: 0x678c0000 - 0x71843fff c-rWx (image)
+0394:trace:virtual:dump_view       0x71089000 - 0x710a8fff c-rW-
+0394:trace:virtual:dump_view       0x710a9000 - 0x710a9fff c-r--
+0394:trace:seh:dispatch_exception code=80000003 (EXCEPTION_BREAKPOINT) flags=0 addr=68F900E1   (= libcef+0x16D00E1)
+wine: Unhandled exception 0x80000003 in thread 394 at address 68F900E1 (thread 0394), starting debugger...
+
+same call under CX-shipped ntdll.so (shadow-engine), same page (libcef @ 6C680000 -> 0x75e69000):
+03ec:trace:virtual:NtProtectVirtualMemory 0xffffffffffffffff 0x75e69000 00001000 00000002
+03ec:trace:virtual:get_vprot_range_size base 0x75e69000, size 0x1000, mask 0x20.
+03ec:trace:virtual:NtProtectVirtualMemory Setting VPROT_COPIED.      <-- simulate_writecopy path (CW Hack 22996)
+(no breakpoint)
+
+libcef.dll 0x116d00a0 (image base 0x10000000):
+  calll *0x197bc9e0        ; IAT -> KERNEL32.VirtualProtect(a, b, 2, &local)
+  testl %eax,%eax ; je 116d00de (int3)
+  cmpl $0x4,-0x8(%ebp) ; jne 116d00e1 (int3)   ; old protection must be PAGE_READWRITE
+
+crashing process cmdline: "Battle.net.exe --type=renderer ..." (parent NtCreateUserProcess pid 0390 tid 0394)
+
+fix verified: WINE_SIMULATE_WRITECOPY=1 with pristine cx26-engine -> 0 breakpoints, renderers alive at 90s,
+"Logged into Battle.net successfully" + "Attempting to show main window".

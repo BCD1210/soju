@@ -27,6 +27,13 @@ fi
 export WINEDEBUG="${WINEDEBUG:-fixme-all}"
 export WINEMSYNC=1
 export ROSETTA_ADVERTISE_AVX=1
+# Battle.net's CEF renderer CHECKs that VirtualProtect() on a written .data page
+# of libcef.dll reports PAGE_READWRITE. Plain wine reports PAGE_WRITECOPY for
+# image pages forever (it maps them RW and never tracks the first write), so the
+# renderer hits int3 on startup and the login webview stays blank. CrossOver's
+# ntdll enables the "simulate writecopy" hack (CW Hack 22996) by default; the
+# GPL source only enables it through this env var. See docs/DIAGNOSIS.md.
+export WINE_SIMULATE_WRITECOPY=1
 export CX_ACTIVE_GRAPHICS_BACKEND=d3dmetal
 export CX_GRAPHICS_BACKEND=d3dmetal
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"

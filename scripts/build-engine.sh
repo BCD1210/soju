@@ -85,7 +85,7 @@ echo "==> Done: $ENGINE"
 DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version
 echo
 echo "Example launch:"
-echo "  export WINEPREFIX=<bottle> CX_GRAPHICS_BACKEND=d3dmetal WINEMSYNC=1"
+echo "  export WINEPREFIX=<bottle> CX_GRAPHICS_BACKEND=d3dmetal WINEMSYNC=1 WINE_SIMULATE_WRITECOPY=1"
 echo "  export DYLD_FALLBACK_LIBRARY_PATH='$ENGINE/lib:/usr/lib'"
 echo "  '$ENGINE/bin/wine' 'C:\\\\Program Files (x86)\\\\Battle.net\\\\Battle.net Launcher.exe' --disable-gpu-compositing"
 echo "  (Apple-protected binaries (nohup, ...) in the chain strip DYLD_* — background it with a subshell & instead)"
