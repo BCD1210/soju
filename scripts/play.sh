@@ -76,15 +76,17 @@ case "$MODE" in
     ;;
   epic)        # Epic Games Launcher — same engine and env as Battle.net (verified 2026-08-29)
     # Runs as-is: Epic's CEF (EpicWebHelper) keeps its GPU process alive here,
-    # so none of the Battle.net command-line switches are needed. Closing the
-    # window parks the launcher in its (invisible) tray, like on Windows; a Dock
-    # click re-runs the exe, which just raises the running instance.
+    # so none of the Battle.net command-line switches are needed.
+    # Closing the window hides it, exactly like on Windows: Epic's tray icon
+    # lands in the macOS menu bar (winemac systray -> NSStatusItem), and its
+    # menu reopens the window or exits. Do NOT force the hidden window back via
+    # ShowWindow() from outside — Slate keeps its "minimized" state and the
+    # window comes back unresponsive.
     EPIC="C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe"
     [[ -f "$WINEPREFIX/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe" ]] || \
       { echo "Epic Games Launcher not found — run scripts/create-epic-bottle.sh first"; exit 1; }
     pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
       { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" epic >/dev/null 2>&1 & ); }
-    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$EPIC'"
     exec "$ENGINE/bin/wine" "$EPIC" "${@:2}"
     ;;
   epic-kill)   # Stop everything in the Epic bottle
