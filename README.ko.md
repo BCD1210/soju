@@ -74,7 +74,7 @@ scripts/play.sh kill        # 전부 종료
 ```bash
 scripts/create-epic-bottle.sh    # 공식 Epic MSI, 무인 설치
 scripts/play.sh epic             # 로그인 → 게임 설치·플레이
-scripts/play.sh epic-kill        # Epic 보틀 종료 (창을 닫아도 런처는 살아 있음 — macOS 메뉴바의 Epic 아이콘에서 열기/Exit, Windows 트레이와 동일)
+scripts/play.sh epic-kill        # Epic 보틀 종료 (창을 닫아도 런처는 살아 있음 — macOS 메뉴바의 Epic 아이콘을 **우클릭**해 열기/Exit, Windows 트레이와 동일 — 좌클릭 한 번엔 반응 없음)
 ```
 
 게임은 아직 폭넓게 테스트하지 않았습니다. 커널 안티치트(EAC/BattlEye)가 필요한 게임은 Wine에서 돌지 않습니다.
