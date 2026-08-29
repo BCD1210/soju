@@ -2,11 +2,13 @@
 
 > *Wine → Whisky → Kegworks… 그리고 한국의 차례: **Soju** 🍶*
 
-**Apple Silicon 맥에서 Battle.net·디아블로 II: 레저렉션·Epic Games Launcher·Steam을 — 완전 무료 오픈소스 Wine 스택으로.**
+**런처가 실제로 로그인됩니다.** Apple Silicon 맥에서 Battle.net·Steam·Epic Games Launcher — 검은 로그인 창도, 끝나지 않는 "Signing in…"도, CrossOver 라이선스도 없이. 완전 무료 오픈소스 Wine 스택.
+
+Whisky/Kegworks 스레드의 *"배틀넷 로그인 시 크래시"*, *"Steam이 안 열림"*, *"런처 창이 비어 있음"* 때문에 오셨다면, 바로 그 벽들을 이 레포가 기록하고 해결했습니다(CEF 렌더러 `PAGE_WRITECOPY` int3, CEF GPU 프로세스 초기화 사망, Steam webhelper) — [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)를 이 레포의 스크립트로 직접 빌드·조립합니다. 유료 소프트웨어 불필요.
 
-> 상태(2026-08): **전 구간 동작** — 배틀넷 로그인, Agent, D2R 인게임 렌더링(D3DMetal)까지. M4 Pro / macOS 26.5에서 검증.
+> 상태(2026-08): **전 구간 동작** — 배틀넷 로그인·Agent·D2R 인게임 렌더링(D3DMetal), Epic Games Launcher 로그인(메뉴바 트레이), Steam 로그인 + D3D11 게임. M4 Pro / macOS 26.5에서 검증.
 
 *[English README](README.md)*
 

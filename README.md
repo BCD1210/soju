@@ -2,11 +2,13 @@
 
 > *Wine → Whisky → Kegworks… and now a Korean round: **Soju** 🍶*
 
-**Run Battle.net, Diablo II: Resurrected, the Epic Games Launcher and Steam on Apple Silicon Macs — with a fully free, open-source Wine stack.**
+**The launchers actually log in.** Battle.net, Steam and the Epic Games Launcher on Apple Silicon — no black login window, no "Signing in…" that never ends, no CrossOver license. A fully free, open-source Wine stack.
+
+If you got here from a Whisky/Kegworks thread titled *"Battle.net crashes on login"*, *"Steam won't open"* or *"launcher shows a blank window"*: those are the exact walls this repo documents and fixes (CEF renderer `int3` on `PAGE_WRITECOPY`, CEF GPU process dying on init, Steam's webhelper) — see [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 Built from CodeWeavers' published GPL sources (Wine 11.0, CrossOver 26.3 source drop), compiled and assembled by scripts in this repo. No paid software required.
 
-> Status (2026-08): **Working end-to-end** — Battle.net login, Agent, and D2R in-game rendering (D3DMetal); Epic Games Launcher login; Steam client + D3D11 games. Verified on an M4 Pro running macOS 26.5.
+> Status (2026-08): **Working end-to-end** — Battle.net login, Agent, and D2R in-game rendering (D3DMetal); Epic Games Launcher login (tray icon in the menu bar); Steam client login + D3D11 games. Verified on an M4 Pro running macOS 26.5.
 
 *[한국어 README](README.ko.md)*
 
