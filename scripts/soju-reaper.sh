@@ -14,10 +14,9 @@
 # Usage: soju-reaper.sh <WINEPREFIX> <wineserver-path> [battlenet|steam]
 #        (backgrounded by play.sh / the Battle.net.app launcher)
 #
-# steam mode: the Windows Steam client never really quits — closing its window
-# just parks it in a tray that macOS does not show, so the Dock icon and half a
-# dozen processes linger. In steam mode "no Steam/game window on screen for two
-# checks" means the user is done: the whole Steam bottle is shut down.
+# steam mode: closing the Steam window parks it in a tray (as on Windows; the
+# Dock icon brings it back via WINE_DOCK_REOPEN_CMD). Once steam.exe itself has
+# exited, the leftovers (steamservice, winedevice, wineserver) are shut down.
 set -u
 
 PREFIX="${1:?usage: soju-reaper.sh <WINEPREFIX> <wineserver> [battlenet|steam]}"
@@ -69,24 +68,21 @@ declare -A STRIKES
 IDLE_STRIKES=0
 
 if [ "$MODE" = "steam" ]; then
-  # Wait for Steam to show a window first (login/update can take a while), then
-  # tear the bottle down once neither Steam nor a game has a window for 40s.
-  SEEN=0; NOWIN=0
+  # Steam parks itself in an (invisible on macOS) tray when its window is closed,
+  # so a missing window means nothing here. Only once steam.exe has really gone
+  # (Steam menu > Exit) do we shut the rest of the bottle down.
   while true; do
     sleep "$INTERVAL"
-    PIDS=$(pgrep -f "$UI_RE|$GAME_RE" 2>/dev/null || true)
-    [ -z "$PIDS" ] && { [ "$SEEN" = 1 ] && exit 0; continue; }
-    WINS=" $(window_pids) "
-    HAS=0
-    for pid in $PIDS; do [[ "$WINS" == *" $pid "* ]] && { HAS=1; break; }; done
-    if [ "$HAS" = 1 ]; then SEEN=1; NOWIN=0; continue; fi
-    [ "$SEEN" = 1 ] || continue
-    NOWIN=$((NOWIN + 1))
-    if [ "$NOWIN" -ge 2 ]; then
-      WINEPREFIX="$PREFIX" "$WINESERVER" -k 2>/dev/null || true
-      sleep 3
-      pkill -9 -f "$UI_RE|steamservice\.exe" 2>/dev/null || true
-      exit 0
+    if ! pgrep -f 'steam\.exe' >/dev/null 2>&1; then
+      IDLE_STRIKES=$((IDLE_STRIKES + 1))
+      if [ "$IDLE_STRIKES" -ge 2 ]; then
+        WINEPREFIX="$PREFIX" "$WINESERVER" -k 2>/dev/null || true
+        sleep 3
+        pkill -9 -f "$UI_RE|steamservice\.exe" 2>/dev/null || true
+        exit 0
+      fi
+    else
+      IDLE_STRIKES=0
     fi
   done
 fi

@@ -120,8 +120,12 @@ case "$MODE" in
     # 5) Launch — plain wine-stable environment, without the CX engine env
     STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process -noverifyfiles "${@:2}")
     [[ -n "$VD" ]] && STEAM_CMD=(explorer.exe "/desktop=soju-steam,$VD" "${STEAM_CMD[@]}")
-    # Reaper in steam mode: closing the Steam window normally leaves steam.exe
-    # parked in an invisible tray (Dock icon stays). Shut the bottle down instead.
+    # Closing the Steam window parks it in a tray macOS does not show; the patched
+    # winemac runs WINE_DOCK_REOPEN_CMD on a Dock-icon click when no window is
+    # visible, which makes the running Steam show its window again (same UX as
+    # Windows' tray icon).
+    # Reaper in steam mode: once Steam itself exits (Steam menu > Exit), tear the
+    # rest of the bottle down so no Dock icon / winedevice lingers.
     pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
       { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$WINESTABLE_SERVER" steam >/dev/null 2>&1 & ); }
     env -u DYLD_FALLBACK_LIBRARY_PATH -u CX_ACTIVE_GRAPHICS_BACKEND -u CX_GRAPHICS_BACKEND \
@@ -129,6 +133,7 @@ case "$MODE" in
       WINEPREFIX="$WINEPREFIX" WINEDEBUG="${WINEDEBUG:-fixme-all}" \
       WINEDLLOVERRIDES="bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d" \
       WINE_NO_DOCK_ICON="steam.exe;steamservice.exe" \
+      WINE_DOCK_REOPEN_CMD="'$WINESTABLE' 'C:\\Program Files (x86)\\Steam\\steam.exe' steam://open/main" \
       "$WINESTABLE" "${STEAM_CMD[@]}"
     ;;
   kill)        # Stop everything in the Battle.net bottle
