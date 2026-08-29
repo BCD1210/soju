@@ -71,7 +71,10 @@ three fixes we needed on macOS 26.5 / current Homebrew:
 
 DXMT is LGPL-2.1+ (Copyright Feifan He for CodeWeavers); the wrapper is MIT
 (vendored in `third_party/`); our winemac patch is published as
-`patches/winemac-no-dock-icon.patch` (LGPL-2.1+, matching Wine). Nothing
+`patches/winemac-no-dock-icon.patch` (LGPL-2.1+, matching Wine). The same patch adds
+`WINE_DOCK_REOPEN_CMD`: when the Dock icon is clicked and no Wine window is visible, winemac runs
+the command — `play.sh steam` sets it to `steam.exe steam://open/main`, so closing the Steam window
+parks it (as on Windows) and a Dock click brings it back; Steam > Exit really quits. Nothing
 proprietary is redistributed.
 
 Artifacts land in `~/.battlenet-macos/steam-support/` and

@@ -79,6 +79,7 @@ case "$MODE" in
     # -cef-single-process. Source: github.com/notpop/steam-on-m1-wine (MIT),
     # vendored in third_party/.
     WINESTABLE="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine"
+    WINESTABLE_SERVER="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver"
     [[ -x "$WINESTABLE" ]] || { echo "wine-stable not found — brew install --cask wine-stable"; exit 1; }
     ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
     [[ -f "$ST" ]] || { echo "Steam not found — run scripts/create-steam-bottle.sh first"; exit 1; }
@@ -119,11 +120,20 @@ case "$MODE" in
     # 5) Launch — plain wine-stable environment, without the CX engine env
     STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process -noverifyfiles "${@:2}")
     [[ -n "$VD" ]] && STEAM_CMD=(explorer.exe "/desktop=soju-steam,$VD" "${STEAM_CMD[@]}")
+    # Closing the Steam window parks it in a tray macOS does not show; the patched
+    # winemac runs WINE_DOCK_REOPEN_CMD on a Dock-icon click when no window is
+    # visible, which makes the running Steam show its window again (same UX as
+    # Windows' tray icon).
+    # Reaper in steam mode: once Steam itself exits (Steam menu > Exit), tear the
+    # rest of the bottle down so no Dock icon / winedevice lingers.
+    pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
+      { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$WINESTABLE_SERVER" steam >/dev/null 2>&1 & ); }
     env -u DYLD_FALLBACK_LIBRARY_PATH -u CX_ACTIVE_GRAPHICS_BACKEND -u CX_GRAPHICS_BACKEND \
         -u CX_APPLEGPTK_LIBD3DSHARED_PATH -u WINEMSYNC -u ROSETTA_ADVERTISE_AVX \
       WINEPREFIX="$WINEPREFIX" WINEDEBUG="${WINEDEBUG:-fixme-all}" \
       WINEDLLOVERRIDES="bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d" \
       WINE_NO_DOCK_ICON="steam.exe;steamservice.exe" \
+      WINE_DOCK_REOPEN_CMD="'$WINESTABLE' 'C:\\Program Files (x86)\\Steam\\steam.exe' steam://open/main" \
       "$WINESTABLE" "${STEAM_CMD[@]}"
     ;;
   kill)        # Stop everything in the Battle.net bottle
@@ -134,6 +144,7 @@ case "$MODE" in
     # wine-stable, so it needs wine-stable's wineserver. Killing the CX engine's
     # wineserver here does nothing and leaves steam.exe alive, which then keeps
     # respawning steamwebhelper (it looks like "Steam relaunches itself").
+    pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver" -k 2>/dev/null || true
     ;;
   *) echo "usage: play.sh [battlenet|d2r|steam|kill|steam-kill]"; exit 1;;
