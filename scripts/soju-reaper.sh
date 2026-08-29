@@ -11,14 +11,29 @@
 # Window detection uses CGWindowListCopyWindowInfo via python3+ctypes — no
 # Accessibility permission needed, nothing to install.
 #
-# Usage: soju-reaper.sh <WINEPREFIX> <wineserver-path>   (backgrounded by play.sh)
+# Usage: soju-reaper.sh <WINEPREFIX> <wineserver-path> [battlenet|steam]
+#        (backgrounded by play.sh / the Battle.net.app launcher)
+#
+# steam mode: the Windows Steam client never really quits — closing its window
+# just parks it in a tray that macOS does not show, so the Dock icon and half a
+# dozen processes linger. In steam mode "no Steam/game window on screen for two
+# checks" means the user is done: the whole Steam bottle is shut down.
 set -u
 
-PREFIX="${1:?usage: soju-reaper.sh <WINEPREFIX> <wineserver>}"
+PREFIX="${1:?usage: soju-reaper.sh <WINEPREFIX> <wineserver> [battlenet|steam]}"
 WINESERVER="${2:?}"
+MODE="${3:-battlenet}"
 INTERVAL=20
-GAME_RE='D2R\.exe|BlizzardError\.exe'
-UI_RE='Battle\.net\.exe.*--from-launcher|Battle\.net Launcher\.exe'
+case "$MODE" in
+  steam)
+    GAME_RE='Steam\\steamapps\\'                      # games live under steamapps
+    UI_RE='steam\.exe|steamwebhelper'
+    ;;
+  *)
+    GAME_RE='D2R\.exe|BlizzardError\.exe'
+    UI_RE='Battle\.net\.exe.*--from-launcher|Battle\.net Launcher\.exe'
+    ;;
+esac
 
 window_pids() {
   /usr/bin/python3 - <<'PY'
@@ -52,6 +67,29 @@ PY
 
 declare -A STRIKES
 IDLE_STRIKES=0
+
+if [ "$MODE" = "steam" ]; then
+  # Wait for Steam to show a window first (login/update can take a while), then
+  # tear the bottle down once neither Steam nor a game has a window for 40s.
+  SEEN=0; NOWIN=0
+  while true; do
+    sleep "$INTERVAL"
+    PIDS=$(pgrep -f "$UI_RE|$GAME_RE" 2>/dev/null || true)
+    [ -z "$PIDS" ] && { [ "$SEEN" = 1 ] && exit 0; continue; }
+    WINS=" $(window_pids) "
+    HAS=0
+    for pid in $PIDS; do [[ "$WINS" == *" $pid "* ]] && { HAS=1; break; }; done
+    if [ "$HAS" = 1 ]; then SEEN=1; NOWIN=0; continue; fi
+    [ "$SEEN" = 1 ] || continue
+    NOWIN=$((NOWIN + 1))
+    if [ "$NOWIN" -ge 2 ]; then
+      WINEPREFIX="$PREFIX" "$WINESERVER" -k 2>/dev/null || true
+      sleep 3
+      pkill -9 -f "$UI_RE|steamservice\.exe" 2>/dev/null || true
+      exit 0
+    fi
+  done
+fi
 
 while true; do
   sleep "$INTERVAL"
