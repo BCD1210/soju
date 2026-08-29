@@ -1,5 +1,5 @@
 diff --git a/dlls/winemac.drv/cocoa_app.m b/dlls/winemac.drv/cocoa_app.m
-index 2a9dab2..7d41ce8 100644
+index 2a9dab2..13e054b 100644
 --- a/dlls/winemac.drv/cocoa_app.m
 +++ b/dlls/winemac.drv/cocoa_app.m
 @@ -230,6 +230,34 @@ - (void) transformProcessToForeground:(BOOL)activateIfTransformed
@@ -37,7 +37,7 @@ index 2a9dab2..7d41ce8 100644
              [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
  
              if (activateIfTransformed)
-@@ -2232,6 +2260,34 @@ - (BOOL) applicationShouldHandleReopen:(NSApplication*)theApplication hasVisible
+@@ -2232,6 +2260,40 @@ - (BOOL) applicationShouldHandleReopen:(NSApplication*)theApplication hasVisible
          // Note that "flag" is often wrong.  WineWindows are NSPanels and NSPanels
          // don't count as "visible windows" for this purpose.
          [self unminimizeWindowIfNoneVisible];
@@ -53,10 +53,16 @@ index 2a9dab2..7d41ce8 100644
 +                BOOL anyVisible = NO;
 +                for (NSWindow* w in [NSApp windows])
 +                {
-+                    if ([w isKindOfClass:[WineWindow class]] && [w isVisible] && ![w isMiniaturized])
++                    /* Only count windows a user can actually see. Tray-parked apps
++                       (Epic Games Launcher) keep tiny transparent helper windows
++                       parked far off-screen, and those are still "visible" to AppKit. */
++                    if ([w isKindOfClass:[WineWindow class]] && [w isVisible] && ![w isMiniaturized]
++                        && [w alphaValue] > 0.0 && w.frame.size.width > 1 && w.frame.size.height > 1)
 +                    {
-+                        anyVisible = YES;
-+                        break;
++                        BOOL onScreen = NO;
++                        for (NSScreen* screen in [NSScreen screens])
++                            if (NSIntersectsRect(w.frame, screen.frame)) { onScreen = YES; break; }
++                        if (onScreen) { anyVisible = YES; break; }
 +                    }
 +                }
 +                if (!anyVisible)
