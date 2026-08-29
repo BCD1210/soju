@@ -20,6 +20,8 @@ MODE="${1:-battlenet}"
 # Bottle (virtual C: drive) path — per-mode default (Battle.net and Steam use separate bottles)
 if [[ "$MODE" == steam* ]]; then
   export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/steam-bottle}"
+elif [[ "$MODE" == epic* ]]; then
+  export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/epic-bottle}"
 else
   export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/bottle}"
 fi
@@ -71,6 +73,23 @@ case "$MODE" in
     start_reaper
     cd "$WINEPREFIX/drive_c/Program Files (x86)/Diablo II Resurrected"
     exec "$ENGINE/bin/wine" "D2R.exe" "${@:2}"
+    ;;
+  epic)        # Epic Games Launcher — same engine and env as Battle.net (verified 2026-08-29)
+    # Runs as-is: Epic's CEF (EpicWebHelper) keeps its GPU process alive here,
+    # so none of the Battle.net command-line switches are needed. Closing the
+    # window parks the launcher in its (invisible) tray, like on Windows; a Dock
+    # click re-runs the exe, which just raises the running instance.
+    EPIC="C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe"
+    [[ -f "$WINEPREFIX/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe" ]] || \
+      { echo "Epic Games Launcher not found — run scripts/create-epic-bottle.sh first"; exit 1; }
+    pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
+      { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" epic >/dev/null 2>&1 & ); }
+    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$EPIC'"
+    exec "$ENGINE/bin/wine" "$EPIC" "${@:2}"
+    ;;
+  epic-kill)   # Stop everything in the Epic bottle
+    pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
+    "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     ;;
   steam)       # Steam client — wine-stable + webhelper wrapper (verified 2026-08-27)
     # Steam's CEF does not render on the CX engine (black screen / SEGV storm).
@@ -147,5 +166,5 @@ case "$MODE" in
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver" -k 2>/dev/null || true
     ;;
-  *) echo "usage: play.sh [battlenet|d2r|steam|kill|steam-kill]"; exit 1;;
+  *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|steam|kill|steam-kill]"; exit 1;;
 esac

@@ -78,6 +78,18 @@ CrossOver 바이너리 의존 0.
 해결: Launcher.exe를 거치지 않고 `Battle.net.exe --disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader`를
 직접 실행 (`install.sh` 런처, `scripts/play.sh`). 검증: GPU 프로세스 0, GLES 컨텍스트 생성, 렌더러 6, 로그인·메인창, **화면 표시·게임 실행 사용자 확인**.
 
+## Epic Games Launcher — 같은 엔진에서 추가 조치 없이 동작 (2026-08-29)
+
+벽 1/1-b가 배틀넷 고유 문제인지 CEF 일반 문제인지 확인하려고 Epic Games Launcher(UE5 + CEF3 `EpicWebHelper.exe`, Chrome/90)를 같은 엔진·같은 env(`WINE_SIMULATE_WRITECOPY=1` 포함)로 돌렸다.
+
+- 설치: 공식 `EpicGamesLauncherInstaller.msi`를 `msiexec /i … /qn`으로 무인 설치, 26초. 메뉴빌더 에러(`cx_wineshelllink`)만 나고 무해.
+- 실행: `EpicGamesLauncher.exe` 기본 인자 그대로. CEF가 `--type=gpu-process`를 별도 프로세스로 띄우는데 **죽지 않는다** — 배틀넷과 달리 `--in-process-gpu --use-gl=swiftshader`가 필요 없었다. 1826×857 메인창, 로그인, 스토어 UI 렌더링 확인.
+- wined3d는 `Using the Vulkan renderer for d3d10/11`(MoltenVK) 경로를 탔다. 런처 UI 자체는 이걸로 충분.
+- 로그의 `LogDPoP: Failed to create persistent DPoP key (0x80090029)`는 Linux Wine에서도 나오는 것으로 로그인에 영향 없음.
+- 트레이 UX: 창 닫기 = 트레이 상주(Windows와 동일). Dock 클릭 복귀는 `WINE_DOCK_REOPEN_CMD`로 exe를 다시 실행(싱글 인스턴스라 기존 창만 올라옴). 이를 위해 winemac 패치를 CX 엔진 빌드에도 적용(`build-engine.sh`가 `patches/winemac-no-dock-icon.patch`를 적용).
+
+결론: 벽 1(`WRITECOPY`)은 libcef 버전에 따라 걸리는 일반 문제일 수 있지만, 벽 1-b(GPU 프로세스 사망)는 Battle.net의 CEF 빌드/설정 고유. 다른 CEF 런처(GOG Galaxy·EA app·Ubisoft Connect)도 같은 절차로 먼저 "그냥 돌려보는" 것이 맞다.
+
 ## 벽 2 — Battle.net Agent caller 서명 검증 실패 (해결됨)
 
 ### 증상
