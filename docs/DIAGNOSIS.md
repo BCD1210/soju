@@ -86,7 +86,8 @@ CrossOver 바이너리 의존 0.
 - 실행: `EpicGamesLauncher.exe` 기본 인자 그대로. CEF가 `--type=gpu-process`를 별도 프로세스로 띄우는데 **죽지 않는다** — 배틀넷과 달리 `--in-process-gpu --use-gl=swiftshader`가 필요 없었다. 1826×857 메인창, 로그인, 스토어 UI 렌더링 확인.
 - wined3d는 `Using the Vulkan renderer for d3d10/11`(MoltenVK) 경로를 탔다. 런처 UI 자체는 이걸로 충분.
 - 로그의 `LogDPoP: Failed to create persistent DPoP key (0x80090029)`는 Linux Wine에서도 나오는 것으로 로그인에 영향 없음.
-- 트레이 UX: 창 닫기 = 트레이 상주(Windows와 동일). Dock 클릭 복귀는 `WINE_DOCK_REOPEN_CMD`로 exe를 다시 실행(싱글 인스턴스라 기존 창만 올라옴). 이를 위해 winemac 패치를 CX 엔진 빌드에도 적용(`build-engine.sh`가 `patches/winemac-no-dock-icon.patch`를 적용).
+- 트레이 UX: 창 닫기 = 숨김(Windows와 동일). Epic이 `Shell_NotifyIcon`으로 등록한 트레이 아이콘을 winemac systray가 **macOS 메뉴바 NSStatusItem**으로 올리고(`+systray` 트레이스로 확인), 그 메뉴로 창 열기·Exit가 된다 — 사용자 검증 완료. 시도했다 버린 것들: exe 재실행·`com.epicgames.launcher://` URL은 실행 중 인스턴스가 무시; 외부에서 `ShowWindow(SW_SHOW/RESTORE)`로 숨긴 창을 띄우면 보이긴 하지만 Slate가 "최소화" 상태를 유지해 **입력을 안 받는 먹통 창**이 된다. 그래서 Epic 모드는 `WINE_DOCK_REOPEN_CMD`를 쓰지 않는다.
+- 부수 수정: `WINE_DOCK_REOPEN_CMD` 훅의 "보이는 창" 판정이 Epic의 화면 밖(-10000,-10000) 1×1 투명 보조창을 보이는 창으로 세던 것을 실제 화면 안·alpha>0·크기>1 조건으로 고쳤고, `build-engine.sh`가 CX 엔진에도 winemac 패치를 적용한다.
 
 결론: 벽 1(`WRITECOPY`)은 libcef 버전에 따라 걸리는 일반 문제일 수 있지만, 벽 1-b(GPU 프로세스 사망)는 Battle.net의 CEF 빌드/설정 고유. 다른 CEF 런처(GOG Galaxy·EA app·Ubisoft Connect)도 같은 절차로 먼저 "그냥 돌려보는" 것이 맞다.
 

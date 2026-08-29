@@ -78,7 +78,7 @@ Same engine, own bottle, no extra tricks: Epic's CEF keeps its GPU process alive
 ```bash
 scripts/create-epic-bottle.sh    # official Epic MSI, unattended
 scripts/play.sh epic             # log in -> install & play
-scripts/play.sh epic-kill        # stop the Epic bottle (closing the window keeps the launcher running; click the Dock icon to bring it back, Exit quits)
+scripts/play.sh epic-kill        # stop the Epic bottle (closing the window keeps the launcher running; use the Epic icon in the macOS menu bar to reopen or Exit — same as the Windows tray)
 ```
 
 Games have not been broadly tested yet; anything that needs kernel anti-cheat (EAC/BattlEye) will not run under Wine.
