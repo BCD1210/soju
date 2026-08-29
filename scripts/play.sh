@@ -72,7 +72,12 @@ case "$MODE" in
         cp -f "$WRAP" "$d/steamwebhelper.exe"
       fi
     done
-    # 3) Virtual desktop — this macdrv (gcenx wine 11) ignores virtual desktops,
+    # 3) Drop Steam's autostart entry. Steam adds itself to the prefix's Run key
+    #    with -silent, so it comes back invisibly whenever anything boots this
+    #    prefix. Steam re-adds it on update, so scrub it every launch.
+    "$WINESTABLE" reg delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run' \
+      /v Steam /f >/dev/null 2>&1 || true
+    # 4) Virtual desktop — this macdrv (gcenx wine 11) ignores virtual desktops,
     #    so it is off by default. The single Dock icon is handled by
     #    WINE_NO_DOCK_ICON (winemac patch) instead.
     #    To enable anyway: WINE_VIRTUAL_DESKTOP=auto (or a resolution like 1600x900).
@@ -89,7 +94,7 @@ case "$MODE" in
     grep -q 'AllowImmovableWindows' "$WINEPREFIX/user.reg" 2>/dev/null || {
       printf '\n[Software\\\\Wine\\\\Mac Driver]\n"AllowImmovableWindows"="n"\n' >> "$WINEPREFIX/user.reg"
     }
-    # 4) Launch — plain wine-stable environment, without the CX engine env
+    # 5) Launch — plain wine-stable environment, without the CX engine env
     STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process -noverifyfiles "${@:2}")
     [[ -n "$VD" ]] && STEAM_CMD=(explorer.exe "/desktop=soju-steam,$VD" "${STEAM_CMD[@]}")
     env -u DYLD_FALLBACK_LIBRARY_PATH -u CX_ACTIVE_GRAPHICS_BACKEND -u CX_GRAPHICS_BACKEND \
@@ -99,8 +104,14 @@ case "$MODE" in
       WINE_NO_DOCK_ICON="steam.exe;steamservice.exe" \
       "$WINESTABLE" "${STEAM_CMD[@]}"
     ;;
-  kill|steam-kill)  # Stop everything (kill = Battle.net bottle, steam-kill = Steam bottle)
+  kill)        # Stop everything in the Battle.net bottle
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+    ;;
+  steam-kill)  # Stop everything in the Steam bottle — note this bottle runs on
+    # wine-stable, so it needs wine-stable's wineserver. Killing the CX engine's
+    # wineserver here does nothing and leaves steam.exe alive, which then keeps
+    # respawning steamwebhelper (it looks like "Steam relaunches itself").
+    "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver" -k 2>/dev/null || true
     ;;
   *) echo "usage: play.sh [battlenet|d2r|steam|kill|steam-kill]"; exit 1;;
 esac
