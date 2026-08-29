@@ -7,7 +7,7 @@ set -euo pipefail
 ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
 export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/bottle}"
 export WINEDEBUG="${WINEDEBUG:-fixme-all}"
-export WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1
+export WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1 WINE_SIMULATE_WRITECOPY=1
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 

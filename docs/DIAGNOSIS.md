@@ -28,6 +28,38 @@ stock Whisky / frankea 엔진(v3.1.1, v4.5beta, v2.5.0)은 전부 **신형 WoW64
 - `--disable-gpu-compositing`로 실행 (소프트웨어 합성).
 - GL 에러(`SharedImageStub`, `Failed to create ... context for virtualization`)는 **무해** — 진짜 CrossOver도 동일하게 99개씩 냄.
 
+## 벽 1 — 진짜 원인 확정: `WINE_SIMULATE_WRITECOPY` (2026-08-29)
+
+위 "신형 WoW64" 설명은 결과적으로 맞는 엔진을 고르게 했지만 원인은 아니었다. CrossOver 26.3 GPL 소스로
+직접 빌드한 엔진(`cx26-engine`)에서도 같은 int3(`libcef.dll+0x16D00E1`)가 재현됐고, CX 출하 바이너리의
+`ntdll.so` 하나만 바꿔 끼우면 사라졌다. 동적 추적(`WINEDEBUG=+seh,+virtual,+process,+loaddll`)으로 특정한 내용:
+
+- 크래시 프로세스: `Battle.net.exe --type=renderer` (CEF 렌더러)의 초기 스레드, DLL 로드 직후.
+- 크래시 지점 디스어셈블(libcef RVA `0x16D00A0`):
+  ```
+  ret = VirtualProtect(addr, size, PAGE_READONLY /*2*/, &old);
+  if (!ret)   int3;          // 0x16D00DE
+  if (old != PAGE_READWRITE /*4*/) int3;   // 0x16D00E1  ← 여기서 죽음
+  ```
+- `addr`는 `libcef.dll`의 `.data` 페이지(이미지 매핑, write-copy). 순정 wine은 이미지의 쓰기 가능 페이지를
+  처음부터 RW로 mmap 하고 첫 쓰기를 추적하지 않으므로 `old`가 영원히 `PAGE_WRITECOPY(8)`이다.
+  Windows는 첫 쓰기 후 `PAGE_READWRITE(4)`로 바뀐다.
+- CX 소스에는 이를 흉내 내는 **CW Hack 22996** (`simulate_writecopy`, `dlls/ntdll/unix/virtual.c`
+  `NtProtectVirtualMemory`의 "Setting VPROT_COPIED")가 있지만, 공개 소스는 `WINE_SIMULATE_WRITECOPY` 환경변수로만
+  켜진다(`loader.c: hacks_init`). CX 출하 바이너리는 같은 환경에서 이 경로를 탄다 → 기본값이 다름.
+
+검증 (각 75~90초, 같은 보틀):
+
+| 엔진 | `EXCEPTION_BREAKPOINT` | 렌더러 생존 |
+|---|---|---|
+| cx26-engine (우리 빌드) | 2 | ✗ |
+| cx26-engine + SDK15 재빌드 ntdll | 2 | ✗ (툴체인 가설 기각) |
+| cx26-engine + CX ntdll.so | 0 | ✓ |
+| cx26-engine + `WINE_SIMULATE_WRITECOPY=1` | 0 | ✓ (90초 후 렌더러 2개 생존, 로그인·메인창 OK) |
+
+해결: 모든 실행 경로(`install.sh`, `scripts/play.sh`, `scripts/create-bottle.sh`)에 `WINE_SIMULATE_WRITECOPY=1`.
+CrossOver 바이너리 의존 0.
+
 ## 벽 2 — Battle.net Agent caller 서명 검증 실패 (해결됨)
 
 ### 증상
