@@ -121,6 +121,7 @@ Verified on M4 Pro / macOS 26.5: login, library, and an actual D3D11 (Unity) gam
 - **Game hangs forever at ~86 MB RAM, 0% CPU** -> `ROSETTA_ADVERTISE_AVX=1` or `libd3dshared` not reaching the game. Launch via `play.sh` only, and check step 4.
 - **Libraries not found (gnutls/freetype errors)** -> you launched wine through `nohup`/`arch`/another Apple-signed binary, which strips `DYLD_*` vars. Launch via `play.sh`.
 - **Battle.net login webview may flicker (~once a minute)** -> known cosmetic issue; it recovers automatically and login works.
+- **"The installed version of the AMD graphics driver has known issues" when an Unreal Engine game starts** (Hogwarts Legacy and others): D3DMetal presents itself as an AMD adapter with an old driver version, so UE4's driver check fires. Harmless, click OK; to silence it add `[SystemSettings]` / `r.WarnOfBadDrivers=0` to the game's user `Engine.ini` (under `AppData/Local/<Game>/Saved/Config/WindowsNoEditor/`).
 - **BLZBNTBNA00000005** -> `play.sh` seeds the signed exe automatically; make sure you launch through it.
 
 ### Leftover Wine processes
