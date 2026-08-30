@@ -48,7 +48,7 @@ SUPPORT="$HOME/.battlenet-macos/gog-support"; mkdir -p "$SUPPORT"
 if [ ! -f "$SUPPORT/soju-gog-restore.exe" ]; then
   echo "==> Building the tray-restore helper (mingw-w64)"
   command -v x86_64-w64-mingw32-gcc >/dev/null || brew install mingw-w64
-  x86_64-w64-mingw32-gcc -O2 -Wall -mwindows -o "$SUPPORT/soju-gog-restore.exe" -lshell32 \
+  x86_64-w64-mingw32-gcc -O2 -Wall -mwindows -o "$SUPPORT/soju-gog-restore.exe" -lpsapi \
     "$(cd "$(dirname "$0")/.." && pwd)/tools/soju-gog-restore.c"
 fi
 echo "==> GOG GALAXY installed. Launch with: scripts/play.sh gog"

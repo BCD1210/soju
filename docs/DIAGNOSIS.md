@@ -116,7 +116,7 @@ GOG GALAXY 2.1.8은 CEF가 아니라 **Qt6 + QtWebEngine**(Chromium 118/125)이�
 
 검증: `play.sh gog`가 `SOJU_CHROMIUM_FLAGS="--disable-gpu --disable-gpu-compositing"`를 설정하면 D3DMetal 그대로 에러 3개(`WSALookupServiceBegin`, GLES3 폴백 2개)만 남고 로그인 창·로그인·메인 창(1732×798)이 뜬다. 렌더러 프로세스 커맨드라인에 `--disable-gpu-compositing`이 보인다.
 
-트레이 복귀: 창을 닫으면 GOG는 트레이로 들어간다. 두 번째 `GalaxyClient.exe` 인스턴스는 `FindWindowW("GalaxyClientClass")`로 메인 창을 찾아 `WM_COPYDATA`(dwData=1, 16바이트: 자기 이미지 안 `RestoreClientMessage` vtable 포인터 `0x140a74858` + dword 1)를 보내고 종료하는데, 수신 측이 그 포인터를 그대로 역참조한다(같은 exe라 주소가 같아 동작). `tools/soju-gog-restore.c`가 이 메시지를 직접 보내 독 아이콘 클릭 시 0.2초 안에 창이 돌아오고, 창이 안 보이면(GOG 업데이트로 주소가 바뀐 경우) 두 번째 인스턴스 실행으로 폴백한다. 미끼 창(같은 클래스명)으로 페이로드를 캡처했다.
+트레이 복귀: 창을 닫으면 GOG는 트레이로 들어간다. 두 번째 `GalaxyClient.exe` 인스턴스는 `FindWindowW("GalaxyClientClass")`로 메인 창을 찾아 `WM_COPYDATA`(dwData=1, 16바이트: 자기 이미지 안 `RestoreClientMessage` vtable 포인터 `0x140a74858` + dword 1)를 보내고 종료하는데, 수신 측이 그 포인터를 그대로 역참조한다(같은 exe라 주소가 같아 동작). `tools/soju-gog-restore.c`가 이 메시지를 직접 보내 독 아이콘 클릭 시 0.2초 안에 창이 돌아온다. vtable 주소는 GOG 버전마다 바뀌므로 도구가 실행 시 GalaxyClient.exe의 MSVC RTTI(맹글드 클래스명 → 타입 디스크립터 → complete object locator → vtable)를 파싱해 계산하고, 실행 중인 클라이언트의 실제 모듈 베이스를 더한다. 버전 상수 없음. 미끼 창(같은 클래스명)으로 페이로드를 캡처했다.
 
 부수: 강제 종료 후엔 `ProgramData/GOG.com/Galaxy/lock-files/`의 잠금 파일 때문에 "Second client instance detected"로 즉시 종료되므로 `play.sh gog`가 실행 전에 지운다. 설치기가 자동 실행하는 `GalaxyClient.exe /installerLaunch /payload=`는 빈 payload로 `campaignParamsForLogIn` 설정 오류를 내고 죽는데 무해하다. 이 훅은 Qt/QtWebEngine 기반 런처 전반(다른 스토어 클라이언트 포함)에 그대로 쓸 수 있다.
 
