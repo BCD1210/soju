@@ -2,13 +2,13 @@
 
 > *Wine → Whisky → Kegworks… and now a Korean round: **Soju** 🍶*
 
-**The launchers actually log in.** Battle.net, Steam and the Epic Games Launcher on Apple Silicon. No black login window, no "Signing in…" that never ends, no CrossOver license. A fully free, open-source Wine stack.
+**The launchers actually log in.** Battle.net, Steam, the Epic Games Launcher and GOG GALAXY on Apple Silicon. No black login window, no "Signing in…" that never ends, no CrossOver license. A fully free, open-source Wine stack.
 
 If you got here from a Whisky/Kegworks thread titled *"Battle.net crashes on login"*, *"Steam won't open"* or *"launcher shows a blank window"*: those are the exact walls this repo documents and fixes (CEF renderer `int3` on `PAGE_WRITECOPY`, CEF GPU process dying on init, Steam's webhelper). See [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 Built from CodeWeavers' published GPL sources (Wine 11.0, CrossOver 26.3 source drop), compiled and assembled by scripts in this repo. No paid software required.
 
-> Status (2026-08): **Working end-to-end**: Battle.net login, Agent, and D2R in-game rendering (D3DMetal); Epic Games Launcher login (tray icon in the menu bar); Steam client login + D3D11 games. Verified on an M4 Pro running macOS 26.5.
+> Status (2026-08): **Working end-to-end**: Battle.net login, Agent, and D2R in-game rendering (D3DMetal); Epic Games Launcher login and game installs (tray icon in the menu bar); GOG GALAXY login; Steam client login + D3D11 games. Verified on an M4 Pro running macOS 26.5.
 
 *[한국어 README](README.ko.md)*
 
@@ -66,7 +66,7 @@ scripts/get-gptk.sh
 scripts/create-bottle.sh
 
 # 6. Play
-scripts/play.sh battlenet   # launcher -> log in -> install & play your game
+scripts/play.sh battlenet   # launcher -> log in -> install & play your game (closing the window exits, as on Windows; if you set "minimize to tray" in its settings, a Dock-icon click brings it back)
 scripts/play.sh d2r         # direct game launch (offline)
 scripts/play.sh kill        # stop everything
 ```
@@ -80,10 +80,20 @@ Same engine, own bottle, no extra tricks: Epic's CEF keeps its GPU process alive
 ```bash
 scripts/create-epic-bottle.sh    # official Epic MSI, unattended
 scripts/play.sh epic             # log in -> install & play
-scripts/play.sh epic-kill        # stop the Epic bottle (closing the window keeps the launcher running; right-click the Epic icon in the macOS menu bar to reopen or Exit, same as the Windows tray; a plain left click does nothing, as Epic only reacts to the menu)
+scripts/play.sh epic-kill        # stop the Epic bottle (closing the window parks the launcher in the menu bar tray; click the Dock icon, or double-click / right-click the menu bar icon, to bring it back)
 ```
 
-Verified 2026-08-30: 71 GB install of Hogwarts Legacy (UE4, D3D12 through D3DMetal) from the launcher, then in-game. Two things to know: switch the macOS input source to English (ABC) before playing, a Korean/Japanese/Chinese IME swallows key presses in Wine games; and if a game starts full screen, set windowed mode in its own display settings (Soju does not force it).
+Verified 2026-08-30: 71 GB install of Hogwarts Legacy (UE4, D3D12 through D3DMetal) from the launcher, then in-game. Two things to know: switch the macOS input source to English (ABC) before playing, a Korean/Japanese/Chinese IME swallows key presses in Wine games; and if a game starts full screen, set windowed mode in its own display settings (Soju does not force it). One known wine 11.0 issue: after switching between several Wine windows (a launcher, a game, another bottle) a game can stop receiving keyboard input until it is restarted; upstream fixed this in wine 11.11.
+
+### GOG GALAXY
+
+```bash
+scripts/create-gog-bottle.sh      # separate bottle, official web installer (silent)
+scripts/play.sh gog               # log in, install and play
+scripts/play.sh gog-kill          # stop the GOG bottle (closing the window parks GOG in the menu bar tray; a Dock-icon click brings it back)
+```
+
+Verified 2026-08-30: install, login, library. GOG GALAXY 2.x is Qt6 + QtWebEngine, not CEF, and on this engine its window stays black because Qt's D3D11 compositing asks D3DMetal's DXGI for `IDXGIResource`, which it does not implement. The fix is to run Chromium on the CPU (`--disable-gpu`), but GOG overwrites `QTWEBENGINE_CHROMIUM_FLAGS` itself and ignores its own command line, and it checksums its executable, so nothing outside the engine can inject the switch. The engine therefore carries a small hook (`patches/chromium-flags-append.patch`): whenever a program sets `QTWEBENGINE_CHROMIUM_FLAGS`, the contents of `SOJU_CHROMIUM_FLAGS` are appended. `play.sh gog` sets it. The same patch set adds `WINE_CUSTOM_FRAME`, which stops the Mac driver from putting a macOS title bar on top of GOG's own. Details in [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 Games have not been broadly tested yet; anything that needs kernel anti-cheat (EAC/BattlEye) will not run under Wine.
 
@@ -111,6 +121,8 @@ Verified on M4 Pro / macOS 26.5: login, library, and an actual D3D11 (Unity) gam
 - **Game hangs forever at ~86 MB RAM, 0% CPU** -> `ROSETTA_ADVERTISE_AVX=1` or `libd3dshared` not reaching the game. Launch via `play.sh` only, and check step 4.
 - **Libraries not found (gnutls/freetype errors)** -> you launched wine through `nohup`/`arch`/another Apple-signed binary, which strips `DYLD_*` vars. Launch via `play.sh`.
 - **Battle.net login webview may flicker (~once a minute)** -> known cosmetic issue; it recovers automatically and login works.
+- **"The installed version of the AMD graphics driver has known issues" when an Unreal Engine game starts** (Hogwarts Legacy and others): D3DMetal presents itself as an AMD adapter with an old driver version, so UE4's driver check fires. Harmless, click OK; to silence it add `[SystemSettings]` / `r.WarnOfBadDrivers=0` to the game's user `Engine.ini` (under `AppData/Local/<Game>/Saved/Config/WindowsNoEditor/`).
+- **GOG GALAXY: a black rectangle appears at the bottom right while a notification toast is shown** and disappears with it. The toast is a transparent layered window from GOG's notifications renderer; without DWM composition Wine paints its transparent area black. Harmless. Turning off desktop notifications in GOG's settings avoids it.
 - **BLZBNTBNA00000005** -> `play.sh` seeds the signed exe automatically; make sure you launch through it.
 
 ### Leftover Wine processes

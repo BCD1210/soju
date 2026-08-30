@@ -36,6 +36,11 @@ case "$MODE" in
     UI_RE='EpicGamesLauncher\.exe|EpicWebHelper\.exe|EpicOnlineServices'
     TRAY_RE='EpicGamesLauncher\.exe'; TRAY_KILL_RE="$UI_RE"
     ;;
+  gog)
+    GAME_RE='__none__'
+    UI_RE='GalaxyClient\.exe|QtWebEngineProcess\.exe|GalaxyClientService\.exe|GOG Galaxy Notifications|GalaxyCommunication'
+    TRAY_RE='GalaxyClient\.exe'; TRAY_KILL_RE="$UI_RE"
+    ;;
   *)
     GAME_RE='D2R\.exe|BlizzardError\.exe'
     UI_RE='Battle\.net\.exe.*--from-launcher|Battle\.net Launcher\.exe'
@@ -75,7 +80,7 @@ PY
 declare -A STRIKES
 IDLE_STRIKES=0
 
-if [ "$MODE" = "steam" ] || [ "$MODE" = "epic" ]; then
+if [ "$MODE" = "steam" ] || [ "$MODE" = "epic" ] || [ "$MODE" = "gog" ]; then
   # Steam parks itself in an (invisible on macOS) tray when its window is closed,
   # so a missing window means nothing here. Only once steam.exe has really gone
   # (Steam menu > Exit) do we shut the rest of the bottle down.

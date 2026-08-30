@@ -35,6 +35,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if ! grep -q WINE_DOCK_REOPEN_CMD "$WINE/dlls/winemac.drv/cocoa_app.m"; then
   patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/winemac-no-dock-icon.patch"
 fi
+if ! grep -q "soju_append_chromium_flags" "$WINE/dlls/kernelbase/process.c"; then
+  echo "==> Applying patches/chromium-flags-append.patch (SOJU_CHROMIUM_FLAGS hook for Qt launchers)"
+  patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/chromium-flags-append.patch"
+fi
 
 echo "==> Building x86_64 freetype (Rosetta)"
 [ -f "$WORK/ft.tar.gz" ] || curl -fL "$FT_URL" -o "$WORK/ft.tar.gz"

@@ -2,13 +2,13 @@
 
 > *Wine → Whisky → Kegworks… 그리고 한국의 차례: **Soju** 🍶*
 
-**런처가 실제로 로그인됩니다.** Apple Silicon 맥에서 Battle.net·Steam·Epic Games Launcher. 검은 로그인 창도, 끝나지 않는 "Signing in…"도, CrossOver 라이선스도 없이. 완전 무료 오픈소스 Wine 스택.
+**런처가 실제로 로그인됩니다.** Apple Silicon 맥에서 Battle.net·Steam·Epic Games Launcher·GOG GALAXY. 검은 로그인 창도, 끝나지 않는 "Signing in…"도, CrossOver 라이선스도 없이. 완전 무료 오픈소스 Wine 스택.
 
 Whisky/Kegworks 스레드의 *"배틀넷 로그인 시 크래시"*, *"Steam이 안 열림"*, *"런처 창이 비어 있음"* 때문에 오셨다면, 바로 그 벽들을 이 레포가 기록하고 해결했습니다(CEF 렌더러 `PAGE_WRITECOPY` int3, CEF GPU 프로세스 초기화 사망, Steam webhelper). [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)를 이 레포의 스크립트로 직접 빌드·조립합니다. 유료 소프트웨어 불필요.
 
-> 상태(2026-08): **전 구간 동작**: 배틀넷 로그인·Agent·D2R 인게임 렌더링(D3DMetal), Epic Games Launcher 로그인(메뉴바 트레이), Steam 로그인 + D3D11 게임. M4 Pro / macOS 26.5에서 검증.
+> 상태(2026-08): **전 구간 동작**: 배틀넷 로그인·Agent·D2R 인게임 렌더링(D3DMetal), Epic Games Launcher 로그인·게임 설치(메뉴바 트레이), GOG GALAXY 로그인, Steam 로그인 + D3D11 게임. M4 Pro / macOS 26.5에서 검증.
 
 *[English README](README.md)*
 
@@ -62,7 +62,7 @@ scripts/get-gptk.sh
 scripts/create-bottle.sh
 
 # 6. 플레이
-scripts/play.sh battlenet   # 런처 → 로그인 → 게임 설치·플레이
+scripts/play.sh battlenet   # 런처 → 로그인 → 게임 설치·플레이 (창을 닫으면 Windows처럼 종료. 설정에서 "트레이로 최소화"로 바꾸면 독 아이콘 클릭으로 복귀)
 scripts/play.sh d2r         # 게임 직접 실행 (오프라인)
 scripts/play.sh kill        # 전부 종료
 ```
@@ -76,10 +76,20 @@ scripts/play.sh kill        # 전부 종료
 ```bash
 scripts/create-epic-bottle.sh    # 공식 Epic MSI, 무인 설치
 scripts/play.sh epic             # 로그인 → 게임 설치·플레이
-scripts/play.sh epic-kill        # Epic 보틀 종료 (창을 닫아도 런처는 살아 있음, macOS 메뉴바의 Epic 아이콘을 **우클릭**해 열기/Exit, Windows 트레이와 동일, 좌클릭 한 번엔 반응 없음)
+scripts/play.sh epic-kill        # Epic 보틀 종료 (창을 닫으면 런처는 메뉴바 트레이로 들어감. 독 아이콘 클릭, 또는 메뉴바 아이콘 더블클릭/우클릭으로 복귀)
 ```
 
-검증 2026-08-30: 런처에서 Hogwarts Legacy 71GB 설치 후 인게임까지(UE4, D3DMetal 경유 D3D12). 알아두실 점 두 가지: 플레이 전에 macOS 입력기를 영어(ABC)로 바꾸세요, 한글 IME가 켜져 있으면 Wine 게임에 키 입력이 전달되지 않습니다. 게임이 전체화면으로 뜨면 게임 자체 디스플레이 설정에서 창 모드로 바꾸면 됩니다(Soju가 강제하지 않습니다).
+검증 2026-08-30: 런처에서 Hogwarts Legacy 71GB 설치 후 인게임까지(UE4, D3DMetal 경유 D3D12). 알아두실 점 두 가지: 플레이 전에 macOS 입력기를 영어(ABC)로 바꾸세요, 한글 IME가 켜져 있으면 Wine 게임에 키 입력이 전달되지 않습니다. 게임이 전체화면으로 뜨면 게임 자체 디스플레이 설정에서 창 모드로 바꾸면 됩니다(Soju가 강제하지 않습니다). wine 11.0의 알려진 문제 하나: 여러 Wine 창(런처, 게임, 다른 보틀)을 오간 뒤 게임이 키보드 입력을 못 받는 경우가 있으며 재시작해야 풀립니다. upstream은 wine 11.11에서 수정했습니다.
+
+### GOG GALAXY
+
+```bash
+scripts/create-gog-bottle.sh      # 별도 보틀, 공식 웹 설치기(무인)
+scripts/play.sh gog               # 로그인 → 게임 설치·플레이
+scripts/play.sh gog-kill          # GOG 보틀 종료 (창을 닫으면 메뉴바 트레이로 들어가고, 독 아이콘 클릭으로 돌아옴)
+```
+
+검증 2026-08-30: 설치, 로그인, 라이브러리. GOG GALAXY 2.x는 CEF가 아니라 Qt6 + QtWebEngine이며, 이 엔진에서는 Qt의 D3D11 합성이 D3DMetal DXGI에 없는 `IDXGIResource`를 요구해 창이 검게 나옵니다. 해법은 Chromium을 CPU로 돌리는 것(`--disable-gpu`)인데, GOG가 `QTWEBENGINE_CHROMIUM_FLAGS`를 스스로 덮어쓰고 자기 커맨드라인도 무시하며 실행 파일 체크섬까지 검사해서 엔진 밖에서는 스위치를 넣을 방법이 없습니다. 그래서 엔진에 작은 훅(`patches/chromium-flags-append.patch`)을 넣었습니다: 프로그램이 `QTWEBENGINE_CHROMIUM_FLAGS`를 설정할 때마다 `SOJU_CHROMIUM_FLAGS`의 내용이 덧붙습니다. `play.sh gog`가 이 값을 설정합니다. 같은 패치에 `WINE_CUSTOM_FRAME`도 추가해, GOG 자체 타이틀바 위에 macOS 타이틀바가 겹치지 않게 했습니다. 자세한 내용은 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 
 게임은 아직 폭넓게 테스트하지 않았습니다. 커널 안티치트(EAC/BattlEye)가 필요한 게임은 Wine에서 돌지 않습니다.
@@ -108,6 +118,8 @@ GPTK 안의 `libd3dshared.dylib`는 그래픽만이 아닙니다. **D2R 로더(�
 - **게임이 86MB/0% CPU로 영원히 멈춤** → AVX 변수 또는 libd3dshared가 게임에 전달되지 않은 것입니다. 반드시 `play.sh`로 실행하고 4단계를 확인하세요.
 - **라이브러리 로드 실패(gnutls/freetype)** → `nohup`/`arch` 등 애플 서명 바이너리를 거치면 `DYLD_*`가 제거됩니다. `play.sh`로 실행하세요.
 - **배틀넷 로그인 화면이 가끔 깜빡임(~1분 1회)** → 알려진 외관 이슈이며 자동으로 복구됩니다.
+- **언리얼 엔진 게임 시작 시 "AMD graphics driver has known issues" 경고**(Hogwarts Legacy 등): D3DMetal이 자신을 구형 드라이버의 AMD 카드로 소개해 UE4의 드라이버 검사가 걸리는 것입니다. 무해하며 OK로 넘어가면 됩니다. 없애려면 게임의 사용자 `Engine.ini`(`AppData/Local/<게임>/Saved/Config/WindowsNoEditor/`)에 `[SystemSettings]` / `r.WarnOfBadDrivers=0`을 추가하세요.
+- **GOG GALAXY: 알림 토스트가 뜨는 동안 오른쪽 아래가 검은 사각형으로 가려짐**, 토스트가 사라지면 함께 사라짐. 토스트는 GOG 알림 렌더러의 투명 레이어 창인데 Wine에는 DWM 합성이 없어 투명 영역이 검게 칠해집니다. 무해하며, GOG 설정에서 데스크톱 알림을 끄면 안 뜹니다.
 - **BLZBNTBNA00000005** → `play.sh`가 서명된 exe를 자동으로 넣어 줍니다.
 
 ## 라이선스
