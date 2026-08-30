@@ -1,0 +1,7 @@
+name = "soju-site"
+main = "worker.js"
+compatibility_date = "2026-08-01"
+
+[[routes]]
+pattern = "soju.snack-wrap.com"
+custom_domain = true
