@@ -146,5 +146,5 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
 EOF
 codesign -f -s - "$APP" 2>/dev/null || true
 
-say "Done! 🍶  Double-click ~/Applications/Battle.net.app, log in, install and play"
+say "Done. Double-click ~/Applications/Battle.net.app, log in, install and play"
 GPTK_OK || echo "NOTE: GPTK was skipped - run scripts/get-gptk.sh before launching a game."

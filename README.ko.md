@@ -1,6 +1,6 @@
 # Soju (한국어)
 
-> *Wine → Whisky → Kegworks… 그리고 한국의 차례: **Soju** 🍶*
+> *Wine → Whisky → Kegworks… 그리고 한국의 차례: **Soju***
 
 **런처가 실제로 로그인됩니다.** Apple Silicon 맥에서 Battle.net·Steam·Epic Games Launcher. 검은 로그인 창도, 끝나지 않는 "Signing in…"도, CrossOver 라이선스도 없이. 완전 무료 오픈소스 Wine 스택.
 
@@ -12,7 +12,7 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 
 *[English README](README.md)*
 
-## 핵심 발견 3가지 🔑
+## 핵심 발견 3가지
 
 커뮤니티가 몇 달째 못 풀던 문제들의 해법:
 

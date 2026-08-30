@@ -1,6 +1,6 @@
 # Soju
 
-> *Wine → Whisky → Kegworks… and now a Korean round: **Soju** 🍶*
+> *Wine → Whisky → Kegworks… and now a Korean round: **Soju***
 
 **The launchers actually log in.** Battle.net, Steam and the Epic Games Launcher on Apple Silicon. No black login window, no "Signing in…" that never ends, no CrossOver license. A fully free, open-source Wine stack.
 
@@ -16,7 +16,7 @@ Built from CodeWeavers' published GPL sources (Wine 11.0, CrossOver 26.3 source 
 
 Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern Battle.net and D2R. The commercial option works, but the underlying Wine engine is GPL, so we built it ourselves and documented every wall we hit. Three of those walls had never been publicly solved:
 
-### The three keys 🔑
+### The three keys
 
 1. **`ROSETTA_ADVERTISE_AVX=1`**: D2R's loader requires AVX instructions. Without this env var, the game freezes forever at ~86 MB RSS with 0% CPU, before any graphics init. This is why D2R "hangs at launch" on non-CrossOver Wine builds.
 
