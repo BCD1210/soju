@@ -78,3 +78,66 @@ index 2a9dab2..13e054b 100644
          return YES;
      }
  
+--- a/dlls/winemac.drv/window.c
++++ b/dlls/winemac.drv/window.c
+@@ -47,6 +47,38 @@
+ 
+ 
+ /* CrossOver Hack #16933 */
++
++/* Soju: apps listed in WINE_CUSTOM_FRAME (semicolon-separated exe names) draw
++ * their own title bar inside the client area (Qt/Electron style custom frames,
++ * e.g. GOG GALAXY). Adding a macOS title bar on top of that hides the first
++ * rows of their UI, so such windows get no Cocoa title bar or buttons. */
++static BOOL is_custom_frame_app(void)
++{
++    static int result = -1;
++
++    if (result == -1)
++    {
++        const char *list = getenv("WINE_CUSTOM_FRAME");
++        WCHAR *name = NtCurrentTeb()->Peb->ProcessParameters->ImagePathName.Buffer;
++        WCHAR *exe = wcsrchr(name, '\\');
++        char exe_a[MAX_PATH];
++        int i;
++
++        result = 0;
++        exe = exe ? exe + 1 : name;
++        for (i = 0; exe[i] && i < MAX_PATH - 1; i++) exe_a[i] = (char)exe[i];
++        exe_a[i] = 0;
++        while (list && *list)
++        {
++            const char *end = strchr(list, ';');
++            size_t len = end ? (size_t)(end - list) : strlen(list);
++            if (len == strlen(exe_a) && !strncasecmp(list, exe_a, len)) { result = 1; break; }
++            list = end ? end + 1 : NULL;
++        }
++    }
++    return result;
++}
++
+ static BOOL is_main_quicken_window(HWND hwnd)
+ {
+     static const WCHAR qw_exeW[] = {'q','w','.','e','x','e',0};
+@@ -127,7 +159,10 @@
+         return wf;
+     }
+ 
+-    return get_window_features_for_style(style, ex_style, data->shaped);
++    wf = get_window_features_for_style(style, ex_style, data->shaped);
++    if (wf.title_bar && is_custom_frame_app())
++        wf.title_bar = wf.close_button = wf.minimize_button = wf.maximize_button = FALSE;
++    return wf;
+ }
+ 
+ 
+@@ -1653,6 +1688,9 @@
+ 
+     /* CW HACK 16933: No Cocoa window decorations for the Quicken main window. */
+     if (is_main_quicken_window(hwnd)) return FALSE;
++    /* Soju: custom-frame apps keep their caption inside the client area. */
++    if (wf.title_bar && is_custom_frame_app())
++        wf.title_bar = wf.close_button = wf.minimize_button = wf.maximize_button = FALSE;
+ 
+     *style_mask = ex_style = 0;
+     if (wf.title_bar)

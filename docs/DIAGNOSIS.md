@@ -116,7 +116,7 @@ GOG GALAXY 2.1.8은 CEF가 아니라 **Qt6 + QtWebEngine**(Chromium 118/125)이�
 
 검증: `play.sh gog`가 `SOJU_CHROMIUM_FLAGS="--disable-gpu --disable-gpu-compositing"`를 설정하면 D3DMetal 그대로 에러 3개(`WSALookupServiceBegin`, GLES3 폴백 2개)만 남고 로그인 창·로그인·메인 창(1732×798)이 뜬다. 렌더러 프로세스 커맨드라인에 `--disable-gpu-compositing`이 보인다.
 
-타이틀바: GOG는 프레임리스 창에 자기 타이틀바를 그리는데 Mac 드라이버가 macOS 타이틀바를 하나 더 얹어 UI 첫 줄이 잘린다. `HKCU\\Software\\Wine\\AppDefaults\\GalaxyClient.exe\\Mac Driver` `Decorated=N`으로 GOG 창만 장식을 뺀다(`play.sh gog`가 넣음).
+타이틀바: GOG 메인 창은 `WS_OVERLAPPEDWINDOW`이지만 `WM_NCCALCSIZE`로 클라이언트를 창 전체로 잡고 자기 타이틀바를 그린다. Mac 드라이버는 `WS_CAPTION`이면 Cocoa 타이틀바를 얹고(`get_window_features_for_style`) `GetWindowStyleMasks`로 win32u에 캡션을 자기가 그린다고 알리므로 UI 첫 줄이 타이틀바 밑에 숨는다. winemac 패치에 `WINE_CUSTOM_FRAME`(세미콜론 구분 exe 목록)을 추가해 해당 프로세스는 두 곳 모두에서 title_bar를 끈다(`play.sh gog`가 `GalaxyClient.exe`로 설정). Win32 창 크기와 Cocoa 창 크기가 일치하는 것으로 확인.
 
 트레이 복귀: 창을 닫으면 GOG는 트레이로 들어간다. 두 번째 `GalaxyClient.exe` 인스턴스는 `FindWindowW("GalaxyClientClass")`로 메인 창을 찾아 `WM_COPYDATA`(dwData=1, 16바이트: 자기 이미지 안 `RestoreClientMessage` vtable 포인터 `0x140a74858` + dword 1)를 보내고 종료하는데, 수신 측이 그 포인터를 그대로 역참조한다(같은 exe라 주소가 같아 동작). `tools/soju-gog-restore.c`가 이 메시지를 직접 보내 독 아이콘 클릭 시 0.2초 안에 창이 돌아온다. vtable 주소는 GOG 버전마다 바뀌므로 도구가 실행 시 GalaxyClient.exe의 MSVC RTTI(맹글드 클래스명 → 타입 디스크립터 → complete object locator → vtable)를 파싱해 계산하고, 실행 중인 클라이언트의 실제 모듈 베이스를 더한다. 버전 상수 없음. 미끼 창(같은 클래스명)으로 페이로드를 캡처했다.
 

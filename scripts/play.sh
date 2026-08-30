@@ -121,15 +121,13 @@ case "$MODE" in
     [[ -f "$WINEPREFIX/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe" ]] || \
       { echo "GOG GALAXY not found, run scripts/create-gog-bottle.sh first"; exit 1; }
     rm -f "$WINEPREFIX/drive_c/ProgramData/GOG.com/Galaxy/lock-files/"* 2>/dev/null || true
-    # GOG draws its own title bar (frameless window); without this the Mac
-    # driver adds a macOS title bar on top and the first rows of the UI are cut.
-    grep -q 'GalaxyClient.exe\\\\Mac Driver' "$WINEPREFIX/user.reg" 2>/dev/null || {
-      printf '\n[Software\\\\Wine\\\\AppDefaults\\\\GalaxyClient.exe\\\\Mac Driver]\n"Decorated"="N"\n' >> "$WINEPREFIX/user.reg"
-    }
     pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
       { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" gog >/dev/null 2>&1 & ); }
     export SOJU_CHROMIUM_FLAGS="${SOJU_CHROMIUM_FLAGS:---disable-gpu --disable-gpu-compositing}"
     export WINE_NO_DOCK_ICON="QtWebEngineProcess.exe;GalaxyClientService.exe;GOG Galaxy Notifications Renderer.exe;GalaxyCommunication.exe;GalaxyClientHelper.exe"
+    # GOG draws its own title bar inside the client area; a macOS title bar on
+    # top would hide the first rows of its UI (winemac patch: WINE_CUSTOM_FRAME).
+    export WINE_CUSTOM_FRAME="GalaxyClient.exe"
     # Closing the window parks GOG in the tray. A Dock-icon click (winemac
     # patch: WINE_DOCK_REOPEN_CMD runs when no window is visible) sends the
     # same WM_COPYDATA "restore" message a second GalaxyClient.exe instance
