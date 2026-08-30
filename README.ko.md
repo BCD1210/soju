@@ -27,17 +27,17 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 ## 설치 (한 줄)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/BCD1210/soju/main/install.sh | bash
+curl -fsSL bcd1210.github.io/soju/install.sh | bash
 ```
 
 Homebrew로도 됩니다:
 
 ```bash
 brew install BCD1210/soju/soju
-soju install     # 이후: soju battlenet / soju d2r / soju steam
+soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / soju gog
 ```
 
-프리빌드 엔진(~350MB)을 받고, 애플 무료 GPTK 다운로드(애플이 재배포 금지한 파일 1개)를 안내하고, 블리자드 공식 설치기로 Battle.net을 자동 설치한 뒤 `~/Applications/Battle.net.app`을 만들어줍니다. 로그인하고 플레이하세요.
+설치기는 프리빌드 엔진(~350MB)을 받고, 애플 무료 GPTK 다운로드(애플이 재배포 금지한 파일 1개)를 안내한 뒤, 원하는 런처를 묻습니다. Battle.net, Steam, Epic Games Launcher, GOG GALAXY 중 아무 조합이나 고르면 각각 공식 설치기로 별도 보틀에 설치하고, 런처마다 더블클릭용 앱을 `~/Applications`에 만들어 줍니다(`Battle.net.app`, `Steam (Windows).app`, `Epic Games Launcher.app`, `GOG GALAXY.app`). 비대화형: `SOJU_PLATFORMS=battlenet,epic,gog curl ... | bash`. 로그인하고 플레이하세요.
 
 ## 직접 빌드하고 싶다면: CrossOver 불필요
 
