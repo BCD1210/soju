@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Soju one-line installer: Battle.net + Diablo II: Resurrected on Apple Silicon, no CrossOver.
+# Soju one-line installer: Battle.net, Steam, Epic and GOG launchers on Apple Silicon, no CrossOver.
 #   curl -fsSL https://raw.githubusercontent.com/BCD1210/soju/main/install.sh | bash
+#   SOJU_PLATFORMS=battlenet,epic,gog curl ... | bash     (non-interactive selection)
 #
 # What it does:
 #   1. Downloads the prebuilt GPL Wine engine (built from CodeWeavers' published sources)
 #   2. Asks you to download Apple's Game Porting Toolkit once (Apple forbids redistribution)
-#   3. Creates a bottle and runs Blizzard's official Battle.net installer (automatic)
-#   4. Creates ~/Applications/Battle.net.app
+#   3. Asks which launchers you want (any combination) and installs each one with
+#      its official installer into its own bottle
+#   4. Creates a double-clickable app in ~/Applications for each launcher
 set -euo pipefail
 
 REPO="BCD1210/soju"
@@ -83,68 +85,117 @@ EOT
   fi
 fi
 
-# ---------- 3. Bottle + Battle.net ----------
-export WINEPREFIX="$BOTTLE" WINEDEBUG=fixme-all WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1 WINE_SIMULATE_WRITECOPY=1
-export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
-export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
-if [ -f "$BOTTLE/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" ]; then
-  say "[3/4] Battle.net already installed - skipping"
+# ---------- 3. Launchers ----------
+# The bottle scripts live in the repo; fetch a copy next to the engine so the
+# one-line installer can use them (a checkout running install.sh uses itself).
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+if [ -n "$SELF_DIR" ] && [ -f "$SELF_DIR/scripts/play.sh" ]; then
+  SOJU_DIR="$SELF_DIR"
 else
-  say "[3/4] Creating the bottle + installing Battle.net automatically (5-10 min)"
-  "$ENGINE/bin/wine" wineboot -u >/dev/null 2>&1 || true
-  "$ENGINE/bin/wineserver" -w
-  W="$ENGINE/bin/wine"
-  "$W" reg add 'HKCU\Software\Wine\WineDbg' /v ShowCrashDialog /t REG_DWORD /d 0 /f >/dev/null 2>&1
-  for HIVE in 'HKLM\Software\Microsoft\Windows NT\CurrentVersion\AeDebug' \
-              'HKLM\Software\Wow6432Node\Microsoft\Windows NT\CurrentVersion\AeDebug'; do
-    "$W" reg add "$HIVE" /v Debugger /t REG_SZ /d 'C:\windows\system32\rundll32.exe kernel32.dll,Sleep' /f >/dev/null 2>&1
-    "$W" reg add "$HIVE" /v Auto /t REG_SZ /d 1 /f >/dev/null 2>&1
-  done
-  "$ENGINE/bin/wineserver" -w
-  SETUP="$BASE/Battle.net-Setup.exe"
-  [ -f "$SETUP" ] || curl -fL "https://downloader.battle.net/download/getInstaller?os=win&installer=Battle.net-Setup.exe" -o "$SETUP"
-  "$ENGINE/bin/wine" "$SETUP" --lang=enUS >/dev/null 2>&1 || true
-  for i in $(seq 1 60); do
-    [ -f "$BOTTLE/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" ] && break; sleep 10
-  done
-  [ -f "$BOTTLE/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" ] \
-    || { echo "Install failed - check the logs in $BOTTLE/drive_c/ProgramData/Battle.net/Setup"; exit 1; }
-  "$ENGINE/bin/wineserver" -k 2>/dev/null || true
-  echo "Battle.net installed"
+  SOJU_DIR="$BASE/soju"
+  say "Fetching the Soju scripts into $SOJU_DIR"
+  rm -rf "$SOJU_DIR.tmp"; mkdir -p "$SOJU_DIR.tmp"
+  curl -fsSL "https://github.com/$REPO/archive/refs/heads/main.tar.gz" | tar -xz -C "$SOJU_DIR.tmp" --strip-components=1
+  rm -rf "$SOJU_DIR"; mv "$SOJU_DIR.tmp" "$SOJU_DIR"
 fi
+chmod +x "$SOJU_DIR"/scripts/*.sh "$SOJU_DIR"/scripts/soju 2>/dev/null || true
 
-# ---------- 4. App bundle ----------
-say "[4/4] Creating Battle.net.app"
-REAPER="$BASE/soju-reaper.sh"
-[ -f "$REAPER" ] || curl -fsSL "https://raw.githubusercontent.com/$REPO/main/scripts/soju-reaper.sh" -o "$REAPER" 2>/dev/null || true
-chmod +x "$REAPER" 2>/dev/null || true
-APP="$HOME/Applications/Battle.net.app"
-mkdir -p "$APP/Contents/MacOS"
-cat > "$APP/Contents/MacOS/launcher" <<EOF
+ALL="battlenet steam epic gog"
+if [ -n "${SOJU_PLATFORMS:-}" ]; then
+  PLATFORMS="$(echo "$SOJU_PLATFORMS" | tr ',' ' ')"
+else
+  say "[3/4] Which launchers do you want? (numbers separated by spaces, Enter = Battle.net only)"
+  cat <<'EOT'
+  1) Battle.net           (Diablo II: Resurrected etc.)
+  2) Steam                (Windows client on Homebrew wine-stable, D3D11 games via DXMT)
+  3) Epic Games Launcher
+  4) GOG GALAXY
+EOT
+  read -r -p "  Your choice [1]: " choice < "$TTY" || choice=1
+  [ -n "$choice" ] || choice=1
+  PLATFORMS=""
+  for c in $choice; do
+    case "$c" in
+      1|battlenet) PLATFORMS="$PLATFORMS battlenet" ;;
+      2|steam)     PLATFORMS="$PLATFORMS steam" ;;
+      3|epic)      PLATFORMS="$PLATFORMS epic" ;;
+      4|gog)       PLATFORMS="$PLATFORMS gog" ;;
+      *) echo "  Ignoring unknown choice: $c" ;;
+    esac
+  done
+fi
+for p in $PLATFORMS; do case " $ALL " in *" $p "*) ;; *) echo "Unknown platform: $p"; exit 1;; esac; done
+[ -n "$PLATFORMS" ] || { echo "Nothing selected."; exit 1; }
+echo "  Installing:$PLATFORMS"
+
+export ENGINE
+for p in $PLATFORMS; do
+  case "$p" in
+    battlenet)
+      if [ -f "$BOTTLE/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" ]; then
+        say "Battle.net already installed - skipping"
+      else
+        say "Battle.net: creating the bottle + running Blizzard's installer (5-10 min)"
+        WINEPREFIX="$BOTTLE" bash "$SOJU_DIR/scripts/create-bottle.sh"
+      fi ;;
+    steam)
+      if [ -f "$BASE/steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
+        say "Steam already installed - skipping"
+      else
+        say "Steam: Homebrew wine-stable + Steam installer"
+        bash "$SOJU_DIR/scripts/create-steam-bottle.sh"
+      fi ;;
+    epic)
+      if [ -f "$BASE/epic-bottle/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe" ]; then
+        say "Epic Games Launcher already installed - skipping"
+      else
+        say "Epic Games Launcher: creating the bottle + running Epic's installer"
+        bash "$SOJU_DIR/scripts/create-epic-bottle.sh"
+      fi ;;
+    gog)
+      if [ -f "$BASE/gog-bottle/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe" ]; then
+        say "GOG GALAXY already installed - skipping"
+      else
+        say "GOG GALAXY: creating the bottle + running GOG's installer"
+        bash "$SOJU_DIR/scripts/create-gog-bottle.sh"
+      fi ;;
+  esac
+done
+
+# ---------- 4. App bundles ----------
+say "[4/4] Creating apps in ~/Applications"
+make_app(){   # name, play.sh mode, bundle id
+  local APP="$HOME/Applications/$1.app"
+  mkdir -p "$APP/Contents/MacOS"
+  cat > "$APP/Contents/MacOS/launcher" <<EOF
 #!/bin/bash
-export WINEPREFIX="$BOTTLE" WINEDEBUG=fixme-all WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1 WINE_SIMULATE_WRITECOPY=1
-export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
-export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
-BN="\$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
-for v in "\$BN"/Battle.net.[0-9]*; do [ -d "\$v" ] && cp -f "\$BN/Battle.net.exe" "\$v/Battle.net.exe" 2>/dev/null; done
-# Reap zombie game processes so quitting the game really quits it
-pgrep -f "soju-reaper.sh \$WINEPREFIX" >/dev/null 2>&1 || { [ -x "$REAPER" ] && ( "$REAPER" "\$WINEPREFIX" "$ENGINE/bin/wineserver" >/dev/null 2>&1 & ); }
-# Battle.net.exe directly (not Launcher.exe): CrossOver's private compat DB injects these two
-# switches; without them CEF's GPU process dies and the main window stays transparent.
-exec "$ENGINE/bin/wine" "C:\\\\Program Files (x86)\\\\Battle.net\\\\Battle.net.exe" --disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader
+export ENGINE="$ENGINE"
+exec "$SOJU_DIR/scripts/play.sh" $2
 EOF
-chmod +x "$APP/Contents/MacOS/launcher"
-cat > "$APP/Contents/Info.plist" <<'EOF'
+  chmod +x "$APP/Contents/MacOS/launcher"
+  cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleName</key><string>Battle.net</string>
+<key>CFBundleName</key><string>$1</string>
 <key>CFBundleExecutable</key><string>launcher</string>
-<key>CFBundleIdentifier</key><string>app.soju.battlenet</string>
+<key>CFBundleIdentifier</key><string>$3</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 </dict></plist>
 EOF
-codesign -f -s - "$APP" 2>/dev/null || true
+  codesign -f -s - "$APP" 2>/dev/null || true
+  echo "  ~/Applications/$1.app"
+}
+mkdir -p "$HOME/Applications"
+for p in $PLATFORMS; do
+  case "$p" in
+    battlenet) make_app "Battle.net" battlenet app.soju.battlenet ;;
+    steam)     make_app "Steam (Windows)" steam app.soju.steam ;;
+    epic)      make_app "Epic Games Launcher" epic app.soju.epic ;;
+    gog)       make_app "GOG GALAXY" gog app.soju.gog ;;
+  esac
+done
 
-say "Done! 🍶  Double-click ~/Applications/Battle.net.app, log in, install and play"
+say "Done! 🍶  Double-click the app(s) above, log in, install and play."
+echo "Command line: $SOJU_DIR/scripts/soju  (battlenet | d2r | steam | epic | gog, plus *-kill)"
 GPTK_OK || echo "NOTE: GPTK was skipped - run scripts/get-gptk.sh before launching a game."
