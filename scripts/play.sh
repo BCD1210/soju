@@ -117,6 +117,17 @@ case "$MODE" in
       { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" gog >/dev/null 2>&1 & ); }
     export SOJU_CHROMIUM_FLAGS="${SOJU_CHROMIUM_FLAGS:---disable-gpu --disable-gpu-compositing}"
     export WINE_NO_DOCK_ICON="QtWebEngineProcess.exe;GalaxyClientService.exe;GOG Galaxy Notifications Renderer.exe;GalaxyCommunication.exe;GalaxyClientHelper.exe"
+    # Closing the window parks GOG in the tray. A Dock-icon click (winemac
+    # patch: WINE_DOCK_REOPEN_CMD runs when no window is visible) sends the
+    # same WM_COPYDATA "restore" message a second GalaxyClient.exe instance
+    # would send, without paying for a whole second client start-up
+    # (tools/soju-gog-restore.c, built by create-gog-bottle.sh).
+    RESTORE="$HOME/.battlenet-macos/gog-support/soju-gog-restore.exe"
+    if [[ -f "$RESTORE" ]]; then
+      export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$RESTORE'"
+    else
+      export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$GOG'"   # slow fallback: second instance
+    fi
     exec "$ENGINE/bin/wine" "$GOG" "${@:2}"
     ;;
   gog-kill)    # Stop everything in the GOG bottle

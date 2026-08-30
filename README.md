@@ -90,7 +90,7 @@ Verified 2026-08-30: 71 GB install of Hogwarts Legacy (UE4, D3D12 through D3DMet
 ```bash
 scripts/create-gog-bottle.sh      # separate bottle, official web installer (silent)
 scripts/play.sh gog               # log in, install and play
-scripts/play.sh gog-kill          # stop the GOG bottle (closing the window parks GOG in the menu bar tray)
+scripts/play.sh gog-kill          # stop the GOG bottle (closing the window parks GOG in the menu bar tray; a Dock-icon click brings it back)
 ```
 
 Verified 2026-08-30: install, login, library. GOG GALAXY 2.x is Qt6 + QtWebEngine, not CEF, and on this engine its window stays black because Qt's D3D11 compositing asks D3DMetal's DXGI for `IDXGIResource`, which it does not implement. The fix is to run Chromium on the CPU (`--disable-gpu`), but GOG overwrites `QTWEBENGINE_CHROMIUM_FLAGS` itself and ignores its own command line, and it checksums its executable, so nothing outside the engine can inject the switch. The engine therefore carries a small hook (`patches/chromium-flags-append.patch`): whenever a program sets `QTWEBENGINE_CHROMIUM_FLAGS`, the contents of `SOJU_CHROMIUM_FLAGS` are appended. `play.sh gog` sets it. Details in [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
