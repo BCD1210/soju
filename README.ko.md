@@ -27,7 +27,7 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 ## 설치 (한 줄)
 
 ```bash
-curl -fsSL bcd1210.github.io/soju/install.sh | bash
+curl -fsSL soju.snack-wrap.com/install.sh | bash
 ```
 
 Homebrew로도 됩니다:
