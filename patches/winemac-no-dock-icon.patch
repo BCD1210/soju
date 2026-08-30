@@ -42,7 +42,7 @@ index 2a9dab2..13e054b 100644
          // don't count as "visible windows" for this purpose.
          [self unminimizeWindowIfNoneVisible];
 +
-+        /* Soju: WINE_DOCK_REOPEN_CMD — Windows apps that "close to the tray"
++        /* Soju: WINE_DOCK_REOPEN_CMD: Windows apps that "close to the tray"
 +           (Steam) hide their window; there is no tray on macOS, so a Dock click
 +           would do nothing. If nothing is visible after the unminimize attempt,
 +           run the command (e.g. "steam.exe steam://open/main") to bring it back. */
