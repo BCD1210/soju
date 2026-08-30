@@ -122,12 +122,7 @@ case "$MODE" in
     # same WM_COPYDATA "restore" message a second GalaxyClient.exe instance
     # would send, without paying for a whole second client start-up
     # (tools/soju-gog-restore.c, built by create-gog-bottle.sh).
-    RESTORE="$HOME/.battlenet-macos/gog-support/soju-gog-restore.exe"
-    if [[ -f "$RESTORE" ]]; then
-      export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$RESTORE'"
-    else
-      export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$GOG'"   # slow fallback: second instance
-    fi
+    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$HOME/.battlenet-macos/gog-support/soju-gog-restore.exe'"
     exec "$ENGINE/bin/wine" "$GOG" "${@:2}"
     ;;
   gog-kill)    # Stop everything in the GOG bottle
