@@ -1,6 +1,6 @@
 # Soju
 
-> *Wine → Whisky → Kegworks… and now a Korean round: **Soju***
+> *Wine → Whisky → Kegworks… and now a Korean round: **Soju** 🍶*
 
 **The launchers actually log in.** Battle.net, Steam and the Epic Games Launcher on Apple Silicon. No black login window, no "Signing in…" that never ends, no CrossOver license. A fully free, open-source Wine stack.
 
