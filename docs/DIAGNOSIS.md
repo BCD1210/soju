@@ -120,6 +120,15 @@ GOG GALAXY 2.1.8은 CEF가 아니라 **Qt6 + QtWebEngine**(Chromium 118/125)이�
 
 부수: 강제 종료 후엔 `ProgramData/GOG.com/Galaxy/lock-files/`의 잠금 파일 때문에 "Second client instance detected"로 즉시 종료되므로 `play.sh gog`가 실행 전에 지운다. 설치기가 자동 실행하는 `GalaxyClient.exe /installerLaunch /payload=`는 빈 payload로 `campaignParamsForLogIn` 설정 오류를 내고 죽는데 무해하다. 이 훅은 Qt/QtWebEngine 기반 런처 전반(다른 스토어 클라이언트 포함)에 그대로 쓸 수 있다.
 
+## 트레이 복귀 정리: 네 런처 모두 독 아이콘 클릭으로 돌아온다 (2026-08-30)
+
+winemac 패치의 `WINE_DOCK_REOPEN_CMD`(보이는 창이 없을 때 독 클릭 시 실행)에 런처별 복원 명령을 연결했다.
+
+- Battle.net: 기본은 X = 종료(Windows와 동일). `Client.HideOnClose`로 트레이 최소화를 켠 경우 두 번째 `Battle.net.exe` 실행이 기존 인스턴스에 넘겨져 창이 뜬다.
+- Steam: `steam.exe steam://open/main` 재실행.
+- Epic: 트레이 더블클릭 시퀀스 재현(`tools/soju-epic-restore.c`, 위 참조).
+- GOG: `RestoreClientMessage` 직접 전송(`tools/soju-gog-restore.c`, 위 참조).
+
 ## 벽 2: Battle.net Agent caller 서명 검증 실패 (해결됨)
 
 ### 증상

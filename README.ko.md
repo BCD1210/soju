@@ -62,7 +62,7 @@ scripts/get-gptk.sh
 scripts/create-bottle.sh
 
 # 6. 플레이
-scripts/play.sh battlenet   # 런처 → 로그인 → 게임 설치·플레이
+scripts/play.sh battlenet   # 런처 → 로그인 → 게임 설치·플레이 (창을 닫으면 Windows처럼 종료. 설정에서 "트레이로 최소화"로 바꾸면 독 아이콘 클릭으로 복귀)
 scripts/play.sh d2r         # 게임 직접 실행 (오프라인)
 scripts/play.sh kill        # 전부 종료
 ```

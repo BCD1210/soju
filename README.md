@@ -66,7 +66,7 @@ scripts/get-gptk.sh
 scripts/create-bottle.sh
 
 # 6. Play
-scripts/play.sh battlenet   # launcher -> log in -> install & play your game
+scripts/play.sh battlenet   # launcher -> log in -> install & play your game (closing the window exits, as on Windows; if you set "minimize to tray" in its settings, a Dock-icon click brings it back)
 scripts/play.sh d2r         # direct game launch (offline)
 scripts/play.sh kill        # stop everything
 ```

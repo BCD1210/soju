@@ -72,9 +72,14 @@ case "$MODE" in
     # spawns a separate GPU process that dies on init and the frameless main
     # window stays fully transparent (Dock icon, no window). See docs/DIAGNOSIS.md.
     start_reaper
-    exec "$ENGINE/bin/wine" \
-      "C:\\Program Files (x86)\\Battle.net\\Battle.net.exe" \
-      --disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader
+    # By default Battle.net exits when its window is closed (same as Windows).
+    # With Settings > "When I close the app" set to the tray (Client.HideOnClose),
+    # the window hides instead; a Dock-icon click then starts a second
+    # Battle.net.exe, which hands off to the running one and shows its window.
+    BN_EXE="C:\\Program Files (x86)\\Battle.net\\Battle.net.exe"
+    BN_ARGS="--disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader"
+    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$BN_EXE' $BN_ARGS"
+    exec "$ENGINE/bin/wine" "$BN_EXE" $BN_ARGS
     ;;
   d2r)         # Launch the game directly (offline / previous session)
     start_reaper
