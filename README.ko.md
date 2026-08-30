@@ -12,7 +12,7 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 
 *[English README](README.md)*
 
-## 핵심 발견 3가지 🔑
+## 핵심 발견 3가지
 
 커뮤니티가 몇 달째 못 풀던 문제들의 해법:
 
