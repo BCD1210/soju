@@ -1,4 +1,4 @@
-# Steam + D3D11 games on Apple Silicon — the full free path
+# Steam + D3D11 games on Apple Silicon: the full free path
 
 Verified 2026-08-27 on M4 Pro / macOS 26.5: Windows Steam client (Aug 2026 build,
 CEF 126) renders and authenticates, and a Unity D3D11 title launched from the
@@ -27,20 +27,20 @@ Two D3D11 implementations must coexist in one prefix:
 Hard-won facts, in the order they burned us:
 
 1. **DXMT dlls must be builtins.** Loaded as native they cannot attach their
-   unixlib (`winemetal.so`) — wine falls back to vanilla silently.
+   unixlib (`winemetal.so`). Wine falls back to vanilla silently.
 2. **Wine-built PEs dropped into a game folder are treated as fake dlls** and
-   silently redirected to the bundle builtin — game-local DXMT does not work.
+   silently redirected to the bundle builtin. Game-local DXMT does not work.
 3. **A builtin that isn't part of wine needs a placeholder**: without a
    `winemetal.dll` copy in `system32`, by-name lookup fails with `c0000135`
    ("Failed to initialize graphics" in Unity) even though the builtin exists.
 4. **The Steam client dies on DXMT builtins** (helper restart loop every 10 s),
    so it must be forced to vanilla per-app. But per-app `native` pointing at a
-   vanilla wine PE gets redirected to the (DXMT) builtin — unless you strip the
+   vanilla wine PE gets redirected to the (DXMT) builtin, unless you strip the
    `Wine builtin DLL` marker from the copies (1-byte patch).
 5. **i386 stays vanilla.** steam.exe is 32-bit; its composer must not see DXMT.
 6. **`winemac.so` must export macdrv symbols** (`-fvisibility=default` rebuild)
    or DXMT's `_CreateMetalViewFromHWND` cannot dlsym them.
-7. **Env `WINEDLLOVERRIDES` beats per-app registry** — keep d3d overrides out of
+7. **Env `WINEDLLOVERRIDES` beats per-app registry**: keep d3d overrides out of
    the env; drive the split from the registry only.
 8. **Steam tags games with `DISABLEDXMAXIMIZEDWINDOWEDMODE`**, forcing
    fullscreen; scrub it from `user.reg` for windowed play. Unity then remembers
@@ -50,7 +50,7 @@ Hard-won facts, in the order they burned us:
 10. **One Dock icon**: macdrv registers a Dock icon per wine process with
    windows, and this macdrv ignores virtual desktops. We patched
    `cocoa_app.m` (modeled on CrossOver's hack 24141) to honor
-   `WINE_NO_DOCK_ICON="steam.exe;steamservice.exe"` — matching the basename of
+   `WINE_NO_DOCK_ICON="steam.exe;steamservice.exe"`, matching the basename of
    the first two argv entries (NSProcessInfo sees pre-rewrite argv; scanning all
    args would also hide the helper via its `-steampath=` argument).
 
@@ -64,7 +64,7 @@ three fixes we needed on macOS 26.5 / current Homebrew:
 - `src/util/com/com_guid.cpp` needs `#include <iomanip>` (newer mingw).
 - The prebuilt LLVM 15 x86_64 tree references zstd: build an x86_64
   `libzstd.a` and `libtool -static`-merge it into `libLLVMSupport.a`.
-- The 3Shain wine toolchain tarball extracts flat — normalise into
+- The 3Shain wine toolchain tarball extracts flat. Normalise into
   `toolchains/wine/`.
 - The Dock-icon patch on top of the visibility rebuild lives in
   `transformProcessToForeground:` (see `scripts/setup-steam-games.sh` header).
@@ -73,7 +73,7 @@ DXMT is LGPL-2.1+ (Copyright Feifan He for CodeWeavers); the wrapper is MIT
 (vendored in `third_party/`); our winemac patch is published as
 `patches/winemac-no-dock-icon.patch` (LGPL-2.1+, matching Wine). The same patch adds
 `WINE_DOCK_REOPEN_CMD`: when the Dock icon is clicked and no Wine window is visible, winemac runs
-the command — `play.sh steam` sets it to `steam.exe steam://open/main`, so closing the Steam window
+the command, `play.sh steam` sets it to `steam.exe steam://open/main`, so closing the Steam window
 parks it (as on Windows) and a Dock click brings it back; Steam > Exit really quits. Nothing
 proprietary is redistributed.
 

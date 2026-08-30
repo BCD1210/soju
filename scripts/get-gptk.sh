@@ -5,7 +5,7 @@
 # Why it's needed: libd3dshared is required for D2R's loader (anti-cheat) to get
 # through Rosetta 2 (it registers non-native code regions). It also provides the
 # graphics backend (D3DMetal). Apple forbids redistributing it, so you download
-# it yourself — a free Apple ID is enough.
+# it yourself: a free Apple ID is enough.
 #
 # 1) Download the "Game Porting Toolkit" dmg from
 #    https://developer.apple.com/games/game-porting-toolkit/

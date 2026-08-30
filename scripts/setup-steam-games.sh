@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Enable D3D11 rendering for Steam games — wires DXMT + the patched winemac.
+# Enable D3D11 rendering for Steam games: wires DXMT + the patched winemac.
 #
 # Prerequisites: create-steam-bottle.sh done, and the DXMT artifacts present in
 # ~/.battlenet-macos/steam-support/ (dxmt-x64/{d3d11,dxgi,d3d10core,winemetal}.dll
@@ -15,7 +15,7 @@
 #     "Failed to initialize graphics")
 #   - system32 gets marker-stripped vanilla d3d dlls (native, Steam client only)
 #   - Registry: global d3d11/d3d10core/dxgi/winemetal=builtin (DXMT);
-#     steam.exe / steamwebhelper* / steamservice get per-app native (vanilla) —
+#     steam.exe / steamwebhelper* / steamservice get per-app native (vanilla):
 #     the modern Steam CEF conflicts with DXMT builtins and restart-loops, so the
 #     split is mandatory
 #   - winemac-patched.so: -fvisibility=default (DXMT dlsyms macdrv APIs) +
@@ -29,9 +29,9 @@ WLIB="$WAPP/lib/wine"
 WINE="$WAPP/bin/wine"
 B="$WINEPREFIX/drive_c/windows"
 
-[ -x "$WINE" ] || { echo "wine-stable not found — run create-steam-bottle.sh first"; exit 1; }
+[ -x "$WINE" ] || { echo "wine-stable not found, run create-steam-bottle.sh first"; exit 1; }
 for f in dxmt-x64/d3d11.dll dxmt-x64/dxgi.dll dxmt-x64/d3d10core.dll dxmt-x64/winemetal.dll dxmt-x64/winemetal.so winemac-patched.so; do
-  [ -f "$SUP/$f" ] || { echo "Missing artifact: $SUP/$f — see the build steps in docs/STEAM-GAMES.md"; exit 1; }
+  [ -f "$SUP/$f" ] || { echo "Missing artifact: $SUP/$f, see the build steps in docs/STEAM-GAMES.md"; exit 1; }
 done
 
 echo "==> 1/5 Backing up vanilla dlls (first run only)"
@@ -77,5 +77,5 @@ n = d.replace('DISABLEDXMAXIMIZEDWINDOWEDMODE', '')
 if n != d: open(p, 'w', encoding='utf-8', errors='surrogateescape').write(n)
 EOF
 
-echo "Done. Launch with scripts/play.sh steam — to pin windowed mode, use the"
+echo "Done. Launch with scripts/play.sh steam, to pin windowed mode, use the"
 echo "in-game setting or the Steam launch option '-screen-fullscreen 0' (Unity titles)."

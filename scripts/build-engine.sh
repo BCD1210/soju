@@ -2,10 +2,10 @@
 # Build the wine 11.0 engine from CrossOver 26.3's published GPL sources (free and legal).
 # Verified: each step of this recipe was verified individually during the real
 # 2026-08 build (Battle.net + D2R in-game). Caveat: a single clean end-to-end
-# re-run is untested — issues welcome.
+# re-run is untested: issues welcome.
 #
 # Requirements: Apple Silicon + Rosetta 2, Xcode CLT, Homebrew (arm64).
-# Run first: scripts/get-components.sh (fetches dylibs+mono — no CrossOver needed)
+# Run first: scripts/get-components.sh (fetches dylibs+mono: no CrossOver needed)
 set -euo pipefail
 
 WORK="${WORK:-$HOME/.battlenet-macos/build}"
@@ -45,7 +45,7 @@ tar -xzf "$WORK/ft.tar.gz" -C "$WORK"
 
 echo "==> Checking the x86_64 dependency dylibs (get-components.sh output)"
 ls "$DEPS/lib/libgnutls.30.dylib" "$DEPS/lib/libMoltenVK.dylib" >/dev/null 2>&1 \
-  || { echo "dylibs missing — run scripts/get-components.sh first"; exit 1; }
+  || { echo "dylibs missing, run scripts/get-components.sh first"; exit 1; }
 
 echo "==> wine configure (x86_64, new-wow64 i386+x86_64)"
 mkdir -p "$WORK/wine-build"; cd "$WORK/wine-build"
@@ -71,7 +71,7 @@ cp -c "$DEPS/lib/"*.dylib "$ENGINE/lib/" 2>/dev/null || true
 # wine-mono 10.4.1 (official release fetched by get-components.sh)
 mkdir -p "$ENGINE/share/wine/mono"
 cp -Rc "$WORK/mono/wine-mono-10.4.1" "$ENGINE/share/wine/mono/" 2>/dev/null \
-  || echo "WARNING: mono missing — check that get-components.sh was run"
+  || echo "WARNING: mono missing, check that get-components.sh was run"
 # rpath + entitlement signing (Rosetta / executable memory)
 cat > "$WORK/ent.plist" <<'PL'
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -95,4 +95,4 @@ echo "Example launch:"
 echo "  export WINEPREFIX=<bottle> CX_GRAPHICS_BACKEND=d3dmetal WINEMSYNC=1 WINE_SIMULATE_WRITECOPY=1"
 echo "  export DYLD_FALLBACK_LIBRARY_PATH='$ENGINE/lib:/usr/lib'"
 echo "  '$ENGINE/bin/wine' 'C:\\\\Program Files (x86)\\\\Battle.net\\\\Battle.net Launcher.exe' --disable-gpu-compositing"
-echo "  (Apple-protected binaries (nohup, ...) in the chain strip DYLD_* — background it with a subshell & instead)"
+echo "  (Apple-protected binaries (nohup, ...) in the chain strip DYLD_*, background it with a subshell & instead)"

@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# Diablo II: Resurrected — fully free stack launcher (final verified combination)
+# Diablo II: Resurrected: fully free stack launcher (final verified combination)
 #
 # Stack: self-built wine 11.0 (CrossOver 26.3 GPL sources) + D3DMetal (Apple GPTK)
 # Verified 2026-08-27: Battle.net login / Agent / D2R in-game.
 #
 # The three keys (finding these took days):
-#  1) ROSETTA_ADVERTISE_AVX=1   — D2R's loader requires AVX. Without it the game
+#  1) ROSETTA_ADVERTISE_AVX=1: D2R's loader requires AVX. Without it the game
 #     waits forever (stuck at ~86MB RAM).
-#  2) D3DMetal symlink layout   — real files in lib/external, symlinks in
+#  2) D3DMetal symlink layout: real files in lib/external, symlinks in
 #     x86_64-unix. Copying breaks @loader_path and causes an assertion loop
 #     (frankea's README warns about this).
-#  3) Never put Apple-protected binaries (nohup/arch, ...) in the launch chain —
+#  3) Never put Apple-protected binaries (nohup/arch, ...) in the launch chain:
 #     macOS strips DYLD_* when exec'ing them.
 set -euo pipefail
 
 ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
 MODE="${1:-battlenet}"
 
-# Bottle (virtual C: drive) path — per-mode default (Battle.net and Steam use separate bottles)
+# Bottle (virtual C: drive) path: per-mode default (Battle.net and Steam use separate bottles)
 if [[ "$MODE" == steam* ]]; then
   export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/steam-bottle}"
 elif [[ "$MODE" == epic* ]]; then
@@ -53,7 +53,7 @@ REAPER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju-reaper.sh"
 SWEEP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju-sweep.sh"   # orphaned-service cleanup
 start_reaper(){
   # Watchdog: reaps game processes that outlive their windows, and shuts the
-  # prefix down once everything is closed — so "quit" really means quit.
+  # prefix down once everything is closed: so "quit" really means quit.
   pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 && return 0
   [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" >/dev/null 2>&1 & )
 }
@@ -75,17 +75,17 @@ case "$MODE" in
     cd "$WINEPREFIX/drive_c/Program Files (x86)/Diablo II Resurrected"
     exec "$ENGINE/bin/wine" "D2R.exe" "${@:2}"
     ;;
-  epic)        # Epic Games Launcher — same engine and env as Battle.net (verified 2026-08-29)
+  epic)        # Epic Games Launcher, same engine and env as Battle.net (verified 2026-08-29)
     # Runs as-is: Epic's CEF (EpicWebHelper) keeps its GPU process alive here,
     # so none of the Battle.net command-line switches are needed.
     # Closing the window hides it, exactly like on Windows: Epic's tray icon
     # lands in the macOS menu bar (winemac systray -> NSStatusItem), and its
     # right-click menu reopens the window or exits (left click is ignored by Epic). Do NOT force the hidden window back via
-    # ShowWindow() from outside — Slate keeps its "minimized" state and the
+    # ShowWindow() from outside: Slate keeps its "minimized" state and the
     # window comes back unresponsive.
     EPIC="C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe"
     [[ -f "$WINEPREFIX/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe" ]] || \
-      { echo "Epic Games Launcher not found — run scripts/create-epic-bottle.sh first"; exit 1; }
+      { echo "Epic Games Launcher not found, run scripts/create-epic-bottle.sh first"; exit 1; }
     pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
       { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" epic >/dev/null 2>&1 & ); }
     exec "$ENGINE/bin/wine" "$EPIC" "${@:2}"
@@ -95,7 +95,7 @@ case "$MODE" in
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
-  steam)       # Steam client — wine-stable + webhelper wrapper (verified 2026-08-27)
+  steam)       # Steam client, wine-stable + webhelper wrapper (verified 2026-08-27)
     # Steam's CEF does not render on the CX engine (black screen / SEGV storm).
     # The verified combination is Homebrew wine-stable 11 + the steamwebhelper
     # wrapper (forces --disable-gpu --single-process) + -no-cef-sandbox
@@ -103,9 +103,9 @@ case "$MODE" in
     # vendored in third_party/.
     WINESTABLE="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine"
     WINESTABLE_SERVER="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver"
-    [[ -x "$WINESTABLE" ]] || { echo "wine-stable not found — brew install --cask wine-stable"; exit 1; }
+    [[ -x "$WINESTABLE" ]] || { echo "wine-stable not found, brew install --cask wine-stable"; exit 1; }
     ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
-    [[ -f "$ST" ]] || { echo "Steam not found — run scripts/create-steam-bottle.sh first"; exit 1; }
+    [[ -f "$ST" ]] || { echo "Steam not found, run scripts/create-steam-bottle.sh first"; exit 1; }
     # 1) Clean crash leftovers (a stale lock makes the next launch a windowless --silent one)
     find "$WINEPREFIX/drive_c/users/"*/AppData/Local/Steam/htmlcache -maxdepth 2 \
       \( -name "Singleton*" -o -name "*.lock" \) -delete 2>/dev/null || true
@@ -123,7 +123,7 @@ case "$MODE" in
     #    prefix. Steam re-adds it on update, so scrub it every launch.
     "$WINESTABLE" reg delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run' \
       /v Steam /f >/dev/null 2>&1 || true
-    # 4) Virtual desktop — this macdrv (gcenx wine 11) ignores virtual desktops,
+    # 4) Virtual desktop: this macdrv (gcenx wine 11) ignores virtual desktops,
     #    so it is off by default. The single Dock icon is handled by
     #    WINE_NO_DOCK_ICON (winemac patch) instead.
     #    To enable anyway: WINE_VIRTUAL_DESKTOP=auto (or a resolution like 1600x900).
@@ -140,7 +140,7 @@ case "$MODE" in
     grep -q 'AllowImmovableWindows' "$WINEPREFIX/user.reg" 2>/dev/null || {
       printf '\n[Software\\\\Wine\\\\Mac Driver]\n"AllowImmovableWindows"="n"\n' >> "$WINEPREFIX/user.reg"
     }
-    # 5) Launch — plain wine-stable environment, without the CX engine env
+    # 5) Launch: plain wine-stable environment, without the CX engine env
     STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process -noverifyfiles "${@:2}")
     [[ -n "$VD" ]] && STEAM_CMD=(explorer.exe "/desktop=soju-steam,$VD" "${STEAM_CMD[@]}")
     # Closing the Steam window parks it in a tray macOS does not show; the patched
@@ -164,7 +164,7 @@ case "$MODE" in
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
-  steam-kill)  # Stop everything in the Steam bottle — note this bottle runs on
+  steam-kill)  # Stop everything in the Steam bottle, note this bottle runs on
     # wine-stable, so it needs wine-stable's wineserver. Killing the CX engine's
     # wineserver here does nothing and leaves steam.exe alive, which then keeps
     # respawning steamwebhelper (it looks like "Steam relaunches itself").

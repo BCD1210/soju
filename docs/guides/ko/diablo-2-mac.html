@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>맥에서 디아블로 II 레저렉션 돌리기 — 무료 방법 (애플 실리콘, 2026)</title>
+<title>맥에서 디아블로 II 레저렉션 돌리기: 무료 방법 (애플 실리콘, 2026)</title>
 <meta name="description" content="M1/M2/M3/M4 맥에서 디아블로2 레저렉션이 실행 안 되는 진짜 이유(AVX)와, 크로스오버 없이 완전 무료로 돌리는 오픈소스 방법. 배틀넷 로그인부터 인게임까지 검증됨.">
 <link rel="canonical" href="https://bcd1210.github.io/soju/guides/ko/diablo-2-mac.html">
-<meta property="og:title" content="맥에서 디아2 레저렉션 — 무료로 돌리는 법">
+<meta property="og:title" content="맥에서 디아2 레저렉션: 무료로 돌리는 법">
 <meta property="og:description" content="애플 실리콘 맥에서 D2R이 멈추는 원인과 무료 해결법">
 <meta property="og:type" content="article">
 <link rel="stylesheet" href="../../style.css">
@@ -45,26 +45,26 @@ soju battlenet    # 로그인 후 앱에서 디아2 설치 → 플레이</code><
 크로스오버 GPL 소스로 빌드해서 이 문제가 없습니다.</p>
 
 <h3>3. 그래픽 크래시 루프</h3>
-<p>애플 게임 포팅 툴킷(GPTK) 라이브러리는 반드시 심링크 구조로 배치해야 합니다 —
+<p>애플 게임 포팅 툴킷(GPTK) 라이브러리는 반드시 심링크 구조로 배치해야 합니다.
 복사하면 <code>@loader_path</code>가 어긋나 어설션 루프로 죽습니다. Soju가 자동으로
 처리합니다.</p>
 
 <h2>준비물</h2>
 <ul>
   <li>애플 실리콘 맥 (M1 이상)</li>
-  <li><strong>macOS 26.4 이상 권장</strong> — 2026년 블리자드 안티치트 업데이트가
+  <li><strong>macOS 26.4 이상 권장</strong>. 2026년 블리자드 안티치트 업데이트가
   로제타 버그를 유발했고, 애플이 26.4에서 수정했습니다</li>
   <li>로제타2: <code>softwareupdate --install-rosetta</code></li>
-  <li>무료 Apple ID (GPTK 1회 다운로드용 — 애플이 재배포를 금지해서 직접 받아야 합니다)</li>
+  <li>무료 Apple ID (GPTK 1회 다운로드용, 애플이 재배포를 금지해서 직접 받아야 합니다)</li>
   <li>본인 배틀넷 계정 + 디아2 레저렉션 소지</li>
 </ul>
 
 <h2>문제 해결</h2>
 <table>
   <tr><th>증상</th><th>해결</th></tr>
-  <tr><td>실행 후 무한 정지 (86MB)</td><td><code>soju battlenet</code>/<code>soju d2r</code>로 실행하세요 — AVX 변수가 빠진 겁니다</td></tr>
+  <tr><td>실행 후 무한 정지 (86MB)</td><td><code>soju battlenet</code>/<code>soju d2r</code>로 실행하세요. AVX 변수가 빠진 겁니다</td></tr>
   <tr><td>BLZBNTBNA00000005</td><td>Soju 엔진인지 확인 (일반 wine 빌드는 안 됩니다)</td></tr>
-  <tr><td>"Failed to initialize graphics"</td><td>GPTK 미설치 — <code>scripts/get-gptk.sh</code> 실행</td></tr>
+  <tr><td>"Failed to initialize graphics"</td><td>GPTK 미설치. <code>scripts/get-gptk.sh</code> 실행</td></tr>
   <tr><td>한글 입력이 ??로 표시</td><td>wine 창에서는 macOS 입력기를 영어(ABC)로 전환</td></tr>
 </table>
 

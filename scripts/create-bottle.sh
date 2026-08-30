@@ -11,8 +11,8 @@ export WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1 WINE_SIMULATE_WRITECOPY=1
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 
-[ -x "$ENGINE/bin/wine" ] || { echo "Engine not found — run build-engine.sh first"; exit 1; }
-[ -f "$CX_APPLEGPTK_LIBD3DSHARED_PATH" ] || { echo "libd3dshared not found — run get-gptk.sh first"; exit 1; }
+[ -x "$ENGINE/bin/wine" ] || { echo "Engine not found, run build-engine.sh first"; exit 1; }
+[ -f "$CX_APPLEGPTK_LIBD3DSHARED_PATH" ] || { echo "libd3dshared not found, run get-gptk.sh first"; exit 1; }
 
 WORK="${WORK:-$HOME/.battlenet-macos/build}"; mkdir -p "$WORK"
 
@@ -46,7 +46,7 @@ for i in $(seq 1 60); do
   sleep 10
 done
 BN="$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
-[ -f "$BN/Battle.net.exe" ] || { echo "Install failed — logs: $WINEPREFIX/drive_c/ProgramData/Battle.net/Setup"; exit 1; }
+[ -f "$BN/Battle.net.exe" ] || { echo "Install failed, logs: $WINEPREFIX/drive_c/ProgramData/Battle.net/Setup"; exit 1; }
 echo "==> Battle.net installed"
 
 "$ENGINE/bin/wineserver" -k 2>/dev/null || true

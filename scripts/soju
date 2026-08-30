@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# soju — command-line entry point (used by the Homebrew formula)
+# soju: command-line entry point (used by the Homebrew formula)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 usage() {
   cat <<'EOF'
-soju — free Battle.net / Diablo II: Resurrected / Epic / Steam on Apple Silicon
+soju: free Battle.net / Diablo II: Resurrected / Epic / Steam on Apple Silicon
 
 Usage:
   soju install        Set up the Wine engine, Apple GPTK and Battle.net

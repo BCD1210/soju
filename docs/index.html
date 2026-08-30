@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Soju — Free Battle.net, Steam &amp; Epic launchers that actually log in on Apple Silicon</title>
-<meta name="description" content="Soju is a free, open-source (GPL) Wine stack where Battle.net, Steam and the Epic Games Launcher actually log in on Apple Silicon Macs — no black login window, no CrossOver license. Diablo II: Resurrected and D3D11 Steam games verified.">
+<title>Soju: Free Battle.net, Steam &amp; Epic launchers that actually log in on Apple Silicon</title>
+<meta name="description" content="Soju is a free, open-source (GPL) Wine stack where Battle.net, Steam and the Epic Games Launcher actually log in on Apple Silicon Macs. No black login window, no CrossOver license. Diablo II: Resurrected and D3D11 Steam games verified.">
 <link rel="canonical" href="https://bcd1210.github.io/soju/">
-<meta property="og:title" content="Soju — free Windows gaming on Apple Silicon">
+<meta property="og:title" content="Soju: free Windows gaming on Apple Silicon">
 <meta property="og:description" content="Battle.net, Steam and Epic Games Launcher logins that work on M-series Macs, fully free and open source.">
 <meta property="og:type" content="website">
 <link rel="stylesheet" href="style.css">
@@ -22,7 +22,7 @@
 <main>
 <h1>Free Windows gaming on Apple Silicon</h1>
 <p class="lead">Soju is a free, open-source (GPL-3.0) toolchain that runs Battle.net,
-Diablo&nbsp;II: Resurrected and the Windows Steam client — including D3D11 games —
+Diablo&nbsp;II: Resurrected and the Windows Steam client (including D3D11 games)
 on M-series Macs. No CrossOver license needed.</p>
 
 <pre><code>brew install BCD1210/soju/soju
@@ -43,7 +43,7 @@ soju steam-install</code></pre>
     <p>Get the Steam client and D3D11 games rendering with wine-stable + DXMT.</p>
   </a>
   <a class="card" href="guides/whisky-alternative.html">
-    <h3>Whisky was discontinued — what now?</h3>
+    <h3>Whisky was discontinued: what now?</h3>
     <p>An honest comparison of the free and paid options left in 2026.</p>
   </a>
   <a class="card" href="guides/ko/diablo-2-mac.html">
@@ -68,10 +68,10 @@ soju steam-install</code></pre>
 (the same code CrossOver ships), graphics come from Apple's free
 <a href="https://developer.apple.com/games/game-porting-toolkit/">Game Porting Toolkit</a>,
 and Steam rendering uses <a href="https://github.com/3Shain/dxmt">DXMT</a> (LGPL).
-Nothing proprietary is redistributed — the one Apple file you need is downloaded
+Nothing proprietary is redistributed. The one Apple file you need is downloaded
 from Apple directly, once.</p>
 
-<h2>Not just scripts — root causes</h2>
+<h2>Not just scripts: root causes</h2>
 <p>Every fix in Soju is documented with its underlying cause, so other Wine
 projects can reuse them: the <code>ROSETTA_ADVERTISE_AVX</code> discovery behind the
 famous D2R launch hang, Battle.net Agent's process-signature verification, and the
