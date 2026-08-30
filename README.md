@@ -31,7 +31,7 @@ Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the l
 ## Install (one line)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/BCD1210/soju/main/install.sh | bash
+curl -fsSL bcd1210.github.io/soju/install.sh | bash
 ```
 
 Or via Homebrew:
