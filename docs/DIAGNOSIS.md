@@ -52,10 +52,10 @@ stock Whisky / frankea 엔진(v3.1.1, v4.5beta, v2.5.0)은 전부 **신형 WoW64
 
 | 엔진 | `EXCEPTION_BREAKPOINT` | 렌더러 생존 |
 |---|---|---|
-| cx26-engine (우리 빌드) | 2 | ✗ |
-| cx26-engine + SDK15 재빌드 ntdll | 2 | ✗ (툴체인 가설 기각) |
-| cx26-engine + CX ntdll.so | 0 | ✓ |
-| cx26-engine + `WINE_SIMULATE_WRITECOPY=1` | 0 | ✓ (90초 후 렌더러 2개 생존, 로그인·메인창 OK) |
+| cx26-engine (우리 빌드) | 2 | X |
+| cx26-engine + SDK15 재빌드 ntdll | 2 | X (툴체인 가설 기각) |
+| cx26-engine + CX ntdll.so | 0 | O |
+| cx26-engine + `WINE_SIMULATE_WRITECOPY=1` | 0 | O (90초 후 렌더러 2개 생존, 로그인·메인창 OK) |
 
 해결: 모든 실행 경로(`install.sh`, `scripts/play.sh`, `scripts/create-bottle.sh`)에 `WINE_SIMULATE_WRITECOPY=1`.
 CrossOver 바이너리 의존 0.
