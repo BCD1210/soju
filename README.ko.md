@@ -76,7 +76,7 @@ scripts/play.sh kill        # 전부 종료
 ```bash
 scripts/create-epic-bottle.sh    # 공식 Epic MSI, 무인 설치
 scripts/play.sh epic             # 로그인 → 게임 설치·플레이
-scripts/play.sh epic-kill        # Epic 보틀 종료 (창을 닫아도 런처는 살아 있음, macOS 메뉴바의 Epic 아이콘을 **우클릭**해 열기/Exit, Windows 트레이와 동일, 좌클릭 한 번엔 반응 없음)
+scripts/play.sh epic-kill        # Epic 보틀 종료 (창을 닫으면 런처는 메뉴바 트레이로 들어감. 독 아이콘 클릭, 또는 메뉴바 아이콘 더블클릭/우클릭으로 복귀)
 ```
 
 검증 2026-08-30: 런처에서 Hogwarts Legacy 71GB 설치 후 인게임까지(UE4, D3DMetal 경유 D3D12). 알아두실 점 두 가지: 플레이 전에 macOS 입력기를 영어(ABC)로 바꾸세요, 한글 IME가 켜져 있으면 Wine 게임에 키 입력이 전달되지 않습니다. 게임이 전체화면으로 뜨면 게임 자체 디스플레이 설정에서 창 모드로 바꾸면 됩니다(Soju가 강제하지 않습니다). wine 11.0의 알려진 문제 하나: 여러 Wine 창(런처, 게임, 다른 보틀)을 오간 뒤 게임이 키보드 입력을 못 받는 경우가 있으며 재시작해야 풀립니다. upstream은 wine 11.11에서 수정했습니다.

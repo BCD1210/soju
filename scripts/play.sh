@@ -85,10 +85,13 @@ case "$MODE" in
     # Runs as-is: Epic's CEF (EpicWebHelper) keeps its GPU process alive here,
     # so none of the Battle.net command-line switches are needed.
     # Closing the window hides it, exactly like on Windows: Epic's tray icon
-    # lands in the macOS menu bar (winemac systray -> NSStatusItem), and its
-    # right-click menu reopens the window or exits (left click is ignored by Epic). Do NOT force the hidden window back via
-    # ShowWindow() from outside: Slate keeps its "minimized" state and the
-    # window comes back unresponsive.
+    # lands in the macOS menu bar (winemac systray -> NSStatusItem); a
+    # double-click or the right-click menu there reopens it. Do NOT force the
+    # hidden window back via ShowWindow()/SC_RESTORE from outside: Slate keeps
+    # its "minimized" state and the window comes back unresponsive. A Dock-icon
+    # click therefore replays the tray double-click into the launcher instead
+    # (tools/soju-epic-restore.c, built by create-epic-bottle.sh).
+    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$HOME/.battlenet-macos/epic-support/soju-epic-restore.exe'"
     EPIC="C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe"
     [[ -f "$WINEPREFIX/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe" ]] || \
       { echo "Epic Games Launcher not found, run scripts/create-epic-bottle.sh first"; exit 1; }
