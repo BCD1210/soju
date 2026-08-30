@@ -83,6 +83,8 @@ scripts/play.sh epic             # log in -> install & play
 scripts/play.sh epic-kill        # stop the Epic bottle (closing the window keeps the launcher running; right-click the Epic icon in the macOS menu bar to reopen or Exit, same as the Windows tray; a plain left click does nothing, as Epic only reacts to the menu)
 ```
 
+Verified 2026-08-30: 71 GB install of Hogwarts Legacy (UE4, D3D12 through D3DMetal) from the launcher, then in-game. Two things to know: switch the macOS input source to English (ABC) before playing, a Korean/Japanese/Chinese IME swallows key presses in Wine games; and if a game starts full screen, set windowed mode in its own display settings (Soju does not force it).
+
 Games have not been broadly tested yet; anything that needs kernel anti-cheat (EAC/BattlEye) will not run under Wine.
 
 ## Steam (including the Steam version of D2R)

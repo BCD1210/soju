@@ -91,6 +91,18 @@ CrossOver 바이너리 의존 0.
 
 결론: 벽 1(`WRITECOPY`)은 libcef 버전에 따라 걸리는 일반 문제일 수 있지만, 벽 1-b(GPU 프로세스 사망)는 Battle.net의 CEF 빌드/설정 고유. 다른 CEF 런처(GOG Galaxy·EA app·Ubisoft Connect)도 같은 절차로 먼저 "그냥 돌려보는" 것이 맞다.
 
+## Epic 게임 설치 실패 DP-05 / DP-06: wineserver에 inotify가 빠져 있었다 (2026-08-30)
+
+증상: 런처 로그인·스토어까지 되는데 Install을 누르면 아무 변화가 없고, 런처 로그에 `DirectoryPreparation: Returning result: DP-05` 후 60초 뒤 `Reporting Alert code: DP-06`이 찍힌다.
+
+원인: Epic 런처는 설치 폴더 준비를 별도 프로세스(`EpicGamesLauncher.exe -commandlet=prepareinstalldir`)에 맡기고, 둘은 `C:/ProgramData/Epic/EpicGamesLauncher/com/` 폴더에 파일을 쓰고 `ReadDirectoryChangesW`로 서로의 응답을 기다린다. Wine은 디렉터리 변경 알림을 inotify로만 구현하고(`server/change.c`), macOS에서는 CrossOver가 kqueue 기반 `libinotify`를 번들해 wineserver에 링크한다. 우리 빌드는 configure가 `libinotify`를 못 찾아(`config.log: Package libinotify was not found`) 알림 없이 빌드됐고, 양쪽이 서로의 파일을 영영 못 본 채 타임아웃(commandlet 50초 → DP-05, 런처 60초 → DP-06)으로 끝났다. `LogDirectoryWatcher: A directory notification for '.../com' was aborted`가 그 흔적이다.
+
+확인: `otool -L cx26-engine/bin/wineserver`에 libinotify 없음. 진짜 CrossOver의 wineserver는 `@rpath/libinotify.0.dylib`를 링크한다.
+
+해결: `third_party/libinotify-kqueue/sys/inotify.h`(MIT)를 동봉하고 configure에 `INOTIFY_CFLAGS/INOTIFY_LIBS`를 넘겨 wineserver를 libinotify에 링크(`build-engine.sh`), 설치 후 install name을 `@rpath/libinotify.0.dylib`로 교체. 적용 즉시 71GB Hogwarts Legacy 설치가 진행됐고 게임도 실행됐다(AMD 드라이버 경고창은 OK로 넘어감, D3D12는 D3DMetal이 처리). Sikarugir#256의 DP-07은 다른 원인(`GetNamedSecurityInfoW` 합성 SD, CX HACK 27245)이며 이 핵은 우리 엔진에 이미 들어 있다.
+
+부수 확인: 한글 IME가 켜져 있으면 게임이 키 입력을 못 받는다(입력기를 ABC로). 이 alert 코드들은 Whisky/Kegworks 계열 빌드에도 같은 이유로 해당될 가능성이 높다(그쪽 wineserver의 libinotify 링크 여부로 판별 가능).
+
 ## 벽 2: Battle.net Agent caller 서명 검증 실패 (해결됨)
 
 ### 증상

@@ -9,6 +9,7 @@
 set -euo pipefail
 
 WORK="${WORK:-$HOME/.battlenet-macos/build}"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 SRC_URL="https://media.codeweavers.com/pub/crossover/source/crossover-sources-26.3.0.tar.gz"
 FT_URL="https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.gz"
 DEPS="$WORK/deps"
@@ -53,7 +54,13 @@ arch -x86_64 "$WINE/configure" \
   --enable-archs=i386,x86_64 --without-x --disable-tests \
   FREETYPE_CFLAGS="-I$DEPS/include/freetype2" FREETYPE_LIBS="-L$DEPS/lib -lfreetype" \
   GNUTLS_CFLAGS="-I/opt/homebrew/include" GNUTLS_LIBS="-L$DEPS/lib -lgnutls" \
+  INOTIFY_CFLAGS="-I$REPO/third_party/libinotify-kqueue" INOTIFY_LIBS="-L$DEPS/lib -linotify" \
   LDFLAGS="-L$DEPS/lib" CC="clang -arch x86_64" CXX="clang++ -arch x86_64"
+# wineserver must link libinotify (kqueue-backed inotify shim from the dylib stack):
+# Wine implements ReadDirectoryChangesW on top of inotify only. Without it the
+# Epic Games Launcher never sees its install helper's reply (DP-05 / DP-06).
+grep -q '#define HAVE_SYS_INOTIFY_H 1' include/config.h \
+  || { echo "configure did not pick up sys/inotify.h; check third_party/libinotify-kqueue"; exit 1; }
 # Fix the soname to the dylib's real name
 sed -i '' 's|#define SONAME_LIBGNUTLS.*|#define SONAME_LIBGNUTLS "libgnutls.30.dylib"|' include/config.h
 
@@ -85,6 +92,8 @@ PL
 for b in wine wine64 wineserver wine-preloader; do
   f="$ENGINE/bin/$b"; [ -f "$f" ] || continue
   install_name_tool -add_rpath "@loader_path/../lib" "$f" 2>/dev/null || true
+  # the dylib stack's libinotify carries a bare install name; point it at rpath
+  install_name_tool -change libinotify.dylib @rpath/libinotify.0.dylib "$f" 2>/dev/null || true
   codesign -f -s - --entitlements "$WORK/ent.plist" "$f" 2>/dev/null || true
 done
 

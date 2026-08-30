@@ -79,6 +79,9 @@ scripts/play.sh epic             # 로그인 → 게임 설치·플레이
 scripts/play.sh epic-kill        # Epic 보틀 종료 (창을 닫아도 런처는 살아 있음, macOS 메뉴바의 Epic 아이콘을 **우클릭**해 열기/Exit, Windows 트레이와 동일, 좌클릭 한 번엔 반응 없음)
 ```
 
+검증 2026-08-30: 런처에서 Hogwarts Legacy 71GB 설치 후 인게임까지(UE4, D3DMetal 경유 D3D12). 알아두실 점 두 가지: 플레이 전에 macOS 입력기를 영어(ABC)로 바꾸세요, 한글 IME가 켜져 있으면 Wine 게임에 키 입력이 전달되지 않습니다. 게임이 전체화면으로 뜨면 게임 자체 디스플레이 설정에서 창 모드로 바꾸면 됩니다(Soju가 강제하지 않습니다).
+
+
 게임은 아직 폭넓게 테스트하지 않았습니다. 커널 안티치트(EAC/BattlEye)가 필요한 게임은 Wine에서 돌지 않습니다.
 
 ## Steam 지원 (Steam판 D2R 포함)

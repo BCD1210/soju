@@ -1,0 +1,3 @@
+sys/inotify.h is taken from libinotify-kqueue (https://github.com/libinotify-kqueue/libinotify-kqueue), MIT license, see LICENSE.
+
+Only the header is vendored. The matching libinotify.dylib comes with the x86_64 dylib stack fetched by scripts/get-components.sh. Wine's wineserver needs both to build with directory-change notifications (ReadDirectoryChangesW); without them the Epic Games Launcher cannot talk to its install helper and every install fails with DP-05/DP-06.
