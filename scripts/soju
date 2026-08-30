@@ -17,6 +17,9 @@ Usage:
   soju epic-install   Set up the Epic Games Launcher bottle (same engine)
   soju epic           Launch the Epic Games Launcher
   soju epic-kill      Stop everything in the Epic bottle
+  soju gog-install    Set up the GOG GALAXY bottle (same engine)
+  soju gog            Launch GOG GALAXY
+  soju gog-kill       Stop everything in the GOG bottle
 
   soju steam-install  Set up the Steam bottle (wine-stable + wrapper + Steam)
   soju steam-games    Wire DXMT so D3D11 games render (needs built artifacts)
@@ -30,9 +33,10 @@ EOF
 case "${1:-}" in
   install)        shift; exec bash "$ROOT/install.sh" "$@" ;;
   epic-install)   shift; exec bash "$ROOT/scripts/create-epic-bottle.sh" "$@" ;;
+  gog-install)    shift; exec bash "$ROOT/scripts/create-gog-bottle.sh" "$@" ;;
   steam-install)  shift; exec bash "$ROOT/scripts/create-steam-bottle.sh" "$@" ;;
   steam-games)    shift; exec bash "$ROOT/scripts/setup-steam-games.sh" "$@" ;;
-  battlenet|d2r|epic|epic-kill|steam|kill|steam-kill)
+  battlenet|d2r|epic|epic-kill|gog|gog-kill|steam|kill|steam-kill)
                   exec bash "$ROOT/scripts/play.sh" "$@" ;;
   -h|--help|help|"") usage ;;
   *) echo "soju: unknown command '$1'" >&2; usage >&2; exit 64 ;;

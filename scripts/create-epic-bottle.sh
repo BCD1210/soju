@@ -36,6 +36,13 @@ echo "==> Running the installer (unattended, about half a minute)"
 
 EXE="$WINEPREFIX/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe"
 [ -f "$EXE" ] || { echo "Install failed, try: WINEDEBUG=+msi $W msiexec /i \"$MSI\""; exit 1; }
+SUPPORT="$HOME/.battlenet-macos/epic-support"; mkdir -p "$SUPPORT"
+if [ ! -f "$SUPPORT/soju-epic-restore.exe" ]; then
+  echo "==> Building the tray-restore helper (mingw-w64)"
+  command -v x86_64-w64-mingw32-gcc >/dev/null || brew install mingw-w64
+  x86_64-w64-mingw32-gcc -O2 -Wall -mwindows -o "$SUPPORT/soju-epic-restore.exe" -lpsapi \
+    "$(cd "$(dirname "$0")/.." && pwd)/tools/soju-epic-restore.c"
+fi
 echo "==> Epic Games Launcher installed"
 "$ENGINE/bin/wineserver" -k 2>/dev/null || true
 echo "==> Done. Now run: scripts/play.sh epic   (log in, then install games from the launcher)"

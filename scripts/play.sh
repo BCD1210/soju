@@ -22,6 +22,8 @@ if [[ "$MODE" == steam* ]]; then
   export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/steam-bottle}"
 elif [[ "$MODE" == epic* ]]; then
   export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/epic-bottle}"
+elif [[ "$MODE" == gog* ]]; then
+  export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/gog-bottle}"
 else
   export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/bottle}"
 fi
@@ -58,6 +60,10 @@ start_reaper(){
   [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" >/dev/null 2>&1 & )
 }
 
+# A Korean/Japanese/Chinese IME swallows key presses in Wine games, and macOS
+# remembers the input source per app, so switch to ABC before launching.
+case "$MODE" in *-kill) ;; *) python3 "$(dirname "${BASH_SOURCE[0]}")/soju-input-abc.py" 2>/dev/null || true ;; esac
+
 case "$MODE" in
   battlenet)   # Battle.net launcher (log in, then Play for online)
     # Battle.net.exe is started directly, not through "Battle.net Launcher.exe":
@@ -66,9 +72,14 @@ case "$MODE" in
     # spawns a separate GPU process that dies on init and the frameless main
     # window stays fully transparent (Dock icon, no window). See docs/DIAGNOSIS.md.
     start_reaper
-    exec "$ENGINE/bin/wine" \
-      "C:\\Program Files (x86)\\Battle.net\\Battle.net.exe" \
-      --disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader
+    # By default Battle.net exits when its window is closed (same as Windows).
+    # With Settings > "When I close the app" set to the tray (Client.HideOnClose),
+    # the window hides instead; a Dock-icon click then starts a second
+    # Battle.net.exe, which hands off to the running one and shows its window.
+    BN_EXE="C:\\Program Files (x86)\\Battle.net\\Battle.net.exe"
+    BN_ARGS="--disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader"
+    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$BN_EXE' $BN_ARGS"
+    exec "$ENGINE/bin/wine" "$BN_EXE" $BN_ARGS
     ;;
   d2r)         # Launch the game directly (offline / previous session)
     start_reaper
@@ -79,10 +90,13 @@ case "$MODE" in
     # Runs as-is: Epic's CEF (EpicWebHelper) keeps its GPU process alive here,
     # so none of the Battle.net command-line switches are needed.
     # Closing the window hides it, exactly like on Windows: Epic's tray icon
-    # lands in the macOS menu bar (winemac systray -> NSStatusItem), and its
-    # right-click menu reopens the window or exits (left click is ignored by Epic). Do NOT force the hidden window back via
-    # ShowWindow() from outside: Slate keeps its "minimized" state and the
-    # window comes back unresponsive.
+    # lands in the macOS menu bar (winemac systray -> NSStatusItem); a
+    # double-click or the right-click menu there reopens it. Do NOT force the
+    # hidden window back via ShowWindow()/SC_RESTORE from outside: Slate keeps
+    # its "minimized" state and the window comes back unresponsive. A Dock-icon
+    # click therefore replays the tray double-click into the launcher instead
+    # (tools/soju-epic-restore.c, built by create-epic-bottle.sh).
+    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$HOME/.battlenet-macos/epic-support/soju-epic-restore.exe'"
     EPIC="C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe"
     [[ -f "$WINEPREFIX/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe" ]] || \
       { echo "Epic Games Launcher not found, run scripts/create-epic-bottle.sh first"; exit 1; }
@@ -91,6 +105,38 @@ case "$MODE" in
     exec "$ENGINE/bin/wine" "$EPIC" "${@:2}"
     ;;
   epic-kill)   # Stop everything in the Epic bottle
+    pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
+    "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
+    ;;
+  gog)         # GOG GALAXY, same engine and env as Battle.net (verified 2026-08-30)
+    # GOG GALAXY 2.x is Qt6 + QtWebEngine. Its D3D11 compositing path needs
+    # IDXGIResource, which D3DMetal's DXGI does not implement, so the window
+    # stays black unless Chromium runs on the CPU (--disable-gpu). GOG
+    # overwrites QTWEBENGINE_CHROMIUM_FLAGS itself and ignores its argv, so the
+    # engine's kernelbase/ucrtbase hook appends SOJU_CHROMIUM_FLAGS to that
+    # variable whenever the program sets it (patches/chromium-flags-append.patch).
+    # Closing the window parks GOG in the tray (macOS menu bar icon).
+    GOG="C:\\Program Files\\GOG Galaxy\\GalaxyClient.exe"
+    [[ -f "$WINEPREFIX/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe" ]] || \
+      { echo "GOG GALAXY not found, run scripts/create-gog-bottle.sh first"; exit 1; }
+    rm -f "$WINEPREFIX/drive_c/ProgramData/GOG.com/Galaxy/lock-files/"* 2>/dev/null || true
+    pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
+      { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" gog >/dev/null 2>&1 & ); }
+    export SOJU_CHROMIUM_FLAGS="${SOJU_CHROMIUM_FLAGS:---disable-gpu --disable-gpu-compositing}"
+    export WINE_NO_DOCK_ICON="QtWebEngineProcess.exe;GalaxyClientService.exe;GOG Galaxy Notifications Renderer.exe;GalaxyCommunication.exe;GalaxyClientHelper.exe"
+    # GOG draws its own title bar inside the client area; a macOS title bar on
+    # top would hide the first rows of its UI (winemac patch: WINE_CUSTOM_FRAME).
+    export WINE_CUSTOM_FRAME="GalaxyClient.exe"
+    # Closing the window parks GOG in the tray. A Dock-icon click (winemac
+    # patch: WINE_DOCK_REOPEN_CMD runs when no window is visible) sends the
+    # same WM_COPYDATA "restore" message a second GalaxyClient.exe instance
+    # would send, without paying for a whole second client start-up
+    # (tools/soju-gog-restore.c, built by create-gog-bottle.sh).
+    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$HOME/.battlenet-macos/gog-support/soju-gog-restore.exe'"
+    exec "$ENGINE/bin/wine" "$GOG" "${@:2}"
+    ;;
+  gog-kill)    # Stop everything in the GOG bottle
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
@@ -172,5 +218,5 @@ case "$MODE" in
     "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
-  *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|steam|kill|steam-kill]"; exit 1;;
+  *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|gog|gog-kill|steam|kill|steam-kill]"; exit 1;;
 esac

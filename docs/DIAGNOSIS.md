@@ -86,7 +86,7 @@ CrossOver 바이너리 의존 0.
 - 실행: `EpicGamesLauncher.exe` 기본 인자 그대로. CEF가 `--type=gpu-process`를 별도 프로세스로 띄우는데 **죽지 않는다**. 배틀넷과 달리 `--in-process-gpu --use-gl=swiftshader`가 필요 없었다. 1826×857 메인창, 로그인, 스토어 UI 렌더링 확인.
 - wined3d는 `Using the Vulkan renderer for d3d10/11`(MoltenVK) 경로를 탔다. 런처 UI 자체는 이걸로 충분.
 - 로그의 `LogDPoP: Failed to create persistent DPoP key (0x80090029)`는 Linux Wine에서도 나오는 것으로 로그인에 영향 없음.
-- 트레이 UX: 창 닫기 = 숨김(Windows와 동일). Epic이 `Shell_NotifyIcon`으로 등록한 트레이 아이콘을 winemac systray가 **macOS 메뉴바 NSStatusItem**으로 올리고(`+systray` 트레이스로 확인), **우클릭** 메뉴로 창 열기·Exit가 된다, 사용자 검증 완료. 좌클릭은 WM_LBUTTONDOWN/UP+NIN_SELECT까지 정상 전달되지만 Epic이 반응하지 않는다(Windows에서도 메뉴 기반). 시도했다 버린 것들: exe 재실행·`com.epicgames.launcher://` URL은 실행 중 인스턴스가 무시; 외부에서 `ShowWindow(SW_SHOW/RESTORE)`로 숨긴 창을 띄우면 보이긴 하지만 Slate가 "최소화" 상태를 유지해 **입력을 안 받는 먹통 창**이 된다. 그래서 Epic 모드는 `WINE_DOCK_REOPEN_CMD`를 쓰지 않는다.
+- 트레이 UX: 창 닫기 = 숨김(Windows와 동일). Epic이 `Shell_NotifyIcon`으로 등록한 트레이 아이콘을 winemac systray가 **macOS 메뉴바 NSStatusItem**으로 올리고(`+systray` 트레이스로 확인), **우클릭** 메뉴로 창 열기·Exit가 된다, 사용자 검증 완료. 좌클릭은 WM_LBUTTONDOWN/UP+NIN_SELECT까지 정상 전달되지만 Epic이 반응하지 않는다(Windows에서도 메뉴 기반). 시도했다 버린 것들: exe 재실행·`com.epicgames.launcher://` URL은 실행 중 인스턴스가 무시; 외부에서 `ShowWindow(SW_SHOW/RESTORE)`로 숨긴 창을 띄우면 보이긴 하지만 Slate가 "최소화" 상태를 유지해 **입력을 안 받는 먹통 창**이 된다. `WM_SYSCOMMAND/SC_RESTORE`도 마찬가지로 먹통 창을 만든다. 유일하게 정상인 경로는 Epic 자신의 트레이 코드라서, 독 클릭은 트레이 더블클릭을 그대로 재현한다(`tools/soju-epic-restore.c`): Epic은 트레이 아이콘을 `uCallbackMessage=0x8054`(WM_APP+0x54), 버전 0으로 등록하므로(winemac `+systray` 트레이스에 콜백 메시지 출력을 추가해 확인) 런처 프로세스의 창들에 그 메시지를 wParam=1, lParam=`WM_LBUTTONDOWN/UP, NIN_SELECT, WM_LBUTTONDBLCLK, WM_LBUTTONUP, NIN_SELECT` 순으로 보내면 Slate가 스스로 창을 복원하고 입력도 정상이다. 단일 클릭(NIN_SELECT만)은 Epic이 무시한다.
 - 부수 수정: `WINE_DOCK_REOPEN_CMD` 훅의 "보이는 창" 판정이 Epic의 화면 밖(-10000,-10000) 1×1 투명 보조창을 보이는 창으로 세던 것을 실제 화면 안·alpha>0·크기>1 조건으로 고쳤고, `build-engine.sh`가 CX 엔진에도 winemac 패치를 적용한다.
 
 결론: 벽 1(`WRITECOPY`)은 libcef 버전에 따라 걸리는 일반 문제일 수 있지만, 벽 1-b(GPU 프로세스 사망)는 Battle.net의 CEF 빌드/설정 고유. 다른 CEF 런처(GOG Galaxy·EA app·Ubisoft Connect)도 같은 절차로 먼저 "그냥 돌려보는" 것이 맞다.
@@ -102,6 +102,34 @@ CrossOver 바이너리 의존 0.
 해결: `third_party/libinotify-kqueue/sys/inotify.h`(MIT)를 동봉하고 configure에 `INOTIFY_CFLAGS/INOTIFY_LIBS`를 넘겨 wineserver를 libinotify에 링크(`build-engine.sh`), 설치 후 install name을 `@rpath/libinotify.0.dylib`로 교체. 적용 즉시 71GB Hogwarts Legacy 설치가 진행됐고 게임도 실행됐다(AMD 드라이버 경고창은 OK로 넘어감, D3D12는 D3DMetal이 처리). Sikarugir#256의 DP-07은 다른 원인(`GetNamedSecurityInfoW` 합성 SD, CX HACK 27245)이며 이 핵은 우리 엔진에 이미 들어 있다.
 
 부수 확인: 한글 IME가 켜져 있으면 게임이 키 입력을 못 받는다(입력기를 ABC로). 이 alert 코드들은 Whisky/Kegworks 계열 빌드에도 같은 이유로 해당될 가능성이 높다(그쪽 wineserver의 libinotify 링크 여부로 판별 가능).
+
+## GOG GALAXY 검은 창: Qt D3D11 합성 + 덮어쓰이는 Chromium 플래그 (2026-08-30)
+
+GOG GALAXY 2.1.8은 CEF가 아니라 **Qt6 + QtWebEngine**(Chromium 118/125)이다. Sikarugir#257·#258, Whisky#1004에 보고된 "흰/검은 창"을 이 엔진에서 재현하고 원인을 갈랐다.
+
+1. D3DMetal에서는 QtWebEngine의 네이티브 합성기(`native_skia_output_device.cpp`)가 Chromium D3D11 텍스처를 Qt의 D3D11 RHI와 공유하려고 `QueryInterface(IDXGIResource)`를 부르는데 D3DMetal의 DXGI가 `E_NOINTERFACE(80004002)`를 돌려준다. 그 뒤 `CreateSharedImage failed` → `context is marked as lost`가 초당 수백 번 찍히고 창은 검다.
+2. 보틀만 wined3d(마커 제거한 wine-stable 11.0 PE, `WINEDLLOVERRIDES=d3d11,dxgi,d3d10core,wined3d=n`)로 바꾸면 그 에러는 사라지지만, ANGLE이 wined3d의 FL 9_3에서 GLES 3.0을 못 만들고(`Renderer11.cpp:1107`, `too few uniforms`) 창은 투명(GL 렌더러: `glClear`에서 `GL_INVALID_FRAMEBUFFER_OPERATION`, Vulkan 렌더러: 에러 없이도 안 그림; 레이어드 창에 D3D 프레젠트가 안 되는 Wine 한계로 보임).
+3. Qt RHI를 OpenGL로 바꾸면(`QSG_RHI_BACKEND=opengl`) Chromium이 WGL pbuffer를 못 만들어(`gl_surface_wgl.cc: Unable to create pbuffer`) int3, Vulkan으로 바꾸면 즉시 c0000409.
+4. 남은 답은 Chromium을 CPU 합성으로 돌리는 것이다. 그런데 GOG는 `QTWEBENGINE_CHROMIUM_FLAGS`를 **자기가 설정**해서(바이너리에 변수명 존재) 밖에서 준 값을 덮어쓰고, 자기 argv의 Chromium 스위치는 무시하며(`--verbose-logging` 등 자기 옵션만 파싱), 실행 파일을 바꾸면 "executable checksum doesn't match"로 거부한다. 즉 사용자 공간에서는 스위치를 넣을 길이 없다.
+
+해결(엔진 훅, `patches/chromium-flags-append.patch`): kernelbase `SetEnvironmentVariableW`와 msvcrt/ucrtbase `env_set`(CRT `_putenv_s` 경로, Qt의 `qputenv`가 쓰는 곳)에서 이름이 `QTWEBENGINE_CHROMIUM_FLAGS`이고 `SOJU_CHROMIUM_FLAGS`가 있으면 그 값을 뒤에 덧붙인다. CRT 테이블과 Win32 블록 둘 다 갱신되므로 Qt의 `qgetenv`(CRT `getenv`)가 덧붙은 값을 읽는다. CodeWeavers가 같은 파일에 Ubisoft Connect용으로 `VK_ICD_FILENAMES` 훅을 둔 것과 같은 종류다.
+
+검증: `play.sh gog`가 `SOJU_CHROMIUM_FLAGS="--disable-gpu --disable-gpu-compositing"`를 설정하면 D3DMetal 그대로 에러 3개(`WSALookupServiceBegin`, GLES3 폴백 2개)만 남고 로그인 창·로그인·메인 창(1732×798)이 뜬다. 렌더러 프로세스 커맨드라인에 `--disable-gpu-compositing`이 보인다.
+
+타이틀바: GOG 메인 창은 `WS_OVERLAPPEDWINDOW`이지만 `WM_NCCALCSIZE`로 클라이언트를 창 전체로 잡고 자기 타이틀바를 그린다. Mac 드라이버는 `WS_CAPTION`이면 Cocoa 타이틀바를 얹고(`get_window_features_for_style`) `GetWindowStyleMasks`로 win32u에 캡션을 자기가 그린다고 알리므로 UI 첫 줄이 타이틀바 밑에 숨는다. winemac 패치에 `WINE_CUSTOM_FRAME`(세미콜론 구분 exe 목록)을 추가해 해당 프로세스는 두 곳 모두에서 title_bar를 끈다(`play.sh gog`가 `GalaxyClient.exe`로 설정). Win32 창 크기와 Cocoa 창 크기가 일치하는 것으로 확인.
+
+트레이 복귀: 창을 닫으면 GOG는 트레이로 들어간다. 두 번째 `GalaxyClient.exe` 인스턴스는 `FindWindowW("GalaxyClientClass")`로 메인 창을 찾아 `WM_COPYDATA`(dwData=1, 16바이트: 자기 이미지 안 `RestoreClientMessage` vtable 포인터 `0x140a74858` + dword 1)를 보내고 종료하는데, 수신 측이 그 포인터를 그대로 역참조한다(같은 exe라 주소가 같아 동작). `tools/soju-gog-restore.c`가 이 메시지를 직접 보내 독 아이콘 클릭 시 0.2초 안에 창이 돌아온다. vtable 주소는 GOG 버전마다 바뀌므로 도구가 실행 시 GalaxyClient.exe의 MSVC RTTI(맹글드 클래스명 → 타입 디스크립터 → complete object locator → vtable)를 파싱해 계산하고, 실행 중인 클라이언트의 실제 모듈 베이스를 더한다. 버전 상수 없음. 미끼 창(같은 클래스명)으로 페이로드를 캡처했다.
+
+부수: 강제 종료 후엔 `ProgramData/GOG.com/Galaxy/lock-files/`의 잠금 파일 때문에 "Second client instance detected"로 즉시 종료되므로 `play.sh gog`가 실행 전에 지운다. 설치기가 자동 실행하는 `GalaxyClient.exe /installerLaunch /payload=`는 빈 payload로 `campaignParamsForLogIn` 설정 오류를 내고 죽는데 무해하다. 이 훅은 Qt/QtWebEngine 기반 런처 전반(다른 스토어 클라이언트 포함)에 그대로 쓸 수 있다.
+
+## 트레이 복귀 정리: 네 런처 모두 독 아이콘 클릭으로 돌아온다 (2026-08-30)
+
+winemac 패치의 `WINE_DOCK_REOPEN_CMD`(보이는 창이 없을 때 독 클릭 시 실행)에 런처별 복원 명령을 연결했다.
+
+- Battle.net: 기본은 X = 종료(Windows와 동일). `Client.HideOnClose`로 트레이 최소화를 켠 경우 두 번째 `Battle.net.exe` 실행이 기존 인스턴스에 넘겨져 창이 뜬다.
+- Steam: `steam.exe steam://open/main` 재실행.
+- Epic: 트레이 더블클릭 시퀀스 재현(`tools/soju-epic-restore.c`, 위 참조).
+- GOG: `RestoreClientMessage` 직접 전송(`tools/soju-gog-restore.c`, 위 참조).
 
 ## 벽 2: Battle.net Agent caller 서명 검증 실패 (해결됨)
 
