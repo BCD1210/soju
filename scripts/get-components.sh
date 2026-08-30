@@ -2,7 +2,7 @@
 # Fetch the runtime components without CrossOver:
 #  - x86_64 dylib stack (gnutls/nettle/MoltenVK, ...): from frankea/Whisky's GPL engine release
 #  - wine-mono: from the official wine-mono release
-# (D3DMetal/libd3dshared come from Apple GPTK — see get-gptk.sh)
+# (D3DMetal/libd3dshared come from Apple GPTK: see get-gptk.sh)
 set -euo pipefail
 
 WORK="${WORK:-$HOME/.battlenet-macos/build}"

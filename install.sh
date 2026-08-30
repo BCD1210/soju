@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Soju one-line installer — Battle.net + Diablo II: Resurrected on Apple Silicon, no CrossOver.
+# Soju one-line installer: Battle.net + Diablo II: Resurrected on Apple Silicon, no CrossOver.
 #   curl -fsSL https://raw.githubusercontent.com/BCD1210/soju/main/install.sh | bash
 #
 # What it does:
@@ -28,7 +28,7 @@ if [ -x "$ENGINE/bin/wine" ]; then
 else
   say "[1/4] Downloading prebuilt engine (~350MB, GPL - built from CodeWeavers' published Wine sources)"
   # The engine ships on its own "engine-*" release, which is not necessarily the
-  # newest release — scan all releases and take the first (newest) engine asset.
+  # newest release: scan all releases and take the first (newest) engine asset.
   URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
         | grep -o '"browser_download_url": *"[^"]*soju-engine[^"]*"' | head -1 | grep -o 'https[^"]*')
   [ -n "$URL" ] || { echo "Could not find the engine release asset."; exit 1; }

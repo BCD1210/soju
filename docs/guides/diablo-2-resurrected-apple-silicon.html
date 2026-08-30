@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How to play Diablo II: Resurrected on Apple Silicon Macs (free, 2026)</title>
-<meta name="description" content="D2R hangs at launch on M1/M2/M3/M4 Macs because of an AVX detection quirk in Rosetta 2. Here is the root cause and a fully free, open-source way to play — no CrossOver needed.">
+<meta name="description" content="D2R hangs at launch on M1/M2/M3/M4 Macs because of an AVX detection quirk in Rosetta 2. Here is the root cause and a fully free, open-source way to play. No CrossOver needed.">
 <link rel="canonical" href="https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html">
-<meta property="og:title" content="Diablo II: Resurrected on Apple Silicon — the fix and a free setup">
+<meta property="og:title" content="Diablo II: Resurrected on Apple Silicon: the fix and a free setup">
 <meta property="og:description" content="The real reason D2R hangs on M-series Macs, and a free open-source Wine setup that runs it.">
 <meta property="og:type" content="article">
 <link rel="stylesheet" href="../style.css">
@@ -41,7 +41,7 @@ walls. Each has a real, specific cause:</p>
 AVX, but only <em>advertises</em> it to a process when the undocumented
 environment variable <code>ROSETTA_ADVERTISE_AVX=1</code> is set. Without it the
 loader waits forever before graphics initialization. This single variable is why
-CrossOver works while most free wrappers appear broken — CrossOver sets it in its
+CrossOver works while most free wrappers appear broken: CrossOver sets it in its
 launcher.</p>
 
 <h3>2. Battle.net shows "BLZBNTBNA00000005" (the "Oops" page)</h3>
@@ -53,18 +53,18 @@ CrossOver sources, which do.</p>
 
 <h3>3. Graphics crash loops with D3DMetal</h3>
 <p>Apple's Game Porting Toolkit libraries must live in <code>lib/external/</code>
-with the wine <code>.so</code> files as <em>symlinks</em> into it — copying the
+with the wine <code>.so</code> files as <em>symlinks</em> into it. Copying the
 files breaks <code>@loader_path</code> resolution and D3DMetal dies in an
 assertion loop. <code>libd3dshared</code> is also required for the loader to pass
 Rosetta at all (it registers non-native code regions), not just for graphics.</p>
 
 <div class="note">All of this is documented in depth, with logs, in the
 <a href="https://github.com/BCD1210/soju/blob/main/docs/DIAGNOSIS.md">diagnosis writeup</a>
-— useful even if you use a different Wine frontend.</div>
+(useful even if you use a different Wine frontend).</div>
 
 <h2>Requirements</h2>
 <ul>
-  <li>Apple Silicon Mac (M1 or newer) — verified on M4 Pro</li>
+  <li>Apple Silicon Mac (M1 or newer), verified on M4 Pro</li>
   <li><strong>macOS 26.4 or newer recommended</strong>: a 2026 Blizzard anti-cheat
   update triggered a Rosetta 2 bug that Apple fixed in 26.4. On older macOS the
   game can stall even with everything else correct.</li>
@@ -77,9 +77,9 @@ Rosetta at all (it registers non-native code regions), not just for graphics.</p
 <ol>
   <li><strong>Install:</strong> <code>brew install BCD1210/soju/soju</code> (or the
   <a href="https://github.com/BCD1210/soju#install-one-line">one-line installer</a>)</li>
-  <li><strong>Run</strong> <code>soju install</code> — it downloads the engine
+  <li><strong>Run</strong> <code>soju install</code>. It downloads the engine
   (~350MB), then asks you to download Apple's Game Porting Toolkit dmg and press
-  Enter. It then installs Battle.net automatically (5–10 minutes).</li>
+  Enter. It then installs Battle.net automatically (5-10 minutes).</li>
   <li><strong>Play:</strong> double-click <code>~/Applications/Battle.net.app</code>
   (or run <code>soju battlenet</code>), log in, install D2R inside the app, press
   Play. For offline sessions afterwards: <code>soju d2r</code>.</li>
@@ -89,11 +89,11 @@ Rosetta at all (it registers non-native code regions), not just for graphics.</p
 <table>
   <tr><th>Symptom</th><th>Fix</th></tr>
   <tr><td>Game stuck at launch, ~86MB RAM</td>
-      <td>You're not using Soju's launcher — <code>ROSETTA_ADVERTISE_AVX=1</code> is missing. Launch via <code>soju battlenet</code> / <code>soju d2r</code>.</td></tr>
+      <td>You're not using Soju's launcher. <code>ROSETTA_ADVERTISE_AVX=1</code> is missing. Launch via <code>soju battlenet</code> / <code>soju d2r</code>.</td></tr>
   <tr><td>BLZBNTBNA00000005 after login</td>
-      <td>Engine problem — make sure you're on Soju's engine, not a generic wine build.</td></tr>
+      <td>Engine problem. Make sure you're on Soju's engine, not a generic wine build.</td></tr>
   <tr><td>"Failed to initialize graphics"</td>
-      <td>GPTK not installed — run <code>scripts/get-gptk.sh</code>.</td></tr>
+      <td>GPTK not installed. Run <code>scripts/get-gptk.sh</code>.</td></tr>
   <tr><td>Typed text shows as ??</td>
       <td>Switch the macOS input source to English (ABC) while typing in Wine windows.</td></tr>
 </table>
@@ -102,7 +102,7 @@ Rosetta at all (it registers non-native code regions), not just for graphics.</p
 <p>Yes. The engine is compiled from the GPL Wine sources CodeWeavers publishes,
 Apple's Game Porting Toolkit is a free download from Apple (you download it
 yourself; it is never redistributed), and you play on your own Battle.net
-account. Nothing is cracked or emulated — D2R runs against the real Battle.net.</p>
+account. Nothing is cracked or emulated. D2R runs against the real Battle.net.</p>
 
 <p><a class="btn" href="https://github.com/BCD1210/soju">Get Soju on GitHub</a></p>
 </main>

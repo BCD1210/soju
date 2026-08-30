@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Install Steam (Windows build) — for Steam games such as the Steam edition of
+# Install Steam (Windows build): for Steam games such as the Steam edition of
 # D2R (Infernal Edition).
 #
 # Important: unlike Battle.net, Steam runs on Homebrew wine-stable, not the CX
 # source engine. CX-derived builds cannot render Steam's CEF UI (black screen);
 # the verified free combination is wine-stable 11 + the steamwebhelper wrapper.
-# Wrapper source: github.com/notpop/steam-on-m1-wine (MIT) — source and license
+# Wrapper source: github.com/notpop/steam-on-m1-wine (MIT): source and license
 # vendored in third_party/.
-# Verified 2026-08-27 on M4 Pro / macOS 26.5 — login screen renders.
+# Verified 2026-08-27 on M4 Pro / macOS 26.5: login screen renders.
 set -euo pipefail
 
 export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/steam-bottle}"

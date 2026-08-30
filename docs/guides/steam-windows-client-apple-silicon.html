@@ -6,7 +6,7 @@
 <title>Run the Windows Steam client on Apple Silicon Macs (free, 2026)</title>
 <meta name="description" content="How to run the Windows Steam client and D3D11 games on M1/M2/M3/M4 Macs for free: wine-stable + a steamwebhelper wrapper + DXMT, with the black-screen and rendering problems actually explained.">
 <link rel="canonical" href="https://bcd1210.github.io/soju/guides/steam-windows-client-apple-silicon.html">
-<meta property="og:title" content="Windows Steam client on Apple Silicon — the working free setup">
+<meta property="og:title" content="Windows Steam client on Apple Silicon: the working free setup">
 <meta property="og:description" content="Steam client login, library and D3D11 in-game rendering on M-series Macs, fully free.">
 <meta property="og:type" content="article">
 <link rel="stylesheet" href="../style.css">
@@ -20,7 +20,7 @@
 </div></nav>
 <main>
 <h1>The Windows Steam client on Apple Silicon</h1>
-<p class="lead">Yes, the actual Windows Steam client — not just macOS Steam — runs
+<p class="lead">Yes, the actual Windows Steam client (not just macOS Steam) runs
 on M-series Macs for free, including D3D11 games rendering in-game. Verified on an
 M4 Pro / macOS 26 with the August 2026 Steam client.</p>
 
@@ -48,7 +48,7 @@ break it on macOS Wine:</p>
 steam-on-m1-wine</a>, MIT) is a tiny wrapper around <code>steamwebhelper.exe</code>
 that forces <code>--disable-gpu --single-process</code>, plus launching Steam with
 <code>-no-cef-sandbox -cef-single-process</code>. Soju builds and redeploys the
-wrapper automatically — Steam updates keep restoring the original, so this must
+wrapper automatically. Steam updates keep restoring the original, so this must
 happen on every launch.</p>
 
 <h2>Making games actually render (DXMT)</h2>
@@ -60,14 +60,14 @@ need <a href="https://github.com/3Shain/dxmt">DXMT</a> (D3D11→Metal). Soju's
   <li>DXMT installed as 64-bit Wine <em>builtins</em> (as natives they can't attach
   their Metal unixlib)</li>
   <li>A <code>winemetal.dll</code> placeholder in <code>system32</code> (without it,
-  by-name lookup fails with <code>c0000135</code> — Unity's "Failed to initialize
+  by-name lookup fails with <code>c0000135</code>. Unity's "Failed to initialize
   graphics")</li>
   <li>Marker-stripped vanilla d3d DLLs served to the Steam client per-app via the
   registry (a 1-byte patch defeats Wine's fake-DLL redirect)</li>
   <li>A rebuilt <code>winemac.so</code> exporting macdrv symbols so DXMT can present,
   plus a <code>WINE_NO_DOCK_ICON</code> patch for a single Dock icon</li>
 </ul>
-<p>The full story — ten hard-won facts, each one a wall we hit — is in
+<p>The full story (ten hard-won facts, each one a wall we hit) is in
 <a href="https://github.com/BCD1210/soju/blob/main/docs/STEAM-GAMES.md">docs/STEAM-GAMES.md</a>.</p>
 
 <h2>Practical notes</h2>
@@ -76,7 +76,7 @@ need <a href="https://github.com/3Shain/dxmt">DXMT</a> (D3D11→Metal). Soju's
   <tr><td>Black window on launch</td>
       <td>A crashed session leaves a <code>SingletonLock</code>; <code>soju steam</code> cleans it automatically. If launching manually, delete it from htmlcache.</td></tr>
   <tr><td>Steam shows a "not responding" dialog while updating</td>
-      <td>Normal on first run — let it finish.</td></tr>
+      <td>Normal on first run. Let it finish.</td></tr>
   <tr><td>Typed text appears as ??</td>
       <td>Switch macOS input to English (ABC).</td></tr>
   <tr><td>Game forces fullscreen</td>

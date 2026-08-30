@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fully clone an existing CrossOver "Battle.net Desktop App" bottle into a new one.
-# Moving only the game files breaks CEF/Agent — the registries
+# Moving only the game files breaks CEF/Agent: the registries
 # (system/user/userdef) must be cloned along with them.
 # Uses APFS clones (cp -c), so almost no extra disk is used.
 set -euo pipefail

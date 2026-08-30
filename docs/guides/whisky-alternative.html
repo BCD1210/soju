@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Whisky is discontinued — free alternatives for Mac gaming (2026)</title>
-<meta name="description" content="Whisky, the free Wine GUI for macOS, is no longer maintained and its CDN is offline. Here are the options left in 2026 — paid (CrossOver) and free (Soju, Kegworks, PlayOnMac) — compared honestly.">
+<title>Whisky is discontinued: free alternatives for Mac gaming (2026)</title>
+<meta name="description" content="Whisky, the free Wine GUI for macOS, is no longer maintained and its CDN is offline. Here are the options left in 2026: paid (CrossOver) and free (Soju, Kegworks, PlayOnMac), compared honestly.">
 <link rel="canonical" href="https://bcd1210.github.io/soju/guides/whisky-alternative.html">
-<meta property="og:title" content="Whisky alternatives in 2026 — what's left for Mac gaming">
+<meta property="og:title" content="Whisky alternatives in 2026: what's left for Mac gaming">
 <meta property="og:description" content="An honest comparison of the free and paid ways to run Windows games on Apple Silicon after Whisky's discontinuation.">
 <meta property="og:type" content="article">
 <link rel="stylesheet" href="../style.css">
@@ -21,8 +21,8 @@
 <main>
 <h1>Whisky is gone. What now?</h1>
 <p class="lead">Whisky was the free way to run Windows games on Apple Silicon.
-Development stopped, and its content server (data.getwhisky.app) went offline —
-fresh installs can't even complete first-time setup anymore. Here's an honest map
+Development stopped, and its content server (data.getwhisky.app) went offline.
+Fresh installs can't even complete first-time setup anymore. Here's an honest map
 of what's left in 2026.</p>
 
 <h2>The options</h2>
@@ -44,14 +44,14 @@ of what's left in 2026.</p>
 </table>
 
 <h2>Why "just use a Whisky fork" often fails</h2>
-<p>Whisky's problem was never just maintenance — it's that modern launchers need
+<p>Whisky's problem was never just maintenance. It's that modern launchers need
 engine-level work:</p>
 <ul>
   <li><strong>Battle.net</strong> dies with <code>BLZBNTBNA00000005</code> on most free
   engines, because its Agent verifies the connecting process's signature via a
   PID→path lookup that needs macOS-specific Wine code.</li>
   <li><strong>D2R</strong> hangs at launch unless <code>ROSETTA_ADVERTISE_AVX=1</code>
-  is set — an undocumented Rosetta 2 variable.</li>
+  is set, an undocumented Rosetta 2 variable.</li>
   <li><strong>Steam's</strong> modern CEF UI doesn't render on many builds (black
   screen) without a webhelper workaround.</li>
 </ul>
@@ -70,7 +70,7 @@ Windows Steam client on M-series Macs</a>.</p>
 <h2>An honest caveat</h2>
 <p>Soju is young and CLI-based. It verifies specific targets end-to-end rather
 than promising everything will work. If you want a GUI and broad catalog support
-with commercial backing, CrossOver remains the safe choice — Soju is for people
+with commercial backing, CrossOver remains the safe choice. Soju is for people
 who want the free, transparent path and don't mind a terminal.</p>
 
 <p><a class="btn" href="https://github.com/BCD1210/soju">Get Soju on GitHub</a></p>

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# soju-reaper — cleans up game processes that outlive their windows.
+# soju-reaper: cleans up game processes that outlive their windows.
 #
 # Why: under Wine, quitting D2R sometimes leaves D2R.exe alive with no window
 # (a shutdown thread misses a wakeup). The user sees a dead Dock icon and a
@@ -8,7 +8,7 @@
 # idle (no game, no launcher window) it shuts the whole prefix down so nothing
 # lingers after "quit".
 #
-# Window detection uses CGWindowListCopyWindowInfo via python3+ctypes — no
+# Window detection uses CGWindowListCopyWindowInfo via python3+ctypes: no
 # Accessibility permission needed, nothing to install.
 #
 # Usage: soju-reaper.sh <WINEPREFIX> <wineserver-path> [battlenet|steam|epic]
