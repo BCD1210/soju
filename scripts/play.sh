@@ -22,6 +22,8 @@ if [[ "$MODE" == steam* ]]; then
   export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/steam-bottle}"
 elif [[ "$MODE" == epic* ]]; then
   export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/epic-bottle}"
+elif [[ "$MODE" == gog* ]]; then
+  export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/gog-bottle}"
 else
   export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/bottle}"
 fi
@@ -58,6 +60,10 @@ start_reaper(){
   [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" >/dev/null 2>&1 & )
 }
 
+# A Korean/Japanese/Chinese IME swallows key presses in Wine games, and macOS
+# remembers the input source per app, so switch to ABC before launching.
+case "$MODE" in *-kill) ;; *) python3 "$(dirname "${BASH_SOURCE[0]}")/soju-input-abc.py" 2>/dev/null || true ;; esac
+
 case "$MODE" in
   battlenet)   # Battle.net launcher (log in, then Play for online)
     # Battle.net.exe is started directly, not through "Battle.net Launcher.exe":
@@ -91,6 +97,29 @@ case "$MODE" in
     exec "$ENGINE/bin/wine" "$EPIC" "${@:2}"
     ;;
   epic-kill)   # Stop everything in the Epic bottle
+    pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
+    "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
+    ;;
+  gog)         # GOG GALAXY, same engine and env as Battle.net (verified 2026-08-30)
+    # GOG GALAXY 2.x is Qt6 + QtWebEngine. Its D3D11 compositing path needs
+    # IDXGIResource, which D3DMetal's DXGI does not implement, so the window
+    # stays black unless Chromium runs on the CPU (--disable-gpu). GOG
+    # overwrites QTWEBENGINE_CHROMIUM_FLAGS itself and ignores its argv, so the
+    # engine's kernelbase/ucrtbase hook appends SOJU_CHROMIUM_FLAGS to that
+    # variable whenever the program sets it (patches/chromium-flags-append.patch).
+    # Closing the window parks GOG in the tray (macOS menu bar icon).
+    GOG="C:\\Program Files\\GOG Galaxy\\GalaxyClient.exe"
+    [[ -f "$WINEPREFIX/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe" ]] || \
+      { echo "GOG GALAXY not found, run scripts/create-gog-bottle.sh first"; exit 1; }
+    rm -f "$WINEPREFIX/drive_c/ProgramData/GOG.com/Galaxy/lock-files/"* 2>/dev/null || true
+    pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
+      { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" gog >/dev/null 2>&1 & ); }
+    export SOJU_CHROMIUM_FLAGS="${SOJU_CHROMIUM_FLAGS:---disable-gpu --disable-gpu-compositing}"
+    export WINE_NO_DOCK_ICON="QtWebEngineProcess.exe;GalaxyClientService.exe;GOG Galaxy Notifications Renderer.exe;GalaxyCommunication.exe;GalaxyClientHelper.exe"
+    exec "$ENGINE/bin/wine" "$GOG" "${@:2}"
+    ;;
+  gog-kill)    # Stop everything in the GOG bottle
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
@@ -172,5 +201,5 @@ case "$MODE" in
     "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
-  *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|steam|kill|steam-kill]"; exit 1;;
+  *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|gog|gog-kill|steam|kill|steam-kill]"; exit 1;;
 esac

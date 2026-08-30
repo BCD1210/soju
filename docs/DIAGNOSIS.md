@@ -103,6 +103,21 @@ CrossOver 바이너리 의존 0.
 
 부수 확인: 한글 IME가 켜져 있으면 게임이 키 입력을 못 받는다(입력기를 ABC로). 이 alert 코드들은 Whisky/Kegworks 계열 빌드에도 같은 이유로 해당될 가능성이 높다(그쪽 wineserver의 libinotify 링크 여부로 판별 가능).
 
+## GOG GALAXY 검은 창: Qt D3D11 합성 + 덮어쓰이는 Chromium 플래그 (2026-08-30)
+
+GOG GALAXY 2.1.8은 CEF가 아니라 **Qt6 + QtWebEngine**(Chromium 118/125)이다. Sikarugir#257·#258, Whisky#1004에 보고된 "흰/검은 창"을 이 엔진에서 재현하고 원인을 갈랐다.
+
+1. D3DMetal에서는 QtWebEngine의 네이티브 합성기(`native_skia_output_device.cpp`)가 Chromium D3D11 텍스처를 Qt의 D3D11 RHI와 공유하려고 `QueryInterface(IDXGIResource)`를 부르는데 D3DMetal의 DXGI가 `E_NOINTERFACE(80004002)`를 돌려준다. 그 뒤 `CreateSharedImage failed` → `context is marked as lost`가 초당 수백 번 찍히고 창은 검다.
+2. 보틀만 wined3d(마커 제거한 wine-stable 11.0 PE, `WINEDLLOVERRIDES=d3d11,dxgi,d3d10core,wined3d=n`)로 바꾸면 그 에러는 사라지지만, ANGLE이 wined3d의 FL 9_3에서 GLES 3.0을 못 만들고(`Renderer11.cpp:1107`, `too few uniforms`) 창은 투명(GL 렌더러: `glClear`에서 `GL_INVALID_FRAMEBUFFER_OPERATION`, Vulkan 렌더러: 에러 없이도 안 그림; 레이어드 창에 D3D 프레젠트가 안 되는 Wine 한계로 보임).
+3. Qt RHI를 OpenGL로 바꾸면(`QSG_RHI_BACKEND=opengl`) Chromium이 WGL pbuffer를 못 만들어(`gl_surface_wgl.cc: Unable to create pbuffer`) int3, Vulkan으로 바꾸면 즉시 c0000409.
+4. 남은 답은 Chromium을 CPU 합성으로 돌리는 것이다. 그런데 GOG는 `QTWEBENGINE_CHROMIUM_FLAGS`를 **자기가 설정**해서(바이너리에 변수명 존재) 밖에서 준 값을 덮어쓰고, 자기 argv의 Chromium 스위치는 무시하며(`--verbose-logging` 등 자기 옵션만 파싱), 실행 파일을 바꾸면 "executable checksum doesn't match"로 거부한다. 즉 사용자 공간에서는 스위치를 넣을 길이 없다.
+
+해결(엔진 훅, `patches/chromium-flags-append.patch`): kernelbase `SetEnvironmentVariableW`와 msvcrt/ucrtbase `env_set`(CRT `_putenv_s` 경로, Qt의 `qputenv`가 쓰는 곳)에서 이름이 `QTWEBENGINE_CHROMIUM_FLAGS`이고 `SOJU_CHROMIUM_FLAGS`가 있으면 그 값을 뒤에 덧붙인다. CRT 테이블과 Win32 블록 둘 다 갱신되므로 Qt의 `qgetenv`(CRT `getenv`)가 덧붙은 값을 읽는다. CodeWeavers가 같은 파일에 Ubisoft Connect용으로 `VK_ICD_FILENAMES` 훅을 둔 것과 같은 종류다.
+
+검증: `play.sh gog`가 `SOJU_CHROMIUM_FLAGS="--disable-gpu --disable-gpu-compositing"`를 설정하면 D3DMetal 그대로 에러 3개(`WSALookupServiceBegin`, GLES3 폴백 2개)만 남고 로그인 창·로그인·메인 창(1732×798)이 뜬다. 렌더러 프로세스 커맨드라인에 `--disable-gpu-compositing`이 보인다.
+
+부수: 강제 종료 후엔 `ProgramData/GOG.com/Galaxy/lock-files/`의 잠금 파일 때문에 "Second client instance detected"로 즉시 종료되므로 `play.sh gog`가 실행 전에 지운다. 설치기가 자동 실행하는 `GalaxyClient.exe /installerLaunch /payload=`는 빈 payload로 `campaignParamsForLogIn` 설정 오류를 내고 죽는데 무해하다. 이 훅은 Qt/QtWebEngine 기반 런처 전반(다른 스토어 클라이언트 포함)에 그대로 쓸 수 있다.
+
 ## 벽 2: Battle.net Agent caller 서명 검증 실패 (해결됨)
 
 ### 증상

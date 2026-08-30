@@ -2,13 +2,13 @@
 
 > *Wine → Whisky → Kegworks… 그리고 한국의 차례: **Soju** 🍶*
 
-**런처가 실제로 로그인됩니다.** Apple Silicon 맥에서 Battle.net·Steam·Epic Games Launcher. 검은 로그인 창도, 끝나지 않는 "Signing in…"도, CrossOver 라이선스도 없이. 완전 무료 오픈소스 Wine 스택.
+**런처가 실제로 로그인됩니다.** Apple Silicon 맥에서 Battle.net·Steam·Epic Games Launcher·GOG GALAXY. 검은 로그인 창도, 끝나지 않는 "Signing in…"도, CrossOver 라이선스도 없이. 완전 무료 오픈소스 Wine 스택.
 
 Whisky/Kegworks 스레드의 *"배틀넷 로그인 시 크래시"*, *"Steam이 안 열림"*, *"런처 창이 비어 있음"* 때문에 오셨다면, 바로 그 벽들을 이 레포가 기록하고 해결했습니다(CEF 렌더러 `PAGE_WRITECOPY` int3, CEF GPU 프로세스 초기화 사망, Steam webhelper). [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)를 이 레포의 스크립트로 직접 빌드·조립합니다. 유료 소프트웨어 불필요.
 
-> 상태(2026-08): **전 구간 동작**: 배틀넷 로그인·Agent·D2R 인게임 렌더링(D3DMetal), Epic Games Launcher 로그인(메뉴바 트레이), Steam 로그인 + D3D11 게임. M4 Pro / macOS 26.5에서 검증.
+> 상태(2026-08): **전 구간 동작**: 배틀넷 로그인·Agent·D2R 인게임 렌더링(D3DMetal), Epic Games Launcher 로그인·게임 설치(메뉴바 트레이), GOG GALAXY 로그인, Steam 로그인 + D3D11 게임. M4 Pro / macOS 26.5에서 검증.
 
 *[English README](README.md)*
 
@@ -80,6 +80,16 @@ scripts/play.sh epic-kill        # Epic 보틀 종료 (창을 닫아도 런처�
 ```
 
 검증 2026-08-30: 런처에서 Hogwarts Legacy 71GB 설치 후 인게임까지(UE4, D3DMetal 경유 D3D12). 알아두실 점 두 가지: 플레이 전에 macOS 입력기를 영어(ABC)로 바꾸세요, 한글 IME가 켜져 있으면 Wine 게임에 키 입력이 전달되지 않습니다. 게임이 전체화면으로 뜨면 게임 자체 디스플레이 설정에서 창 모드로 바꾸면 됩니다(Soju가 강제하지 않습니다).
+
+### GOG GALAXY
+
+```bash
+scripts/create-gog-bottle.sh      # 별도 보틀, 공식 웹 설치기(무인)
+scripts/play.sh gog               # 로그인 → 게임 설치·플레이
+scripts/play.sh gog-kill          # GOG 보틀 종료 (창을 닫으면 메뉴바 트레이로 들어감)
+```
+
+검증 2026-08-30: 설치, 로그인, 라이브러리. GOG GALAXY 2.x는 CEF가 아니라 Qt6 + QtWebEngine이며, 이 엔진에서는 Qt의 D3D11 합성이 D3DMetal DXGI에 없는 `IDXGIResource`를 요구해 창이 검게 나옵니다. 해법은 Chromium을 CPU로 돌리는 것(`--disable-gpu`)인데, GOG가 `QTWEBENGINE_CHROMIUM_FLAGS`를 스스로 덮어쓰고 자기 커맨드라인도 무시하며 실행 파일 체크섬까지 검사해서 엔진 밖에서는 스위치를 넣을 방법이 없습니다. 그래서 엔진에 작은 훅(`patches/chromium-flags-append.patch`)을 넣었습니다: 프로그램이 `QTWEBENGINE_CHROMIUM_FLAGS`를 설정할 때마다 `SOJU_CHROMIUM_FLAGS`의 내용이 덧붙습니다. `play.sh gog`가 이 값을 설정합니다. 자세한 내용은 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 
 게임은 아직 폭넓게 테스트하지 않았습니다. 커널 안티치트(EAC/BattlEye)가 필요한 게임은 Wine에서 돌지 않습니다.

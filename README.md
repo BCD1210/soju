@@ -2,13 +2,13 @@
 
 > *Wine → Whisky → Kegworks… and now a Korean round: **Soju** 🍶*
 
-**The launchers actually log in.** Battle.net, Steam and the Epic Games Launcher on Apple Silicon. No black login window, no "Signing in…" that never ends, no CrossOver license. A fully free, open-source Wine stack.
+**The launchers actually log in.** Battle.net, Steam, the Epic Games Launcher and GOG GALAXY on Apple Silicon. No black login window, no "Signing in…" that never ends, no CrossOver license. A fully free, open-source Wine stack.
 
 If you got here from a Whisky/Kegworks thread titled *"Battle.net crashes on login"*, *"Steam won't open"* or *"launcher shows a blank window"*: those are the exact walls this repo documents and fixes (CEF renderer `int3` on `PAGE_WRITECOPY`, CEF GPU process dying on init, Steam's webhelper). See [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 Built from CodeWeavers' published GPL sources (Wine 11.0, CrossOver 26.3 source drop), compiled and assembled by scripts in this repo. No paid software required.
 
-> Status (2026-08): **Working end-to-end**: Battle.net login, Agent, and D2R in-game rendering (D3DMetal); Epic Games Launcher login (tray icon in the menu bar); Steam client login + D3D11 games. Verified on an M4 Pro running macOS 26.5.
+> Status (2026-08): **Working end-to-end**: Battle.net login, Agent, and D2R in-game rendering (D3DMetal); Epic Games Launcher login and game installs (tray icon in the menu bar); GOG GALAXY login; Steam client login + D3D11 games. Verified on an M4 Pro running macOS 26.5.
 
 *[한국어 README](README.ko.md)*
 
@@ -84,6 +84,16 @@ scripts/play.sh epic-kill        # stop the Epic bottle (closing the window keep
 ```
 
 Verified 2026-08-30: 71 GB install of Hogwarts Legacy (UE4, D3D12 through D3DMetal) from the launcher, then in-game. Two things to know: switch the macOS input source to English (ABC) before playing, a Korean/Japanese/Chinese IME swallows key presses in Wine games; and if a game starts full screen, set windowed mode in its own display settings (Soju does not force it).
+
+### GOG GALAXY
+
+```bash
+scripts/create-gog-bottle.sh      # separate bottle, official web installer (silent)
+scripts/play.sh gog               # log in, install and play
+scripts/play.sh gog-kill          # stop the GOG bottle (closing the window parks GOG in the menu bar tray)
+```
+
+Verified 2026-08-30: install, login, library. GOG GALAXY 2.x is Qt6 + QtWebEngine, not CEF, and on this engine its window stays black because Qt's D3D11 compositing asks D3DMetal's DXGI for `IDXGIResource`, which it does not implement. The fix is to run Chromium on the CPU (`--disable-gpu`), but GOG overwrites `QTWEBENGINE_CHROMIUM_FLAGS` itself and ignores its own command line, and it checksums its executable, so nothing outside the engine can inject the switch. The engine therefore carries a small hook (`patches/chromium-flags-append.patch`): whenever a program sets `QTWEBENGINE_CHROMIUM_FLAGS`, the contents of `SOJU_CHROMIUM_FLAGS` are appended. `play.sh gog` sets it. Details in [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 Games have not been broadly tested yet; anything that needs kernel anti-cheat (EAC/BattlEye) will not run under Wine.
 

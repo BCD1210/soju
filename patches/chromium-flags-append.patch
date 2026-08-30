@@ -1,0 +1,104 @@
+--- a/dlls/kernelbase/process.c
++++ b/dlls/kernelbase/process.c	2026-08-30 01:16:39
+@@ -1815,10 +1815,33 @@
+ /***********************************************************************
+  *           SetEnvironmentVariableW   (kernelbase.@)
+  */
++
++/* Soju: let the launcher environment append Chromium switches to
++ * QTWEBENGINE_CHROMIUM_FLAGS even when the application overwrites that variable
++ * itself (GOG Galaxy does). SOJU_CHROMIUM_FLAGS holds the switches to append.
++ * Returns a heap buffer the caller must free, or NULL when nothing applies. */
++static WCHAR *soju_append_chromium_flags( const WCHAR *name, const WCHAR *value )
++{
++    WCHAR extra[1024];
++    DWORD len, vlen;
++    WCHAR *ret;
++
++    if (!name || wcsicmp( name, L"QTWEBENGINE_CHROMIUM_FLAGS" )) return NULL;
++    len = GetEnvironmentVariableW( L"SOJU_CHROMIUM_FLAGS", extra, ARRAY_SIZE(extra) );
++    if (!len || len >= ARRAY_SIZE(extra)) return NULL;
++    if (value && wcsstr( value, extra )) return NULL;
++    vlen = value ? lstrlenW( value ) : 0;
++    if (!(ret = HeapAlloc( GetProcessHeap(), 0, (vlen + len + 2) * sizeof(WCHAR) ))) return NULL;
++    if (vlen) { lstrcpyW( ret, value ); ret[vlen] = ' '; lstrcpyW( ret + vlen + 1, extra ); }
++    else lstrcpyW( ret, extra );
++    return ret;
++}
++
+ BOOL WINAPI DECLSPEC_HOTPATCH SetEnvironmentVariableW( LPCWSTR name, LPCWSTR value )
+ {
+     UNICODE_STRING us_name, us_value;
+     NTSTATUS status;
++    WCHAR *soju_value;
+ 
+     TRACE( "(%s %s)\n", debugstr_w(name), debugstr_w(value) );
+ 
+@@ -1834,6 +1857,12 @@
+     if (!wcscmp( name, L"VK_ICD_FILENAMES" ) && value && is_ubisoft())
+         write_ubisoft_vulkan_json( value );
+ 
++    if ((soju_value = soju_append_chromium_flags( name, value )))
++    {
++        FIXME( "Soju: appending SOJU_CHROMIUM_FLAGS to %s\n", debugstr_w(name) );
++        value = soju_value;
++    }
++
+     RtlInitUnicodeString( &us_name, name );
+     if (value)
+     {
+@@ -1842,6 +1871,7 @@
+     }
+     else status = RtlSetEnvironmentVariable( NULL, &us_name, NULL );
+ 
++    HeapFree( GetProcessHeap(), 0, soju_value );
+     return set_ntstatus( status );
+ }
+ 
+--- a/dlls/msvcrt/environ.c
++++ b/dlls/msvcrt/environ.c
+@@ -144,11 +144,41 @@
+     return i;
+ }
+ 
+-static int env_set(char **env, wchar_t **wenv)
++/* Soju: append SOJU_CHROMIUM_FLAGS to QTWEBENGINE_CHROMIUM_FLAGS when a program
++ * sets it through the CRT (Qt's qputenv), so the CRT copy Qt reads back carries
++ * the extra switches too. kernelbase does the same for the Win32 block. */
++static void soju_env_append(char **env, wchar_t **wenv)
+ {
+-    wchar_t *weq = wcschr(*wenv, '=');
+-    char *eq = strchr(*env, '=');
++    static const wchar_t prefix[] = L"QTWEBENGINE_CHROMIUM_FLAGS=";
++    wchar_t extra[1024], *nw;
++    char *na;
++    DWORD len;
++    size_t wl, al;
++
++    if (wcsnicmp(*wenv, prefix, ARRAY_SIZE(prefix) - 1)) return;
++    len = GetEnvironmentVariableW(L"SOJU_CHROMIUM_FLAGS", extra, ARRAY_SIZE(extra));
++    if (!len || len >= ARRAY_SIZE(extra)) return;
++    if (wcsstr(*wenv, extra)) return;
++
++    wl = wcslen(*wenv);
++    if (!(nw = malloc((wl + len + 2) * sizeof(wchar_t)))) return;
++    wcscpy(nw, *wenv); nw[wl] = ' '; wcscpy(nw + wl + 1, extra);
++    al = WideCharToMultiByte(CP_ACP, 0, nw, -1, NULL, 0, NULL, NULL);
++    if (!(na = malloc(al))) { free(nw); return; }
++    WideCharToMultiByte(CP_ACP, 0, nw, -1, na, al, NULL, NULL);
++    free(*wenv); free(*env);
++    *wenv = nw; *env = na;
++}
++
++static int env_set(char **env, wchar_t **wenv)
++{
++    wchar_t *weq;
++    char *eq;
+     int idx;
++
++    soju_env_append(env, wenv);
++    weq = wcschr(*wenv, '=');
++    eq = strchr(*env, '=');
+ 
+     *weq = 0;
+     if (!SetEnvironmentVariableW(*wenv, weq[1] ? weq + 1 : NULL) &&
