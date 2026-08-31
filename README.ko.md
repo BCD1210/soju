@@ -10,7 +10,7 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 
 > 상태(2026-08): **전 구간 동작**: 배틀넷 로그인·Agent·D2R 인게임 렌더링(D3DMetal), Epic Games Launcher 로그인·게임 설치(메뉴바 트레이), GOG GALAXY 로그인, Steam 로그인 + D3D11 게임. M4 Pro / macOS 26.5에서 검증.
 
-*[English README](README.md)*
+*[English README](README.md) · [简体中文说明](README.zh.md)*
 
 ## 핵심 발견 3가지
 
@@ -38,6 +38,14 @@ soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / 
 ```
 
 설치기는 프리빌드 엔진(~350MB)을 받고, 애플 무료 GPTK 다운로드(애플이 재배포 금지한 파일 1개)를 안내한 뒤, 원하는 런처를 묻습니다. Battle.net, Steam, Epic Games Launcher, GOG GALAXY 중 아무 조합이나 고르면 각각 공식 설치기로 별도 보틀에 설치하고, 런처마다 더블클릭용 앱을 `~/Applications`에 만들어 줍니다(`Battle.net.app`, `Steam (Windows).app`, `Epic Games Launcher.app`, `GOG GALAXY.app`). 비대화형: `SOJU_PLATFORMS=battlenet,epic,gog curl ... | bash`. 로그인하고 플레이하세요.
+
+## 일상 명령
+
+```bash
+soju doctor      # 스택 전체 점검, 뭐가 문제인지 출력 (이슈 올릴 때 이 출력을 붙여주세요)
+soju update      # 스크립트와 엔진 업데이트 (GPTK와 보틀은 그대로 둠)
+soju uninstall   # 앱·보틀·엔진 제거, 항목마다 확인 후 진행
+```
 
 ## 직접 빌드하고 싶다면: CrossOver 불필요
 
