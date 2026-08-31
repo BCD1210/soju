@@ -26,6 +26,10 @@ Usage:
   soju steam          Launch Steam
   soju steam-kill     Stop everything in the Steam bottle
 
+  soju doctor         Check the whole stack and print what is wrong
+  soju update         Update the scripts and the prebuilt engine
+  soju uninstall      Remove apps, bottles and the engine (asks per item)
+
 Docs: https://github.com/BCD1210/soju
 EOF
 }
@@ -36,6 +40,9 @@ case "${1:-}" in
   gog-install)    shift; exec bash "$ROOT/scripts/create-gog-bottle.sh" "$@" ;;
   steam-install)  shift; exec bash "$ROOT/scripts/create-steam-bottle.sh" "$@" ;;
   steam-games)    shift; exec bash "$ROOT/scripts/setup-steam-games.sh" "$@" ;;
+  doctor)         shift; exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
+  update)         shift; exec bash "$ROOT/scripts/update.sh" "$@" ;;
+  uninstall)      shift; exec bash "$ROOT/scripts/uninstall.sh" "$@" ;;
   battlenet|d2r|epic|epic-kill|gog|gog-kill|steam|kill|steam-kill)
                   exec bash "$ROOT/scripts/play.sh" "$@" ;;
   -h|--help|help|"") usage ;;

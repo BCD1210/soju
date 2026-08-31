@@ -38,6 +38,8 @@ else
   mkdir -p "$ENGINE"
   tar -xJf "$BASE/engine.tar.xz" -C "$ENGINE"
   rm -f "$BASE/engine.tar.xz"
+  TAG=$(echo "$URL" | sed -n 's#.*/download/\([^/]*\)/.*#\1#p')
+  [ -n "$TAG" ] && printf '%s\n' "$TAG" > "$ENGINE/.soju-engine-release"
   DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version >/dev/null \
     && echo "Engine OK: $(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version)"
 fi
