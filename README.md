@@ -10,7 +10,7 @@ Built from CodeWeavers' published GPL sources (Wine 11.0, CrossOver 26.3 source 
 
 > Status (2026-08): **Working end-to-end**: Battle.net login, Agent, and D2R in-game rendering (D3DMetal); Epic Games Launcher login and game installs (tray icon in the menu bar); GOG GALAXY login; Steam client login + D3D11 games. Verified on an M4 Pro running macOS 26.5.
 
-*[한국어 README](README.ko.md)*
+*[한국어 README](README.ko.md) · [简体中文说明](README.zh.md)*
 
 ## Why this exists
 
@@ -42,6 +42,14 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 ```
 
 The installer downloads the prebuilt engine (~350 MB), walks you through Apple's free GPTK download (the one file Apple forbids redistributing), then asks which launchers you want, any combination of Battle.net, Steam, Epic Games Launcher and GOG GALAXY, installs each with its official installer into its own bottle, and drops a double-clickable app per launcher in `~/Applications` (`Battle.net.app`, `Steam (Windows).app`, `Epic Games Launcher.app`, `GOG GALAXY.app`). Non-interactive: `SOJU_PLATFORMS=battlenet,epic,gog curl ... | bash`. Log in and play.
+
+## Everyday commands
+
+```bash
+soju doctor      # checks the whole stack and prints what is wrong (paste this into bug reports)
+soju update      # updates the scripts and the prebuilt engine, keeping GPTK and every bottle
+soju uninstall   # removes apps, bottles and the engine, asking before each one
+```
 
 ## Build it yourself instead: no CrossOver required
 
@@ -116,6 +124,8 @@ Verified on M4 Pro / macOS 26.5: login, library, and an actual D3D11 (Unity) gam
 `libd3dshared.dylib` (inside GPTK) is not just graphics: D2R's loader requires its *non-native code region registration* to get through Rosetta 2. Without it the game freezes at launch even with AVX advertised. Graphics itself can run on pure open-source vkd3d/MoltenVK if D3DMetal is absent.
 
 ### Troubleshooting
+
+Start with `soju doctor`: it checks most of the items below and tells you which one is broken.
 
 - **"Wine Mono Installer" popup** -> step 2 was skipped; run `get-components.sh` then re-run `build-engine.sh`.
 - **Game hangs forever at ~86 MB RAM, 0% CPU** -> `ROSETTA_ADVERTISE_AVX=1` or `libd3dshared` not reaching the game. Launch via `play.sh` only, and check step 4.
