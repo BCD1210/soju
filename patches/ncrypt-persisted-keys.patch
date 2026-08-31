@@ -1,0 +1,400 @@
+Store CNG keys created with a name so they survive the process.
+
+Wine's ncrypt keeps a key only for the lifetime of the process that made it:
+NCryptCreatePersistedKey ignores the name it is given and NCryptOpenKey is a
+stub returning NTE_NOT_SUPPORTED, so a program that asks the key store for the
+same key twice gets a different key the second time.
+
+The Epic Games Launcher creates a persistent EC key and signs a DPoP proof with
+it (RFC 9449), which is how the account service recognises the machine a token
+was issued to.  With the key gone on every start the launcher logs
+
+  LogDPoP: Error: Failed to create persistent DPoP key (Status: 0x80090029)
+  LogDPoP: Warning: Cannot build DPoP proof: no public JWK available
+
+and falls back to sending the request unsigned, so the service treats each start
+as a new device and issues a new session instead of refreshing the stored one.
+After a handful of launches the account hits the issuance limit and every login
+fails with
+
+  errors.com.epicgames.account.oauth.too_many_sessions (18048)
+  "Sorry too many sessions have been issued for your account."
+
+which no amount of logging out or resetting the password clears, because the
+limit counts sessions issued rather than sessions held.
+
+Named keys are now written to %APPDATA%\Microsoft\Crypto\Keys, where Windows
+keeps them, once the key is finalized, and read back by NCryptOpenKey; opening a
+name that was never stored returns NTE_BAD_KEYSET so callers create one instead
+of giving up.  ECDSA P-256 and P-384 are handled alongside RSA, since a key
+store that cannot hold the curve DPoP uses would not help here.
+
+--- a/dlls/ncrypt/ncrypt_internal.h
++++ b/dlls/ncrypt/ncrypt_internal.h
+@@ -26,12 +26,15 @@
+     RSA,
+     DSA,
+     ECDSA,
++    ECDSA_P256,
++    ECDSA_P384,
+ };
+ 
+ struct key
+ {
+     enum algid algid;
+     BCRYPT_KEY_HANDLE bcrypt_key;
++    WCHAR *name;
+ };
+ 
+ struct storage_provider
+--- a/dlls/ncrypt/main.c
++++ b/dlls/ncrypt/main.c
+@@ -126,6 +126,162 @@
+     return ERROR_SUCCESS;
+ }
+ 
++/* Persistent key storage.
++ *
++ * Windows keeps a user's CNG keys under %APPDATA%\Microsoft\Crypto\Keys, so a
++ * named key created by one run of a program is still there for the next one.
++ * Callers that bind a token to a device key (DPoP, for instance) treat the key
++ * as the identity of the machine and issue a fresh login whenever it changes,
++ * so the key has to outlive the process. */
++
++#define KEY_STORE_MAGIC 0x314b4a53
++
++struct key_store_header
++{
++    DWORD magic;
++    DWORD algid;
++    DWORD blob_len;
++};
++
++static const WCHAR *blob_type_for_algid(enum algid algid)
++{
++    switch (algid)
++    {
++    case RSA:        return BCRYPT_RSAFULLPRIVATE_BLOB;
++    case ECDSA_P256:
++    case ECDSA_P384: return BCRYPT_ECCPRIVATE_BLOB;
++    default:         return NULL;
++    }
++}
++
++static BCRYPT_ALG_HANDLE alg_handle_for_algid(enum algid algid)
++{
++    switch (algid)
++    {
++    case RSA:        return BCRYPT_RSA_ALG_HANDLE;
++    case ECDSA_P256: return BCRYPT_ECDSA_P256_ALG_HANDLE;
++    case ECDSA_P384: return BCRYPT_ECDSA_P384_ALG_HANDLE;
++    default:         return NULL;
++    }
++}
++
++/* Build %APPDATA%\Microsoft\Crypto\Keys\<name>.key, creating the directories.
++ * Characters that cannot appear in a file name are folded to '_'; a caller
++ * that picks two names differing only in those is left sharing one file. */
++static WCHAR *key_store_path(const WCHAR *name)
++{
++    static const WCHAR keysW[] = L"\\Microsoft\\Crypto\\Keys";
++    static const WCHAR extW[] = L".key";
++    WCHAR appdata[MAX_PATH], *path, *p;
++    DWORD len;
++    size_t i;
++
++    if (!name || !*name) return NULL;
++    if (!(len = GetEnvironmentVariableW(L"APPDATA", appdata, MAX_PATH)) || len >= MAX_PATH) return NULL;
++
++    len = lstrlenW(appdata) + ARRAY_SIZE(keysW) + lstrlenW(name) + ARRAY_SIZE(extW) + 1;
++    if (!(path = malloc(len * sizeof(WCHAR)))) return NULL;
++
++    lstrcpyW(path, appdata);
++    lstrcatW(path, keysW);
++
++    /* create the directories one component at a time */
++    for (p = path + lstrlenW(appdata) + 1; *p; p++)
++    {
++        if (*p != '\\') continue;
++        *p = 0;
++        CreateDirectoryW(path, NULL);
++        *p = '\\';
++    }
++    CreateDirectoryW(path, NULL);
++
++    lstrcatW(path, L"\\");
++    i = lstrlenW(path);
++    for (; *name; name++, i++)
++    {
++        WCHAR c = *name;
++        if (c < ' ' || c == '\\' || c == '/' || c == ':' || c == '*' ||
++            c == '?' || c == '"' || c == '<' || c == '>' || c == '|') c = '_';
++        path[i] = c;
++    }
++    path[i] = 0;
++    lstrcatW(path, extW);
++    return path;
++}
++
++static SECURITY_STATUS write_key_store(const WCHAR *name, enum algid algid, BCRYPT_KEY_HANDLE bcrypt_key)
++{
++    struct key_store_header header;
++    const WCHAR *blob_type;
++    SECURITY_STATUS ret = NTE_INTERNAL_ERROR;
++    BYTE *blob = NULL;
++    WCHAR *path;
++    DWORD blob_len = 0, written;
++    NTSTATUS status;
++    HANDLE file;
++
++    if (!(blob_type = blob_type_for_algid(algid))) return NTE_NOT_SUPPORTED;
++    if (!(path = key_store_path(name))) return NTE_INTERNAL_ERROR;
++
++    status = BCryptExportKey(bcrypt_key, NULL, blob_type, NULL, 0, &blob_len, 0);
++    if (status != STATUS_SUCCESS) goto done;
++    if (!(blob = malloc(blob_len))) { ret = NTE_NO_MEMORY; goto done; }
++    status = BCryptExportKey(bcrypt_key, NULL, blob_type, blob, blob_len, &blob_len, 0);
++    if (status != STATUS_SUCCESS) goto done;
++
++    file = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
++    if (file == INVALID_HANDLE_VALUE) goto done;
++
++    header.magic = KEY_STORE_MAGIC;
++    header.algid = algid;
++    header.blob_len = blob_len;
++    if (WriteFile(file, &header, sizeof(header), &written, NULL) && written == sizeof(header) &&
++        WriteFile(file, blob, blob_len, &written, NULL) && written == blob_len)
++        ret = ERROR_SUCCESS;
++    CloseHandle(file);
++    if (ret != ERROR_SUCCESS) DeleteFileW(path);
++
++done:
++    free(blob);
++    free(path);
++    return ret;
++}
++
++static SECURITY_STATUS read_key_store(const WCHAR *name, enum algid *algid, BCRYPT_KEY_HANDLE *bcrypt_key)
++{
++    struct key_store_header header;
++    SECURITY_STATUS ret = NTE_BAD_KEYSET;
++    BYTE *blob = NULL;
++    WCHAR *path;
++    DWORD read;
++    HANDLE file;
++
++    if (!(path = key_store_path(name))) return NTE_BAD_KEYSET;
++
++    file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
++    free(path);
++    if (file == INVALID_HANDLE_VALUE) return NTE_BAD_KEYSET;
++
++    if (!ReadFile(file, &header, sizeof(header), &read, NULL) || read != sizeof(header) ||
++        header.magic != KEY_STORE_MAGIC || !header.blob_len || header.blob_len > 0x10000)
++        goto done;
++    if (!blob_type_for_algid(header.algid) || !alg_handle_for_algid(header.algid)) goto done;
++    if (!(blob = malloc(header.blob_len))) { ret = NTE_NO_MEMORY; goto done; }
++    if (!ReadFile(file, blob, header.blob_len, &read, NULL) || read != header.blob_len) goto done;
++
++    if (BCryptImportKeyPair(alg_handle_for_algid(header.algid), NULL, blob_type_for_algid(header.algid),
++                            bcrypt_key, blob, header.blob_len, 0) != STATUS_SUCCESS)
++        goto done;
++
++    *algid = header.algid;
++    ret = ERROR_SUCCESS;
++
++done:
++    free(blob);
++    CloseHandle(file);
++    return ret;
++}
++
+ static struct object *create_key_object(enum algid algid, NCRYPT_PROV_HANDLE provider)
+ {
+     NCRYPT_SUPPORTED_LENGTHS supported_lengths = {512, 16384, 8, 1024};
+@@ -150,6 +306,26 @@
+         set_object_property(object, BCRYPT_SIGNATURE_LENGTH, (BYTE *)&dw_value, sizeof(dw_value));
+         break;
+ 
++    case ECDSA_P256:
++    case ECDSA_P384:
++    {
++        const WCHAR *alg = (algid == ECDSA_P256) ? BCRYPT_ECDSA_P256_ALGORITHM : BCRYPT_ECDSA_P384_ALGORITHM;
++        DWORD bitlen = (algid == ECDSA_P256) ? 256 : 384;
++        NCRYPT_SUPPORTED_LENGTHS ec_lengths = {bitlen, bitlen, 0, bitlen};
++
++        if (!(object = allocate_object(KEY))) return NULL;
++
++        object->key.algid = algid;
++        set_object_property(object, NCRYPT_ALGORITHM_PROPERTY, (BYTE *)alg, (lstrlenW(alg) + 1) * sizeof(WCHAR));
++        set_object_property(object, NCRYPT_ALGORITHM_GROUP_PROPERTY, (BYTE *)L"ECDSA", sizeof(L"ECDSA"));
++        set_object_property(object, NCRYPT_LENGTHS_PROPERTY, (BYTE *)&ec_lengths, sizeof(ec_lengths));
++        dw_value = bitlen / 8;
++        set_object_property(object, NCRYPT_BLOCK_LENGTH_PROPERTY, (BYTE *)&dw_value, sizeof(dw_value));
++        dw_value = bitlen / 4;
++        set_object_property(object, BCRYPT_SIGNATURE_LENGTH, (BYTE *)&dw_value, sizeof(dw_value));
++        break;
++    }
++
+     default:
+         ERR("Invalid algid %#x\n", algid);
+         return NULL;
+@@ -175,7 +351,6 @@
+ 
+     if (!provider) return NTE_INVALID_HANDLE;
+     if (!algid) return HRESULT_FROM_WIN32(RPC_X_NULL_REF_POINTER);
+-    if (name) FIXME("Persistent keys are not supported\n");
+ 
+     if (!lstrcmpiW(algid, BCRYPT_RSA_ALGORITHM))
+     {
+@@ -199,12 +374,39 @@
+         set_object_property(object, NCRYPT_LENGTH_PROPERTY, (BYTE *)&default_bitlen, sizeof(default_bitlen));
+         set_object_property(object, BCRYPT_PUBLIC_KEY_LENGTH, (BYTE *)&default_bitlen, sizeof(default_bitlen));
+     }
++    else if (!lstrcmpiW(algid, BCRYPT_ECDSA_P256_ALGORITHM) || !lstrcmpiW(algid, BCRYPT_ECDSA_P384_ALGORITHM))
++    {
++        enum algid id = !lstrcmpiW(algid, BCRYPT_ECDSA_P256_ALGORITHM) ? ECDSA_P256 : ECDSA_P384;
++        DWORD bitlen = (id == ECDSA_P256) ? 256 : 384;
++        NTSTATUS status;
++
++        if (!(object = create_key_object(id, provider))) return NTE_NO_MEMORY;
++
++        status = BCryptGenerateKeyPair(alg_handle_for_algid(id), &object->key.bcrypt_key, bitlen, 0);
++        if (status != STATUS_SUCCESS)
++        {
++            ERR("Error generating key pair %#lx\n", status);
++            free(object);
++            return map_ntstatus(status);
++        }
++
++        set_object_property(object, NCRYPT_LENGTH_PROPERTY, (BYTE *)&bitlen, sizeof(bitlen));
++        set_object_property(object, BCRYPT_PUBLIC_KEY_LENGTH, (BYTE *)&bitlen, sizeof(bitlen));
++    }
+     else
+     {
+         FIXME("Algorithm not handled %s\n", wine_dbgstr_w(algid));
+         return NTE_NOT_SUPPORTED;
+     }
+ 
++    /* A named key is written out once it is finalized, not here: the key
++     * material is not generated yet. */
++    if (name && !(object->key.name = wcsdup(name)))
++    {
++        NCryptFreeObject((NCRYPT_HANDLE)object);
++        return NTE_NO_MEMORY;
++    }
++
+     *key = (NCRYPT_KEY_HANDLE)object;
+     return ERROR_SUCCESS;
+ }
+@@ -219,8 +421,19 @@
+ 
+ SECURITY_STATUS WINAPI NCryptDeleteKey(NCRYPT_KEY_HANDLE key, DWORD flags)
+ {
+-    FIXME("(%#Ix, %#lx): stub\n", key, flags);
+-    return NTE_NOT_SUPPORTED;
++    struct object *object = (struct object *)key;
++    WCHAR *path;
++
++    TRACE("(%#Ix, %#lx)\n", key, flags);
++
++    if (!object || object->type != KEY) return NTE_INVALID_HANDLE;
++
++    if (object->key.name && (path = key_store_path(object->key.name)))
++    {
++        DeleteFileW(path);
++        free(path);
++    }
++    return NCryptFreeObject((NCRYPT_HANDLE)key);
+ }
+ 
+ SECURITY_STATUS WINAPI NCryptEncrypt(NCRYPT_KEY_HANDLE key, BYTE *input, DWORD insize, void *padding,
+@@ -277,11 +490,16 @@
+ 
+     if (!(prop = get_object_property(object, NCRYPT_LENGTH_PROPERTY))) return NTE_INVALID_HANDLE;
+     key_length = *(DWORD *)prop->value;
+-    status = BCryptSetProperty(object->key.bcrypt_key, BCRYPT_KEY_LENGTH, (UCHAR *)&key_length, sizeof(key_length), 0);
+-    if (status != STATUS_SUCCESS)
++
++    /* the length of an EC key is fixed by its curve, and setting it fails */
++    if (object->key.algid != ECDSA_P256 && object->key.algid != ECDSA_P384)
+     {
+-        ERR("Error setting key length property\n");
+-        return map_ntstatus(status);
++        status = BCryptSetProperty(object->key.bcrypt_key, BCRYPT_KEY_LENGTH, (UCHAR *)&key_length, sizeof(key_length), 0);
++        if (status != STATUS_SUCCESS)
++        {
++            ERR("Error setting key length property\n");
++            return map_ntstatus(status);
++        }
+     }
+ 
+     status = BCryptFinalizeKeyPair(object->key.bcrypt_key, 0);
+@@ -291,6 +509,13 @@
+         return map_ntstatus(status);
+     }
+ 
++    if (object->key.name)
++    {
++        SECURITY_STATUS ret = write_key_store(object->key.name, object->key.algid, object->key.bcrypt_key);
++        if (ret != ERROR_SUCCESS)
++            WARN("could not store key %s, it will not survive this process\n", wine_dbgstr_w(object->key.name));
++    }
++
+     return ERROR_SUCCESS;
+ }
+ 
+@@ -302,6 +527,8 @@
+ 
+ static SECURITY_STATUS free_key_object(struct key *key)
+ {
++    free(key->name);
++    key->name = NULL;
+     return map_ntstatus( BCryptDestroyKey(key->bcrypt_key) );
+ }
+ 
+@@ -512,8 +739,42 @@
+ SECURITY_STATUS WINAPI NCryptOpenKey(NCRYPT_PROV_HANDLE provider, NCRYPT_KEY_HANDLE *key,
+                                      const WCHAR *name, DWORD keyspec, DWORD flags)
+ {
+-    FIXME("(%#Ix, %p, %s, %#lx, %#lx): stub\n", provider, key, wine_dbgstr_w(name), keyspec, flags);
+-    return NTE_NOT_SUPPORTED;
++    BCRYPT_KEY_HANDLE bcrypt_key = NULL;
++    struct object *object;
++    SECURITY_STATUS ret;
++    enum algid algid;
++    DWORD bitlen;
++
++    TRACE("(%#Ix, %p, %s, %#lx, %#lx)\n", provider, key, wine_dbgstr_w(name), keyspec, flags);
++
++    if (!provider) return NTE_INVALID_HANDLE;
++    if (!key || !name) return NTE_INVALID_PARAMETER;
++
++    if ((ret = read_key_store(name, &algid, &bcrypt_key))) return ret;
++
++    if (!(object = create_key_object(algid, provider)))
++    {
++        BCryptDestroyKey(bcrypt_key);
++        return NTE_NO_MEMORY;
++    }
++    object->key.bcrypt_key = bcrypt_key;
++    if (!(object->key.name = wcsdup(name)))
++    {
++        NCryptFreeObject((NCRYPT_HANDLE)object);
++        return NTE_NO_MEMORY;
++    }
++
++    switch (algid)
++    {
++    case ECDSA_P256: bitlen = 256; break;
++    case ECDSA_P384: bitlen = 384; break;
++    default:         bitlen = 1024; break;
++    }
++    set_object_property(object, NCRYPT_LENGTH_PROPERTY, (BYTE *)&bitlen, sizeof(bitlen));
++    set_object_property(object, BCRYPT_PUBLIC_KEY_LENGTH, (BYTE *)&bitlen, sizeof(bitlen));
++
++    *key = (NCRYPT_KEY_HANDLE)object;
++    return ERROR_SUCCESS;
+ }
+ 
+ SECURITY_STATUS WINAPI NCryptOpenStorageProvider(NCRYPT_PROV_HANDLE *provider, const WCHAR *name, DWORD flags)

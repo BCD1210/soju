@@ -131,6 +131,85 @@ winemac 패치의 `WINE_DOCK_REOPEN_CMD`(보이는 창이 없을 때 독 클릭 
 - Epic: 트레이 더블클릭 시퀀스 재현(`tools/soju-epic-restore.c`, 위 참조).
 - GOG: `RestoreClientMessage` 직접 전송(`tools/soju-gog-restore.c`, 위 참조).
 
+## Epic 로그인 `too_many_sessions`: ncrypt에 영구 키가 없어서 매번 새 기기가 된다 (2026-08-31)
+
+### 증상
+
+Epic Games Launcher 로그인 화면에서 계속 거부된다.
+
+```
+Sorry, your account has too many active logins.
+Please log out of one of the places you are using your account and try again.
+```
+
+화면 문구는 "다른 곳에서 로그아웃하라"지만, 서버가 실제로 돌려주는 것은 다른 이야기다.
+
+```
+code=400 errorcode=errors.com.epicgames.account.oauth.too_many_sessions
+numericErrorCode=18048
+"Sorry too many sessions have been issued for your account. Please try again later"
+```
+
+`issued`(발급됨)이지 `active`(사용 중)가 아니다. 보유 중인 세션 수 제한이 아니라 일정 시간 안에
+발급된 토큰 수에 대한 레이트 리밋이다. 그래서 모든 기기에서 로그아웃해도, 비밀번호를 재설정해
+기존 세션을 전부 무효화해도 풀리지 않는다. 오히려 재시도할 때마다 카운터가 더 찬다.
+
+### 근본 원인
+
+런처 로그 17개를 확인하니 **매 실행마다** 같은 줄이 먼저 나온다.
+
+```
+LogDPoP: Error: Failed to create persistent DPoP key (Status: 0x80090029)
+LogDPoP: Warning: Cannot build DPoP proof: no public JWK available
+LogOnlineIdentity: Warning: OSS: DPoP enabled but proof build failed - sending request without DPoP header
+```
+
+DPoP(RFC 9449)는 발급한 토큰을 그 기기의 서명 키에 묶는 방식이다. Epic은 이 키로 "같은 기기가
+맞다"를 확인하고, 맞으면 저장된 세션을 갱신해서 재사용한다. 키를 못 만들면 매 실행이 처음 보는
+기기가 되므로 갱신 대신 **새 세션 발급**이 일어난다. 열 번 실행하면 세션도 그만큼 새로 발급된다.
+
+0x80090029는 `NTE_NOT_SUPPORTED`다. 엔진에서 직접 확인한 결과:
+
+```
+NCryptOpenStorageProvider     = 0x00000000
+NCryptOpenKey (기존 키 열기)   = 0x80090029
+NCryptCreatePersistedKey ES256 = 0x80090029
+```
+
+wine의 `dlls/ncrypt/main.c`를 보면 이유가 그대로 적혀 있다. `NCryptCreatePersistedKey`는 키 이름을
+받으면 `FIXME("Persistent keys are not supported")`를 찍고 무시하며, `NCryptOpenKey`는 통째로
+스텁이다. 게다가 이 버전은 RSA만 처리해서 DPoP가 쓰는 ECDSA P-256은 아예 거부한다. 즉 wine에서
+CNG 키는 프로세스와 함께 사라지고, 같은 이름으로 다시 열 방법이 없다.
+
+### 해결책 (`patches/ncrypt-persisted-keys.patch`)
+
+이름이 붙은 키를 Windows가 쓰는 위치(`%APPDATA%\Microsoft\Crypto\Keys`)에 저장하고 다시 읽는다.
+
+- `NCryptCreatePersistedKey`: 이름을 기억하고, ECDSA P-256/P-384를 RSA와 함께 처리한다
+- `NCryptFinalizeKey`: 키가 확정된 뒤 개인키 blob을 파일로 내보낸다 (EC 키는 곡선이 길이를 정하므로
+  `BCryptSetProperty(BCRYPT_KEY_LENGTH)`를 건너뛴다)
+- `NCryptOpenKey`: 저장된 키를 불러온다. 저장된 적이 없으면 Windows와 같이 `NTE_BAD_KEYSET`을
+  돌려줘서, 호출자가 포기하지 않고 새로 만들도록 한다
+- `NCryptDeleteKey`: 저장 파일도 함께 지운다
+
+### 검증
+
+프로브를 두 번 실행:
+
+```
+1회차: NCryptOpenKey = 0x80090016 (아직 없음) -> Create/Finalize 성공 -> 공개키 72바이트, 서명 64바이트
+2회차: NCryptOpenKey = 0x00000000 (저장된 키 로드) -> 공개키 바이트가 1회차와 동일
+```
+
+2회차의 공개키가 1회차와 같다는 것이 핵심이다. 새로 만든 것이 아니라 디스크에서 같은 키를 불러왔다는
+뜻이고, DPoP가 요구하는 성질이 바로 이것이다.
+
+회귀는 wine의 ncrypt 적합성 테스트로 확인했다. 원본과 패치본 모두 436개 실행, 176개 todo,
+**0 failures**로 동일하다. 배틀넷도 패치본 엔진에서 정상 부팅한다(BREAKPOINT 0, ncrypt 오류 0).
+
+아직 Epic 로그인으로 끝까지 확인하지는 못했다. 이미 걸린 레이트 리밋이 풀려야 시도할 수 있고,
+재시도 자체가 리밋을 다시 채우기 때문이다.
+
 ## 벽 2: Battle.net Agent caller 서명 검증 실패 (해결됨)
 
 ### 증상

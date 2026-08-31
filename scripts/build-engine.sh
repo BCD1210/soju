@@ -39,6 +39,10 @@ if ! grep -q "soju_append_chromium_flags" "$WINE/dlls/kernelbase/process.c"; the
   echo "==> Applying patches/chromium-flags-append.patch (SOJU_CHROMIUM_FLAGS hook for Qt launchers)"
   patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/chromium-flags-append.patch"
 fi
+if ! grep -q "KEY_STORE_MAGIC" "$WINE/dlls/ncrypt/main.c"; then
+  echo "==> Applying patches/ncrypt-persisted-keys.patch (named CNG keys survive the process)"
+  patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/ncrypt-persisted-keys.patch"
+fi
 
 echo "==> Building x86_64 freetype (Rosetta)"
 [ -f "$WORK/ft.tar.gz" ] || curl -fL "$FT_URL" -o "$WORK/ft.tar.gz"
