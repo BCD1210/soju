@@ -47,6 +47,30 @@ case "$MODE" in
     ;;
 esac
 
+# The wineserver for this prefix: wine names its socket directory after the
+# prefix's device and inode, and the server runs with that directory as its
+# working directory.  If the server is gone while the launcher is still up, the
+# launcher is an orphan: every call that needs the server (closing a handle, for
+# one) blocks forever, so its window stops repainting and stops responding while
+# the process still looks alive.  Nothing can rescue it at that point, and the
+# leftovers have to be killed for the next start to work.
+SERVER_DIR="$(/usr/bin/stat -f "/tmp/.wine-$(id -u)/server-%Xd-%Xi" "$PREFIX" 2>/dev/null || true)"
+
+server_alive() {
+  local pids
+  [ -n "$SERVER_DIR" ] || return 0     # cannot tell, assume it is there
+  pids=$(pgrep -x wineserver 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+  [ -n "$pids" ] || return 1
+  lsof -a -p "$pids" -d cwd -Fn 2>/dev/null | grep -qx "n$SERVER_DIR"
+}
+
+reap_orphans() {
+  echo "soju-reaper: the wineserver for $PREFIX is gone, cleaning up its leftovers"
+  pkill -9 -f "${TRAY_KILL_RE:-$UI_RE}" 2>/dev/null || true
+  [ "$GAME_RE" != "__none__" ] && pkill -9 -f "$GAME_RE" 2>/dev/null || true
+  sleep 2; [ -x "$SWEEP" ] && "$SWEEP" >/dev/null 2>&1
+}
+
 window_pids() {
   /usr/bin/python3 - <<'PY'
 import ctypes
@@ -79,6 +103,7 @@ PY
 
 declare -A STRIKES
 IDLE_STRIKES=0
+ORPHAN_STRIKES=0
 
 if [ "$MODE" = "steam" ] || [ "$MODE" = "epic" ] || [ "$MODE" = "gog" ]; then
   # Steam parks itself in an (invisible on macOS) tray when its window is closed,
@@ -86,6 +111,12 @@ if [ "$MODE" = "steam" ] || [ "$MODE" = "epic" ] || [ "$MODE" = "gog" ]; then
   # (Steam menu > Exit) do we shut the rest of the bottle down.
   while true; do
     sleep "$INTERVAL"
+    if ! server_alive; then
+      ORPHAN_STRIKES=$((ORPHAN_STRIKES + 1))
+      if [ "$ORPHAN_STRIKES" -ge 2 ]; then reap_orphans; exit 0; fi
+    else
+      ORPHAN_STRIKES=0
+    fi
     if ! pgrep -f "$TRAY_RE" >/dev/null 2>&1; then
       IDLE_STRIKES=$((IDLE_STRIKES + 1))
       if [ "$IDLE_STRIKES" -ge 2 ]; then
@@ -103,6 +134,13 @@ fi
 
 while true; do
   sleep "$INTERVAL"
+
+  if ! server_alive; then
+    ORPHAN_STRIKES=$((ORPHAN_STRIKES + 1))
+    if [ "$ORPHAN_STRIKES" -ge 2 ]; then reap_orphans; exit 0; fi
+  else
+    ORPHAN_STRIKES=0
+  fi
 
   GAME_PIDS=$(pgrep -f "$GAME_RE" 2>/dev/null || true)
   UI_PIDS=$(pgrep -f "$UI_RE" 2>/dev/null || true)

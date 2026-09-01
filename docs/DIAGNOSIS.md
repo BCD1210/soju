@@ -131,6 +131,55 @@ winemac 패치의 `WINE_DOCK_REOPEN_CMD`(보이는 창이 없을 때 독 클릭 
 - Epic: 트레이 더블클릭 시퀀스 재현(`tools/soju-epic-restore.c`, 위 참조).
 - GOG: `RestoreClientMessage` 직접 전송(`tools/soju-gog-restore.c`, 위 참조).
 
+## 켜둔 런처가 먹통이 되는 이유: wineserver를 잃은 고아 프로세스 (2026-08-31)
+
+### 증상
+
+GOG GALAXY를 며칠 켜두면 창이 아무 반응을 하지 않는다. 프로세스는 살아 있고 CPU도 정상(0.4%)이라
+죽은 것처럼 보이지도 않는다. 로그인도 풀려 있다.
+
+### 근본 원인
+
+GOG 봇틀의 wineserver 디렉토리(`/tmp/.wine-501/server-...`)는 8/30 11:12이 마지막 기록인데
+그 서버 프로세스가 없다. 반면 GalaxyClient는 1일 14시간째 살아 있었다.
+
+`sample`로 프로세스를 뜨면 6개 스레드가 전부 같은 지점에서 멈춰 있다.
+
+```
+sysv_NtClose  [ntdll.so]
+_pthread_mutex_firstfit_lock_slow  [libsystem_pthread.dylib]
+_pthread_mutex_firstfit_lock_wait  [libsystem_pthread.dylib]
+```
+
+wine에서 핸들을 닫으려면 wineserver에 요청해야 한다. 서버가 없으니 첫 스레드가 응답을 영원히
+기다리고, 그 스레드가 쥔 fd 캐시 락 뒤로 나머지가 줄줄이 막힌다. GOG 로그도 같은 이야기를 한다.
+UI 스레드(TID 36)의 마지막 기록이 11:12:04이고 그 뒤로 전무한데, 순수 타이머로 도는 백그라운드
+스레드는 지금도 1분마다 로그를 쓴다. 그래서 프로세스는 멀쩡해 보이고 창만 죽어 있다.
+
+로그아웃도 여기서 파생된다. 액세스 토큰을 45분마다 갱신하던 것이 09:33, 10:18, 11:03까지만 되고,
+갱신을 담당하는 그 UI 스레드가 멈추면서 12:03에 만료됐다.
+
+### 왜 서버를 잃었나
+
+`play.sh kill`(배틀넷)만 리퍼를 죽일 때 프리픽스를 붙이지 않아
+(`pkill -f "soju-reaper.sh"`) **모든 봇틀의 감시자를 함께 죽였다.** epic-kill·gog-kill·steam-kill은
+`soju-reaper.sh $WINEPREFIX`로 자기 것만 죽인다. 감시자가 없어지면 이런 고아가 생겨도 아무도 치우지
+않는다. 엔진을 갈아끼우며 wineserver를 정리하던 날 트레이에 내려가 있던 GOG가 여기 걸린 것으로 보인다.
+
+### 해결책
+
+- `play.sh kill`도 다른 모드처럼 자기 프리픽스의 리퍼만 죽인다.
+- 리퍼가 매 주기 자기 봇틀의 wineserver 생존을 확인한다. wine은 소켓 디렉토리 이름을 프리픽스의
+  device/inode로 만들고 서버는 그 디렉토리를 작업 디렉토리로 삼으므로,
+  `stat -f "/tmp/.wine-$(id -u)/server-%Xd-%Xi"`로 경로를 구하고 `lsof`로 그 cwd를 가진 wineserver가
+  있는지 본다(64ms). 두 주기 연속 없으면 고아로 판정하고 남은 프로세스를 정리한 뒤 종료한다.
+  서버가 사라진 클라이언트는 되살릴 방법이 없고, 남겨두면 다음 실행까지 방해한다.
+
+### 검증
+
+실제로 고아 상태였던 GOG(1일 14시간 경과)에 새 리퍼를 붙이자 40초 뒤 다섯 개 프로세스를 모두
+정리하고 종료했다.
+
 ## Epic 로그인 `too_many_sessions`: ncrypt에 영구 키가 없어서 매번 새 기기가 된다 (2026-08-31)
 
 ### 증상
