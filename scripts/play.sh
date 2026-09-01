@@ -206,7 +206,7 @@ case "$MODE" in
       "$WINESTABLE" "${STEAM_CMD[@]}"
     ;;
   kill)        # Stop everything in the Battle.net bottle
-    pkill -f "soju-reaper.sh" 2>/dev/null || true
+    pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
