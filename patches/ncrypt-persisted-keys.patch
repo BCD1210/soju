@@ -29,6 +29,11 @@ name that was never stored returns NTE_BAD_KEYSET so callers create one instead
 of giving up.  ECDSA P-256 and P-384 are handled alongside RSA, since a key
 store that cannot hold the curve DPoP uses would not help here.
 
+A named key that already exists is left alone unless the caller passes
+NCRYPT_OVERWRITE_KEY_FLAG, a storage failure is reported by NCryptFinalizeKey
+rather than passed off as a finalized key, and the length of a reopened key is
+taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
+
 --- a/dlls/ncrypt/ncrypt_internal.h
 +++ b/dlls/ncrypt/ncrypt_internal.h
 @@ -26,12 +26,15 @@
@@ -49,10 +54,12 @@ store that cannot hold the curve DPoP uses would not help here.
  struct storage_provider
 --- a/dlls/ncrypt/main.c
 +++ b/dlls/ncrypt/main.c
-@@ -126,6 +126,162 @@
-     return ERROR_SUCCESS;
- }
+@@ -124,6 +124,190 @@
+     memcpy(property->value, value, value_size);
  
+     return ERROR_SUCCESS;
++}
++
 +/* Persistent key storage.
 + *
 + * Windows keeps a user's CNG keys under %APPDATA%\Microsoft\Crypto\Keys, so a
@@ -62,6 +69,10 @@ store that cannot hold the curve DPoP uses would not help here.
 + * so the key has to outlive the process. */
 +
 +#define KEY_STORE_MAGIC 0x314b4a53
++
++#ifndef NCRYPT_OVERWRITE_KEY_FLAG
++#define NCRYPT_OVERWRITE_KEY_FLAG 0x00000080
++#endif
 +
 +struct key_store_header
 +{
@@ -174,7 +185,19 @@ store that cannot hold the curve DPoP uses would not help here.
 +    return ret;
 +}
 +
-+static SECURITY_STATUS read_key_store(const WCHAR *name, enum algid *algid, BCRYPT_KEY_HANDLE *bcrypt_key)
++static BOOL key_store_exists(const WCHAR *name)
++{
++    WCHAR *path;
++    DWORD attr;
++
++    if (!(path = key_store_path(name))) return FALSE;
++    attr = GetFileAttributesW(path);
++    free(path);
++    return attr != INVALID_FILE_ATTRIBUTES;
++}
++
++static SECURITY_STATUS read_key_store(const WCHAR *name, enum algid *algid, BCRYPT_KEY_HANDLE *bcrypt_key,
++                                      DWORD *bitlen)
 +{
 +    struct key_store_header header;
 +    SECURITY_STATUS ret = NTE_BAD_KEYSET;
@@ -200,6 +223,18 @@ store that cannot hold the curve DPoP uses would not help here.
 +                            bcrypt_key, blob, header.blob_len, 0) != STATUS_SUCCESS)
 +        goto done;
 +
++    /* Take the length from the blob rather than assuming the default for its
++     * algorithm: a caller that asked for a 2048 bit RSA key would otherwise be
++     * told its reopened key is 1024 bits. */
++    *bitlen = 0;
++    if (header.algid == RSA)
++    {
++        if (header.blob_len >= sizeof(BCRYPT_RSAKEY_BLOB))
++            *bitlen = ((BCRYPT_RSAKEY_BLOB *)blob)->BitLength;
++    }
++    else if (header.blob_len >= sizeof(BCRYPT_ECCKEY_BLOB))
++        *bitlen = ((BCRYPT_ECCKEY_BLOB *)blob)->cbKey * 8;
++
 +    *algid = header.algid;
 +    ret = ERROR_SUCCESS;
 +
@@ -207,12 +242,10 @@ store that cannot hold the curve DPoP uses would not help here.
 +    free(blob);
 +    CloseHandle(file);
 +    return ret;
-+}
-+
+ }
+ 
  static struct object *create_key_object(enum algid algid, NCRYPT_PROV_HANDLE provider)
- {
-     NCRYPT_SUPPORTED_LENGTHS supported_lengths = {512, 16384, 8, 1024};
-@@ -150,6 +306,26 @@
+@@ -150,6 +334,26 @@
          set_object_property(object, BCRYPT_SIGNATURE_LENGTH, (BYTE *)&dw_value, sizeof(dw_value));
          break;
  
@@ -239,15 +272,16 @@ store that cannot hold the curve DPoP uses would not help here.
      default:
          ERR("Invalid algid %#x\n", algid);
          return NULL;
-@@ -175,7 +351,6 @@
+@@ -175,7 +379,7 @@
  
      if (!provider) return NTE_INVALID_HANDLE;
      if (!algid) return HRESULT_FROM_WIN32(RPC_X_NULL_REF_POINTER);
 -    if (name) FIXME("Persistent keys are not supported\n");
++    if (name && !(flags & NCRYPT_OVERWRITE_KEY_FLAG) && key_store_exists(name)) return NTE_EXISTS;
  
      if (!lstrcmpiW(algid, BCRYPT_RSA_ALGORITHM))
      {
-@@ -199,12 +374,39 @@
+@@ -199,12 +403,39 @@
          set_object_property(object, NCRYPT_LENGTH_PROPERTY, (BYTE *)&default_bitlen, sizeof(default_bitlen));
          set_object_property(object, BCRYPT_PUBLIC_KEY_LENGTH, (BYTE *)&default_bitlen, sizeof(default_bitlen));
      }
@@ -287,7 +321,7 @@ store that cannot hold the curve DPoP uses would not help here.
      *key = (NCRYPT_KEY_HANDLE)object;
      return ERROR_SUCCESS;
  }
-@@ -219,8 +421,19 @@
+@@ -219,8 +450,19 @@
  
  SECURITY_STATUS WINAPI NCryptDeleteKey(NCRYPT_KEY_HANDLE key, DWORD flags)
  {
@@ -309,7 +343,7 @@ store that cannot hold the curve DPoP uses would not help here.
  }
  
  SECURITY_STATUS WINAPI NCryptEncrypt(NCRYPT_KEY_HANDLE key, BYTE *input, DWORD insize, void *padding,
-@@ -277,11 +490,16 @@
+@@ -277,11 +519,16 @@
  
      if (!(prop = get_object_property(object, NCRYPT_LENGTH_PROPERTY))) return NTE_INVALID_HANDLE;
      key_length = *(DWORD *)prop->value;
@@ -330,21 +364,27 @@ store that cannot hold the curve DPoP uses would not help here.
      }
  
      status = BCryptFinalizeKeyPair(object->key.bcrypt_key, 0);
-@@ -291,6 +509,13 @@
+@@ -291,6 +538,19 @@
          return map_ntstatus(status);
      }
  
 +    if (object->key.name)
 +    {
++        /* Report a storage failure rather than hiding it: a caller told its
++         * named key was finalized will not look for the key again, and would
++         * silently get a new identity on the next run. */
 +        SECURITY_STATUS ret = write_key_store(object->key.name, object->key.algid, object->key.bcrypt_key);
 +        if (ret != ERROR_SUCCESS)
-+            WARN("could not store key %s, it will not survive this process\n", wine_dbgstr_w(object->key.name));
++        {
++            WARN("could not store key %s\n", wine_dbgstr_w(object->key.name));
++            return ret;
++        }
 +    }
 +
      return ERROR_SUCCESS;
  }
  
-@@ -302,6 +527,8 @@
+@@ -302,6 +562,8 @@
  
  static SECURITY_STATUS free_key_object(struct key *key)
  {
@@ -353,7 +393,7 @@ store that cannot hold the curve DPoP uses would not help here.
      return map_ntstatus( BCryptDestroyKey(key->bcrypt_key) );
  }
  
-@@ -512,8 +739,42 @@
+@@ -512,8 +774,42 @@
  SECURITY_STATUS WINAPI NCryptOpenKey(NCRYPT_PROV_HANDLE provider, NCRYPT_KEY_HANDLE *key,
                                       const WCHAR *name, DWORD keyspec, DWORD flags)
  {
@@ -370,7 +410,7 @@ store that cannot hold the curve DPoP uses would not help here.
 +    if (!provider) return NTE_INVALID_HANDLE;
 +    if (!key || !name) return NTE_INVALID_PARAMETER;
 +
-+    if ((ret = read_key_store(name, &algid, &bcrypt_key))) return ret;
++    if ((ret = read_key_store(name, &algid, &bcrypt_key, &bitlen))) return ret;
 +
 +    if (!(object = create_key_object(algid, provider)))
 +    {
@@ -384,7 +424,7 @@ store that cannot hold the curve DPoP uses would not help here.
 +        return NTE_NO_MEMORY;
 +    }
 +
-+    switch (algid)
++    if (!bitlen) switch (algid)
 +    {
 +    case ECDSA_P256: bitlen = 256; break;
 +    case ECDSA_P384: bitlen = 384; break;
