@@ -131,6 +131,55 @@ winemac 패치의 `WINE_DOCK_REOPEN_CMD`(보이는 창이 없을 때 독 클릭 
 - Epic: 트레이 더블클릭 시퀀스 재현(`tools/soju-epic-restore.c`, 위 참조).
 - GOG: `RestoreClientMessage` 직접 전송(`tools/soju-gog-restore.c`, 위 참조).
 
+## 게임에서 이동키가 눌린 채로 고정되는 이유 (2026-08-31)
+
+### 증상
+
+호그와트 레거시에서 앞으로 가는 키(W)가 눌린 상태로 굳어 캐릭터가 계속 걸어간다. 그 키를 한 번
+눌렀다 떼면 풀린다. 자주 발생한다.
+
+### 근본 원인
+
+macOS는 키를 뗀 이벤트를 **그 순간 포커스를 가진 앱**에 보낸다. 키를 누른 채로 Command-Tab을
+하거나, 입력 소스를 바꾸거나, 알림이 포커스를 가져가면 key up이 wine에 도착하지 않는다.
+
+winemac 드라이버는 어떤 키가 눌려 있는지 자체 비트맵(`pressedKeyCodes`)으로 들고 있는데, 이걸
+비워주는 곳이 key up 처리 한 군데뿐이다. `applicationDidResignActive:`는 커서 클립을 풀고 마우스
+캡처를 놓아주지만 키는 건드리지 않는다. `macdrv_app_deactivated()`도 마찬가지다. 그래서 Windows
+쪽에는 키가 계속 눌려 있는 상태로 남는다.
+
+놓치는 경로가 하나 더 있다. `cocoa_app.m`의 key up 처리는 이렇게 되어 있다.
+
+```objc
+else if (type == NSEventTypeKeyUp)
+{
+    uint16_t keyCode = [anEvent keyCode];
+    if ([self isKeyPressed:keyCode])
+    {
+        WineWindow* window = (WineWindow*)[anEvent window];
+        [self noteKey:keyCode pressed:FALSE];
+        if ([window isKindOfClass:[WineWindow class]])
+            [window postKeyEvent:anEvent];
+    }
+}
+```
+
+이벤트에 우리 창이 붙어 있지 않으면(전체화면 게임, 눌린 중에 창이 정리된 경우) **자체 표시만 지우고
+이벤트는 버린다.** wine은 뗀 사실을 영영 모른다.
+
+업스트림 wine master도 같은 코드다. CrossOver 소스만의 문제가 아니라 wine 자체의 빈틈이다.
+
+### 해결책 (`patches/winemac-release-keys-on-focus-loss.patch`)
+
+- `releasePressedKeys`를 추가해 아직 눌린 것으로 표시된 모든 키에 대해 KEY_RELEASE를 만들어 앞쪽
+  Wine 창의 큐에 넣고 비트맵을 비운다. `applicationDidResignActive:`에서 호출한다.
+- 창 없이 도착한 key up은 버리지 말고 앞쪽 Wine 창으로 보낸다.
+
+### 상태
+
+엔진 빌드와 런처 구동은 확인했다(GOG 정상 실행, 독 아이콘·커스텀 프레임 패치도 함께 적용된 바이너리).
+게임에서 실제로 고정 현상이 사라지는지는 플레이로 확인해야 한다.
+
 ## 켜둔 런처가 먹통이 되는 이유: wineserver를 잃은 고아 프로세스 (2026-08-31)
 
 ### 증상
