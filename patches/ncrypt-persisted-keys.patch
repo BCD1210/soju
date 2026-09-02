@@ -1,3 +1,39 @@
+Store CNG keys created with a name so they survive the process.
+
+Wine's ncrypt keeps a key only for the lifetime of the process that made it:
+NCryptCreatePersistedKey ignores the name it is given and NCryptOpenKey is a
+stub returning NTE_NOT_SUPPORTED, so a program that asks the key store for the
+same key twice gets a different key the second time.
+
+The Epic Games Launcher creates a persistent EC key and signs a DPoP proof with
+it (RFC 9449), which is how the account service recognises the machine a token
+was issued to.  With the key gone on every start the launcher logs
+
+  LogDPoP: Error: Failed to create persistent DPoP key (Status: 0x80090029)
+  LogDPoP: Warning: Cannot build DPoP proof: no public JWK available
+
+and falls back to sending the request unsigned, so the service treats each start
+as a new device and issues a new session instead of refreshing the stored one.
+After a handful of launches the account hits the issuance limit and every login
+fails with
+
+  errors.com.epicgames.account.oauth.too_many_sessions (18048)
+  "Sorry too many sessions have been issued for your account."
+
+which no amount of logging out or resetting the password clears, because the
+limit counts sessions issued rather than sessions held.
+
+Named keys are now written to %APPDATA%\Microsoft\Crypto\Keys, where Windows
+keeps them, once the key is finalized, and read back by NCryptOpenKey; opening a
+name that was never stored returns NTE_BAD_KEYSET so callers create one instead
+of giving up.  ECDSA P-256 and P-384 are handled alongside RSA, since a key
+store that cannot hold the curve DPoP uses would not help here.
+
+A named key that already exists is left alone unless the caller passes
+NCRYPT_OVERWRITE_KEY_FLAG, a storage failure is reported by NCryptFinalizeKey
+rather than passed off as a finalized key, and the length of a reopened key is
+taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
+
 --- a/dlls/ncrypt/ncrypt_internal.h
 +++ b/dlls/ncrypt/ncrypt_internal.h
 @@ -26,12 +26,16 @@
