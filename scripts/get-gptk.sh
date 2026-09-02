@@ -54,7 +54,28 @@ echo "==> GPTK payload: $SRC"
 mkdir -p "$ENGINE/lib/external"
 cp -Rf "$SRC/D3DMetal.framework" "$ENGINE/lib/external/" 2>/dev/null || true
 cp -f  "$SRC/libd3dshared.dylib" "$ENGINE/lib/external/"
-# Wire the symlinks (never copy! @loader_path rule)
-( cd "$ENGINE/lib/wine/x86_64-unix" && for f in d3d10.so d3d11.so d3d12.so dxgi.so; do ln -sf ../../external/libd3dshared.dylib "$f"; done )
-echo "==> Installed to: $ENGINE/lib/external"
-echo "    (With only libd3dshared and no D3DMetal.framework, games still run on vkd3d graphics)"
+# The payload is three parts, and D3DMetal only engages with all three:
+#   external/               libd3dshared.dylib + D3DMetal.framework (the Metal side)
+#   wine/x86_64-windows/    d3d11.dll, d3d12.dll, dxgi.dll, atidxx64.dll, nvapi64.dll,
+#                           nvngx.dll: Apple's PE shims that replace Wine's own DLLs
+#                           and call into libd3dshared through the unixlib below
+#   wine/x86_64-unix/       one entry per shim, a symlink to libd3dshared
+# With only the first part, Wine keeps its own d3d11.dll (wined3d on Vulkan):
+# slower, and the Epic Games Launcher crashes at start on it.
+PE="$SRC/../wine/x86_64-windows"
+if [ -d "$PE" ]; then
+  for f in "$PE"/*.dll; do
+    b=$(basename "$f")
+    # keep Wine's own copy once, so the swap is reversible
+    [ -f "$ENGINE/lib/wine/x86_64-windows/$b" ] && [ ! -f "$ENGINE/lib/wine/x86_64-windows/$b.wine" ] \
+      && cp -p "$ENGINE/lib/wine/x86_64-windows/$b" "$ENGINE/lib/wine/x86_64-windows/$b.wine"
+    cp -f "$f" "$ENGINE/lib/wine/x86_64-windows/$b"
+  done
+  SHIMS=$(cd "$PE" && ls *.dll | sed 's/\.dll$//')
+else
+  echo "    (no wine/x86_64-windows next to the payload: installing the Metal side only, D3D stays on wined3d)"
+  SHIMS="d3d10 d3d11 d3d12 dxgi"
+fi
+# Wire the unixlib symlinks (never copy! @loader_path rule)
+( cd "$ENGINE/lib/wine/x86_64-unix" && for f in $SHIMS; do ln -sf ../../external/libd3dshared.dylib "$f.so"; done )
+echo "==> Installed to: $ENGINE/lib/external (+ $(echo $SHIMS | wc -w | tr -d ' ') PE shims in lib/wine/x86_64-windows)"

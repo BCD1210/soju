@@ -24,6 +24,65 @@ say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 mkdir -p "$BASE"
 
+# ---------- Apple GPTK helpers ----------
+# Installed means all three parts: the Metal side, and Apple's PE shims in
+# place of Wine's d3d11 (the shim carries Apple's build path string).
+GPTK_OK(){
+  local f
+  [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] || return 1
+  for f in d3d11 d3d12 dxgi; do
+    grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/$f.dll" 2>/dev/null || return 1
+    [ -L "$ENGINE/lib/wine/x86_64-unix/$f.so" ] || return 1
+  done
+}
+find_gptk(){
+  for r in /Volumes/Game* /Volumes/*orting* \
+           "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk"; do
+    [ -d "$r" ] || continue
+    f=$(find "$r" -maxdepth 6 -name "libd3dshared.dylib" 2>/dev/null | head -1)
+    [ -n "$f" ] && { dirname "$f"; return 0; }
+  done
+  return 1
+}
+# Three parts, all needed for D3DMetal to engage: external/ (Metal side),
+# wine/x86_64-windows/*.dll (Apple's PE shims replacing Wine's d3d11/d3d12/dxgi),
+# and one unixlib symlink per shim. Same as scripts/get-gptk.sh.
+install_gptk(){
+  local SRC="$1" PE="$1/../wine/x86_64-windows" f b shims
+  mkdir -p "$ENGINE/lib/external"
+  cp -Rf "$SRC/D3DMetal.framework" "$ENGINE/lib/external/" 2>/dev/null || true
+  cp -f  "$SRC/libd3dshared.dylib" "$ENGINE/lib/external/"
+  if [ -d "$PE" ]; then
+    for f in "$PE"/*.dll; do
+      b=$(basename "$f")
+      [ -f "$ENGINE/lib/wine/x86_64-windows/$b" ] && [ ! -f "$ENGINE/lib/wine/x86_64-windows/$b.wine" ] \
+        && cp -p "$ENGINE/lib/wine/x86_64-windows/$b" "$ENGINE/lib/wine/x86_64-windows/$b.wine"
+      cp -f "$f" "$ENGINE/lib/wine/x86_64-windows/$b"
+    done
+    shims=$(cd "$PE" && ls *.dll | sed 's/\.dll$//')
+  else
+    shims="d3d10 d3d11 d3d12 dxgi"
+  fi
+  ( cd "$ENGINE/lib/wine/x86_64-unix" \
+    && for f in $shims; do ln -sf ../../external/libd3dshared.dylib "$f.so"; done )
+}
+# Copy an installed GPTK payload from one engine to another (all three parts).
+carry_gptk(){   # from, to
+  local from="$1" to="$2" f b
+  [ -f "$from/lib/external/libd3dshared.dylib" ] || return 0
+  mkdir -p "$to/lib/external"
+  cp -Rf "$from/lib/external/." "$to/lib/external/"
+  for f in "$from"/lib/wine/x86_64-unix/*.so; do
+    [ -L "$f" ] || continue
+    b=$(basename "$f" .so)
+    # only Apple's shims travel; a Wine DLL next to a symlink is an engine set
+    # up by an older script, and must not be mistaken for one
+    if grep -q "D3DMetalDLLsBase" "$from/lib/wine/x86_64-windows/$b.dll" 2>/dev/null; then
+      cp -f "$from/lib/wine/x86_64-windows/$b.dll" "$to/lib/wine/x86_64-windows/$b.dll"
+      ln -sf ../../external/libd3dshared.dylib "$to/lib/wine/x86_64-unix/$b.so"
+    fi
+  done
+}
 # ---------- 1. Engine ----------
 # bin/wine alone can be left behind by an interrupted extract; only an engine
 # that actually starts counts as present.
@@ -34,7 +93,7 @@ else
   # The engine ships on its own "engine-*" release, which is not necessarily the
   # newest release: scan all releases and take the first (newest) engine asset.
   URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
-        | grep -o '"browser_download_url": *"[^"]*soju-engine[^"]*"' | head -1 | grep -o 'https[^"]*')
+        | grep -o '"browser_download_url": *"[^"]*wine-engine[^"]*"' | head -1 | grep -o 'https[^"]*')
   [ -n "$URL" ] || { echo "Could not find the engine release asset."; exit 1; }
   # Download to a .part file and extract into a staging directory, so an
   # interrupted run leaves nothing that a re-run would mistake for done.
@@ -46,15 +105,8 @@ else
   TAG=$(echo "$URL" | sed -n 's#.*/download/\([^/]*\)/.*#\1#p')
   printf '%s\n' "${TAG:-unknown}" > "$ENGINE.new/.soju-engine-release"
   if [ -d "$ENGINE" ]; then
-    # A broken engine from an earlier run; keep any GPTK payload in it, and
-    # restore the symlink layout the payload needs (real files in lib/external,
-    # links in x86_64-unix: copies there break @loader_path).
-    if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; then
-      mkdir -p "$ENGINE.new/lib/external"
-      cp -Rf "$ENGINE/lib/external/." "$ENGINE.new/lib/external/"
-      ( cd "$ENGINE.new/lib/wine/x86_64-unix" \
-        && for f in d3d10.so d3d11.so d3d12.so dxgi.so; do ln -sf ../../external/libd3dshared.dylib "$f"; done )
-    fi
+    # A broken engine from an earlier run; keep any GPTK payload in it.
+    carry_gptk "$ENGINE" "$ENGINE.new"
     rm -rf "$ENGINE"
   fi
   mv "$ENGINE.new" "$ENGINE"
@@ -64,24 +116,6 @@ else
 fi
 
 # ---------- 2. Apple GPTK ----------
-GPTK_OK(){ [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; }
-find_gptk(){
-  for r in /Volumes/Game* /Volumes/*orting* \
-           "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk"; do
-    [ -d "$r" ] || continue
-    f=$(find "$r" -maxdepth 6 -name "libd3dshared.dylib" 2>/dev/null | head -1)
-    [ -n "$f" ] && { dirname "$f"; return 0; }
-  done
-  return 1
-}
-install_gptk(){
-  local SRC="$1"
-  mkdir -p "$ENGINE/lib/external"
-  cp -Rf "$SRC/D3DMetal.framework" "$ENGINE/lib/external/" 2>/dev/null || true
-  cp -f  "$SRC/libd3dshared.dylib" "$ENGINE/lib/external/"
-  ( cd "$ENGINE/lib/wine/x86_64-unix" \
-    && for f in d3d10.so d3d11.so d3d12.so dxgi.so; do ln -sf ../../external/libd3dshared.dylib "$f"; done )
-}
 if GPTK_OK; then
   say "[2/4] Apple GPTK already installed - skipping"
 else

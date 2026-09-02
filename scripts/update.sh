@@ -12,6 +12,13 @@ TTY=/dev/tty
 say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 # ---------- 1. Scripts ----------
+# Once the scripts are refreshed, the rest of this run must use the new ones
+# (the engine carry-over in particular changes between versions), so step 1
+# re-executes the fresh update.sh with this marker and skips itself.
+if [ "${1:-}" = "--scripts-updated" ]; then
+  shift
+  say "[1/2] Scripts updated"
+else
 say "[1/2] Updating the Soju scripts"
 if [ -e "$ROOT/.git" ]; then          # a directory, or a file for worktrees/submodules
   echo "  git checkout at $ROOT"
@@ -32,10 +39,12 @@ else
     rm -rf "$ROOT.old"; mv "$ROOT" "$ROOT.old"; mv "$tmp" "$ROOT"; rm -rf "$ROOT.old"
     tmp=""
     echo "  scripts updated"
+    exec bash "$ROOT/scripts/update.sh" --scripts-updated "$@"
   else
     echo "  download failed; skipping the scripts update"
   fi
   [ -n "$tmp" ] && rm -rf "$tmp"
+fi
 fi
 
 # ---------- 2. Engine ----------
@@ -44,9 +53,15 @@ if [ ! -x "$ENGINE/bin/wine" ]; then
   echo "  no engine at $ENGINE (run: soju install)"; exit 0
 fi
 
+# The asset is named wine-engine-*.tar.xz from engine-v1.4 on. Older
+# updaters looked for soju-engine-* and, after refreshing the scripts, went on
+# to swap the engine with their own carry-over code, which dropped Apple's D3D
+# shims. The rename makes that updater stop at "could not find the engine
+# release asset" instead; the next run uses this script and carries the
+# shims over.
 URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
-      | grep -o '"browser_download_url": *"[^"]*soju-engine[^"]*"' | head -1 | grep -o 'https[^"]*') || true
-[ -n "${URL:-}" ] || { echo "  could not find the engine release asset (offline?)"; exit 1; }
+      | grep -o '"browser_download_url": *"[^"]*wine-engine[^"]*"' | head -1 | grep -o 'https[^"]*') || true
+[ -n "${URL:-}" ] || { echo "  could not find the engine release asset (offline? If the scripts were just updated, run soju update once more)"; exit 1; }
 TAG=$(echo "$URL" | sed -n 's#.*/download/\([^/]*\)/.*#\1#p')
 CUR=$(cat "$ENGINE/.soju-engine-release" 2>/dev/null || echo "")
 
@@ -80,14 +95,30 @@ tar -xJf "$BASE/engine.tar.xz" -C "$NEW"
 rm -f "$BASE/engine.tar.xz"
 printf '%s\n' "$TAG" > "$NEW/.soju-engine-release"
 
-# Carry the GPTK payload over and restore the symlink layout (real files in
-# lib/external, symlinks in x86_64-unix; copying real files there breaks
-# @loader_path, see the README).
+# Carry the GPTK payload over: lib/external, Apple's PE shims in
+# x86_64-windows (d3d11/d3d12/dxgi/...: without them Wine's own d3d11 runs on
+# wined3d and the Epic launcher crashes at start), and one unixlib symlink per
+# shim (symlinks, never copies: copying breaks @loader_path).
 if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; then
   mkdir -p "$NEW/lib/external"
   cp -Rf "$ENGINE/lib/external/." "$NEW/lib/external/"
-  ( cd "$NEW/lib/wine/x86_64-unix" \
-    && for f in d3d10.so d3d11.so d3d12.so dxgi.so; do ln -sf ../../external/libd3dshared.dylib "$f"; done )
+  shims=0
+  for f in "$ENGINE"/lib/wine/x86_64-unix/*.so; do
+    [ -L "$f" ] || continue
+    b=$(basename "$f" .so)
+    # Only Apple's shims travel (they carry Apple's build path string). A Wine
+    # DLL beside a symlink is an engine set up by an older get-gptk.sh; copying
+    # it would just move wined3d over.
+    grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/$b.dll" 2>/dev/null || continue
+    [ -f "$NEW/lib/wine/x86_64-windows/$b.dll" ] && cp -p "$NEW/lib/wine/x86_64-windows/$b.dll" "$NEW/lib/wine/x86_64-windows/$b.dll.wine"
+    cp -f "$ENGINE/lib/wine/x86_64-windows/$b.dll" "$NEW/lib/wine/x86_64-windows/$b.dll"
+    ln -sf ../../external/libd3dshared.dylib "$NEW/lib/wine/x86_64-unix/$b.so"
+    shims=$((shims + 1))
+  done
+  if [ "$shims" -eq 0 ]; then
+    echo "  NOTE: the old engine had the GPTK Metal side but not Apple's D3D shims, so D3DMetal was not"
+    echo "        active. Mount the GPTK dmg (or have CrossOver installed) and run:  soju gptk"
+  fi
 fi
 
 if ! DYLD_FALLBACK_LIBRARY_PATH="$NEW/lib:/usr/lib" "$NEW/bin/wine" --version >/dev/null 2>&1; then
