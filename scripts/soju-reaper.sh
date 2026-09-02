@@ -174,16 +174,18 @@ try:
         w = cf.CFArrayGetValueAtIndex(arr, i)
         pid = num(w, kPID)
         if pid is None: continue
-        on = cf.CFDictionaryGetValue(w, kOn)
-        if on and cf.CFBooleanGetValue(on):
-            pids.add(pid); continue
-        if num(w, kLayer) != 0: continue
+        # Placeholder filter first, for on-screen and off-screen windows alike:
+        # Wine's 1x1 fully transparent windows are never a real window.
         alpha = num(w, kAlpha, 13, ctypes.c_double)
         if alpha is not None and alpha <= 0: continue
         b = cf.CFDictionaryGetValue(w, kBounds)
         if not b: continue
         wd, ht = num(b, kW, 13, ctypes.c_double), num(b, kH, 13, ctypes.c_double)
         if wd is None or ht is None or wd <= 1 or ht <= 1: continue
+        on = cf.CFDictionaryGetValue(w, kOn)
+        if on and cf.CFBooleanGetValue(on):
+            pids.add(pid); continue          # any layer: a full screen game sits above layer 0
+        if num(w, kLayer) != 0: continue     # off-screen: only normal windows (minimized, hidden, other Space)
         pids.add(pid)
     print(" ".join(map(str, sorted(pids))))
 except Exception:
