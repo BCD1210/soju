@@ -101,13 +101,13 @@ bottle_pids() {
 exe_of() { ps -o args= -p "$1" 2>/dev/null | sed 's/ -.*//; s/ \/.*//'; }
 
 # Split a pid list into what keeps the bottle alive and what does not.
-classify() {   # sets ALIVE_PIDS, GAME_PIDS
+classify() {   # sets ALIVE_PIDS, GAME_PIDS, HELPER_PIDS
   local pid exe
-  ALIVE_PIDS=""; GAME_PIDS=""
+  ALIVE_PIDS=""; GAME_PIDS=""; HELPER_PIDS=""
   for pid in $1; do
     exe=$(ps -o args= -p "$pid" 2>/dev/null) || continue
     [[ "$exe" =~ $SERVICE_RE ]] && continue
-    [[ "$exe" =~ $HELPER_RE ]] && continue
+    [[ "$exe" =~ $HELPER_RE ]] && { HELPER_PIDS="$HELPER_PIDS $pid"; continue; }
     ALIVE_PIDS="$ALIVE_PIDS $pid"
     [ -n "$GAME_RE" ] && [[ "$exe" =~ $GAME_RE ]] && GAME_PIDS="$GAME_PIDS $pid"
   done
@@ -215,10 +215,10 @@ while true; do
       WINEPREFIX="$PREFIX" "$WINESERVER" -k 2>/dev/null || true
       sleep 3; [ -x "$SWEEP" ] && "$SWEEP" >/dev/null 2>&1
       sleep 3
-      # Helpers do not always notice the server going away.
-      pids=$(pgrep -f "$HELPER_RE" 2>/dev/null || true)
+      # Helpers do not always notice the server going away. Only this
+      # bottle's (from the classification above), never another bottle's.
       # shellcheck disable=SC2086
-      [ -n "$pids" ] && kill -9 $pids 2>/dev/null || true
+      [ -n "${HELPER_PIDS// /}" ] && kill -9 $HELPER_PIDS 2>/dev/null || true
       exit 0
     fi
     continue
