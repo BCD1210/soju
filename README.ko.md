@@ -44,7 +44,7 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 커뮤니티가 몇 달째 못 풀던 문제들의 해법:
 
 1. **`ROSETTA_ADVERTISE_AVX=1`**: D2R 로더는 AVX 명령어가 필수입니다. 이 환경변수가 없으면 게임이 그래픽 초기화 전에 86MB/0%CPU로 영원히 멈춥니다. "맥에서 D2R이 실행 안 됨"의 정체입니다.
-2. **D3DMetal 심링크 레이아웃**: 애플 GPTK 라이브러리는 `lib/external/`에 실물을 두고, `lib/wine/x86_64-unix/`의 d3d10/11/12/dxgi.so는 **심링크**여야 합니다. 복사하면 `@loader_path`가 어긋나 assertion 루프로 죽습니다.
+2. **D3DMetal 페이로드 레이아웃**: 애플 GPTK 페이로드는 세 부분이고 셋이 다 있어야 D3DMetal이 붙습니다. `lib/external/`(libd3dshared + D3DMetal.framework), Wine 자체 DLL을 대체하는 애플의 PE shim `d3d11.dll`·`d3d12.dll`·`dxgi.dll`(+ `atidxx64`, `nvapi64`, `nvngx`)을 `lib/wine/x86_64-windows/`에, 그리고 shim마다 `lib/wine/x86_64-unix/<shim>.so`를 `lib/external/`로 가는 **심링크**로. 실물을 복사하면 `@loader_path`가 어긋나 assertion 루프로 죽고, Wine 자체 `d3d11.dll`을 그대로 두면 D3D가 wined3d로 돌아가며 Epic Games Launcher는 시작 직후 크래시합니다. `soju gptk`가 세 부분을 모두 설치합니다.
 3. **Battle.net Agent 서명검증 수정**: Agent는 접속한 클라이언트의 서명을 자기 작업폴더(버전 하위폴더) 기준 상대 파일명으로 검사합니다. 서명된 `Battle.net.exe` 사본을 각 `Battle.net.NNNNN` 폴더에 넣으면 통과합니다 (에러 `BLZBNTBNA00000005` 해결).
 
 함정 하나: 실행 체인에 애플 보호 바이너리(`nohup`, `arch` 등)를 두면 macOS가 `DYLD_*` 변수를 제거해 라이브러리를 못 찾습니다.

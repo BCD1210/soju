@@ -52,11 +52,15 @@ if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; then
   pass "libd3dshared.dylib present"
   [ -d "$ENGINE/lib/external/D3DMetal.framework" ] && pass "D3DMetal.framework present" \
     || warn "D3DMetal.framework missing from lib/external ($SOJU gptk installs it)"
-  for f in d3d10 d3d11 d3d12 dxgi; do
+  for f in d3d11 d3d12 dxgi; do
     so="$ENGINE/lib/wine/x86_64-unix/$f.so"
     if [ -L "$so" ]; then pass "$f.so is a symlink"
     elif [ -f "$so" ]; then fail "$f.so is a regular file: must be a symlink into lib/external (copying breaks @loader_path); re-run: $SOJU gptk"
     else warn "$f.so missing"; fi
+    # Apple's PE shim carries its build path; Wine's own d3d11.dll does not.
+    dll="$ENGINE/lib/wine/x86_64-windows/$f.dll"
+    if [ -f "$dll" ] && grep -q "D3DMetalDLLsBase" "$dll" 2>/dev/null; then pass "$f.dll is the D3DMetal shim"
+    else fail "$f.dll is Wine's own, not Apple's D3DMetal shim: D3D runs on wined3d and the Epic launcher crashes (re-run: $SOJU gptk)"; fi
   done
 else
   fail "GPTK not installed: games will not start (run: $SOJU gptk)"
