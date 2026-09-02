@@ -207,7 +207,12 @@ while true; do
   fi
   ORPHAN_STRIKES=0
 
-  classify "$(bottle_pids)"
+  # A live server always has its service processes attached, so an empty
+  # answer here is a failed attribution (lsof hiccup), not an empty bottle:
+  # skip the round rather than read it as idle and take the bottle down.
+  BOTTLE=$(bottle_pids)
+  [ -n "${BOTTLE// /}" ] || continue
+  classify "$BOTTLE"
 
   # Nothing but services and helpers left? Two checks in a row and the bottle
   # comes down (wineserver -k), then the sweep removes the service set.

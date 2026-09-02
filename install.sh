@@ -46,8 +46,15 @@ else
   TAG=$(echo "$URL" | sed -n 's#.*/download/\([^/]*\)/.*#\1#p')
   printf '%s\n' "${TAG:-unknown}" > "$ENGINE.new/.soju-engine-release"
   if [ -d "$ENGINE" ]; then
-    # A half-extracted engine from an earlier run; keep any GPTK payload in it.
-    [ -d "$ENGINE/lib/external" ] && cp -Rf "$ENGINE/lib/external" "$ENGINE.new/lib/" 2>/dev/null || true
+    # A broken engine from an earlier run; keep any GPTK payload in it, and
+    # restore the symlink layout the payload needs (real files in lib/external,
+    # links in x86_64-unix: copies there break @loader_path).
+    if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; then
+      mkdir -p "$ENGINE.new/lib/external"
+      cp -Rf "$ENGINE/lib/external/." "$ENGINE.new/lib/external/"
+      ( cd "$ENGINE.new/lib/wine/x86_64-unix" \
+        && for f in d3d10.so d3d11.so d3d12.so dxgi.so; do ln -sf ../../external/libd3dshared.dylib "$f"; done )
+    fi
     rm -rf "$ENGINE"
   fi
   mv "$ENGINE.new" "$ENGINE"
