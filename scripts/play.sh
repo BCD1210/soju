@@ -70,6 +70,7 @@ start_reaper(){
   # prefix down once everything is closed: so "quit" really means quit.
   pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 && return 0
   [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" >/dev/null 2>&1 & )
+  return 0   # a missing reaper must not abort the launch (set -e)
 }
 
 # A Korean/Japanese/Chinese IME swallows key presses in Wine games, and macOS
