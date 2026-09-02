@@ -180,6 +180,35 @@ else if (type == NSEventTypeKeyUp)
 엔진 빌드와 런처 구동은 확인했다(GOG 정상 실행, 독 아이콘·커스텀 프레임 패치도 함께 적용된 바이너리).
 게임에서 실제로 고정 현상이 사라지는지는 플레이로 확인해야 한다.
 
+### 패치 이후에도 재발 (2026-09-01): EOS 오버레이가 유력
+
+패치가 들어간 엔진(winemac.so에 `releasePressedKeys` 심볼 확인)으로 호그와트를 플레이했는데도
+W 고정이 계속됐고, 동시에 **마우스는 되는데 키보드가 전부 죽는** 증상이 같이 나왔다.
+
+이 조합이 원인을 가리킨다. Wine은 마우스 입력은 커서 아래 창으로, 키보드 입력은 foreground 창으로
+보낸다. 키보드만 죽었다는 것은 foreground가 게임 창이 아닌 다른 창으로 넘어갔다는 뜻이고, 그
+순간 W가 눌려 있었다면 key up은 그 다른 창으로 가서 게임은 영영 뗀 사실을 모른다. UE4는 창
+비활성화(`WM_ACTIVATE`)를 받으면 눌린 키를 스스로 비우므로(`FlushPressedKeys`), 게임 창에는
+비활성화 통지도 오지 않은 채 키보드 포커스만 빠져나간 경우다. 위 패치는 macOS 앱 단위의 포커스
+이탈(`applicationDidResignActive:`)에서만 동작하므로, **같은 프로세스 안에서** 포커스가 옮겨간
+경우는 다루지 못한다.
+
+같은 프로세스 안에 창을 만드는 것은 EOS 오버레이다. EOS SDK가 게임 프로세스에
+`EOSOVH-Win64-Shipping.dll`을 로드하고, 옆에 `EOSOverlayRenderer-Win64-Shipping.exe`(CEF)
+프로세스 트리가 뜬다(게임 시작 약 30초 뒤 6개 확인). 업적·친구 알림 토스트가 뜰 때마다 창이
+생기고 포커스를 건드린다. 어제 세션의 renderer 프로세스가 고아로 남아 있는 것도 확인했다
+(wineserver가 살아 있어 reaper 대상이 아니었다).
+
+조치: `play.sh epic`에서 `WINEDLLOVERRIDES=EOSOVH-Win64-Shipping,EOSOVH-Win32-Shipping=d`로
+오버레이 DLL 로드를 막는다(Steam 보틀의 `gameoverlayrenderer=d`와 같은 방식). 절대 경로 로드에도
+override가 적용되는 것은 regsvr32로 확인했다. `SOJU_EPIC_OVERLAY=1`로 되돌릴 수 있다.
+
+확인 방법: `soju epic-kill` 후 재실행해서 `EOSOverlayRenderer` 프로세스가 더 이상 뜨지 않는지 보고,
+플레이 중 두 증상이 함께 사라지면 확정. 그래도 재발하면 `SOJU_KEYLOG=1 soju epic`으로
+`~/.battlenet-macos/logs/keys-epic-*.log`를 남겨 W의 `KEY_RELEASE`가 어느 hwnd로 갔는지 본다.
+입력 소스는 게임 전에 영어(ABC)로 두고 게임 중에는 바꾸지 않는다. 입력 소스 전환 자체가
+포커스 이탈 트리거다.
+
 ## 켜둔 런처가 먹통이 되는 이유: wineserver를 잃은 고아 프로세스 (2026-08-31)
 
 ### 증상
