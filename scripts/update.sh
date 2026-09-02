@@ -96,15 +96,23 @@ printf '%s\n' "$TAG" > "$NEW/.soju-engine-release"
 if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; then
   mkdir -p "$NEW/lib/external"
   cp -Rf "$ENGINE/lib/external/." "$NEW/lib/external/"
+  shims=0
   for f in "$ENGINE"/lib/wine/x86_64-unix/*.so; do
     [ -L "$f" ] || continue
     b=$(basename "$f" .so)
-    if [ -f "$ENGINE/lib/wine/x86_64-windows/$b.dll" ]; then
-      [ -f "$NEW/lib/wine/x86_64-windows/$b.dll" ] && cp -p "$NEW/lib/wine/x86_64-windows/$b.dll" "$NEW/lib/wine/x86_64-windows/$b.dll.wine"
-      cp -f "$ENGINE/lib/wine/x86_64-windows/$b.dll" "$NEW/lib/wine/x86_64-windows/$b.dll"
-    fi
+    # Only Apple's shims travel (they carry Apple's build path string). A Wine
+    # DLL beside a symlink is an engine set up by an older get-gptk.sh; copying
+    # it would just move wined3d over.
+    grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/$b.dll" 2>/dev/null || continue
+    [ -f "$NEW/lib/wine/x86_64-windows/$b.dll" ] && cp -p "$NEW/lib/wine/x86_64-windows/$b.dll" "$NEW/lib/wine/x86_64-windows/$b.dll.wine"
+    cp -f "$ENGINE/lib/wine/x86_64-windows/$b.dll" "$NEW/lib/wine/x86_64-windows/$b.dll"
     ln -sf ../../external/libd3dshared.dylib "$NEW/lib/wine/x86_64-unix/$b.so"
+    shims=$((shims + 1))
   done
+  if [ "$shims" -eq 0 ]; then
+    echo "  NOTE: the old engine had the GPTK Metal side but not Apple's D3D shims, so D3DMetal was not"
+    echo "        active. Mount the GPTK dmg (or have CrossOver installed) and run:  soju gptk"
+  fi
 fi
 
 if ! DYLD_FALLBACK_LIBRARY_PATH="$NEW/lib:/usr/lib" "$NEW/bin/wine" --version >/dev/null 2>&1; then

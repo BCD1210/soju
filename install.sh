@@ -25,7 +25,10 @@ say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 mkdir -p "$BASE"
 
 # ---------- Apple GPTK helpers ----------
-GPTK_OK(){ [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; }
+# Installed means all three parts: the Metal side, and Apple's PE shims in
+# place of Wine's d3d11 (the shim carries Apple's build path string).
+GPTK_OK(){ [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] \
+           && grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/d3d11.dll" 2>/dev/null; }
 find_gptk(){
   for r in /Volumes/Game* /Volumes/*orting* \
            "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk"; do
@@ -66,8 +69,12 @@ carry_gptk(){   # from, to
   for f in "$from"/lib/wine/x86_64-unix/*.so; do
     [ -L "$f" ] || continue
     b=$(basename "$f" .so)
-    [ -f "$from/lib/wine/x86_64-windows/$b.dll" ] && cp -f "$from/lib/wine/x86_64-windows/$b.dll" "$to/lib/wine/x86_64-windows/$b.dll"
-    ln -sf ../../external/libd3dshared.dylib "$to/lib/wine/x86_64-unix/$b.so"
+    # only Apple's shims travel; a Wine DLL next to a symlink is an engine set
+    # up by an older script, and must not be mistaken for one
+    if grep -q "D3DMetalDLLsBase" "$from/lib/wine/x86_64-windows/$b.dll" 2>/dev/null; then
+      cp -f "$from/lib/wine/x86_64-windows/$b.dll" "$to/lib/wine/x86_64-windows/$b.dll"
+      ln -sf ../../external/libd3dshared.dylib "$to/lib/wine/x86_64-unix/$b.so"
+    fi
   done
 }
 # ---------- 1. Engine ----------
