@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 usage() {
   cat <<'EOF'
-soju: free Battle.net / Diablo II: Resurrected / Epic / Steam on Apple Silicon
+soju: free Battle.net / Diablo II: Resurrected / Epic / GOG / Steam on Apple Silicon
 
 Usage:
   soju install        Set up the Wine engine, Apple GPTK and Battle.net

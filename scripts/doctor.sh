@@ -93,4 +93,9 @@ src=$(defaults read ~/Library/Preferences/com.apple.HIToolbox.plist AppleSelecte
 
 echo
 echo "Summary: $nok ok, $nwarn warn, $nfail fail"
+if [ "$nfail" -gt 0 ]; then
+  echo "Paste this whole output in a new issue: https://github.com/$REPO/issues/new"
+else
+  echo "All good. If Soju works for you, a star helps other Mac gamers find it: https://github.com/$REPO"
+fi
 [ "$nfail" -eq 0 ]
