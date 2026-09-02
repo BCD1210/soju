@@ -80,14 +80,22 @@ tar -xJf "$BASE/engine.tar.xz" -C "$NEW"
 rm -f "$BASE/engine.tar.xz"
 printf '%s\n' "$TAG" > "$NEW/.soju-engine-release"
 
-# Carry the GPTK payload over and restore the symlink layout (real files in
-# lib/external, symlinks in x86_64-unix; copying real files there breaks
-# @loader_path, see the README).
+# Carry the GPTK payload over: lib/external, Apple's PE shims in
+# x86_64-windows (d3d11/d3d12/dxgi/...: without them Wine's own d3d11 runs on
+# wined3d and the Epic launcher crashes at start), and one unixlib symlink per
+# shim (symlinks, never copies: copying breaks @loader_path).
 if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; then
   mkdir -p "$NEW/lib/external"
   cp -Rf "$ENGINE/lib/external/." "$NEW/lib/external/"
-  ( cd "$NEW/lib/wine/x86_64-unix" \
-    && for f in d3d10.so d3d11.so d3d12.so dxgi.so; do ln -sf ../../external/libd3dshared.dylib "$f"; done )
+  for f in "$ENGINE"/lib/wine/x86_64-unix/*.so; do
+    [ -L "$f" ] || continue
+    b=$(basename "$f" .so)
+    if [ -f "$ENGINE/lib/wine/x86_64-windows/$b.dll" ]; then
+      [ -f "$NEW/lib/wine/x86_64-windows/$b.dll" ] && cp -p "$NEW/lib/wine/x86_64-windows/$b.dll" "$NEW/lib/wine/x86_64-windows/$b.dll.wine"
+      cp -f "$ENGINE/lib/wine/x86_64-windows/$b.dll" "$NEW/lib/wine/x86_64-windows/$b.dll"
+    fi
+    ln -sf ../../external/libd3dshared.dylib "$NEW/lib/wine/x86_64-unix/$b.so"
+  done
 fi
 
 if ! DYLD_FALLBACK_LIBRARY_PATH="$NEW/lib:/usr/lib" "$NEW/bin/wine" --version >/dev/null 2>&1; then

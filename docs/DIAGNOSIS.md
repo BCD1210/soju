@@ -418,3 +418,38 @@ wintrust:dump_file_info pcwszFilePath: L"C:/ProgramData/Battle.net/Agent/Agent.e
 
 ### (대안) 근본 wine 패치
 더 깔끔하게는 wine이 프로세스의 윈도우 CWD를 unix cwd와 동기화하거나, `SOFTPUB_OpenFile`이 실패 시 이미지 디렉토리를 탐색하게 패치할 수도 있으나, 파일 seed 방식이 재빌드 없이 견고하므로 채택하지 않음. 리눅스가 문제없는 것도 CWD 해석 차이 때문으로 추정.
+
+## 소스 빌드 엔진에서 Epic 런처가 시작 직후 죽는 이유: GPTK의 PE shim (2026-09-02)
+
+### 증상
+
+패치 4개를 넣고 `build-engine.sh`로 새로 빌드한 엔진(get-gptk.sh로 GPTK 설치)에서 Epic Games
+Launcher가 시작 5초 만에 `EXCEPTION_ACCESS_VIOLATION reading 0x0`으로 죽는다. 같은 보틀, 같은
+런처가 릴리스된 engine-v1.3에서는 멀쩡하다. ncrypt.dll을 이전 것으로 바꿔도 같고, wine stderr에
+`wined3d_adapter_create: Using the Vulkan renderer for d3d10/11 applications`가 찍힌다. 즉 D3DMetal이
+아니라 wined3d가 D3D11을 처리하고 있었다.
+
+### 원인
+
+GPTK 페이로드는 세 부분이다. `external/`(libd3dshared.dylib, D3DMetal.framework),
+`wine/x86_64-windows/`의 PE shim 6개(d3d11, d3d12, dxgi, atidxx64, nvapi64, nvngx: Wine 자체 DLL을
+대체하며 unixlib으로 libd3dshared를 호출한다), `wine/x86_64-unix/`의 shim별 심링크. 스크립트는
+첫 번째와 세 번째만 설치했다. 두 번째가 없으면 Wine 자체 `d3d11.dll`(4.5MB, wined3d)이 그대로
+쓰이고, 심링크는 아무도 안 부른다. Epic 런처(UE)는 그 wined3d 경로에서 NULL을 읽고 죽는다.
+
+그동안 동작한 이유: **릴리스된 engine-v1.0~v1.3 tarball에 그 PE shim 3개(d3d11 114240, d3d12
+122432, dxgi 93760 바이트)가 들어 있었다.** CrossOver의 `lib64/apple_gptk/wine/x86_64-windows/`
+파일과 바이트 단위로 같다. 이 파일들은 Apple 소유라 재배포하면 안 되고, README도 그렇게 적고 있다.
+소스에서 새로 빌드하면 당연히 없다.
+
+### 조치
+
+- `get-gptk.sh`, `install.sh`의 `install_gptk`, `update.sh`의 이관, `install.sh`의 엔진 복구 경로가
+  PE shim을 `<payload>/../wine/x86_64-windows/*.dll`에서 복사하고(Wine 원본은 `.wine`으로 보관),
+  shim마다 심링크를 만든다. `doctor`는 `d3d11.dll`에 Apple의 빌드 경로 문자열
+  (`D3DMetalDLLsBase`)이 있는지로 shim 여부를 판정한다.
+- engine-v1.4부터 tarball은 소스 빌드 그대로다(Wine 자체 d3d DLL, `lib/external` 없음). 이전
+  릴리스의 tarball은 교체해야 한다.
+
+검증: 깨끗한 v1.4 빌드 + `get-gptk.sh`(CrossOver 경로에서 자동 추출) → Epic 로그인 완료, 저장된
+DPoP 키 재사용(NCryptOpenKey → NCryptSignHash), wined3d 폴백 없음, 크래시 없음.

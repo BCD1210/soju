@@ -47,7 +47,7 @@
 
 1. **`ROSETTA_ADVERTISE_AVX=1`**：D2R 的加载器要求 AVX 指令集。没有这个环境变量，游戏会在任何图形初始化之前，卡在约 86 MB 内存、0% CPU 的状态永远不动。这就是非 CrossOver 的 Wine 构建上 "D2R 启动即卡死" 的真相。
 
-2. **D3DMetal 符号链接布局**：Apple Game Porting Toolkit 的库必须放在 `lib/external/` 下，而 `lib/wine/x86_64-unix/{d3d10,d3d11,d3d12,dxgi}.so` 必须是指向它的**符号链接**。直接复制文件会破坏 `@loader_path` 解析，D3DMetal 会陷入断言循环。
+2. **D3DMetal 载荷布局**：Apple Game Porting Toolkit 的载荷分三部分，三者齐全 D3DMetal 才会生效：`lib/external/`（libd3dshared + D3DMetal.framework）；Apple 的 PE 垫片 `d3d11.dll`、`d3d12.dll`、`dxgi.dll`（以及 `atidxx64`、`nvapi64`、`nvngx`），放在 `lib/wine/x86_64-windows/` 下替换 Wine 自带的同名 DLL；以及每个垫片对应一个 `lib/wine/x86_64-unix/<垫片>.so`，必须是指向 `lib/external/` 的**符号链接**。直接复制文件会破坏 `@loader_path` 解析，D3DMetal 会陷入断言循环；若保留 Wine 自带的 `d3d11.dll`，D3D 会走 wined3d，Epic Games Launcher 启动即崩溃。`soju gptk` 会安装全部三部分。
 
 3. **战网 Agent 调用方签名修复**：Agent 校验连接客户端的签名时，用的是相对文件名，相对于它自己的工作目录（一个带版本号的子目录）解析。把签名过的 `Battle.net.exe` 复制一份到每个 `Battle.net.NNNNN` 子目录即可通过校验（修复错误 `BLZBNTBNA00000005`）。
 

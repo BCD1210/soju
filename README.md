@@ -47,7 +47,7 @@ Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern
 
 1. **`ROSETTA_ADVERTISE_AVX=1`**: D2R's loader requires AVX instructions. Without this env var, the game freezes forever at ~86 MB RSS with 0% CPU, before any graphics init. This is why D2R "hangs at launch" on non-CrossOver Wine builds.
 
-2. **D3DMetal symlink layout**: Apple's Game Porting Toolkit libraries must live in `lib/external/` with `lib/wine/x86_64-unix/{d3d10,d3d11,d3d12,dxgi}.so` as **symlinks** into it. Copying the files instead breaks `@loader_path` resolution and D3DMetal dies in an assertion loop.
+2. **D3DMetal payload layout**: Apple's Game Porting Toolkit payload is three parts, and D3DMetal engages only with all three: `lib/external/` (libd3dshared + D3DMetal.framework), Apple's PE shims `d3d11.dll`, `d3d12.dll`, `dxgi.dll` (plus `atidxx64`, `nvapi64`, `nvngx`) replacing Wine's own in `lib/wine/x86_64-windows/`, and one `lib/wine/x86_64-unix/<shim>.so` per shim as a **symlink** into `lib/external/`. Copying real files there breaks `@loader_path` resolution and D3DMetal dies in an assertion loop; leaving Wine's own `d3d11.dll` in place runs D3D on wined3d instead, and the Epic Games Launcher crashes at start on that. `soju gptk` installs all three parts.
 
 3. **Battle.net Agent caller-signature fix**: the Agent verifies the signature of the connecting client using a relative filename resolved against its CWD (a versioned subfolder). Seeding a copy of the signed `Battle.net.exe` into each `Battle.net.NNNNN` subfolder makes verification pass (fixes error `BLZBNTBNA00000005`).
 
