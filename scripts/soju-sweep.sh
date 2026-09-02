@@ -29,7 +29,14 @@ if [ -n "$SERVERS" ]; then
   # One line per server directory, joined with "|" (macOS awk rejects a
   # newline inside -v, and would silently see no directories at all).
   DIRS=$(lsof -a -p "$SERVERS" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | tr '\n' '|')
-  ATTACHED=$(lsof -a -p "$(echo "$CAND" | tr '\n' ',' | sed 's/,$//')" -Fpn 2>/dev/null | awk -v dirs="$DIRS" '
+  # Fail closed: with servers up but no directories, or no open-file listing
+  # for the candidates at all, attribution is unknown and every candidate
+  # would look orphaned; killing the live bottles' services is the one
+  # outcome this script must never produce.
+  if [ -z "${DIRS//|/}" ]; then echo "soju-sweep: could not read the wineserver directories; not touching anything" >&2; exit 1; fi
+  LISTING=$(lsof -a -p "$(echo "$CAND" | tr '\n' ',' | sed 's/,$//')" -Fpn 2>/dev/null)
+  if ! printf '%s\n' "$LISTING" | grep -q '^p'; then echo "soju-sweep: could not list the candidates' open files; not touching anything" >&2; exit 1; fi
+  ATTACHED=$(printf '%s\n' "$LISTING" | awk -v dirs="$DIRS" '
     BEGIN { n = split(dirs, d, "|") }
     /^p/ { pid = substr($0, 2) }
     /^n/ { for (i = 1; i <= n; i++) if (d[i] != "" && index($0, "n" d[i] "/") == 1) { seen[pid] = 1; break } }
