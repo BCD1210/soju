@@ -85,7 +85,7 @@ SERVER_DIR_REAL="$(cd /tmp 2>/dev/null && pwd -P)${SERVER_DIR#/tmp}"
 server_alive() {
   local pids out
   [ -n "$SERVER_DIR" ] || return 0     # cannot tell, assume it is there
-  pids=$(pgrep -x wineserver 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+  pids=$( { pgrep -x wineserver; pgrep -x wineserver64; } 2>/dev/null | tr '\n' ',' | sed 's/,$//')
   [ -n "$pids" ] || return 1
   out=$(lsof -a -p "$pids" -d cwd -Fn 2>/dev/null)
   [ -n "$out" ] || return 2
