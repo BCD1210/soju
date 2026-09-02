@@ -54,12 +54,10 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
  struct storage_provider
 --- a/dlls/ncrypt/main.c
 +++ b/dlls/ncrypt/main.c
-@@ -124,6 +124,190 @@
-     memcpy(property->value, value, value_size);
- 
+@@ -126,6 +126,213 @@
      return ERROR_SUCCESS;
-+}
-+
+ }
+ 
 +/* Persistent key storage.
 + *
 + * Windows keeps a user's CNG keys under %APPDATA%\Microsoft\Crypto\Keys, so a
@@ -153,13 +151,19 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
 +    const WCHAR *blob_type;
 +    SECURITY_STATUS ret = NTE_INTERNAL_ERROR;
 +    BYTE *blob = NULL;
-+    WCHAR *path;
++    WCHAR *path, *tmp = NULL;
 +    DWORD blob_len = 0, written;
 +    NTSTATUS status;
 +    HANDLE file;
 +
 +    if (!(blob_type = blob_type_for_algid(algid))) return NTE_NOT_SUPPORTED;
 +    if (!(path = key_store_path(name))) return NTE_INTERNAL_ERROR;
++    /* Write next to the final name and rename over it, so a crash or a full
++     * disk mid-write cannot leave a truncated key behind: that would fail to
++     * open (NTE_BAD_KEYSET) yet count as existing (NTE_EXISTS) forever. */
++    if (!(tmp = malloc((lstrlenW(path) + 5) * sizeof(WCHAR)))) { ret = NTE_NO_MEMORY; goto done; }
++    lstrcpyW(tmp, path);
++    lstrcatW(tmp, L".tmp");
 +
 +    status = BCryptExportKey(bcrypt_key, NULL, blob_type, NULL, 0, &blob_len, 0);
 +    if (status != STATUS_SUCCESS) goto done;
@@ -167,33 +171,50 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
 +    status = BCryptExportKey(bcrypt_key, NULL, blob_type, blob, blob_len, &blob_len, 0);
 +    if (status != STATUS_SUCCESS) goto done;
 +
-+    file = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
++    file = CreateFileW(tmp, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 +    if (file == INVALID_HANDLE_VALUE) goto done;
 +
 +    header.magic = KEY_STORE_MAGIC;
 +    header.algid = algid;
 +    header.blob_len = blob_len;
 +    if (WriteFile(file, &header, sizeof(header), &written, NULL) && written == sizeof(header) &&
-+        WriteFile(file, blob, blob_len, &written, NULL) && written == blob_len)
++        WriteFile(file, blob, blob_len, &written, NULL) && written == blob_len &&
++        FlushFileBuffers(file))
 +        ret = ERROR_SUCCESS;
 +    CloseHandle(file);
-+    if (ret != ERROR_SUCCESS) DeleteFileW(path);
++    if (ret == ERROR_SUCCESS && !MoveFileExW(tmp, path, MOVEFILE_REPLACE_EXISTING)) ret = NTE_INTERNAL_ERROR;
++    if (ret != ERROR_SUCCESS) DeleteFileW(tmp);
 +
 +done:
 +    free(blob);
++    free(tmp);
 +    free(path);
 +    return ret;
 +}
 +
++/* A stored key counts as existing only if it can be read back. A damaged
++ * file must look absent: otherwise the caller's open fails with
++ * NTE_BAD_KEYSET, its create then fails with NTE_EXISTS, and nothing short of
++ * deleting the file by hand gets it out of that loop. */
 +static BOOL key_store_exists(const WCHAR *name)
 +{
++    struct key_store_header header;
 +    WCHAR *path;
-+    DWORD attr;
++    HANDLE file;
++    DWORD read, size;
++    BOOL ok = FALSE;
 +
 +    if (!(path = key_store_path(name))) return FALSE;
-+    attr = GetFileAttributesW(path);
++    file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 +    free(path);
-+    return attr != INVALID_FILE_ATTRIBUTES;
++    if (file == INVALID_HANDLE_VALUE) return FALSE;
++    size = GetFileSize(file, NULL);
++    if (ReadFile(file, &header, sizeof(header), &read, NULL) && read == sizeof(header) &&
++        header.magic == KEY_STORE_MAGIC && header.blob_len && header.blob_len <= 0x10000 &&
++        size == sizeof(header) + header.blob_len)
++        ok = TRUE;
++    CloseHandle(file);
++    return ok;
 +}
 +
 +static SECURITY_STATUS read_key_store(const WCHAR *name, enum algid *algid, BCRYPT_KEY_HANDLE *bcrypt_key,
@@ -242,10 +263,12 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
 +    free(blob);
 +    CloseHandle(file);
 +    return ret;
- }
- 
++}
++
  static struct object *create_key_object(enum algid algid, NCRYPT_PROV_HANDLE provider)
-@@ -150,6 +334,26 @@
+ {
+     NCRYPT_SUPPORTED_LENGTHS supported_lengths = {512, 16384, 8, 1024};
+@@ -150,6 +357,26 @@
          set_object_property(object, BCRYPT_SIGNATURE_LENGTH, (BYTE *)&dw_value, sizeof(dw_value));
          break;
  
@@ -272,7 +295,7 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
      default:
          ERR("Invalid algid %#x\n", algid);
          return NULL;
-@@ -175,7 +379,7 @@
+@@ -175,7 +402,7 @@
  
      if (!provider) return NTE_INVALID_HANDLE;
      if (!algid) return HRESULT_FROM_WIN32(RPC_X_NULL_REF_POINTER);
@@ -281,7 +304,7 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
  
      if (!lstrcmpiW(algid, BCRYPT_RSA_ALGORITHM))
      {
-@@ -199,12 +403,39 @@
+@@ -199,12 +426,39 @@
          set_object_property(object, NCRYPT_LENGTH_PROPERTY, (BYTE *)&default_bitlen, sizeof(default_bitlen));
          set_object_property(object, BCRYPT_PUBLIC_KEY_LENGTH, (BYTE *)&default_bitlen, sizeof(default_bitlen));
      }
@@ -321,7 +344,7 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
      *key = (NCRYPT_KEY_HANDLE)object;
      return ERROR_SUCCESS;
  }
-@@ -219,8 +450,19 @@
+@@ -219,8 +473,19 @@
  
  SECURITY_STATUS WINAPI NCryptDeleteKey(NCRYPT_KEY_HANDLE key, DWORD flags)
  {
@@ -343,7 +366,7 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
  }
  
  SECURITY_STATUS WINAPI NCryptEncrypt(NCRYPT_KEY_HANDLE key, BYTE *input, DWORD insize, void *padding,
-@@ -277,11 +519,16 @@
+@@ -277,11 +542,16 @@
  
      if (!(prop = get_object_property(object, NCRYPT_LENGTH_PROPERTY))) return NTE_INVALID_HANDLE;
      key_length = *(DWORD *)prop->value;
@@ -364,10 +387,12 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
      }
  
      status = BCryptFinalizeKeyPair(object->key.bcrypt_key, 0);
-@@ -291,6 +538,19 @@
+@@ -289,6 +559,19 @@
+     {
+         ERR("Error finalizing key pair\n");
          return map_ntstatus(status);
-     }
- 
++    }
++
 +    if (object->key.name)
 +    {
 +        /* Report a storage failure rather than hiding it: a caller told its
@@ -379,12 +404,10 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
 +            WARN("could not store key %s\n", wine_dbgstr_w(object->key.name));
 +            return ret;
 +        }
-+    }
-+
-     return ERROR_SUCCESS;
- }
+     }
  
-@@ -302,6 +562,8 @@
+     return ERROR_SUCCESS;
+@@ -302,6 +585,8 @@
  
  static SECURITY_STATUS free_key_object(struct key *key)
  {
@@ -393,7 +416,7 @@ taken from its blob so a 2048 bit RSA key does not come back claiming 1024.
      return map_ntstatus( BCryptDestroyKey(key->bcrypt_key) );
  }
  
-@@ -512,8 +774,42 @@
+@@ -512,8 +797,42 @@
  SECURITY_STATUS WINAPI NCryptOpenKey(NCRYPT_PROV_HANDLE provider, NCRYPT_KEY_HANDLE *key,
                                       const WCHAR *name, DWORD keyspec, DWORD flags)
  {
