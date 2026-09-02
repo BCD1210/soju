@@ -113,20 +113,24 @@ classify() {   # sets ALIVE_PIDS, GAME_PIDS
   done
 }
 
+# PIDs of Wine processes holding any file open under this prefix: every
+# process of a bottle keeps at least drive_c/windows open, so this finds them
+# without the server (which the orphan case has lost).
+prefix_pids() {
+  local cand real
+  cand=$(pgrep -f '\.exe' 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+  [ -n "$cand" ] || return 0
+  real="$(cd "$PREFIX" 2>/dev/null && pwd -P)" || return 0
+  lsof -a -p "$cand" -Fpn 2>/dev/null | awk -v P="n$real/" '
+    /^p/ { pid = substr($0, 2) }
+    /^n/ { if (index($0, P) == 1) seen[pid] = 1 }
+    END  { for (p in seen) print p }' | sort -un
+}
+
 reap_orphans() {
   local pids
   echo "soju-reaper: the wineserver for $PREFIX is gone, cleaning up its leftovers"
-  # Without a server the tmpmap files are gone too, so attribution by server
-  # directory no longer works: fall back to the launcher/helper/game names of
-  # this mode, and let the sweep take the service set.
-  pids=$(pgrep -f "$HELPER_RE" 2>/dev/null || true)
-  [ -n "$GAME_RE" ] && pids="$pids $(pgrep -f "$GAME_RE" 2>/dev/null || true)"
-  case "$MODE" in
-    steam) pids="$pids $(pgrep -f "$(exe_re 'steam\.exe')" 2>/dev/null || true)" ;;
-    epic)  pids="$pids $(pgrep -f "$(exe_re 'EpicGamesLauncher\.exe')" 2>/dev/null || true)" ;;
-    gog)   pids="$pids $(pgrep -f "$(exe_re 'GalaxyClient\.exe')" 2>/dev/null || true)" ;;
-    *)     pids="$pids $(pgrep -f "$(exe_re 'Battle\.net\.exe|Battle\.net Launcher\.exe')" 2>/dev/null || true)" ;;
-  esac
+  pids=$(prefix_pids)
   # shellcheck disable=SC2086
   [ -n "${pids// /}" ] && kill -9 $pids 2>/dev/null || true
   sleep 2; [ -x "$SWEEP" ] && "$SWEEP" >/dev/null 2>&1
