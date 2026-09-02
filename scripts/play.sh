@@ -83,8 +83,10 @@ case "$MODE" in *-kill) ;; *) python3 "$(dirname "${BASH_SOURCE[0]}")/soju-input
 # games run slowly. Say so instead.
 case "$MODE" in
   battlenet|d2r|epic|gog)
-    if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] \
-       && ! grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/d3d11.dll" 2>/dev/null; then
+    shims_ok(){ local f; for f in d3d11 d3d12 dxgi; do
+      grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/$f.dll" 2>/dev/null || return 1
+      [ -L "$ENGINE/lib/wine/x86_64-unix/$f.so" ] || return 1; done; }
+    if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] && ! shims_ok; then
       echo "soju: this engine has the GPTK payload but not Apple's D3D shims (d3d11/d3d12/dxgi.dll)," >&2
       echo "      so D3DMetal is not active. Mount the GPTK dmg (or have CrossOver installed) and run:" >&2
       echo "      $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju gptk" >&2
