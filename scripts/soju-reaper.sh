@@ -54,14 +54,19 @@ esac
 # one) blocks forever, so its window stops repainting and stops responding while
 # the process still looks alive.  Nothing can rescue it at that point, and the
 # leftovers have to be killed for the next start to work.
+# lsof reports the resolved path, and on macOS /tmp is a symlink to
+# /private/tmp, so compare against the resolved form as well: with only the
+# /tmp spelling the check never matched, and the reaper killed every launcher
+# 40 s after it started.
 SERVER_DIR="$(/usr/bin/stat -f "/tmp/.wine-$(id -u)/server-%Xd-%Xi" "$PREFIX" 2>/dev/null || true)"
+SERVER_DIR_REAL="$(cd /tmp 2>/dev/null && pwd -P)${SERVER_DIR#/tmp}"
 
 server_alive() {
   local pids
   [ -n "$SERVER_DIR" ] || return 0     # cannot tell, assume it is there
   pids=$(pgrep -x wineserver 2>/dev/null | tr '\n' ',' | sed 's/,$//')
   [ -n "$pids" ] || return 1
-  lsof -a -p "$pids" -d cwd -Fn 2>/dev/null | grep -qx "n$SERVER_DIR"
+  lsof -a -p "$pids" -d cwd -Fn 2>/dev/null | grep -qxF -e "n$SERVER_DIR" -e "n$SERVER_DIR_REAL"
 }
 
 reap_orphans() {
