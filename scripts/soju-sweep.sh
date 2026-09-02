@@ -19,7 +19,7 @@
 set -u
 # Also Wine's own prompts (the "Wine Mono Installer" dialog is control.exe
 # appwiz.cpl install_mono): orphaned, they sit in the Dock as "wine" for hours.
-RE='(explorer\.exe /desktop|services\.exe|winedevice\.exe|plugplay\.exe|rpcss\.exe|svchost\.exe|conhost\.exe|tabtip\.exe|control\.exe appwiz\.cpl|wineboot\.exe|winedbg\.exe)'
+RE='(explorer\.exe /desktop|services\.exe|winedevice\.exe|plugplay\.exe|rpcss\.exe|svchost\.exe|conhost\.exe|tabtip\.exe|control\.exe appwiz\.cpl|wineboot\.exe|winedbg\.exe|start\.exe /exec)'
 CAND=$(pgrep -f "$RE" 2>/dev/null || true)
 [ -n "$CAND" ] || exit 0
 
