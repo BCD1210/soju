@@ -226,3 +226,6 @@ done
 say "Done! 🍶  Double-click the app(s) above, log in, install and play."
 echo "Command line: $SOJU_DIR/scripts/soju  (battlenet | d2r | kill | epic | epic-kill | gog | gog-kill | steam | steam-kill | doctor | update)"
 GPTK_OK || echo "NOTE: GPTK was skipped - before launching a game, mount the GPTK dmg and run:  $SOJU_DIR/scripts/soju gptk"
+echo
+echo "Something broke?  Run 'soju doctor' and paste its output in an issue: https://github.com/BCD1210/soju/issues"
+echo "Worked for you?   A star helps other Mac gamers find this:           https://github.com/BCD1210/soju"

@@ -12,6 +12,33 @@
 
 *[English README](README.md) · [한국어 README](README.ko.md)*
 
+## 能跑什么
+
+<!-- 截图：把 PNG（d2r-ingame.png、battlenet-login.png、hogwarts-ingame.png）放进 docs/images/ 后取消注释。
+<p align="center">
+  <img src="docs/images/d2r-ingame.png" width="49%" alt="M4 Pro 上运行的 Diablo II: Resurrected">
+  <img src="docs/images/battlenet-login.png" width="49%" alt="Apple Silicon 上已登录的战网">
+</p>
+-->
+
+均在 M4 Pro / macOS 26.5 上验证。同一个引擎，每个登录器一个独立 bottle。
+
+| 登录器 | 登录 | 安装游戏 | 说明 |
+| --- | :-: | :-: | --- |
+| 战网（Battle.net） | ✅ | ✅ | Agent 正常；`BLZBNTBNA00000005` 通过签名 exe 播种解决 |
+| Epic Games Launcher | ✅ | ✅ | 关闭窗口后驻留菜单栏托盘 |
+| GOG GALAXY | ✅ | ✅ | 登录和游戏库可用；游戏尚未广泛测试 |
+| Steam（Windows 客户端） | ✅ | ✅ | 独立的 `wine-stable` + DXMT bottle |
+
+| 游戏 | 平台 | 图形 | 状态 | 说明 |
+| --- | --- | --- | :-: | --- |
+| Diablo II: Resurrected | 战网 | D3DMetal (D3D11) | ✅ 进入游戏，可联网 | `play.sh` 设置 `ROSETTA_ADVERTISE_AVX=1`；[指南](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
+| Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 进入游戏 | UE4 的"AMD 驱动"警告无害；输入法切到英文 |
+| Unity D3D11 游戏 | Steam | DXMT | ✅ 进入游戏，窗口模式 | 需要 `soju steam-games`，见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
+| Diablo II: Resurrected（Infernal Edition） | Steam | — | ⏳ 尚未验证 | Steam bottle 没有 GPTK，而 D2R 的加载器需要 `libd3dshared` |
+
+跑不了的：任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。跑通了别的游戏？欢迎发到 [Discussions](https://github.com/BCD1210/soju/discussions)，或提 PR 加一行。
+
 ## 为什么会有这个项目
 
 社区 Wine 构建（Whisky、Kegworks 时代的引擎）已经无法运行新版战网和 D2R。商业方案可以用，但其底层 Wine 引擎是 GPL 的，所以我们自己把它编译出来，并记录了撞上的每一堵墙。其中三堵墙此前没有公开解法：
