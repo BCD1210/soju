@@ -12,6 +12,13 @@ TTY=/dev/tty
 say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 # ---------- 1. Scripts ----------
+# Once the scripts are refreshed, the rest of this run must use the new ones
+# (the engine carry-over in particular changes between versions), so step 1
+# re-executes the fresh update.sh with this marker and skips itself.
+if [ "${1:-}" = "--scripts-updated" ]; then
+  shift
+  say "[1/2] Scripts updated"
+else
 say "[1/2] Updating the Soju scripts"
 if [ -e "$ROOT/.git" ]; then          # a directory, or a file for worktrees/submodules
   echo "  git checkout at $ROOT"
@@ -32,10 +39,12 @@ else
     rm -rf "$ROOT.old"; mv "$ROOT" "$ROOT.old"; mv "$tmp" "$ROOT"; rm -rf "$ROOT.old"
     tmp=""
     echo "  scripts updated"
+    exec bash "$ROOT/scripts/update.sh" --scripts-updated "$@"
   else
     echo "  download failed; skipping the scripts update"
   fi
   [ -n "$tmp" ] && rm -rf "$tmp"
+fi
 fi
 
 # ---------- 2. Engine ----------
