@@ -19,7 +19,7 @@
 set -euo pipefail
 
 ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
-[ -d "$ENGINE/lib" ] || { echo "Engine not found. Run build-engine.sh first."; exit 1; }
+[ -d "$ENGINE/lib" ] || { echo "Engine not found at $ENGINE. Run install.sh (prebuilt) or scripts/build-engine.sh first."; exit 1; }
 
 find_payload() {
   local roots=("$@")

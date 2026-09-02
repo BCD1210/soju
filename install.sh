@@ -40,8 +40,9 @@ else
   rm -f "$BASE/engine.tar.xz"
   TAG=$(echo "$URL" | sed -n 's#.*/download/\([^/]*\)/.*#\1#p')
   [ -n "$TAG" ] && printf '%s\n' "$TAG" > "$ENGINE/.soju-engine-release"
-  DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version >/dev/null \
-    && echo "Engine OK: $(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version)"
+  v=$(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version 2>&1) \
+    || { echo "The engine does not start on this Mac:"; echo "$v"; echo "Please report this with the output of: sw_vers; uname -m"; exit 1; }
+  echo "Engine OK: $v"
 fi
 
 # ---------- 2. Apple GPTK ----------
@@ -80,7 +81,7 @@ else
 EOT
     while true; do
       read -r -p "  Press Enter when ready (or s to skip): " ans < "$TTY" || ans=s
-      [ "$ans" = "s" ] && { echo "  Skipped - run scripts/get-gptk.sh later"; break; }
+      [ "$ans" = "s" ] && { echo "  Skipped - the last lines of this installer say how to add it later"; break; }
       if SRC=$(find_gptk); then install_gptk "$SRC"; echo "  Installed"; break; fi
       echo "  Not found yet - make sure the dmg is mounted"
     done
@@ -93,6 +94,12 @@ fi
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
 if [ -n "$SELF_DIR" ] && [ -f "$SELF_DIR/scripts/play.sh" ]; then
   SOJU_DIR="$SELF_DIR"
+  # Homebrew: the Cellar path carries the version and goes away on `brew
+  # upgrade`, which would leave every app bundle pointing at nothing. Bake the
+  # stable opt/ path into the bundles instead.
+  case "$SOJU_DIR" in
+    */Cellar/soju/*/libexec) SOJU_DIR="$(brew --prefix 2>/dev/null || echo /opt/homebrew)/opt/soju/libexec" ;;
+  esac
 else
   SOJU_DIR="$BASE/soju"
   say "Fetching the Soju scripts into $SOJU_DIR"
@@ -199,5 +206,5 @@ for p in $PLATFORMS; do
 done
 
 say "Done! 🍶  Double-click the app(s) above, log in, install and play."
-echo "Command line: $SOJU_DIR/scripts/soju  (battlenet | d2r | steam | epic | gog, plus *-kill)"
-GPTK_OK || echo "NOTE: GPTK was skipped - run scripts/get-gptk.sh before launching a game."
+echo "Command line: $SOJU_DIR/scripts/soju  (battlenet | d2r | kill | epic | epic-kill | gog | gog-kill | steam | steam-kill | doctor | update)"
+GPTK_OK || echo "NOTE: GPTK was skipped - before launching a game, mount the GPTK dmg and run:  $SOJU_DIR/scripts/soju gptk"
