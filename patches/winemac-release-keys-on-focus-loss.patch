@@ -1,0 +1,97 @@
+Release keys that were held when the app lost focus, and deliver a key up that
+arrives without a window of ours.
+
+macOS sends a key up to whichever application has focus at the time, so a key
+still held when focus moves elsewhere (Command-Tab, switching input source, a
+notification stealing focus) never reaches Wine.  The driver keeps its own idea
+of which keys are down and nothing ever clears it, so as far as the Windows side
+is concerned the key stays down: in a game the character keeps walking forward
+until the key is pressed and released again.
+
+There is a second way to lose a release.  A key up whose NSEvent has no
+WineWindow behind it, which happens with a full screen game or a window torn
+down mid-press, clears the driver's own record and then drops the event instead
+of sending it on, with the same result.
+
+So release everything still marked as held when the application is deactivated,
+and fall back to the front window for a key up that arrives without one.
+
+--- a/dlls/winemac.drv/cocoa_app.h
++++ b/dlls/winemac.drv/cocoa_app.h
+@@ -110,6 +110,7 @@
+ 
+     - (void) computeEventTimeAdjustmentFromTicks:(unsigned long long)tickcount uptime:(uint64_t)uptime_ns;
+     - (double) ticksForEventTime:(NSTimeInterval)eventTime;
++    - (void) releasePressedKeys;
+ 
+     - (void) windowGotFocus:(WineWindow*)window;
+ 
+--- a/dlls/winemac.drv/cocoa_app.m
++++ b/dlls/winemac.drv/cocoa_app.m
+@@ -1257,6 +1257,43 @@
+         int index = keyCode / bits;
+         uint32_t mask = 1 << (keyCode % bits);
+         return (pressedKeyCodes[index] & mask) != 0;
++    }
++
++    /* Tell Wine that every key we still believe is held has been released.
++     *
++     * macOS delivers the key up to whoever has focus at the time, so a key held
++     * across a focus change (Command-Tab, an input source switch, a notification
++     * taking focus) is never released as far as Wine is concerned, and a game
++     * goes on walking forward until the key is pressed and let go again. */
++    - (void) releasePressedKeys
++    {
++        WineWindow* window = [self frontWineWindow];
++        NSUInteger modifiers = [NSEvent modifierFlags];
++        double time_ms = [self ticksForEventTime:[[NSProcessInfo processInfo] systemUptime]];
++        int bits = sizeof(pressedKeyCodes[0]) * 8;
++        unsigned int i;
++
++        /* Nowhere to deliver a release: keep our record of the held keys, so
++         * the real key up, when it does arrive, is still recognised and
++         * forwarded rather than dropped as a release of an unpressed key. */
++        if (!window) return;
++
++        for (i = 0; i < sizeof(pressedKeyCodes) / sizeof(pressedKeyCodes[0]) * bits; i++)
++        {
++            macdrv_event* event;
++
++            if (!pressedKeyCodes[i / bits]) { i += bits - 1; continue; }
++            if (![self isKeyPressed:i]) continue;
++
++            [self noteKey:i pressed:FALSE];
++
++            event = macdrv_create_event(KEY_RELEASE, window);
++            event->key.keycode   = i;
++            event->key.modifiers = modifiers;
++            event->key.time_ms   = time_ms;
++            [window.queue postEvent:event];
++            macdrv_release_event(event);
++        }
+     }
+ 
+     - (void) noteKey:(uint16_t)keyCode pressed:(BOOL)pressed
+@@ -1820,7 +1857,13 @@
+             {
+                 WineWindow* window = (WineWindow*)[anEvent window];
+                 [self noteKey:keyCode pressed:FALSE];
+-                if ([window isKindOfClass:[WineWindow class]])
++                /* An event that arrives without a window of ours behind it (a
++                 * full screen game, a window torn down mid-press) would drop the
++                 * release and leave the key stuck down in Wine.  Send it to the
++                 * front window instead. */
++                if (![window isKindOfClass:[WineWindow class]])
++                    window = [self frontWineWindow];
++                if (window)
+                     [window postKeyEvent:anEvent];
+             }
+         }
+@@ -2209,6 +2252,7 @@
+         WineEventQueue* queue;
+ 
+         [self invalidateGotFocusEvents];
++        [self releasePressedKeys];
+ 
+         event = macdrv_create_event(APP_DEACTIVATED, nil);
+ 

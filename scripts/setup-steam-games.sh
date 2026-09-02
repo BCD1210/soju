@@ -69,6 +69,9 @@ for APP in steam.exe steamwebhelper.exe steamwebhelper_real.exe steamservice.exe
 done
 
 echo "==> 5/5 Removing the fullscreen-forcing AppCompat token (allows windowed mode)"
+# The reg adds above left a wineserver up with a dirty HKCU; it rewrites
+# user.reg when it exits, which would undo an edit made now. Wait for it.
+"$WAPP/bin/wineserver" -w 2>/dev/null || true
 /usr/bin/python3 - "$WINEPREFIX/user.reg" <<'EOF'
 import sys
 p = sys.argv[1]

@@ -131,6 +131,247 @@ winemac 패치의 `WINE_DOCK_REOPEN_CMD`(보이는 창이 없을 때 독 클릭 
 - Epic: 트레이 더블클릭 시퀀스 재현(`tools/soju-epic-restore.c`, 위 참조).
 - GOG: `RestoreClientMessage` 직접 전송(`tools/soju-gog-restore.c`, 위 참조).
 
+## 게임에서 이동키가 눌린 채로 고정되는 이유 (2026-08-31)
+
+### 증상
+
+호그와트 레거시에서 앞으로 가는 키(W)가 눌린 상태로 굳어 캐릭터가 계속 걸어간다. 그 키를 한 번
+눌렀다 떼면 풀린다. 자주 발생한다.
+
+### 근본 원인
+
+macOS는 키를 뗀 이벤트를 **그 순간 포커스를 가진 앱**에 보낸다. 키를 누른 채로 Command-Tab을
+하거나, 입력 소스를 바꾸거나, 알림이 포커스를 가져가면 key up이 wine에 도착하지 않는다.
+
+winemac 드라이버는 어떤 키가 눌려 있는지 자체 비트맵(`pressedKeyCodes`)으로 들고 있는데, 이걸
+비워주는 곳이 key up 처리 한 군데뿐이다. `applicationDidResignActive:`는 커서 클립을 풀고 마우스
+캡처를 놓아주지만 키는 건드리지 않는다. `macdrv_app_deactivated()`도 마찬가지다. 그래서 Windows
+쪽에는 키가 계속 눌려 있는 상태로 남는다.
+
+놓치는 경로가 하나 더 있다. `cocoa_app.m`의 key up 처리는 이렇게 되어 있다.
+
+```objc
+else if (type == NSEventTypeKeyUp)
+{
+    uint16_t keyCode = [anEvent keyCode];
+    if ([self isKeyPressed:keyCode])
+    {
+        WineWindow* window = (WineWindow*)[anEvent window];
+        [self noteKey:keyCode pressed:FALSE];
+        if ([window isKindOfClass:[WineWindow class]])
+            [window postKeyEvent:anEvent];
+    }
+}
+```
+
+이벤트에 우리 창이 붙어 있지 않으면(전체화면 게임, 눌린 중에 창이 정리된 경우) **자체 표시만 지우고
+이벤트는 버린다.** wine은 뗀 사실을 영영 모른다.
+
+업스트림 wine master도 같은 코드다. CrossOver 소스만의 문제가 아니라 wine 자체의 빈틈이다.
+
+### 해결책 (`patches/winemac-release-keys-on-focus-loss.patch`)
+
+- `releasePressedKeys`를 추가해 아직 눌린 것으로 표시된 모든 키에 대해 KEY_RELEASE를 만들어 앞쪽
+  Wine 창의 큐에 넣고 비트맵을 비운다. `applicationDidResignActive:`에서 호출한다.
+- 창 없이 도착한 key up은 버리지 말고 앞쪽 Wine 창으로 보낸다.
+
+### 상태
+
+엔진 빌드와 런처 구동은 확인했다(GOG 정상 실행, 독 아이콘·커스텀 프레임 패치도 함께 적용된 바이너리).
+게임에서 실제로 고정 현상이 사라지는지는 플레이로 확인해야 한다.
+
+### 패치 이후에도 재발 (2026-09-01): EOS 오버레이가 유력
+
+패치가 들어간 엔진(winemac.so에 `releasePressedKeys` 심볼 확인)으로 호그와트를 플레이했는데도
+W 고정이 계속됐고, 동시에 **마우스는 되는데 키보드가 전부 죽는** 증상이 같이 나왔다.
+
+이 조합이 원인을 가리킨다. Wine은 마우스 입력은 커서 아래 창으로, 키보드 입력은 foreground 창으로
+보낸다. 키보드만 죽었다는 것은 foreground가 게임 창이 아닌 다른 창으로 넘어갔다는 뜻이고, 그
+순간 W가 눌려 있었다면 key up은 그 다른 창으로 가서 게임은 영영 뗀 사실을 모른다. UE4는 창
+비활성화(`WM_ACTIVATE`)를 받으면 눌린 키를 스스로 비우므로(`FlushPressedKeys`), 게임 창에는
+비활성화 통지도 오지 않은 채 키보드 포커스만 빠져나간 경우다. 위 패치는 macOS 앱 단위의 포커스
+이탈(`applicationDidResignActive:`)에서만 동작하므로, **같은 프로세스 안에서** 포커스가 옮겨간
+경우는 다루지 못한다.
+
+같은 프로세스 안에 창을 만드는 것은 EOS 오버레이다. EOS SDK가 게임 프로세스에
+`EOSOVH-Win64-Shipping.dll`을 로드하고, 옆에 `EOSOverlayRenderer-Win64-Shipping.exe`(CEF)
+프로세스 트리가 뜬다(게임 시작 약 30초 뒤 6개 확인). 업적·친구 알림 토스트가 뜰 때마다 창이
+생기고 포커스를 건드린다. 어제 세션의 renderer 프로세스가 고아로 남아 있는 것도 확인했다
+(wineserver가 살아 있어 reaper 대상이 아니었다).
+
+조치: `play.sh epic`에서 `WINEDLLOVERRIDES=EOSOVH-Win64-Shipping,EOSOVH-Win32-Shipping=d`로
+오버레이 DLL 로드를 막는다(Steam 보틀의 `gameoverlayrenderer=d`와 같은 방식). 절대 경로 로드에도
+override가 적용되는 것은 regsvr32로 확인했다. `SOJU_EPIC_OVERLAY=1`로 되돌릴 수 있다.
+
+확인 방법: `soju epic-kill` 후 재실행해서 `EOSOverlayRenderer` 프로세스가 더 이상 뜨지 않는지 보고,
+플레이 중 두 증상이 함께 사라지면 확정. 그래도 재발하면 `SOJU_KEYLOG=1 soju epic`으로
+`~/.battlenet-macos/logs/keys-epic-*.log`를 남겨 W의 `KEY_RELEASE`가 어느 hwnd로 갔는지 본다.
+입력 소스는 게임 전에 영어(ABC)로 두고 게임 중에는 바꾸지 않는다. 입력 소스 전환 자체가
+포커스 이탈 트리거다.
+
+리뷰에서 나온 패치 자체의 빈틈 두 가지. (1) 앞쪽 Wine 창이 없으면 비트맵만 지우고 이벤트를
+안 보냈는데, 그러면 나중에 진짜 key up이 와도 "안 눌린 키"라며 버린다. 창이 없으면 비트맵을 그대로
+두도록 고쳤다. (2) 릴리스를 `frontWineWindow`로 보내는데 그것이 키를 누른 창이 아닐 수 있다
+(오버레이 창이 맨 앞인 경우). 키마다 누른 창을 기억해야 제대로 고쳐지며, 아직 안 했다.
+
+## 켜둔 런처가 먹통이 되는 이유: wineserver를 잃은 고아 프로세스 (2026-08-31)
+
+### 증상
+
+GOG GALAXY를 며칠 켜두면 창이 아무 반응을 하지 않는다. 프로세스는 살아 있고 CPU도 정상(0.4%)이라
+죽은 것처럼 보이지도 않는다. 로그인도 풀려 있다.
+
+### 근본 원인
+
+GOG 봇틀의 wineserver 디렉토리(`/tmp/.wine-501/server-...`)는 8/30 11:12이 마지막 기록인데
+그 서버 프로세스가 없다. 반면 GalaxyClient는 1일 14시간째 살아 있었다.
+
+`sample`로 프로세스를 뜨면 6개 스레드가 전부 같은 지점에서 멈춰 있다.
+
+```
+sysv_NtClose  [ntdll.so]
+_pthread_mutex_firstfit_lock_slow  [libsystem_pthread.dylib]
+_pthread_mutex_firstfit_lock_wait  [libsystem_pthread.dylib]
+```
+
+wine에서 핸들을 닫으려면 wineserver에 요청해야 한다. 서버가 없으니 첫 스레드가 응답을 영원히
+기다리고, 그 스레드가 쥔 fd 캐시 락 뒤로 나머지가 줄줄이 막힌다. GOG 로그도 같은 이야기를 한다.
+UI 스레드(TID 36)의 마지막 기록이 11:12:04이고 그 뒤로 전무한데, 순수 타이머로 도는 백그라운드
+스레드는 지금도 1분마다 로그를 쓴다. 그래서 프로세스는 멀쩡해 보이고 창만 죽어 있다.
+
+로그아웃도 여기서 파생된다. 액세스 토큰을 45분마다 갱신하던 것이 09:33, 10:18, 11:03까지만 되고,
+갱신을 담당하는 그 UI 스레드가 멈추면서 12:03에 만료됐다.
+
+### 왜 서버를 잃었나
+
+`play.sh kill`(배틀넷)만 리퍼를 죽일 때 프리픽스를 붙이지 않아
+(`pkill -f "soju-reaper.sh"`) **모든 봇틀의 감시자를 함께 죽였다.** epic-kill·gog-kill·steam-kill은
+`soju-reaper.sh $WINEPREFIX`로 자기 것만 죽인다. 감시자가 없어지면 이런 고아가 생겨도 아무도 치우지
+않는다. 엔진을 갈아끼우며 wineserver를 정리하던 날 트레이에 내려가 있던 GOG가 여기 걸린 것으로 보인다.
+
+### 해결책
+
+- `play.sh kill`도 다른 모드처럼 자기 프리픽스의 리퍼만 죽인다.
+- 리퍼가 매 주기 자기 봇틀의 wineserver 생존을 확인한다. wine은 소켓 디렉토리 이름을 프리픽스의
+  device/inode로 만들고 서버는 그 디렉토리를 작업 디렉토리로 삼으므로,
+  `stat -f "/tmp/.wine-$(id -u)/server-%Xd-%Xi"`로 경로를 구하고 `lsof`로 그 cwd를 가진 wineserver가
+  있는지 본다(64ms). 두 주기 연속 없으면 고아로 판정하고 남은 프로세스를 정리한 뒤 종료한다.
+  서버가 사라진 클라이언트는 되살릴 방법이 없고, 남겨두면 다음 실행까지 방해한다.
+
+### 검증
+
+실제로 고아 상태였던 GOG(1일 14시간 경과)에 새 리퍼를 붙이자 40초 뒤 다섯 개 프로세스를 모두
+정리하고 종료했다.
+
+### 후속 (2026-09-02): 살아 있는 서버도 "없음"으로 판정하던 버그
+
+Epic 런처가 시작 40초 뒤마다 죽었다. 런처 로그는 정상 상태에서 끊기고 크래시 흔적이 없었다.
+원인은 위 생존 확인: macOS에서 `/tmp`는 `/private/tmp`로 가는 심볼릭 링크라 `lsof`는 cwd를
+`/private/tmp/.wine-501/server-…`로 보고하는데, 비교 대상은 `stat`로 만든 `/tmp/…` 문자열이었다.
+한 번도 일치하지 않으니 매 주기 고아 판정이 쌓여 두 번째 주기에 런처를 죽였다. 위의 GOG 검증은
+정말 서버가 없던 경우라 이 오판이 드러나지 않았다.
+
+`cd /tmp && pwd -P`로 해석한 경로도 함께 받아들이도록 고쳤다. 고친 뒤 Epic 런처를 앱 번들로
+띄우고 2분 뒤 확인: 런처·리퍼·wineserver 모두 생존.
+
+### 재설계 (2026-09-02): 이름이 아니라 소속으로 판단
+
+전체 리뷰에서 리퍼의 판정 기준 세 가지가 모두 게임을 죽일 수 있다는 것이 드러났다.
+
+- 창 탐지가 `kCGWindowListOptionOnScreenOnly`라서 게임을 최소화하거나 Cmd-H로 숨기거나 다른
+  Space로 옮기면 40초 뒤 kill -9였다.
+- "유휴" 판정이 모드별 하드코딩 목록(D2R.exe, 런처 exe)이라, Battle.net에서 Hearthstone을 켜고
+  런처를 닫거나 Epic 트레이에서 Exit하면 게임이 살아 있어도 `wineserver -k`였다.
+- 킬 패턴에 앵커가 없어 `tail -f D2R.exe.log` 같은 무관한 프로세스도 대상이었고, 다른 보틀의
+  같은 exe도 구분하지 못했다.
+
+새 기준: 모든 Wine 프로세스(빌트인 서비스 포함)는 자기 wineserver의 소켓 디렉토리
+(`/private/tmp/.wine-UID/server-DEV-INODE/tmpmap-*`)에 파일을 열어 두고 있고, 그 디렉토리 이름은
+프리픽스에서 나온다. `lsof -a -p <후보> +d <디렉토리>`로 이 보틀의 프로세스만 100ms 안에 얻는다
+(Epic 보틀 15개 프로세스, 0.09초). 그 목록에서 서비스 세트와 런처 헬퍼(Agent, EOS 헬퍼,
+GalaxyClientService, steamservice)를 빼고 아무것도 남지 않을 때만 유휴다. 창 탐지는 전체 목록을
+쓰되 Wine이 프로세스마다 두는 1x1 투명 placeholder 창은 세지 않고, 좀비 판정은 3회(60초)로
+늘렸다. exe 이름 매칭은 경로 구분자와 단어 끝에 앵커를 건다.
+
+## Epic 로그인 `too_many_sessions`: ncrypt에 영구 키가 없어서 매번 새 기기가 된다 (2026-08-31)
+
+### 증상
+
+Epic Games Launcher 로그인 화면에서 계속 거부된다.
+
+```
+Sorry, your account has too many active logins.
+Please log out of one of the places you are using your account and try again.
+```
+
+화면 문구는 "다른 곳에서 로그아웃하라"지만, 서버가 실제로 돌려주는 것은 다른 이야기다.
+
+```
+code=400 errorcode=errors.com.epicgames.account.oauth.too_many_sessions
+numericErrorCode=18048
+"Sorry too many sessions have been issued for your account. Please try again later"
+```
+
+`issued`(발급됨)이지 `active`(사용 중)가 아니다. 보유 중인 세션 수 제한이 아니라 일정 시간 안에
+발급된 토큰 수에 대한 레이트 리밋이다. 그래서 모든 기기에서 로그아웃해도, 비밀번호를 재설정해
+기존 세션을 전부 무효화해도 풀리지 않는다. 오히려 재시도할 때마다 카운터가 더 찬다.
+
+### 근본 원인
+
+런처 로그 17개를 확인하니 **매 실행마다** 같은 줄이 먼저 나온다.
+
+```
+LogDPoP: Error: Failed to create persistent DPoP key (Status: 0x80090029)
+LogDPoP: Warning: Cannot build DPoP proof: no public JWK available
+LogOnlineIdentity: Warning: OSS: DPoP enabled but proof build failed - sending request without DPoP header
+```
+
+DPoP(RFC 9449)는 발급한 토큰을 그 기기의 서명 키에 묶는 방식이다. Epic은 이 키로 "같은 기기가
+맞다"를 확인하고, 맞으면 저장된 세션을 갱신해서 재사용한다. 키를 못 만들면 매 실행이 처음 보는
+기기가 되므로 갱신 대신 **새 세션 발급**이 일어난다. 열 번 실행하면 세션도 그만큼 새로 발급된다.
+
+0x80090029는 `NTE_NOT_SUPPORTED`다. 엔진에서 직접 확인한 결과:
+
+```
+NCryptOpenStorageProvider     = 0x00000000
+NCryptOpenKey (기존 키 열기)   = 0x80090029
+NCryptCreatePersistedKey ES256 = 0x80090029
+```
+
+wine의 `dlls/ncrypt/main.c`를 보면 이유가 그대로 적혀 있다. `NCryptCreatePersistedKey`는 키 이름을
+받으면 `FIXME("Persistent keys are not supported")`를 찍고 무시하며, `NCryptOpenKey`는 통째로
+스텁이다. 게다가 이 버전은 RSA만 처리해서 DPoP가 쓰는 ECDSA P-256은 아예 거부한다. 즉 wine에서
+CNG 키는 프로세스와 함께 사라지고, 같은 이름으로 다시 열 방법이 없다.
+
+### 해결책 (`patches/ncrypt-persisted-keys.patch`)
+
+이름이 붙은 키를 Windows가 쓰는 위치(`%APPDATA%\Microsoft\Crypto\Keys`)에 저장하고 다시 읽는다.
+
+- `NCryptCreatePersistedKey`: 이름을 기억하고, ECDSA P-256/P-384를 RSA와 함께 처리한다
+- `NCryptFinalizeKey`: 키가 확정된 뒤 개인키 blob을 파일로 내보낸다 (EC 키는 곡선이 길이를 정하므로
+  `BCryptSetProperty(BCRYPT_KEY_LENGTH)`를 건너뛴다)
+- `NCryptOpenKey`: 저장된 키를 불러온다. 저장된 적이 없으면 Windows와 같이 `NTE_BAD_KEYSET`을
+  돌려줘서, 호출자가 포기하지 않고 새로 만들도록 한다
+- `NCryptDeleteKey`: 저장 파일도 함께 지운다
+
+### 검증
+
+프로브를 두 번 실행:
+
+```
+1회차: NCryptOpenKey = 0x80090016 (아직 없음) -> Create/Finalize 성공 -> 공개키 72바이트, 서명 64바이트
+2회차: NCryptOpenKey = 0x00000000 (저장된 키 로드) -> 공개키 바이트가 1회차와 동일
+```
+
+2회차의 공개키가 1회차와 같다는 것이 핵심이다. 새로 만든 것이 아니라 디스크에서 같은 키를 불러왔다는
+뜻이고, DPoP가 요구하는 성질이 바로 이것이다.
+
+회귀는 wine의 ncrypt 적합성 테스트로 확인했다. 원본과 패치본 모두 436개 실행, 176개 todo,
+**0 failures**로 동일하다. 배틀넷도 패치본 엔진에서 정상 부팅한다(BREAKPOINT 0, ncrypt 오류 0).
+
+아직 Epic 로그인으로 끝까지 확인하지는 못했다. 이미 걸린 레이트 리밋이 풀려야 시도할 수 있고,
+재시도 자체가 리밋을 다시 채우기 때문이다.
+
 ## 벽 2: Battle.net Agent caller 서명 검증 실패 (해결됨)
 
 ### 증상
