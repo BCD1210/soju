@@ -269,6 +269,25 @@ Epic 런처가 시작 40초 뒤마다 죽었다. 런처 로그는 정상 상태�
 `cd /tmp && pwd -P`로 해석한 경로도 함께 받아들이도록 고쳤다. 고친 뒤 Epic 런처를 앱 번들로
 띄우고 2분 뒤 확인: 런처·리퍼·wineserver 모두 생존.
 
+### 재설계 (2026-09-02): 이름이 아니라 소속으로 판단
+
+전체 리뷰에서 리퍼의 판정 기준 세 가지가 모두 게임을 죽일 수 있다는 것이 드러났다.
+
+- 창 탐지가 `kCGWindowListOptionOnScreenOnly`라서 게임을 최소화하거나 Cmd-H로 숨기거나 다른
+  Space로 옮기면 40초 뒤 kill -9였다.
+- "유휴" 판정이 모드별 하드코딩 목록(D2R.exe, 런처 exe)이라, Battle.net에서 Hearthstone을 켜고
+  런처를 닫거나 Epic 트레이에서 Exit하면 게임이 살아 있어도 `wineserver -k`였다.
+- 킬 패턴에 앵커가 없어 `tail -f D2R.exe.log` 같은 무관한 프로세스도 대상이었고, 다른 보틀의
+  같은 exe도 구분하지 못했다.
+
+새 기준: 모든 Wine 프로세스(빌트인 서비스 포함)는 자기 wineserver의 소켓 디렉토리
+(`/private/tmp/.wine-UID/server-DEV-INODE/tmpmap-*`)에 파일을 열어 두고 있고, 그 디렉토리 이름은
+프리픽스에서 나온다. `lsof -a -p <후보> +d <디렉토리>`로 이 보틀의 프로세스만 100ms 안에 얻는다
+(Epic 보틀 15개 프로세스, 0.09초). 그 목록에서 서비스 세트와 런처 헬퍼(Agent, EOS 헬퍼,
+GalaxyClientService, steamservice)를 빼고 아무것도 남지 않을 때만 유휴다. 창 탐지는 전체 목록을
+쓰되 Wine이 프로세스마다 두는 1x1 투명 placeholder 창은 세지 않고, 좀비 판정은 3회(60초)로
+늘렸다. exe 이름 매칭은 경로 구분자와 단어 끝에 앵커를 건다.
+
 ## Epic 로그인 `too_many_sessions`: ncrypt에 영구 키가 없어서 매번 새 기기가 된다 (2026-08-31)
 
 ### 증상
