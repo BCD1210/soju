@@ -27,8 +27,14 @@ mkdir -p "$BASE"
 # ---------- Apple GPTK helpers ----------
 # Installed means all three parts: the Metal side, and Apple's PE shims in
 # place of Wine's d3d11 (the shim carries Apple's build path string).
-GPTK_OK(){ [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] \
-           && grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/d3d11.dll" 2>/dev/null; }
+GPTK_OK(){
+  local f
+  [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] || return 1
+  for f in d3d11 d3d12 dxgi; do
+    grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/$f.dll" 2>/dev/null || return 1
+    [ -L "$ENGINE/lib/wine/x86_64-unix/$f.so" ] || return 1
+  done
+}
 find_gptk(){
   for r in /Volumes/Game* /Volumes/*orting* \
            "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk"; do
