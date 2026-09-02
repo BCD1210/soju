@@ -29,6 +29,18 @@ else
 fi
 
 export WINEDEBUG="${WINEDEBUG:-fixme-all}"
+# SOJU_KEYLOG=1: record every key event the Mac driver sees and every focus
+# change, to ~/.battlenet-macos/logs/keys-<mode>-<time>.log. For "a key stays
+# pressed" / "keyboard dead, mouse fine" reports: the log shows which window a
+# KEY_RELEASE went to. Noisy (mouse moves too); leave it off otherwise.
+if [[ "${SOJU_KEYLOG:-0}" == 1 ]]; then
+  mkdir -p "$HOME/.battlenet-macos/logs"
+  KEYLOG="$HOME/.battlenet-macos/logs/keys-$MODE-$(date +%Y%m%d-%H%M%S).log"
+  export WINEDEBUG="fixme-all,+key,+event"
+  exec 2>>"$KEYLOG"
+  echo "soju keylog $(date) mode=$MODE prefix=$WINEPREFIX" >&2
+  echo "soju: key log -> $KEYLOG"
+fi
 export WINEMSYNC=1
 export ROSETTA_ADVERTISE_AVX=1
 # Battle.net's CEF renderer CHECKs that VirtualProtect() on a written .data page
@@ -97,6 +109,20 @@ case "$MODE" in
     # click therefore replays the tray double-click into the launcher instead
     # (tools/soju-epic-restore.c, built by create-epic-bottle.sh).
     export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$HOME/.battlenet-macos/epic-support/soju-epic-restore.exe'"
+    # The EOS overlay (EOSOVH-*-Shipping.dll, loaded by the EOS SDK into every
+    # game, plus a CEF renderer tree beside it) is off by default, like Steam's
+    # gameoverlayrenderer. It draws inside the game's own process, so when one
+    # of its windows takes Wine's keyboard focus (a toast, an achievement) the
+    # game gets no deactivation: a movement key held at that moment stays down,
+    # and every key after it goes to the overlay while the mouse keeps working
+    # (mouse input follows the cursor, keyboard input follows the foreground
+    # window). Under Wine the overlay offers nothing but those toasts. Wine
+    # honours the override for a load by full path too (verified with
+    # regsvr32: "Failed to load DLL"). SOJU_EPIC_OVERLAY=1 turns it back on.
+    # A launcher already running keeps its old environment: soju epic-kill first.
+    if [[ "${SOJU_EPIC_OVERLAY:-0}" != 1 ]]; then
+      export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}EOSOVH-Win64-Shipping,EOSOVH-Win32-Shipping=d"
+    fi
     EPIC="C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe"
     [[ -f "$WINEPREFIX/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe" ]] || \
       { echo "Epic Games Launcher not found, run scripts/create-epic-bottle.sh first"; exit 1; }

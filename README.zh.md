@@ -133,6 +133,7 @@ scripts/play.sh steam-kill       # 停止 Steam bottle
 - **战网登录 webview 偶尔闪烁（约一分钟一次）** -> 已知的外观问题；会自动恢复，不影响登录。
 - **虚幻引擎游戏启动时提示 "The installed version of the AMD graphics driver has known issues"**（《霍格沃茨之遗》等）：D3DMetal 把自己伪装成旧驱动版本的 AMD 显卡，触发了 UE4 的驱动检查。无害，点确定即可；想彻底关掉就在游戏的用户 `Engine.ini`（`AppData/Local/<游戏>/Saved/Config/WindowsNoEditor/` 下）加入 `[SystemSettings]` / `r.WarnOfBadDrivers=0`。
 - **GOG GALAXY：通知弹出时右下角出现黑色矩形**，随通知一起消失。通知是 GOG 通知渲染器的透明分层窗口；没有 DWM 合成时 Wine 会把透明区域涂黑。无害。在 GOG 设置里关闭桌面通知即可避免。
+- **移动键卡在按下状态，或者鼠标正常但键盘完全没反应**（在 Hogwarts Legacy 中出现过）：按住键的时候键盘焦点被另一个 Wine 窗口抢走了。常见元凶是 Epic（EOS）覆盖层，所以 `soju epic` 现在默认禁用它（`SOJU_EPIC_OVERLAY=1` 可恢复；先 `soju epic-kill` 再重启登录器才会生效）。整个游戏过程保持 macOS 输入法为英文（ABC），游戏中切换输入法本身就是一次焦点切换。仍然复现？`SOJU_KEYLOG=1 soju epic` 会把按键和焦点日志写到 `~/.battlenet-macos/logs/`，提 issue 时附上。
 - **Epic 提示 "your account has too many active logins"**，而且在所有设备退出登录、甚至重置密码后依旧如此。账号服务实际返回的是 `too_many_sessions`（18048），限制的是*已发放*的会话数量而非当前持有的数量，所以反复重试只会更糟。旧引擎上启动几次就会触发，因为 Wine 无法保存登录器的设备密钥，详见 `patches/ncrypt-persisted-keys.patch`。先停掉 bottle（`soju epic-kill`），放置几个小时等计数器清零，然后只启动一次。
 - **BLZBNTBNA00000005** -> `play.sh` 会自动播种签名 exe；请确认是通过它启动的。
 
