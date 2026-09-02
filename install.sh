@@ -25,7 +25,9 @@ say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 mkdir -p "$BASE"
 
 # ---------- 1. Engine ----------
-if [ -x "$ENGINE/bin/wine" ]; then
+# bin/wine alone can be left behind by an interrupted extract; only an engine
+# that actually starts counts as present.
+if [ -x "$ENGINE/bin/wine" ] && DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version >/dev/null 2>&1; then
   say "[1/4] Engine already present - skipping"
 else
   say "[1/4] Downloading prebuilt engine (~350MB, GPL - built from CodeWeavers' published Wine sources)"
@@ -34,12 +36,21 @@ else
   URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
         | grep -o '"browser_download_url": *"[^"]*soju-engine[^"]*"' | head -1 | grep -o 'https[^"]*')
   [ -n "$URL" ] || { echo "Could not find the engine release asset."; exit 1; }
-  curl -fL "$URL" -o "$BASE/engine.tar.xz"
-  mkdir -p "$ENGINE"
-  tar -xJf "$BASE/engine.tar.xz" -C "$ENGINE"
+  # Download to a .part file and extract into a staging directory, so an
+  # interrupted run leaves nothing that a re-run would mistake for done.
+  curl -fL "$URL" -o "$BASE/engine.tar.xz.part"
+  mv -f "$BASE/engine.tar.xz.part" "$BASE/engine.tar.xz"
+  rm -rf "$ENGINE.new"; mkdir -p "$ENGINE.new"
+  tar -xJf "$BASE/engine.tar.xz" -C "$ENGINE.new"
   rm -f "$BASE/engine.tar.xz"
   TAG=$(echo "$URL" | sed -n 's#.*/download/\([^/]*\)/.*#\1#p')
-  [ -n "$TAG" ] && printf '%s\n' "$TAG" > "$ENGINE/.soju-engine-release"
+  printf '%s\n' "${TAG:-unknown}" > "$ENGINE.new/.soju-engine-release"
+  if [ -d "$ENGINE" ]; then
+    # A half-extracted engine from an earlier run; keep any GPTK payload in it.
+    [ -d "$ENGINE/lib/external" ] && cp -Rf "$ENGINE/lib/external" "$ENGINE.new/lib/" 2>/dev/null || true
+    rm -rf "$ENGINE"
+  fi
+  mv "$ENGINE.new" "$ENGINE"
   v=$(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version 2>&1) \
     || { echo "The engine does not start on this Mac:"; echo "$v"; echo "Please report this with the output of: sw_vers; uname -m"; exit 1; }
   echo "Engine OK: $v"

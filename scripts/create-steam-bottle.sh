@@ -44,7 +44,7 @@ echo "==> Initializing the prefix: $WINEPREFIX"
 "$WINESTABLE_APP/Contents/Resources/wine/bin/wineserver" -w 2>/dev/null || true
 
 SETUP="$WORK/SteamSetup.exe"
-[ -f "$SETUP" ] || curl -fL "https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe" -o "$SETUP"
+[ -f "$SETUP" ] || { curl -fL "https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe" -o "$SETUP.part" && mv -f "$SETUP.part" "$SETUP"; }
 echo "==> Installing Steam silently"
 "$WINE" "$SETUP" /S >/dev/null 2>&1 || true
 "$WINESTABLE_APP/Contents/Resources/wine/bin/wineserver" -w 2>/dev/null || true

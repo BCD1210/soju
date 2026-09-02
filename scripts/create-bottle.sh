@@ -35,7 +35,7 @@ done
 
 echo "==> Downloading the Battle.net installer (official Blizzard)"
 SETUP="$WORK/Battle.net-Setup.exe"
-[ -f "$SETUP" ] || curl -fL "https://downloader.battle.net/download/getInstaller?os=win&installer=Battle.net-Setup.exe" -o "$SETUP"
+[ -f "$SETUP" ] || { curl -fL "https://downloader.battle.net/download/getInstaller?os=win&installer=Battle.net-Setup.exe" -o "$SETUP.part" && mv -f "$SETUP.part" "$SETUP"; }
 
 echo "==> Running the installer (a few minutes, fully automatic)"
 "$ENGINE/bin/wine" "$SETUP" --lang=enUS >/dev/null 2>&1 || true
