@@ -77,6 +77,21 @@ start_reaper(){
 # remembers the input source per app, so switch to ABC before launching.
 case "$MODE" in *-kill) ;; *) python3 "$(dirname "${BASH_SOURCE[0]}")/soju-input-abc.py" 2>/dev/null || true ;; esac
 
+# Preflight for the CX engine modes: a GPTK payload whose PE shims are missing
+# (an engine refreshed by an older update.sh, which carried only lib/external
+# over) leaves D3D on wined3d, where the Epic launcher crashes at start and
+# games run slowly. Say so instead.
+case "$MODE" in
+  battlenet|d2r|epic|gog)
+    if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] \
+       && ! grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/d3d11.dll" 2>/dev/null; then
+      echo "soju: this engine has the GPTK payload but not Apple's D3D shims (d3d11/d3d12/dxgi.dll)," >&2
+      echo "      so D3DMetal is not active. Mount the GPTK dmg (or have CrossOver installed) and run:" >&2
+      echo "      $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju gptk" >&2
+      exit 1
+    fi ;;
+esac
+
 case "$MODE" in
   battlenet)   # Battle.net launcher (log in, then Play for online)
     # Battle.net.exe is started directly, not through "Battle.net Launcher.exe":
