@@ -12,6 +12,33 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 
 *[English README](README.md) · [简体中文说明](README.zh.md)*
 
+## 되는 것
+
+<!-- 스크린샷: docs/images/ 에 PNG(d2r-ingame.png, battlenet-login.png, hogwarts-ingame.png)를 넣고 주석을 푸세요.
+<p align="center">
+  <img src="docs/images/d2r-ingame.png" width="49%" alt="M4 Pro에서 실행 중인 Diablo II: Resurrected">
+  <img src="docs/images/battlenet-login.png" width="49%" alt="Apple Silicon에서 로그인된 Battle.net">
+</p>
+-->
+
+모두 M4 Pro / macOS 26.5에서 검증. 엔진은 하나, 런처마다 보틀 하나.
+
+| 런처 | 로그인 | 게임 설치 | 비고 |
+| --- | :-: | :-: | --- |
+| Battle.net | ✅ | ✅ | Agent 동작, `BLZBNTBNA00000005`는 서명 exe 시딩으로 해결 |
+| Epic Games Launcher | ✅ | ✅ | 창을 닫으면 메뉴바 트레이로 |
+| GOG GALAXY | ✅ | ✅ | 로그인·라이브러리까지, 게임은 아직 폭넓게 테스트 안 됨 |
+| Steam (Windows 클라이언트) | ✅ | ✅ | 별도 `wine-stable` + DXMT 보틀 |
+
+| 게임 | 스토어 | 그래픽 | 상태 | 비고 |
+| --- | --- | --- | :-: | --- |
+| Diablo II: Resurrected | Battle.net | D3DMetal (D3D11) | ✅ 인게임, 온라인 | `play.sh`가 `ROSETTA_ADVERTISE_AVX=1` 설정; [가이드](https://bcd1210.github.io/soju/guides/ko/diablo-2-mac.html) |
+| Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 인게임 | UE4 "AMD 드라이버" 경고는 무해, 입력 소스를 영어로 |
+| Unity D3D11 타이틀 | Steam | DXMT | ✅ 인게임, 창 모드 | `soju steam-games` 필요, [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
+| Diablo II: Resurrected (Infernal Edition) | Steam | — | ⏳ 미검증 | Steam 보틀에는 GPTK가 없고 D2R 로더는 `libd3dshared`가 필요 |
+
+안 되는 것: 커널 안티치트(EAC, BattlEye, Vanguard)가 붙은 게임 전부. 다른 게임을 돌리셨다면 [Discussions](https://github.com/BCD1210/soju/discussions)에 올리거나 표에 한 줄 추가하는 PR을 보내주세요.
+
 ## 핵심 발견 3가지
 
 커뮤니티가 몇 달째 못 풀던 문제들의 해법:
