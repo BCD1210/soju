@@ -139,7 +139,7 @@ scripts/play.sh steam-kill       # 停止 Steam bottle
 
 ### 残留的 Wine 进程
 
-每次启动 bottle 都会附带一组空闲的 Windows 服务进程（`services.exe`、`winedevice.exe`、`plugplay.exe`、`rpcss.exe`、`explorer.exe /desktop`，每组约 100 MB）。如果 bottle 的 `wineserver` 被强杀（崩溃、中断的运行），这些服务不会察觉，会一直挂着。`scripts/soju-sweep.sh` 负责清掉它们，`play.sh kill` / `epic-kill` / `steam-kill` 和守护进程会自动调用。它只在完全没有 `wineserver` 运行时才动手，正在运行的游戏或登录器绝不会被误伤。
+每次启动 bottle 都会附带一组空闲的 Windows 服务进程（`services.exe`、`winedevice.exe`、`plugplay.exe`、`rpcss.exe`、`explorer.exe /desktop`，每组约 100 MB）。如果 bottle 的 `wineserver` 被强杀（崩溃、中断的运行），这些服务不会察觉，会一直挂着。`scripts/soju-sweep.sh` 负责清掉它们，`play.sh kill` / `epic-kill` / `steam-kill` 和守护进程会自动调用。它它只清理不属于任何运行中 `wineserver` 的服务进程（存活 bottle 的每个进程都在其服务端 socket 目录里打开着文件），因此正在运行的游戏或登录器绝不会被误伤，即使其他 bottle 还在运行也一样。可用 `soju sweep` 手动执行。
 
 ## 仓库里有什么
 

@@ -27,9 +27,12 @@ WS="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver"
 sleep 1
 
 # 2. App bundles.
+# Only bundles install.sh wrote for this install (their launcher script names
+# this engine), so a custom SOJU_BASE never removes another install's apps.
 apps=()
 for a in "Battle.net" "Steam (Windows)" "Epic Games Launcher" "GOG GALAXY"; do
-  [ -d "$HOME/Applications/$a.app" ] && apps+=("$HOME/Applications/$a.app")
+  l="$HOME/Applications/$a.app/Contents/MacOS/launcher"
+  [ -f "$l" ] && grep -q "scripts/play.sh" "$l" && grep -qF "ENGINE=\"$ENGINE\"" "$l" && apps+=("$HOME/Applications/$a.app")
 done
 if [ "${#apps[@]}" -gt 0 ]; then
   printf 'Apps: %s\n' "${apps[@]}"

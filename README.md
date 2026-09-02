@@ -139,7 +139,7 @@ Start with `soju doctor`: it checks most of the items below and tells you which 
 
 ### Leftover Wine processes
 
-Every bottle start also spawns idle Windows service processes (`services.exe`, `winedevice.exe`, `plugplay.exe`, `rpcss.exe`, `explorer.exe /desktop`, ~100 MB per set). If a bottle's `wineserver` is killed abruptly (a crash, an aborted run), those services never notice and linger. `scripts/soju-sweep.sh` removes them, and `play.sh kill` / `epic-kill` / `steam-kill` and the reaper call it automatically. It only runs when no `wineserver` is running at all, so a live game or launcher is never touched.
+Every bottle start also spawns idle Windows service processes (`services.exe`, `winedevice.exe`, `plugplay.exe`, `rpcss.exe`, `explorer.exe /desktop`, ~100 MB per set). If a bottle's `wineserver` is killed abruptly (a crash, an aborted run), those services never notice and linger. `scripts/soju-sweep.sh` removes them, and `play.sh kill` / `epic-kill` / `steam-kill` and the reaper call it automatically. It only removes service processes that belong to no running `wineserver` (every live bottle's processes hold a file open in their server's socket directory), so a live game or launcher is never touched, even while other bottles are up. `soju sweep` runs it by hand.
 
 ## What's in the repo
 
