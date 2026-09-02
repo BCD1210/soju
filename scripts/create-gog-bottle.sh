@@ -31,7 +31,7 @@ echo "==> Initializing the prefix: $WINEPREFIX"
 
 echo "==> Downloading the GOG GALAXY installer"
 EXE="$WORK/setup_galaxy.exe"
-[ -f "$EXE" ] || curl -fL "https://webinstallers.gog-statics.com/download/GOG_Galaxy_2.0.exe" -o "$EXE"
+[ -f "$EXE" ] || { curl -fL "https://webinstallers.gog-statics.com/download/GOG_Galaxy_2.0.exe" -o "$EXE.part" && mv -f "$EXE.part" "$EXE"; }
 
 echo "==> Running the installer (silent; it downloads the client, a few minutes)"
 "$W" "$EXE" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES >/dev/null 2>&1 || true

@@ -25,7 +25,7 @@ export PATH="/opt/homebrew/opt/bison/bin:/opt/homebrew/bin:$PATH"
 mkdir -p "$WORK" "$DEPS"
 
 echo "==> Downloading CrossOver 26.3 sources + freetype"
-[ -f "$WORK/cx-src.tar.gz" ] || curl -fL "$SRC_URL" -o "$WORK/cx-src.tar.gz"
+[ -f "$WORK/cx-src.tar.gz" ] || { curl -fL "$SRC_URL" -o "$WORK/cx-src.tar.gz.part" && mv -f "$WORK/cx-src.tar.gz.part" "$WORK/cx-src.tar.gz"; }
 tar -xzf "$WORK/cx-src.tar.gz" -C "$WORK" sources/wine
 WINE="$WORK/sources/wine"
 # Soju winemac patch: WINE_NO_DOCK_ICON (hide helper-process Dock icons) and
@@ -49,7 +49,7 @@ if ! grep -q "KEY_STORE_MAGIC" "$WINE/dlls/ncrypt/main.c"; then
 fi
 
 echo "==> Building x86_64 freetype (Rosetta)"
-[ -f "$WORK/ft.tar.gz" ] || curl -fL "$FT_URL" -o "$WORK/ft.tar.gz"
+[ -f "$WORK/ft.tar.gz" ] || { curl -fL "$FT_URL" -o "$WORK/ft.tar.gz.part" && mv -f "$WORK/ft.tar.gz.part" "$WORK/ft.tar.gz"; }
 tar -xzf "$WORK/ft.tar.gz" -C "$WORK"
 ( cd "$WORK/freetype-2.13.3" && arch -x86_64 ./configure --prefix="$DEPS" \
     --without-harfbuzz --without-png --without-brotli --without-bzip2 \

@@ -13,23 +13,29 @@ say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 # ---------- 1. Scripts ----------
 say "[1/2] Updating the Soju scripts"
-if [ -d "$ROOT/.git" ]; then
+if [ -e "$ROOT/.git" ]; then          # a directory, or a file for worktrees/submodules
   echo "  git checkout at $ROOT"
   git -C "$ROOT" pull --ff-only || echo "  git pull failed (local changes?); skipping the scripts update"
-elif [[ "$ROOT" == */Cellar/* ]]; then
+elif [[ "$ROOT" == */Cellar/* || "$ROOT" == */opt/soju/* ]]; then
   echo "  installed with Homebrew; update with:  brew update && brew upgrade $REPO/soju"
+elif [ "$ROOT" != "$BASE/soju" ]; then
+  # Only the copy install.sh made is ours to overwrite; a zip download or any
+  # other checkout may carry local edits.
+  echo "  $ROOT is not the installer's copy ($BASE/soju); update it yourself (git pull, or re-download)"
 else
   echo "  refreshing the tarball copy at $ROOT"
   tmp="$ROOT.tmp.$$"
   mkdir -p "$tmp"
   if curl -fsSL "https://github.com/$REPO/archive/refs/heads/main.tar.gz" | tar -xz -C "$tmp" --strip-components=1; then
-    rsync -a --delete --exclude '.git' "$tmp/" "$ROOT/" 2>/dev/null || { cp -Rf "$tmp/". "$ROOT/"; }
-    chmod +x "$ROOT"/scripts/*.sh "$ROOT"/scripts/soju 2>/dev/null || true
+    # Swap directories instead of copying over the running script.
+    chmod +x "$tmp"/scripts/*.sh "$tmp"/scripts/soju 2>/dev/null || true
+    rm -rf "$ROOT.old"; mv "$ROOT" "$ROOT.old"; mv "$tmp" "$ROOT"; rm -rf "$ROOT.old"
+    tmp=""
     echo "  scripts updated"
   else
     echo "  download failed; skipping the scripts update"
   fi
-  rm -rf "$tmp"
+  [ -n "$tmp" ] && rm -rf "$tmp"
 fi
 
 # ---------- 2. Engine ----------
@@ -57,8 +63,17 @@ else
   echo "  $CUR -> $TAG"
 fi
 
+# Processes already running keep the old engine mapped while new ones (a game
+# started from the launcher, Agent) would load the new one against the old
+# wineserver. Refuse rather than mix them.
+if pgrep -x wineserver >/dev/null 2>&1; then
+  echo "  a launcher or game is still running; close it first (soju kill / epic-kill / gog-kill / steam-kill) and run soju update again"
+  exit 1
+fi
+
 echo "  downloading $TAG"
-curl -fL "$URL" -o "$BASE/engine.tar.xz"
+curl -fL "$URL" -o "$BASE/engine.tar.xz.part"
+mv -f "$BASE/engine.tar.xz.part" "$BASE/engine.tar.xz"
 NEW="$ENGINE.new"
 rm -rf "$NEW"; mkdir -p "$NEW"
 tar -xJf "$BASE/engine.tar.xz" -C "$NEW"

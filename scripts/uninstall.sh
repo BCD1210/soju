@@ -52,7 +52,20 @@ if [ -d "$ENGINE" ]; then
   fi
 fi
 
-# 5. The scripts copy made by the one-line installer.
+# 5. Caches and support files: downloaded installers and sources (build/),
+#    compiled helpers (*-support/), logs, and leftovers of an interrupted update.
+extras=()
+for d in build steam-support epic-support gog-support logs cx26-engine.old cx26-engine.new soju.old; do
+  [ -e "$BASE/$d" ] && extras+=("$BASE/$d")
+done
+if [ "${#extras[@]}" -gt 0 ]; then
+  sz=$(du -shc "${extras[@]}" 2>/dev/null | tail -1 | cut -f1)
+  printf 'Caches and support files (%s):\n' "$sz"; printf '  %s\n' "${extras[@]}"
+  if ask "Remove these?"; then rm -rf "${extras[@]}"; echo "  removed"; fi
+fi
+rm -f "$BASE"/reaper-*.log "$BASE"/*.tar.xz "$BASE"/*.part 2>/dev/null || true
+
+# 6. The scripts copy made by the one-line installer.
 if [ -d "$BASE/soju" ]; then
   if ask "Remove the scripts copy at $BASE/soju?"; then rm -rf "$BASE/soju"; echo "  removed"; fi
 fi
