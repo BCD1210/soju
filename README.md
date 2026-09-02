@@ -12,6 +12,33 @@ Built from CodeWeavers' published GPL sources (Wine 11.0, CrossOver 26.3 source 
 
 *[한국어 README](README.ko.md) · [简体中文说明](README.zh.md)*
 
+## What runs
+
+<!-- Screenshots: drop PNGs into docs/images/ (d2r-ingame.png, battlenet-login.png, hogwarts-ingame.png) and uncomment.
+<p align="center">
+  <img src="docs/images/d2r-ingame.png" width="49%" alt="Diablo II: Resurrected in-game on an M4 Pro">
+  <img src="docs/images/battlenet-login.png" width="49%" alt="Battle.net logged in on Apple Silicon">
+</p>
+-->
+
+All verified on an M4 Pro running macOS 26.5. Same engine, one bottle per launcher.
+
+| Launcher | Login | Install games | Notes |
+| --- | :-: | :-: | --- |
+| Battle.net | ✅ | ✅ | Agent works; `BLZBNTBNA00000005` fixed by the caller-signature seed |
+| Epic Games Launcher | ✅ | ✅ | parks in the menu bar tray on close |
+| GOG GALAXY | ✅ | ✅ | login + library; games not broadly tested yet |
+| Steam (Windows client) | ✅ | ✅ | separate `wine-stable` + DXMT bottle |
+
+| Game | Store | Graphics | Status | Notes |
+| --- | --- | --- | :-: | --- |
+| Diablo II: Resurrected | Battle.net | D3DMetal (D3D11) | ✅ in-game, online | `play.sh` sets `ROSETTA_ADVERTISE_AVX=1`; [guide](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
+| Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ in-game | UE4 "AMD driver" warning is harmless; switch input source to English |
+| Unity D3D11 title | Steam | DXMT | ✅ in-game, windowed | via `soju steam-games`; see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
+| Diablo II: Resurrected (Infernal Edition) | Steam | — | ⏳ not verified yet | the Steam bottle has no GPTK, and D2R's loader needs `libd3dshared` |
+
+Will not run: anything with kernel anti-cheat (EAC, BattlEye, Vanguard). Got another game running? Post it in [Discussions](https://github.com/BCD1210/soju/discussions) or send a PR that adds a row.
+
 ## Why this exists
 
 Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern Battle.net and D2R. The commercial option works, but the underlying Wine engine is GPL, so we built it ourselves and documented every wall we hit. Three of those walls had never been publicly solved:
