@@ -93,7 +93,7 @@ else
   # The engine ships on its own "engine-*" release, which is not necessarily the
   # newest release: scan all releases and take the first (newest) engine asset.
   URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
-        | grep -o '"browser_download_url": *"[^"]*soju-engine[^"]*"' | head -1 | grep -o 'https[^"]*')
+        | grep -o '"browser_download_url": *"[^"]*wine-engine[^"]*"' | head -1 | grep -o 'https[^"]*')
   [ -n "$URL" ] || { echo "Could not find the engine release asset."; exit 1; }
   # Download to a .part file and extract into a staging directory, so an
   # interrupted run leaves nothing that a re-run would mistake for done.

@@ -53,9 +53,15 @@ if [ ! -x "$ENGINE/bin/wine" ]; then
   echo "  no engine at $ENGINE (run: soju install)"; exit 0
 fi
 
+# The asset is named wine-engine-*.tar.xz from engine-v1.4 on. Older
+# updaters looked for soju-engine-* and, after refreshing the scripts, went on
+# to swap the engine with their own carry-over code, which dropped Apple's D3D
+# shims. The rename makes that updater stop at "could not find the engine
+# release asset" instead; the next run uses this script and carries the
+# shims over.
 URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
-      | grep -o '"browser_download_url": *"[^"]*soju-engine[^"]*"' | head -1 | grep -o 'https[^"]*') || true
-[ -n "${URL:-}" ] || { echo "  could not find the engine release asset (offline?)"; exit 1; }
+      | grep -o '"browser_download_url": *"[^"]*wine-engine[^"]*"' | head -1 | grep -o 'https[^"]*') || true
+[ -n "${URL:-}" ] || { echo "  could not find the engine release asset (offline? If the scripts were just updated, run soju update once more)"; exit 1; }
 TAG=$(echo "$URL" | sed -n 's#.*/download/\([^/]*\)/.*#\1#p')
 CUR=$(cat "$ENGINE/.soju-engine-release" 2>/dev/null || echo "")
 
