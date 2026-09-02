@@ -18,7 +18,7 @@ and fall back to the front window for a key up that arrives without one.
 
 --- a/dlls/winemac.drv/cocoa_app.h
 +++ b/dlls/winemac.drv/cocoa_app.h
-@@ -122,6 +122,7 @@
+@@ -110,6 +110,7 @@
  
      - (void) computeEventTimeAdjustmentFromTicks:(unsigned long long)tickcount uptime:(uint64_t)uptime_ns;
      - (double) ticksForEventTime:(NSTimeInterval)eventTime;
@@ -28,7 +28,7 @@ and fall back to the front window for a key up that arrives without one.
  
 --- a/dlls/winemac.drv/cocoa_app.m
 +++ b/dlls/winemac.drv/cocoa_app.m
-@@ -1402,6 +1402,39 @@
+@@ -1257,6 +1257,43 @@
          int index = keyCode / bits;
          uint32_t mask = 1 << (keyCode % bits);
          return (pressedKeyCodes[index] & mask) != 0;
@@ -48,6 +48,11 @@ and fall back to the front window for a key up that arrives without one.
 +        int bits = sizeof(pressedKeyCodes[0]) * 8;
 +        unsigned int i;
 +
++        /* Nowhere to deliver a release: keep our record of the held keys, so
++         * the real key up, when it does arrive, is still recognised and
++         * forwarded rather than dropped as a release of an unpressed key. */
++        if (!window) return;
++
 +        for (i = 0; i < sizeof(pressedKeyCodes) / sizeof(pressedKeyCodes[0]) * bits; i++)
 +        {
 +            macdrv_event* event;
@@ -56,7 +61,6 @@ and fall back to the front window for a key up that arrives without one.
 +            if (![self isKeyPressed:i]) continue;
 +
 +            [self noteKey:i pressed:FALSE];
-+            if (!window) continue;
 +
 +            event = macdrv_create_event(KEY_RELEASE, window);
 +            event->key.keycode   = i;
@@ -68,7 +72,7 @@ and fall back to the front window for a key up that arrives without one.
      }
  
      - (void) noteKey:(uint16_t)keyCode pressed:(BOOL)pressed
-@@ -1965,7 +1998,13 @@
+@@ -1820,7 +1857,13 @@
              {
                  WineWindow* window = (WineWindow*)[anEvent window];
                  [self noteKey:keyCode pressed:FALSE];
@@ -83,11 +87,11 @@ and fall back to the front window for a key up that arrives without one.
                      [window postKeyEvent:anEvent];
              }
          }
-@@ -2513,6 +2552,7 @@
+@@ -2209,6 +2252,7 @@
          WineEventQueue* queue;
  
          [self invalidateGotFocusEvents];
 +        [self releasePressedKeys];
  
-         if (!temporarilyIgnoreResignEventsForDialog)
-         {
+         event = macdrv_create_event(APP_DEACTIVATED, nil);
+ 
