@@ -79,12 +79,17 @@ esac
 SERVER_DIR="$(/usr/bin/stat -f "/tmp/.wine-$(id -u)/server-%Xd-%Xi" "$PREFIX" 2>/dev/null || true)"
 SERVER_DIR_REAL="$(cd /tmp 2>/dev/null && pwd -P)${SERVER_DIR#/tmp}"
 
+# Returns 0 alive, 1 gone, 2 unknown (the query itself failed: every
+# wineserver has a cwd, so no output at all means lsof did not answer, and
+# the caller must skip the round rather than count an orphan strike).
 server_alive() {
-  local pids
+  local pids out
   [ -n "$SERVER_DIR" ] || return 0     # cannot tell, assume it is there
   pids=$(pgrep -x wineserver 2>/dev/null | tr '\n' ',' | sed 's/,$//')
   [ -n "$pids" ] || return 1
-  lsof -a -p "$pids" -d cwd -Fn 2>/dev/null | grep -qxF -e "n$SERVER_DIR" -e "n$SERVER_DIR_REAL"
+  out=$(lsof -a -p "$pids" -d cwd -Fn 2>/dev/null)
+  [ -n "$out" ] || return 2
+  printf '%s\n' "$out" | grep -qxF -e "n$SERVER_DIR" -e "n$SERVER_DIR_REAL"
 }
 
 # PIDs of this bottle's Wine processes (the server itself excluded): every one
@@ -200,7 +205,9 @@ ORPHAN_STRIKES=0
 while true; do
   sleep "$INTERVAL"
 
-  if ! server_alive; then
+  server_alive; alive=$?
+  [ "$alive" -ne 2 ] || continue        # query failed: not evidence of anything
+  if [ "$alive" -ne 0 ]; then
     ORPHAN_STRIKES=$((ORPHAN_STRIKES + 1))
     if [ "$ORPHAN_STRIKES" -ge 2 ]; then reap_orphans; exit 0; fi
     continue
