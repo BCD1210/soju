@@ -77,19 +77,26 @@ start_reaper(){
 # remembers the input source per app, so switch to ABC before launching.
 case "$MODE" in *-kill) ;; *) python3 "$(dirname "${BASH_SOURCE[0]}")/soju-input-abc.py" 2>/dev/null || true ;; esac
 
-# Preflight for the CX engine modes: a GPTK payload whose PE shims are missing
-# (an engine refreshed by an older update.sh, which carried only lib/external
-# over) leaves D3D on wined3d, where the Epic launcher crashes at start and
-# games run slowly. Say so instead.
+# Preflight for the CX engine modes: without the GPTK payload, or with a
+# payload whose PE shims are missing (an engine refreshed by an older
+# update.sh, which carried only lib/external over), D3D runs on wined3d: the
+# Epic launcher crashes at start there, D2R's loader needs libd3dshared to get
+# through Rosetta, and everything else is slow. Say so instead of launching.
 case "$MODE" in
   battlenet|d2r|epic|gog)
-    shims_ok(){ local f; for f in d3d11 d3d12 dxgi; do
-      grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/$f.dll" 2>/dev/null || return 1
-      [ -L "$ENGINE/lib/wine/x86_64-unix/$f.so" ] || return 1; done; }
-    if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] && ! shims_ok; then
-      echo "soju: this engine has the GPTK payload but not Apple's D3D shims (d3d11/d3d12/dxgi.dll)," >&2
-      echo "      so D3DMetal is not active. Mount the GPTK dmg (or have CrossOver installed) and run:" >&2
-      echo "      $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju gptk" >&2
+    gptk_ok(){ local f
+      [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] || return 1
+      for f in d3d11 d3d12 dxgi; do
+        grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/$f.dll" 2>/dev/null || return 1
+        [ -L "$ENGINE/lib/wine/x86_64-unix/$f.so" ] || return 1
+      done; }
+    if ! gptk_ok; then
+      if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; then
+        echo "soju: this engine has the GPTK payload but not Apple's D3D shims (d3d11/d3d12/dxgi.dll), so D3DMetal is not active." >&2
+      else
+        echo "soju: Apple's Game Porting Toolkit is not installed in this engine, so D3DMetal is not active." >&2
+      fi
+      echo "      Mount the GPTK dmg (or have CrossOver installed) and run:  $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju gptk" >&2
       exit 1
     fi ;;
 esac
