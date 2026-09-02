@@ -1,6 +1,6 @@
 --- a/dlls/kernelbase/process.c
-+++ b/dlls/kernelbase/process.c	2026-08-30 01:16:39
-@@ -1815,10 +1815,33 @@
++++ b/dlls/kernelbase/process.c
+@@ -1719,10 +1719,33 @@
  /***********************************************************************
   *           SetEnvironmentVariableW   (kernelbase.@)
   */
@@ -15,7 +15,7 @@
 +    DWORD len, vlen;
 +    WCHAR *ret;
 +
-+    if (!name || wcsicmp( name, L"QTWEBENGINE_CHROMIUM_FLAGS" )) return NULL;
++    if (!name || !value || wcsicmp( name, L"QTWEBENGINE_CHROMIUM_FLAGS" )) return NULL;   /* NULL value = delete */
 +    len = GetEnvironmentVariableW( L"SOJU_CHROMIUM_FLAGS", extra, ARRAY_SIZE(extra) );
 +    if (!len || len >= ARRAY_SIZE(extra)) return NULL;
 +    if (value && wcsstr( value, extra )) return NULL;
@@ -34,9 +34,9 @@
  
      TRACE( "(%s %s)\n", debugstr_w(name), debugstr_w(value) );
  
-@@ -1834,6 +1857,12 @@
-     if (!wcscmp( name, L"VK_ICD_FILENAMES" ) && value && is_ubisoft())
-         write_ubisoft_vulkan_json( value );
+@@ -1732,6 +1755,12 @@
+         return FALSE;
+     }
  
 +    if ((soju_value = soju_append_chromium_flags( name, value )))
 +    {
@@ -47,7 +47,7 @@
      RtlInitUnicodeString( &us_name, name );
      if (value)
      {
-@@ -1842,6 +1871,7 @@
+@@ -1740,6 +1769,7 @@
      }
      else status = RtlSetEnvironmentVariable( NULL, &us_name, NULL );
  
@@ -57,7 +57,7 @@
  
 --- a/dlls/msvcrt/environ.c
 +++ b/dlls/msvcrt/environ.c
-@@ -144,11 +144,41 @@
+@@ -144,11 +144,42 @@
      return i;
  }
  
@@ -76,6 +76,7 @@
 +    size_t wl, al;
 +
 +    if (wcsnicmp(*wenv, prefix, ARRAY_SIZE(prefix) - 1)) return;
++    if (!(*wenv)[ARRAY_SIZE(prefix) - 1]) return;   /* "NAME=" removes the variable: leave it removed */
 +    len = GetEnvironmentVariableW(L"SOJU_CHROMIUM_FLAGS", extra, ARRAY_SIZE(extra));
 +    if (!len || len >= ARRAY_SIZE(extra)) return;
 +    if (wcsstr(*wenv, extra)) return;

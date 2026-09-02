@@ -29,6 +29,18 @@ else
 fi
 
 export WINEDEBUG="${WINEDEBUG:-fixme-all}"
+# SOJU_KEYLOG=1: record every key event the Mac driver sees and every focus
+# change, to ~/.battlenet-macos/logs/keys-<mode>-<time>.log. For "a key stays
+# pressed" / "keyboard dead, mouse fine" reports: the log shows which window a
+# KEY_RELEASE went to. Noisy (mouse moves too); leave it off otherwise.
+if [[ "${SOJU_KEYLOG:-0}" == 1 ]]; then
+  mkdir -p "$HOME/.battlenet-macos/logs"
+  KEYLOG="$HOME/.battlenet-macos/logs/keys-$MODE-$(date +%Y%m%d-%H%M%S).log"
+  export WINEDEBUG="fixme-all,+key,+event"
+  exec 2>>"$KEYLOG"
+  echo "soju keylog $(date) mode=$MODE prefix=$WINEPREFIX" >&2
+  echo "soju: key log -> $KEYLOG"
+fi
 export WINEMSYNC=1
 export ROSETTA_ADVERTISE_AVX=1
 # Battle.net's CEF renderer CHECKs that VirtualProtect() on a written .data page
@@ -58,6 +70,7 @@ start_reaper(){
   # prefix down once everything is closed: so "quit" really means quit.
   pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 && return 0
   [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" >/dev/null 2>&1 & )
+  return 0   # a missing reaper must not abort the launch (set -e)
 }
 
 # A Korean/Japanese/Chinese IME swallows key presses in Wine games, and macOS
@@ -97,6 +110,20 @@ case "$MODE" in
     # click therefore replays the tray double-click into the launcher instead
     # (tools/soju-epic-restore.c, built by create-epic-bottle.sh).
     export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$HOME/.battlenet-macos/epic-support/soju-epic-restore.exe'"
+    # The EOS overlay (EOSOVH-*-Shipping.dll, loaded by the EOS SDK into every
+    # game, plus a CEF renderer tree beside it) is off by default, like Steam's
+    # gameoverlayrenderer. It draws inside the game's own process, so when one
+    # of its windows takes Wine's keyboard focus (a toast, an achievement) the
+    # game gets no deactivation: a movement key held at that moment stays down,
+    # and every key after it goes to the overlay while the mouse keeps working
+    # (mouse input follows the cursor, keyboard input follows the foreground
+    # window). Under Wine the overlay offers nothing but those toasts. Wine
+    # honours the override for a load by full path too (verified with
+    # regsvr32: "Failed to load DLL"). SOJU_EPIC_OVERLAY=1 turns it back on.
+    # A launcher already running keeps its old environment: soju epic-kill first.
+    if [[ "${SOJU_EPIC_OVERLAY:-0}" != 1 ]]; then
+      export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}EOSOVH-Win64-Shipping,EOSOVH-Win32-Shipping=d"
+    fi
     EPIC="C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe"
     [[ -f "$WINEPREFIX/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe" ]] || \
       { echo "Epic Games Launcher not found, run scripts/create-epic-bottle.sh first"; exit 1; }
@@ -164,12 +191,26 @@ case "$MODE" in
         cp -f "$WRAP" "$d/steamwebhelper.exe"
       fi
     done
-    # 3) Drop Steam's autostart entry. Steam adds itself to the prefix's Run key
+    # 3) Keep virtual-desktop windows movable (one-time registry setting).
+    #    Done before anything boots the prefix: a live wineserver rewrites
+    #    user.reg on exit and would drop a line appended underneath it.
+    if ! pgrep -x wineserver >/dev/null 2>&1; then
+      grep -q 'AllowImmovableWindows' "$WINEPREFIX/user.reg" 2>/dev/null || {
+        printf '\n[Software\\\\Wine\\\\Mac Driver]\n"AllowImmovableWindows"="n"\n' >> "$WINEPREFIX/user.reg"
+      }
+    fi
+    # Everything that touches the Steam prefix runs without the CX engine
+    # environment (wine-stable has its own dylibs and no msync), the first
+    # process included: it is the one that boots the wineserver.
+    STEAM_ENV=(env -u DYLD_FALLBACK_LIBRARY_PATH -u CX_ACTIVE_GRAPHICS_BACKEND -u CX_GRAPHICS_BACKEND
+               -u CX_APPLEGPTK_LIBD3DSHARED_PATH -u WINEMSYNC -u ROSETTA_ADVERTISE_AVX -u WINE_SIMULATE_WRITECOPY
+               WINEPREFIX="$WINEPREFIX" WINEDEBUG="${WINEDEBUG:-fixme-all}")
+    # 4) Drop Steam's autostart entry. Steam adds itself to the prefix's Run key
     #    with -silent, so it comes back invisibly whenever anything boots this
     #    prefix. Steam re-adds it on update, so scrub it every launch.
-    "$WINESTABLE" reg delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run' \
+    "${STEAM_ENV[@]}" "$WINESTABLE" reg delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run' \
       /v Steam /f >/dev/null 2>&1 || true
-    # 4) Virtual desktop: this macdrv (gcenx wine 11) ignores virtual desktops,
+    # 5) Virtual desktop: this macdrv (gcenx wine 11) ignores virtual desktops,
     #    so it is off by default. The single Dock icon is handled by
     #    WINE_NO_DOCK_ICON (winemac patch) instead.
     #    To enable anyway: WINE_VIRTUAL_DESKTOP=auto (or a resolution like 1600x900).
@@ -182,11 +223,7 @@ case "$MODE" in
         VD="1728x1080"
       fi
     fi
-    # Keep virtual-desktop windows movable (one-time registry setting)
-    grep -q 'AllowImmovableWindows' "$WINEPREFIX/user.reg" 2>/dev/null || {
-      printf '\n[Software\\\\Wine\\\\Mac Driver]\n"AllowImmovableWindows"="n"\n' >> "$WINEPREFIX/user.reg"
-    }
-    # 5) Launch: plain wine-stable environment, without the CX engine env
+    # 6) Launch: plain wine-stable environment, without the CX engine env
     STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process -noverifyfiles "${@:2}")
     [[ -n "$VD" ]] && STEAM_CMD=(explorer.exe "/desktop=soju-steam,$VD" "${STEAM_CMD[@]}")
     # Closing the Steam window parks it in a tray macOS does not show; the patched
@@ -197,16 +234,14 @@ case "$MODE" in
     # rest of the bottle down so no Dock icon / winedevice lingers.
     pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
       { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$WINESTABLE_SERVER" steam >/dev/null 2>&1 & ); }
-    env -u DYLD_FALLBACK_LIBRARY_PATH -u CX_ACTIVE_GRAPHICS_BACKEND -u CX_GRAPHICS_BACKEND \
-        -u CX_APPLEGPTK_LIBD3DSHARED_PATH -u WINEMSYNC -u ROSETTA_ADVERTISE_AVX \
-      WINEPREFIX="$WINEPREFIX" WINEDEBUG="${WINEDEBUG:-fixme-all}" \
+    "${STEAM_ENV[@]}" \
       WINEDLLOVERRIDES="bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d" \
       WINE_NO_DOCK_ICON="steam.exe;steamservice.exe" \
       WINE_DOCK_REOPEN_CMD="'$WINESTABLE' 'C:\\Program Files (x86)\\Steam\\steam.exe' steam://open/main" \
       "$WINESTABLE" "${STEAM_CMD[@]}"
     ;;
   kill)        # Stop everything in the Battle.net bottle
-    pkill -f "soju-reaper.sh" 2>/dev/null || true
+    pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;

@@ -25,7 +25,7 @@ export PATH="/opt/homebrew/opt/bison/bin:/opt/homebrew/bin:$PATH"
 mkdir -p "$WORK" "$DEPS"
 
 echo "==> Downloading CrossOver 26.3 sources + freetype"
-[ -f "$WORK/cx-src.tar.gz" ] || curl -fL "$SRC_URL" -o "$WORK/cx-src.tar.gz"
+[ -f "$WORK/cx-src.tar.gz" ] || { curl -fL "$SRC_URL" -o "$WORK/cx-src.tar.gz.part" && mv -f "$WORK/cx-src.tar.gz.part" "$WORK/cx-src.tar.gz"; }
 tar -xzf "$WORK/cx-src.tar.gz" -C "$WORK" sources/wine
 WINE="$WORK/sources/wine"
 # Soju winemac patch: WINE_NO_DOCK_ICON (hide helper-process Dock icons) and
@@ -39,9 +39,17 @@ if ! grep -q "soju_append_chromium_flags" "$WINE/dlls/kernelbase/process.c"; the
   echo "==> Applying patches/chromium-flags-append.patch (SOJU_CHROMIUM_FLAGS hook for Qt launchers)"
   patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/chromium-flags-append.patch"
 fi
+if ! grep -q "releasePressedKeys" "$WINE/dlls/winemac.drv/cocoa_app.m"; then
+  echo "==> Applying patches/winemac-release-keys-on-focus-loss.patch (keys stuck down after a focus change)"
+  patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/winemac-release-keys-on-focus-loss.patch"
+fi
+if ! grep -q "KEY_STORE_MAGIC" "$WINE/dlls/ncrypt/main.c"; then
+  echo "==> Applying patches/ncrypt-persisted-keys.patch (named CNG keys survive the process)"
+  patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/ncrypt-persisted-keys.patch"
+fi
 
 echo "==> Building x86_64 freetype (Rosetta)"
-[ -f "$WORK/ft.tar.gz" ] || curl -fL "$FT_URL" -o "$WORK/ft.tar.gz"
+[ -f "$WORK/ft.tar.gz" ] || { curl -fL "$FT_URL" -o "$WORK/ft.tar.gz.part" && mv -f "$WORK/ft.tar.gz.part" "$WORK/ft.tar.gz"; }
 tar -xzf "$WORK/ft.tar.gz" -C "$WORK"
 ( cd "$WORK/freetype-2.13.3" && arch -x86_64 ./configure --prefix="$DEPS" \
     --without-harfbuzz --without-png --without-brotli --without-bzip2 \

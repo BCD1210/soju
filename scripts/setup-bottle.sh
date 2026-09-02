@@ -23,4 +23,4 @@ done
 [[ -d "$CX_BOTTLE/dosdevices" ]] && cp -Rc "$CX_BOTTLE/dosdevices" "$DEST/"
 
 echo "==> Done. Launch with:"
-echo "    WINEPREFIX='$DEST' scripts/launch.sh"
+echo "    WINEPREFIX='$DEST' scripts/play.sh battlenet"

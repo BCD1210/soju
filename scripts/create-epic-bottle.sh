@@ -28,7 +28,7 @@ echo "==> Initializing the prefix: $WINEPREFIX"
 
 echo "==> Downloading the Epic Games Launcher installer (official Epic MSI)"
 MSI="$WORK/EpicGamesLauncherInstaller.msi"
-[ -f "$MSI" ] || curl -fL "https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncherInstaller.msi" -o "$MSI"
+[ -f "$MSI" ] || { curl -fL "https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncherInstaller.msi" -o "$MSI.part" && mv -f "$MSI.part" "$MSI"; }
 
 echo "==> Running the installer (unattended, about half a minute)"
 "$W" msiexec /i "$MSI" /qn >/dev/null 2>&1 || true

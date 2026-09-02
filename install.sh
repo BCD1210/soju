@@ -25,7 +25,9 @@ say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 mkdir -p "$BASE"
 
 # ---------- 1. Engine ----------
-if [ -x "$ENGINE/bin/wine" ]; then
+# bin/wine alone can be left behind by an interrupted extract; only an engine
+# that actually starts counts as present.
+if [ -x "$ENGINE/bin/wine" ] && DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version >/dev/null 2>&1; then
   say "[1/4] Engine already present - skipping"
 else
   say "[1/4] Downloading prebuilt engine (~350MB, GPL - built from CodeWeavers' published Wine sources)"
@@ -34,14 +36,31 @@ else
   URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
         | grep -o '"browser_download_url": *"[^"]*soju-engine[^"]*"' | head -1 | grep -o 'https[^"]*')
   [ -n "$URL" ] || { echo "Could not find the engine release asset."; exit 1; }
-  curl -fL "$URL" -o "$BASE/engine.tar.xz"
-  mkdir -p "$ENGINE"
-  tar -xJf "$BASE/engine.tar.xz" -C "$ENGINE"
+  # Download to a .part file and extract into a staging directory, so an
+  # interrupted run leaves nothing that a re-run would mistake for done.
+  curl -fL "$URL" -o "$BASE/engine.tar.xz.part"
+  mv -f "$BASE/engine.tar.xz.part" "$BASE/engine.tar.xz"
+  rm -rf "$ENGINE.new"; mkdir -p "$ENGINE.new"
+  tar -xJf "$BASE/engine.tar.xz" -C "$ENGINE.new"
   rm -f "$BASE/engine.tar.xz"
   TAG=$(echo "$URL" | sed -n 's#.*/download/\([^/]*\)/.*#\1#p')
-  [ -n "$TAG" ] && printf '%s\n' "$TAG" > "$ENGINE/.soju-engine-release"
-  DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version >/dev/null \
-    && echo "Engine OK: $(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version)"
+  printf '%s\n' "${TAG:-unknown}" > "$ENGINE.new/.soju-engine-release"
+  if [ -d "$ENGINE" ]; then
+    # A broken engine from an earlier run; keep any GPTK payload in it, and
+    # restore the symlink layout the payload needs (real files in lib/external,
+    # links in x86_64-unix: copies there break @loader_path).
+    if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; then
+      mkdir -p "$ENGINE.new/lib/external"
+      cp -Rf "$ENGINE/lib/external/." "$ENGINE.new/lib/external/"
+      ( cd "$ENGINE.new/lib/wine/x86_64-unix" \
+        && for f in d3d10.so d3d11.so d3d12.so dxgi.so; do ln -sf ../../external/libd3dshared.dylib "$f"; done )
+    fi
+    rm -rf "$ENGINE"
+  fi
+  mv "$ENGINE.new" "$ENGINE"
+  v=$(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version 2>&1) \
+    || { echo "The engine does not start on this Mac:"; echo "$v"; echo "Please report this with the output of: sw_vers; uname -m"; exit 1; }
+  echo "Engine OK: $v"
 fi
 
 # ---------- 2. Apple GPTK ----------
@@ -80,7 +99,7 @@ else
 EOT
     while true; do
       read -r -p "  Press Enter when ready (or s to skip): " ans < "$TTY" || ans=s
-      [ "$ans" = "s" ] && { echo "  Skipped - run scripts/get-gptk.sh later"; break; }
+      [ "$ans" = "s" ] && { echo "  Skipped - the last lines of this installer say how to add it later"; break; }
       if SRC=$(find_gptk); then install_gptk "$SRC"; echo "  Installed"; break; fi
       echo "  Not found yet - make sure the dmg is mounted"
     done
@@ -93,6 +112,12 @@ fi
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
 if [ -n "$SELF_DIR" ] && [ -f "$SELF_DIR/scripts/play.sh" ]; then
   SOJU_DIR="$SELF_DIR"
+  # Homebrew: the Cellar path carries the version and goes away on `brew
+  # upgrade`, which would leave every app bundle pointing at nothing. Bake the
+  # stable opt/ path into the bundles instead.
+  case "$SOJU_DIR" in
+    */Cellar/soju/*/libexec) SOJU_DIR="$(brew --prefix 2>/dev/null || echo /opt/homebrew)/opt/soju/libexec" ;;
+  esac
 else
   SOJU_DIR="$BASE/soju"
   say "Fetching the Soju scripts into $SOJU_DIR"
@@ -199,8 +224,8 @@ for p in $PLATFORMS; do
 done
 
 say "Done! 🍶  Double-click the app(s) above, log in, install and play."
-echo "Command line: $SOJU_DIR/scripts/soju  (battlenet | d2r | steam | epic | gog, plus *-kill)"
-GPTK_OK || echo "NOTE: GPTK was skipped - run scripts/get-gptk.sh before launching a game."
+echo "Command line: $SOJU_DIR/scripts/soju  (battlenet | d2r | kill | epic | epic-kill | gog | gog-kill | steam | steam-kill | doctor | update)"
+GPTK_OK || echo "NOTE: GPTK was skipped - before launching a game, mount the GPTK dmg and run:  $SOJU_DIR/scripts/soju gptk"
 echo
 echo "Something broke?  Run 'soju doctor' and paste its output in an issue: https://github.com/BCD1210/soju/issues"
 echo "Worked for you?   A star helps other Mac gamers find this:           https://github.com/BCD1210/soju"

@@ -6,6 +6,8 @@ set -uo pipefail
 BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
 ENGINE="${ENGINE:-$BASE/cx26-engine}"
 REPO="BCD1210/soju"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOJU="$ROOT/scripts/soju"
 WINESTABLE="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine"
 
 nok=0; nwarn=0; nfail=0
@@ -49,15 +51,15 @@ echo "Apple GPTK (D3DMetal)"
 if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; then
   pass "libd3dshared.dylib present"
   [ -d "$ENGINE/lib/external/D3DMetal.framework" ] && pass "D3DMetal.framework present" \
-    || warn "D3DMetal.framework missing from lib/external (get-gptk.sh installs it)"
+    || warn "D3DMetal.framework missing from lib/external ($SOJU gptk installs it)"
   for f in d3d10 d3d11 d3d12 dxgi; do
     so="$ENGINE/lib/wine/x86_64-unix/$f.so"
     if [ -L "$so" ]; then pass "$f.so is a symlink"
-    elif [ -f "$so" ]; then fail "$f.so is a regular file: must be a symlink into lib/external (copying breaks @loader_path); re-run scripts/get-gptk.sh"
+    elif [ -f "$so" ]; then fail "$f.so is a regular file: must be a symlink into lib/external (copying breaks @loader_path); re-run: $SOJU gptk"
     else warn "$f.so missing"; fi
   done
 else
-  fail "GPTK not installed: games will not start (run scripts/get-gptk.sh)"
+  fail "GPTK not installed: games will not start (run: $SOJU gptk)"
 fi
 
 echo
@@ -78,12 +80,13 @@ fi
 
 echo
 echo "Processes"
-nsrv=$(pgrep -fc wineserver 2>/dev/null || true); nsrv=${nsrv:-0}
+# macOS pgrep has no -c: count lines instead.
+nsrv=$(pgrep -x wineserver 2>/dev/null | wc -l | tr -d ' ')
 if [ "$nsrv" -gt 0 ]; then
   info "$nsrv wineserver(s) running (a launcher or game is open)"
 else
   if pgrep -f 'services\.exe|winedevice\.exe|plugplay\.exe' >/dev/null 2>&1; then
-    warn "orphaned Wine service processes with no wineserver: run scripts/soju-sweep.sh"
+    warn "orphaned Wine service processes with no wineserver: run: $SOJU sweep"
   else
     pass "no leftover Wine processes"
   fi
