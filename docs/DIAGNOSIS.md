@@ -453,3 +453,11 @@ GPTK 페이로드는 세 부분이다. `external/`(libd3dshared.dylib, D3DMetal.
 
 검증: 깨끗한 v1.4 빌드 + `get-gptk.sh`(CrossOver 경로에서 자동 추출) → Epic 로그인 완료, 저장된
 DPoP 키 재사용(NCryptOpenKey → NCryptSignHash), wined3d 폴백 없음, 크래시 없음.
+
+### 후속 (2026-09-02): 심볼릭 링크 프리픽스에서 항상 고아 판정
+
+Battle.net 보틀(`~/.battlenet-macos/bottle`)은 Whisky 컨테이너로 가는 심볼릭 링크다. macOS `stat`은
+기본이 lstat이라 `stat -f %Xd-%Xi`가 링크 자체의 inode를 냈고, Wine은 해석된 경로의 inode로 서버
+디렉토리를 만드니 절대 일치하지 않았다. 결과: 이 보틀의 reaper는 서버가 살아 있어도 두 주기 뒤에
+고아로 판정해 D2R과 Battle.net을 죽였다(v1.4 검증 중 "wineserver crashed"로 나타남). `pwd -P`로 해석한
+경로에 `stat -L`을 쓰도록 고쳤다. Epic 보틀(실제 디렉토리)은 영향이 없어서 스크래치 테스트도 통과했었다.
