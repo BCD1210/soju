@@ -43,6 +43,10 @@ if ! grep -q "releasePressedKeys" "$WINE/dlls/winemac.drv/cocoa_app.m"; then
   echo "==> Applying patches/winemac-release-keys-on-focus-loss.patch (keys stuck down after a focus change)"
   patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/winemac-release-keys-on-focus-loss.patch"
 fi
+if ! grep -q "CopyKeyboardLayoutForKeyTables" "$WINE/dlls/winemac.drv/cocoa_app.m"; then
+  echo "==> Applying patches/winemac-ime-ascii-layout.patch (letter keys dead under a Korean/CJK input source)"
+  patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/winemac-ime-ascii-layout.patch"
+fi
 if ! grep -q "KEY_STORE_MAGIC" "$WINE/dlls/ncrypt/main.c"; then
   echo "==> Applying patches/ncrypt-persisted-keys.patch (named CNG keys survive the process)"
   patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/ncrypt-persisted-keys.patch"
