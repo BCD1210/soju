@@ -32,7 +32,7 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 
 | 게임 | 스토어 | 그래픽 | 상태 | 비고 |
 | --- | --- | --- | :-: | --- |
-| Diablo II: Resurrected | Battle.net | D3DMetal (D3D11) | ✅ 인게임, 온라인 | `play.sh`가 `ROSETTA_ADVERTISE_AVX=1` 설정; [가이드](https://bcd1210.github.io/soju/guides/ko/diablo-2-mac.html) |
+| Diablo II: Resurrected | Battle.net | D3DMetal (D3D11) | ✅ 인게임, 온라인 | **macOS 26.4 이상**(전제조건 참고); `play.sh`가 `ROSETTA_ADVERTISE_AVX=1` 설정; [가이드](https://bcd1210.github.io/soju/guides/ko/diablo-2-mac.html) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 인게임 | UE4 "AMD 드라이버" 경고는 무해, 입력 소스를 영어로 |
 | Unity D3D11 타이틀 | Steam | DXMT | ✅ 인게임, 창 모드 | `soju steam-games` 필요, [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected (Infernal Edition) | Steam | — | ⏳ 미검증 | Steam 보틀에는 GPTK가 없고 D2R 로더는 `libd3dshared`가 필요 |
@@ -141,7 +141,7 @@ scripts/play.sh steam-kill       # Steam 보틀 종료
 
 검증: M4 Pro / macOS 26.5. 로그인·라이브러리·실제 D3D11(Unity) 게임 인게임 렌더링까지 (DXMT 포크). 전체 배선은 `docs/STEAM-GAMES.md` + `scripts/setup-steam-games.sh` 참고. 참고: Steam 입력 시 macOS 입력기를 영어(ABC)로 전환하세요 (한글 IME 조합이 `?`로 보입니다).
 
-**전제조건**: Apple Silicon 맥, Rosetta 2, Xcode CLT, Homebrew, 본인 배틀넷 계정, GPTK용 무료 Apple ID.
+**전제조건**: Apple Silicon 맥, Rosetta 2, Xcode CLT, Homebrew, 본인 배틀넷 계정, GPTK용 무료 Apple ID. **Diablo II: Resurrected는 macOS 26.4 이상이 필요합니다**: 2026년 1월 블리자드가 넣은 안티치트가 Rosetta 2 버그를 건드리는데 Apple이 26.4에서 고쳤습니다. macOS 15에서는 게임이 실행 직후 죽고(배틀넷은 "업데이트"를 띄운 뒤 Initializing에 멈춤) CrossOver도 마찬가지입니다. 런처와 다른 게임은 이 버그와 무관하지만, 검증은 전부 macOS 26.5에서만 했습니다.
 
 ### GPTK가 왜 필요한가?
 
