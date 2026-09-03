@@ -35,8 +35,9 @@ set -euo pipefail
 
 ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
 
-# SHA-256 of every PE shim Apple has shipped, by source. Hashes only: the file
-# name does not matter, a renamed or tampered file simply fails to match.
+# SHA-256 of every PE shim Apple has shipped, by source. A file must match
+# both the hash and the name it was shipped under: the shims are installed by
+# name, so an allowlisted dxgi.dll renamed to d3d11.dll must not pass either.
 KNOWN_SHIMS='
 # Evaluation environment for Windows games 2.1 (2025-03)
 3f88284a15b94840fdb674adc358855339635eaf7757d135f71d3cfdad77e8ab d3d10.dll
@@ -65,6 +66,7 @@ bbda1c4e94ee70255c528c5689b28333ca9bece2d755ede7c4197977a534704f d3d12.dll
 1b1f2d80349e043e6c628b515ba6b44478a1209c504e6c9f3dae4a9d1b06d561 dxgi.dll
 c999c40698b7fc23c864165fb1364e6a40a8572469775947845afd42f4dfc9e7 atidxx64.dll
 f073fc2377b305380bcd8c228394e48abe1caf09116e12875cb656774a14b4dc nvapi64.dll
+d7c0df74d9bb4de5e2a3cc357b2309148fd3fdc824fe7941e4d789dbd072ff99 nvngx.dll
 '
 # The shims D3DMetal cannot work without (the rest are optional extras).
 REQUIRED_SHIMS="d3d11 d3d12 dxgi"
@@ -76,7 +78,7 @@ verify_apple() {
 }
 shim_known() {
   local h; h=$(shasum -a 256 "$1" | cut -d' ' -f1)
-  grep -q "^$h " <<<"$KNOWN_SHIMS"
+  grep -q "^$h $(basename "$1")\$" <<<"$KNOWN_SHIMS"
 }
 # The payload directory (the one holding libd3dshared.dylib) under one root,
 # printed only when both Mach-O parts verify.
