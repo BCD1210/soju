@@ -1,0 +1,81 @@
+Build the key tables from the ASCII-capable layout while an input method is
+selected.
+
+Windows keeps the keyboard layout and the IME apart: with the Korean IME
+active, VK_W still maps to 'W' (MapVirtualKey, ToUnicode) and the Hangul
+composition happens inside the IME.  macOS folds both into one input source,
+and the Korean input method carries a layout whose letter keys produce jamo.
+winemac builds its key tables from that layout, so while Korean is selected
+every letter key produces a jamo character instead of its letter.
+
+A game does not notice the input method at all, it just stops responding:
+Unreal maps the letter keys by character (FWindowsPlatformInput::GetKeyMap
+lists only the special keys), so W arrives as U+3148, matches nothing and is
+dropped, while Escape, arrows and function keys still work.  A movement key
+held at the moment the source switches never gets its release either, because
+the release maps the same way, so the character keeps walking.  Measured in
+Hogwarts Legacy with a +key trace: the source flipped mid-game with W, Shift
+and Space held (a sprint-jump on the input source shortcut), and from then on
+"WM_CHAR ... L\"\3139\"" replaced "L\"f\"" for every press.
+
+So while an input method is selected, use the ASCII-capable layout it sits on
+(TISCopyCurrentASCIICapableKeyboardLayoutInputSource), which is what Windows
+would report.  Composition is unaffected: it goes through the input method
+itself (NSTextInputContext), which does not read these tables.
+
+--- a/dlls/winemac.drv/cocoa_app.m	2026-07-15 03:37:33
++++ b/dlls/winemac.drv/cocoa_app.m	2026-09-02 22:05:35
+@@ -127,6 +127,35 @@
+ @end
+ 
+ 
++
++/* The keyboard layout Wine builds its key tables from.
++ *
++ * Windows keeps the keyboard layout and the IME apart: with the Korean IME
++ * active, VK_W still maps to 'W' (MapVirtualKey, ToUnicode) and the Hangul
++ * composition happens inside the IME.  macOS folds both into one input source,
++ * and the Korean input method carries a layout whose letter keys produce jamo.
++ * Building the key tables from that layout makes every letter key
++ * unrecognisable to a game: Unreal maps letters by character, so W arrives as
++ * U+3148 and is dropped, and a W held while the source is switched stays down
++ * because its release maps the same way.
++ *
++ * So while an input method is selected, use the ASCII-capable layout it sits
++ * on, which is what Windows would report.  Composition is unaffected: it goes
++ * through the input method itself (NSTextInputContext), not these tables. */
++static TISInputSourceRef CopyKeyboardLayoutForKeyTables(void)
++{
++    TISInputSourceRef source = TISCopyCurrentKeyboardInputSource();
++    TISInputSourceRef layout = NULL;
++    CFStringRef type = source ? TISGetInputSourceProperty(source, kTISPropertyInputSourceType) : NULL;
++
++    if (type && !CFEqual(type, kTISTypeKeyboardLayout))
++        layout = TISCopyCurrentASCIICapableKeyboardLayoutInputSource();
++    if (!layout)
++        layout = TISCopyCurrentKeyboardLayoutInputSource();
++    if (source) CFRelease(source);
++    return layout;
++}
++
+ @implementation WineApplicationController
+ 
+     @synthesize keyboardType, lastFlagsChanged;
+@@ -554,7 +583,7 @@
+         }
+ 
+         inputSource = TISCopyCurrentKeyboardInputSource();
+-        inputSourceLayout = TISCopyCurrentKeyboardLayoutInputSource();
++        inputSourceLayout = CopyKeyboardLayoutForKeyTables();
+         if (!force && EqualInputSource(inputSource, lastKeyboardInputSource) &&
+             EqualInputSource(inputSourceLayout, lastKeyboardLayoutInputSource))
+         {
+@@ -2696,7 +2725,7 @@
+     OnMainThread(^{
+         TISInputSourceRef inputSourceLayout;
+ 
+-        inputSourceLayout = TISCopyCurrentKeyboardLayoutInputSource();
++        inputSourceLayout = CopyKeyboardLayoutForKeyTables();
+         if (inputSourceLayout)
+         {
+             CFDataRef data = TISGetInputSourceProperty(inputSourceLayout,
