@@ -35,62 +35,6 @@ GPTK_OK(){
     [ -L "$ENGINE/lib/wine/x86_64-unix/$f.so" ] || return 1
   done
 }
-# Where the payload can be: every disk image mounted under /Volumes (Apple's
-# dmg mounts as "Evaluation environment for Windows games N.N", and the name
-# has changed between releases, so hdiutil is asked for the mount points
-# instead of guessing at names), then an installed CrossOver.
-gptk_roots(){
-  hdiutil info 2>/dev/null | awk -F'\t' '$1 ~ /^\/dev\/disk/ && $3 ~ /^\/Volumes\// {print $3}'
-  echo "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk"
-}
-# The payload directory (the one holding libd3dshared.dylib) under one root.
-# The file is copied into the engine and loaded into every game, so only a
-# copy carrying Apple's signature is accepted.
-find_payload_in(){
-  local r="$1" f
-  [ -d "$r" ] || return 1
-  f=$(find "$r" -maxdepth 6 -name "libd3dshared.dylib" 2>/dev/null | head -1)
-  [ -n "$f" ] || return 1
-  local auth; auth=$(codesign -dvv "$f" 2>&1 || true)
-  case "$auth" in *"Authority=Apple Root CA"*) ;; *) auth="" ;; esac
-  if [ -z "$auth" ] || ! codesign -v "$f" 2>/dev/null; then
-    echo "  Found $f but it does not carry Apple's signature, not using it" >&2
-    return 1
-  fi
-  dirname "$f"
-}
-find_gptk(){   # [path]: a mounted volume or folder given by the user, else scan
-  local r
-  if [ -n "${1:-}" ]; then find_payload_in "$1"; return; fi
-  while IFS= read -r r; do
-    [ -n "$r" ] && find_payload_in "$r" && return 0
-  done <<EOF
-$(gptk_roots)
-EOF
-  return 1
-}
-# Three parts, all needed for D3DMetal to engage: external/ (Metal side),
-# wine/x86_64-windows/*.dll (Apple's PE shims replacing Wine's d3d11/d3d12/dxgi),
-# and one unixlib symlink per shim. Same as scripts/get-gptk.sh.
-install_gptk(){
-  local SRC="$1" PE="$1/../wine/x86_64-windows" f b shims
-  mkdir -p "$ENGINE/lib/external"
-  cp -Rf "$SRC/D3DMetal.framework" "$ENGINE/lib/external/" 2>/dev/null || true
-  cp -f  "$SRC/libd3dshared.dylib" "$ENGINE/lib/external/"
-  if [ -d "$PE" ]; then
-    for f in "$PE"/*.dll; do
-      b=$(basename "$f")
-      [ -f "$ENGINE/lib/wine/x86_64-windows/$b" ] && [ ! -f "$ENGINE/lib/wine/x86_64-windows/$b.wine" ] \
-        && cp -p "$ENGINE/lib/wine/x86_64-windows/$b" "$ENGINE/lib/wine/x86_64-windows/$b.wine"
-      cp -f "$f" "$ENGINE/lib/wine/x86_64-windows/$b"
-    done
-    shims=$(cd "$PE" && ls *.dll | sed 's/\.dll$//')
-  else
-    shims="d3d10 d3d11 d3d12 dxgi"
-  fi
-  ( cd "$ENGINE/lib/wine/x86_64-unix" \
-    && for f in $shims; do ln -sf ../../external/libd3dshared.dylib "$f.so"; done )
-}
 # Copy an installed GPTK payload from one engine to another (all three parts).
 carry_gptk(){   # from, to
   local from="$1" to="$2" f b
@@ -140,36 +84,7 @@ else
   echo "Engine OK: $v"
 fi
 
-# ---------- 2. Apple GPTK ----------
-if GPTK_OK; then
-  say "[2/4] Apple GPTK already installed - skipping"
-else
-  say "[2/4] Apple Game Porting Toolkit needed (free, one time)"
-  if SRC=$(find_gptk); then
-    echo "Found: $SRC - installing automatically"
-    install_gptk "$SRC"
-  else
-    cat <<'EOT'
-  Running games needs one Apple file (libd3dshared). Apple forbids redistributing
-  it, so you have to download it yourself (a free Apple ID is enough):
-    1) Open https://developer.apple.com/games/game-porting-toolkit/
-    2) Download the "evaluation environment for Windows games" dmg (that is
-       the Game Porting Toolkit download) and double-click it to mount it
-    3) Come back to this window and press Enter
-EOT
-    while true; do
-      read -r -p "  Press Enter when the dmg is mounted, or paste the path of the mounted volume (s to skip): " ans < "$TTY" || ans=s
-      [ "$ans" = "s" ] && { echo "  Skipped - the last lines of this installer say how to add it later"; break; }
-      ans=${ans//\\ / }; ans=${ans%"${ans##*[! ]}"}   # a path dragged into Terminal comes escaped
-      if SRC=$(find_gptk "$ans"); then install_gptk "$SRC"; echo "  Installed from $SRC"; break; fi
-      echo "  Not found yet. Disk images mounted right now:"
-      hdiutil info 2>/dev/null | awk -F'\t' '$1 ~ /^\/dev\/disk/ && $3 ~ /^\/Volumes\// {print "    " $3}'
-      echo "  If the toolkit is mounted under another name, paste its path (you can drag the volume from Finder into this window)."
-    done
-  fi
-fi
-
-# ---------- 3. Launchers ----------
+# ---------- Soju scripts ----------
 # The bottle scripts live in the repo; fetch a copy next to the engine so the
 # one-line installer can use them (a checkout running install.sh uses itself).
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
@@ -190,6 +105,43 @@ else
 fi
 chmod +x "$SOJU_DIR"/scripts/*.sh "$SOJU_DIR"/scripts/soju 2>/dev/null || true
 
+# ---------- 2. Apple GPTK ----------
+# scripts/get-gptk.sh finds the payload (mounted toolkit dmg, or CrossOver),
+# verifies every file (Apple's signature on the Mach-O parts, known Apple
+# builds for the PE shims) and installs it. See the notes in that script.
+GPTK="$SOJU_DIR/scripts/get-gptk.sh"
+if GPTK_OK; then
+  say "[2/4] Apple GPTK already installed - skipping"
+else
+  say "[2/4] Apple Game Porting Toolkit needed (free, one time)"
+  if SRC=$(ENGINE="$ENGINE" bash "$GPTK" --find); then
+    echo "Found: $SRC - installing"
+    ENGINE="$ENGINE" bash "$GPTK" "$SRC" || echo "  GPTK not installed (see above); the last lines of this installer say how to add it later"
+  else
+    cat <<'EOT'
+  Running games needs one Apple file (libd3dshared). Apple forbids redistributing
+  it, so you have to download it yourself (a free Apple ID is enough):
+    1) Open https://developer.apple.com/games/game-porting-toolkit/
+    2) Download the "evaluation environment for Windows games" dmg (that is
+       the Game Porting Toolkit download) and double-click it to mount it
+    3) Come back to this window and press Enter
+EOT
+    while true; do
+      read -r -p "  Press Enter when the dmg is mounted, or paste the path of the mounted volume (s to skip): " ans < "$TTY" || ans=s
+      [ "$ans" = "s" ] && { echo "  Skipped - the last lines of this installer say how to add it later"; break; }
+      ans=${ans//\\ / }; ans=${ans%"${ans##*[! ]}"}   # a path dragged into Terminal comes escaped
+      if SRC=$(ENGINE="$ENGINE" bash "$GPTK" --find "$ans"); then
+        ENGINE="$ENGINE" bash "$GPTK" "$SRC" || echo "  GPTK not installed (see above); the last lines of this installer say how to add it later"
+        break
+      fi
+      echo "  Not found yet. Disk images mounted right now:"
+      bash "$GPTK" --list-images | sed 's/^/    /'
+      echo "  If the toolkit is mounted under another name, paste its path (you can drag the volume from Finder into this window)."
+    done
+  fi
+fi
+
+# ---------- 3. Launchers ----------
 ALL="battlenet steam epic gog"
 if [ -n "${SOJU_PLATFORMS:-}" ]; then
   PLATFORMS="$(echo "$SOJU_PLATFORMS" | tr ',' ' ')"
