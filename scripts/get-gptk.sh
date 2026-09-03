@@ -21,15 +21,27 @@ set -euo pipefail
 ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
 [ -d "$ENGINE/lib" ] || { echo "Engine not found at $ENGINE. Run install.sh (prebuilt) or scripts/build-engine.sh first."; exit 1; }
 
+# The payload directory (the one holding libd3dshared.dylib) under one root.
+# The file is copied into the engine and loaded into every game, so only a
+# copy carrying Apple's signature is accepted.
 find_payload() {
-  local roots=("$@")
-  for r in "${roots[@]}"; do
-    [ -d "$r" ] || continue
-    local f
-    f=$(find "$r" -maxdepth 6 -name "libd3dshared.dylib" 2>/dev/null | head -1)
-    [ -n "$f" ] && { echo "$(dirname "$f")"; return 0; }
-  done
-  return 1
+  local r="$1" f
+  [ -d "$r" ] || return 1
+  f=$(find "$r" -maxdepth 6 -name "libd3dshared.dylib" 2>/dev/null | head -1)
+  [ -n "$f" ] || return 1
+  local auth; auth=$(codesign -dvv "$f" 2>&1 || true)
+  case "$auth" in *"Authority=Apple Root CA"*) ;; *) auth="" ;; esac
+  if [ -z "$auth" ] || ! codesign -v "$f" 2>/dev/null; then
+    echo "Found $f but it does not carry Apple's signature, not using it" >&2
+    return 1
+  fi
+  dirname "$f"
+}
+# Disk images mounted under /Volumes. Apple's dmg mounts as "Evaluation
+# environment for Windows games N.N" and the name has changed between
+# releases, so ask hdiutil for the mount points instead of guessing names.
+mounted_images() {
+  hdiutil info 2>/dev/null | awk -F'\t' '$1 ~ /^\/dev\/disk/ && $3 ~ /^\/Volumes\// {print $3}'
 }
 
 SRC=""
@@ -37,8 +49,11 @@ if [ $# -ge 1 ]; then
   SRC=$(find_payload "$1") || true
 fi
 if [ -z "$SRC" ]; then
-  # Auto-detect a mounted GPTK dmg
-  SRC=$(find_payload /Volumes/Game* /Volumes/*orting* 2>/dev/null) || true
+  while IFS= read -r r; do
+    [ -n "$r" ] && SRC=$(find_payload "$r") && break
+  done <<EOF
+$(mounted_images)
+EOF
 fi
 if [ -z "$SRC" ]; then
   # Extract from an installed CrossOver (fallback path)
@@ -46,7 +61,9 @@ if [ -z "$SRC" ]; then
 fi
 if [ -z "$SRC" ]; then
   echo "Could not find libd3dshared.dylib."
-  echo "Check that the GPTK dmg is mounted, or pass its path as an argument."
+  echo "Disk images mounted right now:"
+  mounted_images | sed 's/^/  /'
+  echo "Mount the Game Porting Toolkit dmg (\"Evaluation environment for Windows games\"), or pass the path of its volume as an argument."
   exit 1
 fi
 

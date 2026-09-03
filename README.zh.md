@@ -93,7 +93,7 @@ scripts/get-components.sh
 scripts/build-engine.sh
 
 # 4. 安装 Apple GPTK（从 https://developer.apple.com/games/game-porting-toolkit/
-#    下载 GPTK 的 dmg 并挂载，然后：）
+#    下载 "evaluation environment for Windows games" dmg 并挂载，然后：）
 scripts/get-gptk.sh
 #    （如果你恰好装了 CrossOver，脚本会自动从中提取）
 

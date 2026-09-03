@@ -89,7 +89,7 @@ scripts/get-components.sh
 scripts/build-engine.sh
 
 # 4. 애플 GPTK 설치 (https://developer.apple.com/games/game-porting-toolkit/ 에서
-#    dmg 다운로드 후 마운트한 상태로:)
+#    "evaluation environment for Windows games" dmg를 받아 마운트한 상태로:)
 scripts/get-gptk.sh
 #    (CrossOver가 설치돼 있으면 거기서 자동 추출)
 

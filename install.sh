@@ -35,13 +35,38 @@ GPTK_OK(){
     [ -L "$ENGINE/lib/wine/x86_64-unix/$f.so" ] || return 1
   done
 }
-find_gptk(){
-  for r in /Volumes/Game* /Volumes/*orting* \
-           "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk"; do
-    [ -d "$r" ] || continue
-    f=$(find "$r" -maxdepth 6 -name "libd3dshared.dylib" 2>/dev/null | head -1)
-    [ -n "$f" ] && { dirname "$f"; return 0; }
-  done
+# Where the payload can be: every disk image mounted under /Volumes (Apple's
+# dmg mounts as "Evaluation environment for Windows games N.N", and the name
+# has changed between releases, so hdiutil is asked for the mount points
+# instead of guessing at names), then an installed CrossOver.
+gptk_roots(){
+  hdiutil info 2>/dev/null | awk -F'\t' '$1 ~ /^\/dev\/disk/ && $3 ~ /^\/Volumes\// {print $3}'
+  echo "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk"
+}
+# The payload directory (the one holding libd3dshared.dylib) under one root.
+# The file is copied into the engine and loaded into every game, so only a
+# copy carrying Apple's signature is accepted.
+find_payload_in(){
+  local r="$1" f
+  [ -d "$r" ] || return 1
+  f=$(find "$r" -maxdepth 6 -name "libd3dshared.dylib" 2>/dev/null | head -1)
+  [ -n "$f" ] || return 1
+  local auth; auth=$(codesign -dvv "$f" 2>&1 || true)
+  case "$auth" in *"Authority=Apple Root CA"*) ;; *) auth="" ;; esac
+  if [ -z "$auth" ] || ! codesign -v "$f" 2>/dev/null; then
+    echo "  Found $f but it does not carry Apple's signature, not using it" >&2
+    return 1
+  fi
+  dirname "$f"
+}
+find_gptk(){   # [path]: a mounted volume or folder given by the user, else scan
+  local r
+  if [ -n "${1:-}" ]; then find_payload_in "$1"; return; fi
+  while IFS= read -r r; do
+    [ -n "$r" ] && find_payload_in "$r" && return 0
+  done <<EOF
+$(gptk_roots)
+EOF
   return 1
 }
 # Three parts, all needed for D3DMetal to engage: external/ (Metal side),
@@ -128,14 +153,18 @@ else
   Running games needs one Apple file (libd3dshared). Apple forbids redistributing
   it, so you have to download it yourself (a free Apple ID is enough):
     1) Open https://developer.apple.com/games/game-porting-toolkit/
-    2) Download the "Game Porting Toolkit" dmg and double-click it (mount)
+    2) Download the "evaluation environment for Windows games" dmg (that is
+       the Game Porting Toolkit download) and double-click it to mount it
     3) Come back to this window and press Enter
 EOT
     while true; do
-      read -r -p "  Press Enter when ready (or s to skip): " ans < "$TTY" || ans=s
+      read -r -p "  Press Enter when the dmg is mounted, or paste the path of the mounted volume (s to skip): " ans < "$TTY" || ans=s
       [ "$ans" = "s" ] && { echo "  Skipped - the last lines of this installer say how to add it later"; break; }
-      if SRC=$(find_gptk); then install_gptk "$SRC"; echo "  Installed"; break; fi
-      echo "  Not found yet - make sure the dmg is mounted"
+      ans=${ans//\\ / }; ans=${ans%"${ans##*[! ]}"}   # a path dragged into Terminal comes escaped
+      if SRC=$(find_gptk "$ans"); then install_gptk "$SRC"; echo "  Installed from $SRC"; break; fi
+      echo "  Not found yet. Disk images mounted right now:"
+      hdiutil info 2>/dev/null | awk -F'\t' '$1 ~ /^\/dev\/disk/ && $3 ~ /^\/Volumes\// {print "    " $3}'
+      echo "  If the toolkit is mounted under another name, paste its path (you can drag the volume from Finder into this window)."
     done
   fi
 fi
