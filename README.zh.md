@@ -32,7 +32,7 @@
 
 | 游戏 | 平台 | 图形 | 状态 | 说明 |
 | --- | --- | --- | :-: | --- |
-| Diablo II: Resurrected | 战网 | D3DMetal (D3D11) | ✅ 进入游戏，可联网 | `play.sh` 设置 `ROSETTA_ADVERTISE_AVX=1`；[指南](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
+| Diablo II: Resurrected | 战网 | D3DMetal (D3D11) | ✅ 进入游戏，可联网 | **需要 macOS 26.4 或更高**（见前提条件）；`play.sh` 设置 `ROSETTA_ADVERTISE_AVX=1`；[指南](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 进入游戏 | UE4 的"AMD 驱动"警告无害 |
 | Unity D3D11 游戏 | Steam | DXMT | ✅ 进入游戏，窗口模式 | 需要 `soju steam-games`，见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected（Infernal Edition） | Steam | — | ⏳ 尚未验证 | Steam bottle 没有 GPTK，而 D2R 的加载器需要 `libd3dshared` |
@@ -144,7 +144,7 @@ scripts/play.sh steam-kill       # 停止 Steam bottle
 
 在 M4 Pro / macOS 26.5 上验证：登录、游戏库，以及一个真实 D3D11（Unity）游戏通过 DXMT 分支在游戏内渲染。完整接线见 `docs/STEAM-GAMES.md`（`scripts/setup-steam-games.sh`）。注意：在 Steam 里打字时把 macOS 输入法切到英文（ABC），否则输入法合成会显示为 `?`。
 
-**前提条件**：Apple Silicon Mac、Rosetta 2、Xcode 命令行工具、Homebrew、你自己的战网账号/游戏，以及一个用于下载 GPTK 的免费 Apple ID。本仓库不再分发 Apple、Blizzard 或 CodeWeavers 的任何文件。
+**前提条件**：Apple Silicon Mac、Rosetta 2、Xcode 命令行工具、Homebrew、你自己的战网账号/游戏，以及一个用于下载 GPTK 的免费 Apple ID。**《暗黑破坏神 II：狱火重生》需要 macOS 26.4 或更高**：暴雪 2026 年 1 月加入的反作弊会触发一个 Rosetta 2 的 bug，Apple 在 26.4 修复了它。在 macOS 15 上游戏启动后立刻退出（战网随后显示"更新"并卡在正在初始化），CrossOver 也一样。启动器和其他游戏不受这个 bug 影响，但所有验证都只在 macOS 26.5 上做过。本仓库不再分发 Apple、Blizzard 或 CodeWeavers 的任何文件。
 
 ### 为什么必须要 GPTK？
 
