@@ -265,6 +265,33 @@ override가 적용되는 것은 regsvr32로 확인했다. `SOJU_EPIC_OVERLAY=1`�
 같은 값이 나온다. 게임에서의 확인(한글로 바꿨다 돌아와도 이동·상호작용 정상, 고정 없음)은 플레이로
 본다.
 
+## GPTK 페이로드 검증: 무엇을 어떻게 믿는가 (2026-09-03)
+
+설치기가 Apple의 GPTK dmg에서 복사하는 파일은 전부 모든 게임 프로세스에 로드된다. 어느 볼륨이든
+`libd3dshared.dylib`이 있으면 복사하던 것을(PR #22 이전) 다음처럼 바꿨다(PR #23). 리뷰 지적: 인증서
+이름 문자열 매칭은 검증이 아니고, dylib 하나만 검사하고 옆의 프레임워크·PE dll을 그냥 복사하면 의미가
+없다.
+
+- **Mach-O(libd3dshared.dylib, D3DMetal.framework)**: `codesign --verify --deep --strict -R="anchor apple"`.
+  "anchor apple"은 Apple 자체 루트에 체인이 닿는 서명만 통과시키는 코드 요구조건이라 암호학적으로
+  확인된다. 임의 인증서로 재서명한 사본은 거부된다(실측: ad-hoc 재서명본 거부).
+- **PE shim(d3d11/d3d12/dxgi 등)**: Windows 바이너리라 macOS에 검증기가 없다(Authenticode 블록은 있음).
+  Apple이 실제로 배포한 빌드의 SHA-256 고정 목록으로 검증한다. 목록 출처: Apple 개발자 다운로드의
+  "Evaluation environment for Windows games" 2.1 / 3.0 / 4.0 beta 2 dmg(직접 받아 `hdiutil verify` 후
+  해시), CrossOver 26.3의 `lib64/apple_gptk`(Apple이 CodeWeavers에 공급한 별도 빌드, 해시가 전부 다름).
+  목록에 없으면 복사하지 않고, 필수 3종(d3d11/d3d12/dxgi) 중 하나라도 빠지면 설치를 중단한다.
+  `SOJU_GPTK_UNVERIFIED=1`은 경고를 찍고 강제 설치한다.
+- **순서**: 전부 검증한 뒤에 복사한다. 중간에 실패하면 엔진은 손대지 않은 상태로 남는다(실측: 변조된
+  d3d11.dll로 중단 시 엔진 파일 0개).
+- **dmg 자체는 서명이 없다**(`codesign`: not signed at all). 컨테이너로 한 번에 검증하는 길은 없다.
+- 새 GPTK가 나오면 목록을 늘려야 한다. `soju update`로 스크립트를 받고, 없으면 이슈로 버전을 받는다.
+  Authenticode 검증을 직접 구현하면 이 결합이 풀리지만 설치기에 자체 암호 코드를 넣는 위험이 더 크다고 봤다.
+
+감지도 바뀌었다. 볼륨 이름(`/Volumes/Game*`)을 추측하지 않고 `hdiutil info`가 알려 주는 마운트된 디스크
+이미지를 전부 뒤진다. Apple dmg의 실제 볼륨명은 "Evaluation environment for Windows games N.N"이고
+(Discussion #21에서 사용자가 여기서 막혔다), 내부 구조는 세 버전 모두
+`redist/lib/external/{libd3dshared.dylib,D3DMetal.framework}` + `redist/lib/wine/x86_64-windows/*.dll`이다.
+
 ## 켜둔 런처가 먹통이 되는 이유: wineserver를 잃은 고아 프로세스 (2026-08-31)
 
 ### 증상
