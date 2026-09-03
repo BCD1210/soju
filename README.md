@@ -92,8 +92,9 @@ scripts/get-components.sh
 # 3. Build the engine from GPL sources (30-60 min)
 scripts/build-engine.sh
 
-# 4. Install Apple GPTK payload (download the GPTK dmg from
-#    https://developer.apple.com/games/game-porting-toolkit/ , mount it, then:)
+# 4. Install Apple GPTK payload (download the "evaluation environment for Windows
+#    games" dmg from https://developer.apple.com/games/game-porting-toolkit/ ,
+#    mount it, then:)
 scripts/get-gptk.sh
 #    (if you happen to have CrossOver installed, the script auto-extracts from it instead)
 
