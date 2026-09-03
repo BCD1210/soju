@@ -32,7 +32,7 @@ All verified on an M4 Pro running macOS 26.5. Same engine, one bottle per launch
 
 | Game | Store | Graphics | Status | Notes |
 | --- | --- | --- | :-: | --- |
-| Diablo II: Resurrected | Battle.net | D3DMetal (D3D11) | ✅ in-game, online | `play.sh` sets `ROSETTA_ADVERTISE_AVX=1`; [guide](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
+| Diablo II: Resurrected | Battle.net | D3DMetal (D3D11) | ✅ in-game, online | **macOS 26.4 or later** (see prerequisites); `play.sh` sets `ROSETTA_ADVERTISE_AVX=1`; [guide](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ in-game | UE4 "AMD driver" warning is harmless |
 | Unity D3D11 title | Steam | DXMT | ✅ in-game, windowed | via `soju steam-games`; see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected (Infernal Edition) | Steam | — | ⏳ not verified yet | the Steam bottle has no GPTK, and D2R's loader needs `libd3dshared` |
@@ -145,7 +145,7 @@ scripts/play.sh steam-kill       # stop the Steam bottle (closing the window kee
 
 Verified on M4 Pro / macOS 26.5: login, library, and an actual D3D11 (Unity) game rendering in-game via a DXMT fork. See `docs/STEAM-GAMES.md` for the full wiring (`scripts/setup-steam-games.sh`). Notes: switch your macOS input source to English (ABC) when typing in Steam (IME composition shows as `?` otherwise).
 
-**Prerequisites**: Apple Silicon Mac, Rosetta 2, Xcode Command Line Tools, Homebrew, your own Battle.net account/games, and a free Apple ID for the GPTK download. Nothing from Apple, Blizzard, or CodeWeavers is redistributed by this repo.
+**Prerequisites**: Apple Silicon Mac, Rosetta 2, Xcode Command Line Tools, Homebrew, your own Battle.net account/games, and a free Apple ID for the GPTK download. **Diablo II: Resurrected needs macOS 26.4 or later**: the anti-cheat Blizzard added in January 2026 trips a Rosetta 2 bug that Apple fixed in 26.4, and on macOS 15 the game dies right after launch (Battle.net then shows "Update" and sits at Initializing) on Soju and on CrossOver alike. The launchers themselves and other games are not affected by that bug, but everything here was verified on macOS 26.5 only. Nothing from Apple, Blizzard, or CodeWeavers is redistributed by this repo.
 
 ### Why is GPTK needed at all?
 
