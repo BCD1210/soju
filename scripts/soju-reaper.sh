@@ -76,7 +76,14 @@ esac
 # /private/tmp, so compare against the resolved form as well: with only the
 # /tmp spelling the check never matched, and the reaper killed every launcher
 # 40 s after it started.
-SERVER_DIR="$(/usr/bin/stat -f "/tmp/.wine-$(id -u)/server-%Xd-%Xi" "$PREFIX" 2>/dev/null || true)"
+#
+# Wine names the directory after the *resolved* prefix. A prefix that is a
+# symlink (a bottle kept in another app's container, say) must be resolved
+# first: macOS stat uses lstat by default, and the symlink's own inode never
+# matches, so the reaper would count the live server as gone and reap the
+# bottle 40 s after every start.
+PREFIX_REAL="$(cd "$PREFIX" 2>/dev/null && pwd -P)"
+SERVER_DIR="$(/usr/bin/stat -L -f "/tmp/.wine-$(id -u)/server-%Xd-%Xi" "${PREFIX_REAL:-$PREFIX}" 2>/dev/null || true)"
 SERVER_DIR_REAL="$(cd /tmp 2>/dev/null && pwd -P)${SERVER_DIR#/tmp}"
 
 # Returns 0 alive, 1 gone, 2 unknown (the query itself failed: every
