@@ -114,7 +114,7 @@ scripts/play.sh epic             # 로그인 → 게임 설치·플레이
 scripts/play.sh epic-kill        # Epic 보틀 종료 (창을 닫으면 런처는 메뉴바 트레이로 들어감. 독 아이콘 클릭, 또는 메뉴바 아이콘 더블클릭/우클릭으로 복귀)
 ```
 
-검증 2026-08-30: 런처에서 Hogwarts Legacy 71GB 설치 후 인게임까지(UE4, D3DMetal 경유 D3D12). 알아두실 점 두 가지: 플레이 전에 macOS 입력기를 영어(ABC)로 바꾸세요, 한글 IME가 켜져 있으면 Wine 게임에 키 입력이 전달되지 않습니다. 게임이 전체화면으로 뜨면 게임 자체 디스플레이 설정에서 창 모드로 바꾸면 됩니다(Soju가 강제하지 않습니다). wine 11.0의 알려진 문제 하나: 여러 Wine 창(런처, 게임, 다른 보틀)을 오간 뒤 게임이 키보드 입력을 못 받는 경우가 있으며 재시작해야 풀립니다. upstream은 wine 11.11에서 수정했습니다.
+검증 2026-08-30: 런처에서 Hogwarts Legacy 71GB 설치 후 인게임까지(UE4, D3DMetal 경유 D3D12). 알아두실 점 두 가지: 한글/일본어/중국어 입력기는 이제 상관없습니다(engine-v1.5부터 Windows처럼 입력기 밑의 영문 레이아웃으로 키 테이블을 만들어서, 게임 중 한글로 바꿨다 돌아와도 됩니다). 게임이 전체화면으로 뜨면 게임 자체 디스플레이 설정에서 창 모드로 바꾸면 됩니다(Soju가 강제하지 않습니다). wine 11.0의 알려진 문제 하나: 여러 Wine 창(런처, 게임, 다른 보틀)을 오간 뒤 게임이 키보드 입력을 못 받는 경우가 있으며 재시작해야 풀립니다. upstream은 wine 11.11에서 수정했습니다.
 
 ### GOG GALAXY
 
@@ -155,7 +155,7 @@ GPTK 안의 `libd3dshared.dylib`는 그래픽만이 아닙니다. **D2R 로더(�
 - **배틀넷 로그인 화면이 가끔 깜빡임(~1분 1회)** → 알려진 외관 이슈이며 자동으로 복구됩니다.
 - **언리얼 엔진 게임 시작 시 "AMD graphics driver has known issues" 경고**(Hogwarts Legacy 등): D3DMetal이 자신을 구형 드라이버의 AMD 카드로 소개해 UE4의 드라이버 검사가 걸리는 것입니다. 무해하며 OK로 넘어가면 됩니다. 없애려면 게임의 사용자 `Engine.ini`(`AppData/Local/<게임>/Saved/Config/WindowsNoEditor/`)에 `[SystemSettings]` / `r.WarnOfBadDrivers=0`을 추가하세요.
 - **GOG GALAXY: 알림 토스트가 뜨는 동안 오른쪽 아래가 검은 사각형으로 가려짐**, 토스트가 사라지면 함께 사라짐. 토스트는 GOG 알림 렌더러의 투명 레이어 창인데 Wine에는 DWM 합성이 없어 투명 영역이 검게 칠해집니다. 무해하며, GOG 설정에서 데스크톱 알림을 끄면 안 뜹니다.
-- **이동키가 눌린 채로 고정되거나, 마우스는 되는데 키보드가 죽는 경우** (Hogwarts Legacy에서 확인): 키를 누른 사이에 키보드 포커스가 다른 Wine 창으로 넘어간 것입니다. 주범은 Epic(EOS) 오버레이라 `soju epic`은 이제 오버레이를 끕니다(`SOJU_EPIC_OVERLAY=1`로 복구, 적용하려면 `soju epic-kill` 후 재실행). 입력 소스는 세션 내내 영어(ABC)로 두세요. 게임 중 전환 자체가 포커스 이탈입니다. 그래도 재발하면 `SOJU_KEYLOG=1 soju epic`이 `~/.battlenet-macos/logs/`에 키·포커스 로그를 남기니 이슈에 첨부해 주세요.
+- **이동키가 눌린 채로 고정되거나, 마우스는 되는데 키보드가 죽는 경우** (Hogwarts Legacy에서 확인): 키를 누른 사이에 키보드 포커스가 다른 Wine 창으로 넘어간 것입니다. 주범은 Epic(EOS) 오버레이라 `soju epic`은 이제 오버레이를 끕니다(`SOJU_EPIC_OVERLAY=1`로 복구, 적용하려면 `soju epic-kill` 후 재실행). v1.5 이전 엔진에서는 한글/일본어/중국어 입력기가 두 번째 원인입니다: 글자키가 자모나 가나로 번역돼 언리얼 게임이 버리고(ESC·방향키·F키만 됨), 전환 순간 누르고 있던 키는 고정됩니다. 그 엔진에서는 입력기를 영어(ABC)로 두거나 엔진을 업데이트하세요(`soju update`). 그래도 재발하면 `SOJU_KEYLOG=1 soju epic`이 `~/.battlenet-macos/logs/`에 키·포커스 로그를 남기니 이슈에 첨부해 주세요.
 - **Epic: "your account has too many active logins"**, 모든 기기에서 로그아웃하거나 비밀번호를 재설정해도 그대로인 경우. 서버가 실제로 답하는 것은 `too_many_sessions`(18048)이고, 이는 보유 중인 세션이 아니라 *발급된* 세션 수에 대한 제한이라 재시도할수록 나빠진다. 예전 엔진에서는 런처의 기기 키를 wine이 저장하지 못해 몇 번만 실행해도 걸렸다(`patches/ncrypt-persisted-keys.patch` 참고). 보틀을 끄고(`soju epic-kill`) 몇 시간 두어 카운터가 비워진 뒤 한 번만 실행하세요.
 
 - **BLZBNTBNA00000005** → `play.sh`가 서명된 exe를 자동으로 넣어 줍니다.

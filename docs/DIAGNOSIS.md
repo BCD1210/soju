@@ -214,6 +214,57 @@ override가 적용되는 것은 regsvr32로 확인했다. `SOJU_EPIC_OVERLAY=1`�
 두도록 고쳤다. (2) 릴리스를 `frontWineWindow`로 보내는데 그것이 키를 누른 창이 아닐 수 있다
 (오버레이 창이 맨 앞인 경우). 키마다 누른 창을 기억해야 제대로 고쳐지며, 아직 안 했다.
 
+### 실측으로 확정 (2026-09-02): 한글 입력기가 켜지면 글자키가 자모로 번역된다
+
+`SOJU_KEYLOG=1`로 남긴 로그(`keys-epic-20260902-181823.log`, 291만 줄)에 재발 순간이 통째로 잡혔다.
+증상은 "ESC만 되고 글자키가 전부 안 먹음 + W 고정". 로그가 말해 주는 순서:
+
+1. 게임 창(hwnd 0x50126)이 포커스를 가진 채로 W, Shift, Space가 눌려 있는 순간(달리기 점프)에
+   `KEYBOARD_CHANGED`가 온다. 바로 앞 줄에 `IMKCFRunLoopWakeUpReliable`(한글 입력기 서버 기동)이
+   찍힌다. 즉 게임 도중 macOS 입력기가 ABC에서 한글 2벌식으로 바뀌었다. 포커스 이탈은 없었다
+   (`WINDOW_LOST_FOCUS` 없음). 방아쇠는 한/영 전환 키(Shift+Space 조합 또는 Caps Lock 짧게 누름,
+   후자는 시스템이 삼켜서 로그에 안 남는다).
+2. 그 뒤로 모든 글자키가 `macdrv_ToUnicodeEx returning 1 / L"\3139"`(F=ㄹ), `L"\3148"`(W=ㅈ)으로
+   번역된다. 전환 전에는 `L"f"`, `L"w"`였다. `WM_KEYDOWN VK_F`는 여전히 게임 창으로 들어간다.
+3. 언리얼은 글자키를 가상키가 아니라 **문자 코드**로 찾는다(`FWindowsPlatformInput::GetKeyMap`에는
+   ESC·방향키·F키 같은 특수키만 있고 A~Z는 `GetCharKeyMap`에 문자로 들어 있다). `WM_KEYDOWN`을
+   받으면 `MapVirtualKey(vk, MAPVK_VK_TO_CHAR)`로 문자를 얻어 키를 찾는데, U+3139에 해당하는 키가
+   없으니 버린다. 그래서 정확히 "ESC만 된다"가 된다.
+4. W 고정도 같은 이유다. 전환 전에 눌린 W는 'w'로 들어가 `EKeys::W` down이 됐고, 전환 후에 온
+   뗌(`KEY_RELEASE`는 드라이버 단계에서 정상 전달됨)은 ㅈ으로 번역돼 언리얼이 버린다. 엔진 입장에서
+   W는 영영 눌린 상태다. 앞 절의 `releasePressedKeys` 패치는 앱이 비활성화될 때만 동작하므로
+   앱은 활성인 채 입력기만 바뀐 이 경우를 다루지 못한다.
+
+왜 Wine에서만 이런가. Windows는 키보드 레이아웃과 IME를 분리한다. 한글 IME가 켜져 있어도 HKL의
+레이아웃은 US라서 `MapVirtualKey('W', VK_TO_CHAR)`는 'W'를 주고, 한글 조합은 IME 단계에서만
+일어난다. macOS는 둘을 하나의 입력 소스로 묶고, 한글 2벌식 입력기는 글자키가 자모를 내는 자체
+레이아웃(uchr)을 가진다. winemac은 `TISCopyCurrentKeyboardLayoutInputSource()`가 주는 그 uchr로
+키 테이블을 만들기 때문에 한글이 선택된 동안 `ToUnicode`/`MapVirtualKey`가 자모를 돌려준다.
+(ABC 상태에서만 플레이하라는 기존 안내는 이걸 우회한 것이었고, 게임 중 실수로 전환되면 무력하다.)
+
+### 해결책 (`patches/winemac-ime-ascii-layout.patch`)
+
+`cocoa_app.m`에 `CopyKeyboardLayoutForKeyTables()`를 두고, 현재 입력 소스의 타입이
+`kTISTypeKeyboardLayout`이 아니면(즉 입력기이면)
+`TISCopyCurrentASCIICapableKeyboardLayoutInputSource()`가 주는 레이아웃(입력기 밑에 깔린 ABC)으로
+키 테이블을 만든다. `keyboardSelectionDidChange:`와 `macdrv_get_input_source_info`(스레드 초기화)
+두 곳이 이 헬퍼를 쓴다. Windows가 보고하는 것과 같아진다. 한글 조합은 `NSTextInputContext`를
+통해 입력기 자체가 하므로 이 테이블과 무관하다(조합 동작은 별도 확인 필요).
+
+### 검증
+
+창 포커스 없이 재현할 수 있는 테스트 프로그램(mingw, `MapVirtualKeyW(vk, MAPVK_VK_TO_CHAR)`와
+`ToUnicode`를 찍음)을 한글 2벌식이 선택된 상태에서 임시 프리픽스로 돌렸다.
+
+| 드라이버 | W | F | A | ESC |
+|---|---|---|---|---|
+| 기존 winemac.so | U+3148 ㅈ | U+3139 ㄹ | U+3141 ㅁ | U+001B |
+| 패치 winemac.so | U+0057 'W' / ToUnicode 'w' | 'F' / 'f' | 'A' / 'a' | U+001B |
+
+로그의 자모 코드와 기존 드라이버의 출력이 일치하고, 패치 후에는 입력기가 한글인 채로도 Windows와
+같은 값이 나온다. 게임에서의 확인(한글로 바꿨다 돌아와도 이동·상호작용 정상, 고정 없음)은 플레이로
+본다.
+
 ## 켜둔 런처가 먹통이 되는 이유: wineserver를 잃은 고아 프로세스 (2026-08-31)
 
 ### 증상
