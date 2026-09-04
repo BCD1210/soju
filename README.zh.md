@@ -162,6 +162,7 @@ scripts/play.sh steam-kill       # 停止 Steam bottle
 - **GOG GALAXY：通知弹出时右下角出现黑色矩形**，随通知一起消失。通知是 GOG 通知渲染器的透明分层窗口；没有 DWM 合成时 Wine 会把透明区域涂黑。无害。在 GOG 设置里关闭桌面通知即可避免。
 - **移动键卡在按下状态，或者鼠标正常但键盘完全没反应**（在 Hogwarts Legacy 中出现过）：按住键的时候键盘焦点被另一个 Wine 窗口抢走了。常见元凶是 Epic（EOS）覆盖层，所以 `soju epic` 现在默认禁用它（`SOJU_EPIC_OVERLAY=1` 可恢复；先 `soju epic-kill` 再重启登录器才会生效）。v1.5 之前的引擎还有第二个原因：中日韩输入法会让字母键变成假名或字母以外的字符，虚幻引擎的游戏会直接丢弃（只有 Esc、方向键和 F 键有效），切换瞬间按住的键也会卡住；在那些引擎上请保持英文（ABC），或者更新引擎（`soju update`）。仍然复现？`SOJU_KEYLOG=1 soju epic` 会把按键和焦点日志写到 `~/.battlenet-macos/logs/`，提 issue 时附上。
 - **Epic 提示 "your account has too many active logins"**，而且在所有设备退出登录、甚至重置密码后依旧如此。账号服务实际返回的是 `too_many_sessions`（18048），限制的是*已发放*的会话数量而非当前持有的数量，所以反复重试只会更糟。旧引擎上启动几次就会触发，因为 Wine 无法保存登录器的设备密钥，详见 `patches/ncrypt-persisted-keys.patch`。先停掉 bottle（`soju epic-kill`），放置几个小时等计数器清零，然后只启动一次。
+- **游戏退出后（或启动失败后）Battle.net 停在"更新"（正在初始化），Play 按钮消失**：每当游戏进程结束，启动器都会重新检查安装。暂停更新再恢复，Play 按钮就会回来，游戏正常启动。如果安装后第一次 Play 在一分钟内退出，再按一次 Play：目前报告过一次，第二次启动正常。
 - **BLZBNTBNA00000005** -> `play.sh` 会自动播种签名 exe；请确认是通过它启动的。
 
 ### 残留的 Wine 进程
