@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Soju one-line installer: Battle.net, Steam, Epic and GOG launchers on Apple Silicon, no CrossOver.
 #   curl -fsSL soju.snack-wrap.com/install.sh | bash
-#   SOJU_PLATFORMS=battlenet,epic,gog curl ... | bash     (non-interactive selection)
+#   curl -fsSL https://soju.snack-wrap.com/install.sh | SOJU_PLATFORMS=battlenet,epic,gog bash     (non-interactive selection)
 #
 # What it does:
 #   1. Downloads the prebuilt GPL Wine engine (built from CodeWeavers' published sources)
@@ -201,6 +201,10 @@ for p in $PLATFORMS; do
         say "GOG GALAXY: creating the bottle + running GOG's installer"
         bash "$SOJU_DIR/scripts/create-gog-bottle.sh"
       fi ;;
+  esac
+  # The client EXE does not prove its helper build completed.
+  case "$p" in
+    epic|gog) bash "$SOJU_DIR/scripts/ensure-launcher-helper.sh" "$p" ;;
   esac
 done
 

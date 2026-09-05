@@ -64,7 +64,7 @@ brew install BCD1210/soju/soju
 soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / soju gog
 ```
 
-설치기는 프리빌드 엔진(~350MB)을 받고, 애플 무료 GPTK 다운로드(애플이 재배포 금지한 파일 1개)를 안내한 뒤, 원하는 런처를 묻습니다. Battle.net, Steam, Epic Games Launcher, GOG GALAXY 중 아무 조합이나 고르면 각각 공식 설치기로 별도 보틀에 설치하고, 런처마다 더블클릭용 앱을 `~/Applications`에 만들어 줍니다(`Battle.net.app`, `Steam (Windows).app`, `Epic Games Launcher.app`, `GOG GALAXY.app`). 비대화형: `SOJU_PLATFORMS=battlenet,epic,gog curl ... | bash`. 로그인하고 플레이하세요.
+설치기는 프리빌드 엔진(~350MB)을 받고, 애플 무료 GPTK 다운로드(애플이 재배포 금지한 파일 1개)를 안내한 뒤, 원하는 런처를 묻습니다. Battle.net, Steam, Epic Games Launcher, GOG GALAXY 중 아무 조합이나 고르면 각각 공식 설치기로 별도 보틀에 설치하고, 런처마다 더블클릭용 앱을 `~/Applications`에 만들어 줍니다(`Battle.net.app`, `Steam (Windows).app`, `Epic Games Launcher.app`, `GOG GALAXY.app`). 비대화형: `curl -fsSL https://soju.snack-wrap.com/install.sh | SOJU_PLATFORMS=battlenet,epic,gog bash`. 로그인하고 플레이하세요.
 
 ## 일상 명령
 
