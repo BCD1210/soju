@@ -1,58 +1,79 @@
 #!/usr/bin/env bash
-# soju-sweep: remove orphaned Wine service processes.
-#
-# Every bottle start spawns a set of idle Windows "system" processes
-# (services.exe, winedevice.exe x2, plugplay.exe, rpcss.exe, explorer.exe
-# /desktop: ~100 MB together). When the bottle's wineserver is killed
-# (wineserver -k, a crashed launcher, an aborted test) the apps die, but these
-# sleeping services never talk to the server again and so never notice it is
-# gone; they linger for hours. This sweeps them.
-#
-# Only service processes are candidates, never launchers or games, and a
-# candidate is removed only if it is attached to no running wineserver: every
-# process of a live bottle holds a file open in its server's socket directory
-# (the server's working directory), so the ones without such a file belong to
-# a server that is gone. Safe to run while other bottles are up.
-#
-# Usage: soju-sweep.sh        (called by play.sh *-kill, soju-reaper.sh, soju sweep)
-#        SOJU_SWEEP_DRY=1 soju-sweep.sh    only print what would be removed
+# Remove orphaned Wine services. SOJU_SWEEP_DRY=1 only reports candidates.
+# Never infer ownership from command-line arguments or a failed lsof query.
 set -u
-# Also Wine's own prompts (the "Wine Mono Installer" dialog is control.exe
-# appwiz.cpl install_mono): orphaned, they sit in the Dock as "wine" for hours.
-RE='(explorer\.exe /desktop|services\.exe|winedevice\.exe|plugplay\.exe|rpcss\.exe|svchost\.exe|conhost\.exe|tabtip\.exe|control\.exe appwiz\.cpl|wineboot\.exe|winedbg\.exe|start\.exe /exec)'
-CAND=$(pgrep -f "$RE" 2>/dev/null || true)
-[ -n "$CAND" ] || exit 0
 
-SERVERS=$( { pgrep -x wineserver; pgrep -x wineserver64; } 2>/dev/null | tr '\n' ',' | sed 's/,$//')
-ATTACHED=""
-if [ -n "$SERVERS" ]; then
-  # One line per server directory, joined with "|" (macOS awk rejects a
-  # newline inside -v, and would silently see no directories at all).
-  DIRS=$(lsof -a -p "$SERVERS" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | tr '\n' '|')
-  # Fail closed: with servers up but no directories, or no open-file listing
-  # for the candidates at all, attribution is unknown and every candidate
-  # would look orphaned; killing the live bottles' services is the one
-  # outcome this script must never produce.
-  if [ -z "${DIRS//|/}" ]; then echo "soju-sweep: could not read the wineserver directories; not touching anything" >&2; exit 1; fi
-  LISTING=$(lsof -a -p "$(echo "$CAND" | tr '\n' ',' | sed 's/,$//')" -Fpn 2>/dev/null)
-  if ! printf '%s\n' "$LISTING" | grep -q '^p'; then echo "soju-sweep: could not list the candidates' open files; not touching anything" >&2; exit 1; fi
-  ATTACHED=$(printf '%s\n' "$LISTING" | awk -v dirs="$DIRS" '
-    BEGIN { n = split(dirs, d, "|") }
-    /^p/ { pid = substr($0, 2) }
-    /^n/ { for (i = 1; i <= n; i++) if (d[i] != "" && index($0, "n" d[i] "/") == 1) { seen[pid] = 1; break } }
-    END  { for (p in seen) print p }' | tr '\n' ' ')
-fi
+# macOS Wine rewrites comm to the Windows executable path. A log reader
+# with "services.exe.log" in its arguments has comm=/usr/bin/tail.
+service_exe() {
+  local exe name
+  exe=$(ps -o comm= -p "$1" 2>/dev/null) || return 1
+  [[ "$exe" =~ ^[A-Za-z]:[\\/] ]] || return 1
+  name=${exe##*\\}; name=${name##*/}
+  name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
+  case "$name" in
+    services.exe|winedevice.exe|plugplay.exe|rpcss.exe|svchost.exe|explorer.exe|conhost.exe|tabtip.exe|control.exe|wineboot.exe|winedbg.exe|start.exe)
+      printf '%s\n' "$exe" ;;
+    *) return 1 ;;
+  esac
+}
+server_pids() {
+  { pgrep -x wineserver; pgrep -x wineserver64; } 2>/dev/null | sort -un
+}
+csv() { tr '\n' ',' | sed 's/,$//'; }
 
-PIDS=""
-for p in $CAND; do
-  case " $ATTACHED " in *" $p "*) ;; *) PIDS="$PIDS $p" ;; esac
+declare -a IDENTITIES
+CAND=""
+for p in $(pgrep -if '\.exe' 2>/dev/null || true); do
+  service_exe "$p" >/dev/null || continue
+  identity=$(ps -o lstart= -p "$p" 2>/dev/null) || continue
+  [ -n "$identity" ] || continue
+  IDENTITIES[$p]="$identity"
+  CAND="$CAND $p"
 done
-[ -n "${PIDS// /}" ] || exit 0
-if [ "${SOJU_SWEEP_DRY:-0}" = 1 ]; then
-  echo "soju-sweep (dry run): would remove $(echo $PIDS | wc -w | tr -d ' ') orphaned Wine services:"
-  for p in $PIDS; do echo "  $p $(ps -o args= -p "$p" 2>/dev/null | cut -c1-80)"; done
-  exit 0
+[ -n "${CAND// /}" ] || exit 0
+
+SERVERS=$(server_pids)
+DIRS=""
+if [ -n "$SERVERS" ]; then
+  CWD=$(lsof -a -p "$(printf '%s\n' "$SERVERS" | csv)" -d cwd -Fpn 2>/dev/null) || {
+    echo "soju-sweep: could not read all server directories; not touching anything" >&2; exit 1;
+  }
+  for p in $SERVERS; do
+    dir=$(printf '%s\n' "$CWD" | awk -v target="$p" '
+      /^p/ { pid=substr($0,2) }
+      /^n/ && pid==target { print substr($0,2); exit }')
+    [ -n "$dir" ] || { echo "soju-sweep: missing server directory; not touching anything" >&2; exit 1; }
+    DIRS="${DIRS}${dir}|"
+  done
 fi
-echo "soju-sweep: removing orphaned Wine services: $(echo $PIDS | wc -w | tr -d ' ') processes"
-# shellcheck disable=SC2086
-kill -9 $PIDS 2>/dev/null || true
+
+LISTING=$(lsof -a -p "$(printf '%s\n' $CAND | csv)" -Fpn 2>/dev/null) || {
+  echo "soju-sweep: incomplete process listing; not touching anything" >&2; exit 1;
+}
+# Require positive Wine-prefix evidence; a missing PID record is unknown.
+ORPHANS=$(printf '%s\n' "$LISTING" | awk -v dirs="$DIRS" '
+  BEGIN { n=split(dirs,d,"|") }
+  /^p/ { pid=substr($0,2) }
+  /^n/ {
+    if ($0 ~ /\/drive_c\/windows(\/|$)/) wine[pid]=1
+    for (i=1;i<=n;i++)
+      if (d[i]!="" && index($0,"n" d[i] "/")==1) attached[pid]=1
+  }
+  END { for (p in wine) if (!attached[p]) print p }')
+
+# A server may have started while lsof ran. Reject that stale snapshot.
+[ "$(server_pids)" = "$SERVERS" ] || {
+  echo "soju-sweep: servers changed during inspection; retry later" >&2; exit 1;
+}
+for p in $CAND; do
+  case " $(printf '%s\n' "$ORPHANS" | tr '\n' ' ') " in *" $p "*) ;; *) continue;; esac
+  exe=$(service_exe "$p") || continue
+  [ "$(ps -o lstart= -p "$p" 2>/dev/null)" = "${IDENTITIES[$p]}" ] || continue
+  if [ "${SOJU_SWEEP_DRY:-0}" = 1 ]; then
+    echo "soju-sweep (dry run): would remove $p $exe"
+  else
+    echo "soju-sweep: removing orphaned Wine service $p $exe"
+    kill -9 "$p" 2>/dev/null || true
+  fi
+done
