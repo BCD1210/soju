@@ -7,6 +7,7 @@ set -euo pipefail
 BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
 ENGINE="${ENGINE:-$BASE/cx26-engine}"
 TTY=/dev/tty
+REMOVED=0
 YES=0; [ "${1:-}" = "--yes" ] && YES=1
 
 ask(){
@@ -17,14 +18,13 @@ ask(){
 
 echo "soju uninstall: this removes things soju created. Nothing is touched without a yes."
 
-# 1. Stop everything first (best effort).
-for b in bottle epic-bottle gog-bottle; do
-  [ -d "$BASE/$b" ] && WINEPREFIX="$BASE/$b" DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" \
-    "$ENGINE/bin/wineserver" -k 2>/dev/null || true
-done
-WS="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver"
-[ -d "$BASE/steam-bottle" ] && [ -x "$WS" ] && WINEPREFIX="$BASE/steam-bottle" "$WS" -k 2>/dev/null || true
-sleep 1
+# Stop only after this bottle's removal (or engine removal) was accepted.
+stop_bottle() {
+  local b="$1" ws="$ENGINE/bin/wineserver"
+  [ "$b" != steam-bottle ] || ws="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver"
+  [ -d "$BASE/$b" ] || return 0
+  WINEPREFIX="$BASE/$b" DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ws" -k 2>/dev/null || true
+}
 
 # 2. App bundles.
 # Only bundles install.sh wrote for this install (their launcher script names
@@ -36,7 +36,7 @@ for a in "Battle.net" "Steam (Windows)" "Epic Games Launcher" "GOG GALAXY"; do
 done
 if [ "${#apps[@]}" -gt 0 ]; then
   printf 'Apps: %s\n' "${apps[@]}"
-  if ask "Remove these apps?"; then rm -rf "${apps[@]}"; echo "  removed"; fi
+  if ask "Remove these apps?"; then rm -rf "${apps[@]}"; REMOVED=1; echo "  removed"; fi
 fi
 
 # 3. Bottles (this is where installed games live; can be tens of GB).
@@ -44,14 +44,18 @@ for b in bottle steam-bottle epic-bottle gog-bottle; do
   d="$BASE/$b"
   [ -d "$d" ] || continue
   sz=$(du -sh "$d" 2>/dev/null | cut -f1)
-  if ask "Remove bottle $b ($sz, includes installed games)?"; then rm -rf "$d"; echo "  removed"; fi
+  if ask "Remove bottle $b ($sz, includes installed games)?"; then
+    stop_bottle "$b"
+    rm -rf "$d"; REMOVED=1; echo "  removed"
+  fi
 done
 
 # 4. Engine (+ the GPTK payload inside it).
 if [ -d "$ENGINE" ]; then
   sz=$(du -sh "$ENGINE" 2>/dev/null | cut -f1)
   if ask "Remove the engine ($sz, includes the GPTK payload; re-downloadable with soju install)?"; then
-    rm -rf "$ENGINE"; echo "  removed"
+    for b in bottle epic-bottle gog-bottle; do stop_bottle "$b"; done
+    rm -rf "$ENGINE"; REMOVED=1; echo "  removed"
   fi
 fi
 
@@ -61,18 +65,20 @@ extras=()
 for d in build steam-support epic-support gog-support logs cx26-engine.old cx26-engine.new soju.old; do
   [ -e "$BASE/$d" ] && extras+=("$BASE/$d")
 done
+for d in "$BASE"/reaper-*.log "$BASE"/*.tar.xz "$BASE"/*.part; do
+  [ -f "$d" ] && extras+=("$d")
+done
 if [ "${#extras[@]}" -gt 0 ]; then
   sz=$(du -shc "${extras[@]}" 2>/dev/null | tail -1 | cut -f1)
   printf 'Caches and support files (%s):\n' "$sz"; printf '  %s\n' "${extras[@]}"
-  if ask "Remove these?"; then rm -rf "${extras[@]}"; echo "  removed"; fi
+  if ask "Remove these?"; then rm -rf "${extras[@]}"; REMOVED=1; echo "  removed"; fi
 fi
-rm -f "$BASE"/reaper-*.log "$BASE"/*.tar.xz "$BASE"/*.part 2>/dev/null || true
 
 # 6. The scripts copy made by the one-line installer.
 if [ -d "$BASE/soju" ]; then
-  if ask "Remove the scripts copy at $BASE/soju?"; then rm -rf "$BASE/soju"; echo "  removed"; fi
+  if ask "Remove the scripts copy at $BASE/soju?"; then rm -rf "$BASE/soju"; REMOVED=1; echo "  removed"; fi
 fi
-rmdir "$BASE" 2>/dev/null && echo "Removed empty $BASE" || true
+[ "$REMOVED" = 0 ] || { rmdir "$BASE" 2>/dev/null && echo "Removed empty $BASE" || true; }
 
 cat <<'EOT'
 
