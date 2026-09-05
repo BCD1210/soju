@@ -17,6 +17,13 @@ export WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1 WINE_SIMULATE_WRITECOPY=1
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 
+# A previous run may have installed the client but failed to build its helper.
+if [ -f "$WINEPREFIX/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe" ]; then
+  bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ensure-launcher-helper.sh" gog
+  echo "==> Launcher already installed; tray-restore helper ready"
+  exit 0
+fi
+
 [ -x "$ENGINE/bin/wine" ] || { echo "Engine not found, run install.sh (or build-engine.sh) first"; exit 1; }
 [ -f "$CX_APPLEGPTK_LIBD3DSHARED_PATH" ] || { echo "libd3dshared not found, run get-gptk.sh first"; exit 1; }
 
@@ -44,11 +51,5 @@ CLIENT="$WINEPREFIX/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe"
 "$ENGINE/bin/wineserver" -k 2>/dev/null || true
 sleep 2
 rm -f "$WINEPREFIX/drive_c/ProgramData/GOG.com/Galaxy/lock-files/"* 2>/dev/null || true
-SUPPORT="$HOME/.battlenet-macos/gog-support"; mkdir -p "$SUPPORT"
-if [ ! -f "$SUPPORT/soju-gog-restore.exe" ]; then
-  echo "==> Building the tray-restore helper (mingw-w64)"
-  command -v x86_64-w64-mingw32-gcc >/dev/null || brew install mingw-w64
-  x86_64-w64-mingw32-gcc -O2 -Wall -mwindows -o "$SUPPORT/soju-gog-restore.exe" -lpsapi \
-    "$(cd "$(dirname "$0")/.." && pwd)/tools/soju-gog-restore.c"
-fi
+bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ensure-launcher-helper.sh" gog
 echo "==> GOG GALAXY installed. Launch with: scripts/play.sh gog"

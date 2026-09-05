@@ -205,7 +205,7 @@ except Exception:
 PY
 }
 
-declare -a STRIKES   # indexed by pid
+declare -a STRIKES SEEN_WINDOWS GAME_IDENTITIES   # indexed by pid
 IDLE_STRIKES=0
 ORPHAN_STRIKES=0
 
@@ -246,15 +246,29 @@ while true; do
   fi
   IDLE_STRIKES=0
 
-  # Zombie games: a game process of this bottle with no window at all for
-  # ZOMBIE_STRIKES checks in a row.
+  # A cold start may load for minutes before creating its first window.
+  # Reap only after a previously observed window disappears. Start time
+  # prevents a reused PID from inheriting another game's window history.
   [ -n "${GAME_PIDS// /}" ] || continue
   WINS=" $(window_pids) " || continue
   [ "$WINS" != "  " ] || continue     # query failed or no windows anywhere: skip the round
+  for pid in "${!GAME_IDENTITIES[@]}"; do
+    case " $GAME_PIDS " in *" $pid "*) ;; *)
+      unset "GAME_IDENTITIES[$pid]" "SEEN_WINDOWS[$pid]" "STRIKES[$pid]" ;;
+    esac
+  done
   for pid in $GAME_PIDS; do
-    if [[ "$WINS" == *" $pid "* ]]; then
+    identity=$(ps -o lstart= -p "$pid" 2>/dev/null) || continue
+    [ -n "$identity" ] || continue
+    if [ "${GAME_IDENTITIES[$pid]:-}" != "$identity" ]; then
+      GAME_IDENTITIES[$pid]="$identity"
+      SEEN_WINDOWS[$pid]=0
       STRIKES[$pid]=0
-    else
+    fi
+    if [[ "$WINS" == *" $pid "* ]]; then
+      SEEN_WINDOWS[$pid]=1
+      STRIKES[$pid]=0
+    elif [ "${SEEN_WINDOWS[$pid]:-0}" = 1 ]; then
       STRIKES[$pid]=$(( ${STRIKES[$pid]:-0} + 1 ))
       if [ "${STRIKES[$pid]}" -ge "$ZOMBIE_STRIKES" ]; then
         echo "soju-reaper: $(exe_of "$pid") ($pid) has had no window for $((ZOMBIE_STRIKES * INTERVAL)) s, killing it"

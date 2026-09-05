@@ -68,7 +68,7 @@ brew install BCD1210/soju/soju
 soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / soju gog
 ```
 
-The installer downloads the prebuilt engine (~350 MB), walks you through Apple's free GPTK download (the one file Apple forbids redistributing), then asks which launchers you want, any combination of Battle.net, Steam, Epic Games Launcher and GOG GALAXY, installs each with its official installer into its own bottle, and drops a double-clickable app per launcher in `~/Applications` (`Battle.net.app`, `Steam (Windows).app`, `Epic Games Launcher.app`, `GOG GALAXY.app`). Non-interactive: `SOJU_PLATFORMS=battlenet,epic,gog curl ... | bash`. Log in and play.
+The installer downloads the prebuilt engine (~350 MB), walks you through Apple's free GPTK download (the one file Apple forbids redistributing), then asks which launchers you want, any combination of Battle.net, Steam, Epic Games Launcher and GOG GALAXY, installs each with its official installer into its own bottle, and drops a double-clickable app per launcher in `~/Applications` (`Battle.net.app`, `Steam (Windows).app`, `Epic Games Launcher.app`, `GOG GALAXY.app`). Non-interactive: `curl -fsSL https://soju.snack-wrap.com/install.sh | SOJU_PLATFORMS=battlenet,epic,gog bash`. Log in and play.
 
 ## Everyday commands
 

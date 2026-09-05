@@ -68,7 +68,7 @@ brew install BCD1210/soju/soju
 soju install     # 然后：soju battlenet / soju d2r / soju steam / soju epic / soju gog
 ```
 
-安装器会下载预编译引擎（约 350 MB），引导你下载 Apple 免费的 GPTK（唯一一个 Apple 禁止再分发的文件），然后询问你要装哪些登录器（任意组合：战网、Steam、Epic Games Launcher、GOG GALAXY），用各自的官方安装包装进各自独立的 bottle，并在 `~/Applications` 里为每个登录器生成可双击的 app（`Battle.net.app`、`Steam (Windows).app`、`Epic Games Launcher.app`、`GOG GALAXY.app`）。非交互模式：`SOJU_PLATFORMS=battlenet,epic,gog curl ... | bash`。登录，开玩。
+安装器会下载预编译引擎（约 350 MB），引导你下载 Apple 免费的 GPTK（唯一一个 Apple 禁止再分发的文件），然后询问你要装哪些登录器（任意组合：战网、Steam、Epic Games Launcher、GOG GALAXY），用各自的官方安装包装进各自独立的 bottle，并在 `~/Applications` 里为每个登录器生成可双击的 app（`Battle.net.app`、`Steam (Windows).app`、`Epic Games Launcher.app`、`GOG GALAXY.app`）。非交互模式：`curl -fsSL https://soju.snack-wrap.com/install.sh | SOJU_PLATFORMS=battlenet,epic,gog bash`。登录，开玩。
 
 ## 日常维护
 
