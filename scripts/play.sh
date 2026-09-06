@@ -204,6 +204,8 @@ case "$MODE" in
     [[ -x "$WINESTABLE" ]] || { echo "Steam runtime not found. Reinstall Steam from Platforms or run: soju steam-install"; exit 1; }
     ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
     [[ -f "$ST" ]] || { echo "Steam not found, run scripts/create-steam-bottle.sh first"; exit 1; }
+    # Repair a bootstrap-only installation before deploying the CEF wrapper.
+    python3 "$(dirname "${BASH_SOURCE[0]}")/bootstrap-steam.py" "$WINESTABLE"
     # 1) Clean crash leftovers (a stale lock makes the next launch a windowless --silent one)
     find "$WINEPREFIX/drive_c/users/"*/AppData/Local/Steam/htmlcache -maxdepth 2 \
       \( -name "Singleton*" -o -name "*.lock" \) -delete 2>/dev/null || true

@@ -34,6 +34,7 @@ fi
 # ---------- 2. Verified wrapper and rendering components ----------
 python3 "$REPO_ROOT/scripts/fetch-steam-support.py"
 if [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
+  python3 "$REPO_ROOT/scripts/bootstrap-steam.py" "$WINE"
   echo "Steam already installed."
   exit 0
 fi
@@ -50,7 +51,10 @@ echo "==> Installing Steam silently"
 "$STEAM_WINE_ROOT/bin/wineserver" -w 2>/dev/null || true
 [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ] || { echo "Install failed"; exit 1; }
 
-# ---------- 4. Finish ----------
+# ---------- 4. Full client before configuring the renderer ----------
+python3 "$REPO_ROOT/scripts/bootstrap-steam.py" "$WINE"
+
+# ---------- 5. Finish ----------
 cp -f /etc/ssl/cert.pem "$WINEPREFIX/drive_c/windows/cacert.pem" 2>/dev/null || true
 echo "==> Done. Run: scripts/play.sh steam  (play.sh deploys the wrapper automatically)"
 echo "    If typed text shows up as ??, switch the macOS input source to English (ABC)."

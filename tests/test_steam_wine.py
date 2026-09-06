@@ -141,3 +141,60 @@ class SteamFirstLaunchTests(unittest.TestCase):
                 args = log.read_text().splitlines()
                 self.assertEqual("-noverifyfiles" in args, installed)
                 self.assertIn("-cef-single-process", args)
+
+spec_bootstrap = importlib.util.spec_from_file_location("steam_bootstrap", ROOT / "scripts/bootstrap-steam.py")
+bootstrap = importlib.util.module_from_spec(spec_bootstrap)
+spec_bootstrap.loader.exec_module(bootstrap)
+
+class SteamBootstrapTests(unittest.TestCase):
+    def test_only_final_verification_finishes_initial_download(self):
+        verified = "[time] Startup - updater built old\n[time] Verification complete\n"
+        for phase in ["Downloading update", "Extracting package", "Installing update", "Startup - updater built new"]:
+            self.assertFalse(bootstrap.verification_finished(verified + phase))
+        self.assertTrue(bootstrap.verification_finished(verified + "Installing update\nStartup - updater built new\nVerification complete\n"))
+        self.assertFalse(bootstrap.verification_finished(""))
+
+    def test_complete_client_never_starts_or_stops_wine(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = Path(tmp)
+            steam = prefix / "drive_c/Program Files (x86)/Steam"
+            cef = steam / "bin/cef/cef.win7x64"
+            cef.mkdir(parents=True)
+            (steam / "steamui.dll").touch()
+            (cef / "steamwebhelper.exe").touch()
+            with patch.object(bootstrap.subprocess, "Popen", side_effect=AssertionError("existing Steam")), \
+                 patch.object(bootstrap.subprocess, "run", side_effect=AssertionError("existing Steam")):
+                bootstrap.bootstrap(prefix / "wine/bin/wine", prefix)
+
+    def test_bootstrapper_relaunch_is_not_mistaken_for_completed_download(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = Path(tmp)
+            steam = prefix / "drive_c/Program Files (x86)/Steam"
+            (steam / "logs").mkdir(parents=True)
+            (steam / "steam.exe").touch()
+            from unittest.mock import Mock
+            process = Mock()
+            process.poll.return_value = 42
+            process.wait.return_value = 42
+            def start(*args, **kwargs):
+                cef = steam / "bin/cef/cef.win7x64"
+                cef.mkdir(parents=True)
+                (steam / "steamui.dll").touch()
+                (cef / "steamwebhelper.exe").touch()
+                (steam / "logs/bootstrap_log.txt").write_text("Startup - updater built new\nVerification complete\n")
+                return process
+            with patch.object(bootstrap.subprocess, "Popen", side_effect=start), \
+                 patch.object(bootstrap.subprocess, "run") as stop:
+                bootstrap.bootstrap(prefix / "wine/bin/wine", prefix)
+            self.assertEqual(len(stop.call_args_list), 2)
+            for call in stop.call_args_list:
+                self.assertEqual(call.kwargs["env"]["WINEPREFIX"], str(prefix))
+
+    def test_incomplete_download_reports_failure_after_scoped_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = Path(tmp)
+            with patch.object(bootstrap.subprocess, "Popen"), patch.object(bootstrap.subprocess, "run") as stop, \
+                 patch.object(bootstrap.time, "monotonic", side_effect=[0, 1000]):
+                with self.assertRaisesRegex(RuntimeError, "did not finish"):
+                    bootstrap.bootstrap(prefix / "wine/bin/wine", prefix, timeout=1)
+            self.assertEqual(stop.call_args.kwargs["env"]["WINEPREFIX"], str(prefix))
