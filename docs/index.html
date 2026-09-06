@@ -72,7 +72,7 @@ poster="assets/soju-launcher-demo-poster.jpg" aria-label="Soju launcher preview"
 <h2 id="launchers-title">One toolkit. Four Windows launchers.</h2>
 <div class="platforms">
 <article class="platform"><h3>Battle.net</h3><p>Sign in, manage downloads and launch supported Blizzard games.</p><code>soju battlenet</code></article>
-<article class="platform"><h3>Steam</h3><p>Run the Windows client in its own Wine environment. D3D11 games need additional DXMT setup.</p><code>soju steam</code></article>
+<article class="platform"><h3>Steam</h3><p>Run the Windows client in its own Wine environment. Verified D3D11 components are installed automatically.</p><code>soju steam</code></article>
 <article class="platform"><h3>Epic Games Launcher</h3><p>Sign in, install games and return to the launcher from its tray.</p><code>soju epic</code></article>
 <article class="platform"><h3>GOG GALAXY</h3><p>Access your account and library. Game compatibility is still being explored.</p><code>soju gog</code></article>
 </div>
@@ -82,8 +82,11 @@ You use each store's own interface and library.</p>
 
 <section id="install" aria-labelledby="install-title">
 <h2 id="install-title">Choose your launchers. Get set up.</h2>
-<p>The installer offers any combination of the four launchers and creates
-their shortcuts in <code>~/Applications</code>.</p>
+<p><a class="btn" href="https://github.com/BCD1210/soju/releases/download/v1.4.0/Soju-1.4.0-macos-arm64.zip">Download Soju for Mac</a></p>
+<p>The native desktop preview installs, opens, updates and diagnoses all four launchers in one window.
+Apple Silicon · app UI: macOS 14+ · Steam component build: macOS 26+.
+<a href="https://github.com/BCD1210/soju/blob/main/docs/DESKTOP.md">Setup and signing notes</a>.</p>
+<p>Prefer the terminal? Select launchers before any downloads. Steam-only installs skip the CX engine and Apple GPTK.</p>
 <pre><code>curl -fsSL https://soju.snack-wrap.com/install.sh | bash</code></pre>
 <p>Or install the CLI through Homebrew:</p>
 <pre><code>brew install BCD1210/soju/soju

@@ -13,10 +13,12 @@ ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
 
 usage() {
   cat <<'EOF'
-soju: free Battle.net / Diablo II: Resurrected / Epic / GOG / Steam on Apple Silicon
+soju: open-source Windows launchers on Apple Silicon
 
 Usage:
-  soju install        Set up the Wine engine, Apple GPTK and Battle.net
+  soju install        Choose and install any of the four launchers
+  soju app            Build, install and open the native Soju app
+  soju --version      Print the Soju version
   soju battlenet      Launch Battle.net (default bottle)
   soju d2r            Launch Diablo II: Resurrected directly
   soju kill           Stop everything in the Battle.net bottle
@@ -29,7 +31,7 @@ Usage:
   soju gog-kill       Stop everything in the GOG bottle
 
   soju steam-install  Set up the Steam bottle (wine-stable + wrapper + Steam)
-  soju steam-games    Wire DXMT so D3D11 games render (needs built artifacts)
+  soju steam-games    Download and configure verified D3D11 components
   soju steam          Launch Steam
   soju steam-kill     Stop everything in the Steam bottle
 
@@ -44,10 +46,12 @@ EOF
 }
 
 case "${1:-}" in
+  --version)      cat "$ROOT/VERSION" ;;
+  app)            exec bash "$ROOT/scripts/install-app.sh" ;;
   install)        shift; exec bash "$ROOT/install.sh" "$@" ;;
   epic-install)   shift; exec bash "$ROOT/scripts/create-epic-bottle.sh" "$@" ;;
   gog-install)    shift; exec bash "$ROOT/scripts/create-gog-bottle.sh" "$@" ;;
-  steam-install)  shift; exec bash "$ROOT/scripts/create-steam-bottle.sh" "$@" ;;
+  steam-install)  shift; export SOJU_PLATFORMS=steam; exec bash "$ROOT/install.sh" "$@" ;;
   steam-games)    shift; exec bash "$ROOT/scripts/setup-steam-games.sh" "$@" ;;
   gptk)           shift; exec bash "$ROOT/scripts/get-gptk.sh" "$@" ;;
   sweep)          shift; exec bash "$ROOT/scripts/soju-sweep.sh" "$@" ;;

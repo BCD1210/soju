@@ -10,3 +10,8 @@ drive_c/
 # macOS
 .DS_Store
 .omc/
+
+# Generated app and Python caches
+dist/
+__pycache__/
+*.pyc
