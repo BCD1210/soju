@@ -57,6 +57,8 @@ struct DiscoverView: View {
     @State private var query = ""
     @State private var country = "US"
     @State private var platform = "all"
+    @State private var purchaseLinks = PurchaseLinks.empty
+    @AppStorage("useAffiliatePurchaseLinks") private var useAffiliateLinks = true
     private var shown: [StoreItem] { store.results.filter { platform == "all" || $0.platform.rawValue == platform } }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -109,6 +111,12 @@ struct DiscoverView: View {
                     }.padding(.vertical, 3)
                 }
             }
+            if purchaseLinks.hasAffiliateLinks {
+                Toggle("Support Soju through purchase links", isOn: $useAffiliateLinks)
+                    .font(.caption)
+                Text("Links marked ‘Supports Soju’ may earn us a commission if you buy, at no extra cost to you. Turn this off to use ordinary store links.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Divider()
             HStack(spacing: 14) {
                 Text("Search directly:").font(.caption).foregroundStyle(.secondary)
@@ -119,10 +127,11 @@ struct DiscoverView: View {
             }
             Text("Prices are for the selected region and may change at checkout. Listings can include add-ons and bundles. Store availability does not confirm compatibility with Soju.")
                 .font(.caption).foregroundStyle(.secondary)
-        }.padding(28).onDisappear { store.cancel() }
+        }.padding(28).onAppear { purchaseLinks = PurchaseLinks.load(root: model.root) }.onDisappear { store.cancel() }
     }
     private func listing(_ item: StoreItem) -> some View {
         let owned = model.games.first { $0.id == item.id }
+        let purchase = purchaseLinks.resolve(item.url, useAffiliateLinks: useAffiliateLinks)
         return VStack(alignment: .leading, spacing: 12) {
             ZStack {
                 Color.primary.opacity(0.04)
@@ -148,10 +157,14 @@ struct DiscoverView: View {
                     }.disabled(model.busy)
                 }
                 Spacer()
-                Button("View in store") {
-                    if let url = URL(string: item.url), url.scheme == "https",
-                       ["store.steampowered.com", "www.gog.com"].contains(url.host ?? "") { NSWorkspace.shared.open(url) }
-                }.buttonStyle(.borderedProminent)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Button("View in store") {
+                        if let purchase { NSWorkspace.shared.open(purchase.url) }
+                    }.buttonStyle(.borderedProminent).disabled(purchase == nil)
+                    if purchase?.isAffiliate == true {
+                        Text("Supports Soju").font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
             }
         }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 13))

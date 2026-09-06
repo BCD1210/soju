@@ -16,5 +16,9 @@ jobs:
           for script in scripts/*.sh scripts/soju; do bash -n "$script"; done
           python3 -m unittest discover -s tests -q
           node --test tests/test_steam_login.cjs
+      - name: Purchase link routing
+        run: |
+          swiftc app/PurchaseLinks.swift tests/test_purchase_links.swift -o /tmp/soju-purchase-tests
+          /tmp/soju-purchase-tests
       - name: Build and verify the native app
         run: bash scripts/build-app.sh
