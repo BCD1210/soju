@@ -1,0 +1,80 @@
+diff --git a/dlls/winemac.drv/cocoa_app.m b/dlls/winemac.drv/cocoa_app.m
+index 2a9dab2..13e054b 100644
+--- a/dlls/winemac.drv/cocoa_app.m
++++ b/dlls/winemac.drv/cocoa_app.m
+@@ -230,6 +230,34 @@ - (void) transformProcessToForeground:(BOOL)activateIfTransformed
+             NSString* title;
+             NSMenuItem* item;
+ 
++            /* Soju: suppress Dock icons for processes listed in WINE_NO_DOCK_ICON
++               (semicolon-separated exe names). Modeled on CrossOver's hack 24141. */
++            {
++                const char* nodock = getenv("WINE_NO_DOCK_ICON");
++                if (nodock)
++                {
++                    /* The Windows exe path may sit in any argv slot (the loader
++                       rewrites argv after NSProcessInfo snapshots it), so match
++                       the basename of every argument against the list. */
++                    NSArray* list = [[[NSString stringWithUTF8String:nodock] lowercaseString] componentsSeparatedByString:@";"];
++                    NSCharacterSet* seps = [NSCharacterSet characterSetWithCharactersInString:@"/\\"];
++                    BOOL blocked = NO;
++                    NSArray* args = [[NSProcessInfo processInfo] arguments];
++                    NSUInteger limit = MIN((NSUInteger)2, args.count);
++                    for (NSUInteger i = 0; i < limit; i++)
++                    {
++                        NSString* base = [[[args[i] componentsSeparatedByCharactersInSet:seps] lastObject] lowercaseString];
++                        if (base.length && [list containsObject:base]) { blocked = YES; break; }
++                    }
++                    if (blocked)
++                    {
++                        if (activateIfTransformed)
++                            [self tryToActivateIgnoringOtherApps:YES];
++                        return;
++                    }
++                }
++            }
++
+             [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+ 
+             if (activateIfTransformed)
+@@ -2232,6 +2260,40 @@ - (BOOL) applicationShouldHandleReopen:(NSApplication*)theApplication hasVisible
+         // Note that "flag" is often wrong.  WineWindows are NSPanels and NSPanels
+         // don't count as "visible windows" for this purpose.
+         [self unminimizeWindowIfNoneVisible];
++
++        /* Soju: WINE_DOCK_REOPEN_CMD: Windows apps that "close to the tray"
++           (Steam) hide their window; there is no tray on macOS, so a Dock click
++           would do nothing. If nothing is visible after the unminimize attempt,
++           run the command (e.g. "steam.exe steam://open/main") to bring it back. */
++        {
++            const char* cmd = getenv("WINE_DOCK_REOPEN_CMD");
++            if (cmd && *cmd)
++            {
++                BOOL anyVisible = NO;
++                for (NSWindow* w in [NSApp windows])
++                {
++                    /* Only count windows a user can actually see. Tray-parked apps
++                       (Epic Games Launcher) keep tiny transparent helper windows
++                       parked far off-screen, and those are still "visible" to AppKit. */
++                    if ([w isKindOfClass:[WineWindow class]] && [w isVisible] && ![w isMiniaturized]
++                        && [w alphaValue] > 0.0 && w.frame.size.width > 1 && w.frame.size.height > 1)
++                    {
++                        BOOL onScreen = NO;
++                        for (NSScreen* screen in [NSScreen screens])
++                            if (NSIntersectsRect(w.frame, screen.frame)) { onScreen = YES; break; }
++                        if (onScreen) { anyVisible = YES; break; }
++                    }
++                }
++                if (!anyVisible)
++                {
++                    NSTask* task = [[NSTask alloc] init];
++                    task.launchPath = @"/bin/sh";
++                    task.arguments = @[@"-c", [NSString stringWithUTF8String:cmd]];
++                    @try { [task launch]; } @catch (NSException* e) { NSLog(@"WINE_DOCK_REOPEN_CMD failed: %@", e); }
++                    [task release];
++                }
++            }
++        }
+         return YES;
+     }
+ 

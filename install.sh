@@ -4,20 +4,58 @@
 #   curl -fsSL https://soju.snack-wrap.com/install.sh | SOJU_PLATFORMS=battlenet,epic,gog bash     (non-interactive selection)
 #
 # What it does:
-#   1. Downloads the prebuilt GPL Wine engine (built from CodeWeavers' published sources)
-#   2. Asks you to download Apple's Game Porting Toolkit once (Apple forbids redistribution)
-#   3. Asks which launchers you want (any combination) and installs each one with
-#      its official installer into its own bottle
+#   1. Asks which launchers you want before downloading anything
+#   2. Installs only their dependencies (Steam skips the CX engine and Apple GPTK)
+#   3. Installs each official client into its own bottle
 #   4. Creates a double-clickable app in ~/Applications for each launcher
 set -euo pipefail
 
 REPO="BCD1210/soju"
-BASE="$HOME/.battlenet-macos"
-ENGINE="$BASE/cx26-engine"
+BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
+export SOJU_BASE="$BASE"
+ENGINE="${ENGINE:-$BASE/cx26-engine}"
 BOTTLE="$BASE/bottle"
 TTY=/dev/tty
 
 say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
+
+# ---------- 1. Choose launchers before any download ----------
+ALL="battlenet steam epic gog"
+if [ -n "${SOJU_PLATFORMS:-}" ]; then
+  PLATFORMS="$(echo "$SOJU_PLATFORMS" | tr ',' ' ')"
+else
+  say "[1/4] Which launchers do you want? (numbers separated by spaces, Enter = Battle.net only)"
+  cat <<'EOT'
+  1) Battle.net           (Diablo II: Resurrected etc.)
+  2) Steam                (Windows client on Homebrew wine-stable, D3D11 games via DXMT)
+  3) Epic Games Launcher
+  4) GOG GALAXY
+EOT
+  read -r -p "  Your choice [1]: " choice < "$TTY" || choice=1
+  [ -n "$choice" ] || choice=1
+  PLATFORMS=""
+  for c in $choice; do
+    case "$c" in
+      1|battlenet) PLATFORMS="$PLATFORMS battlenet" ;;
+      2|steam)     PLATFORMS="$PLATFORMS steam" ;;
+      3|epic)      PLATFORMS="$PLATFORMS epic" ;;
+      4|gog)       PLATFORMS="$PLATFORMS gog" ;;
+      *) echo "Unknown choice: $c"; exit 64 ;;
+    esac
+  done
+fi
+for p in $PLATFORMS; do case " $ALL " in *" $p "*) ;; *) echo "Unknown platform: $p"; exit 1;; esac; done
+[ -n "${PLATFORMS// /}" ] || { echo "Nothing selected."; exit 64; }
+echo "  Installing:$PLATFORMS"
+
+NEEDS_CX=0; NEEDS_STEAM=0
+for p in $PLATFORMS; do
+  case "$p" in steam) NEEDS_STEAM=1 ;; *) NEEDS_CX=1 ;; esac
+done
+if [ "${1:-}" = "--plan" ]; then
+  printf 'platforms=%s\ncx_engine=%s\napple_gptk=%s\nsteam_runtime=%s\n' "$PLATFORMS" "$NEEDS_CX" "$NEEDS_CX" "$NEEDS_STEAM"
+  exit 0
+fi
 
 [ "$(uname -m)" = "arm64" ] || { echo "This installer is for Apple Silicon Macs only."; exit 1; }
 /usr/bin/pgrep -q oahd || { echo "Rosetta 2 is required: softwareupdate --install-rosetta"; exit 1; }
@@ -52,13 +90,14 @@ carry_gptk(){   # from, to
     fi
   done
 }
-# ---------- 1. Engine ----------
+# ---------- 2. Engine (Battle.net / Epic / GOG only) ----------
+if [ "$NEEDS_CX" = 1 ]; then
 # bin/wine alone can be left behind by an interrupted extract; only an engine
 # that actually starts counts as present.
 if [ -x "$ENGINE/bin/wine" ] && DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version >/dev/null 2>&1; then
-  say "[1/4] Engine already present - skipping"
+  say "[2/4] Engine already present - skipping"
 else
-  say "[1/4] Downloading prebuilt engine (~350MB, GPL - built from CodeWeavers' published Wine sources)"
+  say "[2/4] Downloading prebuilt engine (~350MB, GPL - built from CodeWeavers' published Wine sources)"
   # The engine ships on its own "engine-*" release, which is not necessarily the
   # newest release: scan all releases and take the first (newest) engine asset.
   URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
@@ -84,6 +123,8 @@ else
   echo "Engine OK: $v"
 fi
 
+fi # NEEDS_CX
+
 # ---------- Soju scripts ----------
 # The bottle scripts live in the repo; fetch a copy next to the engine so the
 # one-line installer can use them (a checkout running install.sh uses itself).
@@ -105,7 +146,8 @@ else
 fi
 chmod +x "$SOJU_DIR"/scripts/*.sh "$SOJU_DIR"/scripts/soju 2>/dev/null || true
 
-# ---------- 2. Apple GPTK ----------
+# ---------- Apple GPTK (Battle.net / Epic / GOG only) ----------
+if [ "$NEEDS_CX" = 1 ]; then
 # scripts/get-gptk.sh finds the payload (mounted toolkit dmg, or CrossOver),
 # verifies every file (Apple's signature on the Mach-O parts, known Apple
 # builds for the PE shims) and installs it. See the notes in that script.
@@ -127,6 +169,7 @@ else
     3) Come back to this window and press Enter
 EOT
     while true; do
+      [ "${SOJU_NONINTERACTIVE:-0}" != 1 ] || { echo "  GPTK not mounted. Use Add GPTK in Soju, then install again."; break; }
       read -r -p "  Press Enter when the dmg is mounted, or paste the path of the mounted volume (s to skip): " ans < "$TTY" || ans=s
       [ "$ans" = "s" ] && { echo "  Skipped - the last lines of this installer say how to add it later"; break; }
       ans=${ans//\\ / }; ans=${ans%"${ans##*[! ]}"}   # a path dragged into Terminal comes escaped
@@ -141,34 +184,9 @@ EOT
   fi
 fi
 
+fi # NEEDS_CX
+
 # ---------- 3. Launchers ----------
-ALL="battlenet steam epic gog"
-if [ -n "${SOJU_PLATFORMS:-}" ]; then
-  PLATFORMS="$(echo "$SOJU_PLATFORMS" | tr ',' ' ')"
-else
-  say "[3/4] Which launchers do you want? (numbers separated by spaces, Enter = Battle.net only)"
-  cat <<'EOT'
-  1) Battle.net           (Diablo II: Resurrected etc.)
-  2) Steam                (Windows client on Homebrew wine-stable, D3D11 games via DXMT)
-  3) Epic Games Launcher
-  4) GOG GALAXY
-EOT
-  read -r -p "  Your choice [1]: " choice < "$TTY" || choice=1
-  [ -n "$choice" ] || choice=1
-  PLATFORMS=""
-  for c in $choice; do
-    case "$c" in
-      1|battlenet) PLATFORMS="$PLATFORMS battlenet" ;;
-      2|steam)     PLATFORMS="$PLATFORMS steam" ;;
-      3|epic)      PLATFORMS="$PLATFORMS epic" ;;
-      4|gog)       PLATFORMS="$PLATFORMS gog" ;;
-      *) echo "  Ignoring unknown choice: $c" ;;
-    esac
-  done
-fi
-for p in $PLATFORMS; do case " $ALL " in *" $p "*) ;; *) echo "Unknown platform: $p"; exit 1;; esac; done
-[ -n "$PLATFORMS" ] || { echo "Nothing selected."; exit 1; }
-echo "  Installing:$PLATFORMS"
 
 export ENGINE
 for p in $PLATFORMS; do
@@ -185,21 +203,22 @@ for p in $PLATFORMS; do
         say "Steam already installed - skipping"
       else
         say "Steam: Homebrew wine-stable + Steam installer"
-        bash "$SOJU_DIR/scripts/create-steam-bottle.sh"
-      fi ;;
+        WINEPREFIX="$BASE/steam-bottle" bash "$SOJU_DIR/scripts/create-steam-bottle.sh"
+      fi
+      WINEPREFIX="$BASE/steam-bottle" bash "$SOJU_DIR/scripts/setup-steam-games.sh" ;;
     epic)
       if [ -f "$BASE/epic-bottle/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe" ]; then
         say "Epic Games Launcher already installed - skipping"
       else
         say "Epic Games Launcher: creating the bottle + running Epic's installer"
-        bash "$SOJU_DIR/scripts/create-epic-bottle.sh"
+        WINEPREFIX="$BASE/epic-bottle" bash "$SOJU_DIR/scripts/create-epic-bottle.sh"
       fi ;;
     gog)
       if [ -f "$BASE/gog-bottle/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe" ]; then
         say "GOG GALAXY already installed - skipping"
       else
         say "GOG GALAXY: creating the bottle + running GOG's installer"
-        bash "$SOJU_DIR/scripts/create-gog-bottle.sh"
+        WINEPREFIX="$BASE/gog-bottle" bash "$SOJU_DIR/scripts/create-gog-bottle.sh"
       fi ;;
   esac
   # The client EXE does not prove its helper build completed.
@@ -213,11 +232,11 @@ say "[4/4] Creating apps in ~/Applications"
 make_app(){   # name, play.sh mode, bundle id
   local APP="$HOME/Applications/$1.app"
   mkdir -p "$APP/Contents/MacOS"
-  cat > "$APP/Contents/MacOS/launcher" <<EOF
-#!/bin/bash
-export ENGINE="$ENGINE"
-exec "$SOJU_DIR/scripts/play.sh" $2
-EOF
+  {
+    printf '#!/bin/bash\n'
+    printf 'export ENGINE=%q\nexport SOJU_BASE=%q\n' "$ENGINE" "$BASE"
+    printf 'exec /bin/bash %q %q\n' "$SOJU_DIR/scripts/play.sh" "$2"
+  } > "$APP/Contents/MacOS/launcher"
   chmod +x "$APP/Contents/MacOS/launcher"
   cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -244,7 +263,7 @@ done
 
 say "Done! 🍶  Double-click the app(s) above, log in, install and play."
 echo "Command line: $SOJU_DIR/scripts/soju  (battlenet | d2r | kill | epic | epic-kill | gog | gog-kill | steam | steam-kill | doctor | update)"
-GPTK_OK || echo "NOTE: GPTK was skipped - before launching a game, mount the GPTK dmg and run:  $SOJU_DIR/scripts/soju gptk"
+[ "$NEEDS_CX" = 0 ] || GPTK_OK || echo "NOTE: GPTK was skipped - before launching a game, mount the GPTK dmg and run:  $SOJU_DIR/scripts/soju gptk"
 echo
 echo "Something broke?  Run 'soju doctor' and paste its output in an issue: https://github.com/BCD1210/soju/issues"
 echo "Worked for you?   A star helps other Mac gamers find this:           https://github.com/BCD1210/soju"

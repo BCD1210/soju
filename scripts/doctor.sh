@@ -8,7 +8,8 @@ ENGINE="${ENGINE:-$BASE/cx26-engine}"
 REPO="BCD1210/soju"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOJU="$ROOT/scripts/soju"
-WINESTABLE="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine"
+source "$ROOT/scripts/steam-runtime.sh"
+WINESTABLE="$STEAM_WINE_ROOT/bin/wine"
 
 nok=0; nwarn=0; nfail=0
 pass(){ printf '  ok    %s\n' "$*"; nok=$((nok+1)); }
@@ -16,7 +17,15 @@ warn(){ printf '  warn  %s\n' "$*"; nwarn=$((nwarn+1)); }
 fail(){ printf '  FAIL  %s\n' "$*"; nfail=$((nfail+1)); }
 info(){ printf '  -     %s\n' "$*"; }
 
-echo "soju doctor"
+SCOPE="${1:-installed}"
+case "$SCOPE" in installed|all|steam|battlenet|epic|gog) ;; *) echo "Usage: soju doctor [steam|battlenet|epic|gog|all]"; exit 64 ;; esac
+NEEDS_CX=0
+case "$SCOPE" in
+  all|battlenet|epic|gog) NEEDS_CX=1 ;;
+  installed)
+    if [ -x "$ENGINE/bin/wine" ] || [ -d "$BASE/bottle" ] || [ -d "$BASE/epic-bottle" ] || [ -d "$BASE/gog-bottle" ]; then NEEDS_CX=1; fi ;;
+esac
+echo "soju doctor ($SCOPE)"
 
 echo
 echo "System"
@@ -28,6 +37,7 @@ free_gb=$(df -g "$HOME" | awk 'NR==2 {print $4}')
 if [ "${free_gb:-0}" -lt 20 ]; then warn "only ${free_gb}GB free on the home volume (games are big)"; else pass "${free_gb}GB free disk"; fi
 
 echo
+if [ "$NEEDS_CX" = 1 ]; then
 echo "Engine ($ENGINE)"
 if [ -x "$ENGINE/bin/wine" ]; then
   v=$(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version 2>/dev/null || true)
@@ -67,11 +77,21 @@ else
 fi
 
 echo
+else
+  info "CX engine / Apple GPTK not required for the selected installation"
+fi
 echo "Bottles ($BASE)"
 [ -f "$BASE/bottle/drive_c/Program Files (x86)/Battle.net/Battle.net.exe" ] \
   && pass "Battle.net bottle" || info "Battle.net not installed (soju install)"
 if [ -f "$BASE/steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
   pass "Steam bottle"
+  if [ -f "$BASE/steam-runtime/.soju-runtime" ] && [ -f "$BASE/steam-bottle/.soju-steam-games" ]; then
+    pass "Soju private Steam runtime / D3D11 components installed"
+  elif [ -f "$BASE/steam-support/winemac-patched.so" ]; then
+    info "Legacy Steam renderer present; close Steam and run soju steam-games to migrate"
+  else
+    warn "Steam game rendering not configured: soju steam-games"
+  fi
   [ -x "$WINESTABLE" ] && pass "Homebrew wine-stable present" \
     || fail "Steam bottle exists but wine-stable is gone: brew install --cask wine-stable"
 else

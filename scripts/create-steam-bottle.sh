@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Install Steam (Windows build): for Steam games such as the Steam edition of
-# D2R (Infernal Edition).
+# Install the Windows Steam client and its verified rendering components.
 #
 # Important: unlike Battle.net, Steam runs on Homebrew wine-stable, not the CX
 # source engine. CX-derived builds cannot render Steam's CEF UI (black screen);
@@ -10,12 +9,13 @@
 # Verified 2026-08-27 on M4 Pro / macOS 26.5: login screen renders.
 set -euo pipefail
 
-export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/steam-bottle}"
-SUPPORT="$HOME/.battlenet-macos/steam-support"
-WORK="${WORK:-$HOME/.battlenet-macos/build}"; mkdir -p "$WORK" "$SUPPORT"
+BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
+export WINEPREFIX="${WINEPREFIX:-$BASE/steam-bottle}"
+WORK="${WORK:-$BASE/build}"; mkdir -p "$WORK"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$REPO_ROOT/scripts/steam-runtime.sh"
 WINESTABLE_APP="/Applications/Wine Stable.app"
-WINE="$WINESTABLE_APP/Contents/Resources/wine/bin/wine"
+WINE="$STEAM_WINE_ROOT/bin/wine"
 
 # ---------- 1. wine-stable ----------
 if [ ! -x "$WINE" ]; then
@@ -27,27 +27,23 @@ if [ ! -x "$WINE" ]; then
 fi
 "$WINE" --version
 
-# ---------- 2. webhelper wrapper ----------
-# Forces Steam's CEF into --disable-gpu --single-process to avoid the black screen.
-if [ ! -f "$SUPPORT/steamwebhelper-wrapper.exe" ]; then
-  echo "==> Building the wrapper (mingw-w64)"
-  command -v x86_64-w64-mingw32-gcc >/dev/null || brew install mingw-w64
-  x86_64-w64-mingw32-gcc -O2 -Wall -municode -DUNICODE -D_UNICODE \
-    -o "$SUPPORT/steamwebhelper-wrapper.exe" \
-    "$REPO_ROOT/third_party/steam-on-m1-wine/steamwebhelper-wrapper.c" \
-    -static -lshell32 -mwindows
+# ---------- 2. Verified wrapper and rendering components ----------
+python3 "$REPO_ROOT/scripts/fetch-steam-support.py"
+if [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
+  echo "Steam already installed."
+  exit 0
 fi
 
 # ---------- 3. Prefix + Steam install ----------
 echo "==> Initializing the prefix: $WINEPREFIX"
 "$WINE" wineboot -u >/dev/null 2>&1 || true
-"$WINESTABLE_APP/Contents/Resources/wine/bin/wineserver" -w 2>/dev/null || true
+"$STEAM_WINE_ROOT/bin/wineserver" -w 2>/dev/null || true
 
 SETUP="$WORK/SteamSetup.exe"
 [ -f "$SETUP" ] || { curl -fL "https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe" -o "$SETUP.part" && mv -f "$SETUP.part" "$SETUP"; }
 echo "==> Installing Steam silently"
 "$WINE" "$SETUP" /S >/dev/null 2>&1 || true
-"$WINESTABLE_APP/Contents/Resources/wine/bin/wineserver" -w 2>/dev/null || true
+"$STEAM_WINE_ROOT/bin/wineserver" -w 2>/dev/null || true
 [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ] || { echo "Install failed"; exit 1; }
 
 # ---------- 4. Finish ----------

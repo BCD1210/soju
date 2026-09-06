@@ -14,18 +14,19 @@
 #     macOS strips DYLD_* when exec'ing them.
 set -euo pipefail
 
-ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
+ENGINE="${ENGINE:-${SOJU_BASE:-$HOME/.battlenet-macos}/cx26-engine}"
 MODE="${1:-battlenet}"
+source "$(dirname "${BASH_SOURCE[0]}")/steam-runtime.sh"
 
 # Bottle (virtual C: drive) path: per-mode default (Battle.net and Steam use separate bottles)
 if [[ "$MODE" == steam* ]]; then
-  export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/steam-bottle}"
+  export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/steam-bottle}"
 elif [[ "$MODE" == epic* ]]; then
-  export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/epic-bottle}"
+  export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/epic-bottle}"
 elif [[ "$MODE" == gog* ]]; then
-  export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/gog-bottle}"
+  export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/gog-bottle}"
 else
-  export WINEPREFIX="${WINEPREFIX:-$HOME/.battlenet-macos/bottle}"
+  export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/bottle}"
 fi
 
 export WINEDEBUG="${WINEDEBUG:-fixme-all}"
@@ -34,8 +35,8 @@ export WINEDEBUG="${WINEDEBUG:-fixme-all}"
 # pressed" / "keyboard dead, mouse fine" reports: the log shows which window a
 # KEY_RELEASE went to. Noisy (mouse moves too); leave it off otherwise.
 if [[ "${SOJU_KEYLOG:-0}" == 1 ]]; then
-  mkdir -p "$HOME/.battlenet-macos/logs"
-  KEYLOG="$HOME/.battlenet-macos/logs/keys-$MODE-$(date +%Y%m%d-%H%M%S).log"
+  mkdir -p "${SOJU_BASE:-$HOME/.battlenet-macos}/logs"
+  KEYLOG="${SOJU_BASE:-$HOME/.battlenet-macos}/logs/keys-$MODE-$(date +%Y%m%d-%H%M%S).log"
   export WINEDEBUG="fixme-all,+key,+event"
   exec 2>>"$KEYLOG"
   echo "soju keylog $(date) mode=$MODE prefix=$WINEPREFIX" >&2
@@ -133,7 +134,7 @@ case "$MODE" in
     # its "minimized" state and the window comes back unresponsive. A Dock-icon
     # click therefore replays the tray double-click into the launcher instead
     # (tools/soju-epic-restore.c, built by create-epic-bottle.sh).
-    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$HOME/.battlenet-macos/epic-support/soju-epic-restore.exe'"
+    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '${SOJU_BASE:-$HOME/.battlenet-macos}/epic-support/soju-epic-restore.exe'"
     # The EOS overlay (EOSOVH-*-Shipping.dll, loaded by the EOS SDK into every
     # game, plus a CEF renderer tree beside it) is off by default, like Steam's
     # gameoverlayrenderer. It draws inside the game's own process, so when one
@@ -184,7 +185,7 @@ case "$MODE" in
     # same WM_COPYDATA "restore" message a second GalaxyClient.exe instance
     # would send, without paying for a whole second client start-up
     # (tools/soju-gog-restore.c, built by create-gog-bottle.sh).
-    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$HOME/.battlenet-macos/gog-support/soju-gog-restore.exe'"
+    export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '${SOJU_BASE:-$HOME/.battlenet-macos}/gog-support/soju-gog-restore.exe'"
     exec "$ENGINE/bin/wine" "$GOG" "${@:2}"
     ;;
   gog-kill)    # Stop everything in the GOG bottle
@@ -198,8 +199,8 @@ case "$MODE" in
     # wrapper (forces --disable-gpu --single-process) + -no-cef-sandbox
     # -cef-single-process. Source: github.com/notpop/steam-on-m1-wine (MIT),
     # vendored in third_party/.
-    WINESTABLE="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine"
-    WINESTABLE_SERVER="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver"
+    WINESTABLE="$STEAM_WINE_ROOT/bin/wine"
+    WINESTABLE_SERVER="$STEAM_WINE_ROOT/bin/wineserver"
     [[ -x "$WINESTABLE" ]] || { echo "wine-stable not found, brew install --cask wine-stable"; exit 1; }
     ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
     [[ -f "$ST" ]] || { echo "Steam not found, run scripts/create-steam-bottle.sh first"; exit 1; }
@@ -207,7 +208,7 @@ case "$MODE" in
     find "$WINEPREFIX/drive_c/users/"*/AppData/Local/Steam/htmlcache -maxdepth 2 \
       \( -name "Singleton*" -o -name "*.lock" \) -delete 2>/dev/null || true
     # 2) Redeploy the wrapper (Steam updates restore the original, so check every launch)
-    WRAP="$HOME/.battlenet-macos/steam-support/steamwebhelper-wrapper.exe"
+    WRAP="$STEAM_SUPPORT/steamwebhelper-wrapper.exe"
     for d in "$WINEPREFIX/drive_c/Program Files (x86)/Steam/bin/cef"/cef.win*; do
       [[ -f "$d/steamwebhelper.exe" ]] || continue
       if [[ $(stat -f%z "$d/steamwebhelper.exe") -gt 500000 ]]; then
@@ -274,7 +275,7 @@ case "$MODE" in
     # wineserver here does nothing and leaves steam.exe alive, which then keeps
     # respawning steamwebhelper (it looks like "Steam relaunches itself").
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
-    "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver" -k 2>/dev/null || true
+    "$STEAM_WINE_ROOT/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
   *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|gog|gog-kill|steam|kill|steam-kill]"; exit 1;;

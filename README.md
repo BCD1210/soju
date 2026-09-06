@@ -78,7 +78,9 @@ brew install BCD1210/soju/soju
 soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / soju gog
 ```
 
-The installer downloads the prebuilt engine (~350 MB), walks you through Apple's free GPTK download (the one file Apple forbids redistributing), then asks which launchers you want, any combination of Battle.net, Steam, Epic Games Launcher and GOG GALAXY, installs each with its official installer into its own bottle, and drops a double-clickable app per launcher in `~/Applications` (`Battle.net.app`, `Steam (Windows).app`, `Epic Games Launcher.app`, `GOG GALAXY.app`). Non-interactive: `curl -fsSL https://soju.snack-wrap.com/install.sh | SOJU_PLATFORMS=battlenet,epic,gog bash`. Log in and play.
+The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
+
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.4.0/Soju-1.4.0-macos-arm64.zip) — the native desktop preview brings installation, launching, component updates and diagnostics into one window. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
