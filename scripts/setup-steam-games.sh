@@ -38,26 +38,21 @@ python3 "$ROOT/scripts/fetch-steam-support.py"
 B="$WINEPREFIX/drive_c/windows"
 [ -d "$B/system32" ] || { echo "Install Steam first: soju steam-install"; exit 1; }
 unset DYLD_FALLBACK_LIBRARY_PATH WINEDLLOVERRIDES WINEMSYNC ROSETTA_ADVERTISE_AVX
-unset CX_ACTIVE_GRAPHICS_BACKEND CX_GRAPHICS_BACKEND CX_APPLEGPTK_LIBD3DSHARED_PATH
+unset CX_ACTIVE_GRAPHICS_BACKEND CX_GRAPHICS_BACKEND CX_APPLEGPTK_LIBD3DSHARED_PATH WINE_SIMULATE_WRITECOPY
 export WINEDEBUG=-all
 VERSION=$(cat "$SUP/.soju-support-version")
 TARGET="$BASE/steam-runtime"
-if [ "${1:-}" != --repair ] && [ -f "$TARGET/.soju-runtime" ] && \
+if [ "${1:-}" != --repair ] && soju_steam_runtime_ready && \
+   [ "$STEAM_WINE_ROOT" = "$TARGET" ] && [ -f "$TARGET/.soju-runtime" ] && \
    [ "$(cat "$WINEPREFIX/.soju-steam-games" 2>/dev/null || true)" = "$VERSION" ] && \
    [ "$(cat "$TARGET/.soju-runtime")" = "$VERSION" ]; then
   echo "Steam rendering is ready ($VERSION)."
   exit 0
 fi
+# Check before downloading/replacing Wine or editing the prefix.
+python3 "$ROOT/scripts/steam-session.py" idle "$STEAM_WINE_ROOT"
+soju_ensure_steam_runtime "$ROOT"
 SOURCE="$STEAM_WINE_ROOT"
-[ -x "$SOURCE/bin/wine" ] || { echo "Prepare the Steam runtime first: soju steam-install"; exit 1; }
-[ "$("$SOURCE/bin/wine" --version)" = wine-11.0 ] || {
-  echo "This Steam component release requires Wine 11.0. Existing runtime unchanged."; exit 1;
-}
-# Never migrate a live Wine Stable / private Steam session to another server.
-if ps -axo comm= | grep -E '(Wine Stable.app|/steam-runtime)/.*wineserver$' >/dev/null; then
-  echo "Close Windows Steam and its games, then run soju steam-games again."
-  exit 1
-fi
 NEW=$(mktemp -d "$BASE/.steam-runtime.XXXXXX")
 BACKUP=""; BACKUP_READY=0
 rollback(){
