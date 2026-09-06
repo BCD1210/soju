@@ -54,12 +54,16 @@ Hard-won facts, in the order they burned us:
    the first two argv entries (NSProcessInfo sees pre-rewrite argv; scanning all
    args would also hide the helper via its `-steampath=` argument).
 
+## Automatic setup
+
+`soju steam-install` now downloads verified prebuilt DXMT, the patched Wine driver and wrapper. Existing users can close Steam and run `soju steam-games`. A private Wine runtime preserves the Homebrew app. This component release requires macOS 26+ and Wine 11.0. See [sources and validation](STEAM-PREBUILTS.md).
+
 ## Building the artifacts
 
 Based on notpop's `07-build-dxmt-fork.sh` / `08-patch-wine-visibility.sh`, with
 three fixes we needed on macOS 26.5 / current Homebrew:
 
-- meson must be 1.10.x (`python3 -m venv … && pip install 'meson==1.10.*'`,
+- meson must be 1.10.2 (`python3 -m venv … && pip install 'meson==1.10.2'`,
   pass `MESON=`), Homebrew's 1.12 breaks the DXMT build.
 - `src/util/com/com_guid.cpp` needs `#include <iomanip>` (newer mingw).
 - The prebuilt LLVM 15 x86_64 tree references zstd: build an x86_64
@@ -69,7 +73,7 @@ three fixes we needed on macOS 26.5 / current Homebrew:
 - The Dock-icon patch on top of the visibility rebuild lives in
   `transformProcessToForeground:` (see `scripts/setup-steam-games.sh` header).
 
-DXMT is LGPL-2.1+ (Copyright Feifan He for CodeWeavers); the wrapper is MIT
+The pinned DXMT fork is MIT (Copyright Feifan He), with separate notices for bundled DirectX headers; the wrapper is MIT
 (vendored in `third_party/`); our winemac patch is published as
 `patches/winemac-no-dock-icon.patch` (LGPL-2.1+, matching Wine). The same patch adds
 `WINE_DOCK_REOPEN_CMD`: when the Dock icon is clicked and no Wine window is visible, winemac runs
@@ -84,6 +88,6 @@ Artifacts land in `~/.battlenet-macos/steam-support/` and
 
 ```bash
 scripts/create-steam-bottle.sh    # wine-stable + wrapper + Steam
-scripts/setup-steam-games.sh      # DXMT + winemac wiring (needs built artifacts)
+scripts/setup-steam-games.sh      # verified download + private DXMT/winemac runtime
 scripts/play.sh steam             # play
 ```

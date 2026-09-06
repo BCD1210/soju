@@ -48,11 +48,12 @@ break it on macOS Wine:</p>
 <p>The fix (from <a href="https://github.com/notpop/steam-on-m1-wine">notpop's
 steam-on-m1-wine</a>, MIT) is a tiny wrapper around <code>steamwebhelper.exe</code>
 that forces <code>--disable-gpu --single-process</code>, plus launching Steam with
-<code>-no-cef-sandbox -cef-single-process</code>. Soju builds and redeploys the
+<code>-no-cef-sandbox -cef-single-process</code>. Soju downloads a verified prebuilt copy and redeploys the
 wrapper automatically. Steam updates keep restoring the original, so this must
 happen on every launch.</p>
 
 <h2>Making games actually render (DXMT)</h2>
+<p><code>soju steam-install</code> now downloads verified DXMT and patched Wine components automatically. Existing users can close Steam and run <code>soju steam-games</code>. This build needs macOS 26+ and Wine 11.0; it preserves the Homebrew Wine app.</p>
 <p>The Steam client and games have opposite needs in the same Wine prefix:
 the client needs vanilla wined3d (it restart-loops on DXMT), while D3D11 games
 need <a href="https://github.com/3Shain/dxmt">DXMT</a> (D3D11→Metal). Soju's

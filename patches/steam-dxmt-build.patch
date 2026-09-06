@@ -1,0 +1,21 @@
+diff --git a/meson.build b/meson.build
+index e10c901..908e1eb 100644
+--- a/meson.build
++++ b/meson.build
+@@ -5,6 +5,7 @@ project('dxmt', ['c', 'cpp'], version : 'v0.1', meson_version: '>=1.3.0', defaul
+   'b_ndebug=if-release',
+ ])
+ 
++add_languages('c', 'cpp', native: true)
+ fs = import('fs')
+ 
+ dxmt_crossbuild = meson.is_cross_build()
+diff --git a/src/util/com/com_guid.cpp b/src/util/com/com_guid.cpp
+index 11bf4a7..e08c507 100644
+--- a/src/util/com/com_guid.cpp
++++ b/src/util/com/com_guid.cpp
+@@ -1,3 +1,4 @@
++#include <iomanip>
+ /*
+  * This file is part of DXMT, Copyright (c) 2023 Feifan He
+  *

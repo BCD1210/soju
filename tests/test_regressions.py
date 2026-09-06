@@ -262,7 +262,7 @@ sys.exit(7 if os.environ.get('FAIL_BUILD') == '1' else 0)
 
     def test_installer_repairs_helpers_for_existing_clients(self):
         src = (ROOT / "install.sh").read_text()
-        stage = src[src.index('ALL="battlenet steam epic gog"'):
+        stage = src[src.index("# ---------- 3. Launchers ----------"):
                     src.index("# ---------- 4. App bundles")]
         with tempfile.TemporaryDirectory(prefix="soju-test-") as t:
             d = Path(t)
@@ -274,7 +274,7 @@ sys.exit(7 if os.environ.get('FAIL_BUILD') == '1' else 0)
             (d/"scripts/ensure-launcher-helper.sh").write_text('echo "REPAIR $1"\n')
             pre = ('set -euo pipefail\nBASE='+shlex.quote(t)+
                    '\nBOTTLE="$BASE/bottle"\nENGINE="$BASE/engine"\nSOJU_DIR="$BASE"'
-                   '\nSOJU_PLATFORMS=epic,gog\nsay(){ echo "$*"; }\n')
+                   '\nPLATFORMS="epic gog"\nsay(){ echo "$*"; }\n')
             x = run(pre+stage)
             self.assertEqual(x.returncode, 0, x.stderr)
             self.assertIn("REPAIR epic", x.stdout)
