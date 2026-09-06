@@ -1,6 +1,6 @@
 # Soju for Mac
 
-[Download v1.6.2](https://github.com/BCD1210/soju/releases/download/v1.6.2/Soju-1.6.2-macos-arm64.zip)
+[Download v1.6.3](https://github.com/BCD1210/soju/releases/download/v1.6.3/Soju-1.6.3-macos-arm64.zip)
 
 1. Unzip and move **Soju.app** into Applications or ~/Applications.
 2. Open **Platforms** to install or open Battle.net, Steam, Epic Games or GOG GALAXY.
@@ -94,3 +94,7 @@ backup. Failed setup restores the prefix settings automatically.
 Logs stay in `~/.battlenet-macos/logs`. Review logs before sharing them.
 Launcher shortcuts use a managed script copy, so moving the desktop app later
 does not invalidate existing shortcuts.
+
+## Support Soju
+
+The small **Support Soju** link at the bottom of the sidebar opens the project support page in your browser. It brings together voluntary contributions and game purchase disclosures. No pop-ups or feature restrictions.

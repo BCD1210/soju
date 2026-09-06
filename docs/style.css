@@ -71,3 +71,7 @@ a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--link); outl
 @media (max-width: 540px) { .platforms { grid-template-columns: 1fr; } }
 
 #demo video { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+
+/* Voluntary support uses the same quiet, accessible project styling. */
+.support-status { color: var(--dim); font-size: 14px; }
+nav a[aria-current="page"] { color: var(--text); }
