@@ -10,8 +10,7 @@ component updates and diagnostics; the CLI and individual shortcuts remain avail
 Sign in to **Steam** to import your owned library, or import the
 owned library cached by **GOG GALAXY**. Installed and uninstalled games share the
 same library, with availability filters and official-client install actions.
-**Discover** searches Steam and GOG listings and prices, with direct search links
-for all four stores. Purchases, downloads and updates stay with the official stores.
+**Discover** searches Steam and GOG listings and prices, with links to buy from the stores. Purchases, downloads and updates stay with the official stores.
 Epic and Battle.net account imports are not included yet. Compatibility varies by game.
 
 ![Soju unified game library](docs/assets/soju-library.png)
@@ -25,13 +24,17 @@ CodeWeavers' published sources; Steam uses a separate wine-stable setup.
 Apple's proprietary GPTK/D3DMetal is downloaded separately. Games and store
 clients are not included.
 
-**Current release: [v1.6.2](https://github.com/BCD1210/soju/releases/tag/v1.6.2).**
+**Current release: [v1.6.3](https://github.com/BCD1210/soju/releases/tag/v1.6.3).**
 The compatibility examples below were verified on M4 Pro / macOS 26.5.
 D2R and Hogwarts Legacy are examples of supported games, not the scope of the project.
 
 [Watch the 30-second gameplay demo](https://soju.snack-wrap.com/#demo) · Hogwarts Legacy / Epic + Guilt Free / Steam (custom DXMT)
 
 *[한국어 README](README.ko.md) · [简体中文说明](README.zh.md)*
+
+## Support Soju
+
+Help keep Soju free and open source. [Support Soju](https://soju.snack-wrap.com/support.html) brings together ways to contribute, voluntary support updates and information about game purchase links.
 
 ## What runs
 
@@ -91,7 +94,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.6.2/Soju-1.6.2-macos-arm64.zip) — the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.6.3/Soju-1.6.3-macos-arm64.zip) — the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 

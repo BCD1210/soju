@@ -217,6 +217,11 @@ struct LibraryView: View {
                 Text("Installed games appear automatically. Connect accounts to add your owned library.")
                     .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }.padding(13).background(green.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+            Link(destination: URL(string: "https://soju.snack-wrap.com/support.html")!) {
+                Label("Support Soju", systemImage: "heart")
+                    .font(.system(size: 12, weight: .medium))
+            }.foregroundStyle(.secondary).padding(.top, 12)
+                .help("Help keep Soju free and open source")
             HStack {
                 Text("v" + model.version).foregroundStyle(.secondary)
                 Spacer()
