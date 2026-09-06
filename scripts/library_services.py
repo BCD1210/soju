@@ -143,7 +143,7 @@ def search(query, country):
             try:
                 games.extend(job.result())
             except Exception:
-                warnings.append(jobs[job].title() + ' search is unavailable. You can still open its official store below.')
+                warnings.append(jobs[job].title() + ' search is unavailable. Please retry later.')
     unique = {g['id']: g for g in games}
     def rank(game):
         title, term = game['title'].casefold(), query.casefold()
