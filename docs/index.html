@@ -3,87 +3,119 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Soju: Free Battle.net, Steam, Epic &amp; GOG launchers that actually log in on Apple Silicon</title>
-<meta name="description" content="Soju is a free, open-source (GPL) Wine stack where Battle.net, Steam, the Epic Games Launcher and GOG GALAXY actually log in on Apple Silicon Macs. No black login window, no CrossOver license. Diablo II: Resurrected and D3D11 Steam games verified.">
+<title>Soju — Free, open-source game launcher toolkit for Apple Silicon Macs</title>
+<meta name="description" content="Set up Battle.net, Steam, Epic Games Launcher and GOG GALAXY on Apple Silicon with Soju, a free, open-source launcher toolkit. Separate Wine environments, Mac launch shortcuts, and documented fixes.">
 <link rel="canonical" href="https://bcd1210.github.io/soju/">
-<meta property="og:title" content="Soju: free Windows gaming on Apple Silicon">
-<meta property="og:description" content="Battle.net, Steam and Epic Games Launcher logins that work on M-series Macs, fully free and open source.">
+<meta property="og:title" content="Soju — Your Windows launchers, on your Mac">
+<meta property="og:description" content="A free, open-source launcher toolkit for Apple Silicon. Battle.net, Steam, Epic and GOG — with documented setup and compatibility.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://bcd1210.github.io/soju/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Soju — Open-source game launching for Mac">
+<meta name="twitter:description" content="Set up Battle.net, Steam, Epic and GOG on Apple Silicon. Free launcher tools, separate Wine environments, and tested game examples.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<nav><div class="inner">
+<nav aria-label="Main navigation"><div class="inner">
   <a class="brand" href="./">🍶 Soju</a>
-  <a href="guides/diablo-2-resurrected-apple-silicon.html">D2R guide</a>
-  <a href="guides/steam-windows-client-apple-silicon.html">Steam guide</a>
-  <a href="guides/whisky-alternative.html">Whisky alternatives</a>
+  <a href="#launchers">Launchers</a>
+  <a href="#install">Install</a>
+  <a href="#compatibility">Compatibility</a>
+  <a href="#guides">Guides</a>
   <a href="https://github.com/BCD1210/soju">GitHub</a>
 </div></nav>
 <main>
-<h1>Free Windows gaming on Apple Silicon</h1>
-<p class="lead">Soju is a free, open-source (GPL-3.0) toolchain that runs Battle.net,
-Diablo&nbsp;II: Resurrected and the Windows Steam client (including D3D11 games)
-on M-series Macs. No CrossOver license needed.</p>
+<header class="hero">
+<p class="eyebrow">FREE &amp; OPEN SOURCE · APPLE SILICON</p>
+<h1>Your Windows launchers.<br>On your Mac.</h1>
+<p class="lead">Soju is an open-source game launcher toolkit for Apple Silicon.
+Set up Battle.net, Steam, Epic Games Launcher and GOG GALAXY, sign in to your
+existing accounts, and play supported Windows games.</p>
+<p>Terminal setup. A separate Mac launch app for each launcher.
+Choose the stores you use; Soju keeps their Wine environments separate.</p>
+<div class="actions"><a class="btn" href="#install">Install Soju</a>
+<a href="https://github.com/BCD1210/soju">Explore the source</a></div>
+</header>
 
-<pre><code>brew install BCD1210/soju/soju
-soju install     # Battle.net + Diablo II: Resurrected
-soju steam-install</code></pre>
-<p>Or without Homebrew:</p>
-<pre><code>curl -fsSL soju.snack-wrap.com/install.sh | bash</code></pre>
-<p><a class="btn" href="https://github.com/BCD1210/soju">View on GitHub</a></p>
-
-<h2>Guides</h2>
-<div class="cards">
-  <a class="card" href="guides/diablo-2-resurrected-apple-silicon.html">
-    <h3>Diablo II: Resurrected on Apple Silicon</h3>
-    <p>Why it hangs at launch (the AVX root cause) and how to play it for free.</p>
-  </a>
-  <a class="card" href="guides/steam-windows-client-apple-silicon.html">
-    <h3>Windows Steam client on M-series Macs</h3>
-    <p>Get the Steam client and D3D11 games rendering with wine-stable + DXMT.</p>
-  </a>
-  <a class="card" href="guides/whisky-alternative.html">
-    <h3>Whisky was discontinued: what now?</h3>
-    <p>An honest comparison of the free and paid options left in 2026.</p>
-  </a>
-  <a class="card" href="guides/ko/diablo-2-mac.html">
-    <h3>맥에서 디아블로 II 레저렉션 (한국어)</h3>
-    <p>애플 실리콘 맥에서 무료로 디아2를 돌리는 방법.</p>
-  </a>
+<section id="launchers" aria-labelledby="launchers-title">
+<h2 id="launchers-title">One toolkit. Four Windows launchers.</h2>
+<div class="platforms">
+<article class="platform"><h3>Battle.net</h3><p>Sign in, manage downloads and launch supported Blizzard games.</p><code>soju battlenet</code></article>
+<article class="platform"><h3>Steam</h3><p>Run the Windows client in its own Wine environment. D3D11 games need additional DXMT setup.</p><code>soju steam</code></article>
+<article class="platform"><h3>Epic Games Launcher</h3><p>Sign in, install games and return to the launcher from its tray.</p><code>soju epic</code></article>
+<article class="platform"><h3>GOG GALAXY</h3><p>Access your account and library. Game compatibility is still being explored.</p><code>soju gog</code></article>
 </div>
+<p class="note">Soju provides setup tools and launcher-specific Mac apps.
+You use each store's own interface and library.</p>
+</section>
 
-<h2>What actually works</h2>
-<p>Everything below was verified end-to-end on an M4 Pro running macOS 26:</p>
+<section id="install" aria-labelledby="install-title">
+<h2 id="install-title">Choose your launchers. Get set up.</h2>
+<p>The installer offers any combination of the four launchers and creates
+their shortcuts in <code>~/Applications</code>.</p>
+<pre><code>curl -fsSL https://soju.snack-wrap.com/install.sh | bash</code></pre>
+<p>Or install the CLI through Homebrew:</p>
+<pre><code>brew install BCD1210/soju/soju
+soju install</code></pre>
+<p>Use <code>soju doctor</code> to check your setup and <code>soju update</code>
+to update it. Homebrew-managed scripts update through <code>brew upgrade soju</code>.</p>
+<p class="note"><strong>Before you begin:</strong> Apple Silicon, Rosetta 2,
+Xcode Command Line Tools and Homebrew. The Battle.net, Epic and GOG setup uses
+Apple's Game Porting Toolkit, downloaded separately with an Apple ID.
+The tools are free; games and store accounts are your own.</p>
+</section>
+
+<section id="compatibility" aria-labelledby="compatibility-title">
+<h2 id="compatibility-title">Tested examples, clear limits.</h2>
+<p>These examples show what the toolkit can do. Compatibility depends on the game,
+store and system; launcher support does not mean every game will run.</p>
+<div class="table-scroll" role="region" aria-label="Tested game examples" tabindex="0">
 <table>
-  <tr><th>Target</th><th>Status</th></tr>
-  <tr><td>Battle.net (install, login, game management)</td><td>works</td></tr>
-  <tr><td>Diablo II: Resurrected (online, in-game)</td><td>works</td></tr>
-  <tr><td>Windows Steam client (login, library)</td><td>works</td></tr>
-  <tr><td>Steam D3D11 games (via DXMT)</td><td>works</td></tr>
-  <tr><td>Epic Games Launcher (login, game installs; Hogwarts Legacy in-game)</td><td>works</td></tr>
-  <tr><td>GOG GALAXY (login, library)</td><td>works</td></tr>
+<thead><tr><th scope="col">Example</th><th scope="col">Store</th><th scope="col">Evidence and conditions</th></tr></thead>
+<tbody>
+<tr><td>Hogwarts Legacy</td><td>Epic</td><td>Installed and played in-game using D3DMetal. Tested on M4 Pro / macOS 26.5.</td></tr>
+<tr><td>Diablo II: Resurrected</td><td>Battle.net</td><td>In-game and online on M4 Pro / macOS 26.5. Requires macOS 26.4 or later.
+<a href="https://github.com/BCD1210/soju/discussions/21">External user confirmation</a> also documents an Update/Play workaround.</td></tr>
+<tr><td>Unity D3D11 title</td><td>Steam</td><td>In-game on M4 Pro / macOS 26.5 with a custom DXMT setup. Additional build artifacts required.</td></tr>
+<tr><td>GOG GALAXY library</td><td>GOG</td><td>Login and library verified; games have not been broadly tested.</td></tr>
+</tbody>
 </table>
+</div>
+<p>Steam-edition D2R remains unverified. Games requiring unsupported kernel
+anti-cheat are outside the supported scope. Check the
+<a href="https://github.com/BCD1210/soju#what-runs">compatibility notes</a>
+before installing a game.</p>
+<p>Trying a different game or Mac? <a href="https://github.com/BCD1210/soju/discussions">Share a compatibility report</a>
+with the game, store, Mac model, macOS version and what worked.</p>
+</section>
 
-<h2>How it's free</h2>
-<p>The Wine engine is built from
-<a href="https://www.codeweavers.com/crossover/source">CodeWeavers' published GPL sources</a>
-(the same code CrossOver ships), graphics come from Apple's free
-<a href="https://developer.apple.com/games/game-porting-toolkit/">Game Porting Toolkit</a>,
-and Steam rendering uses <a href="https://github.com/3Shain/dxmt">DXMT</a> (LGPL).
-Nothing proprietary is redistributed. The one Apple file you need is downloaded
-from Apple directly, once.</p>
+<section id="guides" aria-labelledby="guides-title">
+<h2 id="guides-title">Start with your launcher or game.</h2>
+<div class="cards">
+<a class="card" href="https://github.com/BCD1210/soju#install-one-line"><h3>Setup and everyday commands</h3><p>Choose launchers, check your installation and update Soju.</p></a>
+<a class="card" href="guides/steam-windows-client-apple-silicon.html"><h3>Windows Steam on Apple Silicon</h3><p>Client setup, the DXMT game-rendering path and its requirements.</p></a>
+<a class="card" href="guides/diablo-2-resurrected-apple-silicon.html"><h3>Diablo II: Resurrected</h3><p>A worked example for Battle.net, including launch troubleshooting.</p></a>
+<a class="card" href="guides/ko/diablo-2-mac.html"><h3>맥에서 디아2 실행하기</h3><p>Battle.net 설치와 게임 실행 문제를 다루는 한국어 가이드.</p></a>
+<a class="card" href="guides/whisky-alternative.html"><h3>Mac gaming alternatives</h3><p>Where Soju fits alongside other Wine-based tools.</p></a>
+<a class="card" href="https://github.com/BCD1210/soju/blob/main/README.ko.md"><h3>Soju 한국어 소개</h3><p>네 가지 런처의 설치 방법과 현재 지원 범위.</p></a>
+</div>
+</section>
 
-<h2>Not just scripts: root causes</h2>
-<p>Every fix in Soju is documented with its underlying cause, so other Wine
-projects can reuse them: the <code>ROSETTA_ADVERTISE_AVX</code> discovery behind the
-famous D2R launch hang, Battle.net Agent's process-signature verification, and the
-Steam-client-vs-DXMT conflict. Start with the
-<a href="https://github.com/BCD1210/soju/blob/main/docs/STEAM-GAMES.md">Steam writeup</a>
-and the <a href="https://github.com/BCD1210/soju/blob/main/docs/DIAGNOSIS.md">Battle.net diagnosis</a>.</p>
+<section aria-labelledby="open-title">
+<h2 id="open-title">Open source, from setup to fixes.</h2>
+<p>Soju's scripts and documentation are open source. Its Wine engine is built from
+<a href="https://www.codeweavers.com/crossover/source">CodeWeavers' published sources</a>.
+Battle.net, Epic and GOG share that engine; Steam uses a separate
+<code>wine-stable</code> setup with DXMT for supported D3D11 games.</p>
+<p>Apple's proprietary D3DMetal/GPTK components are a separate download, and the
+store clients remain their publishers' software. Soju does not bundle them.</p>
+<p>The <a href="https://github.com/BCD1210/soju/blob/main/docs/DIAGNOSIS.md">diagnosis notes</a>
+and <a href="https://github.com/BCD1210/soju/blob/main/docs/STEAM-GAMES.md">Steam implementation notes</a>
+explain the fixes so others can inspect and reuse the work.</p>
+</section>
 </main>
-<footer>
-  Soju is GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
-  not affiliated with Blizzard, Valve, Apple or CodeWeavers.
-</footer>
+<footer>Soju · <a href="https://github.com/BCD1210/soju">Source on GitHub</a> ·
+<a href="https://github.com/BCD1210/soju/releases">Releases</a><br>
+An independent project, not affiliated with Blizzard, Valve, Epic, GOG, Apple or CodeWeavers.</footer>
 </body>
 </html>
