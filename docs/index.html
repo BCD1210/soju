@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Soju — Free, open-source game library for Apple Silicon Macs</title>
-<meta name="description" content="One native Mac library for games installed through Battle.net, Steam, Epic and GOG. Search, favorite, launch and diagnose games on Apple Silicon with Soju.">
+<meta name="description" content="One native Mac library for games installed through Battle.net, Steam, Epic and GOG. Import Steam and GOG owned games, search store listings and play through official launchers on Apple Silicon.">
 <link rel="canonical" href="https://bcd1210.github.io/soju/">
 <meta property="og:title" content="Soju — Your games, one home on your Mac">
 <meta property="og:description" content="A free, open-source launcher toolkit for Apple Silicon. Battle.net, Steam, Epic and GOG — with documented setup and compatibility.">
@@ -22,6 +22,7 @@
 <nav aria-label="Main navigation"><div class="inner">
   <a class="brand" href="./">🍶 Soju</a>
   <a href="#demo">Demo</a>
+  <a href="#discover">Discover</a>
   <a href="#launchers">Launchers</a>
   <a href="#install">Install</a>
   <a href="#compatibility">Compatibility</a>
@@ -34,7 +35,7 @@
 <h1>Your games.<br>One home on your Mac.</h1>
 <p class="lead">A free, open-source game library for Apple Silicon.
 Find installed games from Battle.net, Steam, Epic and GOG in one native Mac app.
-Search your library, save favorites and play through the official launchers.</p>
+Connect Steam or GOG owned libraries, find your next game and play through the official launchers.</p>
 <p>Set up and manage your platforms in Soju. Accounts, purchases and game updates
 stay with each store. Compatibility depends on the game and your Mac.</p>
 <div class="actions"><a class="btn" href="#install">Install Soju</a>
@@ -43,8 +44,19 @@ stay with each store. Compatibility depends on the game and your Mac.</p>
 <section id="library" aria-labelledby="library-title">
 <h2 id="library-title">Installed games, together.</h2>
 <p>Local detection, platform filters, favorites and game-specific diagnostics.
-No new Soju account. No library uploads. Uninstalled owned games and store search are planned separately.</p>
+Sign in to Steam to import your owned library, or read the owned games cached by GOG GALAXY. No API key required. No new Soju account. No library uploads.</p>
 <img src="assets/soju-library.png" width="1140" height="780" style="width:100%;height:auto;border-radius:16px" alt="Soju's unified library showing four installed games across Battle.net, Steam, Epic and GOG">
+</section>
+
+<section id="discover" aria-labelledby="discover-title">
+<h2 id="discover-title">Find your next game.</h2>
+<p>Search Steam and GOG listings with prices for your selected region. See which
+listings are already in your library, then visit the official store to buy.
+Direct search links also open Epic Games and Battle.net.</p>
+<img src="assets/soju-discover.png" width="1140" height="780" style="width:100%;height:auto;border-radius:16px" alt="Soju Discover showing live Steam and GOG search results with store prices">
+<p class="note">Store results may include add-ons and bundles. Final prices and
+compatibility should be checked before purchase. Epic and Battle.net account
+imports are not available yet. <a href="https://github.com/BCD1210/soju/blob/main/docs/ACCOUNTS.md">Account setup and privacy</a>.</p>
 </section>
 
 <section id="demo" aria-labelledby="demo-title">
@@ -88,8 +100,8 @@ its own login, purchases, downloads and game updates.</p>
 
 <section id="install" aria-labelledby="install-title">
 <h2 id="install-title">Choose your launchers. Get set up.</h2>
-<p><a class="btn" href="https://github.com/BCD1210/soju/releases/download/v1.5.0/Soju-1.5.0-macos-arm64.zip">Download Soju for Mac</a></p>
-<p>The native desktop preview combines your installed games and manages all four launchers.
+<p><a class="btn" href="https://github.com/BCD1210/soju/releases/download/v1.6.0/Soju-1.6.0-macos-arm64.zip">Download Soju for Mac</a></p>
+<p>The native desktop preview combines installed and imported owned games, searches stores and manages all four launchers.
 Apple Silicon · app UI: macOS 14+ · Steam component build: macOS 26+.
 <a href="https://github.com/BCD1210/soju/blob/main/docs/DESKTOP.md">Setup and signing notes</a>.</p>
 <p>Prefer the terminal? Select launchers before any downloads. Steam-only installs skip the CX engine and Apple GPTK.</p>
