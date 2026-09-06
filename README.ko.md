@@ -17,7 +17,7 @@ Steam은 별도의 wine-stable 환경을 사용합니다. Apple의 비공개 GPT
 아래 실행 사례는 M4 Pro / macOS 26.5에서 확인한 결과입니다.
 디아블로2와 호그와트 레거시는 지원 사례이며, 프로젝트의 범위는 여러 게임 런처입니다.
 
-[21초 실제 런처 영상 보기](https://soju.snack-wrap.com/#demo) · Epic Games Launcher / Battle.net
+[30초 실제 게임 플레이 영상 보기](https://soju.snack-wrap.com/#demo) · 호그와트 레거시 / Epic + Guilt Free / Steam (별도 DXMT 설정)
 
 *[English README](README.md) · [简体中文说明](README.zh.md)*
 
