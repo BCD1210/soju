@@ -192,7 +192,10 @@ class UninstallTests(unittest.TestCase):
                 # Keep one descriptor open so consecutive read calls advance.
                 src = src.replace("TTY=/dev/tty",
                                   "exec 9<" + shlex.quote(str(answer_file)) + "\nTTY=/dev/fd/9")
-            script = d / "uninstall.sh"
+            script = d / "scripts/uninstall.sh"
+            script.parent.mkdir()
+            for helper in ("steam-runtime.sh", "steam-session.py"):
+                (script.parent / helper).write_text((ROOT / "scripts" / helper).read_text())
             script.write_text(src)
             x = subprocess.run([BASH, str(script), *(["--yes"] if yes else [])],
                 env={**os.environ, "SOJU_BASE": str(base), "ENGINE": str(engine)},

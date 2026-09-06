@@ -20,19 +20,13 @@ if version(platform.mac_ver()[0]) < version(m['minimum_macos']):
 PYVERSION
 unset DYLD_FALLBACK_LIBRARY_PATH WINEDLLOVERRIDES WINEMSYNC ROSETTA_ADVERTISE_AVX
 unset CX_ACTIVE_GRAPHICS_BACKEND CX_GRAPHICS_BACKEND CX_APPLEGPTK_LIBD3DSHARED_PATH WINE_SIMULATE_WRITECOPY
+soju_ensure_steam_runtime "$REPO_ROOT"
 WINE="$STEAM_WINE_ROOT/bin/wine"
-if [ ! -x "$WINE" ] || [ "$("$WINE" --version 2>/dev/null || true)" != wine-11.0 ]; then
-  if [ -n "${SOJU_STEAM_WINE:-}" ]; then
-    echo "SOJU_STEAM_WINE must point to a working Wine 11.0 runtime."; exit 1
-  fi
-  python3 "$REPO_ROOT/scripts/fetch-steam-wine.py"
-  source "$REPO_ROOT/scripts/steam-runtime.sh"
-  WINE="$STEAM_WINE_ROOT/bin/wine"
-fi
 "$WINE" --version
 
 # ---------- 2. Verified wrapper and rendering components ----------
 python3 "$REPO_ROOT/scripts/fetch-steam-support.py"
+python3 "$REPO_ROOT/scripts/steam-session.py" idle "$STEAM_WINE_ROOT"
 if [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
   python3 "$REPO_ROOT/scripts/bootstrap-steam.py" "$WINE"
   echo "Steam already installed."
