@@ -17,7 +17,7 @@ wine-stable 环境。Apple 的专有 GPTK/D3DMetal 组件需要单独下载。
 下方运行案例在 M4 Pro / macOS 26.5 上验证。
 D2R 和 Hogwarts Legacy 是兼容案例，项目面向多个游戏启动器。
 
-[观看 21 秒启动器实录](https://soju.snack-wrap.com/#demo) · Epic Games Launcher / Battle.net
+[观看 30 秒实际游戏演示](https://soju.snack-wrap.com/#demo) · Hogwarts Legacy / Epic + Guilt Free / Steam（需额外配置 DXMT）
 
 *[English README](README.md) · [한국어 README](README.ko.md)*
 
@@ -192,3 +192,9 @@ scripts/play.sh steam-kill       # 停止 Steam bottle
 - 引擎构建自 CodeWeavers 公开的 Wine 源码（GPL/LGPL）。来源：`media.codeweavers.com/pub/crossover/source/`
 - **不包含且永远不会包含**：Apple D3DMetal/GPTK 二进制（禁止再分发）、CrossOver 应用二进制、任何 Blizzard 文件
 - 本项目与 CodeWeavers、Apple、Blizzard Entertainment 均无关联。Battle.net 和 Diablo 是 Blizzard Entertainment 的商标。使用风险自负；使用第三方兼容层进行在线游戏请自行斟酌。
+
+## 提交游戏兼容性结果
+
+欢迎提交成功、部分可用或失败的测试结果，并注明游戏、商店、Mac 型号、macOS 和 Soju 配置。需要登录 GitHub，报告会公开显示。
+
+[提交游戏兼容性结果](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)

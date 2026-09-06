@@ -1,0 +1,91 @@
+name: Game compatibility report
+description: Share a working game, a partial success, or a failure on your Mac.
+title: "[Compatibility]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help other Mac players find what works. Successful tests are welcome too!
+        GitHub sign-in is required and reports are public. Remove account details and personal paths from attachments.
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      placeholder: Game title and edition
+    validations:
+      required: true
+  - type: dropdown
+    id: store
+    attributes:
+      label: Store
+      options:
+        - Battle.net
+        - Steam
+        - Epic Games Launcher
+        - GOG GALAXY
+        - Other (describe below)
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Works in-game
+        - Partially works
+        - Launches but cannot reach gameplay
+        - Fails to launch
+        - Installation or launcher problem
+    validations:
+      required: true
+  - type: input
+    id: mac
+    attributes:
+      label: Mac model, chip and memory
+      placeholder: Mac mini, M4 Pro, 24 GB
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.5"
+    validations:
+      required: true
+  - type: input
+    id: soju
+    attributes:
+      label: Soju version
+      description: Enter your installed release or Git commit. For Homebrew, use brew list --versions soju. Unknown is OK.
+    validations:
+      required: true
+  - type: input
+    id: engine
+    attributes:
+      label: Engine and graphics setup
+      description: Include the engine version and D3DMetal or DXMT setup if known. Unknown is OK.
+      placeholder: Soju engine v1.5 + D3DMetal, or Wine Stable + custom DXMT
+  - type: textarea
+    id: steps
+    attributes:
+      label: Setup and steps to reproduce
+      description: Include launch options, extra setup, and the steps from launcher to game.
+    validations:
+      required: true
+  - type: textarea
+    id: observations
+    attributes:
+      label: What worked or failed?
+      description: Describe gameplay reached, visual or input problems, and any workaround. Include expected behavior for failures.
+    validations:
+      required: true
+  - type: textarea
+    id: performance
+    attributes:
+      label: Performance (optional)
+      description: If measured, include resolution, graphics settings, FPS and measurement method.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots, video or logs (optional)
+      description: Attach relevant evidence. Check for account names, tokens and personal paths before posting.
