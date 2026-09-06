@@ -59,3 +59,11 @@ The video contains actual Epic Games Launcher and Battle.net window recordings c
 - Link to compatibility notes and ask for evidence, not only stars.
 - GitHub announcement published on 2026-09-06: https://github.com/BCD1210/soju/discussions/30
 - Reddit, X and Hacker News: awaiting sign-in in the posting browser; no posts submitted there in this session.
+
+## Gameplay demo update
+
+The new 30-second demo shows actual Hogwarts Legacy gameplay through Epic and Guilt Free dialogue interaction through Steam on M4 Pro / macOS 26.5. Steam uses the additional custom DXMT setup. See [capture notes](gameplay-demo.md).
+The original 21-second launcher preview remains available on the homepage.
+
+Reddit launcher-preview post published: https://www.reddit.com/r/macgaming/comments/1w8idkf/soju_an_opensource_toolkit_for_battlenet_steam/
+This gameplay update has not been posted as a new Reddit submission.

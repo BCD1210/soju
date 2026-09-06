@@ -17,7 +17,7 @@ Steam은 별도의 wine-stable 환경을 사용합니다. Apple의 비공개 GPT
 아래 실행 사례는 M4 Pro / macOS 26.5에서 확인한 결과입니다.
 디아블로2와 호그와트 레거시는 지원 사례이며, 프로젝트의 범위는 여러 게임 런처입니다.
 
-[21초 실제 런처 영상 보기](https://soju.snack-wrap.com/#demo) · Epic Games Launcher / Battle.net
+[30초 실제 게임 플레이 영상 보기](https://soju.snack-wrap.com/#demo) · 호그와트 레거시 / Epic + Guilt Free / Steam (별도 DXMT 설정)
 
 *[English README](README.md) · [简体中文说明](README.zh.md)*
 
@@ -176,3 +176,9 @@ GPTK 안의 `libd3dshared.dylib`는 그래픽만이 아닙니다. **D2R 로더(�
 - 엔진은 CodeWeavers 공개 Wine 소스(GPL/LGPL)로 빌드. 소스: `media.codeweavers.com/pub/crossover/source/`
 - 미포함(앞으로도): 애플 D3DMetal/GPTK(재배포 금지), CrossOver 앱 바이너리, 블리자드 파일 일체
 - 본 프로젝트는 CodeWeavers·Apple·Blizzard와 무관합니다. Battle.net과 Diablo는 Blizzard Entertainment의 상표입니다.
+
+## 게임 호환성 결과 제보
+
+맥에서 게임을 실행해 보셨나요? 성공·부분 작동·실패 결과를 게임, 스토어, 맥 모델, macOS, Soju 설정과 함께 남겨 주세요. GitHub 로그인이 필요하며 제보 내용은 공개됩니다.
+
+[게임 호환성 결과 제보](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)

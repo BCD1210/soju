@@ -42,7 +42,19 @@ Choose the stores you use; Soju keeps their Wine environments separate.</p>
 </header>
 
 <section id="demo" aria-labelledby="demo-title">
-<h2 id="demo-title">See the launchers on a Mac.</h2>
+<h2 id="demo-title">See the games running on a Mac.</h2>
+<p>A 30-second gameplay demo: Hogwarts Legacy through Epic and Guilt Free through Steam,
+recorded on M4 Pro / macOS 26.5.</p>
+<video controls playsinline preload="metadata" width="1280" height="720"
+poster="assets/soju-gameplay-demo-poster.jpg" aria-label="Soju gameplay demo: Epic and Steam">
+<source src="assets/soju-gameplay-demo.mp4" type="video/mp4">
+<track kind="captions" src="assets/soju-gameplay-demo.vtt" srclang="en" label="English" default>
+<a href="assets/soju-gameplay-demo.mp4">Download the gameplay demo</a>.
+</video>
+<p class="note">Epic footage uses D3DMetal. Steam footage uses the additional custom DXMT setup.
+This is a short gameplay sample, not a performance benchmark or a guarantee for other games.
+<a href="assets/soju-gameplay-demo.mp4">Download the gameplay video</a>.</p>
+<details><summary>Watch the original launcher preview (21 seconds)</summary>
 <p>A 21-second preview with real Epic Games Launcher and Battle.net footage,
 recorded through Soju on Apple Silicon.</p>
 <video controls playsinline preload="metadata" width="1280" height="720"
@@ -53,6 +65,7 @@ poster="assets/soju-launcher-demo-poster.jpg" aria-label="Soju launcher preview"
 </video>
 <p class="note">This video shows launcher interfaces. Game compatibility is documented below.
 <a href="assets/soju-launcher-demo.mp4">Download the video</a>.</p>
+</details>
 </section>
 
 <section id="launchers" aria-labelledby="launchers-title">
@@ -94,7 +107,7 @@ store and system; launcher support does not mean every game will run.</p>
 <tr><td>Hogwarts Legacy</td><td>Epic</td><td>Installed and played in-game using D3DMetal. Tested on M4 Pro / macOS 26.5.</td></tr>
 <tr><td>Diablo II: Resurrected</td><td>Battle.net</td><td>In-game and online on M4 Pro / macOS 26.5. Requires macOS 26.4 or later.
 <a href="https://github.com/BCD1210/soju/discussions/21">External user confirmation</a> also documents an Update/Play workaround.</td></tr>
-<tr><td>Unity D3D11 title</td><td>Steam</td><td>In-game on M4 Pro / macOS 26.5 with a custom DXMT setup. Additional build artifacts required.</td></tr>
+<tr><td>Guilt Free (Unity / D3D11)</td><td>Steam</td><td>In-game dialogue and input recorded on M4 Pro / macOS 26.5 with a custom DXMT setup. Additional build artifacts required. <a href="#demo">Watch the gameplay demo</a>.</td></tr>
 <tr><td>GOG GALAXY library</td><td>GOG</td><td>Login and library verified; games have not been broadly tested.</td></tr>
 </tbody>
 </table>
@@ -103,8 +116,10 @@ store and system; launcher support does not mean every game will run.</p>
 anti-cheat are outside the supported scope. Check the
 <a href="https://github.com/BCD1210/soju#what-runs">compatibility notes</a>
 before installing a game.</p>
-<p>Trying a different game or Mac? <a href="https://github.com/BCD1210/soju/discussions">Share a compatibility report</a>
-with the game, store, Mac model, macOS version and what worked.</p>
+<div class="actions"><a class="btn" href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">Report your results</a>
+<a href="https://github.com/BCD1210/soju/issues?q=is%3Aissue+%22%5BCompatibility%5D%22">Browse community reports</a></div>
+<p class="note">Working games, partial successes and failures all help. The form asks for your
+game, store, Mac, macOS and setup. GitHub sign-in required; reports are public.</p>
 </section>
 
 <section id="guides" aria-labelledby="guides-title">
