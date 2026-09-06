@@ -18,6 +18,8 @@ soju: open-source Windows launchers on Apple Silicon
 Usage:
   soju install        Choose and install any of the four launchers
   soju app            Build, install and open the native Soju app
+  soju library        List installed games as JSON
+  soju game <id>      Play a game from the unified library
   soju --version      Print the Soju version
   soju battlenet      Launch Battle.net (default bottle)
   soju d2r            Launch Diablo II: Resurrected directly
@@ -46,6 +48,8 @@ EOF
 }
 
 case "${1:-}" in
+  library)        exec python3 "$ROOT/scripts/game-library.py" list ;;
+  game)           shift; exec python3 "$ROOT/scripts/game-library.py" launch "$@" ;;
   --version)      cat "$ROOT/VERSION" ;;
   app)            exec bash "$ROOT/scripts/install-app.sh" ;;
   install)        shift; exec bash "$ROOT/install.sh" "$@" ;;

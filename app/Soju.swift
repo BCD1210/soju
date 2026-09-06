@@ -34,6 +34,14 @@ enum Launcher: String, CaseIterable, Identifiable {
 }
 
 @MainActor final class SojuModel: ObservableObject {
+    @Published var games: [InstalledGame] = []
+    @Published var scanning = false
+    @Published var scanWarnings: [String] = []
+    @Published var launchingGames: Set<String> = []
+    @Published var libraryIssue: String?
+    @Published var preferences = LibraryPreferences.load()
+    var gameLaunches: [String: Process] = [:]
+    var scanner: Process?
     @Published var installed: Set<Launcher> = []
     @Published var busy = false
     @Published var activity = "Ready when you are."
@@ -49,7 +57,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     private var poller: Timer?
     var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev" }
 
-    init() { refresh() }
+    init() { refresh(); refreshLibrary() }
 
     func refresh() {
         installed = Set(Launcher.allCases.filter {
@@ -57,7 +65,7 @@ enum Launcher: String, CaseIterable, Identifiable {
         })
     }
 
-    private func task(_ args: [String], logName: String) throws -> (Process, URL) {
+    func task(_ args: [String], logName: String) throws -> (Process, URL) {
         let dir = base.appendingPathComponent("logs")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let url = dir.appendingPathComponent(logName + ".log")
@@ -96,7 +104,7 @@ enum Launcher: String, CaseIterable, Identifiable {
                     self.busy = false; self.operation = nil
                     self.failed = process.terminationStatus != 0
                     self.activity = self.failed ? "Needs attention — see the details below." : "Finished."
-                    self.refresh()
+                    self.refresh(); self.refreshLibrary()
                 }
             }
             try p.run()
@@ -138,7 +146,7 @@ enum Launcher: String, CaseIterable, Identifiable {
                         self.failed = true; self.activity = launcher.title + " needs attention."
                         if let data = try? Data(contentsOf: url) { self.log = String(decoding: data.suffix(60000), as: UTF8.self) }
                     }
-                    self.refresh()
+                    self.refresh(); self.refreshLibrary()
                 }
             }
             try p.run()
@@ -166,7 +174,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     }
 }
 
-struct SojuView: View {
+struct PlatformsView: View {
     @EnvironmentObject var model: SojuModel
     @Environment(\.colorScheme) private var scheme
     private var green: Color { scheme == .dark ? Color(red: 0.42, green: 0.83, blue: 0.67) : Color(red: 0.12, green: 0.34, blue: 0.28) }
@@ -183,7 +191,7 @@ struct SojuView: View {
                             .padding(.horizontal, 9).padding(.vertical, 5)
                             .background(green.opacity(0.09), in: Capsule()).foregroundStyle(green)
                     }
-                    Text("Your Windows launchers. At home on your Mac.").foregroundStyle(.secondary)
+                    Text("Install and manage your official Windows launchers.").foregroundStyle(.secondary)
                 }
                 Spacer()
                 Menu {
@@ -230,11 +238,11 @@ struct SojuView: View {
                 }
             }.padding(14).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
             HStack {
-                Text("Steam installs without Apple GPTK. Each launcher keeps its own library and login.")
+                Text("Accounts, purchases and updates stay with each official launcher.")
                 Spacer()
                 Text("v" + model.version)
             }.font(.system(size: 10)).foregroundStyle(.secondary)
-        }.padding(28).frame(minWidth: 820, idealWidth: 900, minHeight: 650, idealHeight: 720)
+        }.padding(28).frame(minWidth: 730, idealWidth: 850, minHeight: 610, idealHeight: 680)
             .background(Color(nsColor: .windowBackgroundColor))
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.refresh() }
     }
@@ -297,11 +305,11 @@ final class SojuDelegate: NSObject, NSApplicationDelegate {
     @StateObject private var model = SojuModel()
     var body: some Scene {
         Window("Soju", id: "main") {
-            SojuView().environmentObject(model).onAppear {
+            LibraryView().environmentObject(model).onAppear {
                 delegate.isBusy = { model.busy }
                 NSApp.setActivationPolicy(.regular)
                 NSApp.activate(ignoringOtherApps: true)
             }
-        }.defaultSize(width: 900, height: 720)
+        }.defaultSize(width: 1140, height: 780)
     }
 }

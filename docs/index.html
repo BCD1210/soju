@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Soju — Free, open-source game launcher toolkit for Apple Silicon Macs</title>
-<meta name="description" content="Set up Battle.net, Steam, Epic Games Launcher and GOG GALAXY on Apple Silicon with Soju, a free, open-source launcher toolkit. Separate Wine environments, Mac launch shortcuts, and documented fixes.">
+<title>Soju — Free, open-source game library for Apple Silicon Macs</title>
+<meta name="description" content="One native Mac library for games installed through Battle.net, Steam, Epic and GOG. Search, favorite, launch and diagnose games on Apple Silicon with Soju.">
 <link rel="canonical" href="https://bcd1210.github.io/soju/">
-<meta property="og:title" content="Soju — Your Windows launchers, on your Mac">
+<meta property="og:title" content="Soju — Your games, one home on your Mac">
 <meta property="og:description" content="A free, open-source launcher toolkit for Apple Silicon. Battle.net, Steam, Epic and GOG — with documented setup and compatibility.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://bcd1210.github.io/soju/">
 <meta name="twitter:card" content="summary_large_image">
-<meta property="og:image" content="https://bcd1210.github.io/soju/assets/soju-launcher-demo-poster.jpg">
-<meta property="og:image:alt" content="Soju launcher preview with a real Epic Games Launcher capture">
-<meta name="twitter:image" content="https://bcd1210.github.io/soju/assets/soju-launcher-demo-poster.jpg">
+<meta property="og:image" content="https://bcd1210.github.io/soju/assets/soju-library.png">
+<meta property="og:image:alt" content="Soju unified library with installed Battle.net, Steam, Epic and GOG games">
+<meta name="twitter:image" content="https://bcd1210.github.io/soju/assets/soju-library.png">
 <meta name="twitter:title" content="Soju — Open-source game launching for Mac">
 <meta name="twitter:description" content="Set up Battle.net, Steam, Epic and GOG on Apple Silicon. Free launcher tools, separate Wine environments, and tested game examples.">
 <link rel="stylesheet" href="style.css">
@@ -31,15 +31,21 @@
 <main>
 <header class="hero">
 <p class="eyebrow">FREE &amp; OPEN SOURCE · APPLE SILICON</p>
-<h1>Your Windows launchers.<br>On your Mac.</h1>
-<p class="lead">Soju is an open-source game launcher toolkit for Apple Silicon.
-Set up Battle.net, Steam, Epic Games Launcher and GOG GALAXY, sign in to your
-existing accounts, and play supported Windows games.</p>
-<p>Terminal setup. A separate Mac launch app for each launcher.
-Choose the stores you use; Soju keeps their Wine environments separate.</p>
+<h1>Your games.<br>One home on your Mac.</h1>
+<p class="lead">A free, open-source game library for Apple Silicon.
+Find installed games from Battle.net, Steam, Epic and GOG in one native Mac app.
+Search your library, save favorites and play through the official launchers.</p>
+<p>Set up and manage your platforms in Soju. Accounts, purchases and game updates
+stay with each store. Compatibility depends on the game and your Mac.</p>
 <div class="actions"><a class="btn" href="#install">Install Soju</a>
 <a href="https://github.com/BCD1210/soju">Explore the source</a></div>
 </header>
+<section id="library" aria-labelledby="library-title">
+<h2 id="library-title">Installed games, together.</h2>
+<p>Local detection, platform filters, favorites and game-specific diagnostics.
+No new Soju account. No library uploads. Uninstalled owned games and store search are planned separately.</p>
+<img src="assets/soju-library.png" width="1140" height="780" style="width:100%;height:auto;border-radius:16px" alt="Soju's unified library showing four installed games across Battle.net, Steam, Epic and GOG">
+</section>
 
 <section id="demo" aria-labelledby="demo-title">
 <h2 id="demo-title">See the games running on a Mac.</h2>
@@ -76,14 +82,14 @@ poster="assets/soju-launcher-demo-poster.jpg" aria-label="Soju launcher preview"
 <article class="platform"><h3>Epic Games Launcher</h3><p>Sign in, install games and return to the launcher from its tray.</p><code>soju epic</code></article>
 <article class="platform"><h3>GOG GALAXY</h3><p>Access your account and library. Game compatibility is still being explored.</p><code>soju gog</code></article>
 </div>
-<p class="note">Soju provides setup tools and launcher-specific Mac apps.
-You use each store's own interface and library.</p>
+<p class="note">Soju combines installed games in one library. Each official launcher retains
+its own login, purchases, downloads and game updates.</p>
 </section>
 
 <section id="install" aria-labelledby="install-title">
 <h2 id="install-title">Choose your launchers. Get set up.</h2>
-<p><a class="btn" href="https://github.com/BCD1210/soju/releases/download/v1.4.0/Soju-1.4.0-macos-arm64.zip">Download Soju for Mac</a></p>
-<p>The native desktop preview installs, opens, updates and diagnoses all four launchers in one window.
+<p><a class="btn" href="https://github.com/BCD1210/soju/releases/download/v1.5.0/Soju-1.5.0-macos-arm64.zip">Download Soju for Mac</a></p>
+<p>The native desktop preview combines your installed games and manages all four launchers.
 Apple Silicon · app UI: macOS 14+ · Steam component build: macOS 26+.
 <a href="https://github.com/BCD1210/soju/blob/main/docs/DESKTOP.md">Setup and signing notes</a>.</p>
 <p>Prefer the terminal? Select launchers before any downloads. Steam-only installs skip the CX engine and Apple GPTK.</p>
