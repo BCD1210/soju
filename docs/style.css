@@ -54,3 +54,18 @@ footer {
 .card:hover { border-color: var(--accent); }
 .card h3 { margin: 0 0 6px; font-size: 17px; }
 .card p { margin: 0; color: var(--dim); font-size: 14.5px; }
+
+/* Launcher overview, using the existing Soju palette. */
+html { scroll-padding-top: 1rem; }
+.hero { padding: 1.25rem 0 0.75rem; }
+.eyebrow { color: var(--accent); font-size: 0.875rem; font-weight: 700; letter-spacing: 0.06em; }
+.hero h1 { font-size: clamp(2rem, 6vw, 3.25rem); letter-spacing: -0.025em; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1.25rem; margin: 1.5rem 0; }
+.platforms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+.platform { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem; }
+.platform h3 { margin: 0 0 0.5rem; }
+.platform p { margin: 0 0 1rem; font-size: 1rem; }
+.platform code { display: inline-block; }
+.table-scroll { overflow-x: auto; }
+a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
+@media (max-width: 540px) { .platforms { grid-template-columns: 1fr; } }

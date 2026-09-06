@@ -1,14 +1,22 @@
 # Soju
 
-> *Wine → Whisky → Kegworks… and now a Korean round: **Soju** 🍶*
+> **Free, open-source game launcher toolkit for Apple Silicon Macs.**
 
-**The launchers actually log in.** Battle.net, Steam, the Epic Games Launcher and GOG GALAXY on Apple Silicon. No black login window, no "Signing in…" that never ends, no CrossOver license. A fully free, open-source Wine stack.
+Set up **Battle.net, Steam, Epic Games Launcher and GOG GALAXY** on your Mac.
+Soju provides terminal setup, separate Wine environments and a Mac launch app for
+each store. Sign in to your existing accounts and play supported Windows games.
 
-If you got here from a Whisky/Kegworks thread titled *"Battle.net crashes on login"*, *"Steam won't open"* or *"launcher shows a blank window"*: those are the exact walls this repo documents and fixes (CEF renderer `int3` on `PAGE_WRITECOPY`, CEF GPU process dying on init, Steam's webhelper). See [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
+The interface is each store's own launcher; Soju currently ships a CLI and
+launcher-specific shortcuts. Compatibility varies by game and system.
 
-Built from CodeWeavers' published GPL sources (Wine 11.0, CrossOver 26.3 source drop), compiled and assembled by scripts in this repo. No paid software required.
+The tools are free and open source. The main Wine engine is built from
+CodeWeavers' published sources; Steam uses a separate wine-stable setup.
+Apple's proprietary GPTK/D3DMetal is downloaded separately. Games and store
+clients are not included.
 
-> Status (2026-08): **Working end-to-end**: Battle.net login, Agent, and D2R in-game rendering (D3DMetal); Epic Games Launcher login and game installs (tray icon in the menu bar); GOG GALAXY login; Steam client login + D3D11 games. Verified on an M4 Pro running macOS 26.5.
+**Current scripts: [v1.3.6](https://github.com/BCD1210/soju/releases/tag/v1.3.6).**
+The compatibility examples below were verified on M4 Pro / macOS 26.5.
+D2R and Hogwarts Legacy are examples of supported games, not the scope of the project.
 
 *[한국어 README](README.ko.md) · [简体中文说明](README.zh.md)*
 
@@ -21,7 +29,7 @@ Built from CodeWeavers' published GPL sources (Wine 11.0, CrossOver 26.3 source 
 </p>
 -->
 
-All verified on an M4 Pro running macOS 26.5. Same engine, one bottle per launcher.
+All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher; Steam uses its own engine.
 
 | Launcher | Login | Install games | Notes |
 | --- | :-: | :-: | --- |
@@ -41,7 +49,7 @@ Will not run: anything with kernel anti-cheat (EAC, BattlEye, Vanguard). Got ano
 
 ## Why this exists
 
-Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern Battle.net and D2R. The commercial option works, but the underlying Wine engine is GPL, so we built it ourselves and documented every wall we hit. Three of those walls had never been publicly solved:
+Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern Battle.net and D2R. The commercial option works, but the underlying Wine engine is GPL, so we built it ourselves and documented every wall we hit. The investigation and fixes are documented below:
 
 ### The three keys
 

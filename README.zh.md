@@ -1,14 +1,21 @@
 # Soju（简体中文）
 
-> *Wine → Whisky → Kegworks…… 这一轮来自韩国：**Soju** 🍶*
+> **面向 Apple Silicon Mac 的免费开源游戏启动工具。**
 
-**登录器真的能登录。** 在 Apple Silicon Mac 上运行战网（Battle.net）、Steam、Epic Games Launcher 和 GOG GALAXY。没有黑色登录窗口，没有永远转圈的 "Signing in…"，也不需要 CrossOver 许可证。完全免费的开源 Wine 栈。
+在 Mac 上安装和运行 **Battle.net、Steam、Epic Games Launcher 和 GOG GALAXY**。
+Soju 提供终端安装工具、独立的 Wine 环境，以及每个商店对应的 Mac 启动应用。
+使用已有的商店账号登录，运行兼容的 Windows 游戏。
 
-如果你是从 Whisky/Kegworks 相关帖子（"战网登录时崩溃"、"Steam 打不开"、"登录器窗口一片空白"）找到这里的：这些正是本仓库记录并解决的问题（CEF 渲染进程在 `PAGE_WRITECOPY` 上触发 `int3`、CEF GPU 进程初始化即死、Steam 的 webhelper）。详见 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)。
+游戏库仍通过各商店自己的客户端访问。Soju 目前提供 CLI 和各启动器的快捷应用；
+兼容性取决于游戏和系统环境。
 
-引擎由 CodeWeavers 公开的 GPL 源码（Wine 11.0，CrossOver 26.3 源码包）用本仓库的脚本编译组装而成。不需要任何付费软件。
+工具免费开源。主 Wine 引擎基于 CodeWeavers 公开源码构建，Steam 使用独立的
+wine-stable 环境。Apple 的专有 GPTK/D3DMetal 组件需要单独下载。
+项目不包含游戏或商店客户端。
 
-> 状态（2026-08）：**全链路可用**：战网登录、Agent、D2R 进入游戏并正常渲染（D3DMetal）；Epic Games Launcher 登录和游戏安装（菜单栏托盘图标）；GOG GALAXY 登录；Steam 客户端登录 + D3D11 游戏。在 M4 Pro / macOS 26.5 上验证。
+**当前脚本版本：[v1.3.6](https://github.com/BCD1210/soju/releases/tag/v1.3.6)。**
+下方运行案例在 M4 Pro / macOS 26.5 上验证。
+D2R 和 Hogwarts Legacy 是兼容案例，项目面向多个游戏启动器。
 
 *[English README](README.md) · [한국어 README](README.ko.md)*
 
@@ -21,7 +28,7 @@
 </p>
 -->
 
-均在 M4 Pro / macOS 26.5 上验证。同一个引擎，每个登录器一个独立 bottle。
+均在 M4 Pro / macOS 26.5 上验证。每个启动器使用独立 bottle；Steam 的引擎也独立。
 
 | 登录器 | 登录 | 安装游戏 | 说明 |
 | --- | :-: | :-: | --- |
@@ -41,7 +48,7 @@
 
 ## 为什么会有这个项目
 
-社区 Wine 构建（Whisky、Kegworks 时代的引擎）已经无法运行新版战网和 D2R。商业方案可以用，但其底层 Wine 引擎是 GPL 的，所以我们自己把它编译出来，并记录了撞上的每一堵墙。其中三堵墙此前没有公开解法：
+社区 Wine 构建（Whisky、Kegworks 时代的引擎）已经无法运行新版战网和 D2R。商业方案可以用，但其底层 Wine 引擎是 GPL 的，所以我们自己把它编译出来，并记录了撞上的每一堵墙。以下记录了其中三个问题的诊断和修复：
 
 ### 三把钥匙
 
