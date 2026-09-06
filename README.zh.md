@@ -192,3 +192,9 @@ scripts/play.sh steam-kill       # 停止 Steam bottle
 - 引擎构建自 CodeWeavers 公开的 Wine 源码（GPL/LGPL）。来源：`media.codeweavers.com/pub/crossover/source/`
 - **不包含且永远不会包含**：Apple D3DMetal/GPTK 二进制（禁止再分发）、CrossOver 应用二进制、任何 Blizzard 文件
 - 本项目与 CodeWeavers、Apple、Blizzard Entertainment 均无关联。Battle.net 和 Diablo 是 Blizzard Entertainment 的商标。使用风险自负；使用第三方兼容层进行在线游戏请自行斟酌。
+
+## 提交游戏兼容性结果
+
+欢迎提交成功、部分可用或失败的测试结果，并注明游戏、商店、Mac 型号、macOS 和 Soju 配置。需要登录 GitHub，报告会公开显示。
+
+[提交游戏兼容性结果](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)

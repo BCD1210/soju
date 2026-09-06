@@ -176,3 +176,9 @@ GPTK 안의 `libd3dshared.dylib`는 그래픽만이 아닙니다. **D2R 로더(�
 - 엔진은 CodeWeavers 공개 Wine 소스(GPL/LGPL)로 빌드. 소스: `media.codeweavers.com/pub/crossover/source/`
 - 미포함(앞으로도): 애플 D3DMetal/GPTK(재배포 금지), CrossOver 앱 바이너리, 블리자드 파일 일체
 - 본 프로젝트는 CodeWeavers·Apple·Blizzard와 무관합니다. Battle.net과 Diablo는 Blizzard Entertainment의 상표입니다.
+
+## 게임 호환성 결과 제보
+
+맥에서 게임을 실행해 보셨나요? 성공·부분 작동·실패 결과를 게임, 스토어, 맥 모델, macOS, Soju 설정과 함께 남겨 주세요. GitHub 로그인이 필요하며 제보 내용은 공개됩니다.
+
+[게임 호환성 결과 제보](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)

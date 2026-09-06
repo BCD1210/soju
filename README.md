@@ -194,3 +194,9 @@ Every bottle start also spawns idle Windows service processes (`services.exe`, `
 - The engine is built from CodeWeavers' published Wine sources (GPL/LGPL). Sources:  `media.codeweavers.com/pub/crossover/source/`
 - **Not included and never will be**: Apple D3DMetal/GPTK binaries (non-redistributable), CrossOver application binaries, any Blizzard files
 - This project is not affiliated with CodeWeavers, Apple, or Blizzard Entertainment. Battle.net and Diablo are trademarks of Blizzard Entertainment. Use at your own risk; online play with third-party compatibility layers is at your own discretion.
+
+## Share your compatibility results
+
+Tried a game on your Mac? Report successes, partial support or failures with the game, store, Mac model, macOS and Soju setup. GitHub sign-in required; reports are public.
+
+[Share your compatibility results](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)
