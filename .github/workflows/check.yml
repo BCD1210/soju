@@ -1,0 +1,19 @@
+name: Validate scripts and desktop app
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax and regressions
+        run: |
+          bash -n install.sh
+          for script in scripts/*.sh scripts/soju; do bash -n "$script"; done
+          python3 -m unittest discover -s tests -q
+      - name: Build and verify the native app
+        run: bash scripts/build-app.sh

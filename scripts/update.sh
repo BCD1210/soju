@@ -50,7 +50,11 @@ fi
 # ---------- 2. Engine ----------
 say "[2/2] Checking the engine"
 if [ ! -x "$ENGINE/bin/wine" ]; then
-  echo "  no engine at $ENGINE (run: soju install)"; exit 0
+  if [ -f "$BASE/steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
+    echo "  Steam-only installation: CX engine / GPTK not needed"
+    exec bash "$ROOT/scripts/setup-steam-games.sh"
+  fi
+  echo "  no launchers installed (run: soju install)"; exit 0
 fi
 
 # The asset is named wine-engine-*.tar.xz from engine-v1.4 on. Older

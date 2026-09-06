@@ -1,0 +1,23 @@
+{
+  "version": "steam-support-v1",
+  "wine_version": "wine-11.0",
+  "minimum_macos": "26.0",
+  "url": "https://github.com/BCD1210/soju/releases/download/steam-support-v1/soju-steam-support-v1.tar.gz",
+  "sha256": "5e3588b0c0a47eb01ef0ddfd7f15b0cbd2f4c02dc4e885eacb785b6a42199a84",
+  "source_url": "https://github.com/BCD1210/soju/releases/download/steam-support-v1/soju-steam-support-v1-sources.tar.gz",
+  "files": {
+    "SOURCES.txt": "af7bdac603cff3455b62096801b611ea3b927f5df6dd2348f85d04eca9a25abe",
+    "dxmt-x64/d3d10core.dll": "263bdd2a68ed2b07b12016decb0b6d8735ff7ecda09a8ecae43369378a122062",
+    "dxmt-x64/d3d11.dll": "2d1183bc5bf187e238ce564940c658d0357a985886a543e402aac29c161b7872",
+    "dxmt-x64/dxgi.dll": "b413bf4725a134901cefa5c9d25178e4a982e9e5cc686b76937834be14f58474",
+    "dxmt-x64/winemetal.dll": "54856fc868022fd1b4390c8fd5fd9f81b65db12f4b1ca6f14e7a3a26f9198bce",
+    "dxmt-x64/winemetal.so": "f36df00f748bc9e30964451f04f4be8cc07c46400a6957470e7fcc8c131b6b3f",
+    "licenses/DXMT-MIT.txt": "6b928413c6308c106f3e0080bd94b6427b56d587d400fd40e6cbfbab7d9c4ae1",
+    "licenses/DirectX-headers.txt": "f38e6194bd3bfa1b654f118e5acefe0aead437bbe669eee43957ccc65a7127f1",
+    "licenses/LLVM.txt": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+    "licenses/Wine-LGPL.txt": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
+    "licenses/wrapper-MIT.txt": "9678fa46fccba251d0444f19d73a4ca76118f33dbc711c8a4c73e7b63c62a1fa",
+    "steamwebhelper-wrapper.exe": "1142b7e16ded45f93c30fac278874ffd94577f1926a0e043779f79216936c080",
+    "winemac-patched.so": "750784fccc7a0f6cd77a4bc4b372f81c09ba29bc62e79897b38240b142808547"
+  }
+}

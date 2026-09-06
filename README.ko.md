@@ -73,7 +73,9 @@ brew install BCD1210/soju/soju
 soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / soju gog
 ```
 
-설치기는 프리빌드 엔진(~350MB)을 받고, 애플 무료 GPTK 다운로드(애플이 재배포 금지한 파일 1개)를 안내한 뒤, 원하는 런처를 묻습니다. Battle.net, Steam, Epic Games Launcher, GOG GALAXY 중 아무 조합이나 고르면 각각 공식 설치기로 별도 보틀에 설치하고, 런처마다 더블클릭용 앱을 `~/Applications`에 만들어 줍니다(`Battle.net.app`, `Steam (Windows).app`, `Epic Games Launcher.app`, `GOG GALAXY.app`). 비대화형: `curl -fsSL https://soju.snack-wrap.com/install.sh | SOJU_PLATFORMS=battlenet,epic,gog bash`. 로그인하고 플레이하세요.
+설치기는 **다운로드 전에 원하는 런처부터 선택**합니다. Steam만 선택하면 CX 엔진과 애플 GPTK를 받지 않습니다. Steam 그래픽 구성요소는 SHA-256으로 검증한 뒤 Soju 전용 Wine 11.0 환경에 자동으로 설치합니다. Battle.net·Epic·GOG는 공통 CX 엔진과 사용자가 별도로 받은 애플 GPTK를 사용합니다. 각 런처의 보틀·로그인·게임은 독립적으로 유지합니다.
+
+[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.4.0/Soju-1.4.0-macos-arm64.zip) — 네이티브 앱 프리뷰에서 설치·실행·구성요소 업데이트·진단을 한 화면에서 관리할 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
 
 ## 일상 명령
 

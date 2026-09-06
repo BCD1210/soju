@@ -3,13 +3,13 @@ Soju: third-party components and their licenses
 Bundled in this repository:
 - third_party/steam-on-m1-wine/steamwebhelper-wrapper.c: MIT, Copyright (c) 2026 notpop
   (see third_party/steam-on-m1-wine/LICENSE and NOTICE)
-- patches/winemac-no-dock-icon.patch: a patch against Wine's winemac.drv (Wine is LGPL-2.1+);
+- patches/winemac-no-dock-icon.patch and patches/steam-winemac.patch: a patch against Wine's winemac.drv (Wine is LGPL-2.1+);
   the patch itself is offered under LGPL-2.1+ to match.
 
-Built or downloaded by the scripts (never redistributed by this repository):
+Built or downloaded by the scripts (open-source component releases include corresponding sources):
 - Wine 11.0: LGPL-2.1+ / GPL components, built from CodeWeavers' published sources
   (media.codeweavers.com/pub/crossover/source/)
-- DXMT: LGPL-2.1+, Copyright (c) 2023-2026 Feifan He for CodeWeavers
+- DXMT pinned notpop fork: MIT, Copyright (c) 2023 Feifan He
   (built from the notpop fork of github.com/3Shain/dxmt)
 - wine-mono: MIT (dotnet parts MIT/BSD-like); MoltenVK: Apache-2.0; gnutls: LGPL-2.1+;
   freetype: FTL/GPL-2.0 dual
@@ -21,3 +21,7 @@ Built or downloaded by the scripts (never redistributed by this repository):
 Trademarks: Battle.net and Diablo are trademarks of Blizzard Entertainment.
 Steam is a trademark of Valve Corporation. This project is not affiliated with
 CodeWeavers, Apple, Blizzard, or Valve.
+
+Steam prebuilt release: Wine 11.0 winemac (LGPL-2.1+), DXMT (MIT),
+LLVM 15.0.7 (Apache-2.0 with LLVM exceptions), wrapper (MIT).
+Bundled DirectX-header notices are retained. See docs/STEAM-PREBUILTS.md.
