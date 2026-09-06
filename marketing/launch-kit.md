@@ -1,6 +1,6 @@
 # Soju launch kit
 
-Drafts for manual publication. Positioning: a free, open-source game launcher toolkit for Apple Silicon Macs.
+Publication copy and assets. Positioning: a free, open-source game launcher toolkit for Apple Silicon Macs.
 
 Soju sets up Battle.net, Steam, Epic Games Launcher and GOG GALAXY. It provides terminal setup, separate Wine environments and a Mac launch app for each store. The store clients retain their own interfaces; a unified library UI is not currently provided.
 
@@ -44,17 +44,12 @@ Steam 게임 실행에는 추가 설정이 필요하고, 디아2는 macOS 26.4 �
 소스: https://github.com/BCD1210/soju
 실행 결과: https://github.com/BCD1210/soju/discussions
 
-## Demo recording plan
+## Published demo
 
-Capture the real installed software; this is a storyboard, not a finished recording.
+[Watch the 21-second launcher preview](https://soju.snack-wrap.com/#demo)
+[Download MP4](https://soju.snack-wrap.com/assets/soju-launcher-demo.mp4)
 
-- 0–5 seconds: title, “Your Windows launchers. On your Mac.”
-- 5–15 seconds: show the launcher choices and installed Mac shortcuts.
-- 15–30 seconds: show available launcher windows and libraries, with private account details hidden.
-- 30–40 seconds: show actual gameplay from verified examples and label game, store, Mac and macOS version.
-- 40–45 seconds: project URL and request for compatibility reports.
-
-Include Steam's extra DXMT setup and GOG's limited verification in the accompanying text. Never label a launcher library screen as verified gameplay.
+The video contains actual Epic Games Launcher and Battle.net window recordings captured on Apple Silicon on 2026-09-06. The recordings are cropped to exclude account details, then placed alongside Soju titles. It shows launcher interfaces, not gameplay. Steam and GOG are included in the project introduction, but are not shown in the recording.
 
 ## Publication notes
 
