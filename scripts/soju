@@ -34,7 +34,7 @@ Usage:
   soju gog            Launch GOG GALAXY
   soju gog-kill       Stop everything in the GOG bottle
 
-  soju steam-install  Set up the Steam bottle (wine-stable + wrapper + Steam)
+  soju steam-install  Set up the Steam bottle (private Wine 11 + wrapper + Steam)
   soju steam-games    Download and configure verified D3D11 components
   soju steam          Launch Steam
   soju steam-kill     Stop everything in the Steam bottle

@@ -201,9 +201,11 @@ case "$MODE" in
     # vendored in third_party/.
     WINESTABLE="$STEAM_WINE_ROOT/bin/wine"
     WINESTABLE_SERVER="$STEAM_WINE_ROOT/bin/wineserver"
-    [[ -x "$WINESTABLE" ]] || { echo "wine-stable not found, brew install --cask wine-stable"; exit 1; }
+    [[ -x "$WINESTABLE" ]] || { echo "Steam runtime not found. Reinstall Steam from Platforms or run: soju steam-install"; exit 1; }
     ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
     [[ -f "$ST" ]] || { echo "Steam not found, run scripts/create-steam-bottle.sh first"; exit 1; }
+    # Repair a bootstrap-only installation before deploying the CEF wrapper.
+    python3 "$(dirname "${BASH_SOURCE[0]}")/bootstrap-steam.py" "$WINESTABLE"
     # 1) Clean crash leftovers (a stale lock makes the next launch a windowless --silent one)
     find "$WINEPREFIX/drive_c/users/"*/AppData/Local/Steam/htmlcache -maxdepth 2 \
       \( -name "Singleton*" -o -name "*.lock" \) -delete 2>/dev/null || true
@@ -249,7 +251,13 @@ case "$MODE" in
       fi
     fi
     # 6) Launch: plain wine-stable environment, without the CX engine env
-    STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process -noverifyfiles "${@:2}")
+    STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process)
+    # SteamSetup only contains the bootstrapper: let first launch download the
+    # client, otherwise Steam fails with "Failed to load steamui.dll".
+    if [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steamui.dll" ]; then
+      STEAM_CMD+=(-noverifyfiles)
+    fi
+    STEAM_CMD+=("${@:2}")
     [[ -n "$VD" ]] && STEAM_CMD=(explorer.exe "/desktop=soju-steam,$VD" "${STEAM_CMD[@]}")
     # Closing the Steam window parks it in a tray macOS does not show; the patched
     # winemac runs WINE_DOCK_REOPEN_CMD on a Dock-icon click when no window is

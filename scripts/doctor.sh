@@ -92,8 +92,8 @@ if [ -f "$BASE/steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
   else
     warn "Steam game rendering not configured: soju steam-games"
   fi
-  [ -x "$WINESTABLE" ] && pass "Homebrew wine-stable present" \
-    || fail "Steam bottle exists but wine-stable is gone: brew install --cask wine-stable"
+  [ -x "$WINESTABLE" ] && pass "Steam Wine runtime present" \
+    || fail "Steam runtime is missing: run soju steam-install"
 else
   info "Steam not installed (soju steam-install)"
 fi

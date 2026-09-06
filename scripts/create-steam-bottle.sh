@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
 # Install the Windows Steam client and its verified rendering components.
 #
-# Important: unlike Battle.net, Steam runs on Homebrew wine-stable, not the CX
-# source engine. CX-derived builds cannot render Steam's CEF UI (black screen);
-# the verified free combination is wine-stable 11 + the steamwebhelper wrapper.
-# Wrapper source: github.com/notpop/steam-on-m1-wine (MIT): source and license
-# vendored in third_party/.
-# Verified 2026-08-27 on M4 Pro / macOS 26.5: login screen renders.
+# Steam uses upstream Wine 11 plus the steamwebhelper wrapper and DXMT.
+# New installs use a checksum-pinned private runtime; legacy Wine apps are kept.
 set -euo pipefail
 
 BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
@@ -14,22 +10,31 @@ export WINEPREFIX="${WINEPREFIX:-$BASE/steam-bottle}"
 WORK="${WORK:-$BASE/build}"; mkdir -p "$WORK"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$REPO_ROOT/scripts/steam-runtime.sh"
-WINESTABLE_APP="/Applications/Wine Stable.app"
+# ---------- 1. Pinned upstream Wine ----------
+python3 - "$REPO_ROOT/resources/steam-support.json" <<'PYVERSION'
+import json, platform, sys
+m=json.load(open(sys.argv[1]))
+version=lambda s: tuple(map(int,s.split('.')))
+if version(platform.mac_ver()[0]) < version(m['minimum_macos']):
+    sys.exit('Steam game support requires macOS '+m['minimum_macos']+' or later.')
+PYVERSION
+unset DYLD_FALLBACK_LIBRARY_PATH WINEDLLOVERRIDES WINEMSYNC ROSETTA_ADVERTISE_AVX
+unset CX_ACTIVE_GRAPHICS_BACKEND CX_GRAPHICS_BACKEND CX_APPLEGPTK_LIBD3DSHARED_PATH WINE_SIMULATE_WRITECOPY
 WINE="$STEAM_WINE_ROOT/bin/wine"
-
-# ---------- 1. wine-stable ----------
-if [ ! -x "$WINE" ]; then
-  echo "==> Installing Homebrew wine-stable (free, ~500MB)"
-  # The gstreamer-runtime cask dependency demands sudo, so skip it (Steam's UI doesn't need it)
-  brew install --cask --skip-cask-deps wine-stable
-  echo "==> Removing the Gatekeeper quarantine flag (takes a few minutes)"
-  xattr -dr com.apple.quarantine "$WINESTABLE_APP" 2>/dev/null || true
+if [ ! -x "$WINE" ] || [ "$("$WINE" --version 2>/dev/null || true)" != wine-11.0 ]; then
+  if [ -n "${SOJU_STEAM_WINE:-}" ]; then
+    echo "SOJU_STEAM_WINE must point to a working Wine 11.0 runtime."; exit 1
+  fi
+  python3 "$REPO_ROOT/scripts/fetch-steam-wine.py"
+  source "$REPO_ROOT/scripts/steam-runtime.sh"
+  WINE="$STEAM_WINE_ROOT/bin/wine"
 fi
 "$WINE" --version
 
 # ---------- 2. Verified wrapper and rendering components ----------
 python3 "$REPO_ROOT/scripts/fetch-steam-support.py"
 if [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
+  python3 "$REPO_ROOT/scripts/bootstrap-steam.py" "$WINE"
   echo "Steam already installed."
   exit 0
 fi
@@ -46,7 +51,10 @@ echo "==> Installing Steam silently"
 "$STEAM_WINE_ROOT/bin/wineserver" -w 2>/dev/null || true
 [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ] || { echo "Install failed"; exit 1; }
 
-# ---------- 4. Finish ----------
+# ---------- 4. Full client before configuring the renderer ----------
+python3 "$REPO_ROOT/scripts/bootstrap-steam.py" "$WINE"
+
+# ---------- 5. Finish ----------
 cp -f /etc/ssl/cert.pem "$WINEPREFIX/drive_c/windows/cacert.pem" 2>/dev/null || true
 echo "==> Done. Run: scripts/play.sh steam  (play.sh deploys the wrapper automatically)"
 echo "    If typed text shows up as ??, switch the macOS input source to English (ABC)."
