@@ -1,5 +1,9 @@
 # Soju (한국어)
 
+**v1.5.0:** 설치된 게임을 한 라이브러리에서 검색·필터·즐겨찾기하고 실행할 수 있습니다. 런처 설치와 업데이트는 Platforms에서 관리합니다. 미설치 보유 게임 동기화와 스토어 검색은 아직 포함되지 않습니다.
+
+[Desktop / download](docs/DESKTOP.md)
+
 > **Apple Silicon 맥용 무료 오픈소스 게임 런처 도구.**
 
 맥에서 **Battle.net·Steam·Epic Games Launcher·GOG GALAXY**를 설치하고 실행하세요.

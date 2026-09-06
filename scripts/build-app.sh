@@ -10,7 +10,7 @@ trap 'rm -rf "$STAGE"' EXIT
 APP="$STAGE/Soju.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/soju"
 swiftc -swift-version 5 -parse-as-library -O -target arm64-apple-macosx14.0 \
-  "$ROOT/app/Soju.swift" -o "$APP/Contents/MacOS/Soju"
+  "$ROOT/app/Soju.swift" "$ROOT/app/Library.swift" -o "$APP/Contents/MacOS/Soju"
 for dir in scripts tools patches third_party resources; do
   ditto "$ROOT/$dir" "$APP/Contents/Resources/soju/$dir"
 done
