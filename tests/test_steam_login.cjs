@@ -63,3 +63,47 @@ test("conflicting account identity cannot import a stale profile", async () => {
                             () => { throw Error("must not fetch"); });
     assert.deepEqual(value, {state:"unavailable"});
 });
+
+test("legacy signed-in page without application_config imports via Steam's own session", async () => {
+    const ctx = context();
+    ctx[1] = {getElementById:()=>null, querySelector:selector=>selector==="#account_pulldown" ? {} : null};
+    const requests = [];
+    const result = await run(...ctx, async (url, options) => {
+        requests.push(url);
+        if (url === "https://steamcommunity.com/chat/clientjstoken") {
+            assert.equal(options.credentials, "same-origin");
+            return {ok:true,text:async()=>JSON.stringify({logged_in:true,steamid:id,token:"session-only"})};
+        }
+        assert.equal(new URL(url).origin, "https://api.steampowered.com");
+        assert.equal(options.credentials, "omit");
+        return {ok:true,text:async()=>JSON.stringify({response:{game_count:1,games:[{appid:10,name:"Owned"}]}})};
+    });
+    assert.equal(requests.length, 2);
+    assert.equal(result.state, "ready");
+    assert.equal(result.games.length, 1);
+    assert.ok(!JSON.stringify(result).includes("session-only"));
+});
+test("legacy session identity mismatch never fetches another account's games", async () => {
+    let requests = 0;
+    const result = await run(...context({}, {g_steamID:id}), async () => {
+        requests++;
+        return {ok:true,text:async()=>JSON.stringify({logged_in:true,steamid:"76561198000000001",token:"other"})};
+    });
+    assert.equal(result.state,"unavailable");
+    assert.equal(requests,1);
+});
+test("legacy expired session requests sign-in and preserves old import", async () => {
+    const ctx=context();
+    ctx[1].querySelector=()=>({});
+    const result=await run(...ctx, async()=>({ok:true,text:async()=>JSON.stringify({logged_in:false})}));
+    assert.deepEqual(result,{state:"sign-in"});
+});
+test("partial legacy page can retry after its data finishes loading", async () => {
+    const ctx=context({}, {g_steamID:id});
+    const failed=await run(...ctx, async()=>{throw Error("offline");});
+    assert.equal(failed.state,"unavailable");
+    ctx[0].g_rgProfileData={steamid:id};
+    ctx[0].rgGames=[{appid:10,name:"Owned"}];
+    const retried=await run(...ctx, ()=>{throw Error("not needed");});
+    assert.equal(retried.state,"ready");
+});

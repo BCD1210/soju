@@ -10,7 +10,7 @@ free software.
 The modern Steam client's CEF UI does not render on CrossOver-source builds:
 the GPU process crash-loops (sandbox faults, 0xC0000005), and DXMT's
 cross-process swapchain limit ([DXMT #141](https://github.com/3Shain/dxmt/issues/141))
-blacks out the composer. Homebrew's `wine-stable` 11 cask works once the
+blacks out the composer. The pinned upstream Wine 11 build works once the
 steamwebhelper wrapper forces `--disable-gpu --single-process`
 (from [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine), MIT,
 vendored in `third_party/`).
@@ -87,7 +87,7 @@ Artifacts land in `~/.battlenet-macos/steam-support/` and
 ## Runbook
 
 ```bash
-scripts/create-steam-bottle.sh    # wine-stable + wrapper + Steam
+scripts/create-steam-bottle.sh    # private Wine 11 + wrapper + Steam
 scripts/setup-steam-games.sh      # verified download + private DXMT/winemac runtime
 scripts/play.sh steam             # play
 ```

@@ -20,6 +20,7 @@ enum SteamWebSession {
     private var generation = UUID()
     private var readingGeneration: UUID?
     private var openedLibrary = false
+    private var failures = 0
     private var active = true
 
     init(root: URL) {
@@ -34,11 +35,18 @@ enum SteamWebSession {
     }
     func start(completion: @escaping ([String: Any]) -> Void) {
         guard complete == nil else { return }
+        guard !reader.isEmpty else { message = "Steam import files are missing. Reinstall the latest Soju app."; return }
         complete = completion
         web.load(URLRequest(url: URL(string: "https://steamcommunity.com/login/home/?goto=my%2Fgames%2F%3Ftab%3Dall")!))
-        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+        startPolling()
+    }
+    private func startPolling() {
+        timer?.invalidate()
+        let poll = Timer(timeInterval: 3, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.checkLibrary() }
         }
+        timer = poll
+        RunLoop.main.add(poll, forMode: .common)
     }
     func stop() {
         active = false; generation = UUID(); complete = nil
@@ -46,7 +54,8 @@ enum SteamWebSession {
         web.stopLoading()
     }
     func retry() {
-        openedLibrary = false
+        openedLibrary = false; failures = 0
+        startPolling()
         message = "Loading your Steam library…"
         web.load(URLRequest(url: URL(string: "https://steamcommunity.com/my/games/?tab=all")!))
     }
@@ -85,6 +94,11 @@ enum SteamWebSession {
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         if (error as NSError).code != NSURLErrorCancelled { message = "Steam could not load. Check your connection and retry." }
     }
+    private func importFailed() {
+        failures += 1
+        message = "Steam’s game list could not be read yet. Let the page load or choose Retry import. Your previous library is kept."
+        if failures >= 5 { timer?.invalidate(); timer = nil }
+    }
     private func checkLibrary() {
         guard active, !web.isLoading, readingGeneration == nil, !reader.isEmpty,
               allowed(web.url), ["steamcommunity.com", "store.steampowered.com"].contains(web.url?.host ?? "") else { return }
@@ -93,7 +107,9 @@ enum SteamWebSession {
         web.callAsyncJavaScript(reader, arguments: [:], in: nil, in: .page) { [weak self] result in
             guard let self, self.active, self.generation == current else { return }
             self.readingGeneration = nil
-            guard case .success(let raw) = result, let value = raw as? [String: Any], let state = value["state"] as? String else { return }
+            guard case .success(let raw) = result, let value = raw as? [String: Any], let state = value["state"] as? String else {
+                self.importFailed(); return
+            }
             switch state {
             case "ready":
                 self.reading = true; self.message = "Importing your games…"
@@ -107,8 +123,9 @@ enum SteamWebSession {
                     self.web.load(URLRequest(url: URL(string: "https://steamcommunity.com/my/games/?tab=all")!))
                 } else { self.message = "Let your All Games page load, then choose Retry import if needed." }
             case "unavailable":
-                self.message = "Steam could not share a complete library. Retry import after the page loads. Your previous import is kept."
-                self.timer?.invalidate(); self.timer = nil
+                self.importFailed()
+            case "sign-in":
+                self.message = "Finish signing in on Steam’s page. Your games will import automatically; installing Windows Steam is not required."
             default: break
             }
         }

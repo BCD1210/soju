@@ -139,12 +139,12 @@ struct AccountsView: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 12) {
                         accountHeader(.steam)
-                        Text("Sign in on Steam’s official page to import your games. No API key or profile URL is needed.")
+                        Text("Sign in below to import your owned games. You do not need to install Windows Steam first.")
                             .font(.callout).foregroundStyle(.secondary)
                         Text("Steam handles your password, QR sign-in and Steam Guard. Your web session stays on this Mac.")
                             .font(.caption).foregroundStyle(.secondary)
                         HStack {
-                            Button("Open Steam") { model.launch(.steam) }.disabled(model.busy)
+                            Button("Open Windows Steam") { model.launch(.steam) }.disabled(model.busy || !model.installed.contains(.steam))
                             if summary(.steam) == nil {
                                 Button("Clear saved sign-in") { model.forgetAccount(.steam) }.disabled(model.accountBusy)
                             }
