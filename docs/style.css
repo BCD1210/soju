@@ -69,3 +69,5 @@ html { scroll-padding-top: 1rem; }
 .table-scroll { overflow-x: auto; }
 a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
 @media (max-width: 540px) { .platforms { grid-template-columns: 1fr; } }
+
+#demo video { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }

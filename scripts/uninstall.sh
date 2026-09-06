@@ -24,6 +24,9 @@ stop_bottle() {
   [ "$b" != steam-bottle ] || ws="/Applications/Wine Stable.app/Contents/Resources/wine/bin/wineserver"
   [ -d "$BASE/$b" ] || return 0
   WINEPREFIX="$BASE/$b" DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ws" -k 2>/dev/null || true
+  # -k only asks; wait for the server to be gone before rm -rf, otherwise
+  # shutdown-time writes race the delete and can leave half a bottle behind.
+  WINEPREFIX="$BASE/$b" DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ws" -w 2>/dev/null || true
 }
 
 # 2. App bundles.

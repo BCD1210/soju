@@ -18,6 +18,8 @@ clients are not included.
 The compatibility examples below were verified on M4 Pro / macOS 26.5.
 D2R and Hogwarts Legacy are examples of supported games, not the scope of the project.
 
+[Watch the 21-second launcher preview](https://soju.snack-wrap.com/#demo) · Epic Games Launcher / Battle.net
+
 *[한국어 README](README.ko.md) · [简体中文说明](README.zh.md)*
 
 ## What runs
