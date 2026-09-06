@@ -1,14 +1,21 @@
 # Soju (한국어)
 
-> *Wine → Whisky → Kegworks… 그리고 한국의 차례: **Soju** 🍶*
+> **Apple Silicon 맥용 무료 오픈소스 게임 런처 도구.**
 
-**런처가 실제로 로그인됩니다.** Apple Silicon 맥에서 Battle.net·Steam·Epic Games Launcher·GOG GALAXY. 검은 로그인 창도, 끝나지 않는 "Signing in…"도, CrossOver 라이선스도 없이. 완전 무료 오픈소스 Wine 스택.
+맥에서 **Battle.net·Steam·Epic Games Launcher·GOG GALAXY**를 설치하고 실행하세요.
+Soju는 터미널 설치 도구, 런처별 독립 Wine 환경, 더블클릭으로 실행하는 맥 앱을 제공합니다.
+기존 스토어 계정으로 로그인해 지원되는 Windows 게임을 플레이할 수 있습니다.
 
-Whisky/Kegworks 스레드의 *"배틀넷 로그인 시 크래시"*, *"Steam이 안 열림"*, *"런처 창이 비어 있음"* 때문에 오셨다면, 바로 그 벽들을 이 레포가 기록하고 해결했습니다(CEF 렌더러 `PAGE_WRITECOPY` int3, CEF GPU 프로세스 초기화 사망, Steam webhelper). [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
+게임 라이브러리는 각 스토어의 런처에서 이용합니다. 현재 Soju는 CLI와 런처별 실행 앱으로
+구성되어 있으며, 게임과 시스템에 따라 호환성이 달라집니다.
 
-CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)를 이 레포의 스크립트로 직접 빌드·조립합니다. 유료 소프트웨어 불필요.
+도구는 무료 오픈소스입니다. 기본 Wine 엔진은 CodeWeavers 공개 소스로 빌드하며,
+Steam은 별도의 wine-stable 환경을 사용합니다. Apple의 비공개 GPTK/D3DMetal 구성요소는
+별도로 내려받아야 합니다. 게임과 스토어 클라이언트는 포함하지 않습니다.
 
-> 상태(2026-08): **전 구간 동작**: 배틀넷 로그인·Agent·D2R 인게임 렌더링(D3DMetal), Epic Games Launcher 로그인·게임 설치(메뉴바 트레이), GOG GALAXY 로그인, Steam 로그인 + D3D11 게임. M4 Pro / macOS 26.5에서 검증.
+**현재 스크립트: [v1.3.6](https://github.com/BCD1210/soju/releases/tag/v1.3.6).**
+아래 실행 사례는 M4 Pro / macOS 26.5에서 확인한 결과입니다.
+디아블로2와 호그와트 레거시는 지원 사례이며, 프로젝트의 범위는 여러 게임 런처입니다.
 
 *[English README](README.md) · [简体中文说明](README.zh.md)*
 
@@ -21,7 +28,7 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 </p>
 -->
 
-모두 M4 Pro / macOS 26.5에서 검증. 엔진은 하나, 런처마다 보틀 하나.
+모두 M4 Pro / macOS 26.5에서 검증. 런처마다 별도 보틀을 사용하며, Steam은 엔진도 별도입니다.
 
 | 런처 | 로그인 | 게임 설치 | 비고 |
 | --- | :-: | :-: | --- |
@@ -41,7 +48,7 @@ CodeWeavers가 GPL로 공개한 소스(Wine 11.0, CrossOver 26.3 소스 드롭)�
 
 ## 핵심 발견 3가지
 
-커뮤니티가 몇 달째 못 풀던 문제들의 해법:
+설치와 실행을 안정화하면서 확인한 원인과 해결 방법:
 
 1. **`ROSETTA_ADVERTISE_AVX=1`**: D2R 로더는 AVX 명령어가 필수입니다. 이 환경변수가 없으면 게임이 그래픽 초기화 전에 86MB/0%CPU로 영원히 멈춥니다. "맥에서 D2R이 실행 안 됨"의 정체입니다.
 2. **D3DMetal 페이로드 레이아웃**: 애플 GPTK 페이로드는 세 부분이고 셋이 다 있어야 D3DMetal이 붙습니다. `lib/external/`(libd3dshared + D3DMetal.framework), Wine 자체 DLL을 대체하는 애플의 PE shim `d3d11.dll`·`d3d12.dll`·`dxgi.dll`(+ `atidxx64`, `nvapi64`, `nvngx`)을 `lib/wine/x86_64-windows/`에, 그리고 shim마다 `lib/wine/x86_64-unix/<shim>.so`를 `lib/external/`로 가는 **심링크**로. 실물을 복사하면 `@loader_path`가 어긋나 assertion 루프로 죽고, Wine 자체 `d3d11.dll`을 그대로 두면 D3D가 wined3d로 돌아가며 Epic Games Launcher는 시작 직후 크래시합니다. `soju gptk`가 세 부분을 모두 설치합니다.
