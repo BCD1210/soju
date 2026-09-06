@@ -33,13 +33,12 @@ struct PurchaseLinks: Decodable {
 
     var hasAffiliateLinks: Bool { enabled && !links.isEmpty }
 
-    func resolve(_ destination: String, useAffiliateLinks: Bool) -> Route? {
+    func resolve(_ destination: String) -> Route? {
         guard let direct = Self.safeURL(destination, hosts: [
             "store.steampowered.com", "www.gog.com", "store.epicgames.com", "us.shop.battle.net"
         ]) else { return nil }
-        if schema == 1, enabled, useAffiliateLinks,
+        if schema == 1, enabled, direct.host == "www.gog.com",
            let entry = links.first(where: { $0.destination == destination }),
-           direct.host == "www.gog.com",
            let affiliate = Self.safeURL(entry.affiliate, hosts: ["www.gog.com", "af.gog.com"]) {
             return Route(url: affiliate, isAffiliate: true)
         }

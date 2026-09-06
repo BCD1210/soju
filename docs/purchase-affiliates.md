@@ -32,12 +32,16 @@ edition, and confirm attribution using the network's approved test procedure.
 Do not make self-purchases to generate commissions. Record the approval and
 private account details outside this public repository.
 
-Discover labels affiliated product buttons and explains that Soju may earn a
-commission. A persistent toggle lets users open ordinary store links instead.
+Discover automatically uses the approved affiliate link when a matching mapping
+exists. Products without an active mapping use their ordinary official-store
+link. There is no user toggle to bypass an available affiliate link, and no
+duplicate direct store-search shortcuts. Affiliate purchase buttons are marked
+Supports Soju with a commission disclosure. Missing, disabled or invalid
+configuration falls back to ordinary store links.
+
 No click collection, user identifiers, redirect server or background requests
 are added by the referral layer. Third-party tracking starts only after a user
-chooses an affiliated link. Invalid or missing configuration falls back to
-ordinary store links. Disable the bundled configuration to stop referrals.
+chooses an affiliated link. Disable the bundled configuration to stop referrals.
 
 ## Sources
 

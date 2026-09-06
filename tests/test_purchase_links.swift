@@ -14,27 +14,26 @@ import Foundation
             return PurchaseLinks.load(root: root)
         }
         let entry = ["destination": direct, "affiliate": affiliate]
-        assert(PurchaseLinks.load(root: root).resolve(direct, useAffiliateLinks: true)?.url.absoluteString == direct)
+        assert(PurchaseLinks.load(root: root).resolve(direct)?.url.absoluteString == direct)
         let active = try config([entry])
         assert(active.hasAffiliateLinks)
-        assert(active.resolve(direct, useAffiliateLinks: true)?.url.absoluteString == affiliate)
-        assert(active.resolve(direct, useAffiliateLinks: false)?.url.absoluteString == direct)
-        assert(active.resolve(direct, useAffiliateLinks: false)?.isAffiliate == false)
+        assert(active.resolve(direct)?.url.absoluteString == affiliate)
+        assert(active.resolve(direct)?.isAffiliate == true)
         let other = "https://www.gog.com/en/game/another_edition"
-        assert(active.resolve(other, useAffiliateLinks: true)?.url.absoluteString == other)
+        assert(active.resolve(other)?.url.absoluteString == other)
         let steam = "https://store.steampowered.com/app/10/"
-        assert(active.resolve(steam, useAffiliateLinks: true)?.url.absoluteString == steam)
+        assert(active.resolve(steam)?.url.absoluteString == steam)
         let disabled = try config([entry], enabled: false)
         assert(!disabled.hasAffiliateLinks)
-        assert(disabled.resolve(direct, useAffiliateLinks: true)?.isAffiliate == false)
+        assert(disabled.resolve(direct)?.url.absoluteString == direct)
         for bad in ["http://af.gog.com/x", "https://af.gog.com.evil.test/x", "https://user@af.gog.com/x",
                     "https://af.gog.com:8080/x", "file:///etc/passwd", "javascript:alert(1)"] {
             let value = try config([["destination": direct, "affiliate": bad]])
             assert(!value.hasAffiliateLinks)
-            assert(value.resolve(direct, useAffiliateLinks: true)?.url.absoluteString == direct)
+            assert(value.resolve(direct)?.url.absoluteString == direct)
         }
         for bad in ["file:///etc/passwd", "https://www.gog.com.evil.test/x", "https://x@www.gog.com/x"] {
-            assert(active.resolve(bad, useAffiliateLinks: true) == nil)
+            assert(active.resolve(bad) == nil)
         }
         let duplicate = try config([entry, entry])
         assert(!duplicate.hasAffiliateLinks)
@@ -42,6 +41,6 @@ import Foundation
         assert(!wrongSchema.hasAffiliateLinks)
         try Data("not json".utf8).write(to: file)
         assert(!PurchaseLinks.load(root: root).hasAffiliateLinks)
-        print("Purchase links: approved routing, opt-out, exact products, fallback and unsafe URL checks passed")
+        print("Purchase links: automatic affiliate preference, exact products, ordinary-link fallback and unsafe URL checks passed")
     }
 }
