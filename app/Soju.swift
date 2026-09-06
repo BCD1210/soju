@@ -83,6 +83,7 @@ enum Launcher: String, CaseIterable, Identifiable {
         env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         env["SOJU_BASE"] = base.path
         env["SOJU_NONINTERACTIVE"] = "1"
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
         env["TERM"] = "dumb"
         for key in ["ENGINE", "WINEPREFIX", "WINEDLLOVERRIDES", "DYLD_FALLBACK_LIBRARY_PATH"] { env.removeValue(forKey: key) }
         p.environment = env
