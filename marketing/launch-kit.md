@@ -57,4 +57,5 @@ The video contains actual Epic Games Launcher and Battle.net window recordings c
 - Use an existing project thread for a substantive update when appropriate; avoid duplicate launch posts.
 - Keep D2R-specific guides discoverable while the main project introduction covers all four launchers.
 - Link to compatibility notes and ask for evidence, not only stars.
-- Record the post URL and date after publishing. These drafts have not been submitted to communities.
+- GitHub announcement published on 2026-09-06: https://github.com/BCD1210/soju/discussions/30
+- Reddit, X and Hacker News: awaiting sign-in in the posting browser; no posts submitted there in this session.
