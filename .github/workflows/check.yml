@@ -15,5 +15,6 @@ jobs:
           bash -n install.sh
           for script in scripts/*.sh scripts/soju; do bash -n "$script"; done
           python3 -m unittest discover -s tests -q
+          node --test tests/test_steam_login.cjs
       - name: Build and verify the native app
         run: bash scripts/build-app.sh

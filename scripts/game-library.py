@@ -13,6 +13,7 @@ import sqlite3
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from game_artwork import executable_icon
+from library_services import saved_accounts
 from urllib.parse import quote
 
 FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
@@ -287,14 +288,28 @@ class Library:
             try: getattr(self, platform)()
             except (OSError, ValueError, KeyError, TypeError, sqlite3.Error):
                 self.warn(platform, 'Installation records are temporarily unavailable. Open the launcher and refresh.')
-        return {'games': [{k: v for k, v in g.items() if k != 'arguments'}
+        accounts, owned, warnings = saved_accounts(self.base)
+        self.warnings.extend(warnings)
+        for game in owned:
+            if game['id'] in self.games:
+                self.games[game['id']]['owned'] = True
+            else:
+                self.games[game['id']] = dict(game, arguments=[])
+        return {'accounts': accounts, 'games': [{k: v for k, v in g.items() if k != 'arguments'}
                           for g in sorted(self.games.values(), key=lambda g: (g['title'].casefold(), g['id']))],
                 'warnings': self.warnings}
 
-    def command(self, game_id):
+    def command(self, game_id, install=False):
         self.scan()
         game = self.games.get(game_id)
         if game is None: raise ValueError('This game is no longer installed. Refresh the library.')
+        if install:
+            if game['install_path']: raise ValueError('This game is installed. Use Play instead.')
+            client = self.base / FOLDERS[game['platform']] / 'drive_c' / CLIENTS[game['platform']]
+            if not client.is_file(): raise ValueError('Install this launcher in Platforms first.')
+            args = ['steam://install/' + game_id.split(':', 1)[1]] if game['platform'] == 'steam' else []
+            return ['/bin/bash', str(Path(__file__).resolve().parent / 'play.sh'), game['platform']] + args
+        if not game['install_path']: raise ValueError('This game is owned but not installed. Open its launcher to install it.')
         if game['issue']: raise ValueError(game['issue'])
         root = Path(__file__).resolve().parent
         return ['/bin/bash', str(root / 'play.sh'), game['platform']] + game['arguments']
@@ -302,7 +317,7 @@ class Library:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['list', 'launch', 'diagnose'], nargs='?', default='list')
+    parser.add_argument('action', choices=['list', 'launch', 'diagnose', 'install'], nargs='?', default='list')
     parser.add_argument('game_id', nargs='?')
     parser.add_argument('--base', default=os.environ.get('SOJU_BASE', str(Path.home() / '.battlenet-macos')))
     parser.add_argument('--dry-run', action='store_true', help='Print launch argv without starting anything')
@@ -319,7 +334,7 @@ def main():
             print(game['title'] + ' — ' + game['platform'], flush=True)
             print(game['issue'] or 'Installation found. Checking the platform environment…', flush=True)
             command = ['/bin/bash', str(Path(__file__).resolve().parent / 'doctor.sh'), game['platform']]
-        else: command = lib.command(args.game_id)
+        else: command = lib.command(args.game_id, install=args.action == 'install')
         if args.dry_run: print(json.dumps(command)); return
         env = dict(os.environ, SOJU_BASE=str(lib.base))
         for key in ['WINEPREFIX', 'ENGINE']: env.pop(key, None)

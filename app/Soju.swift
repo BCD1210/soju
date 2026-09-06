@@ -34,6 +34,10 @@ enum Launcher: String, CaseIterable, Identifiable {
 }
 
 @MainActor final class SojuModel: ObservableObject {
+    @Published var accountSummaries: [AccountSummary] = []
+    @Published var accountBusy = false
+    @Published var accountMessage = ""
+    var accountTask: Process?
     @Published var games: [InstalledGame] = []
     @Published var scanning = false
     @Published var scanWarnings: [String] = []

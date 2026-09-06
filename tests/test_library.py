@@ -176,7 +176,7 @@ class LibraryTests(unittest.TestCase):
         self.assertIn('drive is unavailable', result['warnings'][0])
 
     def test_no_installations_is_valid_empty_library(self):
-        self.assertEqual(self.lib.scan(), {'games': [], 'warnings': []})
+        self.assertEqual(self.lib.scan(), {'accounts': [], 'games': [], 'warnings': []})
 
 
 if __name__ == '__main__': unittest.main()

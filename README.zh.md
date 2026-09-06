@@ -1,6 +1,7 @@
 # Soju（简体中文）
 
-**v1.5.0：** 在统一游戏库中搜索、筛选、收藏和启动已安装的游戏。通过 Platforms 管理启动器安装与更新。此版本暂不包含未安装游戏的账户同步或商店搜索。
+**1.6.0 新增：** 通过 Steam 官方登录导入已购游戏（无需 API 密钥）、GOG Galaxy 本地游戏库导入，以及 Steam/GOG 商店搜索与官方购买链接。[设置说明](docs/ACCOUNTS.md)。
+**v1.6.0：** 在统一游戏库中搜索、筛选、收藏和启动已安装的游戏。通过 Platforms 管理启动器安装与更新。支持导入 Steam/GOG 已购游戏，并在 Discover 中搜索商品与价格。暂不支持 Epic/Battle.net 的完整账户游戏库导入。
 
 [Desktop / download](docs/DESKTOP.md)
 
