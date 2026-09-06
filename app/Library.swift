@@ -8,13 +8,16 @@ struct InstalledGame: Decodable, Identifiable {
     let installPath: String
     let artwork: String?
     let issue: String?
+    let owned: Bool?
+    var isInstalled: Bool { !installPath.isEmpty }
     enum CodingKeys: String, CodingKey {
-        case id, platform, title, artwork, issue
+        case id, platform, title, artwork, issue, owned
         case installPath = "install_path"
     }
 }
 extension Launcher: Decodable {}
 struct LibrarySnapshot: Decodable {
+    let accounts: [AccountSummary]?
     let games: [InstalledGame]
     let warnings: [String]
 }
@@ -54,6 +57,7 @@ extension SojuModel {
                     self.scanning = false; self.scanner = nil
                     if process.terminationStatus == 0, let result {
                         self.games = result.games; self.scanWarnings = result.warnings
+                        self.accountSummaries = result.accounts ?? []
                     } else {
                         self.scanWarnings = ["Could not refresh your library. Check that Python 3 is installed, then retry."]
                     }
@@ -72,6 +76,7 @@ extension SojuModel {
         }
     }
     func launchIssue(for game: InstalledGame) -> String? {
+        if !game.isInstalled { return nil }
         if let issue = game.issue { return issue }
         if !FileManager.default.fileExists(atPath: game.installPath) {
             return "This game folder is unavailable. Reconnect its drive and refresh."
@@ -93,6 +98,7 @@ extension SojuModel {
         return nil
     }
     func play(_ game: InstalledGame) {
+        guard game.isInstalled else { libraryIssue = "Install this game through its official launcher first."; return }
         guard !busy, !launchingGames.contains(game.id) else { return }
         if let issue = launchIssue(for: game) { libraryIssue = issue; return }
         do {
@@ -147,6 +153,7 @@ struct LibraryView: View {
     @State private var query = ""
     @State private var platform = "all"
     @State private var order = "name"
+    @State private var availability = "all"
     @State private var selected: InstalledGame?
     @State private var showDiagnostics = false
     @Environment(\.colorScheme) private var scheme
@@ -155,6 +162,7 @@ struct LibraryView: View {
         model.games.filter {
             (page != "favorites" || model.preferences.favorites.contains($0.id)) &&
             (platform == "all" || $0.platform.rawValue == platform) &&
+            (availability == "all" || (availability == "installed") == $0.isInstalled) &&
             (query.isEmpty || $0.title.localizedStandardContains(query))
         }.sorted {
             if order == "recent" {
@@ -172,6 +180,8 @@ struct LibraryView: View {
             sidebar
             Divider()
             if page == "platforms" { PlatformsView().frame(maxWidth: .infinity, maxHeight: .infinity) }
+            else if page == "discover" { DiscoverView() }
+            else if page == "accounts" { AccountsView() }
             else { library }
         }
         .frame(minWidth: 1010, minHeight: 710)
@@ -197,12 +207,14 @@ struct LibraryView: View {
                 .font(.system(size: 8, weight: .semibold)).tracking(1).foregroundStyle(.secondary).padding(.bottom, 30)
             nav("library", "Library", "square.grid.2x2", count: model.games.count)
             nav("favorites", "Favorites", "star", count: model.games.filter { model.preferences.favorites.contains($0.id) }.count)
+            nav("discover", "Discover", "magnifyingglass", count: nil)
             Divider().padding(.vertical, 16)
+            nav("accounts", "Accounts", "person.crop.circle", count: nil)
             nav("platforms", "Platforms", "square.stack.3d.up", count: nil)
             Spacer()
             VStack(alignment: .leading, spacing: 9) {
                 Label("On your Mac", systemImage: "desktopcomputer").font(.system(size: 12, weight: .medium))
-                Text("Installed games appear automatically. Your accounts stay with each platform.")
+                Text("Installed games appear automatically. Connect accounts to add your owned library.")
                     .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }.padding(13).background(green.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
             HStack {
@@ -235,7 +247,7 @@ struct LibraryView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(page == "favorites" ? "Your favorites" : "Your library")
                         .font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("Pick a game. We’ll open the right launcher.").font(.system(size: 13)).foregroundStyle(.secondary)
+                    Text("Pick a game. Play it, or install it through its store.").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button {
@@ -260,6 +272,11 @@ struct LibraryView: View {
                     Text("Recently opened").tag("recent")
                 }.labelsHidden().frame(width: 145).accessibilityLabel("Sort games")
             }
+            Picker("Availability", selection: $availability) {
+                Text("All games").tag("all")
+                Text("Installed").tag("installed")
+                Text("Not installed").tag("owned")
+            }.pickerStyle(.segmented).frame(width: 340).accessibilityLabel("Game availability")
             if !model.scanWarnings.isEmpty {
                 Label(model.scanWarnings.joined(separator: "\n"), systemImage: "exclamationmark.triangle")
                     .font(.system(size: 11)).foregroundStyle(.orange).textSelection(.enabled)
@@ -271,11 +288,11 @@ struct LibraryView: View {
                         .font(.system(size: 44, weight: .light)).foregroundStyle(green)
                     Text(model.scanning ? "Finding your games…" : model.games.isEmpty ? "Your library starts here" : "No games to show")
                         .font(.system(size: 21, weight: .semibold))
-                    Text(model.games.isEmpty ? "Install a game through one of your platforms, then refresh.\nThis library shows games installed in Soju’s Windows environments." : page == "favorites" ? "Star a game in your library to keep it here." : "Try another search or platform filter.")
+                    Text(model.games.isEmpty ? "Connect a Steam or GOG library in Accounts,\nor install a game through one of your platforms." : page == "favorites" ? "Star a game in your library to keep it here." : "Try another search or platform filter.")
                         .font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                    Button(model.games.isEmpty ? "Manage platforms" : "Show all games") {
-                        if model.games.isEmpty { page = "platforms" }
-                        else { page = "library"; query = ""; platform = "all" }
+                    Button(model.games.isEmpty ? "Connect accounts" : "Show all games") {
+                        if model.games.isEmpty { page = "accounts" }
+                        else { page = "library"; query = ""; platform = "all"; availability = "all" }
                     }.buttonStyle(.borderedProminent).tint(green)
                 }.frame(maxWidth: .infinity)
                 Spacer()
@@ -288,7 +305,7 @@ struct LibraryView: View {
             }
             HStack(spacing: 8) {
                 Circle().fill(model.failed ? Color.orange : green).frame(width: 5, height: 5)
-                Text(model.activity == "Ready when you are." ? "\(model.games.count) installed games · Stored locally" : model.activity)
+                Text(model.activity == "Ready when you are." ? "\(model.games.count) games · \(model.games.filter { $0.isInstalled }.count) installed · Stored locally" : model.activity)
                     .lineLimit(1)
                 Spacer()
                 Button("Diagnostics") { showDiagnostics = true }.buttonStyle(.plain)
@@ -314,16 +331,17 @@ struct LibraryView: View {
                 Text(game.title).font(.system(size: 14, weight: .semibold)).lineLimit(2)
                     .frame(height: 36, alignment: .topLeading).frame(maxWidth: .infinity, alignment: .leading)
                 HStack {
-                    Text(issue == nil ? "Installed" : "Needs attention").font(.system(size: 10))
+                    Text(!game.isInstalled ? "Not installed" : issue == nil ? "Installed" : "Needs attention").font(.system(size: 10))
                         .foregroundStyle(issue == nil ? Color.secondary : Color.orange)
                     Spacer()
                     Button {
-                        if issue == nil { model.play(game) } else { selected = game }
+                        if !game.isInstalled { model.installOwnedGame(game) }
+                        else if issue == nil { model.play(game) } else { selected = game }
                     } label: {
-                        Label(model.launchingGames.contains(game.id) ? "Starting…" : issue == nil ? "Play" : "Details", systemImage: issue == nil ? "play.fill" : "exclamationmark.circle")
+                        Label(!game.isInstalled ? (game.platform == .steam ? "Install" : "Galaxy") : model.launchingGames.contains(game.id) ? "Starting…" : issue == nil ? "Play" : "Details", systemImage: !game.isInstalled ? "arrow.down.circle" : issue == nil ? "play.fill" : "exclamationmark.circle")
                     }.buttonStyle(.borderedProminent).tint(green).controlSize(.small)
                         .disabled(model.busy || model.launchingGames.contains(game.id))
-                        .accessibilityLabel((issue == nil ? "Play " : "Check ") + game.title)
+                        .accessibilityLabel((!game.isInstalled ? "Install " : issue == nil ? "Play " : "Check ") + game.title)
                 }
             }.padding(14)
         }.background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
@@ -331,7 +349,7 @@ struct LibraryView: View {
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.primary.opacity(0.07), lineWidth: 1))
             .contextMenu {
                 Button("Show details") { selected = game }
-                Button("Show in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }
+                Button("Show in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled)
                 Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)
                 Button("Diagnose") { diagnose(game) }.disabled(model.busy)
             }
@@ -349,19 +367,19 @@ struct LibraryView: View {
                 VStack(alignment: .leading, spacing: 13) {
                     Text(game.platform.title).font(.system(size: 11, weight: .semibold)).foregroundStyle(game.platform.accent)
                     Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded))
-                    Label("Installed on this Mac", systemImage: "internaldrive").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Label(game.isInstalled ? "Installed on this Mac" : "Owned · not installed", systemImage: game.isInstalled ? "internaldrive" : "cloud").font(.system(size: 12)).foregroundStyle(.secondary)
                     Text("Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                     if let issue = model.launchIssue(for: game) {
                         Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
                     }
-                    Text("Installation detected. Compatibility varies by game and Mac.")
+                    Text(game.isInstalled ? "Installation detected. Compatibility varies by game and Mac." : "This game is in your imported library. Open its launcher to install it; compatibility varies by game.")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                     Spacer()
                 }
             }
             HStack {
-                Button("Show files") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }
+                Button("Show files") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled)
                 Button("Diagnose") { diagnose(game) }.disabled(model.busy)
                 Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)
                 Spacer()
@@ -371,7 +389,10 @@ struct LibraryView: View {
                 Button("Platforms") { selected = nil; page = "platforms" }
                 Spacer()
                 Button("Close") { selected = nil }.keyboardShortcut(.cancelAction)
-                Button("Play") { selected = nil; model.play(game) }
+                Button(game.isInstalled ? "Play" : game.platform == .steam ? "Install in Steam" : "Open Galaxy") {
+                    selected = nil
+                    if game.isInstalled { model.play(game) } else { model.installOwnedGame(game) }
+                }
                     .buttonStyle(.borderedProminent).tint(green)
                     .disabled(model.busy || model.launchIssue(for: game) != nil || model.launchingGames.contains(game.id))
             }

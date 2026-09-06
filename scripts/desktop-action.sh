@@ -6,6 +6,8 @@ BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
 export SOJU_BASE="$BASE"
 ACTION="${1:-}"; shift || true
 case "$ACTION" in
+  service) exec python3 "$ROOT/scripts/library-service.py" "$@" ;;
+  game-install) exec python3 "$ROOT/scripts/game-library.py" install "${1:?Choose a game}" ;;
   library) exec python3 "$ROOT/scripts/game-library.py" list ;;
   game) exec python3 "$ROOT/scripts/game-library.py" launch "${1:?Choose a game}" ;;
   game-doctor) exec python3 "$ROOT/scripts/game-library.py" diagnose "${1:?Choose a game}" ;;
