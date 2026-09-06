@@ -117,7 +117,7 @@ case "$MODE" in
     BN_EXE="C:\\Program Files (x86)\\Battle.net\\Battle.net.exe"
     BN_ARGS="--disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader"
     export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$BN_EXE' $BN_ARGS"
-    exec "$ENGINE/bin/wine" "$BN_EXE" $BN_ARGS
+    exec "$ENGINE/bin/wine" "$BN_EXE" $BN_ARGS "${@:2}"
     ;;
   d2r)         # Launch the game directly (offline / previous session)
     start_reaper
@@ -186,7 +186,7 @@ case "$MODE" in
     # would send, without paying for a whole second client start-up
     # (tools/soju-gog-restore.c, built by create-gog-bottle.sh).
     export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '${SOJU_BASE:-$HOME/.battlenet-macos}/gog-support/soju-gog-restore.exe'"
-    exec "$ENGINE/bin/wine" "$GOG" "${@:2}"
+    exec python3 "$(dirname "${BASH_SOURCE[0]}")/gog-launch.py" "$ENGINE/bin/wine" "$GOG" "${@:2}"
     ;;
   gog-kill)    # Stop everything in the GOG bottle
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true

@@ -6,6 +6,9 @@ BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
 export SOJU_BASE="$BASE"
 ACTION="${1:-}"; shift || true
 case "$ACTION" in
+  library) exec python3 "$ROOT/scripts/game-library.py" list ;;
+  game) exec python3 "$ROOT/scripts/game-library.py" launch "${1:?Choose a game}" ;;
+  game-doctor) exec python3 "$ROOT/scripts/game-library.py" diagnose "${1:?Choose a game}" ;;
   doctor) exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
   launch)
     case "${1:-}" in battlenet|steam|epic|gog) exec bash "$ROOT/scripts/play.sh" "$1" ;;

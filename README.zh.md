@@ -1,5 +1,9 @@
 # Soju（简体中文）
 
+**v1.5.0：** 在统一游戏库中搜索、筛选、收藏和启动已安装的游戏。通过 Platforms 管理启动器安装与更新。此版本暂不包含未安装游戏的账户同步或商店搜索。
+
+[Desktop / download](docs/DESKTOP.md)
+
 > **面向 Apple Silicon Mac 的免费开源游戏启动工具。**
 
 在 Mac 上安装和运行 **Battle.net、Steam、Epic Games Launcher 和 GOG GALAXY**。
