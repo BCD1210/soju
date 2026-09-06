@@ -25,7 +25,7 @@ CodeWeavers' published sources; Steam uses a separate wine-stable setup.
 Apple's proprietary GPTK/D3DMetal is downloaded separately. Games and store
 clients are not included.
 
-**Current release: [v1.6.1](https://github.com/BCD1210/soju/releases/tag/v1.6.1).**
+**Current release: [v1.6.2](https://github.com/BCD1210/soju/releases/tag/v1.6.2).**
 The compatibility examples below were verified on M4 Pro / macOS 26.5.
 D2R and Hogwarts Legacy are examples of supported games, not the scope of the project.
 
@@ -91,7 +91,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.6.1/Soju-1.6.1-macos-arm64.zip) — the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.6.2/Soju-1.6.2-macos-arm64.zip) — the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 

@@ -57,13 +57,14 @@ struct DiscoverView: View {
     @State private var query = ""
     @State private var country = "US"
     @State private var platform = "all"
+    @State private var purchaseLinks = PurchaseLinks.empty
     private var shown: [StoreItem] { store.results.filter { platform == "all" || $0.platform.rawValue == platform } }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 VStack(alignment: .leading, spacing: 7) {
                     Text("Find your next game").font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("Search Steam and GOG. Compare listings, then visit the official store.").font(.callout).foregroundStyle(.secondary)
+                    Text("Search Steam and GOG. Compare games and prices.").font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -109,20 +110,18 @@ struct DiscoverView: View {
                     }.padding(.vertical, 3)
                 }
             }
-            Divider()
-            HStack(spacing: 14) {
-                Text("Search directly:").font(.caption).foregroundStyle(.secondary)
-                ForEach(Launcher.allCases) { launcher in
-                    Button(launcher == .gog ? "GOG" : launcher.title) { openSearch(launcher) }
-                        .buttonStyle(.link)
-                }
+            if purchaseLinks.hasAffiliateLinks {
+                Text("Links marked ‘Supports Soju’ may earn us a commission if you buy, at no extra cost to you.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
+            Divider()
             Text("Prices are for the selected region and may change at checkout. Listings can include add-ons and bundles. Store availability does not confirm compatibility with Soju.")
                 .font(.caption).foregroundStyle(.secondary)
-        }.padding(28).onDisappear { store.cancel() }
+        }.padding(28).onAppear { purchaseLinks = PurchaseLinks.load(root: model.root) }.onDisappear { store.cancel() }
     }
     private func listing(_ item: StoreItem) -> some View {
         let owned = model.games.first { $0.id == item.id }
+        let purchase = purchaseLinks.resolve(item.url)
         return VStack(alignment: .leading, spacing: 12) {
             ZStack {
                 Color.primary.opacity(0.04)
@@ -148,31 +147,17 @@ struct DiscoverView: View {
                     }.disabled(model.busy)
                 }
                 Spacer()
-                Button("View in store") {
-                    if let url = URL(string: item.url), url.scheme == "https",
-                       ["store.steampowered.com", "www.gog.com"].contains(url.host ?? "") { NSWorkspace.shared.open(url) }
-                }.buttonStyle(.borderedProminent)
+                if let purchase {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Button("View in store") { NSWorkspace.shared.open(purchase.url) }
+                            .buttonStyle(.borderedProminent)
+                        if purchase.isAffiliate {
+                            Text("Supports Soju").font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
         }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 13))
-    }
-    private func openSearch(_ launcher: Launcher) {
-        var url: URLComponents
-        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        switch launcher {
-        case .steam:
-            url = URLComponents(string: "https://store.steampowered.com/search/")!
-            url.queryItems = [URLQueryItem(name: "term", value: query), URLQueryItem(name: "cc", value: country)]
-        case .gog:
-            url = URLComponents(string: "https://www.gog.com/en/games")!
-            url.queryItems = [URLQueryItem(name: "query", value: query)]
-        case .epic:
-            url = URLComponents(string: "https://store.epicgames.com/en-US/browse")!
-            url.queryItems = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "sortBy", value: "relevancy")]
-        case .battlenet:
-            url = URLComponents(string: "https://us.shop.battle.net/en-us/search")!
-            url.queryItems = [URLQueryItem(name: "q", value: query)]
-        }
-        if let url = url.url { NSWorkspace.shared.open(url) }
     }
 }
