@@ -199,12 +199,8 @@ for p in $PLATFORMS; do
         WINEPREFIX="$BOTTLE" bash "$SOJU_DIR/scripts/create-bottle.sh"
       fi ;;
     steam)
-      if [ -f "$BASE/steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
-        say "Steam already installed - skipping"
-      else
-        say "Steam: verified Wine runtime + Steam installer"
-        WINEPREFIX="$BASE/steam-bottle" bash "$SOJU_DIR/scripts/create-steam-bottle.sh"
-      fi
+      say "Steam: checking runtime and client (existing games are preserved)"
+      WINEPREFIX="$BASE/steam-bottle" bash "$SOJU_DIR/scripts/create-steam-bottle.sh"
       WINEPREFIX="$BASE/steam-bottle" bash "$SOJU_DIR/scripts/setup-steam-games.sh" ;;
     epic)
       if [ -f "$BASE/epic-bottle/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe" ]; then

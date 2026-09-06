@@ -91,3 +91,16 @@ scripts/create-steam-bottle.sh    # private Wine 11 + wrapper + Steam
 scripts/setup-steam-games.sh      # verified download + private DXMT/winemac runtime
 scripts/play.sh steam             # play
 ```
+
+
+### Repairing and removing Steam
+
+Run `soju steam-install` again to repair the Wine runtime for an existing Steam
+installation. Existing games remain in place. Close Windows Steam and its games
+before repairing or changing the renderer.
+
+`soju uninstall` resolves the same Steam runtime used for launching, waits for the
+bottle to stop, and aborts if that fails. The separate Steam runtime category
+includes the downloaded Wine build, prepared renderer and their rollback copies.
+Declining bottle removal keeps installed games; separately installed Wine apps and
+external `SOJU_STEAM_WINE` directories are preserved.
