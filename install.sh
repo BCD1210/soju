@@ -27,7 +27,7 @@ else
   say "[1/4] Which launchers do you want? (numbers separated by spaces, Enter = Battle.net only)"
   cat <<'EOT'
   1) Battle.net           (Diablo II: Resurrected etc.)
-  2) Steam                (Windows client on Homebrew wine-stable, D3D11 games via DXMT)
+  2) Steam                (Windows client on private Wine 11, D3D11 games via DXMT)
   3) Epic Games Launcher
   4) GOG GALAXY
 EOT
@@ -202,7 +202,7 @@ for p in $PLATFORMS; do
       if [ -f "$BASE/steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
         say "Steam already installed - skipping"
       else
-        say "Steam: Homebrew wine-stable + Steam installer"
+        say "Steam: verified Wine runtime + Steam installer"
         WINEPREFIX="$BASE/steam-bottle" bash "$SOJU_DIR/scripts/create-steam-bottle.sh"
       fi
       WINEPREFIX="$BASE/steam-bottle" bash "$SOJU_DIR/scripts/setup-steam-games.sh" ;;

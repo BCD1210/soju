@@ -9,6 +9,9 @@ Bundled in this repository:
 Built or downloaded by the scripts (open-source component releases include corresponding sources):
 - Wine 11.0: LGPL-2.1+ / GPL components, built from CodeWeavers' published sources
   (media.codeweavers.com/pub/crossover/source/)
+- Steam Wine 11.0_1: upstream build by Gcenx (Wine LGPL-2.1+ / GPL components),
+  downloaded unchanged from github.com/Gcenx/macOS_Wine_builds/releases/tag/11.0_1;
+  pinned URL and checksum in resources/steam-wine.json
 - DXMT pinned notpop fork: MIT, Copyright (c) 2023 Feifan He
   (built from the notpop fork of github.com/3Shain/dxmt)
 - wine-mono: MIT (dotnet parts MIT/BSD-like); MoltenVK: Apache-2.0; gnutls: LGPL-2.1+;

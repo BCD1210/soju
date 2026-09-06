@@ -83,8 +83,9 @@ extension SojuModel {
         }
         if game.platform == .steam {
             let local = base.appendingPathComponent("steam-runtime/bin/wine").path
+            let upstream = base.appendingPathComponent("steam-wine/bin/wine").path
             let stable = "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine"
-            if !FileManager.default.isExecutableFile(atPath: local) && !FileManager.default.isExecutableFile(atPath: stable) {
+            if !FileManager.default.isExecutableFile(atPath: local) && !FileManager.default.isExecutableFile(atPath: upstream) && !FileManager.default.isExecutableFile(atPath: stable) {
                 return "Install Steam in Platforms to prepare its Windows environment."
             }
         } else {

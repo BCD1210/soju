@@ -49,7 +49,7 @@ if [ "${1:-}" != --repair ] && [ -f "$TARGET/.soju-runtime" ] && \
   exit 0
 fi
 SOURCE="$STEAM_WINE_ROOT"
-[ -x "$SOURCE/bin/wine" ] || { echo "Install wine-stable first: soju steam-install"; exit 1; }
+[ -x "$SOURCE/bin/wine" ] || { echo "Prepare the Steam runtime first: soju steam-install"; exit 1; }
 [ "$("$SOURCE/bin/wine" --version)" = wine-11.0 ] || {
   echo "This Steam component release requires Wine 11.0. Existing runtime unchanged."; exit 1;
 }

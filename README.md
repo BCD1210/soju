@@ -20,11 +20,11 @@ Epic and Battle.net account imports are not included yet. Compatibility varies b
 [Account connections and store search](docs/ACCOUNTS.md) · Official Steam sign-in, no API key required. Account imports stay on your Mac.
 
 The tools are free and open source. The main Wine engine is built from
-CodeWeavers' published sources; Steam uses a separate wine-stable setup.
+CodeWeavers' published sources; Steam uses a separate private Wine 11 setup.
 Apple's proprietary GPTK/D3DMetal is downloaded separately. Games and store
 clients are not included.
 
-**Current release: [v1.6.3](https://github.com/BCD1210/soju/releases/tag/v1.6.3).**
+**Current release: [v1.6.4](https://github.com/BCD1210/soju/releases/tag/v1.6.4).**
 The compatibility examples below were verified on M4 Pro / macOS 26.5.
 D2R and Hogwarts Legacy are examples of supported games, not the scope of the project.
 
@@ -52,7 +52,7 @@ All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher
 | Battle.net | ✅ | ✅ | Agent works; `BLZBNTBNA00000005` fixed by the caller-signature seed |
 | Epic Games Launcher | ✅ | ✅ | parks in the menu bar tray on close |
 | GOG GALAXY | ✅ | ✅ | login + library; games not broadly tested yet |
-| Steam (Windows client) | ✅ | ✅ | separate `wine-stable` + DXMT bottle |
+| Steam (Windows client) | ✅ | ✅ | private Wine 11 + DXMT bottle |
 
 | Game | Store | Graphics | Status | Notes |
 | --- | --- | --- | :-: | --- |
@@ -94,7 +94,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.6.3/Soju-1.6.3-macos-arm64.zip) — the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.6.4/Soju-1.6.4-macos-arm64.zip) — the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
@@ -161,10 +161,10 @@ Games have not been broadly tested yet; anything that needs kernel anti-cheat (E
 
 ## Steam (including the Steam version of D2R)
 
-D2R shipped on Steam in Feb 2026 as the *Infernal Edition*. Steam support uses a **different free engine**: the modern Steam client's CEF UI does not render on CrossOver-source builds (black window, cross-process swapchain + CEF sandbox issues), but it works on Homebrew's `wine-stable` 11 with a tiny `steamwebhelper` wrapper that forces `--disable-gpu --single-process`. That fix comes from [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) (MIT, wrapper source vendored in `third_party/`). Steam gets its own bottle so the two stacks never interfere:
+D2R shipped on Steam in Feb 2026 as the *Infernal Edition*. Steam support uses a **different free engine**: the modern Steam client's CEF UI does not render on CrossOver-source builds (black window, cross-process swapchain + CEF sandbox issues), but it works on a pinned upstream Wine 11 build with a tiny `steamwebhelper` wrapper that forces `--disable-gpu --single-process`. That fix comes from [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) (MIT, wrapper source vendored in `third_party/`). Steam gets its own bottle so the two stacks never interfere:
 
 ```bash
-scripts/create-steam-bottle.sh   # installs wine-stable + wrapper + official Valve installer
+scripts/create-steam-bottle.sh   # installs private Wine 11 + wrapper + official Valve installer
 scripts/play.sh steam            # log in -> install & play
 scripts/play.sh steam-kill       # stop the Steam bottle (closing the window keeps Steam running; click the Dock icon to bring it back, Steam > Exit quits)
 ```

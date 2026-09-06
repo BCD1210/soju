@@ -1,6 +1,6 @@
 # Soju for Mac
 
-[Download v1.6.3](https://github.com/BCD1210/soju/releases/download/v1.6.3/Soju-1.6.3-macos-arm64.zip)
+[Download v1.6.4](https://github.com/BCD1210/soju/releases/download/v1.6.4/Soju-1.6.4-macos-arm64.zip)
 
 1. Unzip and move **Soju.app** into Applications or ~/Applications.
 2. Open **Platforms** to install or open Battle.net, Steam, Epic Games or GOG GALAXY.
@@ -24,12 +24,13 @@ Soju does not collect telemetry or upload diagnostic logs. Copy log is manual.
 ## Requirements
 
 - Apple Silicon; the app UI runs on macOS 14 or later.
-- Rosetta 2, Apple's Command Line Tools and Homebrew for launcher installation.
+- Rosetta 2 and Python 3 (available with Apple's Command Line Tools) for launcher installation.
 - The current Steam rendering package requires **macOS 26+ and Wine 11.0**.
   It was verified on M4 Pro / macOS 26.5. D3D11 support is not a guarantee that
   every game works; anti-cheat and individual game requirements still apply.
 - Battle.net, Epic and GOG use the CX engine and a separate Apple GPTK download.
-  Steam does not need either.
+  Steam does not need either. Its Wine runtime downloads directly from the upstream
+  release and is verified with a pinned SHA-256; no Homebrew Wine cask is needed.
 
 For Apple GPTK, install the selected non-Steam launcher to prepare the engine,
 download Apple's evaluation environment, open its DMG, then choose
@@ -48,7 +49,10 @@ This release detects games installed in Soju's four Windows environments:
 - Battle.net: Agent's product database and installed game build records.
 - GOG: Galaxy's installation database, with a fallback for standard game folders.
 
-Steam account imports use the official Steam website sign-in; no personal API key is needed. GOG imports
+Steam account imports use **Accounts → Sign in to Steam**; Windows Steam does not
+need to be installed first. After sign-in, the owned library imports automatically.
+If Steam has not finished loading, use **Retry import**. A failed import keeps the
+previous library. No personal API key is needed. GOG imports
 read the owned library cached by Galaxy on this Mac. Both include uninstalled
 games. **Accounts → Disconnect** removes the import and Soju’s saved Steam web session.
 
@@ -86,7 +90,8 @@ searches Steam and GOG without an account.
 components. Get new app releases from the link at the bottom of the sidebar or Platforms → Project & releases.
 The app does not replace itself automatically.
 
-Steam uses `~/.battlenet-macos/steam-runtime`; Homebrew's Wine app is preserved.
+Steam uses `~/.battlenet-macos/steam-runtime`; the pinned upstream download is stored
+in `~/.battlenet-macos/steam-wine`. Any existing Wine app is preserved.
 Existing Steam users can migrate with `soju steam-games` after closing Steam.
 The installer retains the previous private runtime and a dated prefix settings
 backup. Failed setup restores the prefix settings automatically.
