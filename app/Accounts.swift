@@ -30,7 +30,7 @@ enum ServiceBridge {
             p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
             p.arguments = ["python3", root.appendingPathComponent("scripts/library-service.py").path] + args
             p.environment = ["PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin", "HOME": FileManager.default.homeDirectoryForCurrentUser.path,
-                             "SOJU_BASE": base.path, "PYTHONIOENCODING": "utf-8"]
+                             "SOJU_BASE": base.path, "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1"]
             p.standardInput = pipe; p.standardOutput = output; p.standardError = FileHandle.nullDevice
             p.terminationHandler = { process in
                 defer { try? FileManager.default.removeItem(at: url) }
