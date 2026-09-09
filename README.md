@@ -59,7 +59,7 @@ All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher
 | Diablo II: Resurrected | Battle.net | D3DMetal (D3D11) | ✅ in-game, online | **macOS 26.4 or later** (see prerequisites); `play.sh` sets `ROSETTA_ADVERTISE_AVX=1`; [guide](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ in-game | UE4 "AMD driver" warning is harmless |
 | Unity D3D11 title | Steam | DXMT | ✅ in-game, windowed | via `soju steam-games`; see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
-| Diablo II: Resurrected (Infernal Edition) | Steam | — | ⏳ not verified yet | the Steam bottle has no GPTK, and D2R's loader needs `libd3dshared` |
+| Diablo II: Resurrected (Infernal Edition) | Steam | n/a | ⏳ not verified yet | the Steam bottle has no GPTK, and D2R's loader needs `libd3dshared` |
 
 Will not run: anything with kernel anti-cheat (EAC, BattlEye, Vanguard). Got another game running? Post it in [Discussions](https://github.com/BCD1210/soju/discussions) or send a PR that adds a row.
 
@@ -94,7 +94,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.6.5/Soju-1.6.5-macos-arm64.zip) — the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.6.5/Soju-1.6.5-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 

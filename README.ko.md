@@ -49,7 +49,7 @@ Steam은 별도의 wine-stable 환경을 사용합니다. Apple의 비공개 GPT
 | Diablo II: Resurrected | Battle.net | D3DMetal (D3D11) | ✅ 인게임, 온라인 | **macOS 26.4 이상**(전제조건 참고); `play.sh`가 `ROSETTA_ADVERTISE_AVX=1` 설정; [가이드](https://bcd1210.github.io/soju/guides/ko/diablo-2-mac.html) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 인게임 | UE4 "AMD 드라이버" 경고는 무해, 입력 소스를 영어로 |
 | Unity D3D11 타이틀 | Steam | DXMT | ✅ 인게임, 창 모드 | `soju steam-games` 필요, [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
-| Diablo II: Resurrected (Infernal Edition) | Steam | — | ⏳ 미검증 | Steam 보틀에는 GPTK가 없고 D2R 로더는 `libd3dshared`가 필요 |
+| Diablo II: Resurrected (Infernal Edition) | Steam | 해당 없음 | ⏳ 미검증 | Steam 보틀에는 GPTK가 없고 D2R 로더는 `libd3dshared`가 필요 |
 
 안 되는 것: 커널 안티치트(EAC, BattlEye, Vanguard)가 붙은 게임 전부. 다른 게임을 돌리셨다면 [Discussions](https://github.com/BCD1210/soju/discussions)에 올리거나 표에 한 줄 추가하는 PR을 보내주세요.
 
@@ -80,7 +80,7 @@ soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / 
 
 설치기는 **다운로드 전에 원하는 런처부터 선택**합니다. Steam만 선택하면 CX 엔진과 애플 GPTK를 받지 않습니다. Steam 그래픽 구성요소는 SHA-256으로 검증한 뒤 Soju 전용 Wine 11.0 환경에 자동으로 설치합니다. Battle.net·Epic·GOG는 공통 CX 엔진과 사용자가 별도로 받은 애플 GPTK를 사용합니다. 각 런처의 보틀·로그인·게임은 독립적으로 유지합니다.
 
-[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.4.0/Soju-1.4.0-macos-arm64.zip) — 네이티브 앱 프리뷰에서 설치·실행·구성요소 업데이트·진단을 한 화면에서 관리할 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
+[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.6.5/Soju-1.6.5-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
 
 ## 일상 명령
 

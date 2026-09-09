@@ -108,7 +108,7 @@ enum Launcher: String, CaseIterable, Identifiable {
                     try? self.logReader?.close(); self.logReader = nil
                     self.busy = false; self.operation = nil
                     self.failed = process.terminationStatus != 0
-                    self.activity = self.failed ? "Needs attention — see the details below." : "Finished."
+                    self.activity = self.failed ? "Needs attention. See the details below." : "Finished."
                     self.refresh(); self.refreshLibrary()
                 }
             }
