@@ -34,7 +34,7 @@ case "$ACTION" in
     }
     exec bash "$ROOT/scripts/get-gptk.sh" "${1:?Select the mounted toolkit}" ;;
   update)
-    echo "Soju $(cat "$ROOT/VERSION") — component update"
+    echo "Soju $(cat "$ROOT/VERSION"): component update"
     echo "App updates: https://github.com/BCD1210/soju/releases"
     result=0
     if [ -x "$BASE/cx26-engine/bin/wine" ]; then
