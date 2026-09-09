@@ -28,7 +28,7 @@ p.write_bytes(plistlib.dumps({
     "CFBundlePackageType": "APPL", "CFBundleShortVersionString": sys.argv[2],
     "CFBundleVersion": sys.argv[2], "LSMinimumSystemVersion": "14.0",
     "NSHighResolutionCapable": True,
-    "NSHumanReadableCopyright": "Soju contributors — GPL-3.0-or-later",
+    "NSHumanReadableCopyright": "Soju contributors, GPL-3.0-or-later",
     "LSApplicationCategoryType": "public.app-category.games"
 }))
 PY

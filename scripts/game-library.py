@@ -331,7 +331,7 @@ def main():
             lib.scan()
             game = lib.games.get(args.game_id)
             if not game: raise ValueError('This game is no longer installed. Refresh the library.')
-            print(game['title'] + ' — ' + game['platform'], flush=True)
+            print(game['title'] + ' (' + game['platform'] + ')', flush=True)
             print(game['issue'] or 'Installation found. Checking the platform environment…', flush=True)
             command = ['/bin/bash', str(Path(__file__).resolve().parent / 'doctor.sh'), game['platform']]
         else: command = lib.command(args.game_id, install=args.action == 'install')

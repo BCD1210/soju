@@ -49,7 +49,7 @@ D2R 和 Hogwarts Legacy 是兼容案例，项目面向多个游戏启动器。
 | Diablo II: Resurrected | 战网 | D3DMetal (D3D11) | ✅ 进入游戏，可联网 | **需要 macOS 26.4 或更高**（见前提条件）；`play.sh` 设置 `ROSETTA_ADVERTISE_AVX=1`；[指南](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 进入游戏 | UE4 的"AMD 驱动"警告无害 |
 | Unity D3D11 游戏 | Steam | DXMT | ✅ 进入游戏，窗口模式 | 需要 `soju steam-games`，见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
-| Diablo II: Resurrected（Infernal Edition） | Steam | — | ⏳ 尚未验证 | Steam bottle 没有 GPTK，而 D2R 的加载器需要 `libd3dshared` |
+| Diablo II: Resurrected（Infernal Edition） | Steam | 不适用 | ⏳ 尚未验证 | Steam bottle 没有 GPTK，而 D2R 的加载器需要 `libd3dshared` |
 
 跑不了的：任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。跑通了别的游戏？欢迎发到 [Discussions](https://github.com/BCD1210/soju/discussions)，或提 PR 加一行。
 
@@ -84,7 +84,7 @@ soju install     # 然后：soju battlenet / soju d2r / soju steam / soju epic /
 
 安装器会**先询问要安装哪些启动器，再下载对应组件**。仅选择 Steam 时，不会下载 CX 引擎或 Apple GPTK。Steam 图形组件经过 SHA-256 校验后，自动安装到 Soju 专用的 Wine 11.0 环境中。战网、Epic 和 GOG 使用共享 CX 引擎及用户单独下载的 Apple GPTK。各客户端的 bottle、账户和游戏分别保留。
 
-[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.4.0/Soju-1.4.0-macos-arm64.zip)：原生桌面预览版在一个窗口中提供安装、启动、组件更新和诊断。[安装说明与要求](docs/DESKTOP.md)。
+[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.6.5/Soju-1.6.5-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
 
 ## 日常维护
 
