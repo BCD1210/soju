@@ -99,6 +99,19 @@ case "$MODE" in
       fi
       echo "      Mount the GPTK dmg (or have CrossOver installed) and run:  $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju gptk" >&2
       exit 1
+    fi
+    # Sony pads (DualShock 4, DualSense; USB or Bluetooth): winebus prefers its
+    # raw HID backend for them, and on macOS that backend (IOHID) flags only
+    # Xbox pads as gamepads, so a Sony pad comes through as a plain DirectInput
+    # device with no XInput slot, which is all Blizzard's games look for (#42).
+    # Route Sony's vendor id through SDL instead: the pad is then an Xbox-style
+    # XInput controller. Same effect as "Disable hidraw" in the Game Controllers
+    # panel, but only for 054C, so wheels and sticks that need raw HID keep it.
+    # winebus reads this once when the bottle starts, so a bottle that is
+    # already up needs `soju kill` first. Only added when the key is absent:
+    # set Hidraw to 1 there to get raw HID back for Sony pads.
+    if ! grep -qi 'Services\\\\winebus\\\\Devices\\\\054C' "$WINEPREFIX/system.reg" 2>/dev/null; then
+      "$ENGINE/bin/wine" reg add 'HKLM\System\CurrentControlSet\Services\WineBus\Devices\054C' /v Hidraw /t REG_DWORD /d 0 /f >/dev/null 2>&1 || true
     fi ;;
 esac
 
@@ -272,6 +285,12 @@ case "$MODE" in
       WINE_NO_DOCK_ICON="steam.exe;steamservice.exe" \
       WINE_DOCK_REOPEN_CMD="'$WINESTABLE' 'C:\\Program Files (x86)\\Steam\\steam.exe' steam://open/main" \
       "$WINESTABLE" "${STEAM_CMD[@]}"
+    ;;
+  controllers) # Game Controllers panel of the Battle.net bottle (Wine's joy.cpl):
+    # shows what the bottle sees (DirectInput, XInput slots) and the SDL/hidraw
+    # toggles. The bottle shuts down when the panel closes if nothing else runs
+    # in it; a running Battle.net needs `soju kill` for a toggle to apply.
+    exec "$ENGINE/bin/wine" control joy.cpl
     ;;
   kill)        # Stop everything in the Battle.net bottle
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true

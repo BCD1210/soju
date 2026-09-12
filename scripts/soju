@@ -26,6 +26,7 @@ Usage:
   soju battlenet      Launch Battle.net (default bottle)
   soju d2r            Launch Diablo II: Resurrected directly
   soju kill           Stop everything in the Battle.net bottle
+  soju controllers    Game Controllers panel of the Battle.net bottle (is my pad seen?)
 
   soju epic-install   Set up the Epic Games Launcher bottle (same engine)
   soju epic           Launch the Epic Games Launcher
@@ -66,7 +67,7 @@ case "${1:-}" in
   doctor)         shift; exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
   update)         shift; exec bash "$ROOT/scripts/update.sh" "$@" ;;
   uninstall)      shift; exec bash "$ROOT/scripts/uninstall.sh" "$@" ;;
-  battlenet|d2r|epic|epic-kill|gog|gog-kill|steam|kill|steam-kill)
+  battlenet|d2r|controllers|epic|epic-kill|gog|gog-kill|steam|kill|steam-kill)
                   exec bash "$ROOT/scripts/play.sh" "$@" ;;
   -h|--help|help|"") usage ;;
   *) echo "soju: unknown command '$1'" >&2; usage >&2; exit 64 ;;
