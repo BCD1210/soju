@@ -175,6 +175,7 @@ GPTK 안의 `libd3dshared.dylib`는 그래픽만이 아닙니다. **D2R 로더(�
 - **Epic: "your account has too many active logins"**, 모든 기기에서 로그아웃하거나 비밀번호를 재설정해도 그대로인 경우. 서버가 실제로 답하는 것은 `too_many_sessions`(18048)이고, 이는 보유 중인 세션이 아니라 *발급된* 세션 수에 대한 제한이라 재시도할수록 나빠진다. 예전 엔진에서는 런처의 기기 키를 wine이 저장하지 못해 몇 번만 실행해도 걸렸다(`patches/ncrypt-persisted-keys.patch` 참고). 보틀을 끄고(`soju epic-kill`) 몇 시간 두어 카운터가 비워진 뒤 한 번만 실행하세요.
 
 - **게임 종료 후(또는 실행이 죽은 뒤) 배틀넷이 "업데이트"(초기화 중)에 멈추고 플레이 버튼이 사라짐**: 게임 프로세스가 끝날 때마다 런처가 설치를 다시 점검합니다. 업데이트를 일시정지했다가 재개하면 플레이 버튼이 돌아오고 정상 실행됩니다. 설치 후 첫 플레이가 1분 안에 죽으면 플레이를 한 번 더 누르세요: 한 번 보고된 사례에서 두 번째 실행은 정상이었습니다.
+- **플레이스테이션 패드(듀얼쇼크 4, 듀얼센스)를 페어링해서 macOS는 인식하는데 게임이 무시함** (블루투스 듀얼쇼크 4 + D2R, #42): `soju controllers`를 열면 DirectInput에만 보이고 XInput 슬롯은 전부 비어 있습니다. Wine은 소니 패드를 기본으로 raw HID 백엔드로 붙이는데, macOS에서는 그 백엔드가 패드를 XInput으로 내놓지 않고, 블리자드 게임은 XInput만 봅니다. 이제 `soju battlenet`이 소니 패드만 SDL 경로로 돌립니다(제조사 단위 레지스트리 항목이라 raw HID가 필요한 휠·스틱은 그대로). 그러면 Xbox 패드처럼 동작합니다. 이 설정은 보틀이 뜰 때 한 번 읽으므로, 배틀넷이 이미 켜져 있었다면 `soju kill`로 완전히 내렸다가(창만 닫으면 보틀이 한동안 살아 있을 수 있습니다) 다시 여세요. `soju controllers`의 "Disable hidraw"를 켜면 모든 장치에 같은 효과입니다. 소니 패드에 raw HID를 되돌리려면 `HKLM\System\CurrentControlSet\Services\WineBus\Devices\054C`의 `Hidraw`를 1로 두면 됩니다.
 - **BLZBNTBNA00000005** → `play.sh`가 서명된 exe를 자동으로 넣어 줍니다.
 
 ## 라이선스
