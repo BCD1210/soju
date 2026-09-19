@@ -84,7 +84,7 @@ soju install     # 然后：soju battlenet / soju d2r / soju steam / soju epic /
 
 安装器会**先询问要安装哪些启动器，再下载对应组件**。仅选择 Steam 时，不会下载 CX 引擎或 Apple GPTK。Steam 图形组件经过 SHA-256 校验后，自动安装到 Soju 专用的 Wine 11.0 环境中。战网、Epic 和 GOG 使用共享 CX 引擎及用户单独下载的 Apple GPTK。各客户端的 bottle、账户和游戏分别保留。
 
-[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.6.5/Soju-1.6.5-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
+[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.6.6/Soju-1.6.6-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
 
 ## 日常维护
 

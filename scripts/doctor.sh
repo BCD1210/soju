@@ -9,6 +9,7 @@ REPO="BCD1210/soju"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOJU="$ROOT/scripts/soju"
 source "$ROOT/scripts/steam-runtime.sh"
+source "$ROOT/scripts/d2r-macos.sh"
 WINESTABLE="$STEAM_WINE_ROOT/bin/wine"
 
 nok=0; nwarn=0; nfail=0
@@ -18,10 +19,10 @@ fail(){ printf '  FAIL  %s\n' "$*"; nfail=$((nfail+1)); }
 info(){ printf '  -     %s\n' "$*"; }
 
 SCOPE="${1:-installed}"
-case "$SCOPE" in installed|all|steam|battlenet|epic|gog) ;; *) echo "Usage: soju doctor [steam|battlenet|epic|gog|all]"; exit 64 ;; esac
+case "$SCOPE" in installed|all|steam|battlenet|d2r|epic|gog) ;; *) echo "Usage: soju doctor [steam|battlenet|d2r|epic|gog|all]"; exit 64 ;; esac
 NEEDS_CX=0
 case "$SCOPE" in
-  all|battlenet|epic|gog) NEEDS_CX=1 ;;
+  all|battlenet|d2r|epic|gog) NEEDS_CX=1 ;;
   installed)
     if [ -x "$ENGINE/bin/wine" ] || [ -d "$BASE/bottle" ] || [ -d "$BASE/epic-bottle" ] || [ -d "$BASE/gog-bottle" ]; then NEEDS_CX=1; fi ;;
 esac
@@ -38,6 +39,21 @@ if [ "${free_gb:-0}" -lt 20 ]; then warn "only ${free_gb}GB free on the home vol
 
 echo
 if [ "$NEEDS_CX" = 1 ]; then
+# Battle.net can run on an OS where D2R cannot. Make that distinction visible.
+CHECK_D2R=0
+case "$SCOPE" in
+  all|battlenet|d2r) CHECK_D2R=1 ;;
+  installed) [ ! -d "$BASE/bottle" ] || CHECK_D2R=1 ;;
+esac
+if [ "$CHECK_D2R" = 1 ]; then
+  if macos_check=$(soju_d2r_macos_check); then
+    pass "$macos_check"
+  elif [ "$SCOPE" = d2r ]; then
+    fail "$macos_check"
+  else
+    warn "$macos_check"
+  fi
+fi
 echo "Engine ($ENGINE)"
 if [ -x "$ENGINE/bin/wine" ]; then
   v=$(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version 2>/dev/null || true)
@@ -122,7 +138,9 @@ echo
 echo "Summary: $nok ok, $nwarn warn, $nfail fail"
 if [ "$nfail" -gt 0 ]; then
   echo "Paste this whole output in a new issue: https://github.com/$REPO/issues/new"
+elif [ "$nwarn" -gt 0 ]; then
+  echo "No failed environment checks, but review the warnings above before playing."
 else
-  echo "All good. If Soju works for you, a star helps other Mac gamers find it: https://github.com/$REPO"
+  echo "Environment checks passed; game compatibility is not verified. If Soju works for you, a star helps other Mac gamers find it: https://github.com/$REPO"
 fi
 [ "$nfail" -eq 0 ]
