@@ -16,6 +16,25 @@ set -euo pipefail
 
 ENGINE="${ENGINE:-${SOJU_BASE:-$HOME/.battlenet-macos}/cx26-engine}"
 MODE="${1:-battlenet}"
+
+# Check before copying launcher files, changing input sources or starting Wine.
+# The unified library launches D2R through Battle.net's OSI product code.
+source "$(dirname "${BASH_SOURCE[0]}")/d2r-macos.sh"
+D2R_REQUEST=0
+case "$MODE" in
+  d2r) D2R_REQUEST=1 ;;
+  battlenet)
+    for argument in "${@:2}"; do
+      case "$argument" in '--exec=launch '[Oo][Ss][Ii]) D2R_REQUEST=1 ;; esac
+    done ;;
+esac
+if [ "$MODE" = battlenet ] || [ "$D2R_REQUEST" = 1 ]; then
+  if ! macos_check=$(soju_d2r_macos_check); then
+    echo "soju: $macos_check" >&2
+    [ "$D2R_REQUEST" = 0 ] || exit 1
+    echo "      Battle.net can still open for other games. D2R started inside Battle.net has the same macOS requirement." >&2
+  fi
+fi
 source "$(dirname "${BASH_SOURCE[0]}")/steam-runtime.sh"
 
 # Bottle (virtual C: drive) path: per-mode default (Battle.net and Steam use separate bottles)
