@@ -4,12 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How to play Diablo II: Resurrected on Apple Silicon Macs (free, 2026)</title>
-<meta name="description" content="D2R hangs at launch on M1/M2/M3/M4 Macs because of an AVX detection quirk in Rosetta 2. Here is the root cause and a fully free, open-source way to play. No CrossOver needed.">
-<link rel="canonical" href="https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html">
+<meta name="description" content="Install Battle.net Diablo II: Resurrected on Apple Silicon with Soju. Check the macOS 26.4 minimum, setup steps, launch diagnostics and known limitations.">
+<link rel="canonical" href="https://soju.snack-wrap.com/guides/diablo-2-resurrected-apple-silicon.html">
 <meta property="og:title" content="Diablo II: Resurrected on Apple Silicon: the fix and a free setup">
-<meta property="og:description" content="The real reason D2R hangs on M-series Macs, and a free open-source Wine setup that runs it.">
+<meta property="og:description" content="Install Battle.net Diablo II: Resurrected on Apple Silicon with Soju. Check the macOS 26.4 minimum, setup steps, launch diagnostics and known limitations.">
 <meta property="og:type" content="article">
 <link rel="stylesheet" href="../style.css">
+<meta property="og:url" content="https://soju.snack-wrap.com/guides/diablo-2-resurrected-apple-silicon.html">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "How to play Diablo II: Resurrected on Apple Silicon Macs (free, 2026)",
+  "description": "Install Battle.net Diablo II: Resurrected on Apple Silicon with Soju. Check the macOS 26.4 minimum, setup steps, launch diagnostics and known limitations.",
+  "url": "https://soju.snack-wrap.com/guides/diablo-2-resurrected-apple-silicon.html",
+  "mainEntityOfPage": "https://soju.snack-wrap.com/guides/diablo-2-resurrected-apple-silicon.html",
+  "inLanguage": "en",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Soju",
+    "url": "https://soju.snack-wrap.com/"
+  },
+  "dateModified": "2026-09-20"
+}
+</script>
+<link rel="alternate" hreflang="en" href="https://soju.snack-wrap.com/guides/diablo-2-resurrected-apple-silicon.html">
+<link rel="alternate" hreflang="ko" href="https://soju.snack-wrap.com/guides/ko/diablo-2-mac.html">
+<link rel="alternate" hreflang="x-default" href="https://soju.snack-wrap.com/guides/diablo-2-resurrected-apple-silicon.html">
 </head>
 <body>
 <nav><div class="inner">
@@ -21,10 +42,9 @@
 <main>
 <p class="note">This guide is part of <a href="../">Soju, the open-source game launcher toolkit for Apple Silicon</a>. Explore Battle.net, Steam, Epic and GOG setup and compatibility on the overview page.</p>
 <h1>Diablo II: Resurrected on Apple Silicon</h1>
-<p class="lead">Why it hangs at launch on M-series Macs, and how to play it
-completely free with an open-source Wine stack. Verified in-game (online, with
-Battle.net login) on an M4 Pro running macOS 26.</p>
+<p class="lead">Use Soju to set up the Battle.net edition of Diablo II: Resurrected on Apple Silicon. macOS 26.4 or later and your own game license are required. Online gameplay has been verified on M4 Pro / macOS 26.5; results on other setups may differ.</p>
 
+<p class="note">Updated <time datetime="2026-09-20">September 20, 2026</time>. Run <code>soju doctor d2r</code> before starting. On older macOS, update and restart first. Neither a Soju update nor the AVX environment setting replaces OS-side Rosetta fixes. <a href="https://github.com/BCD1210/soju/issues/44">See issue #44 for the macOS 26.0.1 hang report and follow-up</a>.</p>
 <h2>The quick version</h2>
 <pre><code>brew install BCD1210/soju/soju
 soju install      # engine + Apple GPTK walkthrough + Battle.net
@@ -66,7 +86,7 @@ Rosetta at all (it registers non-native code regions), not just for graphics.</p
 <h2>Requirements</h2>
 <ul>
   <li>Apple Silicon Mac (M1 or newer), verified on M4 Pro</li>
-  <li><strong>macOS 26.4 or newer recommended</strong>: a 2026 Blizzard anti-cheat
+  <li><strong>macOS 26.4 or newer required</strong>: a 2026 Blizzard anti-cheat
   update triggered a Rosetta 2 bug that Apple fixed in 26.4. On older macOS the
   game can stall even with everything else correct.</li>
   <li>Rosetta 2 (<code>softwareupdate --install-rosetta</code>)</li>
@@ -90,7 +110,7 @@ Rosetta at all (it registers non-native code regions), not just for graphics.</p
 <table>
   <tr><th>Symptom</th><th>Fix</th></tr>
   <tr><td>Game stuck at launch, ~86MB RAM</td>
-      <td>You're not using Soju's launcher. <code>ROSETTA_ADVERTISE_AVX=1</code> is missing. Launch via <code>soju battlenet</code> / <code>soju d2r</code>.</td></tr>
+      <td>Check the macOS requirement and <code>soju doctor d2r</code> output first. A missing AVX setting is one possible cause; launch via <code>soju battlenet</code> / <code>soju d2r</code>.</td></tr>
   <tr><td>BLZBNTBNA00000005 after login</td>
       <td>Engine problem. Make sure you're on Soju's engine, not a generic wine build.</td></tr>
   <tr><td>"Failed to initialize graphics"</td>
