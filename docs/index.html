@@ -5,18 +5,40 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Soju: free, open-source game library for Apple Silicon Macs</title>
 <meta name="description" content="One native Mac library for games installed through Battle.net, Steam, Epic and GOG. Import Steam and GOG owned games, search store listings and play through official launchers on Apple Silicon.">
-<link rel="canonical" href="https://bcd1210.github.io/soju/">
+<link rel="canonical" href="https://soju.snack-wrap.com/">
 <meta property="og:title" content="Soju: your games, one home on your Mac">
 <meta property="og:description" content="A free, open-source launcher toolkit for Apple Silicon. Battle.net, Steam, Epic and GOG, with documented setup and compatibility.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://bcd1210.github.io/soju/">
+<meta property="og:url" content="https://soju.snack-wrap.com/">
 <meta name="twitter:card" content="summary_large_image">
-<meta property="og:image" content="https://bcd1210.github.io/soju/assets/soju-library.png">
+<meta property="og:image" content="https://soju.snack-wrap.com/assets/soju-library.png">
 <meta property="og:image:alt" content="Soju unified library with installed Battle.net, Steam, Epic and GOG games">
-<meta name="twitter:image" content="https://bcd1210.github.io/soju/assets/soju-library.png">
+<meta name="twitter:image" content="https://soju.snack-wrap.com/assets/soju-library.png">
 <meta name="twitter:title" content="Soju: open-source game launching for Mac">
 <meta name="twitter:description" content="Set up Battle.net, Steam, Epic and GOG on Apple Silicon. Free launcher tools, separate Wine environments, and tested game examples.">
 <link rel="stylesheet" href="style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "@id": "https://soju.snack-wrap.com/#soju",
+  "name": "Soju",
+  "url": "https://soju.snack-wrap.com/",
+  "description": "One native Mac library for games installed through Battle.net, Steam, Epic and GOG. Import Steam and GOG owned games, search store listings and play through official launchers on Apple Silicon.",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "macOS on Apple Silicon",
+  "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+  "isAccessibleForFree": true,
+  "sameAs": [
+    "https://github.com/BCD1210/soju"
+  ],
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+</script>
 </head>
 <body>
 <nav aria-label="Main navigation"><div class="inner">
@@ -169,6 +191,33 @@ store clients remain their publishers' software. Soju does not bundle them.</p>
 and <a href="https://github.com/BCD1210/soju/blob/main/docs/STEAM-GAMES.md">Steam implementation notes</a>
 explain the fixes so others can inspect and reuse the work.</p>
 </section>
+<section id="questions" aria-labelledby="questions-title">
+<h2 id="questions-title">Questions about Soju</h2>
+<h3>What is Soju?</h3>
+<p>Soju is a free, open-source game launcher and unified library for Apple Silicon Macs,
+maintained at <a href="https://github.com/BCD1210/soju">BCD1210/soju</a>.
+It brings installed games from Battle.net, Steam, Epic and GOG into one native Mac app,
+imports owned games from Steam and GOG, and searches store listings.</p>
+<h3>Does Soju replace my store accounts?</h3>
+<p>No. You use your own accounts and game licenses. Official launchers handle game downloads,
+updates and authentication. Store search results do not guarantee Mac compatibility.</p>
+<h3>Which Macs and macOS versions does it support?</h3>
+<p>Soju targets Apple Silicon Macs (M1 or newer). The app interface requires macOS 14 or later,
+but running games has additional requirements: the Steam component build requires macOS 26 or later,
+and Diablo II: Resurrected requires macOS 26.4 or later. See the
+<a href="#compatibility">tested games and limitations</a> before installing.</p>
+<h3>Is Soju free, and does it include games or Apple's Game Porting Toolkit?</h3>
+<p>Soju's tools are free and open source under GPL-3.0-or-later. Games are purchased separately.
+Battle.net, Epic and GOG setup requires your own separate Apple Game Porting Toolkit download;
+Soju does not bundle that download.</p>
+<h3>What should I do if a game will not launch?</h3>
+<p>Run <code>soju doctor</code>, or <code>soju doctor d2r</code> for Diablo II: Resurrected.
+These commands check the environment, not whether every game will work. Check the
+<a href="#guides">setup guides</a>, then
+<a href="https://github.com/BCD1210/soju/issues">report the game, Mac model, macOS version and symptoms</a>
+if the problem persists.</p>
+</section>
+
 </main>
 <footer>Soju · <a href="https://github.com/BCD1210/soju">Source on GitHub</a> ·
 <a href="https://github.com/BCD1210/soju/releases">Releases</a> ·

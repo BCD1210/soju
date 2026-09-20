@@ -4,12 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>맥에서 디아블로 II 레저렉션 돌리기: 무료 방법 (애플 실리콘, 2026)</title>
-<meta name="description" content="M1/M2/M3/M4 맥에서 디아블로2 레저렉션이 실행 안 되는 진짜 이유(AVX)와, 크로스오버 없이 완전 무료로 돌리는 오픈소스 방법. 배틀넷 로그인부터 인게임까지 검증됨.">
-<link rel="canonical" href="https://bcd1210.github.io/soju/guides/ko/diablo-2-mac.html">
+<meta name="description" content="Apple Silicon 맥에서 Soju로 디아블로 II: 레저렉션을 설치하는 방법. macOS 26.4 이상 요구 사항, Battle.net 설정, 실행 진단과 알려진 제한을 확인하세요.">
+<link rel="canonical" href="https://soju.snack-wrap.com/guides/ko/diablo-2-mac.html">
 <meta property="og:title" content="맥에서 디아2 레저렉션: 무료로 돌리는 법">
-<meta property="og:description" content="애플 실리콘 맥에서 D2R이 멈추는 원인과 무료 해결법">
+<meta property="og:description" content="Apple Silicon 맥에서 Soju로 디아블로 II: 레저렉션을 설치하는 방법. macOS 26.4 이상 요구 사항, Battle.net 설정, 실행 진단과 알려진 제한을 확인하세요.">
 <meta property="og:type" content="article">
 <link rel="stylesheet" href="../../style.css">
+<meta property="og:url" content="https://soju.snack-wrap.com/guides/ko/diablo-2-mac.html">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "맥에서 디아블로 II 레저렉션 돌리기: 무료 방법 (애플 실리콘, 2026)",
+  "description": "Apple Silicon 맥에서 Soju로 디아블로 II: 레저렉션을 설치하는 방법. macOS 26.4 이상 요구 사항, Battle.net 설정, 실행 진단과 알려진 제한을 확인하세요.",
+  "url": "https://soju.snack-wrap.com/guides/ko/diablo-2-mac.html",
+  "mainEntityOfPage": "https://soju.snack-wrap.com/guides/ko/diablo-2-mac.html",
+  "inLanguage": "ko",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Soju",
+    "url": "https://soju.snack-wrap.com/"
+  },
+  "dateModified": "2026-09-20"
+}
+</script>
+<link rel="alternate" hreflang="en" href="https://soju.snack-wrap.com/guides/diablo-2-resurrected-apple-silicon.html">
+<link rel="alternate" hreflang="ko" href="https://soju.snack-wrap.com/guides/ko/diablo-2-mac.html">
+<link rel="alternate" hreflang="x-default" href="https://soju.snack-wrap.com/guides/diablo-2-resurrected-apple-silicon.html">
 </head>
 <body>
 <nav><div class="inner">
@@ -21,10 +42,9 @@
 <main>
 <p class="note">이 가이드는 <a href="../../">Soju 오픈소스 게임 런처 도구</a>의 사용 사례입니다. Battle.net·Steam·Epic·GOG 설치와 지원 범위는 메인 페이지에서 확인하세요.</p>
 <h1>맥에서 디아블로 II: 레저렉션 돌리기</h1>
-<p class="lead">애플 실리콘 맥(M1~M4)에서 디아2 레저렉션이 "실행이 안 되는" 진짜
-이유와, 크로스오버(연 $74) 없이 완전 무료로 돌리는 방법입니다. M4 Pro / macOS 26에서
-배틀넷 로그인 → 온라인 인게임까지 검증했습니다.</p>
+<p class="lead">Soju로 Apple Silicon 맥에서 Battle.net판 디아블로 II: 레저렉션을 설치하고 실행하는 방법입니다. macOS 26.4 이상과 본인의 게임 라이선스가 필요합니다. M4 Pro / macOS 26.5에서 온라인 플레이를 확인했으며, 다른 환경의 결과는 달라질 수 있습니다.</p>
 
+<p class="note">문서 업데이트: <time datetime="2026-09-20">2026년 9월 20일</time>. 시작 전 <code>soju doctor d2r</code>로 확인하세요. macOS가 낮으면 먼저 업데이트하고 재시동하세요. Soju나 AVX 환경변수 설정만으로 운영체제의 Rosetta 수정을 대체할 수 없습니다. <a href="https://github.com/BCD1210/soju/issues/44">#44에서 macOS 26.0.1 실행 멈춤 제보와 후속 진행</a>을 확인할 수 있습니다.</p>
 <h2>빠른 설치</h2>
 <pre><code>brew install BCD1210/soju/soju
 soju install      # 엔진 + 애플 GPTK 안내 + 배틀넷 자동 설치
@@ -53,7 +73,7 @@ soju battlenet    # 로그인 후 앱에서 디아2 설치 → 플레이</code><
 <h2>준비물</h2>
 <ul>
   <li>애플 실리콘 맥 (M1 이상)</li>
-  <li><strong>macOS 26.4 이상 권장</strong>. 2026년 블리자드 안티치트 업데이트가
+  <li><strong>macOS 26.4 이상 필수</strong>. 2026년 블리자드 안티치트 업데이트가
   로제타 버그를 유발했고, 애플이 26.4에서 수정했습니다</li>
   <li>로제타2: <code>softwareupdate --install-rosetta</code></li>
   <li>무료 Apple ID (GPTK 1회 다운로드용, 애플이 재배포를 금지해서 직접 받아야 합니다)</li>
@@ -63,7 +83,7 @@ soju battlenet    # 로그인 후 앱에서 디아2 설치 → 플레이</code><
 <h2>문제 해결</h2>
 <table>
   <tr><th>증상</th><th>해결</th></tr>
-  <tr><td>실행 후 무한 정지 (86MB)</td><td><code>soju battlenet</code>/<code>soju d2r</code>로 실행하세요. AVX 변수가 빠진 겁니다</td></tr>
+  <tr><td>실행 후 무한 정지 (86MB)</td><td><code>soju battlenet</code>/<code>soju d2r</code>로 실행하세요. AVX 설정 누락이 한 원인일 수 있습니다. 먼저 macOS 요구 버전과 진단 결과도 확인하세요</td></tr>
   <tr><td>BLZBNTBNA00000005</td><td>Soju 엔진인지 확인 (일반 wine 빌드는 안 됩니다)</td></tr>
   <tr><td>"Failed to initialize graphics"</td><td>GPTK 미설치. <code>scripts/get-gptk.sh</code> 실행</td></tr>
   <tr><td>한글 입력이 ??로 표시</td><td>wine 창에서는 macOS 입력기를 영어(ABC)로 전환</td></tr>
