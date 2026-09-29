@@ -30,6 +30,7 @@ body:
     id: result
     attributes:
       label: Result
+      description: Select the furthest stage actually reached. A launcher opening does not mean the game works.
       options:
         - Works in-game
         - Partially works
