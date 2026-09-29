@@ -4,7 +4,8 @@
 #include <stdio.h>
 
 /* Hardware rendering smoke test. No store account or installed game is needed. */
-int wmain(void) {
+int wmain(int argc, wchar_t **argv) {
+    BOOL expect_dxvk = argc > 1 && wcscmp(argv[1], L"--dxvk") == 0;
     HINSTANCE instance = GetModuleHandleW(NULL);
     WNDCLASSW wc = {0};
     wc.lpfnWndProc = DefWindowProcW;
@@ -27,7 +28,9 @@ int wmain(void) {
     HRESULT hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL,
         0, NULL, 0, D3D11_SDK_VERSION, &desc, &swap, &device, NULL, &context);
     if (FAILED(hr)) { printf("Device/swapchain failed: %08lx\n", hr); return 2; }
-    if (!GetModuleHandleW(L"winemetal.dll")) { printf("DXMT winemetal module not loaded\n"); return 6; }
+    if (!!GetModuleHandleW(L"winemetal.dll") == !!expect_dxvk) {
+        printf("Unexpected renderer: winemetal must be loaded only for DXMT\n"); return 6;
+    }
     ID3D11Texture2D *buffer = NULL;
     ID3D11RenderTargetView *target = NULL;
     hr = IDXGISwapChain_GetBuffer(swap, 0, &IID_ID3D11Texture2D, (void **)&buffer);

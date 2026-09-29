@@ -1,0 +1,11 @@
+{
+  "version": "v1.10.3-20230507-repack",
+  "upstream": "https://github.com/Gcenx/DXVK-macOS/releases/tag/v1.10.3-20230507-repack",
+  "url": "https://github.com/Gcenx/DXVK-macOS/releases/download/v1.10.3-20230507-repack/dxvk-macOS-async-v1.10.3-20230507-repack.tar.gz",
+  "sha256": "acd1520ad105d8ef124a09c8e11a259a5dc8bdc565ad18e0e52693f9807b2477",
+  "archive_root": "dxvk-macOS-async-v1.10.3-20230507-repack",
+  "files": {
+    "d3d10core.dll": "0fa08bba860c63e3abeeabfc96d0e7aa327411a975f8f23d2dc63594ef5f796e",
+    "d3d11.dll": "0ff0b0835dde29556bd01dfce7b1ae348d7f229cb1e1a37cc71ea1a028beeca4"
+  }
+}

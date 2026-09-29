@@ -37,6 +37,8 @@ Usage:
 
   soju steam-install  Set up the Steam bottle (private Wine 11 + wrapper + Steam)
   soju steam-games    Download and configure verified D3D11 components
+  soju steam-games renderer <dxvk|dxmt|reset|status> <game.exe path>
+                     Choose a renderer for one 64-bit game (close Steam first)
   soju steam          Launch Steam
   soju steam-kill     Stop everything in the Steam bottle
 

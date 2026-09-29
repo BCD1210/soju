@@ -24,7 +24,7 @@ CodeWeavers' published sources; Steam uses a separate private Wine 11 setup.
 Apple's proprietary GPTK/D3DMetal is downloaded separately. Games and store
 clients are not included.
 
-**Current release: [v1.6.6](https://github.com/BCD1210/soju/releases/tag/v1.6.6).**
+**Current release: [v1.6.7](https://github.com/BCD1210/soju/releases/tag/v1.6.7).**
 The compatibility examples below were verified on M4 Pro / macOS 26.5.
 D2R and Hogwarts Legacy are examples of supported games, not the scope of the project.
 
@@ -63,6 +63,10 @@ All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher
 
 Will not run: anything with kernel anti-cheat (EAC, BattlEye, Vanguard). Got another game running? Post it in [Discussions](https://github.com/BCD1210/soju/discussions) or send a PR that adds a row.
 
+[Community compatibility reports](docs/COMPATIBILITY.md) track additional user
+results separately from the maintainer-tested examples, including D2R on M5,
+the Dark Souls III renderer workaround, and unresolved launch failures.
+
 ## Why this exists
 
 Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern Battle.net and D2R. The commercial option works, but the underlying Wine engine is GPL, so we built it ourselves and documented every wall we hit. The investigation and fixes are documented below:
@@ -94,7 +98,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.6.6/Soju-1.6.6-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.6.7/Soju-1.6.7-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
