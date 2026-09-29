@@ -23,6 +23,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "${1:-}" = renderer ]; then
+  shift
+  exec python3 "$ROOT/scripts/steam-renderer.py" "$@"
+fi
 BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
 export WINEPREFIX="${WINEPREFIX:-$BASE/steam-bottle}"
 source "$ROOT/scripts/steam-runtime.sh"

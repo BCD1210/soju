@@ -58,6 +58,46 @@ Hard-won facts, in the order they burned us:
 
 `soju steam-install` now downloads verified prebuilt DXMT, the patched Wine driver and wrapper. Existing users can close Steam and run `soju steam-games`. A private Wine runtime preserves the Homebrew app. This component release requires macOS 26+ and Wine 11.0. See [sources and validation](STEAM-PREBUILTS.md).
 
+## Per-game renderer
+
+DXMT remains the default. For a **64-bit Steam game** with a renderer-specific
+problem, the CLI can select DXVK + MoltenVK for just that executable. In [#48](https://github.com/BCD1210/soju/issues/48), a Dark Souls III player reports that this avoids minute-long GPU stalls, with a lower, CPU-limited frame rate of about 30 FPS. This is a user-tested workaround, not a claim that the DXMT fault is fixed.
+
+Close Windows Steam and all its games first. Use the full **Mac path** to the game
+executable; for a default Dark Souls III install:
+
+```bash
+GAME="$HOME/.battlenet-macos/steam-bottle/drive_c/Program Files (x86)/Steam/steamapps/common/DARK SOULS III/Game/DarkSoulsIII.exe"
+soju steam-games renderer dxvk "$GAME"
+```
+
+Soju downloads the pinned [Gcenx DXVK-macOS native package](https://github.com/Gcenx/DXVK-macOS/releases/tag/v1.10.3-20230507-repack), checks the archive and DLL SHA-256 digests, backs up existing game-local DLLs and overrides, then installs only `d3d11.dll` and `d3d10core.dll` next to the game. The executable's `dxgi=native` uses Soju's existing vanilla Wine DXGI; `winemetal` is disabled for this executable. No DLLs are replaced in the shared Wine runtime or Steam client. `dxvk.conf` and async settings are left unchanged.
+
+```bash
+soju steam-games renderer status "$GAME"  # inspect without changing anything
+soju steam-games renderer dxmt "$GAME"    # explicitly use Soju's DXMT
+soju steam-games renderer reset "$GAME"   # restore the original files and overrides
+```
+
+Restart Steam and the game after a change. Renderer setup/repair writes only the
+global defaults and Steam client profiles, so game-specific overrides remain.
+This command preserves previous settings, including a manually installed
+workaround: `reset` returns to that original configuration, whereas `dxmt`
+explicitly selects DXMT. Wine scopes overrides by executable name, so another
+game with the same executable name in this bottle cannot have a separate profile.
+Executables sharing a directory also share the local DLLs and cannot have competing
+profiles. If a game updater or another tool changes the managed DLLs/overrides,
+Soju refuses to overwrite those changes; recovery copies are kept under the
+Steam bottle's `.soju-renderers` directory.
+
+The upstream DXMT tessellation change mentioned in #48 has **not** been applied:
+the reporter also found a Wine driver deadlock with upstream main, so replacing
+the pinned runtime needs separate compatibility testing.
+
+### Renderer validation
+
+On 2026-09-28, the D3D11 hardware smoke test passed on M4 Pro / macOS 26.5 in a temporary prefix: default DXMT, per-game DXVK, DXVK after a full `--repair`, explicit DXMT, and reset to the original configuration. Each pass created a hardware device and swapchain and presented 180 frames. No installed game files were used. This verifies the switch and repair behavior; Dark Souls III gameplay and performance still require confirmation from the reporter.
+
 ## Building the artifacts
 
 Based on notpop's `07-build-dxmt-fork.sh` / `08-patch-wine-visibility.sh`, with
