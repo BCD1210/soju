@@ -1,0 +1,46 @@
+Backport of upstream DXMT ef116534 "feat(d3d11): introduce d3d11.maxTessFactor option"
+(Feifan He, MIT) to the pinned DXMT revision.
+
+diff --git a/dxmt.conf b/dxmt.conf
+index 41a8f0f..f336f44 100644
+--- a/dxmt.conf
++++ b/dxmt.conf
+@@ -91,3 +91,10 @@
+ #
+ 
+ # d3d11.defuseFma = False
++
++# Overrides the maximum allowed tessellation factor. This can be used to
++# improve performance in titles which overuse tessellation.
++#
++# Supported values: Any integer between 4 and 64
++
++# d3d11.maxTessFactor = 64
+diff --git a/src/d3d11/d3d11_pipeline_ts.cpp b/src/d3d11/d3d11_pipeline_ts.cpp
+index cd087fb..71d739e 100644
+--- a/src/d3d11/d3d11_pipeline_ts.cpp
++++ b/src/d3d11/d3d11_pipeline_ts.cpp
+@@ -1,5 +1,6 @@
+ #include "Metal.hpp"
+ #include "airconv_public.h"
++#include "config/config.hpp"
+ #include "d3d11_device.hpp"
+ #include "d3d11_pipeline.hpp"
+ #include "d3d11_shader.hpp"
+@@ -35,8 +36,14 @@ public:
+       // indeed this value might be too conservative
+       max_potential_factor = std::min(8u, max_potential_factor);
+     }
+-    if ((float)max_potential_factor < hull_reflection.Tessellator.MaxFactor) {
+-      WARN("maxtessfactor(", hull_reflection.Tessellator.MaxFactor,
++    auto expected_tess_factor = hull_reflection.Tessellator.MaxFactor;
++    if (uint32_t tess_factor_config = Config::getInstance().getOption<int32_t>("d3d11.maxTessFactor", 0u);
++        tess_factor_config >= 4 && tess_factor_config <= 64) {
++      expected_tess_factor = tess_factor_config;
++      max_potential_factor = std::min(tess_factor_config, max_potential_factor);
++    }
++    if ((float)max_potential_factor < expected_tess_factor) {
++      WARN("maxtessfactor(", expected_tess_factor,
+            ") is too large for a mesh pipeline. Clamping to ",
+            max_potential_factor);
+     }
