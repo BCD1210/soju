@@ -1,9 +1,11 @@
-# Steam support release v1
+# Steam support release v2
 
 The package contains only these open-source components:
 
 - DXMT: notpop/dxmt commit `924a607e3eee06fad5be6f176d8510bb08bc418d`,
-  plus `patches/steam-dxmt-build.patch` (MIT; bundled DirectX headers retain their own notices).
+  plus `patches/steam-dxmt-build.patch` and `patches/dxmt-max-tess-factor.patch`
+  (a backport of upstream DXMT ef116534, the `d3d11.maxTessFactor` option)
+  (MIT; bundled DirectX headers retain their own notices).
 - Wine 11.0 winemac: `db11d0fe6a169c457e23d007e20404643d067aa8`,
   plus `patches/steam-winemac.patch`, built with public driver symbols
   (LGPL-2.1-or-later).
@@ -11,7 +13,9 @@ The package contains only these open-source components:
 - LLVM 15.0.7: `8dfdcc7b7bf66834a761bd8de445840ef68e4d1a`
   (Apache-2.0 with LLVM exceptions), statically linked into the renderer.
 
-[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v1)
+[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v2)
+([v1](https://github.com/BCD1210/soju/releases/tag/steam-support-v1) used the same
+revisions without the tessellation backport.)
 
 No Apple GPTK, game files, store clients, accounts or credentials are included.
 Clients are downloaded from their official installers separately. The manifest
@@ -39,3 +43,9 @@ On M4 Pro / macOS 26.5: Wine 11.0 private-runtime migration, registry setup,
 D3D11 hardware device/swapchain creation and 180 presented frames using the
 DXMT winemetal module. The smoke test source is `tests/steam_d3d11_smoke.c`.
 The current native component deployment target is macOS 26.0.
+
+v2, on M4 Pro / macOS 26.5 in a throwaway prefix: the smoke test again presented
+180 frames. `tests/steam_d3d11_tessellation.c` draws 40,000 patches per frame
+whose hull shader requests factor 64. It averaged about 124 ms per frame
+without a cap (the same as v1), 12.3 ms with `d3d11.maxTessFactor = 16` and
+5.0 ms with `8`. v1 ignores the option.
