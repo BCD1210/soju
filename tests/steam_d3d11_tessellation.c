@@ -8,12 +8,13 @@
 /* Tessellation load check for DXMT's d3d11.maxTessFactor option. Draws many
    patches whose hull shader asks for factor 64 and prints the average GPU
    frame time. Run it once without and once with a dxmt.conf in the working
-   directory; a capped factor should cut the frame time. */
+   directory; a capped factor should cut the frame time. The optional argument
+   sets how many patches are drawn per frame (default 1600). */
 static const char hlsl[] =
     "struct VSOut { float4 pos : POSITION; };\n"
     "VSOut vs(uint id : SV_VertexID) {\n"
     "  uint patch = id / 3, corner = id % 3;\n"
-    "  float x = (patch % 40) / 20.0 - 1.0, y = (patch / 40) / 20.0 - 1.0;\n"
+    "  float x = (patch % 40) / 20.0 - 1.0, y = ((patch / 40) % 40) / 20.0 - 1.0;\n"
     "  float2 p = float2(x, y) + float2(corner == 1 ? 0.05 : 0.0, corner == 2 ? 0.05 : 0.0);\n"
     "  VSOut o; o.pos = float4(p, 0.5, 1); return o; }\n"
     "struct PC { float e[3] : SV_TessFactor; float i : SV_InsideTessFactor; };\n"
@@ -41,7 +42,9 @@ static ID3DBlob *compile(compile_fn fn, const char *entry, const char *target) {
     return code;
 }
 
-int wmain(void) {
+int wmain(int argc, wchar_t **argv) {
+    int patches = argc > 1 ? _wtoi(argv[1]) : 1600;
+    if (patches <= 0) patches = 1600;
     HMODULE compiler = LoadLibraryW(L"d3dcompiler_47.dll");
     compile_fn D3DCompileFn = compiler ? (compile_fn)GetProcAddress(compiler, "D3DCompile") : NULL;
     if (!D3DCompileFn) { printf("d3dcompiler_47 is unavailable\n"); return 1; }
@@ -95,7 +98,7 @@ int wmain(void) {
         ID3D11DeviceContext_HSSetShader(context, hs, NULL, 0);
         ID3D11DeviceContext_DSSetShader(context, ds, NULL, 0);
         ID3D11DeviceContext_PSSetShader(context, ps, NULL, 0);
-        ID3D11DeviceContext_Draw(context, 3 * 1600, 0);
+        ID3D11DeviceContext_Draw(context, 3 * patches, 0);
         ID3D11DeviceContext_End(context, (ID3D11Asynchronous *)done);
         hr = IDXGISwapChain_Present(swap, 0, 0);
         if (FAILED(hr)) { printf("Present failed: %08lx\n", hr); return 7; }
@@ -103,6 +106,6 @@ int wmain(void) {
         QueryPerformanceCounter(&end);
         if (frame >= 10) { total += (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart; measured++; }
     }
-    printf("PASS: %d tessellated frames, average %.2f ms per frame\n", measured, total / measured);
+    printf("PASS: %d tessellated frames of %d patches, average %.2f ms per frame\n", measured, patches, total / measured);
     return 0;
 }
