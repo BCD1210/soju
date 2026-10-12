@@ -204,7 +204,7 @@ struct AccountsView: View {
         HStack {
             Label(platform.title, systemImage: platform.symbol).font(.headline)
             if let value = summary(platform) {
-                Text(value.label + " · " + String(value.count) + " games · " + String(value.updatedAt.prefix(10))).font(.caption).foregroundStyle(.secondary)
+                Text(verbatim: "\(value.label) · \(value.count) games · \(value.updatedAt.prefix(10))").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Disconnect") { model.forgetAccount(platform) }.disabled(model.accountBusy)
             } else { Spacer(); Text("Not connected").font(.caption).foregroundStyle(.secondary) }
