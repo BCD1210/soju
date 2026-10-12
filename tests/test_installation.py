@@ -151,5 +151,61 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual((prefix/"user.reg").read_text(),"changed")
         self.assertEqual((system/"d3d11.dll").read_text(),"changed")
 
+class BattleNetSetupTests(unittest.TestCase):
+    def install(self, stalls):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        d = Path(temp.name); engine = d/"engine"; work = d/"work"; prefix = d/"bottle"; bin_ = d/"bin"
+        for path in (engine/"bin", engine/"lib/external", work, bin_):
+            path.mkdir(parents=True)
+        (engine/"lib/external/libd3dshared.dylib").write_text("")
+        (work/"Battle.net-Setup.exe").write_text("cached installer")
+        stale = prefix/"drive_c/ProgramData/Battle.net/Agent"
+        stale.mkdir(parents=True); (stale/"state").write_text("unfinished")
+        tools = {
+            engine/"bin/wineserver": "exit 0\n",
+            engine/"bin/wine": f"""case "$1" in wineboot|reg) exit 0;; esac
+n=$(( $(cat "{d}/attempts" 2>/dev/null || echo 0) + 1 )); echo $n > "{d}/attempts"
+mkdir -p "$WINEPREFIX/drive_c/ProgramData/Battle.net/Setup"
+[ $n -le {stalls} ] && exec sleep 30
+mkdir -p "$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
+touch "$WINEPREFIX/drive_c/Program Files (x86)/Battle.net/Battle.net.exe"
+""",
+            bin_/"curl": f"""while [ $# -gt 0 ]; do [ "$1" = -o ] && out="$2"; shift; done
+echo fresh > "$out"; echo x >> "{d}/downloads"
+""",
+        }
+        for path, body in tools.items():
+            path.write_text("#!/bin/bash\n" + body); path.chmod(0o755)
+        result = subprocess.run(["/bin/bash", str(ROOT/"scripts/create-bottle.sh")], capture_output=True, text=True,
+            env={**os.environ, "ENGINE": str(engine), "WORK": str(work), "WINEPREFIX": str(prefix),
+                 "SETUP_TIMEOUT": "1", "PATH": f"{bin_}:{os.environ['PATH']}"}, timeout=60)
+        attempts = int((d/"attempts").read_text()) if (d/"attempts").exists() else 0
+        downloads = len((d/"downloads").read_text().split()) if (d/"downloads").exists() else 0
+        return result, prefix, work, attempts, downloads
+
+    def test_stalled_installer_retries_once_from_clean_state(self):
+        result, prefix, work, attempts, downloads = self.install(stalls=1)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((prefix/"drive_c/Program Files (x86)/Battle.net/Battle.net.exe").exists())
+        self.assertEqual((attempts, downloads), (2, 1))
+        self.assertIn("Retrying once", result.stdout)
+        kept = list(work.glob("previous-setup-*/Battle.net/Agent/state"))
+        self.assertEqual([p.read_text() for p in kept], ["unfinished"])
+        self.assertEqual((work/"Battle.net-Setup.exe").read_text().strip(), "fresh")
+
+    def test_installer_that_stalls_twice_fails_instead_of_hanging(self):
+        result, prefix, work, attempts, downloads = self.install(stalls=2)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("stalled again", result.stdout)
+        self.assertEqual(attempts, 2)
+        self.assertFalse((prefix/"drive_c/Program Files (x86)/Battle.net/Battle.net.exe").exists())
+
+    def test_clean_install_runs_once_without_moving_anything(self):
+        result, prefix, work, attempts, downloads = self.install(stalls=0)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((attempts, downloads), (1, 0))
+        self.assertNotIn("Retrying", result.stdout)
+
 if __name__ == "__main__":
     unittest.main()

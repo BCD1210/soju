@@ -7,10 +7,23 @@ const attribute = name => {
     try { return JSON.parse(config?.getAttribute(name) || "{}"); } catch { return {}; }
 };
 const user = attribute("data-userinfo");
+// Steam's React pages, the current All Games page among them, have no
+// application_config, g_steamID or account menu. Their viewer is UserConfig.
+const reactUser = window.UserConfig && typeof window.UserConfig === "object" ? window.UserConfig : null;
 const validID = value => /^765[0-9]{14}$/.test(String(value || ""));
-let steamid = String(window.g_steamID || user.steamid || "");
-if (validID(user.steamid) && validID(steamid) && String(user.steamid) !== steamid) {
-    return { state: "unavailable" };
+const viewers = [window.g_steamID, user.steamid, reactUser?.steamid].filter(validID).map(String);
+if (new Set(viewers).size > 1) return { state: "unavailable" };
+let steamid = viewers[0] || "";
+const loggedIn = user.logged_in === true || reactUser?.logged_in === true;
+function reactToken() {
+    if (reactUser?.logged_in !== true || !Array.isArray(window.SSR?.loaderData)) return "";
+    for (const item of window.SSR.loaderData) {
+        try {
+            const value = typeof item === "string" ? JSON.parse(item) : item;
+            if (typeof value?.strWebAPIToken === "string" && value.strWebAPIToken) return value.strWebAPIToken;
+        } catch {}
+    }
+    return "";
 }
 
 function snapshot(rows, count) {
@@ -39,7 +52,7 @@ const ownAllGames = () => validID(steamid) && location.hostname === "steamcommun
     new URLSearchParams(location.search).get("tab") === "all" && profile === steamid &&
     Array.isArray(window.rgGames);
 if (ownAllGames()) return snapshot(window.rgGames, window.rgGames.length);
-if (validID(steamid) && validID(profile) && !ownAllGames() && !user.webapi_token) {
+if (!reactUser && validID(steamid) && validID(profile) && !ownAllGames() && !user.webapi_token) {
     return { state: "open-library" };
 }
 const signedInPage = !!document.querySelector?.("#account_pulldown");
@@ -56,12 +69,12 @@ async function readJSON(url, credentials, limit) {
     return JSON.parse(raw);
 }
 try {
-    let token = user.logged_in === true && typeof user.webapi_token === "string" ? user.webapi_token : "";
+    let token = user.logged_in === true && typeof user.webapi_token === "string" ? user.webapi_token : reactToken();
     // Steam's legacy community pages can omit both identity and the token.
     // Ask Steam's own session endpoint on the same origin; do not scrape cookies.
     const loginPage = /^\/(login|openid)(\/|$)/.test(location.pathname);
     if (!token && location.hostname === "steamcommunity.com" && !loginPage &&
-        (validID(steamid) || user.logged_in === true || signedInPage)) {
+        (validID(steamid) || loggedIn || signedInPage)) {
         const session = await readJSON("https://steamcommunity.com/chat/clientjstoken", "same-origin", 64 * 1024);
         if (session.logged_in !== true || !validID(session.steamid)) {
             return { state: validID(steamid) ? "open-library" : "sign-in" };
