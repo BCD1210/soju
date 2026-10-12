@@ -107,3 +107,49 @@ test("partial legacy page can retry after its data finishes loading", async () =
     const retried=await run(...ctx, ()=>{throw Error("not needed");});
     assert.equal(retried.state,"ready");
 });
+function reactPage(userConfig, loaderData = [JSON.stringify({steamid:id, sort:"name"})]) {
+    const document = {getElementById:()=>null, querySelector:()=>null};
+    return [{UserConfig:userConfig, SSR:{loaderData}}, document, new URL("https://steamcommunity.com/id/example/games")];
+}
+test("React All Games page imports via Steam's own session", async () => {
+    const requests = [];
+    const result = await run(...reactPage({logged_in:true, steamid:id}), async (url, options) => {
+        requests.push(new URL(url).origin + new URL(url).pathname);
+        if (url === "https://steamcommunity.com/chat/clientjstoken") {
+            assert.equal(options.credentials, "same-origin");
+            return {ok:true,text:async()=>JSON.stringify({logged_in:true,steamid:id,token:"session-only"})};
+        }
+        assert.equal(new URL(url).searchParams.get("access_token"), "session-only");
+        assert.equal(options.credentials, "omit");
+        return {ok:true,text:async()=>JSON.stringify({response:{game_count:1,games:[{appid:10,name:"Owned"}]}})};
+    });
+    assert.deepEqual(requests, ["https://steamcommunity.com/chat/clientjstoken",
+                                "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"]);
+    assert.deepEqual(result, {state:"ready", steamid:id, game_count:1, games:[{appid:"10", name:"Owned"}]});
+    assert.ok(!JSON.stringify(result).includes("session-only"));
+});
+test("React page token is used directly and never returned", async () => {
+    const page = reactPage({logged_in:true, steamid:id}, [JSON.stringify({strWebAPIToken:"page-token"}), "not json"]);
+    let requests = 0;
+    const result = await run(...page, async (url) => {
+        requests++;
+        assert.equal(new URL(url).searchParams.get("access_token"), "page-token");
+        return {ok:true,text:async()=>JSON.stringify({response:{game_count:0}})};
+    });
+    assert.equal(requests, 1);
+    assert.equal(result.state, "ready");
+    assert.ok(!JSON.stringify(result).includes("page-token"));
+});
+test("signed-out React page asks for sign-in without requests", async () => {
+    const page = reactPage({logged_in:false, steamid:"0"}, [JSON.stringify({strWebAPIToken:"ignored"})]);
+    assert.deepEqual(await run(...page, () => { throw Error("must not fetch"); }), {state:"sign-in"});
+});
+test("React viewer must match every other identity on the page", async () => {
+    const page = reactPage({logged_in:true, steamid:id});
+    page[0].g_steamID = "76561198000000001";
+    assert.deepEqual(await run(...page, () => { throw Error("must not fetch"); }), {state:"unavailable"});
+    const session = reactPage({logged_in:true, steamid:id});
+    const result = await run(...session, async () =>
+        ({ok:true,text:async()=>JSON.stringify({logged_in:true,steamid:"76561198000000001",token:"other"})}));
+    assert.equal(result.state, "unavailable");
+});
