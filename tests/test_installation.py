@@ -207,5 +207,21 @@ echo fresh > "$out"; echo x >> "{d}/downloads"
         self.assertEqual((attempts, downloads), (1, 0))
         self.assertNotIn("Retrying", result.stdout)
 
+class SupportManifestTests(unittest.TestCase):
+    def test_published_manifest_names_one_release(self):
+        m = json.loads((ROOT/"resources/steam-support.json").read_text())
+        base = "https://github.com/BCD1210/soju/releases/download/" + m["version"] + "/soju-" + m["version"]
+        self.assertEqual(m["url"], base + ".tar.gz")
+        self.assertEqual(m["source_url"], base + "-sources.tar.gz")
+        self.assertRegex(m["sha256"], "^[0-9a-f]{64}$")
+        self.assertTrue(all(len(v) == 64 for v in m["files"].values()))
+
+    def test_every_dxmt_patch_is_applied_by_the_build(self):
+        script = (ROOT/"scripts/build-steam-support.sh").read_text()
+        for patch in ("steam-dxmt-build.patch", "dxmt-max-tess-factor.patch"):
+            self.assertTrue((ROOT/"patches"/patch).is_file())
+            self.assertIn('apply_once dxmt "$ROOT/patches/' + patch + '"', script)
+        self.assertIn("d3d11.maxTessFactor", (ROOT/"patches/dxmt-max-tess-factor.patch").read_text())
+
 if __name__ == "__main__":
     unittest.main()
