@@ -90,9 +90,26 @@ profiles. If a game updater or another tool changes the managed DLLs/overrides,
 Soju refuses to overwrite those changes; recovery copies are kept under the
 Steam bottle's `.soju-renderers` directory.
 
-The upstream DXMT tessellation change mentioned in #48 has **not** been applied:
-the reporter also found a Wine driver deadlock with upstream main, so replacing
-the pinned runtime needs separate compatibility testing.
+### Tessellation cap (DXMT)
+
+Some games ask for far more tessellation than they need, which can keep the GPU
+busy for a long time under DXMT. Steam support v2 (Soju 1.6.9) backports
+upstream DXMT's `d3d11.maxTessFactor` option to the pinned DXMT. Upstream main
+itself is not used, because it deadlocks in Soju's Wine driver.
+
+After updating, close Windows Steam and run `soju steam-games` once to install
+v2. Then put a `dxmt.conf` file in the game's folder, the folder Steam starts it
+from. For a default Dark Souls III install:
+
+```bash
+DIR="$HOME/.battlenet-macos/steam-bottle/drive_c/Program Files (x86)/Steam/steamapps/common/DARK SOULS III/Game"
+printf 'd3d11.maxTessFactor = 16\n' > "$DIR/dxmt.conf"
+```
+
+Try `8` if stalls remain. Lower values reduce tessellated detail; delete the file
+to undo. The option applies only while the game uses DXMT, so run
+`soju steam-games renderer dxmt "$GAME"` first if you switched it to DXVK.
+Whether this removes the Dark Souls III stalls is still to be confirmed in [#48](https://github.com/BCD1210/soju/issues/48).
 
 ### Renderer validation
 
