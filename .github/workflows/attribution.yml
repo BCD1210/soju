@@ -11,6 +11,9 @@ on:
     types: [opened, edited]
   pull_request:
   workflow_dispatch:
+  # Catches what events could not edit, such as review comments on fork PRs.
+  schedule:
+    - cron: "17 3 * * *"
 permissions:
   contents: read
 jobs:
@@ -29,7 +32,7 @@ jobs:
       - name: Remove attribution lines
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 .github/scripts/strip_attribution.py ${{ github.event_name == 'workflow_dispatch' && 'sweep' || 'event' }}
+        run: python3 .github/scripts/strip_attribution.py ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && 'sweep' || 'event' }}
   commits:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

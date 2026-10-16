@@ -2,7 +2,7 @@
 """Remove AI tool attribution from issue, pull request and comment text.
 
   strip_attribution.py event          clean the item in $GITHUB_EVENT_PATH
-  strip_attribution.py sweep          clean every issue, PR and comment
+  strip_attribution.py sweep          clean every issue, PR and comment (daily too)
   strip_attribution.py commits A..B   fail if a commit in the range carries it
 
 Only text written by the repository's owner, members and collaborators is
@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 
 LINES = [re.compile(p, re.I) for p in (
@@ -30,13 +31,18 @@ def clean(text):
     if not text:
         return text
     lines = text.splitlines()
-    kept = [line for line in lines if not any(p.match(line) for p in LINES)]
-    if len(kept) == len(lines):
+    marked = [any(p.match(line) for p in LINES) for line in lines]
+    if not any(marked):
         return text
-    # Drop the blank lines and the "---" rule the footer leaves at the end.
-    while kept and kept[-1].strip() in ("", "---"):
-        kept.pop()
-    return "\n".join(kept)
+    # The footer is everything after the last real line, when attribution
+    # sits there: its blank lines and "---" rule go with it. A rule that
+    # ends the text on its own, with no attribution after it, stays.
+    end = len(lines)
+    while end and (marked[end - 1] or lines[end - 1].strip() in ("", "---")):
+        end -= 1
+    if not any(marked[end:]):
+        end = len(lines)
+    return "\n".join(line for line, m in zip(lines[:end], marked) if not m)
 
 
 def attributed(message):
@@ -66,13 +72,22 @@ def pages(path):
 
 def fix(item, edit_url):
     """Edit one issue, PR or comment if a trusted author left attribution in it."""
-    if item.get("author_association") not in TRUSTED:
+    if item.get("author_association") not in TRUSTED or clean(item.get("body")) == item.get("body"):
         return False
+    # The payload may predate a newer edit: clean the body as it is now.
+    item, _ = api("GET", edit_url)
     body = item.get("body") or ""
     cleaned = clean(body)
     if cleaned == body:
         return False
-    api("PATCH", edit_url, {"body": cleaned})
+    try:
+        api("PATCH", edit_url, {"body": cleaned})
+    except urllib.error.HTTPError as error:
+        if error.code != 403:
+            raise
+        # Fork PR events get a read-only token; the daily sweep cleans it.
+        print("::notice::No write access for", item.get("html_url", edit_url), "- left for the daily sweep")
+        return False
     print("cleaned", item.get("html_url", edit_url))
     return True
 
