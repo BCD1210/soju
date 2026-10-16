@@ -1,0 +1,41 @@
+name: Strip AI attribution
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+  # Base-branch code only: the PR's own files are never checked out here.
+  pull_request_target:
+    types: [opened, edited]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  clean:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+      - name: Remove attribution lines
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/strip_attribution.py ${{ github.event_name == 'workflow_dispatch' && 'sweep' || 'event' }}
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: No attribution trailers in this PR's commits
+        run: python3 .github/scripts/strip_attribution.py commits "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
