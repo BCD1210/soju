@@ -175,7 +175,7 @@ if [ "$1" = -w ]; then echo final > "$WINEPREFIX/shutdown-write"; fi
             answer_file = d / "answers"; answer_file.write_text(answers)
             p = project / "scripts/uninstall.sh"
             p.write_text(p.read_text().replace("TTY=/dev/tty",
-                "exec 9<" + shlex.quote(str(answer_file)) + "\nTTY=/dev/fd/9"))
+                "exec 9< <(cat " + shlex.quote(str(answer_file)) + ")\nTTY=/dev/fd/9"))
             args = []
         env = {k: v for k, v in os.environ.items() if k not in ("SOJU_STEAM_WINE", "ENGINE", "WINEPREFIX")}
         env.update(SOJU_BASE=str(base), SOJU_TEST=str(d), SOJU_TEST_FAILURE=failure,

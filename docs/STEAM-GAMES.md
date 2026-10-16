@@ -53,6 +53,18 @@ Hard-won facts, in the order they burned us:
    `WINE_NO_DOCK_ICON="steam.exe;steamservice.exe"`, matching the basename of
    the first two argv entries (NSProcessInfo sees pre-rewrite argv; scanning all
    args would also hide the helper via its `-steampath=` argument).
+11. **steam.exe gets no audio driver** (#55). Wine 11.0's winmm fills in
+   device capabilities by asking each device about 20 PCM formats, and every
+   ask opens a Core Audio unit on it (removed in Wine 11.5, c3a1bc8613).
+   Steam calls `mixerOpen` from its main loop, so a slow device freezes the
+   client before its login window (`CSteamEngine::BMainLoop appears to have
+   stalled`, stack `steamclient64 → winmm → mmdevapi` inside
+   `IsFormatSupported`). Measured: 0.1 s with two outputs, 0.7–1.7 s with
+   microphones; one report went past 15 s. play.sh adds
+   `AppDefaults\steam.exe\DllOverrides\winecoreaudio.drv=disabled` when the
+   value is absent. Games and the webhelper keep their sound; set the value to
+   `builtin` to give steam.exe audio back. `Drivers\Audio=""` also cures it,
+   but silences every game in the bottle.
 
 ## Automatic setup
 
