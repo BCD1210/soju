@@ -70,9 +70,41 @@ def pages(path):
         yield from items
 
 
+WRITERS = {"admin", "maintain", "write"}
+_permissions = {}
+
+
+def trusted(item):
+    """Owner, member or collaborator, or anyone with write access.
+
+    author_association depends on who asks: the Actions token cannot see
+    private organization membership, so a member's comments list as
+    CONTRIBUTOR there. Their repository permission settles it.
+    """
+    if item.get("author_association") in TRUSTED:
+        return True
+    login = (item.get("user") or {}).get("login")
+    if not login or (item.get("user") or {}).get("type") == "Bot":
+        return False
+    if login not in _permissions:
+        repo = "/repos/" + os.environ["GITHUB_REPOSITORY"]
+        try:
+            result, _ = api("GET", f"{repo}/collaborators/{login}/permission")
+            _permissions[login] = result.get("permission")
+        except urllib.error.HTTPError as error:
+            if error.code not in (403, 404):
+                raise
+            _permissions[login] = None
+    return _permissions[login] in WRITERS
+
+
 def fix(item, edit_url):
     """Edit one issue, PR or comment if a trusted author left attribution in it."""
-    if item.get("author_association") not in TRUSTED or clean(item.get("body")) == item.get("body"):
+    if clean(item.get("body")) == item.get("body"):
+        return False
+    if not trusted(item):
+        print("skipped", item.get("html_url", edit_url), "by",
+              (item.get("user") or {}).get("login"), item.get("author_association"))
         return False
     # The payload may predate a newer edit: clean the body as it is now.
     item, _ = api("GET", edit_url)
