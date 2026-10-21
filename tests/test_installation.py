@@ -152,7 +152,7 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual((system/"d3d11.dll").read_text(),"changed")
 
 class BattleNetSetupTests(unittest.TestCase):
-    def install(self, stalls):
+    def install(self, stalls, agent_works=True):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         d = Path(temp.name); engine = d/"engine"; work = d/"work"; prefix = d/"bottle"; bin_ = d/"bin"
@@ -162,40 +162,66 @@ class BattleNetSetupTests(unittest.TestCase):
         (work/"Battle.net-Setup.exe").write_text("cached installer")
         stale = prefix/"drive_c/ProgramData/Battle.net/Agent"
         stale.mkdir(parents=True); (stale/"state").write_text("unfinished")
+        bn = '"$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"'
         tools = {
             engine/"bin/wineserver": "exit 0\n",
-            engine/"bin/wine": f"""case "$1" in wineboot|reg) exit 0;; esac
+            engine/"bin/wine": f"""echo "$*" >> "{d}/wine.log"
+case "$1" in
+  wineboot|reg) exit 0;;
+  *Agent.exe) exit 0;;
+  cscript) {"mkdir -p " + bn + " && touch " + bn + "/Battle.net.exe" if agent_works else "exit 1"}; exit 0;;
+esac
 n=$(( $(cat "{d}/attempts" 2>/dev/null || echo 0) + 1 )); echo $n > "{d}/attempts"
-mkdir -p "$WINEPREFIX/drive_c/ProgramData/Battle.net/Setup"
+mkdir -p "$WINEPREFIX/drive_c/ProgramData/Battle.net/Setup" "$WINEPREFIX/drive_c/ProgramData/Battle.net/Agent/Agent.9824"
+touch "$WINEPREFIX/drive_c/ProgramData/Battle.net/Agent/Agent.9824/Agent.exe"
 [ $n -le {stalls} ] && exec sleep 30
-mkdir -p "$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
-touch "$WINEPREFIX/drive_c/Program Files (x86)/Battle.net/Battle.net.exe"
+mkdir -p {bn}
+touch {bn}/Battle.net.exe
 """,
             bin_/"curl": f"""while [ $# -gt 0 ]; do [ "$1" = -o ] && out="$2"; shift; done
 echo fresh > "$out"; echo x >> "{d}/downloads"
+""",
+            bin_/"stat": "echo 16777234 245634352\n",
+            bin_/"pgrep": "echo 4242\n",
+            bin_/"lsof": """case "$*" in
+  *cwd*) echo p4242; echo n/tmp/.wine-501/server-1000012-ea41530;;
+  *LISTEN*) echo p4242; echo n127.0.0.1:55475;;
+esac
 """,
         }
         for path, body in tools.items():
             path.write_text("#!/bin/bash\n" + body); path.chmod(0o755)
         result = subprocess.run(["/bin/bash", str(ROOT/"scripts/create-bottle.sh")], capture_output=True, text=True,
             env={**os.environ, "ENGINE": str(engine), "WORK": str(work), "WINEPREFIX": str(prefix),
-                 "SETUP_TIMEOUT": "1", "PATH": f"{bin_}:{os.environ['PATH']}"}, timeout=60)
+                 "SETUP_TIMEOUT": "1", "PATH": f"{bin_}:{os.environ['PATH']}"}, timeout=120)
         attempts = int((d/"attempts").read_text()) if (d/"attempts").exists() else 0
         downloads = len((d/"downloads").read_text().split()) if (d/"downloads").exists() else 0
+        self.wine_log = (d/"wine.log").read_text() if (d/"wine.log").exists() else ""
         return result, prefix, work, attempts, downloads
 
-    def test_stalled_installer_retries_once_from_clean_state(self):
+    def test_stalled_installer_is_finished_through_the_agent(self):
         result, prefix, work, attempts, downloads = self.install(stalls=1)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((prefix/"drive_c/Program Files (x86)/Battle.net/Battle.net.exe").exists())
+        self.assertEqual((attempts, downloads), (1, 0))
+        self.assertIn("through the Battle.net Agent (Agent.9824)", result.stdout)
+        self.assertNotIn("Retrying", result.stdout)
+        self.assertIn("C:\\ProgramData\\Battle.net\\Agent\\Agent.9824\\Agent.exe --internalclienttools", self.wine_log)
+        js = "Z:" + str(ROOT/"scripts/bnet-agent-install.js").replace("/", "\\")
+        self.assertIn(f"cscript //nologo {js} 55475 C:\\Program Files (x86)\\Battle.net", self.wine_log)
+
+    def test_stalled_installer_retries_once_from_clean_state_when_the_agent_fails(self):
+        result, prefix, work, attempts, downloads = self.install(stalls=1, agent_works=False)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((prefix/"drive_c/Program Files (x86)/Battle.net/Battle.net.exe").exists())
         self.assertEqual((attempts, downloads), (2, 1))
         self.assertIn("Retrying once", result.stdout)
-        kept = list(work.glob("previous-setup-*/Battle.net/Agent/state"))
-        self.assertEqual([p.read_text() for p in kept], ["unfinished"])
+        kept = sorted(p.read_text() for p in work.glob("previous-setup-*/Battle.net/Agent/state"))
+        self.assertEqual(kept, ["unfinished"])
         self.assertEqual((work/"Battle.net-Setup.exe").read_text().strip(), "fresh")
 
     def test_installer_that_stalls_twice_fails_instead_of_hanging(self):
-        result, prefix, work, attempts, downloads = self.install(stalls=2)
+        result, prefix, work, attempts, downloads = self.install(stalls=2, agent_works=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("stalled again", result.stdout)
         self.assertEqual(attempts, 2)
@@ -206,6 +232,13 @@ echo fresh > "$out"; echo x >> "{d}/downloads"
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((attempts, downloads), (1, 0))
         self.assertNotIn("Retrying", result.stdout)
+        self.assertNotIn("Agent", result.stdout)
+
+    def test_agent_install_script_makes_the_setup_calls(self):
+        js = (ROOT/"scripts/bnet-agent-install.js").read_text()
+        for needle in ('"phoenix-agent/1.0"', '"/agent"', '"/install"', '"/install/battle.net"',
+                       '"finalized":true', 'WinHttp.WinHttpRequest.5.1'):
+            self.assertIn(needle, js)
 
 class SupportManifestTests(unittest.TestCase):
     def test_published_manifest_names_one_release(self):
