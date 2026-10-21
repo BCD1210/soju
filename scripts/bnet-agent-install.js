@@ -9,6 +9,7 @@ var args = WScript.Arguments, port = args(0), dir = args(1).replace(/\\/g, "/"),
 
 function call(method, path, body) {
   var r = new ActiveXObject("WinHttp.WinHttpRequest.5.1");
+  r.SetTimeouts(5000, 5000, 30000, 30000);   // resolve, connect, send, receive (ms)
   r.Open(method, "http://127.0.0.1:" + port + path, false);
   r.SetRequestHeader("User-Agent", "phoenix-agent/1.0");
   if (token) r.SetRequestHeader("Authorization", token);

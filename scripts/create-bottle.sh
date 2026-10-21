@@ -79,8 +79,10 @@ run_setup() {
 # bottle at this point; the bottle's wineserver (found by its working directory,
 # named after the prefix's device and inode) holds the socket.
 agent_port() {
-  local dir pid
-  dir=$(printf 'server-%x-%x' $(stat -f '%d %i' "$WINEPREFIX"))
+  local dir pid real
+  # Wine names the directory after the resolved prefix (see soju-reaper.sh)
+  real=$(cd "$WINEPREFIX" && pwd -P)
+  dir=$(printf 'server-%x-%x' $(stat -L -f '%d %i' "$real"))
   for pid in $(pgrep -x wineserver); do
     lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | grep -q "/$dir\$" || continue
     lsof -nP -a -p "$pid" -iTCP -sTCP:LISTEN -Fn 2>/dev/null | sed -n 's/^n.*://p' | head -1
