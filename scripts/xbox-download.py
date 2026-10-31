@@ -66,12 +66,13 @@ def choose(plan, pid):
     choices = [c for c in plan['choices'] if isinstance(c, dict)]
     usable = [c for c in choices if c.get('supported') is True and c.get('platform') == 'Windows.Desktop'
               and re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', str(c.get('contentId', '')))]
-    if plan.get('status') == 'ready' and len(usable) == 1:
-        return usable[0]
-    if plan.get('status') == 'choice' and len(usable) == 1:
-        return usable[0]
-    if plan.get('status') == 'choice' and usable:
-        names = sorted({str(c.get('title', ''))[:80] for c in usable})
+    # An edition bundles the game with add-ons: the game package is the one to install.
+    # An add-on is never picked as "the game".
+    games = [c for c in usable if c.get('kind') == 'Game']
+    if plan.get('status') in ('ready', 'choice') and len(games) == 1:
+        return games[0]
+    if plan.get('status') == 'choice' and len(games) > 1:
+        names = sorted({str(c.get('title', ''))[:80] for c in games})
         raise DownloadError('This Store offer contains several games (' + ', '.join(names) +
                             '). Download each one from its own entry in your library.')
     if any(c.get('packageFormat') == 'MSIXVC2' for c in choices):
@@ -125,7 +126,7 @@ def stream(pid, choice, region, dest):
     # stderr joins stdout so every backend line goes through clean().
     process = subprocess.Popen(args, env=environment(), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, bufsize=1, errors='replace')
-    phase, shown = None, None
+    phase, shown, busy = None, None, False
     try:
         for line in process.stdout:
             if line.startswith('NEXUS_PROGRESS '):
@@ -143,6 +144,7 @@ def stream(pid, choice, region, dest):
                     print(text, flush=True)
                     shown = key
             elif line.strip():
+                busy = busy or 'another download is using this folder' in line
                 print('  ' + clean(line), flush=True)
     finally:
         # Stopping Soju's download also stops the backend; its checkpoint stays.
@@ -153,6 +155,8 @@ def stream(pid, choice, region, dest):
             except subprocess.TimeoutExpired:
                 process.kill()
         code = process.wait()
+    if busy:
+        raise DownloadError('This game is already downloading. Pause that download first, or wait for it to finish.')
     return code == 0 and phase == 'complete'
 
 
@@ -180,7 +184,7 @@ def main():
         record = dict(schema=1, product_id=pid, content_id=choice['contentId'], title=title,
                       installed_at=datetime.datetime.now(datetime.timezone.utc).isoformat())
         (dest / MARKER).write_text(json.dumps(record, ensure_ascii=False) + '\n')
-        print(title + ' is downloaded. Launching Xbox PC games is not available in this version of Soju.')
+        print(title + ' is downloaded. Press Play in Soju to start it.')
         return 0
     except DownloadError as error:
         print('soju: ' + str(error), file=sys.stderr)

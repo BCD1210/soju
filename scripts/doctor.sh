@@ -144,9 +144,12 @@ elif [ "$CHECK_XBOX" = 1 ]; then
   fi
   [ -f "$BASE/xbox-bottle/drive_c/ProgramData/Soju/xbox.json" ] && pass "Xbox PC folder prepared" \
     || warn "Xbox PC folder missing (run: soju xbox-install)"
-  # Only whether the item exists; its contents are never read here.
-  if security find-generic-password -s "Xodus Service" >/dev/null 2>&1; then pass "Microsoft sign-in stored in the Keychain"
-  else info "not signed in to Microsoft (Accounts > Xbox PC, or soju xbox-login)"; fi
+  # The backend says only whether an account is stored; the account name is not printed.
+  if [ -x "$XODUS_CLI" ] && XODUS_LOG=error "$XODUS_CLI" account --json 2>/dev/null | grep -q '"stored":true'; then
+    pass "signed in to a Microsoft account"
+  else
+    info "not signed in to Microsoft (Accounts > Xbox PC, or soju xbox-login)"
+  fi
   if [ -f "$BASE/account-libraries/xbox.json" ]; then
     n=$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["games"]))' "$BASE/account-libraries/xbox.json" 2>/dev/null || echo "?")
     info "imported Xbox library: $n games"
@@ -156,7 +159,10 @@ elif [ "$CHECK_XBOX" = 1 ]; then
     [ -f "$d.nexus-streaming-v1.jsonl" ] && [ ! -f "$d.soju-xbox-install.json" ] && partial=$((partial+1))
   done
   [ "$partial" = 0 ] || warn "$partial unfinished Xbox download(s): download again to resume"
-  info "launching Xbox PC games is not available in this version of Soju"
+  python3 "$ROOT/scripts/fetch-xbox-runtime.py" --check && pass "Xbox game runtime DLLs verified" \
+    || info "Xbox game runtime not downloaded yet (first Play or soju xbox-install fetches it)"
+  python3 "$ROOT/scripts/xbox-prefix.py" --check && pass "Xbox prefix ready to play" \
+    || info "Xbox prefix not prepared yet (needs the CX engine and GPTK; first Play prepares it)"
 fi
 
 echo

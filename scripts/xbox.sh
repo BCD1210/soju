@@ -50,7 +50,12 @@ case "${1:-}" in
   login)
     need_backend
     echo "Opening the Microsoft sign-in page. Finish signing in there, then this window closes."
-    "$XODUS_CLI" login
+    # Cancel in Soju sends TERM here: close the sign-in window too, so nothing is stored afterwards.
+    "$XODUS_CLI" login &
+    login_pid=$!
+    trap 'kill -TERM "$login_pid" 2>/dev/null; wait "$login_pid" 2>/dev/null; exit 143' TERM INT HUP
+    wait "$login_pid"
+    trap - TERM INT HUP
     "$XODUS_CLI" account --json | python3 -c 'import json,sys
 v=json.load(sys.stdin)
 sys.exit(0 if v.get("stored") else 1)' || { echo "Sign-in was not completed." >&2; exit 1; }

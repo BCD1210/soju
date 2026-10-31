@@ -9,7 +9,15 @@ import sys
 from library_services import (ServiceError, search, steam_owned, gog_owned, gog_users, xbox_owned,
                               save_account, account_path)
 
+def stop(signum, frame):
+    # subprocess.run kills its child when an exception interrupts it, so a request the
+    # app cancels does not leave xodus-cli running.
+    raise KeyboardInterrupt
+
+
 def main():
+    import signal
+    signal.signal(signal.SIGTERM, stop)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['search', 'sync', 'forget', 'gog-users'])
     parser.add_argument('value', nargs='?', default='')

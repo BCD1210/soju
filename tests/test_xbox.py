@@ -518,3 +518,36 @@ class XboxLaunchTests(unittest.TestCase):
             path = Path(temp) / 'app.asar'
             path.write_bytes(struct.pack('<II', 4, len(pickle)) + pickle + body)
             self.assertEqual(runtime.asar_files(path, 'assets/dlls'), files)
+
+
+class XboxReviewRegressionTests(unittest.TestCase):
+    GAME = dict(contentId='807c7d6a-409f-48be-8190-30b09baf7cd4', kind='Game', packageFormat='MSIXVC',
+                platform='Windows.Desktop', supported=True, title='Game')
+    ADDON = dict(GAME, contentId='11111111-1111-4111-8111-111111111111', kind='GameAddOn', title='Soundtrack')
+
+    def test_edition_downloads_the_game_not_its_add_on(self):
+        plan = dict(schema=1, status='choice', choices=[self.GAME, self.ADDON])
+        self.assertEqual(download.choose(plan, SILKSONG)['kind'], 'Game')
+
+    def test_add_on_is_never_downloaded_as_the_game(self):
+        base = dict(self.GAME, packageFormat='MSIXVC2', supported=False)
+        plan = dict(schema=1, status='choice', choices=[base, self.ADDON])
+        with self.assertRaisesRegex(download.DownloadError, 'newer package format'):
+            download.choose(plan, SILKSONG)
+
+    def test_seven_digit_fractions_parse_on_every_python(self):
+        self.assertEqual(svc.entitlement_end('9999-12-31T23:59:59.9999999Z').year, 9999)
+        self.assertEqual(svc.entitlement_end('2026-11-30T00:00:00Z').month, 11)
+
+    def test_only_subscriptions_mark_game_pass(self):
+        self.assertTrue(svc.SUBSCRIPTION.fullmatch('CFQ7TTC0KGQ8'))
+        self.assertIsNone(svc.SUBSCRIPTION.fullmatch('9NBLGGH4R315'))
+
+    def test_folder_lock_reports_a_running_download(self):
+        with tempfile.TemporaryDirectory() as temp:
+            cli = Path(temp) / 'xodus-cli'
+            cli.write_text('#!/bin/sh\necho "another download is using this folder" >&2\nexit 1\n')
+            cli.chmod(0o755)
+            with patch.object(download, 'CLI', str(cli)):
+                with self.assertRaisesRegex(download.DownloadError, 'already downloading'):
+                    download.stream(SILKSONG, self.GAME, 'US', Path(temp))

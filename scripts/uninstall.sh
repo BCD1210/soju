@@ -78,17 +78,17 @@ fi
 
 # The Xodus backend build (re-buildable from source with soju xbox-install).
 xodus=()
-for d in xodus xodus.previous .xodus-stage; do
+for d in xodus xodus.previous .xodus-stage xbox-runtime xbox-runtime.previous run; do
   [ -e "$BASE/$d" ] && xodus+=("$BASE/$d")
 done
 if [ "${#xodus[@]}" -gt 0 ]; then
-  printf 'Xbox PC backend: %s\n' "${xodus[@]}"
+  printf 'Xbox PC backend and game runtime: %s\n' "${xodus[@]}"
   # Offer the Microsoft sign-in too while the backend that can remove it still exists.
   if [ -x "$BASE/xodus/bin/xodus-cli" ] && security find-generic-password -s "Xodus Service" >/dev/null 2>&1 &&
      ask "Sign out of Microsoft (removes the Xbox sign-in from the Keychain)?"; then
     XODUS_LOG=error "$BASE/xodus/bin/xodus-cli" logout --device >/dev/null 2>&1 && echo "  signed out" || echo "  sign-out failed; remove \"Xodus Service\" in Keychain Access"
   fi
-  if ask "Remove the Xodus backend (can be built again)?"; then
+  if ask "Remove the Xodus backend and Xbox game runtime (can be downloaded and built again)?"; then
     xodus_bin="$(printf '%s' "$BASE/xodus/bin/xodus-" | sed 's/[][\.*^$()+?{}|]/\\&/g')"
     pkill -f "^${xodus_bin}(cli|service)( |$)" 2>/dev/null || true
     rm -rf "${xodus[@]}"; REMOVED=1; echo "  removed"

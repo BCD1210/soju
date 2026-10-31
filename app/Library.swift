@@ -119,7 +119,12 @@ extension SojuModel {
                         self.launchingGames.remove(game.id)
                     }
                     if process.terminationStatus != 0 {
-                        self.libraryIssue = "Could not launch " + game.title + ". Use Diagnose or open " + game.platform.title + " to check its installation and login."
+                        let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+                        let reason = text.split(separator: "\n").last(where: { $0.hasPrefix("soju: ") }).map { String($0.dropFirst(6)) }
+                        self.issueTitle = "Couldn't start " + game.title
+                        self.libraryIssue = reason ?? (game.platform.opensAWindow
+                            ? "Use Diagnose or open " + game.platform.title + " to check its installation and login."
+                            : "Use Diagnose to check the game and your Xbox sign-in.")
                         if !self.busy {
                             self.failed = true; self.activity = game.title + " needs attention."
                             if let data = try? Data(contentsOf: url) { self.log = String(decoding: data.suffix(60000), as: UTF8.self) }
@@ -131,11 +136,12 @@ extension SojuModel {
             failed = false
             preferences.opened[game.id] = Date(); savePreferences()
             activity = "Opening " + game.title + " through " + game.platform.title + "…"
-            // Clients may stay alive for hours: this is a launch request, not a game-running signal.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
+            // An Xbox game runs inside this process, so it counts as running until it exits.
+            // Other clients may stay alive for hours: there it is only a launch request.
+            if game.platform != .xbox { DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
                 guard let self, let p, self.gameLaunches[game.id] === p else { return }
                 self.launchingGames.remove(game.id)
-            }
+            } }
         } catch {
             launchingGames.remove(game.id); gameLaunches.removeValue(forKey: game.id)
             libraryIssue = "Could not start the game: " + error.localizedDescription
@@ -367,7 +373,7 @@ struct LibraryView: View {
                             if !game.isInstalled { model.installOwnedGame(game) }
                             else if issue == nil { model.play(game) } else { selected = game }
                         } label: {
-                            Label(!game.isInstalled ? (game.isPartialDownload ? "Resume" : game.platform.ownedActionTitle) : model.launchingGames.contains(game.id) ? "Starting…" : issue == nil ? "Play" : "Details", systemImage: !game.isInstalled ? "arrow.down.circle" : issue == nil ? "play.fill" : "exclamationmark.circle")
+                            Label(!game.isInstalled ? (game.isPartialDownload ? "Resume" : game.platform.ownedActionTitle) : model.launchingGames.contains(game.id) ? (game.platform == .xbox ? "Running" : "Starting…") : issue == nil ? "Play" : "Details", systemImage: !game.isInstalled ? "arrow.down.circle" : issue == nil ? "play.fill" : "exclamationmark.circle")
                         }.buttonStyle(.borderedProminent).tint(green).controlSize(.small)
                             .disabled(model.busy || model.launchingGames.contains(game.id))
                             .accessibilityLabel((!game.isInstalled ? (game.isPartialDownload ? "Resume downloading " : game.platform.ownedActionTitle + " ") : issue == nil ? "Play " : "Check ") + game.title)
@@ -419,7 +425,7 @@ struct LibraryView: View {
                     Text(game.platform.title).font(.system(size: 11, weight: .semibold)).foregroundStyle(game.platform.accent)
                     Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded))
                     Label(game.isInstalled ? "Installed on this Mac" : "Owned · not installed", systemImage: game.isInstalled ? "internaldrive" : "cloud").font(.system(size: 12)).foregroundStyle(.secondary)
-                    Text(game.platform == .xbox ? "Downloaded from the Microsoft Store. Xbox PC support is experimental: not every game works. The first launch can take about two minutes to set up." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
+                    Text(game.platform == .xbox ? "Downloaded from the Microsoft Store. Xbox PC support is experimental: not every game works. The first launch may download about 600 MB of Xbox runtime files and take a few minutes to set up." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                     if game.downloadBlocked, let issue = game.issue {
                         Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)

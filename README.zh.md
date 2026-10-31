@@ -150,7 +150,7 @@ scripts/play.sh gog-kill          # 停止 GOG bottle（关窗口会缩到菜单
 
 ## Xbox PC / Microsoft Store（Xodus 后端，仅下载）
 
-可以登录 Microsoft 账户，导入已拥有的游戏和 PC Game Pass 游戏，搜索 Microsoft Store 并下载游戏。**目前还不能启动 Xbox PC 游戏。** 下载好的游戏在库中显示为 *Downloaded*，Play 按钮不可用。
+可以登录 Microsoft 账户，导入已拥有的游戏和 PC Game Pass 游戏，搜索 Microsoft Store 并下载游戏。也可以启动下载好的游戏（实验功能，尚未在 Soju 上用实际游戏验证）。启动需要 CX 引擎和 Apple GPTK。
 
 后端是 [Xodus](https://github.com/xodus-gaming/xodus)（GPL-3.0），没有 macOS 发行版，所以 `soju xbox-install` 会在你的 Mac 上构建：固定提交的 Xodus 源码加上 [MACxus](https://github.com/fladnaG86/MACxus)（MIT）的 44 个补丁，补丁和 `Cargo.lock` 都校验 SHA-256，用 rustup 的 Rust 1.99 构建。
 

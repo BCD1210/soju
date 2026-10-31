@@ -10,8 +10,11 @@
 4. runs `xodus-cli run`, which gets the licence, decrypts the game into a
    temporary RAM-disk view and starts it with scripts/xbox-wine.sh. Files the
    game writes there are copied back into its folder when it exits.
-Stopping (Ctrl+C or SIGTERM) asks xodus-cli to stop the game so saves sync.
+Stopping (Ctrl+C or SIGTERM) asks xodus-cli to stop the game so saves sync; if
+the game is still running 20 s later, everything in the Xbox prefix is ended.
+Only one session per game runs at a time.
 """
+import fcntl
 import hmac
 import json
 import os
@@ -237,10 +240,21 @@ def main():
     pid_file = run_dir / ('xbox-' + str(os.getpid()) + '.pid')
     pid_file.write_text(str(os.getpid()))
     pid_file.chmod(0o600)
+    def force_stop():
+        if not stop.wait() or game is None:
+            return
+        try:
+            game.wait(timeout=20)
+        except subprocess.TimeoutExpired:
+            subprocess.run(['/bin/sh', str(ROOT / 'scripts/xbox-wine.sh'), '--soju-stop-prefix'],
+                           env=dict(os.environ, SOJU_BASE=str(BASE)), capture_output=True)
     def interrupt(signum, frame):
+        if stop.is_set():
+            return
         stop.set()
         if game and game.poll() is None:
             game.send_signal(signal.SIGINT)
+            threading.Thread(target=force_stop, daemon=True).start()
     signal.signal(signal.SIGTERM, interrupt)
     signal.signal(signal.SIGINT, interrupt)
     try:
@@ -251,6 +265,11 @@ def main():
             raise LaunchError('This game is not downloaded. Download it in Soju first.')
         if not (folder / '.xodus-streaming.msixvc').is_file():
             raise LaunchError('The game download is incomplete. Download it again to repair it.')
+        lock = (folder / '.soju-xbox-run.lock').open('w')
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            raise LaunchError('This game is already running.') from None
         exe = executable(folder)
         if subprocess.run([sys.executable, str(ROOT / 'scripts/xbox-prefix.py')]).returncode != 0:
             return 1

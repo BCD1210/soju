@@ -157,11 +157,32 @@ def xbox_image(value):
 
 def xbox_catalog(ids, country, deadline=None):
     """Public Microsoft Store metadata: title, art, price and Windows package formats.
-    With a deadline (time.monotonic()), stops early; missing IDs are left out."""
+    Chunks of 20 IDs are fetched four at a time; with a deadline (time.monotonic())
+    unfinished chunks are left out."""
+    chunks = [ids[start:start + 20] for start in range(0, len(ids), 20)]
+    if len(chunks) <= 1:
+        return xbox_catalog_chunk(chunks[0] if chunks else [], country)
+    result = {}
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+    try:
+        jobs = [pool.submit(xbox_catalog_chunk, chunk, country) for chunk in chunks]
+        remaining = None if deadline is None else max(1, deadline - time.monotonic())
+        try:
+            for job in concurrent.futures.as_completed(jobs, timeout=remaining):
+                try:
+                    result.update(job.result())
+                except ServiceError:
+                    continue
+        except concurrent.futures.TimeoutError:
+            pass
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    return result
+
+
+def xbox_catalog_chunk(ids, country):
     result = {}
     for start in range(0, len(ids), 20):
-        if deadline is not None and time.monotonic() > deadline:
-            break
         chunk = [xbox_id(i) for i in ids[start:start + 20]]
         data = get_json(CATALOG + 'products?' + urllib.parse.urlencode({
             'bigIds': ','.join(chunk), 'market': country, 'languages': XBOX_LOCALES[country] + ',neutral'}))
@@ -379,14 +400,26 @@ def save_image(url, path):
         return None
 
 
-def xbox_owned(base, settings, deadline=36):
-    # The app stops a service request after 50 s; everything here fits inside that.
+def entitlement_end(value):
+    """RFC 3339 end date. Python 3.9 (macOS's own python3) cannot parse 7-digit
+    fractions such as Microsoft's 9999-12-31T23:59:59.9999999Z, so trim them."""
+    value = re.sub(r'(\.\d{6})\d+', r'\1', value.strip().replace('Z', '+00:00'))
+    return datetime.datetime.fromisoformat(value)
+
+
+# PC Game Pass and other subscriptions are products whose IDs start with CFQ7TTC0;
+# a game reached through one of them is a Game Pass game, not a purchase.
+SUBSCRIPTION = re.compile(r'CFQ7TTC0[A-Z0-9]{4}')
+
+
+def xbox_owned(base, settings, deadline=40):
+    # The app stops a service request after 50 s; every step uses what is left of this budget.
     """Owned and PC Game Pass games from the signed-in Microsoft account."""
     started = time.monotonic()
     country = settings.get('market') or 'US'
     if country not in REGIONS:
         raise ServiceError('Choose a supported store region.')
-    data = xodus(base, ['library', '--json', '--market', country], timeout=25)
+    data = xodus(base, ['library', '--json', '--market', country], timeout=20)
     if not isinstance(data, dict) or data.get('schema') != 1 or not isinstance(data.get('entitlements'), list):
         raise ServiceError('Xbox returned an incomplete library. Your previous import is unchanged.')
     if len(data['entitlements']) > 10000:
@@ -396,16 +429,17 @@ def xbox_owned(base, settings, deadline=36):
     for item in data['entitlements']:
         try:
             uid = xbox_id(item['productId'])
-            end = datetime.datetime.fromisoformat(item['endDate'].replace('Z', '+00:00'))
+            end = entitlement_end(item['endDate'])
             if item['status'] != 'Active' or item.get('special') or end <= now:
                 continue
-            source = 'gamepass' if item.get('satisfiedByProductId') else 'owned'
+            parent = item.get('satisfiedByProductId') or ''
+            source = 'gamepass' if SUBSCRIPTION.fullmatch(parent) else 'owned'
             # A purchase wins over the same game reached through Game Pass.
             if rights.get(uid, {}).get('source') != 'owned':
                 rights[uid] = dict(source=source, trial=item.get('isTrial') is True)
         except (KeyError, TypeError, ValueError, AttributeError, ServiceError):
             continue
-    meta = xbox_catalog(sorted(rights), country, started + 22) if rights else {}
+    meta = xbox_catalog(sorted(rights), country, started + 30) if rights else {}
     games, missing, art = [], 0, Path(base) / 'library-artwork'
     for uid, right in rights.items():
         item = meta.get(uid)
@@ -418,11 +452,14 @@ def xbox_owned(base, settings, deadline=36):
                           source=right['source'], artwork=item['artwork']))
     if missing and not games:
         raise ServiceError('The Microsoft Store did not return game names. Please retry. Your previous import is unchanged.')
-    try:
-        profile = xodus(base, ['profile', '--json'], timeout=8)
-        gamertag = text(profile.get('gamertag'), 40) if isinstance(profile, dict) else ''
-    except ServiceError:
-        gamertag = ''
+    gamertag = ''
+    left = started + deadline - time.monotonic()
+    if left > 3:
+        try:
+            profile = xodus(base, ['profile', '--json'], timeout=min(8, left - 1))
+            gamertag = text(profile.get('gamertag'), 40) if isinstance(profile, dict) else ''
+        except ServiceError:
+            pass
     # Art is optional: whatever is not fetched in time is retried on the next sync.
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
     try:
