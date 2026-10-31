@@ -46,13 +46,24 @@ It does not read passwords, authentication tokens, activation keys or product au
 Galaxy itself contacts GOG to refresh its account library; Soju imports the snapshot already saved on this Mac.
 If the database is busy, incomplete or has an unsupported schema, the previous import remains intact.
 
+## Connect Xbox PC (Microsoft Store)
+
+1. In **Platforms**, install **Xbox PC**. This builds the Xodus backend on your Mac (a few minutes the first time).
+2. In **Accounts**, choose a store region and **Sign in to Microsoft**. Microsoft's own sign-in page opens in a separate window.
+3. After sign-in, Soju imports the games you own and your PC Game Pass games. Use **Sync Xbox library** later to refresh.
+
+Soju saves product IDs, titles, package format and box art. It does not save the account name. The sign-in itself
+stays in the macOS Keychain ("Xodus Service"); **Disconnect** signs out and removes the import.
+Owned Xbox games show **Download**. Downloads run beside other work, can be stopped and resume later.
+Games packaged as MSIXVC2 cannot be downloaded yet. **Starting Xbox PC games is not available yet.**
+
 ## Use your library
 
 **All games**, **Installed** and **Not installed** filters distinguish local installations from imported ownership.
 When a game is both installed and imported, the current installation record wins, so it appears once.
 An imported entry alone is never treated as proof that a game is installed or runnable.
 
-Steam's **Install** button opens the official Steam installation flow.
+Steam's **Install** button opens the official Steam installation flow. Xbox PC's **Download** button downloads in Soju.
 GOG's **Galaxy** button opens Galaxy; choose the game there to install it.
 Set up the corresponding platform first if it is not installed. Return to Soju and refresh after installation.
 The ordinary Play action always rechecks the local installation record.

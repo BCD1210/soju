@@ -48,11 +48,12 @@ if [ "${#apps[@]}" -gt 0 ]; then
 fi
 
 # 3. Bottles (this is where installed games live; can be tens of GB).
-for b in bottle steam-bottle epic-bottle gog-bottle; do
+for b in bottle steam-bottle epic-bottle gog-bottle xbox-bottle; do
   d="$BASE/$b"
   [ -d "$d" ] || continue
   sz=$(du -sh "$d" 2>/dev/null | cut -f1)
   if ask "Remove bottle $b ($sz, includes installed games)?"; then
+    [ "$b" != xbox-bottle ] || pkill -f "$BASE/xodus/bin/xodus-cli streaming" 2>/dev/null || true
     stop_bottle "$b"
     rm -rf "$d"; REMOVED=1; echo "  removed"
   fi
@@ -69,6 +70,19 @@ if [ "${#runtimes[@]}" -gt 0 ]; then
     stop_bottle steam-bottle
     python3 "$ROOT/scripts/steam-session.py" idle "$STEAM_WINE_ROOT"
     rm -rf "${runtimes[@]}"; REMOVED=1; echo "  removed"
+  fi
+fi
+
+# The Xodus backend build (re-buildable from source with soju xbox-install).
+xodus=()
+for d in xodus xodus.previous .xodus-stage; do
+  [ -e "$BASE/$d" ] && xodus+=("$BASE/$d")
+done
+if [ "${#xodus[@]}" -gt 0 ]; then
+  printf 'Xbox PC backend: %s\n' "${xodus[@]}"
+  if ask "Remove the Xodus backend (can be built again)?"; then
+    pkill -f "$BASE/xodus/bin/xodus-cli" 2>/dev/null || true
+    rm -rf "${xodus[@]}"; REMOVED=1; echo "  removed"
   fi
 fi
 
@@ -108,5 +122,8 @@ Not removed by this script (they are Homebrew's):
   brew uninstall soju                    the soju CLI itself, if installed via brew
   brew uninstall --cask wine-stable      legacy Wine, only if separately installed
   brew uninstall mingw-w64               the wrapper build dependency
+  brew uninstall protobuf rustup         Xodus build dependencies, if Soju installed them
+Also kept: the Microsoft sign-in in your Keychain ("Xodus Service"). Remove it
+with soju xbox-logout before uninstalling, or in Keychain Access.
 EOT
 echo "Done."

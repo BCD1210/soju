@@ -148,6 +148,22 @@ scripts/play.sh gog-kill          # 停止 GOG bottle（关窗口会缩到菜单
 
 游戏尚未大范围测试；需要内核级反作弊（EAC/BattlEye）的游戏在 Wine 下无法运行。
 
+## Xbox PC / Microsoft Store（Xodus 后端，仅下载）
+
+可以登录 Microsoft 账户，导入已拥有的游戏和 PC Game Pass 游戏，搜索 Microsoft Store 并下载游戏。**目前还不能启动 Xbox PC 游戏。** 下载好的游戏在库中显示为 *Downloaded*，Play 按钮不可用。
+
+后端是 [Xodus](https://github.com/xodus-gaming/xodus)（GPL-3.0），没有 macOS 发行版，所以 `soju xbox-install` 会在你的 Mac 上构建：固定提交的 Xodus 源码加上 [MACxus](https://github.com/fladnaG86/MACxus)（MIT）的 44 个补丁，补丁和 `Cargo.lock` 都校验 SHA-256，用 rustup 的 Rust 1.99 构建。
+
+```bash
+soju xbox-install            # 构建后端
+soju xbox-login              # Microsoft 官方登录窗口
+soju xbox-sync US            # 导入已拥有和 Game Pass 游戏
+soju xbox-download 9N116V0599HB   # 按商店产品 ID 下载，再次运行可续传
+soju xbox-logout             # 退出登录（已下载的游戏保留）
+```
+
+只支持 MSIXVC 格式的 GDK 游戏，MSIXVC2 暂不支持（[xodus#53](https://github.com/xodus-gaming/xodus/issues/53)）。登录信息保存在 macOS 钥匙串的 "Xodus Service" 项中。
+
 ## Steam（包括 Steam 版 D2R）
 
 D2R 于 2026 年 2 月以 *Infernal Edition* 上架 Steam。Steam 支持用的是**另一个免费引擎**：新版 Steam 客户端的 CEF 界面在 CrossOver 源码构建上无法渲染（黑窗口，跨进程交换链 + CEF 沙箱问题），但在 Homebrew 的 `wine-stable` 11 上，配合一个强制 `--disable-gpu --single-process` 的小 `steamwebhelper` 包装器就能工作。该修复来自 [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)（MIT，包装器源码收录在 `third_party/`）。Steam 有自己独立的 bottle，两套栈互不干扰：

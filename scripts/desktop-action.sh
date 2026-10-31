@@ -15,6 +15,9 @@ case "$ACTION" in
   launch)
     case "${1:-}" in battlenet|steam|epic|gog) exec bash "$ROOT/scripts/play.sh" "$1" ;;
       *) echo "Choose one of the four launchers."; exit 64 ;; esac ;;
+  xbox)
+    case "${1:-}" in login|logout|kill|status) exec bash "$ROOT/scripts/xbox.sh" "$1" ;;
+      *) echo "Unknown Xbox action."; exit 64 ;; esac ;;
   install)
     export SOJU_PLATFORMS="${1:?Choose at least one launcher}"
     if ! xcode-select -p >/dev/null 2>&1; then
@@ -42,6 +45,10 @@ case "$ACTION" in
     fi
     if [ -f "$BASE/steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
       bash "$ROOT/scripts/setup-steam-games.sh" || result=1
+    fi
+    # A changed backend recipe rebuilds Xodus; an unchanged one is only checked.
+    if [ -d "$BASE/xodus" ] && [ -z "${SOJU_XODUS_BIN:-}" ]; then
+      python3 "$ROOT/scripts/fetch-xodus-backend.py" || result=1
     fi
     echo "Component update finished."
     exit "$result" ;;

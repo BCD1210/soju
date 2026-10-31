@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import subprocess
 import tempfile
 import time
 import urllib.error
@@ -14,7 +15,10 @@ import urllib.request
 
 LIMIT = 8 * 1024 * 1024
 REGIONS = {'US': 'USD', 'KR': 'KRW', 'GB': 'GBP', 'DE': 'EUR', 'JP': 'JPY'}
-STORES = {'steam': 'https://store.steampowered.com', 'gog': 'https://www.gog.com'}
+STORES = {'steam': 'https://store.steampowered.com', 'gog': 'https://www.gog.com', 'xbox': 'https://www.xbox.com'}
+XBOX_LOCALES = {'US': 'en-US', 'KR': 'ko-KR', 'GB': 'en-GB', 'DE': 'de-DE', 'JP': 'ja-JP'}
+CATALOG = 'https://displaycatalog.mp.microsoft.com/v7.0/'
+PLATFORMS = ('steam', 'gog', 'xbox')
 
 
 class ServiceError(ValueError):
@@ -58,19 +62,33 @@ def numeric_id(value):
     return value
 
 
+def xbox_id(value):
+    value = str(value)
+    if not re.fullmatch(r'[A-Z0-9]{12}', value):
+        raise ServiceError('Invalid game identifier.')
+    return value
+
+
+def platform_id(platform, value):
+    return xbox_id(value) if platform == 'xbox' else numeric_id(value)
+
+
 def safe_image(value, platform):
     if not isinstance(value, str):
         return None
     parsed = urllib.parse.urlsplit(value)
     allowed = {'steam': ('steamstatic.com', 'steamcdn-a.akamaihd.net'),
-               'gog': ('gog-statics.com', 'gog.com')}
+               'gog': ('gog-statics.com', 'gog.com'),
+               'xbox': ('store-images.s-microsoft.com',)}
     host = (parsed.hostname or '').lower()
     if parsed.scheme != 'https' or parsed.username or parsed.password or parsed.port not in (None, 443):
         return None
     return value if any(host == h or host.endswith('.' + h) for h in allowed[platform]) else None
 
 
-def store_url(platform, uid, slug=''):
+def store_url(platform, uid, slug='', country='US'):
+    if platform == 'xbox':
+        return STORES['xbox'] + '/' + XBOX_LOCALES.get(country, 'en-US') + '/games/store/-/' + xbox_id(uid)
     if platform == 'steam':
         return STORES[platform] + '/app/' + numeric_id(uid) + '/'
     if slug and re.fullmatch(r'[a-zA-Z0-9_-]{1,200}', slug):
@@ -130,6 +148,80 @@ def gog_search(query, country):
     return result
 
 
+def xbox_image(value):
+    """Store image URIs are protocol-relative; a width keeps downloads small."""
+    if not isinstance(value, str) or not value.startswith('//'):
+        return None
+    return safe_image('https:' + value.split('?', 1)[0] + '?w=400', 'xbox')
+
+
+def xbox_catalog(ids, country):
+    """Public Microsoft Store metadata: title, art, price and Windows package formats."""
+    result = {}
+    for start in range(0, len(ids), 20):
+        chunk = [xbox_id(i) for i in ids[start:start + 20]]
+        data = get_json(CATALOG + 'products?' + urllib.parse.urlencode({
+            'bigIds': ','.join(chunk), 'market': country, 'languages': XBOX_LOCALES[country] + ',neutral'}))
+        if not isinstance(data, dict) or not isinstance(data.get('Products'), list):
+            raise ServiceError('Microsoft Store metadata is unavailable.')
+        for item in data['Products']:
+            try:
+                uid = xbox_id(item['ProductId'])
+                local = item['LocalizedProperties'][0]
+                title = text(local.get('ProductTitle'))
+                if not title:
+                    continue
+                images = {i.get('ImagePurpose'): i.get('Uri') for i in local.get('Images') or [] if isinstance(i, dict)}
+                art = next((xbox_image(images[k]) for k in ('BoxArt', 'Poster', 'Logo') if xbox_image(images.get(k))), None)
+                formats, price, windows, bundled = set(), None, False, False
+                for sku in item.get('DisplaySkuAvailabilities') or []:
+                    props = sku['Sku']['Properties']
+                    bundled = bundled or bool(props.get('BundledSkus'))
+                    for package in props.get('Packages') or []:
+                        targets = [d.get('PlatformName') for d in package.get('PlatformDependencies') or []]
+                        if 'Windows.Desktop' in targets:
+                            windows = True
+                            formats.add(text(package.get('PackageFormat'), 20))
+                    if props.get('IsTrial') or price is not None:
+                        continue
+                    for offer in sku.get('Availabilities') or []:
+                        # Delisted games keep a 0 list price without a Purchase action.
+                        if 'Purchase' not in (offer.get('Actions') or []):
+                            continue
+                        money = (offer.get('OrderManagementData') or {}).get('Price') or {}
+                        amount, currency = money.get('ListPrice'), money.get('CurrencyCode', '')
+                        if isinstance(amount, (int, float)) and amount >= 0 and re.fullmatch(r'[A-Z]{3}', currency):
+                            price = 'Free' if amount == 0 else currency + ' ' + format(amount, ',.2f')
+                            break
+                fmt = 'MSIXVC' if 'MSIXVC' in formats else 'MSIXVC2' if 'MSIXVC2' in formats else (sorted(formats)[0] if formats else None)
+                if not formats and bundled:
+                    # Editions and bundles list their packages on the bundled products;
+                    # the download resolves them (xodus resolve-package).
+                    windows, fmt = True, 'BUNDLE'
+                result[uid] = dict(title=title, type=text(item.get('ProductType'), 40), artwork=art,
+                                   price=price or 'View price in store', windows=windows, format=fmt)
+            except (KeyError, IndexError, TypeError, ValueError, AttributeError):
+                continue
+    return result
+
+
+def xbox_search(query, country):
+    data = get_json(CATALOG + 'productFamilies/autosuggest?' + urllib.parse.urlencode({
+        'market': country, 'languages': XBOX_LOCALES[country], 'query': query, 'productFamilyNames': 'Games'}))
+    if not isinstance(data, dict) or not isinstance(data.get('Results'), list):
+        raise ServiceError('Microsoft Store search is unavailable.')
+    ids = []
+    for family in data['Results']:
+        for item in (family.get('Products') if isinstance(family, dict) else None) or []:
+            uid = item.get('ProductId') if isinstance(item, dict) else None
+            if isinstance(uid, str) and re.fullmatch(r'[A-Z0-9]{12}', uid) and uid not in ids:
+                ids.append(uid)
+    meta = xbox_catalog(ids[:24], country) if ids else {}
+    return [dict(id='xbox:' + uid, platform='xbox', title=meta[uid]['title'], url=store_url('xbox', uid, country=country),
+                 artwork=meta[uid]['artwork'], price=meta[uid]['price'], mac=False, windows=meta[uid]['windows'])
+            for uid in ids if uid in meta and meta[uid]['type'] == 'Game']
+
+
 def search(query, country):
     query = text(query, 100)
     if len(query) < 2:
@@ -137,13 +229,14 @@ def search(query, country):
     if country not in REGIONS:
         raise ServiceError('Choose a supported store region.')
     games, warnings = [], []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-        jobs = {pool.submit(fn, query, country): name for name, fn in [('steam', steam_search), ('gog', gog_search)]}
+    names = {'steam': 'Steam', 'gog': 'GOG', 'xbox': 'Microsoft Store'}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+        jobs = {pool.submit(fn, query, country): name for name, fn in [('steam', steam_search), ('gog', gog_search), ('xbox', xbox_search)]}
         for job in concurrent.futures.as_completed(jobs):
             try:
                 games.extend(job.result())
             except Exception:
-                warnings.append(jobs[job].title() + ' search is unavailable. Please retry later.')
+                warnings.append(names[jobs[job]] + ' search is unavailable. Please retry later.')
     unique = {g['id']: g for g in games}
     def rank(game):
         title, term = game['title'].casefold(), query.casefold()
@@ -235,17 +328,138 @@ def gog_owned(base, settings):
     return list(games.values()), 'Galaxy · …' + selected[-4:]
 
 
+def xodus_cli(base):
+    return os.environ.get('SOJU_XODUS_BIN') or str(Path(base) / 'xodus/bin/xodus-cli')
+
+
+def xodus(base, args, timeout):
+    """Run the backend without a shell or stdin. Its stderr is never shown: only
+    the documented credential code is read from it."""
+    cli = xodus_cli(base)
+    if not os.access(cli, os.X_OK):
+        raise ServiceError('Set up Xbox PC in Platforms first.')
+    env = {'PATH': '/usr/bin:/bin', 'HOME': os.environ.get('HOME', str(Path.home())), 'XODUS_LOG': 'error'}
+    try:
+        result = subprocess.run([cli] + args, env=env, stdin=subprocess.DEVNULL, capture_output=True,
+                                text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise ServiceError('Xbox did not answer in time. Your previous import is unchanged.') from None
+    except OSError:
+        raise ServiceError('The Xbox backend could not start. Run Diagnose in Platforms.') from None
+    if result.returncode != 0:
+        if re.search(r'NEXUS_CREDENTIAL_ERROR_V1 [A-Za-z0-9_-]+', result.stderr or ''):
+            raise ServiceError('Sign in to your Microsoft account in Accounts. Your previous import is unchanged.')
+        raise ServiceError('Xbox did not share your library. Sign in again in Accounts, or retry later. Your previous import is unchanged.')
+    try:
+        return json.loads(result.stdout)
+    except ValueError:
+        raise ServiceError('Xbox returned an unreadable library. Your previous import is unchanged.') from None
+
+
+def save_image(url, path):
+    """Store art in library-artwork; only Microsoft's image host, bounded size, no redirects."""
+    if safe_image(url, 'xbox') is None:
+        return None
+    try:
+        request = urllib.request.Request(url, headers={'User-Agent': 'Soju/1.7 (+https://github.com/BCD1210/soju)'})
+        with urllib.request.build_opener(NoRedirect).open(request, timeout=5) as response:
+            data = response.read(4 * 1024 * 1024 + 1)
+        if len(data) > 4 * 1024 * 1024 or not data.startswith((b'\xff\xd8', b'\x89PNG')):
+            return None
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(prefix='.art', dir=path.parent)
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+        os.replace(temporary, path)
+        return str(path)
+    except (OSError, ValueError, ServiceError):
+        return None
+
+
+def xbox_owned(base, settings, deadline=36):
+    # The app stops a service request after 50 s; everything here fits inside that.
+    """Owned and PC Game Pass games from the signed-in Microsoft account."""
+    started = time.monotonic()
+    country = settings.get('market') or 'US'
+    if country not in REGIONS:
+        raise ServiceError('Choose a supported store region.')
+    data = xodus(base, ['library', '--json', '--market', country], timeout=25)
+    if not isinstance(data, dict) or data.get('schema') != 1 or not isinstance(data.get('entitlements'), list):
+        raise ServiceError('Xbox returned an incomplete library. Your previous import is unchanged.')
+    if len(data['entitlements']) > 10000:
+        raise ServiceError('This library exceeds the supported import size.')
+    now = datetime.datetime.now(datetime.timezone.utc)
+    rights = {}
+    for item in data['entitlements']:
+        try:
+            uid = xbox_id(item['productId'])
+            end = datetime.datetime.fromisoformat(item['endDate'].replace('Z', '+00:00'))
+            if item['status'] != 'Active' or item.get('special') or end <= now:
+                continue
+            source = 'gamepass' if item.get('satisfiedByProductId') else 'owned'
+            # A purchase wins over the same game reached through Game Pass.
+            if rights.get(uid, {}).get('source') != 'owned':
+                rights[uid] = dict(source=source, trial=item.get('isTrial') is True)
+        except (KeyError, TypeError, ValueError, AttributeError, ServiceError):
+            continue
+    meta = xbox_catalog(sorted(rights), country) if rights else {}
+    games, missing, art = [], 0, Path(base) / 'library-artwork'
+    for uid, right in rights.items():
+        item = meta.get(uid)
+        if item is None:
+            missing += 1
+            continue
+        if item['type'] != 'Game' or not item['windows']:
+            continue
+        games.append(dict(id='xbox:' + uid, platform='xbox', title=item['title'], format=item['format'],
+                          source=right['source'], artwork=item['artwork']))
+    if missing and not games:
+        raise ServiceError('The Microsoft Store did not return game names. Please retry. Your previous import is unchanged.')
+    try:
+        profile = xodus(base, ['profile', '--json'], timeout=8)
+        gamertag = text(profile.get('gamertag'), 40) if isinstance(profile, dict) else ''
+    except ServiceError:
+        gamertag = ''
+    # Art is optional: whatever is not fetched in time is retried on the next sync.
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+    try:
+        jobs = {}
+        for game in games:
+            path = art / ('xbox-' + game['id'][5:] + '.jpg')
+            if path.is_file():
+                game['artwork'] = str(path)
+            elif game['artwork']:
+                jobs[pool.submit(save_image, game['artwork'], path)] = game
+            else:
+                game['artwork'] = None
+        remaining = max(1, deadline - (time.monotonic() - started))
+        try:
+            for job in concurrent.futures.as_completed(jobs, timeout=remaining):
+                jobs[job]['artwork'] = job.result()
+        except concurrent.futures.TimeoutError:
+            pass
+        for job, game in jobs.items():
+            if not job.done() or not job.result():
+                game['artwork'] = None
+                job.cancel()
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    return games, 'Xbox · ' + gamertag if gamertag else 'Microsoft account'
+
+
 def account_path(base, platform):
-    if platform not in ('steam', 'gog'):
+    if platform not in PLATFORMS:
         raise ServiceError('Unsupported account provider.')
     return Path(base) / 'account-libraries' / (platform + '.json')
 
 
-def save_account(base, platform, games, label):
+def save_account(base, platform, games, label, market=None):
     path = account_path(base, platform)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     payload = dict(schema=1, platform=platform, label=label,
                    updated_at=datetime.datetime.now(datetime.timezone.utc).isoformat(), games=games)
+    if market:
+        payload['market'] = market
     data = json.dumps(payload, ensure_ascii=False).encode()
     if len(data) > LIMIT:
         raise ServiceError('This library exceeds the supported import size.')
@@ -262,7 +476,8 @@ def save_account(base, platform, games, label):
 
 def saved_accounts(base):
     accounts, games, warnings = [], [], []
-    for platform in ('steam', 'gog'):
+    art = (Path(base) / 'library-artwork').absolute()
+    for platform in PLATFORMS:
         path = account_path(base, platform)
         if not path.is_file():
             continue
@@ -276,13 +491,23 @@ def saved_accounts(base):
                 raise ValueError()
             imported = {}
             for game in data['games']:
-                uid = numeric_id(game['id'].removeprefix(platform + ':'))
+                uid = platform_id(platform, game['id'].removeprefix(platform + ':'))
                 if game['id'] != platform + ':' + uid or not text(game.get('title')):
                     raise ValueError()
-                imported[game['id']] = dict(id=game['id'], platform=platform, title=text(game['title']),
-                                           install_path='', artwork=None, issue=None, owned=True)
+                entry = dict(id=game['id'], platform=platform, title=text(game['title']),
+                             install_path='', artwork=None, issue=None, owned=True)
+                if platform == 'xbox':
+                    picture = Path(str(game.get('artwork') or ''))
+                    if picture.is_absolute() and picture.parent == art and picture.name == 'xbox-' + uid + '.jpg' and picture.is_file():
+                        entry['artwork'] = str(picture)
+                    entry['format'] = text(game.get('format'), 20) or None
+                    entry['source'] = 'gamepass' if game.get('source') == 'gamepass' else 'owned'
+                    if entry['format'] not in ('MSIXVC', 'BUNDLE'):
+                        entry['issue'] = ('This game uses the MSIXVC2 package format, which the Xodus backend does not support yet.'
+                                          if entry['format'] == 'MSIXVC2' else 'No Windows PC package that Soju can download.')
+                imported[game['id']] = entry
             games.extend(imported.values())
             accounts.append(dict(platform=platform, label=text(data.get('label')), updated_at=text(data.get('updated_at')), count=len(imported)))
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
-            warnings.append(platform.title() + ' account import could not be read. Reconnect it in Accounts.')
+            warnings.append({'steam': 'Steam', 'gog': 'Gog', 'xbox': 'Xbox'}[platform] + ' account import could not be read. Reconnect it in Accounts.')
     return accounts, games, warnings

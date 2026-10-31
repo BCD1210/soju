@@ -10,7 +10,8 @@ component updates and diagnostics; the CLI and individual shortcuts remain avail
 Sign in to **Steam** to import your owned library, or import the
 owned library cached by **GOG GALAXY**. Installed and uninstalled games share the
 same library, with availability filters and official-client install actions.
-**Discover** searches Steam and GOG listings and prices, with links to buy from the stores. Purchases, downloads and updates stay with the official stores.
+**Discover** searches Steam, GOG and Microsoft Store listings and prices, with links to buy from the stores.
+**Xbox PC (experimental):** sign in to a Microsoft account to import owned and PC Game Pass games and download them through the [Xodus](https://github.com/xodus-gaming/xodus) backend. Starting Xbox PC games is not available yet. Purchases, downloads and updates stay with the official stores.
 Epic and Battle.net account imports are not included yet. Compatibility varies by game.
 
 ![Soju unified game library](docs/assets/soju-library.png)
@@ -53,6 +54,7 @@ All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher
 | Epic Games Launcher | ✅ | ✅ | parks in the menu bar tray on close |
 | GOG GALAXY | ✅ | ✅ | login + library; games not broadly tested yet |
 | Steam (Windows client) | ✅ | ✅ | private Wine 11 + DXMT bottle |
+| Xbox PC / Microsoft Store | ✅ | download only | Xodus backend; games cannot be started yet |
 
 | Game | Store | Graphics | Status | Notes |
 | --- | --- | --- | :-: | --- |
@@ -162,6 +164,26 @@ scripts/play.sh gog-kill          # stop the GOG bottle (closing the window park
 Verified 2026-08-30: install, login, library. GOG GALAXY 2.x is Qt6 + QtWebEngine, not CEF, and on this engine its window stays black because Qt's D3D11 compositing asks D3DMetal's DXGI for `IDXGIResource`, which it does not implement. The fix is to run Chromium on the CPU (`--disable-gpu`), but GOG overwrites `QTWEBENGINE_CHROMIUM_FLAGS` itself and ignores its own command line, and it checksums its executable, so nothing outside the engine can inject the switch. The engine therefore carries a small hook (`patches/chromium-flags-append.patch`): whenever a program sets `QTWEBENGINE_CHROMIUM_FLAGS`, the contents of `SOJU_CHROMIUM_FLAGS` are appended. `play.sh gog` sets it. The same patch set adds `WINE_CUSTOM_FRAME`, which stops the Mac driver from putting a macOS title bar on top of GOG's own. Details in [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md).
 
 Games have not been broadly tested yet; anything that needs kernel anti-cheat (EAC/BattlEye) will not run under Wine.
+
+## Xbox PC / Microsoft Store (Xodus backend, downloads only)
+
+Soju can sign in to a Microsoft account, import owned and PC Game Pass games, search the Microsoft Store and download games. **It cannot start Xbox PC games yet.** Downloaded games show as *Downloaded* in the library, and Play stays disabled.
+
+The backend is [Xodus](https://github.com/xodus-gaming/xodus) (GPL-3.0). It has no macOS release, so `soju xbox-install` builds it on your Mac: it clones Xodus at a pinned commit, applies 44 patches from [MACxus](https://github.com/fladnaG86/MACxus) (MIT; they add the library, package and progress commands and the macOS Keychain store), checks the SHA-256 of every patch and of `Cargo.lock`, and builds with Rust 1.99 through rustup. The first build takes a few minutes and needs about 1.5 GB of temporary disk. The pins are in `resources/xodus-backend.json`. The patched source is kept in `~/.battlenet-macos/build/xodus-src`.
+
+```bash
+soju xbox-install            # build the backend (installs rustup/protobuf with Homebrew if missing)
+soju xbox-login              # Microsoft's own sign-in page in a window
+soju xbox-sync US            # import owned + Game Pass games (US, KR, GB, DE, JP)
+soju xbox-download 9N116V0599HB   # download by Store product ID; run again to resume
+soju xbox-logout             # sign out; downloaded games stay
+```
+
+- Downloads go to `~/.battlenet-macos/xbox-bottle/drive_c/XboxGames/<ProductId>` and resume from where they stopped.
+- Only GDK games in the MSIXVC format can be downloaded. Games packaged as MSIXVC2 are marked *Not supported* ([xodus#53](https://github.com/xodus-gaming/xodus/issues/53)).
+- The Microsoft sign-in is stored in the macOS Keychain as "Xodus Service". macOS may ask to allow access after a backend rebuild. Soju stores only game IDs, titles, package format and box art, never the account name or tokens.
+- The owned-library list comes from the same Microsoft endpoint the Xbox PC app uses. If Microsoft changes it, the import fails and the previous import is kept.
+- Game launch needs Xbox services (xgameruntime) in Wine. That part is still in progress upstream, so Soju will add it once a game runs on Soju's engine.
 
 ## Steam (including the Steam version of D2R)
 

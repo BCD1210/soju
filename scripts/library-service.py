@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import sqlite3
 import sys
-from library_services import (ServiceError, search, steam_owned, gog_owned, gog_users,
+from library_services import (ServiceError, search, steam_owned, gog_owned, gog_users, xbox_owned,
                               save_account, account_path)
 
 def main():
@@ -35,9 +35,12 @@ def main():
                 games, label = steam_owned(settings)
             elif args.value == 'gog':
                 games, label = gog_owned(args.base, settings)
+            elif args.value == 'xbox':
+                games, label = xbox_owned(args.base, settings)
             else:
                 raise ServiceError('Unsupported account provider.')
-            result = save_account(args.base, args.value, games, label)
+            market = settings.get('market') if args.value == 'xbox' else None
+            result = save_account(args.base, args.value, games, label, market or None)
         print(json.dumps(result, ensure_ascii=False))
     except ServiceError as error:
         print(json.dumps({'error': str(error)}))

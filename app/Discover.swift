@@ -64,7 +64,7 @@ struct DiscoverView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 7) {
                     Text("Find your next game").font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("Search Steam and GOG. Compare games and prices.").font(.callout).foregroundStyle(.secondary)
+                    Text("Search Steam, GOG and the Microsoft Store. Compare games and prices.").font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -80,8 +80,8 @@ struct DiscoverView: View {
             }
             HStack {
                 Picker("Store", selection: $platform) {
-                    Text("Steam & GOG").tag("all"); Text("Steam").tag("steam"); Text("GOG").tag("gog")
-                }.pickerStyle(.segmented).frame(width: 270).accessibilityLabel("Store results filter")
+                    Text("All stores").tag("all"); Text("Steam").tag("steam"); Text("GOG").tag("gog"); Text("Microsoft").tag("xbox")
+                }.pickerStyle(.segmented).frame(width: 340).accessibilityLabel("Store results filter")
                 Spacer()
                 if store.searching {
                     ProgressView().controlSize(.small)
@@ -130,7 +130,7 @@ struct DiscoverView: View {
                 } placeholder: { Image(systemName: item.platform.symbol).font(.largeTitle).foregroundStyle(.secondary) }
             }.frame(height: 120).clipShape(RoundedRectangle(cornerRadius: 9))
             HStack {
-                Text(item.platform == .steam ? "STEAM" : "GOG").font(.caption.bold()).foregroundStyle(.secondary)
+                Text(item.platform == .steam ? "STEAM" : item.platform == .xbox ? "MICROSOFT STORE" : "GOG").font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
                 if let owned { Text(owned.isInstalled ? "Installed" : "In your library").font(.caption).foregroundStyle(.green) }
             }
@@ -141,7 +141,11 @@ struct DiscoverView: View {
                 if item.mac { Text("macOS listed").font(.caption).foregroundStyle(.secondary) }
             }
             HStack {
-                if let owned {
+                if let owned, owned.platform == .xbox {
+                    Button(owned.isInstalled ? "Downloaded" : model.downloads[owned.id] != nil ? "Downloading…" : "Download") {
+                        model.installOwnedGame(owned)
+                    }.disabled(model.busy || owned.isInstalled || owned.downloadBlocked || model.downloads[owned.id] != nil)
+                } else if let owned {
                     Button(owned.isInstalled ? "Play" : owned.platform == .steam ? "Install in Steam" : "Open Galaxy") {
                         if owned.isInstalled { model.play(owned) } else { model.installOwnedGame(owned) }
                     }.disabled(model.busy)

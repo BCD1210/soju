@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Soju one-line installer: Battle.net, Steam, Epic and GOG launchers on Apple Silicon, no CrossOver.
+# Soju one-line installer: Battle.net, Steam, Epic and GOG launchers (plus Xbox PC downloads) on Apple Silicon, no CrossOver.
 #   curl -fsSL soju.snack-wrap.com/install.sh | bash
 #   curl -fsSL https://soju.snack-wrap.com/install.sh | SOJU_PLATFORMS=battlenet,epic,gog bash     (non-interactive selection)
 #
@@ -20,7 +20,7 @@ TTY=/dev/tty
 say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 # ---------- 1. Choose launchers before any download ----------
-ALL="battlenet steam epic gog"
+ALL="battlenet steam epic gog xbox"
 if [ -n "${SOJU_PLATFORMS:-}" ]; then
   PLATFORMS="$(echo "$SOJU_PLATFORMS" | tr ',' ' ')"
 else
@@ -30,6 +30,8 @@ else
   2) Steam                (Windows client on private Wine 11, D3D11 games via DXMT)
   3) Epic Games Launcher
   4) GOG GALAXY
+  5) Xbox PC / Microsoft Store (Xodus backend: sign-in, library and downloads;
+     launching games is not available yet; builds from source, a few minutes)
 EOT
   read -r -p "  Your choice [1]: " choice < "$TTY" || choice=1
   [ -n "$choice" ] || choice=1
@@ -40,6 +42,7 @@ EOT
       2|steam)     PLATFORMS="$PLATFORMS steam" ;;
       3|epic)      PLATFORMS="$PLATFORMS epic" ;;
       4|gog)       PLATFORMS="$PLATFORMS gog" ;;
+      5|xbox)      PLATFORMS="$PLATFORMS xbox" ;;
       *) echo "Unknown choice: $c"; exit 64 ;;
     esac
   done
@@ -48,12 +51,13 @@ for p in $PLATFORMS; do case " $ALL " in *" $p "*) ;; *) echo "Unknown platform:
 [ -n "${PLATFORMS// /}" ] || { echo "Nothing selected."; exit 64; }
 echo "  Installing:$PLATFORMS"
 
-NEEDS_CX=0; NEEDS_STEAM=0
+NEEDS_CX=0; NEEDS_STEAM=0; NEEDS_XODUS=0
 for p in $PLATFORMS; do
-  case "$p" in steam) NEEDS_STEAM=1 ;; *) NEEDS_CX=1 ;; esac
+  # Xbox PC only downloads for now, so it needs neither Wine engine.
+  case "$p" in steam) NEEDS_STEAM=1 ;; xbox) NEEDS_XODUS=1 ;; *) NEEDS_CX=1 ;; esac
 done
 if [ "${1:-}" = "--plan" ]; then
-  printf 'platforms=%s\ncx_engine=%s\napple_gptk=%s\nsteam_runtime=%s\n' "$PLATFORMS" "$NEEDS_CX" "$NEEDS_CX" "$NEEDS_STEAM"
+  printf 'platforms=%s\ncx_engine=%s\napple_gptk=%s\nsteam_runtime=%s\nxodus_backend=%s\n' "$PLATFORMS" "$NEEDS_CX" "$NEEDS_CX" "$NEEDS_STEAM" "$NEEDS_XODUS"
   exit 0
 fi
 
@@ -216,6 +220,9 @@ for p in $PLATFORMS; do
         say "GOG GALAXY: creating the bottle + running GOG's installer"
         WINEPREFIX="$BASE/gog-bottle" bash "$SOJU_DIR/scripts/create-gog-bottle.sh"
       fi ;;
+    xbox)
+      say "Xbox PC: building the Xodus backend from source (Rust; a few minutes the first time)"
+      bash "$SOJU_DIR/scripts/xbox.sh" install ;;
   esac
   # The client EXE does not prove its helper build completed.
   case "$p" in
@@ -254,6 +261,7 @@ for p in $PLATFORMS; do
     steam)     make_app "Steam (Windows)" steam app.soju.steam ;;
     epic)      make_app "Epic Games Launcher" epic app.soju.epic ;;
     gog)       make_app "GOG GALAXY" gog app.soju.gog ;;
+    xbox)      echo "  Xbox PC has no launcher app: sign in from Soju > Accounts, or run soju xbox-login" ;;
   esac
 done
 
