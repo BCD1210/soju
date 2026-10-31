@@ -11,6 +11,9 @@ XBOX_HOME="$BASE/xbox-bottle"
 # nothing account-related reaches Soju's log files.
 export XODUS_LOG=error
 
+# pkill -f takes a regex: escape the path and anchor it at the start of the command.
+pattern() { printf '^%s' "$(printf '%s' "$1" | sed 's/[][\.*^$()+?{}|]/\\&/g')"; }
+
 need_backend() {
   if [ -n "${SOJU_XODUS_BIN:-}" ]; then
     [ -x "$XODUS_CLI" ] || { echo "SOJU_XODUS_BIN must point to an xodus-cli build with the Nexus commands." >&2; exit 1; }
@@ -66,8 +69,14 @@ print("Signed in" if json.load(sys.stdin).get("stored") else "Not signed in")' ;
     need_backend
     exec python3 "$ROOT/scripts/xbox-download.py" "${2:?Choose a game (Store product ID)}" ;;
   kill)
-    pkill -f "$XODUS_CLI streaming" 2>/dev/null && echo "Download stopped. Download again to resume." || echo "No Xbox download is running."
+    pkill -f "$(pattern "$XODUS_CLI") streaming " 2>/dev/null && echo "Download stopped. Download again to resume." || echo "No Xbox download is running."
     # SIGTERM lets xbox-run.py ask xodus-cli to stop the game and copy its saves back.
-    pkill -TERM -f "$ROOT/scripts/xbox-run.py" 2>/dev/null && echo "Game stop requested." || true ;;
+    # Running games record their pid; only a live xbox-run.py with that pid is signalled.
+    for f in "$BASE"/run/xbox-*.pid; do
+      [ -f "$f" ] || continue
+      p="$(cat "$f" 2>/dev/null)"
+      case "$p" in ''|*[!0-9]*) continue ;; esac
+      ps -p "$p" -o command= 2>/dev/null | grep -q 'xbox-run\.py' && kill -TERM "$p" && echo "Game stop requested."
+    done ;;
   *) echo "Usage: xbox.sh install|prepare|login|logout [--device]|status|download <ProductId>|run <ProductId>|kill" >&2; exit 64 ;;
 esac

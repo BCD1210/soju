@@ -105,12 +105,15 @@ def vc_runtime():
     if not good():
         print('Downloading the Microsoft VC++ runtime…', flush=True)
         subprocess.run(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
-                        '--max-time', '600', VC['url'], '--output', str(exe)], check=True)
+                        '--proto-redir', '=https', '--max-time', '600', VC['url'], '--output', str(exe)], check=True)
         if not good():
             exe.unlink(missing_ok=True)
             raise PrefixError('The VC++ runtime download did not match its checksum.')
     print('Installing the VC++ runtime into the Xbox prefix…', flush=True)
-    wine(['Z:' + str(exe).replace('/', '\\'), '/install', '/quiet', '/norestart'], timeout=900)
+    code = wine(['Z:' + str(exe).replace('/', '\\'), '/install', '/quiet', '/norestart'], timeout=900)
+    # 1638: a same or newer version is installed; 3010: installed, restart pending.
+    if code not in (0, 1638, 3010):
+        raise PrefixError('The VC++ runtime did not install (code ' + str(code) + '). Run Diagnose and retry.')
 
 
 def prepare():

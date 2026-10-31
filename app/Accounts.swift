@@ -99,21 +99,27 @@ extension SojuModel {
     func forgetAccount(_ platform: Launcher) {
         guard !accountBusy else { return }
         do {
-            let url = base.appendingPathComponent("account-libraries/" + platform.rawValue + ".json")
-            if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
             if platform == .xbox {
+                // Running downloads need the sign-in; pause them first. The import is
+                // removed by xbox.sh only after the sign-out itself succeeded.
+                for task in downloadTasks.values { task.terminate() }
+                stoppingDownloads.formUnion(downloadTasks.keys)
                 accountBusy = true; accountMessage = "Signing out of Microsoft…"
                 let (p, _) = try task(["xbox", "logout"], logName: "xbox-account")
                 p.terminationHandler = { [weak self] process in
                     DispatchQueue.main.async {
                         guard let self else { return }
                         self.accountBusy = false
-                        self.accountMessage = process.terminationStatus == 0 ? "Signed out of Microsoft. Downloaded games are kept." : "Sign-out did not finish. Open Diagnostics in Library for details."
+                        self.accountMessage = process.terminationStatus == 0 ? "Signed out of Microsoft. Downloaded games are kept." : "Sign-out did not finish, so you are still signed in. Open Diagnostics in Library for details."
                         self.reloadAccountLibrary()
                     }
                 }
                 try p.run()
-            } else if platform == .steam {
+                return
+            }
+            let url = base.appendingPathComponent("account-libraries/" + platform.rawValue + ".json")
+            if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+            if platform == .steam {
                 accountBusy = true
                 SteamWebSession.clear { [weak self] in
                     DispatchQueue.main.async {
@@ -151,14 +157,18 @@ extension SojuModel {
                     self.downloadTimers.removeValue(forKey: game.id)?.invalidate()
                     self.downloadTasks.removeValue(forKey: game.id); self.downloads.removeValue(forKey: game.id)
                     let stopped = self.stoppingDownloads.remove(game.id) != nil
+                    NSApp.dockTile.badgeLabel = self.downloadTasks.isEmpty ? nil : String(self.downloadTasks.count)
                     if stopped && process.terminationStatus != 0 {
                         self.activity = "Download of " + game.title + " paused. Download again to resume it."
                     } else if process.terminationReason == .exit && process.terminationStatus == 0 {
                         self.activity = game.title + " is downloaded."
+                        NSApp.requestUserAttention(.informationalRequest)
                     } else if process.terminationReason == .exit {
                         let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
                         let reason = text.split(separator: "\n").last(where: { $0.hasPrefix("soju: ") }).map { String($0.dropFirst(6)) }
-                        self.libraryIssue = reason ?? ("The download of " + game.title + " stopped. Download again to resume it.")
+                        self.issueTitle = "Couldn't download " + game.title
+                        self.libraryIssue = reason ?? "The download stopped. Download again to resume it."
+                        NSApp.requestUserAttention(.informationalRequest)
                         self.log = String(text.suffix(60000))
                     } else {
                         self.activity = "Download of " + game.title + " stopped. Download again to resume it."
@@ -167,11 +177,16 @@ extension SojuModel {
                 }
             }
             try p.run()
+            NSApp.dockTile.badgeLabel = String(downloadTasks.count)
             activity = "Downloading " + game.title + "…"
         } catch {
             downloadTasks.removeValue(forKey: game.id); downloads.removeValue(forKey: game.id)
             libraryIssue = "Could not start the download: " + error.localizedDescription
         }
+    }
+    func pauseAllDownloads() {
+        stoppingDownloads.formUnion(downloadTasks.keys)
+        for task in downloadTasks.values { task.terminate() }
     }
     func stopDownload(_ game: InstalledGame) {
         guard let task = downloadTasks[game.id] else { return }
@@ -187,15 +202,18 @@ extension SojuModel {
             downloads[id] = line.trimmingCharacters(in: .whitespaces)
         }
     }
+    func cancelSignIn() { signInTask?.terminate() }
     func xboxSignIn(market: String) {
         guard !accountBusy else { return }
         accountBusy = true; accountMessage = "Finish signing in on the Microsoft page that opened…"
         do {
             let (p, url) = try task(["xbox", "login"], logName: "xbox-account")
+            signInTask = p
             p.terminationHandler = { [weak self] process in
                 DispatchQueue.main.async {
                     guard let self else { return }
-                    self.accountBusy = false
+                    self.accountBusy = false; self.signInTask = nil
+                    if process.terminationReason == .uncaughtSignal { self.accountMessage = "Sign-in cancelled."; return }
                     if process.terminationStatus == 0 { self.syncAccount(.xbox, input: ["market": market]) }
                     else {
                         let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
@@ -216,7 +234,8 @@ struct AccountsView: View {
     @State private var userID = ""
     @State private var userTask: Process?
     @State private var usersMessage = ""
-    @AppStorage("soju.xbox.market") private var market = "US"
+    @AppStorage("soju.store.region") private var market = "US"
+    @State private var confirmDisconnect = false
     private func summary(_ platform: Launcher) -> AccountSummary? { model.accountSummaries.first { $0.platform == platform } }
     var body: some View {
         ScrollView {
@@ -265,24 +284,31 @@ struct AccountsView: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 12) {
                         accountHeader(.xbox)
-                        Text("Sign in with your Microsoft account on Microsoft's own page. Soju imports the games you own and your PC Game Pass games, downloads them and starts them on its engine (experimental; not every game works).")
+                        Text("Sign in with your Microsoft account on Microsoft's own page. Soju imports the games you own and your PC Game Pass games, downloads them and starts them. Xbox PC support is experimental: not every game works.")
                             .font(.callout).foregroundStyle(.secondary)
-                        Text("Your sign-in stays in the macOS Keychain (\u{201C}Xodus Service\u{201D}); macOS may ask once to allow access. Games using the newer MSIXVC2 format cannot be downloaded yet.")
+                        Text("Your sign-in stays in the macOS Keychain; macOS may ask once to allow access. Some newer games can't be downloaded yet.")
                             .font(.caption).foregroundStyle(.secondary)
                         HStack {
                             Picker("Store region", selection: $market) {
-                                Text("US").tag("US"); Text("Korea").tag("KR"); Text("UK").tag("GB")
-                                Text("Germany").tag("DE"); Text("Japan").tag("JP")
-                            }.frame(width: 190)
+                                Text("US · USD").tag("US"); Text("Korea · KRW").tag("KR"); Text("UK · GBP").tag("GB")
+                                Text("Germany · EUR").tag("DE"); Text("Japan · JPY").tag("JP")
+                            }.frame(width: 230)
+                                .help("Used for the Xbox library and Discover. A connected library syncs again when you change it.")
+                                .onChange(of: market) {
+                                    if summary(.xbox) != nil && !model.accountBusy { model.syncAccount(.xbox, input: ["market": market]) }
+                                }
                             if !model.installed.contains(.xbox) {
-                                Text("Set up Xbox PC in Platforms first.").font(.caption).foregroundStyle(.orange)
+                                Button("Set Up Xbox PC…") { model.requestedPage = "platforms" }.buttonStyle(.link)
                             }
                             Spacer()
+                            if model.signInTask != nil {
+                                Button("Cancel") { model.cancelSignIn() }
+                            }
                             if summary(.xbox) != nil {
-                                Button("Sync Xbox library") { model.syncAccount(.xbox, input: ["market": market]) }
+                                Button("Sync Xbox Library") { model.syncAccount(.xbox, input: ["market": market]) }
                                     .buttonStyle(.borderedProminent).disabled(model.accountBusy || !model.installed.contains(.xbox))
                             } else {
-                                Button("Sign in to Microsoft") { model.xboxSignIn(market: market) }
+                                Button("Sign In to Microsoft…") { model.xboxSignIn(market: market) }
                                     .buttonStyle(.borderedProminent).disabled(model.accountBusy || !model.installed.contains(.xbox))
                             }
                         }
@@ -306,6 +332,13 @@ struct AccountsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }.padding(28)
         }.onAppear(perform: loadUsers)
+            .confirmationDialog("Sign out of Xbox PC?", isPresented: $confirmDisconnect) {
+                Button("Sign Out", role: .destructive) { model.forgetAccount(.xbox) }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(model.downloadTasks.isEmpty ? "Your imported Xbox library is removed. Downloaded games stay on this Mac."
+                     : "Running downloads are paused. Your imported Xbox library is removed; downloaded games stay on this Mac.")
+            }
             .sheet(isPresented: $showSteamLogin) {
                 SteamLoginView(root: model.root, completion: { value in
                     showSteamLogin = false
@@ -319,7 +352,9 @@ struct AccountsView: View {
             if let value = summary(platform) {
                 Text(verbatim: "\(value.label) · \(value.count) games · \(value.updatedAt.prefix(10))").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Button("Disconnect") { model.forgetAccount(platform) }.disabled(model.accountBusy)
+                Button(platform == .xbox ? "Sign Out…" : "Disconnect") {
+                    if platform == .xbox { confirmDisconnect = true } else { model.forgetAccount(platform) }
+                }.disabled(model.accountBusy)
             } else { Spacer(); Text("Not connected").font(.caption).foregroundStyle(.secondary) }
         }
     }

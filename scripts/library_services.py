@@ -155,10 +155,13 @@ def xbox_image(value):
     return safe_image('https:' + value.split('?', 1)[0] + '?w=400', 'xbox')
 
 
-def xbox_catalog(ids, country):
-    """Public Microsoft Store metadata: title, art, price and Windows package formats."""
+def xbox_catalog(ids, country, deadline=None):
+    """Public Microsoft Store metadata: title, art, price and Windows package formats.
+    With a deadline (time.monotonic()), stops early; missing IDs are left out."""
     result = {}
     for start in range(0, len(ids), 20):
+        if deadline is not None and time.monotonic() > deadline:
+            break
         chunk = [xbox_id(i) for i in ids[start:start + 20]]
         data = get_json(CATALOG + 'products?' + urllib.parse.urlencode({
             'bigIds': ','.join(chunk), 'market': country, 'languages': XBOX_LOCALES[country] + ',neutral'}))
@@ -402,7 +405,7 @@ def xbox_owned(base, settings, deadline=36):
                 rights[uid] = dict(source=source, trial=item.get('isTrial') is True)
         except (KeyError, TypeError, ValueError, AttributeError, ServiceError):
             continue
-    meta = xbox_catalog(sorted(rights), country) if rights else {}
+    meta = xbox_catalog(sorted(rights), country, started + 22) if rights else {}
     games, missing, art = [], 0, Path(base) / 'library-artwork'
     for uid, right in rights.items():
         item = meta.get(uid)
@@ -503,7 +506,7 @@ def saved_accounts(base):
                     entry['format'] = text(game.get('format'), 20) or None
                     entry['source'] = 'gamepass' if game.get('source') == 'gamepass' else 'owned'
                     if entry['format'] not in ('MSIXVC', 'BUNDLE'):
-                        entry['issue'] = ('This game uses the MSIXVC2 package format, which the Xodus backend does not support yet.'
+                        entry['issue'] = ('This game uses a newer package format that Soju can\'t download yet.'
                                           if entry['format'] == 'MSIXVC2' else 'No Windows PC package that Soju can download.')
                 imported[game['id']] = entry
             games.extend(imported.values())

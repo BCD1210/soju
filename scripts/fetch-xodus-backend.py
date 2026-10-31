@@ -40,9 +40,16 @@ def recipe(manifest):
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
+KEEP = ("HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "SSL_CERT_FILE",
+        "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy")
+
+
 def environment():
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("DYLD_", "WINE", "CX_", "RUSTFLAGS", "CARGO_"))}
-    env.update(PATH=PATH, XODUS_LOG="error")
+    """Only what the build needs: no inherited RUSTC_WRAPPER, RUSTFLAGS, CARGO_*, GIT_*
+    or toolchain overrides, and no user/system git config (URL rewrites)."""
+    env = {k: os.environ[k] for k in KEEP if k in os.environ}
+    env.update(PATH=PATH, XODUS_LOG="error", GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL="/dev/null",
+               GIT_TERMINAL_PROMPT="0")
     return env
 
 
@@ -61,9 +68,18 @@ def works(cli):
         return False
 
 
-def ready(target, manifest):
+def marker(target):
     try:
-        return ((target / ".soju-xodus").read_text().strip() == recipe(manifest)
+        return (target / ".soju-xodus").read_text().split()
+    except OSError:
+        return []
+
+
+def ready(target, manifest):
+    """The recipe matches and the binary is the one this recipe built (hash recorded at build)."""
+    lines = marker(target)
+    try:
+        return (len(lines) == 2 and lines[0] == recipe(manifest) and lines[1] == digest(target / "bin/xodus-cli")
                 and works(target / "bin/xodus-cli"))
     except OSError:
         return False
@@ -155,7 +171,7 @@ def install(base, src, binary, manifest):
     if not works(cli):
         shutil.rmtree(stage, ignore_errors=True)
         raise RuntimeError("The new Xodus backend does not start; the previous one is unchanged")
-    (stage / ".soju-xodus").write_text(recipe(manifest) + "\n")
+    (stage / ".soju-xodus").write_text(recipe(manifest) + "\n" + digest(cli) + "\n")
     # The patched tree is the corresponding source of the installed binary.
     shutil.rmtree(src / "target", ignore_errors=True)
     sources = base / "build/xodus-src"
@@ -177,6 +193,10 @@ def install(base, src, binary, manifest):
 
 def fetch(base, manifest):
     target = base / "xodus"
+    lines = marker(target)
+    if len(lines) == 1 and lines[0] == recipe(manifest) and works(target / "bin/xodus-cli"):
+        # Built by an earlier Soju that did not record the binary's hash yet.
+        (target / ".soju-xodus").write_text(lines[0] + "\n" + digest(target / "bin/xodus-cli") + "\n")
     if ready(target, manifest):
         ensure_service(target)
         print("Xodus backend ready (" + manifest["version"] + ")")

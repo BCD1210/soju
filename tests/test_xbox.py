@@ -139,7 +139,7 @@ class XboxImportTests(unittest.TestCase):
         self.assertEqual(warnings, [])
         issues = {g['id']: g['issue'] for g in owned}
         self.assertIsNone(issues['xbox:' + SILKSONG])
-        self.assertIn('MSIXVC2', issues['xbox:' + VOID])
+        self.assertIn('newer package format', issues['xbox:' + VOID])
 
     def test_backend_failure_hides_its_output(self):
         secret = 'eyJhbGciOi.secret-token'
@@ -235,7 +235,7 @@ class XboxLibraryTests(unittest.TestCase):
 
     def test_msixvc2_game_cannot_start_a_download(self):
         svc.save_account(self.base, 'xbox', [dict(id='xbox:' + VOID, platform='xbox', title='Void', format='MSIXVC2')], 'Xbox')
-        with self.assertRaisesRegex(ValueError, 'MSIXVC2'):
+        with self.assertRaisesRegex(ValueError, 'newer package format'):
             self.lib.command('xbox:' + VOID, install=True)
 
     def test_unfinished_download_can_resume_and_takes_the_store_name(self):
@@ -278,7 +278,7 @@ class XboxDownloadTests(unittest.TestCase):
         other = dict(self.CHOICE, contentId='11111111-1111-4111-8111-111111111111', title='Other')
         with self.assertRaisesRegex(download.DownloadError, 'several games'):
             download.choose(self.plan('choice', self.CHOICE, other), SILKSONG)
-        with self.assertRaisesRegex(download.DownloadError, 'MSIXVC2'):
+        with self.assertRaisesRegex(download.DownloadError, 'newer package format'):
             download.choose(self.plan('unavailable', dict(self.CHOICE, packageFormat='MSIXVC2', supported=False)), SILKSONG)
         with self.assertRaises(download.DownloadError):
             download.choose(self.plan('ready', dict(self.CHOICE, contentId='--evil')), SILKSONG)
@@ -356,7 +356,12 @@ class XodusBackendRecipeTests(unittest.TestCase):
             cli.chmod(0o755)
             self.assertFalse(backend.ready(target, self.manifest))
             (target / '.soju-xodus').write_text(backend.recipe(self.manifest) + '\n')
+            self.assertFalse(backend.ready(target, self.manifest))  # no binary hash recorded
+            (target / '.soju-xodus').write_text(backend.recipe(self.manifest) + '\n' + backend.digest(cli) + '\n')
             self.assertTrue(backend.ready(target, self.manifest))
+            cli.write_text('#!/bin/sh\nexit 0 # swapped\n')
+            self.assertFalse(backend.ready(target, self.manifest))
+            (target / '.soju-xodus').write_text(backend.recipe(self.manifest) + '\n' + backend.digest(cli) + '\n')
             with patch.object(backend, 'prepare_source') as prepare:
                 backend.fetch(Path(temp), self.manifest)
             prepare.assert_not_called()

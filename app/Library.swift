@@ -196,8 +196,8 @@ struct LibraryView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .sheet(item: $selected) { game in detail(game) }
         .sheet(isPresented: $showDiagnostics) { diagnostics }
-        .alert("Game needs attention", isPresented: Binding(get: { model.libraryIssue != nil }, set: { if !$0 { model.libraryIssue = nil } })) {
-            Button("View details") { model.libraryIssue = nil; showDiagnostics = true }
+        .alert(model.issueTitle, isPresented: Binding(get: { model.libraryIssue != nil }, set: { if !$0 { model.libraryIssue = nil; model.issueTitle = "Game needs attention" } })) {
+            Button("Show Log") { model.libraryIssue = nil; showDiagnostics = true }
             Button("OK", role: .cancel) { model.libraryIssue = nil }
         } message: { Text(model.libraryIssue ?? "") }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -263,7 +263,7 @@ struct LibraryView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(page == "favorites" ? "Your favorites" : "Your library")
                         .font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("Pick a game. Play it, or install it through its store.").font(.system(size: 13)).foregroundStyle(.secondary)
+                    Text("Pick a game. Play it, or install it from its store.").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button {
@@ -346,13 +346,19 @@ struct LibraryView: View {
                 }
                 Text(game.title).font(.system(size: 14, weight: .semibold)).lineLimit(2)
                     .frame(height: 36, alignment: .topLeading).frame(maxWidth: .infinity, alignment: .leading)
+                if let fraction = downloadFraction(game) {
+                    ProgressView(value: fraction).controlSize(.small)
+                        .accessibilityLabel("Download progress for " + game.title)
+                        .accessibilityValue(model.downloads[game.id] ?? "")
+                }
                 HStack {
                     Text(status(game, issue: issue)).font(.system(size: 10)).lineLimit(1)
-                        .foregroundStyle(issue == nil ? Color.secondary : Color.orange)
+                        .foregroundStyle(issue == nil || game.isPartialDownload ? Color.secondary : Color.orange)
                     Spacer()
-                    if let progress = model.downloads[game.id] {
-                        Button { model.stopDownload(game) } label: { Label("Stop", systemImage: "stop.fill") }
-                            .controlSize(.small).help(progress).accessibilityLabel("Stop downloading " + game.title)
+                    if model.downloads[game.id] != nil {
+                        Button { model.stopDownload(game) } label: { Label("Pause", systemImage: "pause.fill") }
+                            .controlSize(.small).help("Pause the download. Download again later to continue.")
+                            .accessibilityLabel("Pause downloading " + game.title)
                     } else if game.downloadBlocked {
                         Button { selected = game } label: { Label("Details", systemImage: "info.circle") }
                             .controlSize(.small).accessibilityLabel("Why " + game.title + " cannot be downloaded")
@@ -364,7 +370,7 @@ struct LibraryView: View {
                             Label(!game.isInstalled ? (game.isPartialDownload ? "Resume" : game.platform.ownedActionTitle) : model.launchingGames.contains(game.id) ? "Starting…" : issue == nil ? "Play" : "Details", systemImage: !game.isInstalled ? "arrow.down.circle" : issue == nil ? "play.fill" : "exclamationmark.circle")
                         }.buttonStyle(.borderedProminent).tint(green).controlSize(.small)
                             .disabled(model.busy || model.launchingGames.contains(game.id))
-                            .accessibilityLabel((!game.isInstalled ? game.platform.ownedActionTitle + " " : issue == nil ? "Play " : "Check ") + game.title)
+                            .accessibilityLabel((!game.isInstalled ? (game.isPartialDownload ? "Resume downloading " : game.platform.ownedActionTitle + " ") : issue == nil ? "Play " : "Check ") + game.title)
                     }
                 }
             }.padding(14)
@@ -381,9 +387,18 @@ struct LibraryView: View {
             }
     }
 
+    /// "42% · 3.1 GB / 7.4 GB · 48 MB/s" -> 0.42; nil while preparing or when not downloading.
+    private func downloadFraction(_ game: InstalledGame) -> Double? {
+        guard let progress = model.downloads[game.id], let head = progress.split(separator: "%").first,
+              head.count < progress.count, let value = Double(head) else { return nil }
+        return min(max(value / 100, 0), 1)
+    }
     private func status(_ game: InstalledGame, issue: String?) -> String {
-        // Percent and size fit the card; the speed stays in the Stop button's tooltip.
-        if let progress = model.downloads[game.id] { return progress.components(separatedBy: " · ").prefix(2).joined(separator: " · ") }
+        // The bar shows the percentage; the caption keeps the size and speed.
+        if let progress = model.downloads[game.id] {
+            let parts = progress.components(separatedBy: " · ")
+            return parts.count > 1 ? parts.dropFirst().joined(separator: " · ") : progress
+        }
         if game.platform == .xbox {
             if game.isPartialDownload { return "Paused" }
             if game.downloadBlocked { return "Not supported" }
@@ -404,7 +419,7 @@ struct LibraryView: View {
                     Text(game.platform.title).font(.system(size: 11, weight: .semibold)).foregroundStyle(game.platform.accent)
                     Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded))
                     Label(game.isInstalled ? "Installed on this Mac" : "Owned · not installed", systemImage: game.isInstalled ? "internaldrive" : "cloud").font(.system(size: 12)).foregroundStyle(.secondary)
-                    Text(game.platform == .xbox ? "Downloaded from the Microsoft Store with the Xodus backend. Xbox PC support is experimental: GDK games in the MSIXVC format start on Soju's engine, but not every game works. The first Play prepares the Xbox prefix (about two minutes)." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
+                    Text(game.platform == .xbox ? "Downloaded from the Microsoft Store. Xbox PC support is experimental: not every game works. The first launch can take about two minutes to set up." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                     if game.downloadBlocked, let issue = game.issue {
                         Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
@@ -430,19 +445,22 @@ struct LibraryView: View {
                 Button("Platforms") { selected = nil; page = "platforms" }
                 Spacer()
                 Button("Close") { selected = nil }.keyboardShortcut(.cancelAction)
-                Button(primaryTitle(game)) {
-                    selected = nil
-                    if game.isInstalled { model.play(game) } else { model.installOwnedGame(game) }
+                if model.downloads[game.id] != nil {
+                    Button("Pause Download") { model.stopDownload(game) }.keyboardShortcut(.defaultAction)
+                } else if !game.downloadBlocked {
+                    Button(primaryTitle(game)) {
+                        selected = nil
+                        if game.isInstalled { model.play(game) } else { model.installOwnedGame(game) }
+                    }
+                        .buttonStyle(.borderedProminent).tint(green).keyboardShortcut(.defaultAction)
+                        .disabled(model.busy || model.launchIssue(for: game) != nil || model.launchingGames.contains(game.id))
                 }
-                    .buttonStyle(.borderedProminent).tint(green)
-                    .disabled(model.busy || model.launchIssue(for: game) != nil || model.launchingGames.contains(game.id)
-                              || game.downloadBlocked || model.downloads[game.id] != nil)
             }
         }.padding(28).frame(width: 640)
     }
     private func primaryTitle(_ game: InstalledGame) -> String {
         if game.platform == .xbox {
-            return game.isInstalled ? "Play" : game.isPartialDownload ? "Resume download" : "Download"
+            return game.isInstalled ? "Play" : game.isPartialDownload ? "Resume Download" : "Download"
         }
         return game.isInstalled ? "Play" : game.platform == .steam ? "Install in Steam" : "Open Galaxy"
     }

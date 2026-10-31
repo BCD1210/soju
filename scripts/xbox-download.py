@@ -75,7 +75,7 @@ def choose(plan, pid):
         raise DownloadError('This Store offer contains several games (' + ', '.join(names) +
                             '). Download each one from its own entry in your library.')
     if any(c.get('packageFormat') == 'MSIXVC2' for c in choices):
-        raise DownloadError('This game uses the MSIXVC2 package format, which the Xodus backend does not support yet (xodus#53).')
+        raise DownloadError("This game uses a newer package format (MSIXVC2) that Soju can't download yet.")
     raise DownloadError('No Windows PC package for ' + pid + ' can be downloaded from the Microsoft Store.')
 
 
@@ -101,6 +101,11 @@ def size(value):
         value /= 1000
 
 
+def clean(line):
+    """Backend messages may carry request URLs (with query tokens); keep the words only."""
+    return re.sub(r'[a-z][a-z0-9+.-]*://\S+', '<url>', line.strip())[:300]
+
+
 def describe(record):
     phase = record.get('phase')
     done, total, rate = record.get('completedBytes'), record.get('totalBytes'), record.get('bytesPerSecond')
@@ -117,8 +122,9 @@ def describe(record):
 def stream(pid, choice, region, dest):
     args = [CLI, 'streaming', pid, str(dest), '--selected-content-id', choice['contentId'],
             '--market', region, '--progress-json']
+    # stderr joins stdout so every backend line goes through clean().
     process = subprocess.Popen(args, env=environment(), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                               text=True, bufsize=1)
+                               stderr=subprocess.STDOUT, text=True, bufsize=1, errors='replace')
     phase, shown = None, None
     try:
         for line in process.stdout:
@@ -137,7 +143,7 @@ def stream(pid, choice, region, dest):
                     print(text, flush=True)
                     shown = key
             elif line.strip():
-                print('  ' + line.strip()[:300], flush=True)
+                print('  ' + clean(line), flush=True)
     finally:
         # Stopping Soju's download also stops the backend; its checkpoint stays.
         if process.poll() is None:

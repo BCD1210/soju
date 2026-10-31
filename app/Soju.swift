@@ -16,7 +16,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .steam: return "Windows library · D3D11 with DXMT"
-        case .xbox: return "Microsoft Store · Xodus backend · Apple D3DMetal (experimental)"
+        case .xbox: return "Microsoft Store library · experimental"
         default: return "Windows library · Apple D3DMetal"
         }
     }
@@ -85,6 +85,8 @@ enum Launcher: String, CaseIterable, Identifiable {
     var downloadTasks: [String: Process] = [:]
     var downloadTimers: [String: Timer] = [:]
     var stoppingDownloads: Set<String> = []
+    @Published var signInTask: Process?
+    @Published var issueTitle = "Game needs attention"
     let base = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".battlenet-macos")
     let root = Bundle.main.resourceURL!.appendingPathComponent("soju")
     private var operation: Process?
@@ -103,9 +105,12 @@ enum Launcher: String, CaseIterable, Identifiable {
 
     func task(_ args: [String], logName: String) throws -> (Process, URL) {
         let dir = base.appendingPathComponent("logs")
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // Logs can name games, paths and backend errors: keep them to this user.
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
         let url = dir.appendingPathComponent(logName + ".log")
         try Data().write(to: url, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         let output = try FileHandle(forWritingTo: url)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/bash")
@@ -277,7 +282,7 @@ struct PlatformsView: View {
                 }
             }.padding(14).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
             HStack {
-                Text("Accounts, purchases and updates stay with each official launcher.")
+                Text("Accounts, purchases and updates stay with each official store.")
                 Spacer()
                 Text("v" + model.version)
             }.font(.system(size: 10)).foregroundStyle(.secondary)
@@ -310,7 +315,7 @@ struct PlatformsView: View {
                     .font(.system(size: 10)).foregroundStyle(.tertiary)
                 Spacer()
                 if installed && !launcher.opensAWindow {
-                    Button("Accounts") { model.requestedPage = "accounts" }
+                    Button(model.accountSummaries.contains { $0.platform == launcher } ? "Manage…" : "Sign In…") { model.requestedPage = "accounts" }
                         .accessibilityLabel("Open Accounts for " + launcher.title)
                 } else if installed {
                     Button(model.launching.contains(launcher) ? "Running" : "Open") { model.launch(launcher) }
@@ -330,7 +335,18 @@ struct PlatformsView: View {
 
 final class SojuDelegate: NSObject, NSApplicationDelegate {
     var isBusy: (() -> Bool)?
+    var downloads: (() -> Int)?
+    var pauseDownloads: (() -> Void)?
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if let count = downloads?(), count > 0 {
+            let alert = NSAlert()
+            alert.messageText = count == 1 ? "A download is in progress" : String(count) + " downloads are in progress"
+            alert.informativeText = "Quitting pauses them. Download again later to continue where they stopped."
+            alert.addButton(withTitle: "Pause and Quit")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+            pauseDownloads?()
+        }
         if isBusy?() == true {
             let alert = NSAlert()
             alert.messageText = "An operation is still running"
@@ -349,6 +365,8 @@ final class SojuDelegate: NSObject, NSApplicationDelegate {
         Window("Soju", id: "main") {
             LibraryView().environmentObject(model).onAppear {
                 delegate.isBusy = { model.busy }
+                delegate.downloads = { model.downloadTasks.count }
+                delegate.pauseDownloads = { model.pauseAllDownloads() }
                 NSApp.setActivationPolicy(.regular)
                 NSApp.activate(ignoringOtherApps: true)
             }

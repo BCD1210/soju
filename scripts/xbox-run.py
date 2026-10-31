@@ -85,10 +85,19 @@ def market():
     return value if value in MARKETS else 'US'
 
 
+def clean(line):
+    """Backend messages may carry request URLs (with query tokens); keep the words only."""
+    return re.sub(r'[a-z][a-z0-9+.-]*://\S+', '<url>', line.rstrip())[:500]
+
+
 class Bridge:
-    """127.0.0.1 TCP -> xodus-service socket. A client must send the key first."""
+    """127.0.0.1 TCP -> xodus-service socket. A client must send the key first.
+    Only a few connections may wait for authentication at once, briefly, so other
+    local processes cannot pile up threads during a game session."""
+    PENDING = 8
 
     def __init__(self, socket_path):
+        self.pending = threading.BoundedSemaphore(self.PENDING)
         self.socket_path = socket_path
         self.key = secrets.token_hex(32).encode()
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -104,18 +113,24 @@ class Bridge:
                 client, _ = self.server.accept()
             except OSError:
                 return
+            if not self.pending.acquire(blocking=False):
+                client.close()
+                continue
             threading.Thread(target=self.handle, args=(client,), daemon=True).start()
 
     def handle(self, client):
         upstream = None
+        waiting = True
         try:
-            client.settimeout(10)
+            client.settimeout(2)
             received = b''
             while len(received) < len(self.key):
                 chunk = client.recv(len(self.key) - len(received))
                 if not chunk:
                     return
                 received += chunk
+            waiting = False
+            self.pending.release()
             if not hmac.compare_digest(received, self.key):
                 return
             client.settimeout(None)
@@ -126,6 +141,8 @@ class Bridge:
         except OSError:
             pass
         finally:
+            if waiting:
+                self.pending.release()
             for s in (client, upstream):
                 if s:
                     try:
@@ -165,13 +182,17 @@ class Service:
         env = {'PATH': '/usr/bin:/bin', 'HOME': str(Path.home()), 'XDG_RUNTIME_DIR': str(self.directory), 'XODUS_LOG': 'error'}
         self.process = subprocess.Popen([str(binary)], env=env, stdin=subprocess.DEVNULL,
                                         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        # Drain stderr for the whole session (a full pipe would block the service);
+        # keep only whether it reported a credential problem.
+        self.credential_error = False
+        threading.Thread(target=self.drain, daemon=True).start()
         self.bridge = None
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             if self.process.poll() is not None:
-                error = (self.process.stderr.read() or b'').decode(errors='replace')
+                time.sleep(0.2)
                 self.stop()
-                if 'NEXUS_CREDENTIAL_ERROR_V1' in error:
+                if self.credential_error:
                     raise LaunchError('Sign in to your Microsoft account in Accounts, then press Play again.')
                 raise LaunchError('The Xbox account service stopped. Check your connection and sign-in, then retry.')
             try:
@@ -184,15 +205,23 @@ class Service:
         self.stop()
         raise LaunchError('The Xbox account service did not start within 90 seconds.')
 
+    def drain(self):
+        for line in self.process.stderr:
+            if b'NEXUS_CREDENTIAL_ERROR_V1' in line:
+                self.credential_error = True
+
     def stop(self):
         if self.bridge:
             self.bridge.close()
-        if self.process.poll() is None:
-            self.process.send_signal(signal.SIGINT)
+        # The service holds the account tokens: make sure it is gone.
+        for send in (lambda: self.process.send_signal(signal.SIGINT), self.process.terminate, self.process.kill):
+            if self.process.poll() is not None:
+                break
+            send()
             try:
                 self.process.wait(timeout=4)
             except subprocess.TimeoutExpired:
-                self.process.terminate()
+                pass
         shutil.rmtree(self.directory, ignore_errors=True)
 
 
@@ -202,6 +231,12 @@ def main():
         return 64
     service = game = None
     stop = threading.Event()
+    # xbox.sh kill signals only the pids recorded here (no command-line matching).
+    run_dir = BASE / 'run'
+    run_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    pid_file = run_dir / ('xbox-' + str(os.getpid()) + '.pid')
+    pid_file.write_text(str(os.getpid()))
+    pid_file.chmod(0o600)
     def interrupt(signum, frame):
         stop.set()
         if game and game.poll() is None:
@@ -230,7 +265,11 @@ def main():
                    XODUS_SAVE_SYNC='auto')
         game = subprocess.Popen([str(CLI), 'run', str(folder), str(ROOT / 'scripts/xbox-wine.sh'), '--exe', exe,
                                  '--materialize-chain', '--market', market()],
-                                cwd=str(folder), env=env, stdin=subprocess.DEVNULL)
+                                cwd=str(folder), env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True, bufsize=1, errors='replace')
+        for line in game.stdout:
+            if line.strip():
+                print(clean(line), flush=True)
         code = game.wait()
         print('The game exited (code ' + str(code) + ').', flush=True)
         return 0 if code == 0 or stop.is_set() else code
@@ -240,6 +279,7 @@ def main():
     finally:
         if service:
             service.stop()
+        pid_file.unlink(missing_ok=True)
 
 
 if __name__ == '__main__':

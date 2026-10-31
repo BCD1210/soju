@@ -53,7 +53,10 @@ for b in bottle steam-bottle epic-bottle gog-bottle xbox-bottle; do
   [ -d "$d" ] || continue
   sz=$(du -sh "$d" 2>/dev/null | cut -f1)
   if ask "Remove bottle $b ($sz, includes installed games)?"; then
-    [ "$b" != xbox-bottle ] || pkill -f "$BASE/xodus/bin/xodus-cli streaming" 2>/dev/null || true
+    if [ "$b" = xbox-bottle ]; then
+      bash "$ROOT/scripts/xbox.sh" kill >/dev/null 2>&1 || true
+      sh "$ROOT/scripts/xbox-wine.sh" --soju-stop-prefix 2>/dev/null || true
+    fi
     stop_bottle "$b"
     rm -rf "$d"; REMOVED=1; echo "  removed"
   fi
@@ -80,8 +83,14 @@ for d in xodus xodus.previous .xodus-stage; do
 done
 if [ "${#xodus[@]}" -gt 0 ]; then
   printf 'Xbox PC backend: %s\n' "${xodus[@]}"
+  # Offer the Microsoft sign-in too while the backend that can remove it still exists.
+  if [ -x "$BASE/xodus/bin/xodus-cli" ] && security find-generic-password -s "Xodus Service" >/dev/null 2>&1 &&
+     ask "Sign out of Microsoft (removes the Xbox sign-in from the Keychain)?"; then
+    XODUS_LOG=error "$BASE/xodus/bin/xodus-cli" logout --device >/dev/null 2>&1 && echo "  signed out" || echo "  sign-out failed; remove \"Xodus Service\" in Keychain Access"
+  fi
   if ask "Remove the Xodus backend (can be built again)?"; then
-    pkill -f "$BASE/xodus/bin/xodus-cli" 2>/dev/null || true
+    xodus_bin="$(printf '%s' "$BASE/xodus/bin/xodus-" | sed 's/[][\.*^$()+?{}|]/\\&/g')"
+    pkill -f "^${xodus_bin}(cli|service)( |$)" 2>/dev/null || true
     rm -rf "${xodus[@]}"; REMOVED=1; echo "  removed"
   fi
 fi
@@ -123,7 +132,7 @@ Not removed by this script (they are Homebrew's):
   brew uninstall --cask wine-stable      legacy Wine, only if separately installed
   brew uninstall mingw-w64               the wrapper build dependency
   brew uninstall protobuf rustup         Xodus build dependencies, if Soju installed them
-Also kept: the Microsoft sign-in in your Keychain ("Xodus Service"). Remove it
-with soju xbox-logout before uninstalling, or in Keychain Access.
+If you kept the Microsoft sign-in, it stays in your Keychain as "Xodus Service"
+(remove it in Keychain Access).
 EOT
 echo "Done."
