@@ -28,6 +28,9 @@ def load(name, file):
 library = load('soju_xbox_library', 'game-library.py')
 download = load('soju_xbox_download', 'xbox-download.py')
 backend = load('soju_xodus_backend', 'fetch-xodus-backend.py')
+runner = load('soju_xbox_run', 'xbox-run.py')
+prefix = load('soju_xbox_prefix', 'xbox-prefix.py')
+runtime = load('soju_xbox_runtime', 'fetch-xbox-runtime.py')
 
 SILKSONG, VOID, PASS = '9N116V0599HB', '9MW9469V91LM', '9NBLGGH4R315'
 FUTURE = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30)).isoformat()
@@ -196,16 +199,34 @@ class XboxLibraryTests(unittest.TestCase):
         (folder / '.soju-xbox-install.json').write_text(json.dumps(dict(schema=1, product_id=uid, title=title)))
         return folder
 
-    def test_downloaded_game_is_listed_but_not_playable(self):
+    def engine(self, gptk=True):
+        wine = self.base / 'cx26-engine/bin/wine'
+        wine.parent.mkdir(parents=True)
+        wine.write_text('#!/bin/sh\n')
+        wine.chmod(0o755)
+        if gptk:
+            art = self.base / 'cx26-engine/lib/external/libd3dshared.dylib'
+            art.parent.mkdir(parents=True)
+            art.write_text('')
+
+    def test_downloaded_game_plays_through_xbox_script(self):
         folder = self.downloaded()
+        self.engine()
         game = {g['id']: g for g in self.lib.scan()['games']}['xbox:' + SILKSONG]
         self.assertTrue(game['downloaded'])
         self.assertEqual(game['install_path'], str(folder))
-        self.assertIn('not available', game['issue'])
-        with self.assertRaisesRegex(ValueError, 'not available'):
-            self.lib.command('xbox:' + SILKSONG)
+        self.assertIsNone(game['issue'])
+        self.assertEqual(self.lib.command('xbox:' + SILKSONG), ['/bin/bash', str(ROOT / 'scripts/xbox.sh'), 'run', SILKSONG])
         with self.assertRaisesRegex(ValueError, 'already downloaded'):
             self.lib.command('xbox:' + SILKSONG, install=True)
+
+    def test_play_needs_the_engine_and_gptk(self):
+        self.downloaded()
+        with self.assertRaisesRegex(ValueError, 'same engine'):
+            self.lib.command('xbox:' + SILKSONG)
+        self.engine(gptk=False)
+        with self.assertRaisesRegex(ValueError, 'Game Porting Toolkit'):
+            self.lib.command('xbox:' + SILKSONG)
 
     def test_owned_game_downloads_through_xbox_script(self):
         svc.save_account(self.base, 'xbox', [dict(id='xbox:' + SILKSONG, platform='xbox', title='Silksong', format='MSIXVC')], 'Xbox')
@@ -377,7 +398,7 @@ class XodusBackendRecipeTests(unittest.TestCase):
 
 
 class XboxInstallerPlanTests(unittest.TestCase):
-    def test_xbox_needs_only_the_xodus_backend(self):
+    def test_xbox_needs_the_backend_and_the_cx_engine(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp) / 'untouched'
             result = subprocess.run(['/bin/bash', str(ROOT / 'install.sh'), '--plan'],
@@ -385,7 +406,8 @@ class XboxInstallerPlanTests(unittest.TestCase):
                                     capture_output=True, text=True)
             self.assertFalse(base.exists())
         self.assertEqual(result.returncode, 0, result.stderr)
-        for line in ('cx_engine=0', 'apple_gptk=0', 'steam_runtime=0', 'xodus_backend=1'):
+        # Games run on the CX engine with D3DMetal, so Xbox needs those too.
+        for line in ('cx_engine=1', 'apple_gptk=1', 'steam_runtime=0', 'xodus_backend=1'):
             self.assertIn(line, result.stdout)
 
     def test_cli_lists_xbox_commands(self):
@@ -398,3 +420,96 @@ class XboxInstallerPlanTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class XboxLaunchTests(unittest.TestCase):
+    def test_executable_comes_from_the_package_manifest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            (folder / 'microsoftgame.config').write_text(
+                '<?xml version="1.0"?><Game configVersion="1"><ExecutableList>'
+                '<Executable Name="Binaries\\Win64\\Game.exe" Id="Game"/></ExecutableList></Game>')
+            self.assertEqual(runner.executable(folder), 'Binaries\\Win64\\Game.exe')
+            (folder / 'microsoftgame.config').write_text('<Game><Executable Name="..\\..\\evil.exe"/></Game>')
+            with self.assertRaises(runner.LaunchError):
+                runner.executable(folder)
+            (folder / 'microsoftgame.config').unlink()
+            (folder / 'AppxManifest.xml').write_text(
+                '<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10">'
+                '<Applications><Application Id="App" Executable="Game.exe"/></Applications></Package>')
+            self.assertEqual(runner.executable(folder), 'Game.exe')
+
+    def test_bridge_requires_the_key_and_relays_to_the_service_socket(self):
+        import socket, threading
+        directory = tempfile.mkdtemp(prefix='sx', dir='/tmp')
+        self.addCleanup(lambda: __import__('shutil').rmtree(directory, ignore_errors=True))
+        path = directory + '/s.sock'
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server.bind(path)
+        server.listen(4)
+        def echo():
+            while True:
+                try:
+                    conn, _ = server.accept()
+                except OSError:
+                    return
+                data = conn.recv(100)
+                conn.sendall(b'echo:' + data)
+                conn.close()
+        threading.Thread(target=echo, daemon=True).start()
+        bridge = runner.Bridge(path)
+        self.addCleanup(bridge.close)
+        self.addCleanup(server.close)
+        with socket.create_connection(('127.0.0.1', bridge.port), timeout=5) as client:
+            client.sendall(bridge.key + b'hello')
+            self.assertEqual(client.recv(100), b'echo:hello')
+        with socket.create_connection(('127.0.0.1', bridge.port), timeout=5) as client:
+            client.sendall(b'0' * len(bridge.key) + b'hello')
+            try:
+                answer = client.recv(100)
+            except ConnectionResetError:
+                answer = b''
+            self.assertEqual(answer, b'')  # closed, nothing relayed
+
+    def test_runtime_dlls_lose_the_builtin_marker(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(prefix, 'RUNTIME', Path(temp) / 'rt'), \
+                patch.object(prefix, 'PREFIX', Path(temp) / 'pfx'):
+            (Path(temp) / 'rt').mkdir()
+            dll = bytearray(200)
+            dll[64:80] = prefix.BUILTIN
+            (Path(temp) / 'rt/xgameruntime.dll').write_bytes(bytes(dll))
+            prefix.install_dlls(['xgameruntime.dll'])
+            copied = (Path(temp) / 'pfx/drive_c/windows/system32/xgameruntime.dll').read_bytes()
+            self.assertEqual(copied[64:80], bytes(16))
+            self.assertEqual(len(copied), 200)
+
+    def test_prefix_settings_cover_every_runtime_dll(self):
+        names = json.loads((ROOT / 'resources/xbox-runtime.json').read_text())['dlls']
+        values = {args[4] for args in prefix.overrides(names) if args[2].endswith('DllOverrides')}
+        self.assertEqual(values, {n[:-4] for n in names} | {'concrt140'})
+        self.assertTrue(any('GamingServices' in args[2] for args in prefix.overrides(names)))
+
+    def test_runtime_manifest_pins_every_download(self):
+        m = json.loads((ROOT / 'resources/xbox-runtime.json').read_text())
+        for source in (m['macxus'], m['nexus']):
+            self.assertTrue(source['url'].startswith('https://github.com/'))
+            self.assertRegex(source['sha256'], r'^[0-9a-f]{64}$')
+            self.assertGreater(source['size'], 0)
+        self.assertEqual(len(m['dlls']), 6)
+        for value in m['dlls'].values():
+            self.assertRegex(value, r'^[0-9a-f]{64}$')
+
+    def test_asar_reader_returns_only_the_requested_folder(self):
+        import struct
+        files = {'a.dll': b'AAAA', 'b.txt': b'BB'}
+        offsets, body = {}, b''
+        for name, data in files.items():
+            offsets[name] = dict(size=len(data), offset=str(len(body)))
+            body += data
+        header = json.dumps({'files': {'assets': {'files': {'dlls': {'files': offsets}}},
+                                       'other': {'files': {}}}}).encode()
+        pickle = struct.pack('<II', len(header) + 4, len(header)) + header
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'app.asar'
+            path.write_bytes(struct.pack('<II', 4, len(pickle)) + pickle + body)
+            self.assertEqual(runtime.asar_files(path, 'assets/dlls'), files)

@@ -26,7 +26,8 @@ CLIENTS = {
     # Xbox PC has no Windows client: `xbox.sh install` writes this marker.
     'xbox': 'ProgramData/Soju/xbox.json',
 }
-XBOX_UNAVAILABLE = 'Launching Xbox PC games is not available in this version of Soju. The downloaded files are kept.'
+XBOX_ENGINE = 'Install Battle.net, Epic or GOG in Platforms first: Xbox PC games use the same engine.'
+XBOX_GPTK = "Add Apple's Game Porting Toolkit in Platforms before playing."
 # Product UIDs differ from the Battle.net launch command's product codes.
 BNET = {
     'osi': ('Diablo II: Resurrected', 'OSI'),
@@ -301,10 +302,15 @@ class Library:
                     title, ready = uid, False
                 else: continue
                 art = first_file([self.base / 'library-artwork' / ('xbox-' + uid + '.jpg')])
-                self.add('xbox', uid, title, location, [], art, ready)
+                self.add('xbox', uid, title, location, ['run', uid], art, ready)
                 game = self.games['xbox:' + uid]
-                if game['issue'] is None or game['issue'].startswith(('Finish', 'Open')):
-                    game['issue'] = XBOX_UNAVAILABLE if ready else 'This download is not finished. Download again to resume it.'
+                if not ready:
+                    game['issue'] = 'This download is not finished. Download again to resume it.'
+                elif game['issue'] is None:
+                    # The prefix itself is prepared on the first Play; the engine must exist.
+                    engine = self.base / 'cx26-engine'
+                    if not os.access(engine / 'bin/wine', os.X_OK): game['issue'] = XBOX_ENGINE
+                    elif not (engine / 'lib/external/libd3dshared.dylib').is_file(): game['issue'] = XBOX_GPTK
                 game['downloaded'] = ready
             except (OSError, ValueError, KeyError, TypeError, AttributeError):
                 self.warn('xbox', 'A download record could not be read. Download the game again to repair it.')
@@ -338,13 +344,15 @@ class Library:
         root = Path(__file__).resolve().parent
         if game['platform'] == 'xbox':
             if install:
-                if game.get('downloaded'): raise ValueError('This game is already downloaded. ' + XBOX_UNAVAILABLE)
+                if game.get('downloaded'): raise ValueError('This game is already downloaded. Use Play instead.')
                 if game.get('owned') is not True and not game['install_path']: raise ValueError('This game is not in your Xbox library.')
                 if game['issue'] and not game['install_path']: raise ValueError(game['issue'])
                 if not (self.base / FOLDERS['xbox'] / 'drive_c' / CLIENTS['xbox']).is_file():
                     raise ValueError('Set up Xbox PC in Platforms first.')
                 return ['/bin/bash', str(root / 'xbox.sh'), 'download', game_id.split(':', 1)[1]]
-            raise ValueError(game['issue'] or XBOX_UNAVAILABLE)
+            if not game.get('downloaded'): raise ValueError(game['issue'] or 'This game is owned but not downloaded. Download it first.')
+            if game['issue']: raise ValueError(game['issue'])
+            return ['/bin/bash', str(root / 'xbox.sh')] + game['arguments']
         if install:
             if game['install_path']: raise ValueError('This game is installed. Use Play instead.')
             client = self.base / FOLDERS[game['platform']] / 'drive_c' / CLIENTS[game['platform']]

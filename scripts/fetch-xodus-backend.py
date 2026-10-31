@@ -69,6 +69,18 @@ def ready(target, manifest):
         return False
 
 
+def ensure_service(target):
+    """xodus-service is the same binary as xodus-cli; the file name selects the role
+    (as MACxus ships it), so both share one code signature and Keychain grant."""
+    cli, service = target / "bin/xodus-cli", target / "bin/xodus-service"
+    if service.is_file() and digest(service) == digest(cli):
+        return
+    temporary = service.with_name(".xodus-service.tmp")
+    shutil.copy2(cli, temporary)
+    temporary.chmod(0o755)
+    os.replace(temporary, service)
+
+
 def tool(name, formula):
     if shutil.which(name, path=PATH):
         return
@@ -139,6 +151,7 @@ def install(base, src, binary, manifest):
     shutil.copy2(binary, cli)
     cli.chmod(0o755)
     run(["codesign", "-f", "-s", "-", str(cli)], capture_output=True)
+    ensure_service(stage)
     if not works(cli):
         shutil.rmtree(stage, ignore_errors=True)
         raise RuntimeError("The new Xodus backend does not start; the previous one is unchanged")
@@ -165,6 +178,7 @@ def install(base, src, binary, manifest):
 def fetch(base, manifest):
     target = base / "xodus"
     if ready(target, manifest):
+        ensure_service(target)
         print("Xodus backend ready (" + manifest["version"] + ")")
         return target
     base.mkdir(parents=True, exist_ok=True)

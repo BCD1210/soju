@@ -30,8 +30,8 @@ else
   2) Steam                (Windows client on private Wine 11, D3D11 games via DXMT)
   3) Epic Games Launcher
   4) GOG GALAXY
-  5) Xbox PC / Microsoft Store (Xodus backend: sign-in, library and downloads;
-     launching games is not available yet; builds from source, a few minutes)
+  5) Xbox PC / Microsoft Store (Xodus backend, experimental: sign-in, library,
+     downloads and play on the CX engine; builds from source, a few minutes)
 EOT
   read -r -p "  Your choice [1]: " choice < "$TTY" || choice=1
   [ -n "$choice" ] || choice=1
@@ -53,8 +53,8 @@ echo "  Installing:$PLATFORMS"
 
 NEEDS_CX=0; NEEDS_STEAM=0; NEEDS_XODUS=0
 for p in $PLATFORMS; do
-  # Xbox PC only downloads for now, so it needs neither Wine engine.
-  case "$p" in steam) NEEDS_STEAM=1 ;; xbox) NEEDS_XODUS=1 ;; *) NEEDS_CX=1 ;; esac
+  # Xbox PC games run on the CX engine with D3DMetal, like Battle.net/Epic/GOG.
+  case "$p" in steam) NEEDS_STEAM=1 ;; xbox) NEEDS_XODUS=1; NEEDS_CX=1 ;; *) NEEDS_CX=1 ;; esac
 done
 if [ "${1:-}" = "--plan" ]; then
   printf 'platforms=%s\ncx_engine=%s\napple_gptk=%s\nsteam_runtime=%s\nxodus_backend=%s\n' "$PLATFORMS" "$NEEDS_CX" "$NEEDS_CX" "$NEEDS_STEAM" "$NEEDS_XODUS"

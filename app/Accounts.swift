@@ -265,7 +265,7 @@ struct AccountsView: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 12) {
                         accountHeader(.xbox)
-                        Text("Sign in with your Microsoft account on Microsoft's own page. Soju imports the games you own and your PC Game Pass games, and can download them. Launching Xbox PC games is not available yet.")
+                        Text("Sign in with your Microsoft account on Microsoft's own page. Soju imports the games you own and your PC Game Pass games, downloads them and starts them on its engine (experimental; not every game works).")
                             .font(.callout).foregroundStyle(.secondary)
                         Text("Your sign-in stays in the macOS Keychain (\u{201C}Xodus Service\u{201D}); macOS may ask once to allow access. Games using the newer MSIXVC2 format cannot be downloaded yet.")
                             .font(.caption).foregroundStyle(.secondary)

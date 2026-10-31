@@ -16,7 +16,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .steam: return "Windows library · D3D11 with DXMT"
-        case .xbox: return "Microsoft Store · Xodus backend · downloads only, no game launch yet"
+        case .xbox: return "Microsoft Store · Xodus backend · Apple D3DMetal (experimental)"
         default: return "Windows library · Apple D3DMetal"
         }
     }

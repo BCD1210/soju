@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Xbox PC / Microsoft Store through the Xodus backend: sign-in and downloads.
-# Launching Xbox PC games is not available yet; nothing here starts Wine.
-#   xbox.sh install | login | logout [--device] | status | download <ProductId> | kill
+# Xbox PC / Microsoft Store through the Xodus backend: sign-in, downloads and play.
+#   xbox.sh install | prepare | login | logout [--device] | status | download <ProductId> | run <ProductId> | kill
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
@@ -32,8 +31,19 @@ case "${1:-}" in
         "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["version"])' "$ROOT/resources/xodus-backend.json")" \
         "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$marker"
     fi
+    # Games run on the CX engine with Apple's D3DMetal; without them only downloads work for now.
+    if [ -x "${ENGINE:-$BASE/cx26-engine}/bin/wine" ] && [ -f "${ENGINE:-$BASE/cx26-engine}/lib/external/libd3dshared.dylib" ]; then
+      python3 "$ROOT/scripts/xbox-prefix.py"
+    else
+      echo "Playing Xbox PC games needs the CX engine and Apple GPTK (install Battle.net, Epic or GOG and add GPTK)."
+    fi
     echo "Xbox PC is ready. Sign in from Soju > Accounts (or: soju xbox-login)."
-    echo "Downloads go to $XBOX_HOME/drive_c/XboxGames. Launching Xbox PC games is not available yet." ;;
+    echo "Downloads go to $XBOX_HOME/drive_c/XboxGames." ;;
+  prepare)
+    exec python3 "$ROOT/scripts/xbox-prefix.py" ;;
+  run)
+    need_backend
+    exec python3 "$ROOT/scripts/xbox-run.py" "${2:?Choose a game (Store product ID)}" ;;
   login)
     need_backend
     echo "Opening the Microsoft sign-in page. Finish signing in there, then this window closes."
@@ -56,6 +66,8 @@ print("Signed in" if json.load(sys.stdin).get("stored") else "Not signed in")' ;
     need_backend
     exec python3 "$ROOT/scripts/xbox-download.py" "${2:?Choose a game (Store product ID)}" ;;
   kill)
-    pkill -f "$XODUS_CLI streaming" 2>/dev/null && echo "Download stopped. Download again to resume." || echo "No Xbox download is running." ;;
-  *) echo "Usage: xbox.sh install|login|logout [--device]|status|download <ProductId>|kill" >&2; exit 64 ;;
+    pkill -f "$XODUS_CLI streaming" 2>/dev/null && echo "Download stopped. Download again to resume." || echo "No Xbox download is running."
+    # SIGTERM lets xbox-run.py ask xodus-cli to stop the game and copy its saves back.
+    pkill -TERM -f "$ROOT/scripts/xbox-run.py" 2>/dev/null && echo "Game stop requested." || true ;;
+  *) echo "Usage: xbox.sh install|prepare|login|logout [--device]|status|download <ProductId>|run <ProductId>|kill" >&2; exit 64 ;;
 esac

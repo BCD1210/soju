@@ -1,0 +1,26 @@
+{
+ "version": "xbox-runtime-v1",
+ "runtime": "xodus-nexus-runtime-11.0-20261022-gf4adc821",
+ "license": "LGPL-2.1-or-later (Wine 11.0 + xgameruntime); sources: Nexus runtime source tarball and MACxus assets/runtime-patches",
+ "macxus": {
+  "url": "https://github.com/fladnaG86/MACxus/releases/download/v0.3.11-mac.12/MACxus-0.3.11-arm64.dmg",
+  "size": 234969830,
+  "sha256": "beb561d3d533bef2bcdb985777a1a70302941d373d32e5feed8c719bc7704ee1",
+  "asar": "MACxus.app/Contents/Resources/app.asar",
+  "folder": "assets/mac-runtime-dlls"
+ },
+ "nexus": {
+  "url": "https://github.com/domsvoboda/xodus-nexus/releases/download/runtime-11.0-20261022-gf4adc821/xodus-nexus-runtime-11.0-20261022-gf4adc821-x86_64.tar.xz",
+  "size": 370856848,
+  "sha256": "2874f6d4f6bed83985627a5d1ed7294d9cde77fbfbc8c0da22b0eaa080116735",
+  "member": "xodus-nexus-runtime-11.0-20261022-gf4adc821/files/lib/wine/x86_64-windows/libnghttp2.dll"
+ },
+ "dlls": {
+  "xgameruntime.dll": "f46bc9eb5f51e2f3d1d4c89eaf2b96be3695ee7339930cd552740a1063d88c0f",
+  "windows.web.dll": "7be54bf8e319c0100d689caeb84354e6b5b0453df33d20c4988c4888839cd580",
+  "twinapi.appcore.dll": "c6e7a618f9a98fb8d110c810712a5fd2412a9813cd0591b4c320e35e0dc06026",
+  "gamingtcui.dll": "918cb47fb1efab7d2fbc6d6fe67bcae25033b12433cedc129d07632f0d129167",
+  "winhttp.dll": "e1aec3bc2bf9d6f0718c1ea3ebd76c1b80d441da7e275fed7575ece35115068f",
+  "libnghttp2.dll": "2d8a707b7210f326df887920c6059e92eafddf9196a3c9dd7f22fe3b4308add1"
+ }
+}

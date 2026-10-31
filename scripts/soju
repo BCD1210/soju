@@ -39,8 +39,9 @@ Usage:
   soju xbox-login     Sign in with your Microsoft account (official page in a window)
   soju xbox-logout    Sign out (downloaded games are kept)
   soju xbox-sync [US|KR|GB|DE|JP]  Import your owned and PC Game Pass games
-  soju xbox-download <ProductId>  Download an owned game (resumable). Launching is not available yet
-  soju xbox-kill      Stop a running Xbox download
+  soju xbox-download <ProductId>  Download an owned game (resumable)
+  soju xbox-run <ProductId>  Play a downloaded game (experimental)
+  soju xbox-kill      Stop a running Xbox download or game
 
   soju steam-install  Set up the Steam bottle (private Wine 11 + wrapper + Steam)
   soju steam-games    Download and configure verified D3D11 components
@@ -74,6 +75,7 @@ case "${1:-}" in
   xbox-login)     exec bash "$ROOT/scripts/xbox.sh" login ;;
   xbox-logout)    shift; exec bash "$ROOT/scripts/xbox.sh" logout "$@" ;;
   xbox-kill)      exec bash "$ROOT/scripts/xbox.sh" kill ;;
+  xbox-run)       shift; exec python3 "$ROOT/scripts/game-library.py" launch "xbox:${1:?Choose a Store product ID}" ;;
   xbox-download)  shift; exec python3 "$ROOT/scripts/game-library.py" install "xbox:${1:?Choose a Store product ID}" ;;
   xbox-sync)
     market="${2:-US}"

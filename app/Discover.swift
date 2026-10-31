@@ -142,9 +142,9 @@ struct DiscoverView: View {
             }
             HStack {
                 if let owned, owned.platform == .xbox {
-                    Button(owned.isInstalled ? "Downloaded" : model.downloads[owned.id] != nil ? "Downloading…" : "Download") {
-                        model.installOwnedGame(owned)
-                    }.disabled(model.busy || owned.isInstalled || owned.downloadBlocked || model.downloads[owned.id] != nil)
+                    Button(owned.isInstalled ? "Play" : model.downloads[owned.id] != nil ? "Downloading…" : "Download") {
+                        if owned.isInstalled { model.play(owned) } else { model.installOwnedGame(owned) }
+                    }.disabled(model.busy || owned.downloadBlocked || model.downloads[owned.id] != nil)
                 } else if let owned {
                     Button(owned.isInstalled ? "Play" : owned.platform == .steam ? "Install in Steam" : "Open Galaxy") {
                         if owned.isInstalled { model.play(owned) } else { model.installOwnedGame(owned) }
