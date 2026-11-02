@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "game_build": "3.3.93847",
+  "note": "Offline only: D2R VR Unleashed runs through D2RLoader with -mod, which keeps D2R off Battle.net game servers.",
+  "runtime": {
+    "url": "https://github.com/BCD1210/soju/releases/download/vr-runtime-v1/soju-vr-runtime.tar.xz",
+    "size": 622136,
+    "sha256": "4f2c51bd41dd6a0688d8b8570827a7c5618e85b17de24419b7944e65017c730a",
+    "license": "wineopenxr bridge LGPL-2.1-or-later, OXRSys MPL-2.0; scripts/build-vr-runtime.sh rebuilds it from pinned commits"
+  },
+  "python": {
+    "url": "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip",
+    "size": 11133606,
+    "sha256": "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
+  },
+  "mod": {
+    "name": "D2R VR Unleashed 0.3.31 (D2R-PCVR, MPL-2.0)",
+    "url": "https://github.com/bearstonem/d2r-pcvr/releases/download/v0.3.31-windows-preview/d2r-pcvr-windows.zip",
+    "size": 41728732,
+    "sha256": "705a7714f85d8a1f4ad3de8c73e64e4275f28cf560ba96544fc916b1c3e2b279",
+    "folder": "d2r-pcvr-preview",
+    "mod_name": "D2R-PCVR"
+  },
+  "loader": {
+    "url": "https://d2rloader.net/downloads/D2RLoader-1.3.1-beta.zip",
+    "size": 47652455,
+    "sha256": "9286c6b5bff7f1043658411dbea305faa9698b6a455e6441668fc6d02c22aad7",
+    "file": "D2RLoader-1.3.1-beta.zip"
+  },
+  "reshade": {
+    "url": "https://reshade.me/downloads/ReShade_Setup_6.8.0_Addon.exe",
+    "size": 4318424,
+    "sha256": "afe4c8f13048306307983b8b3d41d5bf00a86820440b0e57dea10950e1176445",
+    "member": "ReShade64.dll",
+    "dll_sha256": "0cee63f9c9f13f3ac909c5b4903f4dbb4b719a7ab3b4f13b0deaf83c814b94f7",
+    "patch": {
+      "why": "D3DMetal releases ReShade's per-resource destroy tracker after the resource's C++ destructor ran, so ID3D12Resource::GetDesc (vtable slot 10) is null there. Skip the desc / GPU address cleanup and only free the tracker.",
+      "file_offset": 1327846,
+      "old": "488bcf488b07ff5050",
+      "new": "e91804000090909090",
+      "patched_sha256": "77e51ea578f972f7b33a77ab79b807d88975a1b06cb725af8b629dd01a137be5"
+    }
+  }
+}

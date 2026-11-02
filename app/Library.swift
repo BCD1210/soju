@@ -149,6 +149,38 @@ extension SojuModel {
             libraryIssue = "Could not start the game: " + error.localizedDescription
         }
     }
+    /// D2R VR Unleashed in the VR copy of the Battle.net bottle (`soju vr play`, offline).
+    func playVR(_ game: InstalledGame) {
+        guard !busy, !launchingGames.contains(game.id) else { return }
+        do {
+            let (p, url) = try task(["vr", "play"], logName: "d2r-vr")
+            launchingGames.insert(game.id); gameLaunches[game.id] = p
+            p.terminationHandler = { [weak self] process in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if self.gameLaunches[game.id] === process {
+                        self.gameLaunches.removeValue(forKey: game.id)
+                        self.launchingGames.remove(game.id)
+                    }
+                    if process.terminationStatus != 0 {
+                        let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+                        let reason = text.split(separator: "\n").last(where: { $0.hasPrefix("soju vr: ") })
+                            .map { String($0.dropFirst(9)) }
+                        self.issueTitle = "Couldn't start " + game.title + " in VR"
+                        self.libraryIssue = reason ?? "Run Set Up VR again, then try once more."
+                    }
+                }
+            }
+            try p.run()
+            activity = "Starting " + game.title + " in VR (offline characters)…"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
+                guard let self, let p, self.gameLaunches[game.id] === p else { return }
+                self.launchingGames.remove(game.id)
+            }
+        } catch {
+            libraryIssue = "Could not start VR: " + error.localizedDescription
+        }
+    }
     /// An Xbox game runs inside Soju's task: SIGTERM reaches xbox-run.py, which asks the
     /// backend to close the game and copy its saves back (or stops first-launch setup).
     func stopGame(_ game: InstalledGame) {
@@ -405,6 +437,12 @@ struct LibraryView: View {
                     Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)
                 }
                 Button("Diagnose") { diagnose(game) }.disabled(model.busy)
+                if game.id == "battlenet:osi" && game.isInstalled {
+                    Divider()
+                    Button("Set Up VR (offline)") { model.run(["vr", "setup"], title: "Setting up D2R VR…") }
+                        .disabled(model.busy)
+                    Button("Play in VR") { model.playVR(game) }.disabled(model.busy)
+                }
             }
     }
 

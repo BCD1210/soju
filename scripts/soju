@@ -27,6 +27,9 @@ Usage:
   soju d2r            Launch Diablo II: Resurrected directly
   soju kill           Stop everything in the Battle.net bottle
   soju controllers    Game Controllers panel of the Battle.net bottle (is my pad seen?)
+  soju vr setup       D2R in VR (offline): copy the Battle.net bottle and install D2R VR Unleashed
+  soju vr play        Play D2R in VR (OXRSys client on the headset; offline characters)
+  soju vr status|remove
 
   soju epic-install   Set up the Epic Games Launcher bottle (same engine)
   soju epic           Launch the Epic Games Launcher
@@ -71,6 +74,7 @@ case "${1:-}" in
   epic-install)   shift; exec bash "$ROOT/scripts/create-epic-bottle.sh" "$@" ;;
   gog-install)    shift; exec bash "$ROOT/scripts/create-gog-bottle.sh" "$@" ;;
   steam-install)  shift; export SOJU_PLATFORMS=steam; exec bash "$ROOT/install.sh" "$@" ;;
+  vr)             shift; exec python3 "$ROOT/scripts/d2r-vr.py" "$@" ;;
   xbox-install)   exec bash "$ROOT/scripts/xbox.sh" install ;;
   xbox-login)     exec bash "$ROOT/scripts/xbox.sh" login ;;
   xbox-logout)    shift; exec bash "$ROOT/scripts/xbox.sh" logout "$@" ;;

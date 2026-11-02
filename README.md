@@ -58,7 +58,8 @@ All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher
 
 | Game | Store | Graphics | Status | Notes |
 | --- | --- | --- | :-: | --- |
-| Diablo II: Resurrected | Battle.net | D3DMetal (D3D11) | ✅ in-game, online | **macOS 26.4 or later** (see prerequisites); `play.sh` sets `ROSETTA_ADVERTISE_AVX=1`; [guide](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
+| Diablo II: Resurrected | Battle.net | D3DMetal (D3D12) | ✅ in-game, online | **macOS 26.4 or later** (see prerequisites); `play.sh` sets `ROSETTA_ADVERTISE_AVX=1`; [guide](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
+| Diablo II: Resurrected in VR (offline) | Battle.net | D3DMetal (D3D12) + OpenXR | 🧪 simulator only | `soju vr setup` / `soju vr play`: D2R VR Unleashed for offline characters, streamed to an OXRSys headset client; [docs/VR.md](docs/VR.md) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ in-game | UE4 "AMD driver" warning is harmless |
 | Unity D3D11 title | Steam | DXMT | ✅ in-game, windowed | via `soju steam-games`; see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected (Infernal Edition) | Steam | n/a | ⏳ not verified yet | the Steam bottle has no GPTK, and D2R's loader needs `libd3dshared` |
