@@ -703,5 +703,99 @@ class XboxStopAndSignOutTests(unittest.TestCase):
             self.assertNotIn('install Battle.net, Epic or GOG', (ROOT / 'scripts' / name).read_text(), name)
 
 
+class XboxFirstSignInTests(unittest.TestCase):
+    """What a brand-new Microsoft account runs into on its first Xbox sign-in."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name)
+
+    def cli(self, body):
+        path = self.base / 'xodus/bin/xodus-cli'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('#!/bin/sh\n' + body)
+        path.chmod(0o755)
+        return path
+
+    ROW = dict(status='Active', isTrial=False, endDate=FUTURE, satisfiedByProductId=None, special=False)
+    META = {SILKSONG: dict(title='Silksong', type='Game', windows=True, format='MSIXVC', artwork=None, price='')}
+
+    def test_an_empty_first_answer_is_asked_again_once(self):
+        answers = [{'schema': 1, 'entitlements': []},
+                   {'schema': 1, 'entitlements': [dict(self.ROW, productId=SILKSONG)]}]
+        calls = []
+        def run(args, **kwargs):
+            if args[1] == 'profile':
+                return subprocess.CompletedProcess(args, 0, json.dumps({'gamertag': 'Tester'}), '')
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, json.dumps(answers[len(calls) - 1]), '')
+        self.cli('exit 0\n')
+        with patch.object(svc.subprocess, 'run', side_effect=run), patch.object(svc.time, 'sleep'), \
+                patch.object(svc, 'xbox_catalog', return_value=self.META):
+            games, label = svc.xbox_owned(self.base, {'market': 'US'})
+        self.assertEqual(len(calls), 2)
+        self.assertEqual([g['id'] for g in games], ['xbox:' + SILKSONG])
+
+    def test_an_empty_library_is_asked_only_twice(self):
+        calls = []
+        def run(args, **kwargs):
+            if args[1] == 'profile':
+                return subprocess.CompletedProcess(args, 0, json.dumps({'gamertag': 'Tester'}), '')
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, json.dumps({'schema': 1, 'entitlements': []}), '')
+        self.cli('exit 0\n')
+        with patch.object(svc.subprocess, 'run', side_effect=run), patch.object(svc.time, 'sleep'):
+            games, _ = svc.xbox_owned(self.base, {'market': 'US'})
+        self.assertEqual((len(calls), games), (2, []))
+
+    def test_missing_xbox_profile_is_named_and_the_import_still_saves(self):
+        def run(args, **kwargs):
+            if args[1] == 'profile':
+                return subprocess.CompletedProcess(args, 1, '', 'Xbox profile is temporarily unavailable (xsts); stored account is unchanged.\n')
+            return subprocess.CompletedProcess(args, 0, json.dumps({'schema': 1, 'entitlements': [dict(self.ROW, productId=SILKSONG)]}), '')
+        self.cli('exit 0\n')
+        notices = []
+        with patch.object(svc.subprocess, 'run', side_effect=run), patch.object(svc, 'xbox_catalog', return_value=self.META):
+            games, label = svc.xbox_owned(self.base, {'market': 'US'}, notices=notices)
+        self.assertEqual(len(games), 1)
+        self.assertEqual(label, 'Microsoft account')
+        self.assertEqual(notices, [svc.NO_XBOX_PROFILE])
+        self.assertIn('xbox.com', notices[0])
+
+    def test_download_names_the_missing_xbox_profile(self):
+        cli = self.cli('case "$1" in\n'
+                       '  streaming) echo "Xbox authentication request failed. Check your connection and sign-in."; exit 1 ;;\n'
+                       '  profile) echo "Xbox profile is temporarily unavailable (xsts); stored account is unchanged." >&2; exit 1 ;;\n'
+                       'esac\n')
+        game = dict(contentId='807c7d6a-409f-48be-8190-30b09baf7cd4')
+        with patch.object(download, 'CLI', str(cli)):
+            with self.assertRaisesRegex(download.DownloadError, 'no Xbox profile'):
+                download.stream(SILKSONG, game, 'US', self.base)
+
+    def test_download_auth_failure_with_a_profile_is_not_blamed_on_it(self):
+        cli = self.cli('case "$1" in\n'
+                       '  streaming) echo "Xbox authentication request failed. Check your connection and sign-in."; exit 1 ;;\n'
+                       '  profile) echo \'{"gamertag": "Tester"}\'; exit 0 ;;\n'
+                       'esac\n')
+        game = dict(contentId='807c7d6a-409f-48be-8190-30b09baf7cd4')
+        with patch.object(download, 'CLI', str(cli)):
+            self.assertFalse(download.stream(SILKSONG, game, 'US', self.base))
+
+    def test_sign_in_says_when_the_account_has_no_xbox_profile(self):
+        cli = self.cli('case "$1" in\n'
+                       '  login) exit 0 ;;\n'
+                       '  account) echo \'{"stored": true}\' ;;\n'
+                       '  profile) echo "Xbox profile is temporarily unavailable (xsts); stored account is unchanged." >&2; exit 1 ;;\n'
+                       'esac\n')
+        env = dict(os.environ, SOJU_BASE=str(self.base), SOJU_XODUS_BIN=str(cli))
+        result = subprocess.run(['/bin/bash', str(ROOT / 'scripts/xbox.sh'), 'login'], env=env,
+                                capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Signed in.', result.stdout)
+        self.assertIn('no Xbox profile', result.stdout)
+        self.assertIn('Please wait', result.stdout)
+
+
 if __name__ == '__main__':
     unittest.main()
