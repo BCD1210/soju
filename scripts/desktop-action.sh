@@ -17,6 +17,7 @@ case "$ACTION" in
       *) echo "Choose one of the four launchers."; exit 64 ;; esac ;;
   vr)
     case "${1:-}" in setup|play|status) exec python3 "$ROOT/scripts/d2r-vr.py" "$1" ;;
+      flat) exec python3 "$ROOT/scripts/d2r-vr.py" play --flat ;;
       *) echo "Unknown VR action."; exit 64 ;; esac ;;
   xbox)
     case "${1:-}" in login|logout|kill|status) exec bash "$ROOT/scripts/xbox.sh" "$1" ;;

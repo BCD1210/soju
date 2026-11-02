@@ -329,13 +329,13 @@ class DownloadCheckTests(unittest.TestCase):
             {"tag_name": "engine-v9", "prerelease": False, "assets": [{"name": "wine-engine-x86_64.tar.xz", "digest": "sha256:" + d}]},
             {"tag_name": "v2.0.0", "prerelease": True, "assets": [{"name": "Soju-2.0.0-macos-arm64.zip", "digest": "sha256:" + d}]},
             {"tag_name": "v1.9.0", "prerelease": False, "assets": [{"name": "Soju-1.9.0-macos-arm64.zip", "digest": None}]},
-            {"tag_name": "v1.8.0", "prerelease": False, "assets": [
-                {"name": "Soju-1.8.0-macos-arm64.zip.sha256", "digest": "sha256:" + "b" * 64},
-                {"name": "Soju-1.8.0-macos-arm64.zip", "digest": "sha256:" + d}]},
+            {"tag_name": "v1.8.1", "prerelease": False, "assets": [
+                {"name": "Soju-1.8.1-macos-arm64.zip.sha256", "digest": "sha256:" + "b" * 64},
+                {"name": "Soju-1.8.1-macos-arm64.zip", "digest": "sha256:" + d}]},
         ])
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.split(), ["v1.8.0",
-            "https://github.com/BCD1210/soju/releases/download/v1.8.0/Soju-1.8.0-macos-arm64.zip", d])
+        self.assertEqual(result.stdout.split(), ["v1.8.1",
+            "https://github.com/BCD1210/soju/releases/download/v1.8.1/Soju-1.8.1-macos-arm64.zip", d])
 
     def test_latest_release_fails_without_a_checked_zip(self):
         result = self.latest([{"tag_name": "v1.0.0", "prerelease": False, "assets": []}])

@@ -29,6 +29,7 @@ Usage:
   soju controllers    Game Controllers panel of the Battle.net bottle (is my pad seen?)
   soju vr setup       D2R in VR (offline): copy the Battle.net bottle and install D2R VR Unleashed
   soju vr play        Play D2R in VR (OXRSys client on the headset; offline characters)
+  soju vr play --flat Open the VR copy without VR to create offline characters with the mouse
   soju vr status|remove
 
   soju epic-install   Set up the Epic Games Launcher bottle (same engine)
