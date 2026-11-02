@@ -21,8 +21,8 @@ say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 # The prebuilt engine is pinned: a new engine release only reaches users once
 # these two lines (here and in scripts/update.sh) name it.
-ENGINE_TAG="engine-v1.5"
-ENGINE_SHA256="7b96a4407308493ae92bebe96039bbc8d0bf3b86c22cb99c782f73cf7be3738e"
+ENGINE_TAG="engine-v1.6"
+ENGINE_SHA256="1d8eaa1db7279c7e4c2d321350bcd11a3658558bfee8a1a6f4c47e0542fd3f3f"
 ENGINE_URL="https://github.com/$REPO/releases/download/$ENGINE_TAG/wine-engine-x86_64.tar.xz"
 
 # Download to a .part file and keep it only when its SHA-256 matches.

@@ -1,0 +1,159 @@
+wineserver: keep the security descriptors programs write on files and folders
+
+Wine derives a file's security descriptor from its Unix mode, so an ACL a
+program sets reads back different (no inherited flags, no Users or
+Administrators entries). The Battle.net Agent sets ACLs on a game folder
+before patching, reads them back, and stops with "Unable to fix permissions"
+(BLZBNTAGT00000846): Diablo II: Resurrected could not update.
+
+Store the descriptor written in a "user.wine.sd" xattr with the Unix
+permission bits it was written for, and return it while those bits are
+unchanged. A chmod made from macOS falls back to the mode-derived descriptor.
+The Unix mode is still set from the DACL as before.
+
+--- a/server/change.c
++++ b/server/change.c
+@@ -349,9 +349,10 @@
+         (st.st_uid == dir->uid))
+         return obj->sd;
+ 
+-    sd = mode_to_sd( st.st_mode,
+-                     security_unix_uid_to_sid( st.st_uid ),
+-                     token_get_primary_group( current->process->token ));
++    if (!(sd = xattr_sd_load( unix_fd, st.st_mode )))
++        sd = mode_to_sd( st.st_mode,
++                         security_unix_uid_to_sid( st.st_uid ),
++                         token_get_primary_group( current->process->token ));
+     if (!sd) return obj->sd;
+ 
+     dir->mode = st.st_mode;
+@@ -406,7 +407,8 @@
+             return 0;
+         }
+     }
+-    return 1;
++    if (!obj->sd) dir_get_sd( obj );
++    return keep_written_sd( obj, unix_fd, sd, set_info, &dir->mode, &dir->uid );
+ }
+ 
+ static struct change_record *get_first_change_record( struct dir *dir )
+--- a/server/file.c
++++ b/server/file.c
+@@ -385,6 +385,80 @@
+     return sd;
+ }
+ 
++
++#ifdef HAVE_SYS_XATTR_H
++#include <sys/xattr.h>
++#endif
++
++#define WINE_XATTR_SD "user.wine.sd"
++#define WINE_XATTR_SD_VERSION 1
++#define WINE_SD_MODE_BITS (S_IRWXU|S_IRWXG|S_IRWXO)
++
++static data_size_t stored_sd_size( const struct security_descriptor *sd )
++{
++    return sizeof(*sd) + sd->owner_len + sd->group_len + sd->sacl_len + sd->dacl_len;
++}
++
++/* Descriptor stored by xattr_sd_store, if it was written for these mode bits. */
++struct security_descriptor *xattr_sd_load( int unix_fd, mode_t mode )
++{
++#ifdef HAVE_SYS_XATTR_H
++    unsigned char buffer[65536];
++    struct security_descriptor *sd;
++    unsigned int stored_mode;
++    ssize_t len;
++
++# ifdef XATTR_ADDITIONAL_OPTIONS
++    len = fgetxattr( unix_fd, WINE_XATTR_SD, buffer, sizeof(buffer), 0, 0 );
++# else
++    len = fgetxattr( unix_fd, WINE_XATTR_SD, buffer, sizeof(buffer) );
++# endif
++    if (len < (ssize_t)(5 + sizeof(*sd)) || buffer[0] != WINE_XATTR_SD_VERSION) return NULL;
++    memcpy( &stored_mode, buffer + 1, sizeof(stored_mode) );
++    if ((stored_mode & WINE_SD_MODE_BITS) != (mode & WINE_SD_MODE_BITS)) return NULL;
++    sd = (struct security_descriptor *)(buffer + 5);
++    if (stored_sd_size( sd ) != (data_size_t)(len - 5) || !sd_is_valid( sd, len - 5 )) return NULL;
++    return memdup( sd, len - 5 );
++#else
++    return NULL;
++#endif
++}
++
++void xattr_sd_store( int unix_fd, const struct security_descriptor *sd, mode_t mode )
++{
++#ifdef HAVE_SYS_XATTR_H
++    data_size_t size = stored_sd_size( sd );
++    unsigned int stored_mode = mode & WINE_SD_MODE_BITS;
++    unsigned char *buffer;
++
++    if (size > 65536 - 5 || !(buffer = malloc( 5 + size ))) return;
++    buffer[0] = WINE_XATTR_SD_VERSION;
++    memcpy( buffer + 1, &stored_mode, sizeof(stored_mode) );
++    memcpy( buffer + 5, sd, size );
++# ifdef XATTR_ADDITIONAL_OPTIONS
++    fsetxattr( unix_fd, WINE_XATTR_SD, buffer, 5 + size, 0, 0 );
++# else
++    fsetxattr( unix_fd, WINE_XATTR_SD, buffer, 5 + size, 0 );
++# endif
++    free( buffer );
++#endif
++}
++
++/* After a successful set_sd: merge what was written into obj->sd the way
++ * default_set_sd does, and keep it with the file. */
++int keep_written_sd( struct object *obj, int unix_fd, const struct security_descriptor *sd,
++                     unsigned int set_info, mode_t *cached_mode, uid_t *cached_uid )
++{
++    struct stat st;
++
++    if (!set_sd_defaults_from_token( obj, sd, set_info, current->process->token )) return 0;
++    if (fstat( unix_fd, &st ) == -1) return 1;
++    *cached_mode = st.st_mode;
++    *cached_uid = st.st_uid;
++    if (obj->sd) xattr_sd_store( unix_fd, obj->sd, st.st_mode );
++    return 1;
++}
++
+ static struct security_descriptor *file_get_sd( struct object *obj )
+ {
+     struct file *file = (struct file *)obj;
+@@ -404,9 +478,10 @@
+         (st.st_uid == file->uid))
+         return obj->sd;
+ 
+-    sd = mode_to_sd( st.st_mode,
+-                     security_unix_uid_to_sid( st.st_uid ),
+-                     token_get_primary_group( current->process->token ));
++    if (!(sd = xattr_sd_load( unix_fd, st.st_mode )))
++        sd = mode_to_sd( st.st_mode,
++                         security_unix_uid_to_sid( st.st_uid ),
++                         token_get_primary_group( current->process->token ));
+     if (!sd) return obj->sd;
+ 
+     file->mode = st.st_mode;
+@@ -542,7 +617,8 @@
+             return 0;
+         }
+     }
+-    return 1;
++    if (!obj->sd) file_get_sd( obj );
++    return keep_written_sd( obj, unix_fd, sd, set_info, &file->mode, &file->uid );
+ }
+ 
+ static struct object *file_lookup_name( struct object *obj, struct unicode_str *name,
+--- a/server/file.h
++++ b/server/file.h
+@@ -169,6 +169,10 @@
+ extern struct file *create_file_for_fd_obj( struct fd *fd, unsigned int access, unsigned int sharing );
+ extern void file_set_error(void);
+ extern struct security_descriptor *mode_to_sd( mode_t mode, const struct sid *user, const struct sid *group );
++extern struct security_descriptor *xattr_sd_load( int unix_fd, mode_t mode );
++extern void xattr_sd_store( int unix_fd, const struct security_descriptor *sd, mode_t mode );
++extern int keep_written_sd( struct object *obj, int unix_fd, const struct security_descriptor *sd,
++                            unsigned int set_info, mode_t *cached_mode, uid_t *cached_uid );
+ extern mode_t sd_to_mode( const struct security_descriptor *sd, const struct sid *owner );
+ extern int is_file_executable( const char *name );
+ 
