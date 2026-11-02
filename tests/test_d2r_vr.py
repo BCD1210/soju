@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,7 +35,19 @@ class ManifestTests(unittest.TestCase):
         self.assertIn('setup|play|status) exec python3 "$ROOT/scripts/d2r-vr.py" "$1"', action)
         library = (ROOT / 'app/Library.swift').read_text()
         self.assertIn('model.run(["vr", "setup"]', library)
-        self.assertIn('task(["vr", "play"]', library)
+        self.assertIn('task(["vr", flat ? "flat" : "play"]', library)
+        self.assertIn('flat) exec python3 "$ROOT/scripts/d2r-vr.py" play --flat', action)
+        self.assertIn('model.playVR(game, flat: true)', library)
+
+    def test_flat_play_leaves_the_vr_runtime_out(self):
+        with mock.patch.dict(vr.os.environ, {'XR_RUNTIME_JSON': '/x.json'}):
+            flat = vr.play_env(True)
+            headset = vr.play_env(False)
+        for key in ('WINEDLLPATH', 'OXR_BRIDGE_ENV_FILE', 'XR_RUNTIME_JSON'):
+            self.assertNotIn(key, flat)
+        self.assertEqual(headset['WINEDLLPATH'], str(vr.VR / 'runtime/wine'))
+        self.assertEqual(headset['OXR_BRIDGE_ENV_FILE'], str(vr.VR / 'bridge.env'))
+        self.assertEqual(flat['WINEPREFIX'], str(vr.BOTTLE))
 
 
 class ReShadePatchTests(unittest.TestCase):

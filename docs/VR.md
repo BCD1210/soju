@@ -6,12 +6,14 @@ first-person VR mod for **offline characters**, and stream it to a headset from 
 ```bash
 soju vr setup      # once (about 2 minutes, ~110 MB of downloads)
 soju vr play       # every time
+soju vr play --flat   # same copy without VR: create offline characters with the mouse
 soju vr status
 soju vr setup --refresh   # after a D2R update or when the 30-day check appears
 soju vr remove --yes
 ```
 
 In the app: right-click Diablo II: Resurrected in the library, then **Set Up VR (offline)** and **Play in VR**.
+**Create Offline Character (without VR)** opens the same copy on the Mac screen.
 
 ## What it does
 
@@ -42,6 +44,10 @@ Status (November 2026): verified on M4 Pro / macOS 26.5 with the OXRSys Simulato
 ## Notes
 
 - Use **offline characters** only. Characters you make in VR live in the copy; `--refresh` keeps them.
+- To make the first offline character, run `soju vr play --flat`, choose Play (not Multiplayer), New, pick a class and
+  name it, then quit and start `soju vr play`. In VR the mod draws the menus for the controller laser, so on the
+  simulator the Mac mouse cannot pick a class on the character creation screen. `--flat` starts the copy without
+  Soju's VR runtime, so the mod stays off and the normal screen and mouse work.
 - D2R requires an online sign-in within the last 30 days even for offline play. If it says so, play D2R online once
   from Battle.net, then run `soju vr setup --refresh`.
 - The mod supports D2R 3.3.93847. Setup refuses other builds.
