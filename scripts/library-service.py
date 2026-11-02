@@ -44,11 +44,15 @@ def main():
             elif args.value == 'gog':
                 games, label = gog_owned(args.base, settings)
             elif args.value == 'xbox':
-                games, label = xbox_owned(args.base, settings)
+                notices = []
+                games, label = xbox_owned(args.base, settings, notices=notices)
             else:
                 raise ServiceError('Unsupported account provider.')
             market = settings.get('market') if args.value == 'xbox' else None
             result = save_account(args.base, args.value, games, label, market or None)
+            if args.value == 'xbox' and notices:
+                result['message'] += ' ' + ' '.join(notices)
+                result['notice'] = notices[0]
         print(json.dumps(result, ensure_ascii=False))
     except ServiceError as error:
         print(json.dumps({'error': str(error)}))
