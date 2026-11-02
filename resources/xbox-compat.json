@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "games": {
+    "9MTVJ3HHTQGS": {
+      "title": "Retro Classics",
+      "heap_free_check": true,
+      "why": "Its UI logs a console string after freeing it. Windows' heap keeps that memory readable; Wine hands it back to the system, so the read crashes (exit code 5). FLG_HEAP_ENABLE_FREE_CHECK keeps recent frees parked."
+    }
+  }
+}

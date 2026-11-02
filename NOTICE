@@ -25,6 +25,11 @@ Built or downloaded by the scripts (open-source component releases include corre
   pinned commit in resources/xodus-backend.json; the patched source stays in build/xodus-src.
 - MACxus / Xodus Nexus backend patches: MIT, github.com/fladnaG86/MACxus (pinned commit,
   SHA-256 per patch); downloaded at build time, not stored in this repository.
+- Xbox game runtime (xgameruntime.dll and companions): Wine 11.0 / Xodus Nexus runtime, LGPL-2.1+,
+  github.com/domsvoboda/xodus-nexus. Five DLLs come unchanged from MACxus' release image and the Nexus
+  runtime; xgameruntime.dll is Soju's build of the Nexus source with the two MACxus runtime patches and
+  patches/xgameruntime-store-empty-strings.patch (LGPL-2.1+ to match). scripts/build-xbox-runtime.sh
+  rebuilds it from the pinned inputs in resources/xbox-runtime.json.
 
 Trademarks: Xbox is a trademark of Microsoft Corporation. Battle.net and Diablo are trademarks of Blizzard Entertainment.
 Steam is a trademark of Valve Corporation. This project is not affiliated with

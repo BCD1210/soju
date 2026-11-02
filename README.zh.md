@@ -150,7 +150,7 @@ scripts/play.sh gog-kill          # 停止 GOG bottle（关窗口会缩到菜单
 
 ## Xbox PC / Microsoft Store（Xodus 后端，实验功能）
 
-可以登录 Microsoft 账户，导入已拥有的游戏和 PC Game Pass 游戏，搜索 Microsoft Store 并下载游戏。也可以启动下载好的游戏（实验功能，尚未在 Soju 上用实际游戏验证）。启动需要 CX 引擎和 Apple GPTK：设置 Xbox PC 时会安装引擎，GPTK 与 Battle.net、Epic、GOG 一样在 Platforms 中添加。
+可以登录 Microsoft 账户，导入已拥有的游戏和 PC Game Pass 游戏，搜索 Microsoft Store 并下载游戏。也可以启动下载好的游戏（实验功能：在 M4 Pro / macOS 26.5 上已确认 Retro Classics 能进入主菜单，其他游戏尚未测试；按游戏的 Wine 设置在 `resources/xbox-compat.json`）。启动需要 CX 引擎和 Apple GPTK：设置 Xbox PC 时会安装引擎，GPTK 与 Battle.net、Epic、GOG 一样在 Platforms 中添加。
 
 启动流程：`xodus-cli run` 获取许可证并把游戏解密到临时 RAM 盘，`scripts/xbox-wine.sh` 在独立前缀（`xbox-bottle`）中用 CX 引擎和 D3DMetal 运行。该前缀包含 Xbox 游戏运行时 DLL（xgameruntime 等，LGPL，固定在 `resources/xbox-runtime.json`，首次下载约 600 MB）和 Microsoft VC++ 运行库。游戏期间 `xodus-service` 负责登录、许可证和云存档，游戏写入的文件在退出时复制回游戏目录。在 Library 中点 **Stop** 关闭游戏时会先复制存档。
 

@@ -6,7 +6,9 @@
 BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
 ENGINE="${ENGINE:-$BASE/cx26-engine}"
 export WINEPREFIX="$BASE/xbox-bottle"
-export WINEDEBUG="${WINEDEBUG:-fixme-all}"
+# xbox-run.py drops WINE* variables from the environment; SOJU_XBOX_WINEDEBUG
+# passes a Wine debug channel list through for diagnosis.
+export WINEDEBUG="${SOJU_XBOX_WINEDEBUG:-${WINEDEBUG:-fixme-all}}"
 export WINEMSYNC="${WINEMSYNC:-1}"
 export ROSETTA_ADVERTISE_AVX="${ROSETTA_ADVERTISE_AVX:-1}"
 [ "$ROSETTA_ADVERTISE_AVX" = 0 ] && unset ROSETTA_ADVERTISE_AVX

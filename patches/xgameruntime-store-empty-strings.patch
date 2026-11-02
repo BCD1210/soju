@@ -1,0 +1,35 @@
+--- a/dlls/xgameruntime/xstore_entitled.h	2026-11-01 20:47:52
++++ b/dlls/xgameruntime/xstore_entitled.h	2026-11-01 20:47:52
+@@ -469,6 +469,24 @@
+     IXThreadingImpl_Release(threading); return hr;
+ }
+ 
++/* Windows hands out products without NULL strings, and games copy these fields
++ * unchecked (Retro Classics reads linkUri/currencyCode right after enumerating
++ * and crashes on NULL). Fill what the snapshot does not carry with "". */
++static const char entitled_empty[] = "";
++static void entitled_fill_strings( XStoreProduct *p )
++{
++    UINT32 j;
++    if (!p->linkUri) p->linkUri = (char *)entitled_empty;
++    if (!p->price.currencyCode) p->price.currencyCode = entitled_empty;
++    for (j = 0; j < p->skusCount; j++)
++    {
++        XStoreSku *s = &p->skus[j];
++        if (!s->price.currencyCode) s->price.currencyCode = entitled_empty;
++        if (!s->collectionData.campaignId) s->collectionData.campaignId = entitled_empty;
++        if (!s->collectionData.developerOfferId) s->collectionData.developerOfferId = entitled_empty;
++    }
++}
++
+ static HRESULT entitled_enumerate( XStoreProductQueryHandle handle, void *arg, XStoreProductQueryCallback *callback )
+ {
+     struct entitled_page *page;
+@@ -480,6 +498,7 @@
+     for (i = page->offset; i < end; i++)
+     {
+         TRACE( "  product %s kind %#x inCollection %d\n", debugstr_a( page->snapshot->products[i].storeId ), page->snapshot->products[i].productKind, page->snapshot->products[i].isInUserCollection );
++        entitled_fill_strings(&page->snapshot->products[i]);
+         if (!callback(&page->snapshot->products[i], arg)) break;
+     }
+     entitled_page_release(page); return S_OK;
