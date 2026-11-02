@@ -23,6 +23,10 @@ import Foundation
         assert(active.resolve(other)?.url.absoluteString == other)
         let steam = "https://store.steampowered.com/app/10/"
         assert(active.resolve(steam)?.url.absoluteString == steam)
+        let xbox = "https://www.xbox.com/en-US/games/store/-/9N116V0599HB"
+        assert(active.resolve(xbox)?.url.absoluteString == xbox)
+        assert(active.resolve(xbox)?.isAffiliate == false)
+        assert(active.resolve("https://www.xbox.com.evil.test/x") == nil)
         let disabled = try config([entry], enabled: false)
         assert(!disabled.hasAffiliateLinks)
         assert(disabled.resolve(direct)?.url.absoluteString == direct)

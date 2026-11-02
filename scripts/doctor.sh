@@ -19,7 +19,7 @@ fail(){ printf '  FAIL  %s\n' "$*"; nfail=$((nfail+1)); }
 info(){ printf '  -     %s\n' "$*"; }
 
 SCOPE="${1:-installed}"
-case "$SCOPE" in installed|all|steam|battlenet|d2r|epic|gog) ;; *) echo "Usage: soju doctor [steam|battlenet|d2r|epic|gog|all]"; exit 64 ;; esac
+case "$SCOPE" in installed|all|steam|battlenet|d2r|epic|gog|xbox) ;; *) echo "Usage: soju doctor [steam|battlenet|d2r|epic|gog|xbox|all]"; exit 64 ;; esac
 NEEDS_CX=0
 case "$SCOPE" in
   all|battlenet|d2r|epic|gog) NEEDS_CX=1 ;;
@@ -115,6 +115,53 @@ fi
   && pass "Epic Games Launcher bottle" || info "Epic not installed (soju epic-install)"
 [ -f "$BASE/gog-bottle/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe" ] \
   && pass "GOG GALAXY bottle" || info "GOG not installed (soju gog-install)"
+
+CHECK_XBOX=0
+case "$SCOPE" in
+  all|xbox) CHECK_XBOX=1 ;;
+  installed) if [ -d "$BASE/xodus" ] || [ -d "$BASE/xbox-bottle" ] || [ -n "${SOJU_XODUS_BIN:-}" ]; then CHECK_XBOX=1; fi ;;
+esac
+XODUS_CLI="${SOJU_XODUS_BIN:-$BASE/xodus/bin/xodus-cli}"
+if [ "$CHECK_XBOX" = 1 ] && [ "$SCOPE" = all ] && [ ! -e "$XODUS_CLI" ] && [ ! -d "$BASE/xbox-bottle" ]; then
+  info "Xbox PC not installed (soju xbox-install)"
+elif [ "$CHECK_XBOX" = 1 ]; then
+  echo
+  echo "Xbox PC (Xodus backend)"
+  if [ -x "$XODUS_CLI" ] && XODUS_LOG=error "$XODUS_CLI" --version >/dev/null 2>&1; then
+    pass "xodus-cli runs ($XODUS_CLI)"
+    if XODUS_LOG=error "$XODUS_CLI" library --help >/dev/null 2>&1; then pass "library and download commands present"
+    else fail "xodus-cli lacks the library command (rebuild: soju xbox-install)"; fi
+    if [ -z "${SOJU_XODUS_BIN:-}" ]; then
+      python3 "$ROOT/scripts/fetch-xodus-backend.py" --check \
+        && pass "backend matches the pinned recipe" || warn "backend recipe changed: run soju update or soju xbox-install"
+    else
+      info "custom backend from SOJU_XODUS_BIN"
+    fi
+  else
+    fail "Xodus backend not built (run: soju xbox-install)"
+  fi
+  [ -f "$BASE/xbox-bottle/drive_c/ProgramData/Soju/xbox.json" ] && pass "Xbox PC folder prepared" \
+    || warn "Xbox PC folder missing (run: soju xbox-install)"
+  # The backend says only whether an account is stored; the account name is not printed.
+  if [ -x "$XODUS_CLI" ] && XODUS_LOG=error "$XODUS_CLI" account --json 2>/dev/null | grep -q '"stored":true'; then
+    pass "signed in to a Microsoft account"
+  else
+    info "not signed in to Microsoft (Accounts > Xbox PC, or soju xbox-login)"
+  fi
+  if [ -f "$BASE/account-libraries/xbox.json" ]; then
+    n=$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["games"]))' "$BASE/account-libraries/xbox.json" 2>/dev/null || echo "?")
+    info "imported Xbox library: $n games"
+  fi
+  partial=0
+  for d in "$BASE"/xbox-bottle/drive_c/XboxGames/*/; do
+    [ -f "$d.nexus-streaming-v1.jsonl" ] && [ ! -f "$d.soju-xbox-install.json" ] && partial=$((partial+1))
+  done
+  [ "$partial" = 0 ] || warn "$partial unfinished Xbox download(s): download again to resume"
+  python3 "$ROOT/scripts/fetch-xbox-runtime.py" --check && pass "Xbox game runtime DLLs verified" \
+    || info "Xbox game runtime not downloaded yet (first Play or soju xbox-install fetches it)"
+  python3 "$ROOT/scripts/xbox-prefix.py" --check && pass "Xbox prefix ready to play" \
+    || info "Xbox prefix not prepared yet (needs the CX engine and GPTK; first Play prepares it)"
+fi
 
 echo
 echo "Processes"

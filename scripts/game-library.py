@@ -17,13 +17,17 @@ from library_services import saved_accounts
 from urllib.parse import quote
 
 FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
-           'battlenet': 'bottle', 'gog': 'gog-bottle'}
+           'battlenet': 'bottle', 'gog': 'gog-bottle', 'xbox': 'xbox-bottle'}
 CLIENTS = {
     'steam': 'Program Files (x86)/Steam/steam.exe',
     'epic': 'Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe',
     'battlenet': 'Program Files (x86)/Battle.net/Battle.net.exe',
     'gog': 'Program Files/GOG Galaxy/GalaxyClient.exe',
+    # Xbox PC has no Windows client: `xbox.sh install` writes this marker.
+    'xbox': 'ProgramData/Soju/xbox.json',
 }
+XBOX_ENGINE = 'Set up Xbox PC again in Platforms: it installs the engine Xbox PC games run on.'
+XBOX_GPTK = "Add Apple's Game Porting Toolkit in Platforms before playing."
 # Product UIDs differ from the Battle.net launch command's product codes.
 BNET = {
     'osi': ('Diablo II: Resurrected', 'OSI'),
@@ -282,6 +286,35 @@ class Library:
             except (OSError, ValueError, KeyError, TypeError):
                 self.warn('gog', 'An installation record could not be read. Verify this game in Galaxy.')
 
+    def xbox(self):
+        games = self.base / FOLDERS['xbox'] / 'drive_c/XboxGames'
+        if not games.is_dir(): return
+        for location in sorted(p for p in games.iterdir() if p.is_dir()):
+            uid = location.name
+            if not re.fullmatch(r'[A-Z0-9]{12}', uid): continue
+            try:
+                record = location / '.soju-xbox-install.json'
+                if record.is_file():
+                    item = read_json(record)
+                    if item.get('schema') != 1 or item.get('product_id') != uid: raise ValueError('mismatched Xbox ID')
+                    title, ready = item.get('title') or uid, True
+                elif (location / '.nexus-streaming-v1.jsonl').is_file():
+                    title, ready = uid, False
+                else: continue
+                art = first_file([self.base / 'library-artwork' / ('xbox-' + uid + '.jpg')])
+                self.add('xbox', uid, title, location, ['run', uid], art, ready)
+                game = self.games['xbox:' + uid]
+                if not ready:
+                    game['issue'] = 'This download is not finished. Download again to resume it.'
+                elif game['issue'] is None:
+                    # The prefix itself is prepared on the first Play; the engine must exist.
+                    engine = self.base / 'cx26-engine'
+                    if not os.access(engine / 'bin/wine', os.X_OK): game['issue'] = XBOX_ENGINE
+                    elif not (engine / 'lib/external/libd3dshared.dylib').is_file(): game['issue'] = XBOX_GPTK
+                game['downloaded'] = ready
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                self.warn('xbox', 'A download record could not be read. Download the game again to repair it.')
+
     def scan(self):
         self.games = {}; self.warnings = []
         for platform in FOLDERS:
@@ -293,6 +326,11 @@ class Library:
         for game in owned:
             if game['id'] in self.games:
                 self.games[game['id']]['owned'] = True
+                # A partial download shows under its Store name.
+                if self.games[game['id']]['title'] == game['id'].split(':', 1)[1]:
+                    self.games[game['id']]['title'] = game['title']
+                if game.get('artwork') and not self.games[game['id']]['artwork']:
+                    self.games[game['id']]['artwork'] = game['artwork']
             else:
                 self.games[game['id']] = dict(game, arguments=[])
         return {'accounts': accounts, 'games': [{k: v for k, v in g.items() if k != 'arguments'}
@@ -303,6 +341,18 @@ class Library:
         self.scan()
         game = self.games.get(game_id)
         if game is None: raise ValueError('This game is no longer installed. Refresh the library.')
+        root = Path(__file__).resolve().parent
+        if game['platform'] == 'xbox':
+            if install:
+                if game.get('downloaded'): raise ValueError('This game is already downloaded. Use Play instead.')
+                if game.get('owned') is not True and not game['install_path']: raise ValueError('This game is not in your Xbox library.')
+                if game['issue'] and not game['install_path']: raise ValueError(game['issue'])
+                if not (self.base / FOLDERS['xbox'] / 'drive_c' / CLIENTS['xbox']).is_file():
+                    raise ValueError('Set up Xbox PC in Platforms first.')
+                return ['/bin/bash', str(root / 'xbox.sh'), 'download', game_id.split(':', 1)[1]]
+            if not game.get('downloaded'): raise ValueError(game['issue'] or 'This game is owned but not downloaded. Download it first.')
+            if game['issue']: raise ValueError(game['issue'])
+            return ['/bin/bash', str(root / 'xbox.sh')] + game['arguments']
         if install:
             if game['install_path']: raise ValueError('This game is installed. Use Play instead.')
             client = self.base / FOLDERS[game['platform']] / 'drive_c' / CLIENTS[game['platform']]
@@ -311,7 +361,6 @@ class Library:
             return ['/bin/bash', str(Path(__file__).resolve().parent / 'play.sh'), game['platform']] + args
         if not game['install_path']: raise ValueError('This game is owned but not installed. Open its launcher to install it.')
         if game['issue']: raise ValueError(game['issue'])
-        root = Path(__file__).resolve().parent
         return ['/bin/bash', str(root / 'play.sh'), game['platform']] + game['arguments']
 
 
