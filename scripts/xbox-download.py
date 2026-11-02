@@ -169,14 +169,16 @@ def main():
     if len(sys.argv) != 2:
         print('Usage: xbox-download.py <ProductId>', file=sys.stderr)
         return 64
+    pid_file = None
     signal.signal(signal.SIGTERM, stop)
-    # xbox.sh kill signals only the pids recorded in run/ (no command-line matching).
-    run_dir = BASE / 'run'
-    run_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-    pid_file = run_dir / ('xbox-dl-' + str(os.getpid()) + '.pid')
-    pid_file.write_text(str(os.getpid()))
-    pid_file.chmod(0o600)
     try:
+        # xbox.sh kill signals only the pids recorded in run/ (no command-line matching).
+        run_dir = BASE / 'run'
+        run_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(run_dir, 0o700)
+        pid_file = run_dir / ('xbox-dl-' + str(os.getpid()) + '.pid')
+        pid_file.write_text(str(os.getpid()))
+        pid_file.chmod(0o600)
         pid = product_id(sys.argv[1])
         if not os.access(CLI, os.X_OK):
             raise DownloadError('Set up Xbox PC in Platforms first (or run: soju xbox-install).')
@@ -193,14 +195,15 @@ def main():
         (dest / MARKER).write_text(json.dumps(record, ensure_ascii=False) + '\n')
         print(title + ' is downloaded. Press Play in Soju to start it.')
         return 0
-    except DownloadError as error:
+    except (DownloadError, OSError) as error:
         print('soju: ' + str(error), file=sys.stderr)
         return 1
     except KeyboardInterrupt:
         print('soju: Download stopped. Download again to resume it.', file=sys.stderr)
         return 130
     finally:
-        pid_file.unlink(missing_ok=True)
+        if pid_file:
+            pid_file.unlink(missing_ok=True)
 
 
 if __name__ == '__main__':

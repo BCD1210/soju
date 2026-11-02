@@ -56,7 +56,8 @@ case "${1:-}" in
     "$XODUS_CLI" login > >(sed -E 's/[^[:space:]]+@[^[:space:]]+/<account>/g') 2>&1 &
     login_pid=$!
     trap 'kill -TERM "$login_pid" 2>/dev/null; wait "$login_pid" 2>/dev/null; exit 143' TERM INT HUP
-    wait "$login_pid"
+    # A closed sign-in window ends login with an error; the stored-account check below reports it.
+    wait "$login_pid" || true
     trap - TERM INT HUP
     "$XODUS_CLI" account --json | python3 -c 'import json,sys
 v=json.load(sys.stdin)
@@ -66,12 +67,17 @@ sys.exit(0 if v.get("stored") else 1)' || { echo "Sign-in was not completed." >&
     # Signing out must work even when the backend is gone or its recipe changed:
     # any xodus-cli that still runs clears the Keychain entry, and Soju's own
     # copy of the library is removed either way.
+    status=0
     if [ -x "$XODUS_CLI" ] && "$XODUS_CLI" --version >/dev/null 2>&1; then
-      if [ "${2:-}" = "--device" ]; then "$XODUS_CLI" logout --device; else "$XODUS_CLI" logout; fi
+      if [ "${2:-}" = "--device" ]; then "$XODUS_CLI" logout --device || status=$?; else "$XODUS_CLI" logout || status=$?; fi
     else
       echo "The Xbox PC backend is not installed; removing Soju's copy of the library only."
     fi
     rm -f "$BASE/account-libraries/xbox.json" "$BASE"/library-artwork/xbox-*.jpg
+    if [ "$status" != 0 ]; then
+      echo "soju: The Xbox library was removed from Soju, but the Microsoft sign-in is still in the Keychain. Delete \"Xodus Service\" in Keychain Access, or sign out again." >&2
+      exit 2
+    fi
     echo "Signed out. Downloaded games are kept." ;;
   status)
     need_backend
@@ -91,6 +97,7 @@ print("Signed in" if json.load(sys.stdin).get("stored") else "Not signed in")' ;
       p="$(cat "$f" 2>/dev/null)"
       case "$p" in ''|*[!0-9]*) continue ;; esac
       cmd="$(ps -p "$p" -o command= 2>/dev/null || true)"
+      [ -n "$cmd" ] || { rm -f "$f"; continue; }
       case "$cmd" in
         *xbox-download.py*) kill -TERM "$p" && echo "Download stopped. Download again to resume." && stopped=1 ;;
         *xbox-run.py*) kill -TERM "$p" && echo "Game stop requested." && stopped=1 ;;

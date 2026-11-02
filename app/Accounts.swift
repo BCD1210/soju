@@ -110,7 +110,12 @@ extension SojuModel {
                     DispatchQueue.main.async {
                         guard let self else { return }
                         self.accountBusy = false
-                        self.accountMessage = process.terminationStatus == 0 ? "Signed out of Microsoft. Downloaded games are kept." : "Sign-out did not finish, so you are still signed in. Open Diagnostics in Library for details."
+                        switch process.terminationStatus {
+                        case 0: self.accountMessage = "Signed out of Microsoft. Downloaded games are kept."
+                        // xbox.sh: the import is gone, but the Keychain entry could not be removed.
+                        case 2: self.accountMessage = "The Xbox library was removed, but the Microsoft sign-in is still in the Keychain. Delete \"Xodus Service\" in Keychain Access, or sign out again."
+                        default: self.accountMessage = "Sign-out did not finish, so you are still signed in. Open Diagnostics in Library for details."
+                        }
                         self.reloadAccountLibrary()
                     }
                 }
@@ -214,7 +219,8 @@ extension SojuModel {
                 DispatchQueue.main.async {
                     guard let self else { return }
                     self.accountBusy = false; self.signInTask = nil
-                    if process.terminationReason == .uncaughtSignal { self.accountMessage = "Sign-in cancelled."; return }
+                    // 143: xbox.sh closed the sign-in window after Cancel and exited itself.
+                    if process.terminationReason == .uncaughtSignal || process.terminationStatus == 143 { self.accountMessage = "Sign-in cancelled."; return }
                     if process.terminationStatus == 0 { self.syncAccount(.xbox, input: ["market": market]) }
                     else {
                         let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""

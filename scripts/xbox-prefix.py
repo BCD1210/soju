@@ -13,6 +13,7 @@ A marker records what was applied, so later launches skip all of this.
 import hashlib
 import json
 import os
+import signal
 from pathlib import Path
 import subprocess
 import sys
@@ -142,6 +143,9 @@ def prepare():
 
 
 if __name__ == '__main__':
+    # Stop from Soju (SIGTERM to the process group): exit normally so temporary
+    # folders and partial downloads are cleaned up.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
     try:
         if sys.argv[1:] == ['--check']:
             sys.exit(0 if ready() else 1)

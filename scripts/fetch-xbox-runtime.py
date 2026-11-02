@@ -11,6 +11,7 @@ extraction. The image is mounted read-only and nothing from it is executed.
 import hashlib
 import json
 import os
+import signal
 from pathlib import Path, PurePosixPath
 import shutil
 import struct
@@ -150,6 +151,9 @@ def fetch(base, manifest):
 
 
 if __name__ == '__main__':
+    # Stop from Soju (SIGTERM to the process group): exit normally so temporary
+    # folders and partial downloads are cleaned up.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
     try:
         manifest = json.loads(MANIFEST.read_text())
         base = Path(os.environ.get('SOJU_BASE', str(Path.home() / '.battlenet-macos')))

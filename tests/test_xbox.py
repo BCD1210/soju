@@ -582,11 +582,13 @@ class XboxStopAndSignOutTests(unittest.TestCase):
             fake = base / 'xbox-download.py'
             fake.write_text('import signal, sys, time\n'
                             'signal.signal(signal.SIGTERM, lambda *a: sys.exit(130))\n'
+                            'print("ready", flush=True)\n'
                             'time.sleep(30)\n')
             other = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
-            child = subprocess.Popen([sys.executable, str(fake)])
+            child = subprocess.Popen([sys.executable, str(fake)], stdout=subprocess.PIPE, text=True)
             try:
-                time.sleep(0.5)
+                # The handler is installed before "ready", so TERM cannot hit the default action.
+                self.assertEqual(child.stdout.readline().strip(), 'ready')
                 (run / ('xbox-dl-' + str(child.pid) + '.pid')).write_text(str(child.pid))
                 (run / ('xbox-dl-' + str(other.pid) + '.pid')).write_text(str(other.pid))
                 result = self.xbox_sh(base, 'kill')
@@ -622,6 +624,72 @@ class XboxStopAndSignOutTests(unittest.TestCase):
             self.assertIn('<account>', line)
         script = (ROOT / 'scripts/xbox.sh').read_text()
         self.assertIn('<account>', script)
+
+    def test_failed_keychain_sign_out_still_removes_the_import(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            (base / 'account-libraries').mkdir()
+            (base / 'account-libraries/xbox.json').write_text('{}')
+            cli = base / 'xodus-cli'
+            cli.write_text('#!/bin/sh\n[ "$1" = --version ] && exit 0\n[ "$1" = logout ] && exit 1\nexit 9\n')
+            cli.chmod(0o755)
+            result = self.xbox_sh(base, 'logout', cli=cli)
+            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+            self.assertIn('Keychain', result.stderr)
+            self.assertFalse((base / 'account-libraries/xbox.json').exists())
+
+    def test_closed_sign_in_window_reports_not_completed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            cli = base / 'xodus-cli'
+            cli.write_text('#!/bin/sh\ncase "$1" in login) exit 1 ;; account) echo \'{"stored": false}\' ;; esac\n')
+            cli.chmod(0o755)
+            result = self.xbox_sh(base, 'login', cli=cli)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('Sign-in was not completed', result.stderr)
+
+    def test_stop_during_first_launch_setup_ends_the_setup(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'repo'
+            (root / 'scripts').mkdir(parents=True)
+            (root / 'scripts/xbox-run.py').write_text((ROOT / 'scripts/xbox-run.py').read_text())
+            # Stand-in for xbox-prefix.py: a long download running in a child process.
+            (root / 'scripts/xbox-prefix.py').write_text(
+                'import subprocess, sys\n'
+                'child = subprocess.Popen(["/bin/sleep", "60"])\n'
+                'open(sys.argv[0] + ".pid", "w").write(str(child.pid))\n'
+                'print("ready", flush=True)\n'
+                'child.wait()\n')
+            base = Path(temp) / 'base'
+            game = base / 'xbox-bottle/drive_c/XboxGames' / SILKSONG
+            game.mkdir(parents=True)
+            (game / '.soju-xbox-install.json').write_text('{"title": "Test"}')
+            (game / '.xodus-streaming.msixvc').write_bytes(b'')
+            (game / 'MicrosoftGame.config').write_text(
+                '<Game><ExecutableList><Executable Name="game.exe"/></ExecutableList></Game>')
+            env = dict(os.environ, SOJU_BASE=str(base), SOJU_XODUS_BIN='/usr/bin/false')
+            run = subprocess.Popen([sys.executable, str(root / 'scripts/xbox-run.py'), SILKSONG], env=env,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            try:
+                self.assertEqual(run.stdout.readline().strip(), 'ready', run.stderr.read() if run.poll() is not None else '')
+                helper = int(Path(str(root / 'scripts/xbox-prefix.py') + '.pid').read_text())
+                run.terminate()
+                self.assertEqual(run.wait(timeout=20), 130)
+                for _ in range(50):
+                    try:
+                        os.kill(helper, 0)
+                    except ProcessLookupError:
+                        break
+                    time.sleep(0.1)
+                else:
+                    os.kill(helper, 9)
+                    self.fail('first-launch setup kept running after Stop')
+            finally:
+                if run.poll() is None:
+                    run.kill()
+                    run.wait()
+                run.stdout.close()
+                run.stderr.close()
 
     def test_stop_during_setup_reaches_the_prefix_process_group(self):
         source = (ROOT / 'scripts/xbox-run.py').read_text()

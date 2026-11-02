@@ -470,7 +470,7 @@ struct LibraryView: View {
                     Button("Pause Download") { model.stopDownload(game) }.keyboardShortcut(.defaultAction)
                 } else if game.platform == .xbox && model.launchingGames.contains(game.id) {
                     Button(model.stoppingGames.contains(game.id) ? "Stopping…" : "Stop Game") { model.stopGame(game) }
-                        .disabled(model.stoppingGames.contains(game.id))
+                        .keyboardShortcut(.defaultAction).disabled(model.stoppingGames.contains(game.id))
                 } else if !game.downloadBlocked {
                     Button(primaryTitle(game)) {
                         selected = nil

@@ -238,6 +238,7 @@ def main():
     # xbox.sh kill signals only the pids recorded here (no command-line matching).
     run_dir = BASE / 'run'
     run_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(run_dir, 0o700)
     pid_file = run_dir / ('xbox-' + str(os.getpid()) + '.pid')
     pid_file.write_text(str(os.getpid()))
     pid_file.chmod(0o600)
@@ -280,6 +281,11 @@ def main():
             raise LaunchError('This game is already running.') from None
         exe = executable(folder)
         prep = subprocess.Popen([sys.executable, str(ROOT / 'scripts/xbox-prefix.py')], start_new_session=True)
+        if stop.is_set():   # TERM arrived before prep was bound
+            try:
+                os.killpg(prep.pid, signal.SIGTERM)
+            except OSError:
+                pass
         prepared = prep.wait()
         if stop.is_set():
             print('soju: Stopped before the game started.', file=sys.stderr)
@@ -299,6 +305,9 @@ def main():
                                  '--materialize-chain', '--market', market()],
                                 cwd=str(folder), env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True, bufsize=1, errors='replace')
+        if stop.is_set() and game.poll() is None:   # TERM arrived before game was bound
+            game.send_signal(signal.SIGINT)
+            threading.Thread(target=force_stop, daemon=True).start()
         for line in game.stdout:
             if line.strip():
                 print(clean(line), flush=True)
