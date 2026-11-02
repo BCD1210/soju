@@ -246,6 +246,12 @@ def setup(refresh=False):
 
     kept = VR / 'saves-kept'
     if refresh and BOTTLE.exists():
+        # Check the new source first: a D2R update the mod does not support
+        # must not cost the copy that still works.
+        build = game_build(SOURCE)
+        if build != m['game_build']:
+            raise VRError('Battle.net now has D2R ' + str(build) + '; D2R VR Unleashed supports '
+                          + m['game_build'] + '. Your current VR copy was kept.')
         if running(['Battle.net.exe']):
             raise VRError('Close Battle.net first, so the copy is consistent.')
         stop_bottle(BOTTLE)

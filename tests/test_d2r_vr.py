@@ -107,6 +107,28 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(len(found), 2)
         self.assertTrue(all('zsh' not in line and 'bash' not in line for line in found))
 
+    def test_refresh_keeps_the_copy_when_the_new_build_is_unsupported(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            source, vr_dir = base / 'bottle', base / 'd2r-vr'
+            bottle = vr_dir / 'bottle'
+            for b, build in ((source, '3.3.99999'), (bottle, '3.3.93847')):
+                game = b / vr.GAME_REL
+                game.mkdir(parents=True)
+                (game / 'D2R.exe').write_bytes(b'')
+                (game / '.build.info').write_text('Version!STRING:0\n' + build + '\n')
+            engine = base / 'engine'
+            (engine / 'bin').mkdir(parents=True)
+            (engine / 'bin/wine').write_bytes(b'')
+            with mock.patch.multiple(vr, ENGINE=engine, SOURCE=source, VR=vr_dir, BOTTLE=bottle,
+                                     STATE=vr_dir / 'state.json'), \
+                    mock.patch.object(vr, 'running', return_value=[]):
+                with self.assertRaises(vr.VRError) as caught:
+                    vr.setup(refresh=True)
+            self.assertIn('was kept', str(caught.exception))
+            self.assertTrue((bottle / vr.GAME_REL / 'D2R.exe').exists())
+
     def test_windows_paths_go_through_z(self):
         self.assertTrue(vr.winpath('/tmp').startswith('Z:\\'))
 
