@@ -206,6 +206,32 @@ def patch_reshade(dll, spec):
     return True
 
 
+def isolate_user_folders(bottle):
+    """Turn the copy's Documents/Downloads/... links to the Mac folders into plain folders.
+
+    Started from Soju.app, D2R writing its logs to Documents makes macOS ask whether
+    Soju may use the Documents folder, and the game waits on that prompt. The copy
+    keeps its own logs instead; the Mac folders are left alone.
+    """
+    users = bottle / 'drive_c/users'
+    changed = []
+    if not users.is_dir():
+        return changed
+    for user in users.iterdir():
+        if user.is_symlink() or not user.is_dir():
+            continue
+        for link in user.iterdir():
+            if not link.is_symlink():
+                continue
+            target = os.path.realpath(link)
+            if target == str(bottle.resolve()) or target.startswith(str(bottle.resolve()) + os.sep):
+                continue
+            link.unlink()
+            link.mkdir(mode=0o700)
+            changed.append(link.name)
+    return changed
+
+
 def fix_settings(saves):
     settings = saves / 'Settings.json'
     data = json.loads(settings.read_text(encoding='utf-8-sig'))
@@ -346,6 +372,7 @@ def setup(refresh=False):
     if (game / 'd3d12.dll').exists():
         (game / 'd3d12.dll').rename(off)
     fix_settings(BOTTLE / SAVES_REL)
+    isolate_user_folders(BOTTLE)
     write_runtime_routing(m)
     stop_bottle(BOTTLE)
     STATE.write_text(json.dumps({'recipe': recipe(m), 'game_build': game_build(BOTTLE),
@@ -393,6 +420,7 @@ def play(extra, flat=False):
         raise VRError('D2R VR is not set up for this Soju version. Run: soju vr setup')
     if running(['D2R.exe', 'D2RLoader.exe']):
         raise VRError('Diablo II: Resurrected is already running.')
+    isolate_user_folders(BOTTLE)   # copies set up by 1.8.0/1.8.1 still have the links
     env = play_env(flat)
     if flat:
         say('Opening the VR copy without VR. Create or check offline characters, then quit and run: soju vr play')

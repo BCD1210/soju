@@ -39,6 +39,24 @@ class ManifestTests(unittest.TestCase):
         self.assertIn('flat) exec python3 "$ROOT/scripts/d2r-vr.py" play --flat', action)
         self.assertIn('model.playVR(game, flat: true)', library)
 
+    def test_user_folder_links_become_folders_in_the_copy(self):
+        with tempfile.TemporaryDirectory() as d:
+            mac_docs = Path(d) / 'mac/Documents'
+            mac_docs.mkdir(parents=True)
+            (mac_docs / 'keep.txt').write_text('mine')
+            bottle = Path(d) / 'bottle'
+            user = bottle / 'drive_c/users/crossover'
+            (user / 'Saved Games').mkdir(parents=True)
+            (user / 'Documents').symlink_to(mac_docs)
+            (user / 'Inside').symlink_to(user / 'Saved Games')
+            self.assertEqual(vr.isolate_user_folders(bottle), ['Documents'])
+            self.assertFalse((user / 'Documents').is_symlink())
+            self.assertTrue((user / 'Documents').is_dir())
+            self.assertEqual(list((user / 'Documents').iterdir()), [])
+            self.assertEqual((mac_docs / 'keep.txt').read_text(), 'mine')
+            self.assertTrue((user / 'Inside').is_symlink())
+            self.assertEqual(vr.isolate_user_folders(bottle), [])
+
     def test_flat_play_leaves_the_vr_runtime_out(self):
         with mock.patch.dict(vr.os.environ, {'XR_RUNTIME_JSON': '/x.json'}):
             flat = vr.play_env(True)
