@@ -29,7 +29,7 @@ class D2RMacOSTests(unittest.TestCase):
             'uname': 'echo arm64', 'sysctl': 'echo TestCPU',
             'pgrep': '[ "$*" = "-q oahd" ]', 'xcode-select': 'exit 0',
             'df': 'printf "Filesystem Blocks Used Available\\ntest 200 50 150\\n"',
-            'defaults': 'exit 1', 'curl': 'echo \'[{"tag_name":"engine-v1.6"}]\'',
+            'defaults': 'exit 1', 'curl': 'echo \'[{"tag_name":"engine-v1.7"}]\'',
             'python3': 'echo python >> "$TEST_CALLS"',
         }.items(): self.executable(self.bin / name, body)
         self.base = self.root / 'base'
@@ -43,7 +43,7 @@ class D2RMacOSTests(unittest.TestCase):
         (self.engine / 'bin').mkdir(parents=True)
         self.executable(self.engine / 'bin/wine',
                         'if [ "$1" = --version ]; then echo wine-11.0; else printf "%s\\n" "$*" >> "$TEST_CALLS"; fi')
-        (self.engine / '.soju-engine-release').write_text('engine-v1.6')
+        (self.engine / '.soju-engine-release').write_text('engine-v1.7')
         ext = self.engine / 'lib/external'
         (ext / 'D3DMetal.framework').mkdir(parents=True)
         (ext / 'libd3dshared.dylib').touch()

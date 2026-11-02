@@ -563,3 +563,11 @@ Unix 권한을 정하는 기존 동작은 그대로다.
 단계를 지나 끝났고(`.patch.result` 0, 게임 폴더에 `user.wine.sd` 생성), 손대지 않은 원본 복제본에서도
 engine-v1.6 tarball의 wineserver로 같은 결과였다. 그 wineserver로 Battle.net 로그인 상태 유지, D2R
 온라인 접속(캐릭터 선택 화면)까지 확인했다.
+
+### 후속 (engine-v1.7): 먼저 열린 핸들도 바뀐 ACL을 본다
+
+리뷰 지적: 핸들 A를 먼저 열어 보안 설명자를 캐시해 두고, 다른 핸들로 Unix 권한 비트는 그대로인 채
+ACL만 바꾸면, `file_get_sd`/`dir_get_sd`가 모드·UID가 같다며 캐시를 그대로 돌려줘서 A는 예전 ACL을
+계속 봤다. 재현(Wine 아래 윈도우 파이썬, 핸들 A를 연 뒤 `SetNamedSecurityInfoW`로 Interactive 항목만
+추가): v1.6은 예전 목록, 수정 후에는 새 목록. 이제 xattr에 저장된 설명자가 있으면 조회할 때마다
+그것을 읽는다. 원본 Battle.net 병의 새 복제본에서 Agent의 D2R 업데이트도 끝까지 됐다.
