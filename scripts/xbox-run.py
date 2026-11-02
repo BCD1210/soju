@@ -90,7 +90,8 @@ def market():
 
 def clean(line):
     """Backend messages may carry request URLs (with query tokens); keep the words only."""
-    return re.sub(r'[a-z][a-z0-9+.-]*://\S+', '<url>', line.rstrip())[:500]
+    line = re.sub(r'[a-z][a-z0-9+.-]*://\S+', '<url>', line.rstrip())
+    return re.sub(r'\S+@\S+', '<account>', line)[:500]
 
 
 class Bridge:
@@ -232,7 +233,7 @@ def main():
     if len(sys.argv) != 2:
         print('Usage: xbox-run.py <ProductId>', file=sys.stderr)
         return 64
-    service = game = None
+    service = game = prep = None
     stop = threading.Event()
     # xbox.sh kill signals only the pids recorded here (no command-line matching).
     run_dir = BASE / 'run'
@@ -252,6 +253,13 @@ def main():
         if stop.is_set():
             return
         stop.set()
+        # First launch may still be preparing the prefix (downloads, VC++ setup):
+        # stop that whole process group too.
+        if prep and prep.poll() is None:
+            try:
+                os.killpg(prep.pid, signal.SIGTERM)
+            except OSError:
+                pass
         if game and game.poll() is None:
             game.send_signal(signal.SIGINT)
             threading.Thread(target=force_stop, daemon=True).start()
@@ -271,7 +279,12 @@ def main():
         except OSError:
             raise LaunchError('This game is already running.') from None
         exe = executable(folder)
-        if subprocess.run([sys.executable, str(ROOT / 'scripts/xbox-prefix.py')]).returncode != 0:
+        prep = subprocess.Popen([sys.executable, str(ROOT / 'scripts/xbox-prefix.py')], start_new_session=True)
+        prepared = prep.wait()
+        if stop.is_set():
+            print('soju: Stopped before the game started.', file=sys.stderr)
+            return 130
+        if prepared != 0:
             return 1
         title = json.loads(record.read_text()).get('title') or pid
         print('Starting ' + str(title)[:300] + ' (' + exe + ')…', flush=True)

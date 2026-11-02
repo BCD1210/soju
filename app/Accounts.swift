@@ -158,7 +158,8 @@ extension SojuModel {
                     self.downloadTasks.removeValue(forKey: game.id); self.downloads.removeValue(forKey: game.id)
                     let stopped = self.stoppingDownloads.remove(game.id) != nil
                     NSApp.dockTile.badgeLabel = self.downloadTasks.isEmpty ? nil : String(self.downloadTasks.count)
-                    if stopped && process.terminationStatus != 0 {
+                    // 130: stopped from outside the app (soju xbox-kill); the checkpoint is kept.
+                    if (stopped && process.terminationStatus != 0) || (process.terminationReason == .exit && process.terminationStatus == 130) {
                         self.activity = "Download of " + game.title + " paused. Download again to resume it."
                     } else if process.terminationReason == .exit && process.terminationStatus == 0 {
                         self.activity = game.title + " is downloaded."

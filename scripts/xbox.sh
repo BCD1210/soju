@@ -11,9 +11,6 @@ XBOX_HOME="$BASE/xbox-bottle"
 # nothing account-related reaches Soju's log files.
 export XODUS_LOG=error
 
-# pkill -f takes a regex: escape the path and anchor it at the start of the command.
-pattern() { printf '^%s' "$(printf '%s' "$1" | sed 's/[][\.*^$()+?{}|]/\\&/g')"; }
-
 need_backend() {
   if [ -n "${SOJU_XODUS_BIN:-}" ]; then
     [ -x "$XODUS_CLI" ] || { echo "SOJU_XODUS_BIN must point to an xodus-cli build with the Nexus commands." >&2; exit 1; }
@@ -38,7 +35,11 @@ case "${1:-}" in
     if [ -x "${ENGINE:-$BASE/cx26-engine}/bin/wine" ] && [ -f "${ENGINE:-$BASE/cx26-engine}/lib/external/libd3dshared.dylib" ]; then
       python3 "$ROOT/scripts/xbox-prefix.py"
     else
-      echo "Playing Xbox PC games needs the CX engine and Apple GPTK (install Battle.net, Epic or GOG and add GPTK)."
+      if [ -x "${ENGINE:-$BASE/cx26-engine}/bin/wine" ]; then
+        echo "Playing Xbox PC games needs Apple's Game Porting Toolkit: add it in Platforms (or: soju gptk)."
+      else
+        echo "Playing Xbox PC games needs the CX engine: set up Xbox PC again in Platforms (or: soju install)."
+      fi
     fi
     echo "Xbox PC is ready. Sign in from Soju > Accounts (or: soju xbox-login)."
     echo "Downloads go to $XBOX_HOME/drive_c/XboxGames." ;;
@@ -51,7 +52,8 @@ case "${1:-}" in
     need_backend
     echo "Opening the Microsoft sign-in page. Finish signing in there, then this window closes."
     # Cancel in Soju sends TERM here: close the sign-in window too, so nothing is stored afterwards.
-    "$XODUS_CLI" login &
+    # Some backend lines name the account; keep e-mail addresses out of the log.
+    "$XODUS_CLI" login > >(sed -E 's/[^[:space:]]+@[^[:space:]]+/<account>/g') 2>&1 &
     login_pid=$!
     trap 'kill -TERM "$login_pid" 2>/dev/null; wait "$login_pid" 2>/dev/null; exit 143' TERM INT HUP
     wait "$login_pid"
@@ -61,9 +63,15 @@ v=json.load(sys.stdin)
 sys.exit(0 if v.get("stored") else 1)' || { echo "Sign-in was not completed." >&2; exit 1; }
     echo "Signed in." ;;
   logout)
-    need_backend
-    if [ "${2:-}" = "--device" ]; then "$XODUS_CLI" logout --device; else "$XODUS_CLI" logout; fi
-    rm -f "$BASE/account-libraries/xbox.json"
+    # Signing out must work even when the backend is gone or its recipe changed:
+    # any xodus-cli that still runs clears the Keychain entry, and Soju's own
+    # copy of the library is removed either way.
+    if [ -x "$XODUS_CLI" ] && "$XODUS_CLI" --version >/dev/null 2>&1; then
+      if [ "${2:-}" = "--device" ]; then "$XODUS_CLI" logout --device; else "$XODUS_CLI" logout; fi
+    else
+      echo "The Xbox PC backend is not installed; removing Soju's copy of the library only."
+    fi
+    rm -f "$BASE/account-libraries/xbox.json" "$BASE"/library-artwork/xbox-*.jpg
     echo "Signed out. Downloaded games are kept." ;;
   status)
     need_backend
@@ -74,14 +82,20 @@ print("Signed in" if json.load(sys.stdin).get("stored") else "Not signed in")' ;
     need_backend
     exec python3 "$ROOT/scripts/xbox-download.py" "${2:?Choose a game (Store product ID)}" ;;
   kill)
-    pkill -f "$(pattern "$XODUS_CLI") streaming " 2>/dev/null && echo "Download stopped. Download again to resume." || echo "No Xbox download is running."
-    # SIGTERM lets xbox-run.py ask xodus-cli to stop the game and copy its saves back.
-    # Running games record their pid; only a live xbox-run.py with that pid is signalled.
+    # Downloads and games record their pid; only a live xbox-download.py or
+    # xbox-run.py with that pid is signalled. SIGTERM lets the download keep its
+    # checkpoint, and lets xbox-run.py stop the game and copy its saves back.
+    stopped=0
     for f in "$BASE"/run/xbox-*.pid; do
       [ -f "$f" ] || continue
       p="$(cat "$f" 2>/dev/null)"
       case "$p" in ''|*[!0-9]*) continue ;; esac
-      ps -p "$p" -o command= 2>/dev/null | grep -q 'xbox-run\.py' && kill -TERM "$p" && echo "Game stop requested."
-    done ;;
+      cmd="$(ps -p "$p" -o command= 2>/dev/null || true)"
+      case "$cmd" in
+        *xbox-download.py*) kill -TERM "$p" && echo "Download stopped. Download again to resume." && stopped=1 ;;
+        *xbox-run.py*) kill -TERM "$p" && echo "Game stop requested." && stopped=1 ;;
+      esac
+    done
+    [ "$stopped" = 1 ] || echo "No Xbox download or game is running." ;;
   *) echo "Usage: xbox.sh install|prepare|login|logout [--device]|status|download <ProductId>|run <ProductId>|kill" >&2; exit 64 ;;
 esac

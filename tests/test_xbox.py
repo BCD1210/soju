@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -222,7 +223,7 @@ class XboxLibraryTests(unittest.TestCase):
 
     def test_play_needs_the_engine_and_gptk(self):
         self.downloaded()
-        with self.assertRaisesRegex(ValueError, 'same engine'):
+        with self.assertRaisesRegex(ValueError, 'installs the engine'):
             self.lib.command('xbox:' + SILKSONG)
         self.engine(gptk=False)
         with self.assertRaisesRegex(ValueError, 'Game Porting Toolkit'):
@@ -423,10 +424,6 @@ class XboxInstallerPlanTests(unittest.TestCase):
         self.assertEqual(bad.returncode, 64)
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class XboxLaunchTests(unittest.TestCase):
     def test_executable_comes_from_the_package_manifest(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -551,3 +548,92 @@ class XboxReviewRegressionTests(unittest.TestCase):
             with patch.object(download, 'CLI', str(cli)):
                 with self.assertRaisesRegex(download.DownloadError, 'already downloading'):
                     download.stream(SILKSONG, self.GAME, 'US', Path(temp))
+
+
+
+class XboxStopAndSignOutTests(unittest.TestCase):
+    """Sign-out without a backend, stopping downloads and setup, no e-mail in logs."""
+
+    def xbox_sh(self, base, *args, cli=None):
+        env = {k: v for k, v in os.environ.items() if k != 'SOJU_XODUS_BIN'}
+        env['SOJU_BASE'] = str(base)
+        if cli:
+            env['SOJU_XODUS_BIN'] = str(cli)
+        return subprocess.run(['/bin/bash', str(ROOT / 'scripts/xbox.sh'), *args], env=env,
+                              capture_output=True, text=True, timeout=30)
+
+    def test_sign_out_works_without_a_backend(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            (base / 'account-libraries').mkdir()
+            (base / 'account-libraries/xbox.json').write_text('{}')
+            (base / 'library-artwork').mkdir()
+            (base / 'library-artwork/xbox-9N116V0599HB.jpg').write_bytes(b'jpg')
+            (base / 'library-artwork/steam-1.jpg').write_bytes(b'jpg')
+            result = self.xbox_sh(base, 'logout')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse((base / 'account-libraries/xbox.json').exists())
+            self.assertFalse((base / 'library-artwork/xbox-9N116V0599HB.jpg').exists())
+            self.assertTrue((base / 'library-artwork/steam-1.jpg').exists())
+
+    def test_kill_stops_a_recorded_download_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp); run = base / 'run'; run.mkdir()
+            fake = base / 'xbox-download.py'
+            fake.write_text('import signal, sys, time\n'
+                            'signal.signal(signal.SIGTERM, lambda *a: sys.exit(130))\n'
+                            'time.sleep(30)\n')
+            other = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
+            child = subprocess.Popen([sys.executable, str(fake)])
+            try:
+                time.sleep(0.5)
+                (run / ('xbox-dl-' + str(child.pid) + '.pid')).write_text(str(child.pid))
+                (run / ('xbox-dl-' + str(other.pid) + '.pid')).write_text(str(other.pid))
+                result = self.xbox_sh(base, 'kill')
+                self.assertIn('Download stopped', result.stdout)
+                self.assertEqual(child.wait(timeout=10), 130)
+                self.assertIsNone(other.poll(), 'a pid that is not a Soju download must be left alone')
+            finally:
+                for p in (child, other):
+                    if p.poll() is None:
+                        p.kill()
+                    p.wait()
+
+    def test_kill_reports_when_nothing_runs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = self.xbox_sh(Path(temp), 'kill')
+            self.assertEqual(result.returncode, 0)
+            self.assertIn('No Xbox download or game is running', result.stdout)
+
+    def test_download_records_and_removes_its_pid(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            with patch.object(download, 'BASE', base), patch.object(sys, 'argv', ['x', 'bad id']):
+                self.assertEqual(download.main(), 1)
+            self.assertTrue((base / 'run').is_dir())
+            self.assertEqual(list((base / 'run').iterdir()), [])
+        self.assertIn("'xbox-dl-'", (ROOT / 'scripts/xbox-download.py').read_text())
+
+    def test_logs_never_show_an_e_mail(self):
+        for clean in (download.clean, runner.clean):
+            line = clean('Signed in as someone@example.com via https://login.example/?t=secret')
+            self.assertNotIn('someone@example.com', line)
+            self.assertNotIn('secret', line)
+            self.assertIn('<account>', line)
+        script = (ROOT / 'scripts/xbox.sh').read_text()
+        self.assertIn('<account>', script)
+
+    def test_stop_during_setup_reaches_the_prefix_process_group(self):
+        source = (ROOT / 'scripts/xbox-run.py').read_text()
+        self.assertIn('start_new_session=True', source)
+        self.assertIn('os.killpg(prep.pid, signal.SIGTERM)', source)
+        self.assertNotIn("subprocess.run([sys.executable, str(ROOT / 'scripts/xbox-prefix.py')]", source)
+
+    def test_engine_hint_matches_the_installer(self):
+        for name in ('xbox-prefix.py', 'game-library.py', 'xbox.sh'):
+            self.assertNotIn('Install Battle.net, Epic or GOG', (ROOT / 'scripts' / name).read_text(), name)
+            self.assertNotIn('install Battle.net, Epic or GOG', (ROOT / 'scripts' / name).read_text(), name)
+
+
+if __name__ == '__main__':
+    unittest.main()

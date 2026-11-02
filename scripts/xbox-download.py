@@ -104,7 +104,8 @@ def size(value):
 
 def clean(line):
     """Backend messages may carry request URLs (with query tokens); keep the words only."""
-    return re.sub(r'[a-z][a-z0-9+.-]*://\S+', '<url>', line.strip())[:300]
+    line = re.sub(r'[a-z][a-z0-9+.-]*://\S+', '<url>', line.strip())
+    return re.sub(r'\S+@\S+', '<account>', line)[:300]
 
 
 def describe(record):
@@ -169,6 +170,12 @@ def main():
         print('Usage: xbox-download.py <ProductId>', file=sys.stderr)
         return 64
     signal.signal(signal.SIGTERM, stop)
+    # xbox.sh kill signals only the pids recorded in run/ (no command-line matching).
+    run_dir = BASE / 'run'
+    run_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    pid_file = run_dir / ('xbox-dl-' + str(os.getpid()) + '.pid')
+    pid_file.write_text(str(os.getpid()))
+    pid_file.chmod(0o600)
     try:
         pid = product_id(sys.argv[1])
         if not os.access(CLI, os.X_OK):
@@ -192,6 +199,8 @@ def main():
     except KeyboardInterrupt:
         print('soju: Download stopped. Download again to resume it.', file=sys.stderr)
         return 130
+    finally:
+        pid_file.unlink(missing_ok=True)
 
 
 if __name__ == '__main__':

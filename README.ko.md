@@ -145,9 +145,11 @@ scripts/play.sh gog-kill          # GOG 보틀 종료 (창을 닫으면 메뉴�
 
 게임은 아직 폭넓게 테스트하지 않았습니다. 커널 안티치트(EAC/BattlEye)가 필요한 게임은 Wine에서 돌지 않습니다.
 
-## Xbox PC / Microsoft Store (Xodus 백엔드, 다운로드만)
+## Xbox PC / Microsoft Store (Xodus 백엔드, 실험 기능)
 
-Microsoft 계정으로 로그인해 보유 게임과 PC Game Pass 게임을 가져오고, Microsoft Store를 검색하고, 게임을 내려받고 실행할 수 있습니다. **게임 실행은 실험 기능이며 Soju에서 실제 게임으로는 아직 확인하지 않았습니다.** 실행 방식은 맥에서 여러 게임이 실행된 MACxus와 같습니다. 실행하려면 CX 엔진과 Apple GPTK(Battle.net·Epic·GOG 설치 시 함께 설치)가 필요합니다.
+Microsoft 계정으로 로그인해 보유 게임과 PC Game Pass 게임을 가져오고, Microsoft Store를 검색하고, 게임을 내려받고 실행할 수 있습니다. **게임 실행은 실험 기능이며 Soju에서 실제 게임으로는 아직 확인하지 않았습니다.** 실행 방식은 맥에서 여러 게임이 실행된 MACxus와 같습니다. 실행하려면 CX 엔진과 Apple GPTK가 필요합니다. Xbox PC를 설정하면 엔진이 설치되고, GPTK는 Battle.net·Epic·GOG처럼 Platforms에서 추가합니다.
+
+실행 방식: `xodus-cli run`이 라이선스를 받아 게임을 임시 RAM 디스크에 풀고, `scripts/xbox-wine.sh`가 전용 보틀(`xbox-bottle`)에서 CX 엔진과 D3DMetal로 실행합니다. 이 보틀에는 Xbox 게임 런타임 DLL(xgameruntime 등, LGPL, `resources/xbox-runtime.json`에 고정, 처음 한 번 약 600MB)과 Microsoft VC++ 런타임이 들어갑니다. 게임 중에는 `xodus-service`가 로그인·라이선스·클라우드 저장을 맡고, 게임이 쓴 파일은 끝날 때 게임 폴더로 복사됩니다. Library의 **Stop**으로 게임을 닫으면 저장 파일을 먼저 복사합니다.
 
 백엔드는 [Xodus](https://github.com/xodus-gaming/xodus)(GPL-3.0)입니다. macOS용 배포본이 없어서 `soju xbox-install`이 맥에서 직접 빌드합니다. 고정 커밋의 Xodus 소스에 [MACxus](https://github.com/fladnaG86/MACxus)(MIT)의 패치 44개를 적용합니다. 패치와 `Cargo.lock`은 모두 SHA-256으로 검사하고, rustup의 Rust 1.99로 빌드합니다. 첫 빌드는 몇 분 걸리고 임시 디스크가 1.5GB쯤 필요합니다. 고정값은 `resources/xodus-backend.json`에 있습니다.
 
@@ -161,8 +163,8 @@ soju xbox-logout             # 로그아웃 (받은 게임은 유지)
 
 - 다운로드 위치는 `~/.battlenet-macos/xbox-bottle/drive_c/XboxGames/<상품ID>`이고, 중단된 곳부터 이어받습니다.
 - MSIXVC 형식의 GDK 게임만 받을 수 있습니다. MSIXVC2 게임은 *Not supported*로 표시됩니다 ([xodus#53](https://github.com/xodus-gaming/xodus/issues/53)).
-- 로그인 정보는 macOS 키체인의 "Xodus Service" 항목에 저장됩니다. Soju는 게임 ID, 제목, 패키지 형식, 표지 이미지만 저장하고 계정 이름과 토큰은 저장하지 않습니다.
-- 게임 실행용 Xbox 런타임 파일(xgameruntime 등, 약 600MB)과 Microsoft VC++ 런타임은 처음 한 번 받아서 체크섬을 확인합니다. Easy Anti-Cheat 게임은 맥에서 온라인 플레이가 안 됩니다.
+- 로그인 정보는 macOS 키체인의 "Xodus Service" 항목에 저장됩니다. Soju는 게임 ID, 제목, 패키지 형식, 표지 이미지, 계정 표시용 Xbox 게이머태그만 저장하고 계정 이메일과 토큰은 저장하지 않습니다.
+- 게임 실행용 Xbox 런타임 파일(xgameruntime 등, 약 600MB)과 Microsoft VC++ 런타임은 처음 한 번 받아서 체크섬을 확인합니다. MACxus가 일부 게임에 쓰는 PlayFab 저장 어댑터는 아직 없어서 그런 게임의 클라우드 저장은 동기화되지 않을 수 있습니다. Easy Anti-Cheat 게임은 맥에서 온라인 플레이가 안 됩니다.
 
 ## Steam 지원 (Steam판 D2R 포함)
 

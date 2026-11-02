@@ -26,7 +26,7 @@ CLIENTS = {
     # Xbox PC has no Windows client: `xbox.sh install` writes this marker.
     'xbox': 'ProgramData/Soju/xbox.json',
 }
-XBOX_ENGINE = 'Install Battle.net, Epic or GOG in Platforms first: Xbox PC games use the same engine.'
+XBOX_ENGINE = 'Set up Xbox PC again in Platforms: it installs the engine Xbox PC games run on.'
 XBOX_GPTK = "Add Apple's Game Porting Toolkit in Platforms before playing."
 # Product UIDs differ from the Battle.net launch command's product codes.
 BNET = {

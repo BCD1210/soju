@@ -118,7 +118,9 @@ extension SojuModel {
                         self.gameLaunches.removeValue(forKey: game.id)
                         self.launchingGames.remove(game.id)
                     }
-                    if process.terminationStatus != 0 {
+                    if self.stoppingGames.remove(game.id) != nil {
+                        self.activity = game.title + " stopped."
+                    } else if process.terminationStatus != 0 {
                         let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
                         let reason = text.split(separator: "\n").last(where: { $0.hasPrefix("soju: ") }).map { String($0.dropFirst(6)) }
                         self.issueTitle = "Couldn't start " + game.title
@@ -146,6 +148,14 @@ extension SojuModel {
             launchingGames.remove(game.id); gameLaunches.removeValue(forKey: game.id)
             libraryIssue = "Could not start the game: " + error.localizedDescription
         }
+    }
+    /// An Xbox game runs inside Soju's task: SIGTERM reaches xbox-run.py, which asks the
+    /// backend to close the game and copy its saves back (or stops first-launch setup).
+    func stopGame(_ game: InstalledGame) {
+        guard game.platform == .xbox, let p = gameLaunches[game.id], p.isRunning, !stoppingGames.contains(game.id) else { return }
+        stoppingGames.insert(game.id)
+        activity = "Stopping " + game.title + " and saving…"
+        p.terminate()
     }
 }
 
@@ -365,6 +375,11 @@ struct LibraryView: View {
                         Button { model.stopDownload(game) } label: { Label("Pause", systemImage: "pause.fill") }
                             .controlSize(.small).help("Pause the download. Download again later to continue.")
                             .accessibilityLabel("Pause downloading " + game.title)
+                    } else if game.platform == .xbox && model.launchingGames.contains(game.id) {
+                        Button { model.stopGame(game) } label: { Label(model.stoppingGames.contains(game.id) ? "Stopping…" : "Stop", systemImage: "stop.fill") }
+                            .controlSize(.small).disabled(model.stoppingGames.contains(game.id))
+                            .help("Close the game. Soju copies its saves back first.")
+                            .accessibilityLabel("Stop " + game.title)
                     } else if game.downloadBlocked {
                         Button { selected = game } label: { Label("Details", systemImage: "info.circle") }
                             .controlSize(.small).accessibilityLabel("Why " + game.title + " cannot be downloaded")
@@ -453,6 +468,9 @@ struct LibraryView: View {
                 Button("Close") { selected = nil }.keyboardShortcut(.cancelAction)
                 if model.downloads[game.id] != nil {
                     Button("Pause Download") { model.stopDownload(game) }.keyboardShortcut(.defaultAction)
+                } else if game.platform == .xbox && model.launchingGames.contains(game.id) {
+                    Button(model.stoppingGames.contains(game.id) ? "Stopping…" : "Stop Game") { model.stopGame(game) }
+                        .disabled(model.stoppingGames.contains(game.id))
                 } else if !game.downloadBlocked {
                     Button(primaryTitle(game)) {
                         selected = nil

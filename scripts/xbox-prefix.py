@@ -55,7 +55,7 @@ def state(m):
 
 def engine_problem():
     if not os.access(ENGINE / 'bin/wine', os.X_OK):
-        return 'Install Battle.net, Epic or GOG in Platforms first: Xbox PC games use the same engine.'
+        return 'Set up Xbox PC again in Platforms: it installs the engine Xbox PC games run on.'
     if not (ENGINE / 'lib/external/libd3dshared.dylib').is_file():
         return "Add Apple's Game Porting Toolkit in Platforms before playing."
     return None

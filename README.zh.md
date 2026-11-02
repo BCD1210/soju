@@ -148,9 +148,11 @@ scripts/play.sh gog-kill          # 停止 GOG bottle（关窗口会缩到菜单
 
 游戏尚未大范围测试；需要内核级反作弊（EAC/BattlEye）的游戏在 Wine 下无法运行。
 
-## Xbox PC / Microsoft Store（Xodus 后端，仅下载）
+## Xbox PC / Microsoft Store（Xodus 后端，实验功能）
 
-可以登录 Microsoft 账户，导入已拥有的游戏和 PC Game Pass 游戏，搜索 Microsoft Store 并下载游戏。也可以启动下载好的游戏（实验功能，尚未在 Soju 上用实际游戏验证）。启动需要 CX 引擎和 Apple GPTK。
+可以登录 Microsoft 账户，导入已拥有的游戏和 PC Game Pass 游戏，搜索 Microsoft Store 并下载游戏。也可以启动下载好的游戏（实验功能，尚未在 Soju 上用实际游戏验证）。启动需要 CX 引擎和 Apple GPTK：设置 Xbox PC 时会安装引擎，GPTK 与 Battle.net、Epic、GOG 一样在 Platforms 中添加。
+
+启动流程：`xodus-cli run` 获取许可证并把游戏解密到临时 RAM 盘，`scripts/xbox-wine.sh` 在独立前缀（`xbox-bottle`）中用 CX 引擎和 D3DMetal 运行。该前缀包含 Xbox 游戏运行时 DLL（xgameruntime 等，LGPL，固定在 `resources/xbox-runtime.json`，首次下载约 600 MB）和 Microsoft VC++ 运行库。游戏期间 `xodus-service` 负责登录、许可证和云存档，游戏写入的文件在退出时复制回游戏目录。在 Library 中点 **Stop** 关闭游戏时会先复制存档。
 
 后端是 [Xodus](https://github.com/xodus-gaming/xodus)（GPL-3.0），没有 macOS 发行版，所以 `soju xbox-install` 会在你的 Mac 上构建：固定提交的 Xodus 源码加上 [MACxus](https://github.com/fladnaG86/MACxus)（MIT）的 44 个补丁，补丁和 `Cargo.lock` 都校验 SHA-256，用 rustup 的 Rust 1.99 构建。
 
@@ -162,7 +164,7 @@ soju xbox-download 9N116V0599HB   # 按商店产品 ID 下载，再次运行可�
 soju xbox-logout             # 退出登录（已下载的游戏保留）
 ```
 
-只支持 MSIXVC 格式的 GDK 游戏，MSIXVC2 暂不支持（[xodus#53](https://github.com/xodus-gaming/xodus/issues/53)）。登录信息保存在 macOS 钥匙串的 "Xodus Service" 项中。
+只支持 MSIXVC 格式的 GDK 游戏，MSIXVC2 暂不支持（[xodus#53](https://github.com/xodus-gaming/xodus/issues/53)）。登录信息保存在 macOS 钥匙串的 "Xodus Service" 项中。Soju 只保存游戏 ID、标题、包格式、封面和用作账户标签的 Xbox 玩家代号，不保存账户邮箱和令牌。使用 Easy Anti-Cheat 的游戏无法在 macOS 上联机。
 
 ## Steam（包括 Steam 版 D2R）
 

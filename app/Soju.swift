@@ -69,6 +69,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     @Published var scanning = false
     @Published var scanWarnings: [String] = []
     @Published var launchingGames: Set<String> = []
+    @Published var stoppingGames: Set<String> = []
     @Published var libraryIssue: String?
     @Published var preferences = LibraryPreferences.load()
     var gameLaunches: [String: Process] = [:]
