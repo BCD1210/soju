@@ -256,6 +256,17 @@ class SupportManifestTests(unittest.TestCase):
             self.assertIn('apply_once dxmt "$ROOT/patches/' + patch + '"', script)
         self.assertIn("d3d11.maxTessFactor", (ROOT/"patches/dxmt-max-tess-factor.patch").read_text())
 
+class EnginePatchTests(unittest.TestCase):
+    def test_stored_acls_patch_is_applied_once_by_the_engine_build(self):
+        script = (ROOT/"scripts/build-engine.sh").read_text()
+        patch = (ROOT/"patches/wineserver-stored-acls.patch").read_text()
+        # The guard string the build checks for must be one the patch adds.
+        self.assertIn('grep -q "WINE_XATTR_SD" "$WINE/server/file.c"', script)
+        self.assertIn('patches/wineserver-stored-acls.patch', script)
+        self.assertIn('+#define WINE_XATTR_SD "user.wine.sd"', patch)
+        for path in ("server/file.c", "server/file.h", "server/change.c"):
+            self.assertIn("+++ b/" + path, patch)
+
 class DownloadCheckTests(unittest.TestCase):
     """install.sh and update.sh run only checked downloads, never main."""
     SCRIPTS = ("install.sh", "scripts/update.sh")

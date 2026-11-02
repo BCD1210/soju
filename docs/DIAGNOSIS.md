@@ -539,3 +539,27 @@ Battle.net 보틀(`~/.battlenet-macos/bottle`)은 Whisky 컨테이너로 가는 
 디렉토리를 만드니 절대 일치하지 않았다. 결과: 이 보틀의 reaper는 서버가 살아 있어도 두 주기 뒤에
 고아로 판정해 D2R과 Battle.net을 죽였다(v1.4 검증 중 "wineserver crashed"로 나타남). `pwd -P`로 해석한
 경로에 `stat -L`을 쓰도록 고쳤다. Epic 보틀(실제 디렉토리)은 영향이 없어서 스크래치 테스트도 통과했었다.
+
+## D2R 업데이트 "Unable to fix permissions" (BLZBNTAGT00000846): Wine이 쓴 ACL을 그대로 돌려주지 않는다 (2026-11-02)
+
+증상: Battle.net에서 D2R "업데이트"를 누르면 "파일을 쓰기 가능하게 만들지 못했다. 관리자로 로그인해
+다시 시도하라"가 뜨고 업데이트가 멈춘다. Agent 로그에는 `Unable to fix permissions`(오류 2118).
+
+원인: Agent는 패치 전에 게임 폴더 전체에 ACL을 쓴다(`SetNamedSecurityInfoW`, DACL만). 루트에는
+Administrators 전체 권한, Users/Interactive 읽기, SYSTEM과 현재 사용자 전체 권한(상속 플래그 포함)을,
+그 아래 파일에는 상속된 SYSTEM/사용자 항목을 쓴다. 쓰기는 성공한다(`set_security_object() = 0`).
+그런데 Wine은 파일의 보안 설명자를 저장하지 않고 매번 Unix 권한(rwx)에서 다시 만든다
+(`server/file.c`의 `mode_to_sd`). 다시 읽으면 상속 플래그도, Users/Administrators 항목도 없으니
+Agent는 고치지 못했다고 판단하고 멈춘다. Wine-staging은 ACL을 xattr에 저장하는 패치가 있어서
+같은 증상이 없다는 보고가 있다.
+
+해결 (`patches/wineserver-stored-acls.patch`, engine-v1.6): 파일·폴더에 보안 설명자를 쓰면
+`user.wine.sd` xattr에 그것과 쓸 때의 Unix 권한 비트를 함께 저장하고, 권한 비트가 그대로인 동안은
+저장한 것을 돌려준다. macOS 쪽에서 chmod하면 예전처럼 권한 비트에서 만든 것으로 돌아간다. DACL로
+Unix 권한을 정하는 기존 동작은 그대로다.
+
+검증(M4 Pro, macOS 26.5, 실제 Battle.net 보틀의 APFS 복제본): engine-v1.5로는 Battle.net 앱의
+업데이트 버튼이 2118로 멈췄다. 같은 wineserver에 이 패치만 넣으면 Agent의 `osi` 업데이트가 권한
+단계를 지나 끝났고(`.patch.result` 0, 게임 폴더에 `user.wine.sd` 생성), 손대지 않은 원본 복제본에서도
+engine-v1.6 tarball의 wineserver로 같은 결과였다. 그 wineserver로 Battle.net 로그인 상태 유지, D2R
+온라인 접속(캐릭터 선택 화면)까지 확인했다.
