@@ -500,6 +500,73 @@ class XboxLaunchTests(unittest.TestCase):
         self.assertEqual(len(m['dlls']), 6)
         for value in m['dlls'].values():
             self.assertRegex(value, r'^[0-9a-f]{64}$')
+        # Soju's own xgameruntime build: one file from Soju's release, rebuildable from pinned inputs.
+        soju = m['soju']
+        self.assertEqual(soju['dlls'], ['xgameruntime.dll'])
+        self.assertTrue(soju['url'].startswith('https://github.com/BCD1210/soju/releases/download/'))
+        self.assertEqual(soju['sha256'], m['dlls']['xgameruntime.dll'])
+        build = soju['build']
+        self.assertRegex(build['source']['sha256'], r'^[0-9a-f]{64}$')
+        self.assertRegex(build['macxus_commit'], r'^[0-9a-f]{40}$')
+        ours = [p for p in build['patches'] if 'soju' in p]
+        self.assertEqual(len(ours), 1)
+        import hashlib
+        self.assertEqual(hashlib.sha256((ROOT / ours[0]['soju']).read_bytes()).hexdigest(), ours[0]['sha256'])
+
+    def test_compat_sets_heap_free_check_only_for_listed_games(self):
+        calls = []
+        def run(args, **kwargs):
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, '', '')
+        with patch.object(runner.subprocess, 'run', side_effect=run):
+            runner.apply_compat('9MTVJ3HHTQGS', 'RetroClassics.exe')
+            runner.apply_compat(SILKSONG, 'Game.exe')
+            runner.apply_compat('9MTVJ3HHTQGS', 'bad"name.exe')
+        self.assertEqual(len(calls), 1)
+        args = calls[0]
+        self.assertTrue(args[1].endswith('scripts/xbox-wine.sh'))
+        self.assertEqual(args[2:4], ['reg', 'add'])
+        self.assertTrue(args[4].endswith('Image File Execution Options\\RetroClassics.exe'))
+        self.assertEqual(args[5:], ['/v', 'GlobalFlag', '/t', 'REG_DWORD', '/d', '0x20', '/f'])
+
+    def test_compat_list_is_well_formed(self):
+        data = json.loads((ROOT / 'resources/xbox-compat.json').read_text())
+        self.assertEqual(data['schema'], 1)
+        for pid, game in data['games'].items():
+            self.assertRegex(pid, r'^[0-9A-Z]{12}$')
+            self.assertTrue(game['why'])
+
+    def test_store_patch_fills_every_string_the_runtime_leaves_null(self):
+        patch_text = (ROOT / 'patches/xgameruntime-store-empty-strings.patch').read_text()
+        for field in ('p->linkUri', 'p->price.currencyCode', 's->price.currencyCode',
+                      's->collectionData.campaignId', 's->collectionData.developerOfferId'):
+            self.assertIn(field, patch_text)
+        self.assertIn('+        entitled_fill_strings(&page->snapshot->products[i]);', patch_text)
+
+    def test_update_reuses_matching_dlls_and_fetches_only_soju_fix(self):
+        import hashlib
+        m = json.loads((ROOT / 'resources/xbox-runtime.json').read_text())
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            target = base / 'xbox-runtime'
+            target.mkdir()
+            fake = {}
+            for name in m['dlls']:
+                fake[name] = ('old-' + name).encode()
+                (target / name).write_bytes(fake[name])
+            pinned = dict(m, dlls={n: hashlib.sha256(fake[n]).hexdigest() for n in m['dlls']})
+            new = b'fixed xgameruntime'
+            pinned['dlls']['xgameruntime.dll'] = hashlib.sha256(new).hexdigest()
+            pinned['soju'] = dict(m['soju'], sha256=pinned['dlls']['xgameruntime.dll'], size=len(new))
+            fetched = []
+            def download(url, dest, size, sha256, label):
+                fetched.append(url)
+                dest.write_bytes(new)
+            with patch.object(runtime, 'download', side_effect=download):
+                runtime.fetch(base, pinned)
+            self.assertEqual(fetched, [m['soju']['url']])
+            self.assertEqual((target / 'xgameruntime.dll').read_bytes(), new)
+            self.assertTrue(runtime.ready(target, pinned))
 
     def test_asar_reader_returns_only_the_requested_folder(self):
         import struct

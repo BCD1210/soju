@@ -4,9 +4,12 @@
 GDK games need Xbox services inside Wine. Those come from the Xodus Nexus runtime
 (Wine 11.0 + xgameruntime, LGPL-2.1-or-later). MACxus rebuilt five of its DLLs
 for macOS Wine; they ship inside its signed release image, and libnghttp2.dll
-comes from the Nexus runtime release. Both archives are pinned by size and
-SHA-256 in resources/xbox-runtime.json, and every DLL is checked again after
-extraction. The image is mounted read-only and nothing from it is executed.
+comes from the Nexus runtime release. xgameruntime.dll is Soju's own build with
+one more fix (scripts/build-xbox-runtime.sh), published as a Soju release file.
+Every source is pinned by size and SHA-256 in resources/xbox-runtime.json, and
+every DLL is checked again after extraction. The image is mounted read-only and
+nothing from it is executed. DLLs already installed that still match their pin
+are kept, so an update downloads only what changed.
 """
 import hashlib
 import json
@@ -92,10 +95,14 @@ def from_image(image, manifest, stage):
     finally:
         shutil.rmtree(mount, ignore_errors=True)
     for name, value in manifest['dlls'].items():
-        if name in files:
+        if name in files and name not in soju_names(manifest):
             if digest_bytes(files[name]) != value:
                 raise ValueError(name + ' does not match the pinned runtime; nothing was changed')
             (stage / name).write_bytes(files[name])
+
+
+def soju_names(manifest):
+    return set(manifest.get('soju', {}).get('dlls', []))
 
 
 def from_runtime(archive, manifest, stage):
@@ -123,14 +130,28 @@ def fetch(base, manifest):
         work = Path(temp)
         stage = work / 'runtime'
         stage.mkdir()
-        image = work / 'macxus.dmg'
-        download(manifest['macxus']['url'], image, manifest['macxus']['size'], manifest['macxus']['sha256'], 'MACxus runtime DLLs')
-        from_image(image, manifest, stage)
-        image.unlink()
-        archive = work / 'runtime.tar.xz'
-        download(manifest['nexus']['url'], archive, manifest['nexus']['size'], manifest['nexus']['sha256'], 'Xodus Nexus runtime')
-        from_runtime(archive, manifest, stage)
-        archive.unlink()
+        for name, value in manifest['dlls'].items():
+            try:
+                if (target / name).is_file() and digest(target / name) == value:
+                    shutil.copyfile(target / name, stage / name)
+            except OSError:
+                pass
+        def missing(names):
+            return [n for n in names if not (stage / n).is_file()]
+        nexus = PurePosixPath(manifest['nexus']['member']).name
+        ours = soju_names(manifest)
+        if missing(n for n in manifest['dlls'] if n not in ours and n != nexus):
+            image = work / 'macxus.dmg'
+            download(manifest['macxus']['url'], image, manifest['macxus']['size'], manifest['macxus']['sha256'], 'MACxus runtime DLLs')
+            from_image(image, manifest, stage)
+            image.unlink()
+        if missing([nexus]):
+            archive = work / 'runtime.tar.xz'
+            download(manifest['nexus']['url'], archive, manifest['nexus']['size'], manifest['nexus']['sha256'], 'Xodus Nexus runtime')
+            from_runtime(archive, manifest, stage)
+            archive.unlink()
+        for name in missing(sorted(ours)):
+            download(manifest['soju']['url'], stage / name, manifest['soju']['size'], manifest['soju']['sha256'], 'Soju ' + name)
         missing = [n for n in manifest['dlls'] if not (stage / n).is_file()]
         if missing:
             raise ValueError('Runtime DLLs missing: ' + ', '.join(missing))
