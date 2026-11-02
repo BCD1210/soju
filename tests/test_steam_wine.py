@@ -142,6 +142,47 @@ class SteamFirstLaunchTests(unittest.TestCase):
                 self.assertEqual("-noverifyfiles" in args, installed)
                 self.assertIn("-cef-single-process", args)
 
+    def test_steam_client_audio_is_disabled_once_and_user_choice_is_kept(self):
+        key = "HKCU\\Software\\Wine\\AppDefaults\\steam.exe\\DllOverrides"
+        for present in (False, True):
+            with self.subTest(present=present), tempfile.TemporaryDirectory() as tmp:
+                base = Path(tmp)
+                prefix = base / "steam-bottle"
+                steam = prefix / "drive_c/Program Files (x86)/Steam"
+                steam.mkdir(parents=True)
+                (steam / "steam.exe").touch()
+                runtime = base / "wine"
+                (runtime / "bin").mkdir(parents=True)
+                log = base / "calls"
+                binary = runtime / "bin/wine"
+                # reg query fails while the value is absent, as reg.exe does.
+                binary.write_text('#!/bin/bash\necho "$*" >> "$SOJU_TEST_ARGS"\n'
+                                  '[ "$1 $2" = "reg query" ] && [ "$SOJU_TEST_PRESENT" != 1 ] && exit 1\nexit 0\n')
+                binary.chmod(0o755)
+                stubs = base / "stubs"
+                stubs.mkdir()
+                for name in ("python3", "pgrep"):
+                    script = stubs / name
+                    script.write_text("#!/bin/bash\nexit 0\n")
+                    script.chmod(0o755)
+                env = {**os.environ, "SOJU_BASE": str(base), "WINEPREFIX": str(prefix),
+                       "SOJU_STEAM_WINE": str(runtime), "SOJU_TEST_ARGS": str(log),
+                       "SOJU_TEST_PRESENT": "1" if present else "0",
+                       "WINE_VIRTUAL_DESKTOP": "", "SOJU_KEYLOG": "0",
+                       "PATH": str(stubs) + ":/usr/bin:/bin"}
+                result = subprocess.run(["/bin/bash", str(ROOT / "scripts/play.sh"), "steam"],
+                                        env=env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                calls = log.read_text().splitlines()
+                adds = [c for c in calls if c.startswith("reg add " + key)]
+                self.assertIn("reg query " + key + " /v winecoreaudio.drv", calls)
+                if present:
+                    self.assertEqual(adds, [])
+                else:
+                    self.assertEqual(adds, ["reg add " + key + " /v winecoreaudio.drv /t REG_SZ /d disabled /f"])
+                launch = [i for i, c in enumerate(calls) if "steam.exe -no-cef-sandbox" in c]
+                self.assertTrue(launch and all(calls.index(a) < launch[0] for a in adds))
+
 spec_bootstrap = importlib.util.spec_from_file_location("steam_bootstrap", ROOT / "scripts/bootstrap-steam.py")
 bootstrap = importlib.util.module_from_spec(spec_bootstrap)
 spec_bootstrap.loader.exec_module(bootstrap)

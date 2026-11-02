@@ -19,6 +19,52 @@ TTY=/dev/tty
 
 say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 
+# The prebuilt engine is pinned: a new engine release only reaches users once
+# these two lines (here and in scripts/update.sh) name it.
+ENGINE_TAG="engine-v1.5"
+ENGINE_SHA256="7b96a4407308493ae92bebe96039bbc8d0bf3b86c22cb99c782f73cf7be3738e"
+ENGINE_URL="https://github.com/$REPO/releases/download/$ENGINE_TAG/wine-engine-x86_64.tar.xz"
+
+# Download to a .part file and keep it only when its SHA-256 matches.
+fetch_verified(){   # url, dest, sha256
+  local got
+  rm -f "$2.part"
+  curl -fL "$1" -o "$2.part" || { rm -f "$2.part"; return 1; }
+  got=$(shasum -a 256 "$2.part" | awk '{print $1}')
+  if [ "$got" != "$3" ]; then
+    rm -f "$2.part"
+    printf 'Checksum mismatch for %s\n  expected %s\n  got      %s\n' "$1" "$3" "$got"
+    return 1
+  fi
+  mv -f "$2.part" "$2"
+}
+
+# Newest stable vX.Y.Z release whose app zip has a SHA-256 recorded by GitHub.
+# Prints "<tag> <zip url> <sha256>". The zip carries the scripts and this
+# installer, so a one-line install runs released code, never main.
+latest_release(){
+  local json i j tag name n digest
+  json=$(mktemp) || return 1
+  if ! curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" -o "$json"; then
+    rm -f "$json"; return 1
+  fi
+  for i in $(seq 0 29); do
+    tag=$(plutil -extract "$i.tag_name" raw -o - "$json" 2>/dev/null) || break
+    [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+    [ "$(plutil -extract "$i.prerelease" raw -o - "$json" 2>/dev/null)" = false ] || continue
+    name="Soju-${tag#v}-macos-arm64.zip"
+    for j in $(seq 0 19); do
+      n=$(plutil -extract "$i.assets.$j.name" raw -o - "$json" 2>/dev/null) || break
+      [ "$n" = "$name" ] || continue
+      digest=$(plutil -extract "$i.assets.$j.digest" raw -o - "$json" 2>/dev/null) || break
+      [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || break
+      echo "$tag https://github.com/$REPO/releases/download/$tag/$name ${digest#sha256:}"
+      rm -f "$json"; return 0
+    done
+  done
+  rm -f "$json"; return 1
+}
+
 # ---------- 1. Choose launchers before any download ----------
 ALL="battlenet steam epic gog xbox"
 if [ -n "${SOJU_PLATFORMS:-}" ]; then
@@ -66,6 +112,37 @@ fi
 
 mkdir -p "$BASE"
 
+# ---------- Soju scripts ----------
+# A checkout, the app bundle or Homebrew runs its own copy. The one-line
+# installer has none: it fetches the newest release zip, checks its SHA-256,
+# and hands over to the installer inside it, so scripts and installer match.
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+if [ -n "$SELF_DIR" ] && [ -f "$SELF_DIR/scripts/play.sh" ]; then
+  SOJU_DIR="$SELF_DIR"
+  # Homebrew: the Cellar path carries the version and goes away on `brew
+  # upgrade`, which would leave every app bundle pointing at nothing. Bake the
+  # stable opt/ path into the bundles instead.
+  case "$SOJU_DIR" in
+    */Cellar/soju/*/libexec) SOJU_DIR="$(brew --prefix 2>/dev/null || echo /opt/homebrew)/opt/soju/libexec" ;;
+  esac
+else
+  SOJU_DIR="$BASE/soju"
+  REL=$(latest_release) || { echo "Could not find a Soju release with a recorded checksum (offline?)"; exit 1; }
+  read -r REL_TAG REL_URL REL_SHA <<<"$REL"
+  say "Fetching the Soju scripts ($REL_TAG) into $SOJU_DIR"
+  STAGE="$SOJU_DIR.tmp"
+  rm -rf "$STAGE"; mkdir -p "$STAGE"
+  fetch_verified "$REL_URL" "$STAGE/soju.zip" "$REL_SHA" || { rm -rf "$STAGE"; exit 1; }
+  ditto -x -k "$STAGE/soju.zip" "$STAGE/app"
+  [ -f "$STAGE/app/Soju.app/Contents/Resources/soju/install.sh" ] \
+    || { echo "The $REL_TAG zip does not contain the Soju scripts"; rm -rf "$STAGE"; exit 1; }
+  rm -rf "$SOJU_DIR"; mv "$STAGE/app/Soju.app/Contents/Resources/soju" "$SOJU_DIR"
+  rm -rf "$STAGE"
+  chmod +x "$SOJU_DIR"/install.sh "$SOJU_DIR"/scripts/*.sh "$SOJU_DIR"/scripts/soju 2>/dev/null || true
+  SOJU_PLATFORMS="${PLATFORMS# }" exec /bin/bash "$SOJU_DIR/install.sh" "$@"
+fi
+chmod +x "$SOJU_DIR"/scripts/*.sh "$SOJU_DIR"/scripts/soju 2>/dev/null || true
+
 # ---------- Apple GPTK helpers ----------
 # Installed means all three parts: the Metal side, and Apple's PE shims in
 # place of Wine's d3d11 (the shim carries Apple's build path string).
@@ -102,20 +179,13 @@ if [ -x "$ENGINE/bin/wine" ] && DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib
   say "[2/4] Engine already present - skipping"
 else
   say "[2/4] Downloading prebuilt engine (~350MB, GPL - built from CodeWeavers' published Wine sources)"
-  # The engine ships on its own "engine-*" release, which is not necessarily the
-  # newest release: scan all releases and take the first (newest) engine asset.
-  URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
-        | grep -o '"browser_download_url": *"[^"]*wine-engine[^"]*"' | head -1 | grep -o 'https[^"]*')
-  [ -n "$URL" ] || { echo "Could not find the engine release asset."; exit 1; }
-  # Download to a .part file and extract into a staging directory, so an
-  # interrupted run leaves nothing that a re-run would mistake for done.
-  curl -fL "$URL" -o "$BASE/engine.tar.xz.part"
-  mv -f "$BASE/engine.tar.xz.part" "$BASE/engine.tar.xz"
+  # Download and check the pinned engine, then extract into a staging directory,
+  # so an interrupted run leaves nothing that a re-run would mistake for done.
+  fetch_verified "$ENGINE_URL" "$BASE/engine.tar.xz" "$ENGINE_SHA256" || exit 1
   rm -rf "$ENGINE.new"; mkdir -p "$ENGINE.new"
   tar -xJf "$BASE/engine.tar.xz" -C "$ENGINE.new"
   rm -f "$BASE/engine.tar.xz"
-  TAG=$(echo "$URL" | sed -n 's#.*/download/\([^/]*\)/.*#\1#p')
-  printf '%s\n' "${TAG:-unknown}" > "$ENGINE.new/.soju-engine-release"
+  printf '%s\n' "$ENGINE_TAG" > "$ENGINE.new/.soju-engine-release"
   if [ -d "$ENGINE" ]; then
     # A broken engine from an earlier run; keep any GPTK payload in it.
     carry_gptk "$ENGINE" "$ENGINE.new"
@@ -128,27 +198,6 @@ else
 fi
 
 fi # NEEDS_CX
-
-# ---------- Soju scripts ----------
-# The bottle scripts live in the repo; fetch a copy next to the engine so the
-# one-line installer can use them (a checkout running install.sh uses itself).
-SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
-if [ -n "$SELF_DIR" ] && [ -f "$SELF_DIR/scripts/play.sh" ]; then
-  SOJU_DIR="$SELF_DIR"
-  # Homebrew: the Cellar path carries the version and goes away on `brew
-  # upgrade`, which would leave every app bundle pointing at nothing. Bake the
-  # stable opt/ path into the bundles instead.
-  case "$SOJU_DIR" in
-    */Cellar/soju/*/libexec) SOJU_DIR="$(brew --prefix 2>/dev/null || echo /opt/homebrew)/opt/soju/libexec" ;;
-  esac
-else
-  SOJU_DIR="$BASE/soju"
-  say "Fetching the Soju scripts into $SOJU_DIR"
-  rm -rf "$SOJU_DIR.tmp"; mkdir -p "$SOJU_DIR.tmp"
-  curl -fsSL "https://github.com/$REPO/archive/refs/heads/main.tar.gz" | tar -xz -C "$SOJU_DIR.tmp" --strip-components=1
-  rm -rf "$SOJU_DIR"; mv "$SOJU_DIR.tmp" "$SOJU_DIR"
-fi
-chmod +x "$SOJU_DIR"/scripts/*.sh "$SOJU_DIR"/scripts/soju 2>/dev/null || true
 
 # ---------- Apple GPTK (Battle.net / Epic / GOG only) ----------
 if [ "$NEEDS_CX" = 1 ]; then

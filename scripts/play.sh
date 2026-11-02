@@ -280,7 +280,20 @@ case "$MODE" in
     #    prefix. Steam re-adds it on update, so scrub it every launch.
     "${STEAM_ENV[@]}" "$WINESTABLE" reg delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run' \
       /v Steam /f >/dev/null 2>&1 || true
-    # 5) Virtual desktop: this macdrv (gcenx wine 11) ignores virtual desktops,
+    # 5) Keep steam.exe away from Core Audio (#55). Wine 11.0's winmm builds its
+    #    device list by asking every device about 20 PCM formats, and each ask
+    #    opens a Core Audio unit on that device. Steam does this from its main
+    #    loop (mixerOpen), so a slow device stalls the client before its login
+    #    window: 0.1 s with two outputs, 0.7-1.7 s once microphones are present,
+    #    and past Steam's 15 s stall check on one reported Mac. Wine 11.5 dropped
+    #    the probe (c3a1bc8613). Only steam.exe is affected: games, and the
+    #    webhelper that plays store videos, keep their sound. Added only when
+    #    absent, so setting the value to "builtin" gives Steam its audio back.
+    STEAM_AUDIO_KEY='HKCU\Software\Wine\AppDefaults\steam.exe\DllOverrides'
+    "${STEAM_ENV[@]}" "$WINESTABLE" reg query "$STEAM_AUDIO_KEY" /v winecoreaudio.drv >/dev/null 2>&1 ||
+      "${STEAM_ENV[@]}" "$WINESTABLE" reg add "$STEAM_AUDIO_KEY" /v winecoreaudio.drv /t REG_SZ /d disabled /f \
+        >/dev/null 2>&1 || true
+    # 6) Virtual desktop: this macdrv (gcenx wine 11) ignores virtual desktops,
     #    so it is off by default. The single Dock icon is handled by
     #    WINE_NO_DOCK_ICON (winemac patch) instead.
     #    To enable anyway: WINE_VIRTUAL_DESKTOP=auto (or a resolution like 1600x900).
@@ -293,7 +306,7 @@ case "$MODE" in
         VD="1728x1080"
       fi
     fi
-    # 6) Launch: plain wine-stable environment, without the CX engine env
+    # 7) Launch: plain wine-stable environment, without the CX engine env
     STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process)
     # SteamSetup only contains the bootstrapper: let first launch download the
     # client, otherwise Steam fails with "Failed to load steamui.dll".

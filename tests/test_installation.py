@@ -152,7 +152,7 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual((system/"d3d11.dll").read_text(),"changed")
 
 class BattleNetSetupTests(unittest.TestCase):
-    def install(self, stalls):
+    def install(self, stalls, agent_works=True):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         d = Path(temp.name); engine = d/"engine"; work = d/"work"; prefix = d/"bottle"; bin_ = d/"bin"
@@ -162,40 +162,66 @@ class BattleNetSetupTests(unittest.TestCase):
         (work/"Battle.net-Setup.exe").write_text("cached installer")
         stale = prefix/"drive_c/ProgramData/Battle.net/Agent"
         stale.mkdir(parents=True); (stale/"state").write_text("unfinished")
+        bn = '"$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"'
         tools = {
             engine/"bin/wineserver": "exit 0\n",
-            engine/"bin/wine": f"""case "$1" in wineboot|reg) exit 0;; esac
+            engine/"bin/wine": f"""echo "$*" >> "{d}/wine.log"
+case "$1" in
+  wineboot|reg) exit 0;;
+  *Agent.exe) exit 0;;
+  cscript) {"mkdir -p " + bn + " && touch " + bn + "/Battle.net.exe" if agent_works else "exit 1"}; exit 0;;
+esac
 n=$(( $(cat "{d}/attempts" 2>/dev/null || echo 0) + 1 )); echo $n > "{d}/attempts"
-mkdir -p "$WINEPREFIX/drive_c/ProgramData/Battle.net/Setup"
+mkdir -p "$WINEPREFIX/drive_c/ProgramData/Battle.net/Setup" "$WINEPREFIX/drive_c/ProgramData/Battle.net/Agent/Agent.9824"
+touch "$WINEPREFIX/drive_c/ProgramData/Battle.net/Agent/Agent.9824/Agent.exe"
 [ $n -le {stalls} ] && exec sleep 30
-mkdir -p "$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
-touch "$WINEPREFIX/drive_c/Program Files (x86)/Battle.net/Battle.net.exe"
+mkdir -p {bn}
+touch {bn}/Battle.net.exe
 """,
             bin_/"curl": f"""while [ $# -gt 0 ]; do [ "$1" = -o ] && out="$2"; shift; done
 echo fresh > "$out"; echo x >> "{d}/downloads"
+""",
+            bin_/"stat": "echo 16777234 245634352\n",
+            bin_/"pgrep": "echo 4242\n",
+            bin_/"lsof": """case "$*" in
+  *cwd*) echo p4242; echo n/tmp/.wine-501/server-1000012-ea41530;;
+  *LISTEN*) echo p4242; echo n127.0.0.1:55475;;
+esac
 """,
         }
         for path, body in tools.items():
             path.write_text("#!/bin/bash\n" + body); path.chmod(0o755)
         result = subprocess.run(["/bin/bash", str(ROOT/"scripts/create-bottle.sh")], capture_output=True, text=True,
             env={**os.environ, "ENGINE": str(engine), "WORK": str(work), "WINEPREFIX": str(prefix),
-                 "SETUP_TIMEOUT": "1", "PATH": f"{bin_}:{os.environ['PATH']}"}, timeout=60)
+                 "SETUP_TIMEOUT": "1", "PATH": f"{bin_}:{os.environ['PATH']}"}, timeout=120)
         attempts = int((d/"attempts").read_text()) if (d/"attempts").exists() else 0
         downloads = len((d/"downloads").read_text().split()) if (d/"downloads").exists() else 0
+        self.wine_log = (d/"wine.log").read_text() if (d/"wine.log").exists() else ""
         return result, prefix, work, attempts, downloads
 
-    def test_stalled_installer_retries_once_from_clean_state(self):
+    def test_stalled_installer_is_finished_through_the_agent(self):
         result, prefix, work, attempts, downloads = self.install(stalls=1)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((prefix/"drive_c/Program Files (x86)/Battle.net/Battle.net.exe").exists())
+        self.assertEqual((attempts, downloads), (1, 0))
+        self.assertIn("through the Battle.net Agent (Agent.9824)", result.stdout)
+        self.assertNotIn("Retrying", result.stdout)
+        self.assertIn("C:\\ProgramData\\Battle.net\\Agent\\Agent.9824\\Agent.exe --internalclienttools", self.wine_log)
+        js = "Z:" + str(ROOT/"scripts/bnet-agent-install.js").replace("/", "\\")
+        self.assertIn(f"cscript //nologo {js} 55475 C:\\Program Files (x86)\\Battle.net", self.wine_log)
+
+    def test_stalled_installer_retries_once_from_clean_state_when_the_agent_fails(self):
+        result, prefix, work, attempts, downloads = self.install(stalls=1, agent_works=False)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((prefix/"drive_c/Program Files (x86)/Battle.net/Battle.net.exe").exists())
         self.assertEqual((attempts, downloads), (2, 1))
         self.assertIn("Retrying once", result.stdout)
-        kept = list(work.glob("previous-setup-*/Battle.net/Agent/state"))
-        self.assertEqual([p.read_text() for p in kept], ["unfinished"])
+        kept = sorted(p.read_text() for p in work.glob("previous-setup-*/Battle.net/Agent/state"))
+        self.assertEqual(kept, ["unfinished"])
         self.assertEqual((work/"Battle.net-Setup.exe").read_text().strip(), "fresh")
 
     def test_installer_that_stalls_twice_fails_instead_of_hanging(self):
-        result, prefix, work, attempts, downloads = self.install(stalls=2)
+        result, prefix, work, attempts, downloads = self.install(stalls=2, agent_works=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("stalled again", result.stdout)
         self.assertEqual(attempts, 2)
@@ -206,6 +232,13 @@ echo fresh > "$out"; echo x >> "{d}/downloads"
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((attempts, downloads), (1, 0))
         self.assertNotIn("Retrying", result.stdout)
+        self.assertNotIn("Agent", result.stdout)
+
+    def test_agent_install_script_makes_the_setup_calls(self):
+        js = (ROOT/"scripts/bnet-agent-install.js").read_text()
+        for needle in ('"phoenix-agent/1.0"', '"/agent"', '"/install"', '"/install/battle.net"',
+                       '"finalized":true', 'WinHttp.WinHttpRequest.5.1'):
+            self.assertIn(needle, js)
 
 class SupportManifestTests(unittest.TestCase):
     def test_published_manifest_names_one_release(self):
@@ -222,6 +255,88 @@ class SupportManifestTests(unittest.TestCase):
             self.assertTrue((ROOT/"patches"/patch).is_file())
             self.assertIn('apply_once dxmt "$ROOT/patches/' + patch + '"', script)
         self.assertIn("d3d11.maxTessFactor", (ROOT/"patches/dxmt-max-tess-factor.patch").read_text())
+
+class DownloadCheckTests(unittest.TestCase):
+    """install.sh and update.sh run only checked downloads, never main."""
+    SCRIPTS = ("install.sh", "scripts/update.sh")
+
+    def shell_function(self, script, name):
+        text = (ROOT/script).read_text()
+        start = text.index(name + "(){")
+        return text[start:text.index("\n}\n", start) + 3]
+
+    def run_bash(self, code, env=None):
+        return subprocess.run(["/bin/bash", "-c", code], capture_output=True, text=True,
+                              env={**os.environ, **(env or {})})
+
+    def test_engine_pin_is_the_same_everywhere(self):
+        import re
+        pins = set()
+        for script in self.SCRIPTS:
+            text = (ROOT/script).read_text()
+            tag = re.search(r'^ENGINE_TAG="([^"]+)"$', text, re.M).group(1)
+            sha = re.search(r'^ENGINE_SHA256="([0-9a-f]{64})"$', text, re.M).group(1)
+            pins.add((tag, sha))
+        self.assertEqual(len(pins), 1, pins)
+
+    def test_no_unchecked_downloads_of_code(self):
+        for script in self.SCRIPTS + ("scripts/get-components.sh", "scripts/build-engine.sh"):
+            text = (ROOT/script).read_text()
+            self.assertNotIn("refs/heads/main", text, script)
+            self.assertNotIn("browser_download_url", text, script)
+            self.assertNotRegex(text, r"curl [^\n]*\| *tar", script)
+
+    def test_helpers_are_identical_in_both_scripts(self):
+        for name in ("fetch_verified", "latest_release"):
+            a, b = (self.shell_function(s, name) for s in self.SCRIPTS)
+            self.assertEqual(a, b, name)
+
+    def test_fetch_verified_keeps_only_matching_files(self):
+        fn = self.shell_function("install.sh", "fetch_verified")
+        with tempfile.TemporaryDirectory() as t:
+            src = Path(t)/"src.bin"; src.write_bytes(b"soju")
+            good = hashlib.sha256(b"soju").hexdigest()
+            ok = self.run_bash(fn + f'fetch_verified "file://{src}" "{t}/ok" {good}')
+            self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+            self.assertEqual((Path(t)/"ok").read_bytes(), b"soju")
+            bad = self.run_bash(fn + f'fetch_verified "file://{src}" "{t}/bad" {"0" * 64}')
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertIn("Checksum mismatch", bad.stdout)
+            self.assertFalse((Path(t)/"bad").exists())
+            self.assertFalse((Path(t)/"bad.part").exists())
+
+    def latest(self, releases):
+        fn = self.shell_function("install.sh", "latest_release")
+        with tempfile.TemporaryDirectory() as t:
+            fixture = Path(t)/"releases.json"; fixture.write_text(json.dumps(releases))
+            fake_curl = f'curl(){{ cp "{fixture}" "${{@: -1}}"; }}\n'
+            return self.run_bash('REPO=BCD1210/soju\n' + fake_curl + fn + "latest_release")
+
+    def test_latest_release_picks_newest_stable_app_zip_with_digest(self):
+        d = "a" * 64
+        result = self.latest([
+            {"tag_name": "engine-v9", "prerelease": False, "assets": [{"name": "wine-engine-x86_64.tar.xz", "digest": "sha256:" + d}]},
+            {"tag_name": "v2.0.0", "prerelease": True, "assets": [{"name": "Soju-2.0.0-macos-arm64.zip", "digest": "sha256:" + d}]},
+            {"tag_name": "v1.9.0", "prerelease": False, "assets": [{"name": "Soju-1.9.0-macos-arm64.zip", "digest": None}]},
+            {"tag_name": "v1.8.0", "prerelease": False, "assets": [
+                {"name": "Soju-1.8.0-macos-arm64.zip.sha256", "digest": "sha256:" + "b" * 64},
+                {"name": "Soju-1.8.0-macos-arm64.zip", "digest": "sha256:" + d}]},
+        ])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.split(), ["v1.8.0",
+            "https://github.com/BCD1210/soju/releases/download/v1.8.0/Soju-1.8.0-macos-arm64.zip", d])
+
+    def test_latest_release_fails_without_a_checked_zip(self):
+        result = self.latest([{"tag_name": "v1.0.0", "prerelease": False, "assets": []}])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+
+    def test_build_downloads_are_pinned(self):
+        for script, count in (("scripts/get-components.sh", 2), ("scripts/build-engine.sh", 2),
+                              ("scripts/build-steam-support.sh", 1)):
+            text = (ROOT/script).read_text()
+            self.assertEqual(text.count("fetch_checked \"$") + text.count("fetch_checked https"), count, script)
+            self.assertNotIn(".part\" && mv", text, script)
 
 if __name__ == "__main__":
     unittest.main()

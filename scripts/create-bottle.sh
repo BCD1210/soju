@@ -14,6 +14,7 @@ export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 [ -x "$ENGINE/bin/wine" ] || { echo "Engine not found, run build-engine.sh first"; exit 1; }
 [ -f "$CX_APPLEGPTK_LIBD3DSHARED_PATH" ] || { echo "libd3dshared not found, run get-gptk.sh first"; exit 1; }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK="${WORK:-$HOME/.battlenet-macos/build}"; mkdir -p "$WORK"
 
 echo "==> Initializing the prefix: $WINEPREFIX"
@@ -36,7 +37,7 @@ done
 BN="$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
 PROGRAMDATA="$WINEPREFIX/drive_c/ProgramData"
 SETUP="$WORK/Battle.net-Setup.exe"
-SETUP_TIMEOUT="${SETUP_TIMEOUT:-600}"
+SETUP_TIMEOUT="${SETUP_TIMEOUT:-300}"
 
 download_setup() {
   [ -f "$SETUP" ] || { curl -fL "https://downloader.battle.net/download/getInstaller?os=win&installer=Battle.net-Setup.exe" -o "$SETUP.part" && mv -f "$SETUP.part" "$SETUP"; }
@@ -74,6 +75,50 @@ run_setup() {
   wait "$pid" 2>/dev/null || true
 }
 
+# The Battle.net Agent's local HTTP port. Only the agent listens inside the
+# bottle at this point; the bottle's wineserver (found by its working directory,
+# named after the prefix's device and inode) holds the socket.
+agent_port() {
+  local dir pid real
+  # Wine names the directory after the resolved prefix (see soju-reaper.sh)
+  real=$(cd "$WINEPREFIX" && pwd -P)
+  dir=$(printf 'server-%x-%x' $(stat -L -f '%d %i' "$real"))
+  for pid in $(pgrep -x wineserver); do
+    lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | grep -q "/$dir\$" || continue
+    lsof -nP -a -p "$pid" -iTCP -sTCP:LISTEN -Fn 2>/dev/null | sed -n 's/^n.*://p' | head -1
+    return
+  done
+}
+
+# Agent 2.41 (Oct 2026) never queues the app install when the setup drives it
+# under Wine: the setup sits at 45% forever (issue #60). The agent it unpacked
+# installs the app when asked directly through its local API, the same calls
+# the setup makes (scripts/bnet-agent-install.js).
+install_via_agent() {
+  local agents agent port i
+  agents="$PROGRAMDATA/Battle.net/Agent"
+  agent=$(cd "$agents" 2>/dev/null && ls -d Agent.[0-9]* 2>/dev/null | sort -t. -k2 -n | tail -1)
+  [ -n "$agent" ] && [ -f "$agents/$agent/Agent.exe" ] || return 1
+  echo "    Finishing the install through the Battle.net Agent ($agent)"
+  "$ENGINE/bin/wine" "C:\\ProgramData\\Battle.net\\Agent\\$agent\\Agent.exe" --internalclienttools >/dev/null 2>&1 &
+  port=""
+  for i in $(seq 1 60); do
+    sleep 1; port=$(agent_port)
+    [ -z "$port" ] || break
+  done
+  [ -n "$port" ] || { echo "    The agent did not open its port"; "$ENGINE/bin/wineserver" -k 2>/dev/null || true; return 1; }
+  local js="$SCRIPT_DIR/bnet-agent-install.js"
+  # Battle.net.exe can land a moment after the agent reports the download done
+  if "$ENGINE/bin/wine" cscript //nologo "Z:${js//\//\\}" "$port" "C:\\Program Files (x86)\\Battle.net"; then
+    for i in $(seq 1 30); do
+      [ ! -f "$BN/Battle.net.exe" ] || break
+      sleep 2
+    done
+  fi
+  "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+  [ -f "$BN/Battle.net.exe" ]
+}
+
 echo "==> Downloading the Battle.net installer (official Blizzard)"
 download_setup
 set_aside_setup_state
@@ -81,11 +126,13 @@ set_aside_setup_state
 echo "==> Running the installer (a few minutes, fully automatic)"
 if ! run_setup; then
   echo "==> The installer did not finish in $(( (SETUP_TIMEOUT + 59) / 60 )) minutes (Battle.net setup can stall at 45%)."
-  echo "    Retrying once from a clean state with a fresh installer download"
-  set_aside_setup_state
-  rm -f "$SETUP"
-  download_setup
-  run_setup || { echo "The installer stalled again, logs: $PROGRAMDATA/Battle.net/Setup"; exit 1; }
+  if ! install_via_agent; then
+    echo "    Retrying once from a clean state with a fresh installer download"
+    set_aside_setup_state
+    rm -f "$SETUP"
+    download_setup
+    run_setup || install_via_agent || { echo "The installer stalled again, logs: $PROGRAMDATA/Battle.net/Setup"; exit 1; }
+  fi
 fi
 
 # Wait for the install to finish (up to 10 minutes)

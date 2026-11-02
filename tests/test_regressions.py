@@ -189,9 +189,10 @@ class UninstallTests(unittest.TestCase):
             if answers is not None:
                 answer_file = d / "answers"
                 answer_file.write_text(answers)
-                # Keep one descriptor open so consecutive read calls advance.
+                # Keep one pipe open so consecutive read calls advance. A plain
+                # file would not: Linux reopens /dev/fd/N of a file at offset 0.
                 src = src.replace("TTY=/dev/tty",
-                                  "exec 9<" + shlex.quote(str(answer_file)) + "\nTTY=/dev/fd/9")
+                                  "exec 9< <(cat " + shlex.quote(str(answer_file)) + ")\nTTY=/dev/fd/9")
             script = d / "scripts/uninstall.sh"
             script.parent.mkdir()
             for helper in ("steam-runtime.sh", "steam-session.py"):
