@@ -60,14 +60,12 @@ if [ -x "$ENGINE/bin/wine" ]; then
   if [ -n "$v" ]; then pass "wine runs: $v"; else fail "engine present but wine does not start (DYLD problem? reinstall: soju update)"; fi
   tag=$(cat "$ENGINE/.soju-engine-release" 2>/dev/null || echo "")
   [ -n "$tag" ] && info "installed engine release: $tag" || info "engine release tag not recorded (installed before v1.2 of the installer)"
-  latest=$(curl -fsSL --max-time 5 "https://api.github.com/repos/$REPO/releases?per_page=30" 2>/dev/null \
-           | grep -o '"tag_name": *"engine-[^"]*"' | head -1 | cut -d'"' -f4 || true)
-  if [ -n "$latest" ]; then
-    if [ "$latest" = "$tag" ]; then pass "engine is the latest release ($latest)"
-    else warn "latest engine release is $latest (run: soju update)"; fi
-  else
-    info "could not reach GitHub to compare engine versions (offline?)"
-  fi
+  # soju update installs only the engine these scripts pin.
+  pinned=$(sed -n 's/^ENGINE_TAG="\(.*\)"$/\1/p' "$ROOT/scripts/update.sh" | head -1)
+  if [ -z "$pinned" ]; then
+    info "engine pin not found in $ROOT/scripts/update.sh"
+  elif [ "$pinned" = "$tag" ]; then pass "engine is the release these scripts use ($pinned)"
+  else warn "these scripts use engine $pinned, installed is ${tag:-unknown} (run: soju update)"; fi
 else
   fail "engine not installed (run: soju install)"
 fi
