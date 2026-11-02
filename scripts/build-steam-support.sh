@@ -7,6 +7,20 @@ export PATH="/opt/homebrew/opt/bison/bin:/opt/homebrew/opt/flex/bin:/opt/homebre
 JOBS="${SOJU_BUILD_JOBS:-8}"
 mkdir -p "$BUILD"
 cd "$BUILD"
+# Download $1 to $2 (kept between runs) and use it only when its SHA-256 is $3.
+fetch_checked(){   # url, dest, sha256
+  local got
+  if [ ! -f "$2" ]; then
+    curl -fL --retry 3 "$1" -o "$2.part" || { rm -f "$2.part"; echo "Download failed: $1" >&2; return 1; }
+    mv -f "$2.part" "$2"
+  fi
+  got=$(shasum -a 256 "$2" | awk '{print $1}')
+  if [ "$got" != "$3" ]; then
+    rm -f "$2"
+    printf 'Checksum mismatch for %s\n  expected %s\n  got      %s\n' "$1" "$3" "$got" >&2
+    return 1
+  fi
+}
 clone(){
   if [ "${SOJU_SOURCE_ARCHIVE:-0}" = 1 ]; then [ -d "$2" ] || { echo "Extract $2 from the source release first"; exit 1; }
   else [ -d "$2/.git" ] || git clone --depth 1 --branch "$3" "$1" "$2"; fi
@@ -28,7 +42,9 @@ export MACOSX_DEPLOYMENT_TARGET=26.0
 [ -x venv/bin/meson ] || { python3 -m venv venv; venv/bin/pip install 'meson==1.10.2'; }
 mkdir -p dxmt/toolchains/wine
 if [ ! -x dxmt/toolchains/wine/bin/winebuild ]; then
-  curl -fL --retry 3 https://github.com/3Shain/wine/releases/download/v8.16-3shain/wine.tar.gz -o wine-toolchain.tar.gz
+  # GitHub records no digest for this asset; the SHA-256 is the archive used for steam-support-v2.
+  fetch_checked https://github.com/3Shain/wine/releases/download/v8.16-3shain/wine.tar.gz wine-toolchain.tar.gz \
+    289c7f19e270a3d3d0a6fdb07691b176c70a0795f6811e5255cba82425de4f10
   tar -xzf wine-toolchain.tar.gz -C dxmt/toolchains/wine
 fi
 if [ ! -f dxmt/toolchains/llvm/lib/libLLVMCore.a ]; then

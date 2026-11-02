@@ -256,5 +256,87 @@ class SupportManifestTests(unittest.TestCase):
             self.assertIn('apply_once dxmt "$ROOT/patches/' + patch + '"', script)
         self.assertIn("d3d11.maxTessFactor", (ROOT/"patches/dxmt-max-tess-factor.patch").read_text())
 
+class DownloadCheckTests(unittest.TestCase):
+    """install.sh and update.sh run only checked downloads, never main."""
+    SCRIPTS = ("install.sh", "scripts/update.sh")
+
+    def shell_function(self, script, name):
+        text = (ROOT/script).read_text()
+        start = text.index(name + "(){")
+        return text[start:text.index("\n}\n", start) + 3]
+
+    def run_bash(self, code, env=None):
+        return subprocess.run(["/bin/bash", "-c", code], capture_output=True, text=True,
+                              env={**os.environ, **(env or {})})
+
+    def test_engine_pin_is_the_same_everywhere(self):
+        import re
+        pins = set()
+        for script in self.SCRIPTS:
+            text = (ROOT/script).read_text()
+            tag = re.search(r'^ENGINE_TAG="([^"]+)"$', text, re.M).group(1)
+            sha = re.search(r'^ENGINE_SHA256="([0-9a-f]{64})"$', text, re.M).group(1)
+            pins.add((tag, sha))
+        self.assertEqual(len(pins), 1, pins)
+
+    def test_no_unchecked_downloads_of_code(self):
+        for script in self.SCRIPTS + ("scripts/get-components.sh", "scripts/build-engine.sh"):
+            text = (ROOT/script).read_text()
+            self.assertNotIn("refs/heads/main", text, script)
+            self.assertNotIn("browser_download_url", text, script)
+            self.assertNotRegex(text, r"curl [^\n]*\| *tar", script)
+
+    def test_helpers_are_identical_in_both_scripts(self):
+        for name in ("fetch_verified", "latest_release"):
+            a, b = (self.shell_function(s, name) for s in self.SCRIPTS)
+            self.assertEqual(a, b, name)
+
+    def test_fetch_verified_keeps_only_matching_files(self):
+        fn = self.shell_function("install.sh", "fetch_verified")
+        with tempfile.TemporaryDirectory() as t:
+            src = Path(t)/"src.bin"; src.write_bytes(b"soju")
+            good = hashlib.sha256(b"soju").hexdigest()
+            ok = self.run_bash(fn + f'fetch_verified "file://{src}" "{t}/ok" {good}')
+            self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+            self.assertEqual((Path(t)/"ok").read_bytes(), b"soju")
+            bad = self.run_bash(fn + f'fetch_verified "file://{src}" "{t}/bad" {"0" * 64}')
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertIn("Checksum mismatch", bad.stdout)
+            self.assertFalse((Path(t)/"bad").exists())
+            self.assertFalse((Path(t)/"bad.part").exists())
+
+    def latest(self, releases):
+        fn = self.shell_function("install.sh", "latest_release")
+        with tempfile.TemporaryDirectory() as t:
+            fixture = Path(t)/"releases.json"; fixture.write_text(json.dumps(releases))
+            fake_curl = f'curl(){{ cp "{fixture}" "${{@: -1}}"; }}\n'
+            return self.run_bash('REPO=BCD1210/soju\n' + fake_curl + fn + "latest_release")
+
+    def test_latest_release_picks_newest_stable_app_zip_with_digest(self):
+        d = "a" * 64
+        result = self.latest([
+            {"tag_name": "engine-v9", "prerelease": False, "assets": [{"name": "wine-engine-x86_64.tar.xz", "digest": "sha256:" + d}]},
+            {"tag_name": "v2.0.0", "prerelease": True, "assets": [{"name": "Soju-2.0.0-macos-arm64.zip", "digest": "sha256:" + d}]},
+            {"tag_name": "v1.9.0", "prerelease": False, "assets": [{"name": "Soju-1.9.0-macos-arm64.zip", "digest": None}]},
+            {"tag_name": "v1.8.0", "prerelease": False, "assets": [
+                {"name": "Soju-1.8.0-macos-arm64.zip.sha256", "digest": "sha256:" + "b" * 64},
+                {"name": "Soju-1.8.0-macos-arm64.zip", "digest": "sha256:" + d}]},
+        ])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.split(), ["v1.8.0",
+            "https://github.com/BCD1210/soju/releases/download/v1.8.0/Soju-1.8.0-macos-arm64.zip", d])
+
+    def test_latest_release_fails_without_a_checked_zip(self):
+        result = self.latest([{"tag_name": "v1.0.0", "prerelease": False, "assets": []}])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+
+    def test_build_downloads_are_pinned(self):
+        for script, count in (("scripts/get-components.sh", 2), ("scripts/build-engine.sh", 2),
+                              ("scripts/build-steam-support.sh", 1)):
+            text = (ROOT/script).read_text()
+            self.assertEqual(text.count("fetch_checked \"$") + text.count("fetch_checked https"), count, script)
+            self.assertNotIn(".part\" && mv", text, script)
+
 if __name__ == "__main__":
     unittest.main()
