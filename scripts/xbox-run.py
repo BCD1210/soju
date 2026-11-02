@@ -78,6 +78,34 @@ def executable(folder):
     raise LaunchError('The game package does not name its executable (MicrosoftGame.config).')
 
 
+COMPAT = ROOT / 'resources/xbox-compat.json'
+IFEO = r'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Image File Execution Options'
+# FLG_HEAP_ENABLE_FREE_CHECK: the heap parks the last 1024 freed blocks instead of
+# returning their pages at once, like Windows' heap effectively does.
+FREE_CHECK = 0x20
+
+
+def compat(pid):
+    try:
+        value = json.loads(COMPAT.read_text()).get('games', {}).get(pid, {})
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def apply_compat(pid, exe):
+    """Per-game Wine settings from resources/xbox-compat.json, set before each launch."""
+    name = PureWindowsPath(exe).name
+    if not compat(pid).get('heap_free_check') or not re.fullmatch(r'[A-Za-z0-9 ._-]{1,100}\.exe', name, re.I):
+        return
+    code = subprocess.run(['/bin/sh', str(ROOT / 'scripts/xbox-wine.sh'), 'reg', 'add', IFEO + '\\' + name,
+                           '/v', 'GlobalFlag', '/t', 'REG_DWORD', '/d', hex(FREE_CHECK), '/f'],
+                          env=dict(os.environ, SOJU_BASE=str(BASE)), stdin=subprocess.DEVNULL,
+                          capture_output=True, timeout=120).returncode
+    if code != 0:
+        print('soju: could not apply the compatibility setting for ' + name + ' (code ' + str(code) + ').', file=sys.stderr)
+
+
 def market():
     value = os.environ.get('SOJU_XBOX_MARKET', '')
     if not value:
@@ -292,6 +320,7 @@ def main():
             return 130
         if prepared != 0:
             return 1
+        apply_compat(pid, exe)
         title = json.loads(record.read_text()).get('title') or pid
         print('Starting ' + str(title)[:300] + ' (' + exe + ')…', flush=True)
         service = Service()

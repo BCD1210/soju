@@ -513,6 +513,29 @@ class XboxLaunchTests(unittest.TestCase):
         import hashlib
         self.assertEqual(hashlib.sha256((ROOT / ours[0]['soju']).read_bytes()).hexdigest(), ours[0]['sha256'])
 
+    def test_compat_sets_heap_free_check_only_for_listed_games(self):
+        calls = []
+        def run(args, **kwargs):
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, '', '')
+        with patch.object(runner.subprocess, 'run', side_effect=run):
+            runner.apply_compat('9MTVJ3HHTQGS', 'RetroClassics.exe')
+            runner.apply_compat(SILKSONG, 'Game.exe')
+            runner.apply_compat('9MTVJ3HHTQGS', 'bad"name.exe')
+        self.assertEqual(len(calls), 1)
+        args = calls[0]
+        self.assertTrue(args[1].endswith('scripts/xbox-wine.sh'))
+        self.assertEqual(args[2:4], ['reg', 'add'])
+        self.assertTrue(args[4].endswith('Image File Execution Options\\RetroClassics.exe'))
+        self.assertEqual(args[5:], ['/v', 'GlobalFlag', '/t', 'REG_DWORD', '/d', '0x20', '/f'])
+
+    def test_compat_list_is_well_formed(self):
+        data = json.loads((ROOT / 'resources/xbox-compat.json').read_text())
+        self.assertEqual(data['schema'], 1)
+        for pid, game in data['games'].items():
+            self.assertRegex(pid, r'^[0-9A-Z]{12}$')
+            self.assertTrue(game['why'])
+
     def test_store_patch_fills_every_string_the_runtime_leaves_null(self):
         patch_text = (ROOT / 'patches/xgameruntime-store-empty-strings.patch').read_text()
         for field in ('p->linkUri', 'p->price.currencyCode', 's->price.currencyCode',
