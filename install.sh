@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Soju one-line installer: Battle.net, Steam, Epic and GOG launchers (plus Xbox PC downloads) on Apple Silicon, no CrossOver.
+# Soju one-line installer: Battle.net, Steam, Epic and GOG launchers (plus Xbox PC, experimental) on Apple Silicon, no CrossOver.
 #   curl -fsSL soju.snack-wrap.com/install.sh | bash
 #   curl -fsSL https://soju.snack-wrap.com/install.sh | SOJU_PLATFORMS=battlenet,epic,gog bash     (non-interactive selection)
 #
