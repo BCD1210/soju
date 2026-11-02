@@ -35,7 +35,7 @@ struct PurchaseLinks: Decodable {
 
     func resolve(_ destination: String) -> Route? {
         guard let direct = Self.safeURL(destination, hosts: [
-            "store.steampowered.com", "www.gog.com", "store.epicgames.com", "us.shop.battle.net"
+            "store.steampowered.com", "www.gog.com", "store.epicgames.com", "us.shop.battle.net", "www.xbox.com"
         ]) else { return nil }
         if schema == 1, enabled, direct.host == "www.gog.com",
            let entry = links.first(where: { $0.destination == destination }),

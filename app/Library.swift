@@ -9,9 +9,15 @@ struct InstalledGame: Decodable, Identifiable {
     let artwork: String?
     let issue: String?
     let owned: Bool?
-    var isInstalled: Bool { !installPath.isEmpty }
+    let downloaded: Bool?
+    let format: String?
+    /// Xbox PC: a folder with an unfinished download is not installed yet.
+    var isInstalled: Bool { platform == .xbox ? downloaded == true : !installPath.isEmpty }
+    var isPartialDownload: Bool { platform == .xbox && !installPath.isEmpty && downloaded != true }
+    /// Owned but not downloadable (for example MSIXVC2 packages).
+    var downloadBlocked: Bool { platform == .xbox && !isInstalled && !isPartialDownload && issue != nil }
     enum CodingKeys: String, CodingKey {
-        case id, platform, title, artwork, issue, owned
+        case id, platform, title, artwork, issue, owned, downloaded, format
         case installPath = "install_path"
     }
 }
@@ -112,8 +118,15 @@ extension SojuModel {
                         self.gameLaunches.removeValue(forKey: game.id)
                         self.launchingGames.remove(game.id)
                     }
-                    if process.terminationStatus != 0 {
-                        self.libraryIssue = "Could not launch " + game.title + ". Use Diagnose or open " + game.platform.title + " to check its installation and login."
+                    if self.stoppingGames.remove(game.id) != nil {
+                        self.activity = game.title + " stopped."
+                    } else if process.terminationStatus != 0 {
+                        let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+                        let reason = text.split(separator: "\n").last(where: { $0.hasPrefix("soju: ") }).map { String($0.dropFirst(6)) }
+                        self.issueTitle = "Couldn't start " + game.title
+                        self.libraryIssue = reason ?? (game.platform.opensAWindow
+                            ? "Use Diagnose or open " + game.platform.title + " to check its installation and login."
+                            : "Use Diagnose to check the game and your Xbox sign-in.")
                         if !self.busy {
                             self.failed = true; self.activity = game.title + " needs attention."
                             if let data = try? Data(contentsOf: url) { self.log = String(decoding: data.suffix(60000), as: UTF8.self) }
@@ -125,15 +138,24 @@ extension SojuModel {
             failed = false
             preferences.opened[game.id] = Date(); savePreferences()
             activity = "Opening " + game.title + " through " + game.platform.title + "…"
-            // Clients may stay alive for hours: this is a launch request, not a game-running signal.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
+            // An Xbox game runs inside this process, so it counts as running until it exits.
+            // Other clients may stay alive for hours: there it is only a launch request.
+            if game.platform != .xbox { DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
                 guard let self, let p, self.gameLaunches[game.id] === p else { return }
                 self.launchingGames.remove(game.id)
-            }
+            } }
         } catch {
             launchingGames.remove(game.id); gameLaunches.removeValue(forKey: game.id)
             libraryIssue = "Could not start the game: " + error.localizedDescription
         }
+    }
+    /// An Xbox game runs inside Soju's task: SIGTERM reaches xbox-run.py, which asks the
+    /// backend to close the game and copy its saves back (or stops first-launch setup).
+    func stopGame(_ game: InstalledGame) {
+        guard game.platform == .xbox, let p = gameLaunches[game.id], p.isRunning, !stoppingGames.contains(game.id) else { return }
+        stoppingGames.insert(game.id)
+        activity = "Stopping " + game.title + " and saving…"
+        p.terminate()
     }
 }
 
@@ -144,6 +166,7 @@ private extension Launcher {
         case .steam: return Color(red: 0.36, green: 0.67, blue: 0.77)
         case .epic: return Color(red: 0.82, green: 0.64, blue: 0.40)
         case .gog: return Color(red: 0.70, green: 0.47, blue: 0.87)
+        case .xbox: return Color(red: 0.24, green: 0.66, blue: 0.33)
         }
     }
 }
@@ -189,12 +212,15 @@ struct LibraryView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .sheet(item: $selected) { game in detail(game) }
         .sheet(isPresented: $showDiagnostics) { diagnostics }
-        .alert("Game needs attention", isPresented: Binding(get: { model.libraryIssue != nil }, set: { if !$0 { model.libraryIssue = nil } })) {
-            Button("View details") { model.libraryIssue = nil; showDiagnostics = true }
+        .alert(model.issueTitle, isPresented: Binding(get: { model.libraryIssue != nil }, set: { if !$0 { model.libraryIssue = nil; model.issueTitle = "Game needs attention" } })) {
+            Button("Show Log") { model.libraryIssue = nil; showDiagnostics = true }
             Button("OK", role: .cancel) { model.libraryIssue = nil }
         } message: { Text(model.libraryIssue ?? "") }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.refresh(); model.refreshLibrary()
+        }
+        .onChange(of: model.requestedPage) {
+            if let next = model.requestedPage { selected = nil; page = next; model.requestedPage = nil }
         }
     }
 
@@ -253,7 +279,7 @@ struct LibraryView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(page == "favorites" ? "Your favorites" : "Your library")
                         .font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("Pick a game. Play it, or install it through its store.").font(.system(size: 13)).foregroundStyle(.secondary)
+                    Text("Pick a game. Play it, or install it from its store.").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button {
@@ -294,7 +320,7 @@ struct LibraryView: View {
                         .font(.system(size: 44, weight: .light)).foregroundStyle(green)
                     Text(model.scanning ? "Finding your games…" : model.games.isEmpty ? "Your library starts here" : "No games to show")
                         .font(.system(size: 21, weight: .semibold))
-                    Text(model.games.isEmpty ? "Connect a Steam or GOG library in Accounts,\nor install a game through one of your platforms." : page == "favorites" ? "Star a game in your library to keep it here." : "Try another search or platform filter.")
+                    Text(model.games.isEmpty ? "Connect a Steam, GOG or Xbox library in Accounts,\nor install a game through one of your platforms." : page == "favorites" ? "Star a game in your library to keep it here." : "Try another search or platform filter.")
                         .font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     Button(model.games.isEmpty ? "Connect accounts" : "Show all games") {
                         if model.games.isEmpty { page = "accounts" }
@@ -336,18 +362,37 @@ struct LibraryView: View {
                 }
                 Text(game.title).font(.system(size: 14, weight: .semibold)).lineLimit(2)
                     .frame(height: 36, alignment: .topLeading).frame(maxWidth: .infinity, alignment: .leading)
+                if let fraction = downloadFraction(game) {
+                    ProgressView(value: fraction).controlSize(.small)
+                        .accessibilityLabel("Download progress for " + game.title)
+                        .accessibilityValue(model.downloads[game.id] ?? "")
+                }
                 HStack {
-                    Text(!game.isInstalled ? "Not installed" : issue == nil ? "Installed" : "Needs attention").font(.system(size: 10))
-                        .foregroundStyle(issue == nil ? Color.secondary : Color.orange)
+                    Text(status(game, issue: issue)).font(.system(size: 10)).lineLimit(1)
+                        .foregroundStyle(issue == nil || game.isPartialDownload ? Color.secondary : Color.orange)
                     Spacer()
-                    Button {
-                        if !game.isInstalled { model.installOwnedGame(game) }
-                        else if issue == nil { model.play(game) } else { selected = game }
-                    } label: {
-                        Label(!game.isInstalled ? (game.platform == .steam ? "Install" : "Galaxy") : model.launchingGames.contains(game.id) ? "Starting…" : issue == nil ? "Play" : "Details", systemImage: !game.isInstalled ? "arrow.down.circle" : issue == nil ? "play.fill" : "exclamationmark.circle")
-                    }.buttonStyle(.borderedProminent).tint(green).controlSize(.small)
-                        .disabled(model.busy || model.launchingGames.contains(game.id))
-                        .accessibilityLabel((!game.isInstalled ? "Install " : issue == nil ? "Play " : "Check ") + game.title)
+                    if model.downloads[game.id] != nil {
+                        Button { model.stopDownload(game) } label: { Label("Pause", systemImage: "pause.fill") }
+                            .controlSize(.small).help("Pause the download. Download again later to continue.")
+                            .accessibilityLabel("Pause downloading " + game.title)
+                    } else if game.platform == .xbox && model.launchingGames.contains(game.id) {
+                        Button { model.stopGame(game) } label: { Label(model.stoppingGames.contains(game.id) ? "Stopping…" : "Stop", systemImage: "stop.fill") }
+                            .controlSize(.small).disabled(model.stoppingGames.contains(game.id))
+                            .help("Close the game. Soju copies its saves back first.")
+                            .accessibilityLabel("Stop " + game.title)
+                    } else if game.downloadBlocked {
+                        Button { selected = game } label: { Label("Details", systemImage: "info.circle") }
+                            .controlSize(.small).accessibilityLabel("Why " + game.title + " cannot be downloaded")
+                    } else {
+                        Button {
+                            if !game.isInstalled { model.installOwnedGame(game) }
+                            else if issue == nil { model.play(game) } else { selected = game }
+                        } label: {
+                            Label(!game.isInstalled ? (game.isPartialDownload ? "Resume" : game.platform.ownedActionTitle) : model.launchingGames.contains(game.id) ? (game.platform == .xbox ? "Running" : "Starting…") : issue == nil ? "Play" : "Details", systemImage: !game.isInstalled ? "arrow.down.circle" : issue == nil ? "play.fill" : "exclamationmark.circle")
+                        }.buttonStyle(.borderedProminent).tint(green).controlSize(.small)
+                            .disabled(model.busy || model.launchingGames.contains(game.id))
+                            .accessibilityLabel((!game.isInstalled ? (game.isPartialDownload ? "Resume downloading " : game.platform.ownedActionTitle + " ") : issue == nil ? "Play " : "Check ") + game.title)
+                    }
                 }
             }.padding(14)
         }.background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
@@ -356,9 +401,30 @@ struct LibraryView: View {
             .contextMenu {
                 Button("Show details") { selected = game }
                 Button("Show in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled)
-                Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)
+                if game.platform.opensAWindow {
+                    Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)
+                }
                 Button("Diagnose") { diagnose(game) }.disabled(model.busy)
             }
+    }
+
+    /// "42% · 3.1 GB / 7.4 GB · 48 MB/s" -> 0.42; nil while preparing or when not downloading.
+    private func downloadFraction(_ game: InstalledGame) -> Double? {
+        guard let progress = model.downloads[game.id], let head = progress.split(separator: "%").first,
+              head.count < progress.count, let value = Double(head) else { return nil }
+        return min(max(value / 100, 0), 1)
+    }
+    private func status(_ game: InstalledGame, issue: String?) -> String {
+        // The bar shows the percentage; the caption keeps the size and speed.
+        if let progress = model.downloads[game.id] {
+            let parts = progress.components(separatedBy: " · ")
+            return parts.count > 1 ? parts.dropFirst().joined(separator: " · ") : progress
+        }
+        if game.platform == .xbox {
+            if game.isPartialDownload { return "Paused" }
+            if game.downloadBlocked { return "Not supported" }
+        }
+        return !game.isInstalled ? "Not installed" : issue == nil ? "Installed" : "Needs attention"
     }
 
     private func diagnose(_ game: InstalledGame) {
@@ -374,12 +440,15 @@ struct LibraryView: View {
                     Text(game.platform.title).font(.system(size: 11, weight: .semibold)).foregroundStyle(game.platform.accent)
                     Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded))
                     Label(game.isInstalled ? "Installed on this Mac" : "Owned · not installed", systemImage: game.isInstalled ? "internaldrive" : "cloud").font(.system(size: 12)).foregroundStyle(.secondary)
-                    Text("Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
+                    Text(game.platform == .xbox ? "Downloaded from the Microsoft Store. Xbox PC support is experimental: not every game works. The first launch may download about 600 MB of Xbox runtime files and take a few minutes to set up." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
+                    if game.downloadBlocked, let issue = game.issue {
+                        Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
+                    }
                     if let issue = model.launchIssue(for: game) {
                         Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
                     }
-                    Text(game.isInstalled ? "Installation detected. Compatibility varies by game and Mac." : "This game is in your imported library. Open its launcher to install it; compatibility varies by game.")
+                    Text(game.platform == .xbox ? (game.isInstalled ? "Files are in " + game.installPath + ". Saves sync with your Xbox account when the game exits." : "This game is in your Xbox library. Download it to play; compatibility varies by game.") : game.isInstalled ? "Installation detected. Compatibility varies by game and Mac." : "This game is in your imported library. Open its launcher to install it; compatibility varies by game.")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                     Spacer()
                 }
@@ -387,7 +456,9 @@ struct LibraryView: View {
             HStack {
                 Button("Show files") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled)
                 Button("Diagnose") { diagnose(game) }.disabled(model.busy)
-                Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)
+                if game.platform.opensAWindow {
+                    Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)
+                }
                 Spacer()
             }
             Divider()
@@ -395,14 +466,27 @@ struct LibraryView: View {
                 Button("Platforms") { selected = nil; page = "platforms" }
                 Spacer()
                 Button("Close") { selected = nil }.keyboardShortcut(.cancelAction)
-                Button(game.isInstalled ? "Play" : game.platform == .steam ? "Install in Steam" : "Open Galaxy") {
-                    selected = nil
-                    if game.isInstalled { model.play(game) } else { model.installOwnedGame(game) }
+                if model.downloads[game.id] != nil {
+                    Button("Pause Download") { model.stopDownload(game) }.keyboardShortcut(.defaultAction)
+                } else if game.platform == .xbox && model.launchingGames.contains(game.id) {
+                    Button(model.stoppingGames.contains(game.id) ? "Stopping…" : "Stop Game") { model.stopGame(game) }
+                        .keyboardShortcut(.defaultAction).disabled(model.stoppingGames.contains(game.id))
+                } else if !game.downloadBlocked {
+                    Button(primaryTitle(game)) {
+                        selected = nil
+                        if game.isInstalled { model.play(game) } else { model.installOwnedGame(game) }
+                    }
+                        .buttonStyle(.borderedProminent).tint(green).keyboardShortcut(.defaultAction)
+                        .disabled(model.busy || model.launchIssue(for: game) != nil || model.launchingGames.contains(game.id))
                 }
-                    .buttonStyle(.borderedProminent).tint(green)
-                    .disabled(model.busy || model.launchIssue(for: game) != nil || model.launchingGames.contains(game.id))
             }
         }.padding(28).frame(width: 640)
+    }
+    private func primaryTitle(_ game: InstalledGame) -> String {
+        if game.platform == .xbox {
+            return game.isInstalled ? "Play" : game.isPartialDownload ? "Resume Download" : "Download"
+        }
+        return game.isInstalled ? "Play" : game.platform == .steam ? "Install in Steam" : "Open Galaxy"
     }
     private var diagnostics: some View {
         VStack(alignment: .leading, spacing: 16) {

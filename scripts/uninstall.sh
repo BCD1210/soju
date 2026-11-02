@@ -48,11 +48,15 @@ if [ "${#apps[@]}" -gt 0 ]; then
 fi
 
 # 3. Bottles (this is where installed games live; can be tens of GB).
-for b in bottle steam-bottle epic-bottle gog-bottle; do
+for b in bottle steam-bottle epic-bottle gog-bottle xbox-bottle; do
   d="$BASE/$b"
   [ -d "$d" ] || continue
   sz=$(du -sh "$d" 2>/dev/null | cut -f1)
   if ask "Remove bottle $b ($sz, includes installed games)?"; then
+    if [ "$b" = xbox-bottle ]; then
+      bash "$ROOT/scripts/xbox.sh" kill >/dev/null 2>&1 || true
+      sh "$ROOT/scripts/xbox-wine.sh" --soju-stop-prefix 2>/dev/null || true
+    fi
     stop_bottle "$b"
     rm -rf "$d"; REMOVED=1; echo "  removed"
   fi
@@ -69,6 +73,25 @@ if [ "${#runtimes[@]}" -gt 0 ]; then
     stop_bottle steam-bottle
     python3 "$ROOT/scripts/steam-session.py" idle "$STEAM_WINE_ROOT"
     rm -rf "${runtimes[@]}"; REMOVED=1; echo "  removed"
+  fi
+fi
+
+# The Xodus backend build (re-buildable from source with soju xbox-install).
+xodus=()
+for d in xodus xodus.previous .xodus-stage xbox-runtime xbox-runtime.previous run; do
+  [ -e "$BASE/$d" ] && xodus+=("$BASE/$d")
+done
+if [ "${#xodus[@]}" -gt 0 ]; then
+  printf 'Xbox PC backend and game runtime: %s\n' "${xodus[@]}"
+  # Offer the Microsoft sign-in too while the backend that can remove it still exists.
+  if [ -x "$BASE/xodus/bin/xodus-cli" ] && security find-generic-password -s "Xodus Service" >/dev/null 2>&1 &&
+     ask "Sign out of Microsoft (removes the Xbox sign-in from the Keychain)?"; then
+    XODUS_LOG=error "$BASE/xodus/bin/xodus-cli" logout --device >/dev/null 2>&1 && echo "  signed out" || echo "  sign-out failed; remove \"Xodus Service\" in Keychain Access"
+  fi
+  if ask "Remove the Xodus backend and Xbox game runtime (can be downloaded and built again)?"; then
+    xodus_bin="$(printf '%s' "$BASE/xodus/bin/xodus-" | sed 's/[][\.*^$()+?{}|]/\\&/g')"
+    pkill -f "^${xodus_bin}(cli|service)( |$)" 2>/dev/null || true
+    rm -rf "${xodus[@]}"; REMOVED=1; echo "  removed"
   fi
 fi
 
@@ -108,5 +131,8 @@ Not removed by this script (they are Homebrew's):
   brew uninstall soju                    the soju CLI itself, if installed via brew
   brew uninstall --cask wine-stable      legacy Wine, only if separately installed
   brew uninstall mingw-w64               the wrapper build dependency
+  brew uninstall protobuf rustup         Xodus build dependencies, if Soju installed them
+If you kept the Microsoft sign-in, it stays in your Keychain as "Xodus Service"
+(remove it in Keychain Access).
 EOT
 echo "Done."

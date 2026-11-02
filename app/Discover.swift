@@ -55,7 +55,7 @@ struct DiscoverView: View {
     @EnvironmentObject var model: SojuModel
     @StateObject private var store = DiscoverModel()
     @State private var query = ""
-    @State private var country = "US"
+    @AppStorage("soju.store.region") private var country = "US"
     @State private var platform = "all"
     @State private var purchaseLinks = PurchaseLinks.empty
     private var shown: [StoreItem] { store.results.filter { platform == "all" || $0.platform.rawValue == platform } }
@@ -64,7 +64,7 @@ struct DiscoverView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 7) {
                     Text("Find your next game").font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("Search Steam and GOG. Compare games and prices.").font(.callout).foregroundStyle(.secondary)
+                    Text("Search Steam, GOG and the Microsoft Store. Compare games and prices.").font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -80,8 +80,8 @@ struct DiscoverView: View {
             }
             HStack {
                 Picker("Store", selection: $platform) {
-                    Text("Steam & GOG").tag("all"); Text("Steam").tag("steam"); Text("GOG").tag("gog")
-                }.pickerStyle(.segmented).frame(width: 270).accessibilityLabel("Store results filter")
+                    Text("All stores").tag("all"); Text("Steam").tag("steam"); Text("GOG").tag("gog"); Text("Microsoft Store").tag("xbox")
+                }.pickerStyle(.segmented).frame(width: 380).accessibilityLabel("Store results filter")
                 Spacer()
                 if store.searching {
                     ProgressView().controlSize(.small)
@@ -101,7 +101,7 @@ struct DiscoverView: View {
                     Image(systemName: "sparkle.magnifyingglass").font(.system(size: 42, weight: .light))
                     Text(store.searching ? "Searching the stores…" : store.searchedQuery.isEmpty ? "What would you like to play?" : "No matching listings")
                         .font(.title3.bold())
-                    Text("Purchases and downloads stay with the store.").foregroundStyle(.secondary)
+                    Text("Purchases happen in each store.").foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
@@ -130,18 +130,32 @@ struct DiscoverView: View {
                 } placeholder: { Image(systemName: item.platform.symbol).font(.largeTitle).foregroundStyle(.secondary) }
             }.frame(height: 120).clipShape(RoundedRectangle(cornerRadius: 9))
             HStack {
-                Text(item.platform == .steam ? "STEAM" : "GOG").font(.caption.bold()).foregroundStyle(.secondary)
+                Text(item.platform == .steam ? "STEAM" : item.platform == .xbox ? "MICROSOFT STORE" : "GOG").font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
                 if let owned { Text(owned.isInstalled ? "Installed" : "In your library").font(.caption).foregroundStyle(.green) }
             }
             Text(item.title).font(.headline).lineLimit(2).frame(height: 38, alignment: .topLeading)
             HStack {
-                Text(item.price).font(.system(size: 17, weight: .semibold))
+                if item.price == "View price in store" {
+                    Text("Price shown in the store").font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Text(item.price).font(.system(size: 17, weight: .semibold))
+                }
                 Spacer()
                 if item.mac { Text("macOS listed").font(.caption).foregroundStyle(.secondary) }
             }
             HStack {
-                if let owned {
+                if let owned, owned.platform == .xbox {
+                    if model.downloads[owned.id] != nil {
+                        Button("Pause Download") { model.stopDownload(owned) }
+                    } else if owned.downloadBlocked {
+                        Text("Can't be downloaded yet").font(.caption).foregroundStyle(.secondary).help(owned.issue ?? "")
+                    } else {
+                        Button(owned.isInstalled ? "Play" : owned.isPartialDownload ? "Resume Download" : "Download") {
+                            if owned.isInstalled { model.play(owned) } else { model.installOwnedGame(owned) }
+                        }.disabled(model.busy)
+                    }
+                } else if let owned {
                     Button(owned.isInstalled ? "Play" : owned.platform == .steam ? "Install in Steam" : "Open Galaxy") {
                         if owned.isInstalled { model.play(owned) } else { model.installOwnedGame(owned) }
                     }.disabled(model.busy)
