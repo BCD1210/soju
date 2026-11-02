@@ -150,10 +150,11 @@ extension SojuModel {
         }
     }
     /// D2R VR Unleashed in the VR copy of the Battle.net bottle (`soju vr play`, offline).
-    func playVR(_ game: InstalledGame) {
+    /// `flat` opens the same copy without VR so offline characters can be made with the mouse.
+    func playVR(_ game: InstalledGame, flat: Bool = false) {
         guard !busy, !launchingGames.contains(game.id) else { return }
         do {
-            let (p, url) = try task(["vr", "play"], logName: "d2r-vr")
+            let (p, url) = try task(["vr", flat ? "flat" : "play"], logName: "d2r-vr")
             launchingGames.insert(game.id); gameLaunches[game.id] = p
             p.terminationHandler = { [weak self] process in
                 DispatchQueue.main.async {
@@ -172,7 +173,8 @@ extension SojuModel {
                 }
             }
             try p.run()
-            activity = "Starting " + game.title + " in VR (offline characters)…"
+            activity = flat ? "Opening the VR copy of " + game.title + " without VR (create offline characters)…"
+                : "Starting " + game.title + " in VR (offline characters)…"
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
                 guard let self, let p, self.gameLaunches[game.id] === p else { return }
                 self.launchingGames.remove(game.id)
@@ -442,6 +444,8 @@ struct LibraryView: View {
                     Button("Set Up VR (offline)") { model.run(["vr", "setup"], title: "Setting up D2R VR…") }
                         .disabled(model.busy)
                     Button("Play in VR") { model.playVR(game) }.disabled(model.busy)
+                    Button("Create Offline Character (without VR)") { model.playVR(game, flat: true) }
+                        .disabled(model.busy)
                 }
             }
     }

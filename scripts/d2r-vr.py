@@ -352,6 +352,7 @@ def setup(refresh=False):
                                  'mod': m['mod']['name']}, indent=2) + '\n')
     say('D2R VR is set up. Play with: soju vr play')
     say('Use an OFFLINE character. Start the OXRSys client on your headset (or the OXRSys Simulator) to see it.')
+    say('No offline character yet? Make one with the mouse first: soju vr play --flat')
     say('If D2R says you have not been online for 30 days: play D2R online once from Battle.net, '
         'then run: soju vr setup --refresh (VR characters are kept).')
     return 0
@@ -375,15 +376,26 @@ def status():
     }
 
 
-def play(extra):
+def play_env(flat):
+    env = wine_env(BOTTLE)
+    if not flat:
+        env['WINEDLLPATH'] = str(VR / 'runtime/wine')
+        env['OXR_BRIDGE_ENV_FILE'] = str(VR / 'bridge.env')
+    # flat: the OpenXR runtime cannot load, so the mod leaves VR off and the game
+    # uses its normal screen, where the mouse can pick a class on character creation.
+    # In VR those menus are meant for the controller laser.
+    return env
+
+
+def play(extra, flat=False):
     info = status()
     if not info['installed'] or not info['current']:
         raise VRError('D2R VR is not set up for this Soju version. Run: soju vr setup')
     if running(['D2R.exe', 'D2RLoader.exe']):
         raise VRError('Diablo II: Resurrected is already running.')
-    env = wine_env(BOTTLE)
-    env['WINEDLLPATH'] = str(VR / 'runtime/wine')
-    env['OXR_BRIDGE_ENV_FILE'] = str(VR / 'bridge.env')
+    env = play_env(flat)
+    if flat:
+        say('Opening the VR copy without VR. Create or check offline characters, then quit and run: soju vr play')
     os.chdir(BOTTLE / GAME_REL)
     # -mod keeps D2R offline: no Battle.net game servers.
     os.execve(str(ENGINE / 'bin/wine'), [str(ENGINE / 'bin/wine'), 'D2RLoader.exe', '-mod',
@@ -411,7 +423,9 @@ def main(argv):
     sub = parser.add_subparsers(dest='command', required=True)
     p = sub.add_parser('setup')
     p.add_argument('--refresh', action='store_true', help='copy the Battle.net bottle again (after a game update)')
-    sub.add_parser('play')
+    p = sub.add_parser('play')
+    p.add_argument('--flat', action='store_true',
+                   help='open the VR copy on the Mac screen without VR (to create offline characters)')
     p = sub.add_parser('status')
     p.add_argument('--json', action='store_true')
     p = sub.add_parser('remove')
@@ -421,7 +435,7 @@ def main(argv):
         if args.command == 'setup':
             return setup(args.refresh)
         if args.command == 'play':
-            return play(extra)
+            return play(extra, args.flat)
         if args.command == 'status':
             info = status()
             if args.json:
