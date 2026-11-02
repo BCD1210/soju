@@ -211,7 +211,7 @@ extension SojuModel {
     func cancelSignIn() { signInTask?.terminate() }
     func xboxSignIn(market: String) {
         guard !accountBusy else { return }
-        accountBusy = true; accountMessage = "Finish signing in on the Microsoft page that opened…"
+        accountBusy = true; accountMessage = "Finish signing in on the Microsoft page that opened. If it stays on \"Please wait\" after an account notice, close it and sign in again."
         do {
             let (p, url) = try task(["xbox", "login"], logName: "xbox-account")
             signInTask = p
@@ -224,7 +224,7 @@ extension SojuModel {
                     if process.terminationStatus == 0 { self.syncAccount(.xbox, input: ["market": market]) }
                     else {
                         let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-                        self.accountMessage = text.contains("not completed") ? "Sign-in was not completed." : "Sign-in did not finish. Open Diagnostics in Library for details."
+                        self.accountMessage = text.contains("not completed") ? "Sign-in was not completed. If the page stayed on \"Please wait\" after an account notice, sign in again: Microsoft shows that notice once." : "Sign-in did not finish. Open Diagnostics in Library for details."
                         self.log = String(text.suffix(60000))
                     }
                 }

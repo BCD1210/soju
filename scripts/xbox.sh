@@ -51,6 +51,7 @@ case "${1:-}" in
   login)
     need_backend
     echo "Opening the Microsoft sign-in page. Finish signing in there, then this window closes."
+    echo "If Microsoft shows a notice about your account and then stays on \"Please wait\", close the window and sign in again."
     # Cancel in Soju sends TERM here: close the sign-in window too, so nothing is stored afterwards.
     # Some backend lines name the account; keep e-mail addresses out of the log.
     "$XODUS_CLI" login > >(sed -E 's/[^[:space:]]+@[^[:space:]]+/<account>/g') 2>&1 &
@@ -62,7 +63,14 @@ case "${1:-}" in
     "$XODUS_CLI" account --json | python3 -c 'import json,sys
 v=json.load(sys.stdin)
 sys.exit(0 if v.get("stored") else 1)' || { echo "Sign-in was not completed." >&2; exit 1; }
-    echo "Signed in." ;;
+    echo "Signed in."
+    # Xbox Live needs a profile (gamertag) on the account; Microsoft accounts made
+    # outside Xbox have none until someone signs in at xbox.com once.
+    # Only stderr is kept: stdout carries the account name.
+    profile_err="$("$XODUS_CLI" profile --json 2>&1 >/dev/null || true)"
+    case "$profile_err" in
+      *"unavailable (xsts)"*) echo "This Microsoft account has no Xbox profile yet. Sign in once at xbox.com and choose a gamertag; downloads need it." ;;
+    esac ;;
   logout)
     # Signing out must work even when the backend is gone or its recipe changed:
     # any xodus-cli that still runs clears the Keychain entry, and Soju's own

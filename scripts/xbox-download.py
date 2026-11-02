@@ -19,6 +19,8 @@ CLI = os.environ.get('SOJU_XODUS_BIN') or str(BASE / 'xodus/bin/xodus-cli')
 GAMES = BASE / 'xbox-bottle/drive_c/XboxGames'
 MARKETS = ('US', 'KR', 'GB', 'DE', 'JP')
 MARKER = '.soju-xbox-install.json'
+NO_XBOX_PROFILE = ("This Microsoft account has no Xbox profile yet. Sign in once at xbox.com and "
+                   "choose a gamertag, then download again.")
 
 
 class DownloadError(Exception):
@@ -127,7 +129,7 @@ def stream(pid, choice, region, dest):
     # stderr joins stdout so every backend line goes through clean().
     process = subprocess.Popen(args, env=environment(), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, bufsize=1, errors='replace')
-    phase, shown, busy = None, None, False
+    phase, shown, busy, auth = None, None, False, False
     try:
         for line in process.stdout:
             if line.startswith('NEXUS_PROGRESS '):
@@ -146,6 +148,7 @@ def stream(pid, choice, region, dest):
                     shown = key
             elif line.strip():
                 busy = busy or 'another download is using this folder' in line
+                auth = auth or 'Xbox authentication request failed' in line
                 print('  ' + clean(line), flush=True)
     finally:
         # Stopping Soju's download also stops the backend; its checkpoint stays.
@@ -158,7 +161,19 @@ def stream(pid, choice, region, dest):
         code = process.wait()
     if busy:
         raise DownloadError('This game is already downloading. Pause that download first, or wait for it to finish.')
+    if auth and code != 0 and not has_xbox_profile():
+        raise DownloadError(NO_XBOX_PROFILE)
     return code == 0 and phase == 'complete'
+
+
+def has_xbox_profile():
+    """False only when Xbox Live has no user for this account (xodus-cli: '(xsts)')."""
+    try:
+        result = subprocess.run([CLI, 'profile', '--json'], env=environment(), stdin=subprocess.DEVNULL,
+                                capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return True
+    return not (result.returncode != 0 and 'unavailable (xsts)' in (result.stderr or ''))
 
 
 def stop(signum, frame):

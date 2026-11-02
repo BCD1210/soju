@@ -352,6 +352,16 @@ def gog_owned(base, settings):
     return list(games.values()), 'Galaxy · …' + selected[-4:]
 
 
+# xodus-cli reports a failed Xbox Live (XSTS) step this way. A Microsoft account that
+# never created an Xbox profile fails here: Xbox Live has no user for it yet.
+NO_XBOX_PROFILE = ("This Microsoft account has no Xbox profile yet. Sign in once at xbox.com and "
+                   "choose a gamertag, then sync again. Downloads need the profile.")
+
+
+class XboxProfileMissing(ServiceError):
+    pass
+
+
 def xodus_cli(base):
     return os.environ.get('SOJU_XODUS_BIN') or str(Path(base) / 'xodus/bin/xodus-cli')
 
@@ -371,6 +381,8 @@ def xodus(base, args, timeout):
     except OSError:
         raise ServiceError('The Xbox backend could not start. Run Diagnose in Platforms.') from None
     if result.returncode != 0:
+        if re.search(r'unavailable \(xsts\)', result.stderr or ''):
+            raise XboxProfileMissing(NO_XBOX_PROFILE)
         if re.search(r'NEXUS_CREDENTIAL_ERROR_V1 [A-Za-z0-9_-]+', result.stderr or ''):
             raise ServiceError('Sign in to your Microsoft account in Accounts. Your previous import is unchanged.')
         raise ServiceError('Xbox did not share your library. Sign in again in Accounts, or retry later. Your previous import is unchanged.')
@@ -412,7 +424,7 @@ def entitlement_end(value):
 SUBSCRIPTION = re.compile(r'CFQ7TTC0[A-Z0-9]{4}')
 
 
-def xbox_owned(base, settings, deadline=40):
+def xbox_owned(base, settings, deadline=40, notices=None):
     # The app stops a service request after 50 s; every step uses what is left of this budget.
     """Owned and PC Game Pass games from the signed-in Microsoft account."""
     started = time.monotonic()
@@ -422,6 +434,12 @@ def xbox_owned(base, settings, deadline=40):
     data = xodus(base, ['library', '--json', '--market', country], timeout=20)
     if not isinstance(data, dict) or data.get('schema') != 1 or not isinstance(data.get('entitlements'), list):
         raise ServiceError('Xbox returned an incomplete library. Your previous import is unchanged.')
+    if not data['entitlements'] and deadline - (time.monotonic() - started) > 30:
+        # Right after sign-in Microsoft can answer with an empty list once; ask again.
+        time.sleep(3)
+        retry = xodus(base, ['library', '--json', '--market', country], timeout=15)
+        if isinstance(retry, dict) and retry.get('schema') == 1 and isinstance(retry.get('entitlements'), list):
+            data = retry
     if len(data['entitlements']) > 10000:
         raise ServiceError('This library exceeds the supported import size.')
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -458,6 +476,9 @@ def xbox_owned(base, settings, deadline=40):
         try:
             profile = xodus(base, ['profile', '--json'], timeout=min(8, left - 1))
             gamertag = text(profile.get('gamertag'), 40) if isinstance(profile, dict) else ''
+        except XboxProfileMissing as error:
+            if notices is not None:
+                notices.append(str(error))
         except ServiceError:
             pass
     # Art is optional: whatever is not fetched in time is retried on the next sync.
