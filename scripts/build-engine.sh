@@ -12,6 +12,9 @@ WORK="${WORK:-$HOME/.battlenet-macos/build}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 SRC_URL="https://media.codeweavers.com/pub/crossover/source/crossover-sources-26.3.0.tar.gz"
 FT_URL="https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.gz"
+# SHA-256 of the archives used for the verified 2026-08 build.
+SRC_SHA256="ac99c8ca4b3848f3e81784135f023df266b61c2345726ea55a50b3e030dd6872"
+FT_SHA256="5c3a8e78f7b24c20b25b54ee575d6daa40007a5f4eea2845861c3409b3021747"
 DEPS="$WORK/deps"
 ENGINE="${ENGINE:-$HOME/.battlenet-macos/cx26-engine}"
 # get-components.sh pre-fetches the x86_64 dylibs into $DEPS/lib (frankea GPL release)
@@ -24,8 +27,23 @@ export PATH="/opt/homebrew/opt/bison/bin:/opt/homebrew/bin:$PATH"
 
 mkdir -p "$WORK" "$DEPS"
 
+# Download $1 to $2 (kept between runs) and use it only when its SHA-256 is $3.
+fetch_checked(){   # url, dest, sha256
+  local got
+  if [ ! -f "$2" ]; then
+    curl -fL --retry 3 "$1" -o "$2.part" || { rm -f "$2.part"; echo "Download failed: $1" >&2; return 1; }
+    mv -f "$2.part" "$2"
+  fi
+  got=$(shasum -a 256 "$2" | awk '{print $1}')
+  if [ "$got" != "$3" ]; then
+    rm -f "$2"
+    printf 'Checksum mismatch for %s\n  expected %s\n  got      %s\n' "$1" "$3" "$got" >&2
+    return 1
+  fi
+}
+
 echo "==> Downloading CrossOver 26.3 sources + freetype"
-[ -f "$WORK/cx-src.tar.gz" ] || { curl -fL "$SRC_URL" -o "$WORK/cx-src.tar.gz.part" && mv -f "$WORK/cx-src.tar.gz.part" "$WORK/cx-src.tar.gz"; }
+fetch_checked "$SRC_URL" "$WORK/cx-src.tar.gz" "$SRC_SHA256"
 tar -xzf "$WORK/cx-src.tar.gz" -C "$WORK" sources/wine
 WINE="$WORK/sources/wine"
 # Soju winemac patch: WINE_NO_DOCK_ICON (hide helper-process Dock icons) and
@@ -53,7 +71,7 @@ if ! grep -q "KEY_STORE_MAGIC" "$WINE/dlls/ncrypt/main.c"; then
 fi
 
 echo "==> Building x86_64 freetype (Rosetta)"
-[ -f "$WORK/ft.tar.gz" ] || { curl -fL "$FT_URL" -o "$WORK/ft.tar.gz.part" && mv -f "$WORK/ft.tar.gz.part" "$WORK/ft.tar.gz"; }
+fetch_checked "$FT_URL" "$WORK/ft.tar.gz" "$FT_SHA256"
 tar -xzf "$WORK/ft.tar.gz" -C "$WORK"
 ( cd "$WORK/freetype-2.13.3" && arch -x86_64 ./configure --prefix="$DEPS" \
     --without-harfbuzz --without-png --without-brotli --without-bzip2 \

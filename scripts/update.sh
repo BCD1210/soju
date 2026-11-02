@@ -11,6 +11,47 @@ TTY=/dev/tty
 
 say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 
+# Same pin and helpers as install.sh (tests/test_installation.py keeps them equal).
+ENGINE_TAG="engine-v1.5"
+ENGINE_SHA256="7b96a4407308493ae92bebe96039bbc8d0bf3b86c22cb99c782f73cf7be3738e"
+ENGINE_URL="https://github.com/$REPO/releases/download/$ENGINE_TAG/wine-engine-x86_64.tar.xz"
+
+fetch_verified(){   # url, dest, sha256
+  local got
+  rm -f "$2.part"
+  curl -fL "$1" -o "$2.part" || { rm -f "$2.part"; return 1; }
+  got=$(shasum -a 256 "$2.part" | awk '{print $1}')
+  if [ "$got" != "$3" ]; then
+    rm -f "$2.part"
+    printf 'Checksum mismatch for %s\n  expected %s\n  got      %s\n' "$1" "$3" "$got"
+    return 1
+  fi
+  mv -f "$2.part" "$2"
+}
+
+latest_release(){
+  local json i j tag name n digest
+  json=$(mktemp) || return 1
+  if ! curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" -o "$json"; then
+    rm -f "$json"; return 1
+  fi
+  for i in $(seq 0 29); do
+    tag=$(plutil -extract "$i.tag_name" raw -o - "$json" 2>/dev/null) || break
+    [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+    [ "$(plutil -extract "$i.prerelease" raw -o - "$json" 2>/dev/null)" = false ] || continue
+    name="Soju-${tag#v}-macos-arm64.zip"
+    for j in $(seq 0 19); do
+      n=$(plutil -extract "$i.assets.$j.name" raw -o - "$json" 2>/dev/null) || break
+      [ "$n" = "$name" ] || continue
+      digest=$(plutil -extract "$i.assets.$j.digest" raw -o - "$json" 2>/dev/null) || break
+      [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || break
+      echo "$tag https://github.com/$REPO/releases/download/$tag/$name ${digest#sha256:}"
+      rm -f "$json"; return 0
+    done
+  done
+  rm -f "$json"; return 1
+}
+
 # ---------- 1. Scripts ----------
 # Once the scripts are refreshed, the rest of this run must use the new ones
 # (the engine carry-over in particular changes between versions), so step 1
@@ -30,20 +71,31 @@ elif [ "$ROOT" != "$BASE/soju" ]; then
   # other checkout may carry local edits.
   echo "  $ROOT is not the installer's copy ($BASE/soju); update it yourself (git pull, or re-download)"
 else
-  echo "  refreshing the tarball copy at $ROOT"
-  tmp="$ROOT.tmp.$$"
-  mkdir -p "$tmp"
-  if curl -fsSL "https://github.com/$REPO/archive/refs/heads/main.tar.gz" | tar -xz -C "$tmp" --strip-components=1; then
-    # Swap directories instead of copying over the running script.
-    chmod +x "$tmp"/scripts/*.sh "$tmp"/scripts/soju 2>/dev/null || true
-    rm -rf "$ROOT.old"; mv "$ROOT" "$ROOT.old"; mv "$tmp" "$ROOT"; rm -rf "$ROOT.old"
-    tmp=""
-    echo "  scripts updated"
-    exec bash "$ROOT/scripts/update.sh" --scripts-updated "$@"
+  # The installer's copy follows releases, never main: take the newest release
+  # zip, check its SHA-256 and swap in the scripts it carries.
+  cur="v$(cat "$ROOT/VERSION" 2>/dev/null || echo unknown)"
+  if ! rel=$(latest_release); then
+    echo "  could not find a release with a recorded checksum (offline?); skipping the scripts update"
+  elif [ "${rel%% *}" = "$cur" ]; then
+    echo "  scripts are up to date ($cur)"
   else
-    echo "  download failed; skipping the scripts update"
+    read -r tag url sum <<<"$rel"
+    echo "  $cur -> $tag"
+    tmp="$ROOT.tmp.$$"
+    rm -rf "$tmp"; mkdir -p "$tmp"
+    if fetch_verified "$url" "$tmp/soju.zip" "$sum" \
+       && ditto -x -k "$tmp/soju.zip" "$tmp/app" \
+       && [ -f "$tmp/app/Soju.app/Contents/Resources/soju/scripts/update.sh" ]; then
+      new="$tmp/app/Soju.app/Contents/Resources/soju"
+      chmod +x "$new"/install.sh "$new"/scripts/*.sh "$new"/scripts/soju 2>/dev/null || true
+      # Swap directories instead of copying over the running script.
+      rm -rf "$ROOT.old"; mv "$ROOT" "$ROOT.old"; mv "$new" "$ROOT"; rm -rf "$ROOT.old" "$tmp"
+      echo "  scripts updated"
+      exec bash "$ROOT/scripts/update.sh" --scripts-updated "$@"
+    fi
+    echo "  download or check failed; skipping the scripts update"
+    rm -rf "$tmp"
   fi
-  [ -n "$tmp" ] && rm -rf "$tmp"
 fi
 fi
 
@@ -57,16 +109,9 @@ if [ ! -x "$ENGINE/bin/wine" ]; then
   echo "  no launchers installed (run: soju install)"; exit 0
 fi
 
-# The asset is named wine-engine-*.tar.xz from engine-v1.4 on. Older
-# updaters looked for soju-engine-* and, after refreshing the scripts, went on
-# to swap the engine with their own carry-over code, which dropped Apple's D3D
-# shims. The rename makes that updater stop at "could not find the engine
-# release asset" instead; the next run uses this script and carries the
-# shims over.
-URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" \
-      | grep -o '"browser_download_url": *"[^"]*wine-engine[^"]*"' | head -1 | grep -o 'https[^"]*') || true
-[ -n "${URL:-}" ] || { echo "  could not find the engine release asset (offline? If the scripts were just updated, run soju update once more)"; exit 1; }
-TAG=$(echo "$URL" | sed -n 's#.*/download/\([^/]*\)/.*#\1#p')
+# The engine is pinned (ENGINE_TAG/ENGINE_SHA256 above): moving users to a new
+# engine release takes a script release that names it.
+TAG="$ENGINE_TAG"
 CUR=$(cat "$ENGINE/.soju-engine-release" 2>/dev/null || echo "")
 
 if [ -n "$CUR" ] && [ "$CUR" = "$TAG" ]; then
@@ -91,8 +136,7 @@ if pgrep -x wineserver >/dev/null 2>&1; then
 fi
 
 echo "  downloading $TAG"
-curl -fL "$URL" -o "$BASE/engine.tar.xz.part"
-mv -f "$BASE/engine.tar.xz.part" "$BASE/engine.tar.xz"
+fetch_verified "$ENGINE_URL" "$BASE/engine.tar.xz" "$ENGINE_SHA256" || { echo "  keeping the current engine"; exit 1; }
 NEW="$ENGINE.new"
 rm -rf "$NEW"; mkdir -p "$NEW"
 tar -xJf "$BASE/engine.tar.xz" -C "$NEW"
