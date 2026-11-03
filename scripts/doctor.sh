@@ -152,11 +152,22 @@ elif [ "$CHECK_XBOX" = 1 ]; then
     n=$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["games"]))' "$BASE/account-libraries/xbox.json" 2>/dev/null || echo "?")
     info "imported Xbox library: $n games"
   fi
-  partial=0
-  for d in "$BASE"/xbox-bottle/drive_c/XboxGames/*/; do
-    [ -f "$d.nexus-streaming-v1.jsonl" ] && [ ! -f "$d.soju-xbox-install.json" ] && partial=$((partial+1))
-  done
-  [ "$partial" = 0 ] || warn "$partial unfinished Xbox download(s): download again to resume"
+  # Download folders (the Mac and external drives); paths are printed with ~ for the home folder.
+  while IFS="$(printf '\t')" read -r level text; do
+    case "$level" in warn) warn "$text" ;; *) info "$text" ;; esac
+  done < <(SOJU_BASE="$BASE" python3 "$ROOT/scripts/xbox_locations.py" json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    v = json.load(sys.stdin)
+except ValueError:
+    sys.exit(0)
+print("info\tXbox downloads go to " + v["current"]["path"] + ("" if v["current"]["available"] else " (not connected)"))
+partial = sum(r["partial"] for r in v["roots"])
+if partial: print("warn\t" + str(partial) + " unfinished Xbox download(s): download again to resume")
+for r in v["roots"]:
+    if not r["connected"]: print("warn\tXbox game drive not connected: " + r["volume"])
+for w in v["warnings"]: print("info\t" + w)
+')
   python3 "$ROOT/scripts/fetch-xbox-runtime.py" --check && pass "Xbox game runtime DLLs verified" \
     || info "Xbox game runtime not downloaded yet (first Play or soju xbox-install fetches it)"
   python3 "$ROOT/scripts/xbox-prefix.py" --check && pass "Xbox prefix ready to play" \

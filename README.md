@@ -25,7 +25,7 @@ CodeWeavers' published sources; Steam uses a separate private Wine 11 setup.
 Apple's proprietary GPTK/D3DMetal is downloaded separately. Games and store
 clients are not included.
 
-**Current release: [v1.8.2](https://github.com/BCD1210/soju/releases/tag/v1.8.2).**
+**Current release: [v1.9.0](https://github.com/BCD1210/soju/releases/tag/v1.9.0).**
 The compatibility examples below were verified on M4 Pro / macOS 26.5.
 D2R and Hogwarts Legacy are examples of supported games, not the scope of the project.
 
@@ -101,7 +101,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.8.2/Soju-1.8.2-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.9.0/Soju-1.9.0-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
@@ -179,10 +179,11 @@ soju xbox-install            # build the backend (installs rustup/protobuf with 
 soju xbox-login              # Microsoft's own sign-in page in a window
 soju xbox-sync US            # import owned + Game Pass games (US, KR, GB, DE, JP)
 soju xbox-download 9N116V0599HB   # download by Store product ID; run again to resume
+soju xbox-location /Volumes/T7    # download new games to an external drive (--default: back to this Mac)
 soju xbox-logout             # sign out; downloaded games stay
 ```
 
-- Downloads go to `~/.battlenet-macos/xbox-bottle/drive_c/XboxGames/<ProductId>` and resume from where they stopped.
+- Downloads go to `~/.battlenet-macos/xbox-bottle/drive_c/XboxGames/<ProductId>` and resume from where they stopped. To save space on the Mac, choose a folder on an external drive in **Accounts → Xbox PC → Change…** (or `soju xbox-location`). The drive can be APFS, Mac OS Extended or exFAT (most external SSDs come as exFAT); FAT, NTFS and network drives are refused. Games already downloaded stay where they are, an unfinished download resumes in its own folder, and a game whose drive is unplugged stays in the library as "Drive not connected" until you plug it in again (Soju never downloads it to the Mac instead). A renamed drive is found again.
 - Only GDK games in the MSIXVC format can be downloaded. Games packaged as MSIXVC2 are marked *Not supported* ([xodus#53](https://github.com/xodus-gaming/xodus/issues/53)).
 - The Microsoft sign-in is stored in the macOS Keychain as "Xodus Service". macOS may ask to allow access after a backend rebuild. Soju stores game IDs, titles, package format, box art and your Xbox gamertag (as the account label), never the account e-mail or tokens.
 - The owned-library list comes from the same Microsoft endpoint the Xbox PC app uses. If Microsoft changes it, the import fails and the previous import is kept.

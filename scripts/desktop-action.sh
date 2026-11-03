@@ -21,6 +21,7 @@ case "$ACTION" in
       *) echo "Unknown VR action."; exit 64 ;; esac ;;
   xbox)
     case "${1:-}" in login|logout|kill|status) exec bash "$ROOT/scripts/xbox.sh" "$1" ;;
+      location) exec bash "$ROOT/scripts/xbox.sh" location "${2:?Choose a folder}" ;;
       *) echo "Unknown Xbox action."; exit 64 ;; esac ;;
   install)
     export SOJU_PLATFORMS="${1:?Choose at least one launcher}"

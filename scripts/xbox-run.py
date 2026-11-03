@@ -31,10 +31,12 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import xbox_locations as locations  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 BASE = Path(os.environ.get('SOJU_BASE', str(Path.home() / '.battlenet-macos')))
 CLI = Path(os.environ.get('SOJU_XODUS_BIN') or str(BASE / 'xodus/bin/xodus-cli'))
-GAMES = BASE / 'xbox-bottle/drive_c/XboxGames'
 MARKETS = ('US', 'KR', 'GB', 'DE', 'JP')
 
 
@@ -296,10 +298,12 @@ def main():
     signal.signal(signal.SIGINT, interrupt)
     try:
         pid = product_id(sys.argv[1])
-        folder = GAMES / pid
-        record = folder / '.soju-xbox-install.json'
-        if not record.is_file():
+        folder, kind = locations.locate(pid)
+        if kind == 'missing':
+            raise LaunchError(locations.not_connected(folder))
+        if kind != 'complete':
             raise LaunchError('This game is not downloaded. Download it in Soju first.')
+        record = folder / '.soju-xbox-install.json'
         if not (folder / '.xodus-streaming.msixvc').is_file():
             raise LaunchError('The game download is incomplete. Download it again to repair it.')
         lock = (folder / '.soju-xbox-run.lock').open('w')
