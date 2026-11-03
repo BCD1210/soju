@@ -44,6 +44,7 @@ Usage:
   soju xbox-logout    Sign out (downloaded games are kept)
   soju xbox-sync [US|KR|GB|DE|JP]  Import your owned and PC Game Pass games
   soju xbox-download <ProductId>  Download an owned game (resumable)
+  soju xbox-location [<folder>|--default]  Where new Xbox downloads go (an external APFS or exFAT drive works)
   soju xbox-run <ProductId>  Play a downloaded game (experimental)
   soju xbox-kill      Stop a running Xbox download or game
 
@@ -80,6 +81,7 @@ case "${1:-}" in
   xbox-login)     exec bash "$ROOT/scripts/xbox.sh" login ;;
   xbox-logout)    shift; exec bash "$ROOT/scripts/xbox.sh" logout "$@" ;;
   xbox-kill)      exec bash "$ROOT/scripts/xbox.sh" kill ;;
+  xbox-location)  shift; exec bash "$ROOT/scripts/xbox.sh" location "$@" ;;
   xbox-run)       shift; exec python3 "$ROOT/scripts/game-library.py" launch "xbox:${1:?Choose a Store product ID}" ;;
   xbox-download)  shift; exec python3 "$ROOT/scripts/game-library.py" install "xbox:${1:?Choose a Store product ID}" ;;
   xbox-sync)

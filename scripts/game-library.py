@@ -14,6 +14,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from game_artwork import executable_icon
 from library_services import saved_accounts
+import xbox_locations
 from urllib.parse import quote
 
 FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
@@ -287,21 +288,32 @@ class Library:
                 self.warn('gog', 'An installation record could not be read. Verify this game in Galaxy.')
 
     def xbox(self):
-        games = self.base / FOLDERS['xbox'] / 'drive_c/XboxGames'
-        if not games.is_dir(): return
-        for location in sorted(p for p in games.iterdir() if p.is_dir()):
-            uid = location.name
-            if not re.fullmatch(r'[A-Z0-9]{12}', uid): continue
+        # Downloads may be on the Mac or on external drives (xbox_locations.py); a game whose
+        # drive is unplugged stays listed as downloaded but not available.
+        locations = xbox_locations
+        locations.BASE, locations.DEFAULT = self.base, self.base / FOLDERS['xbox'] / 'drive_c/XboxGames'
+        locations.STATE = self.base / 'xbox-locations.json'
+        notes = []
+        found = locations.scan(warnings=notes)
+        for note in notes: self.warn('xbox', note)
+        index = locations.load()['games']
+        for uid, (location, kind) in sorted(found.items()):
             try:
-                record = location / '.soju-xbox-install.json'
-                if record.is_file():
-                    item = read_json(record)
+                art = first_file([self.base / 'library-artwork' / ('xbox-' + uid + '.jpg')])
+                if kind == 'missing':
+                    title = index.get(uid, {}).get('title') or uid
+                    issue = locations.not_connected(location)
+                    self.games['xbox:' + uid] = dict(id='xbox:' + uid, platform='xbox', title=title.strip()[:300],
+                                                     install_path=str(location / uid), artwork=art, issue=issue,
+                                                     arguments=['run', uid], downloaded=True, available=False,
+                                                     volume=locations.volume_name(location))
+                    continue
+                if kind == 'complete':
+                    item = read_json(location / '.soju-xbox-install.json')
                     if item.get('schema') != 1 or item.get('product_id') != uid: raise ValueError('mismatched Xbox ID')
                     title, ready = item.get('title') or uid, True
-                elif (location / '.nexus-streaming-v1.jsonl').is_file():
+                else:
                     title, ready = uid, False
-                else: continue
-                art = first_file([self.base / 'library-artwork' / ('xbox-' + uid + '.jpg')])
                 self.add('xbox', uid, title, location, ['run', uid], art, ready)
                 game = self.games['xbox:' + uid]
                 if not ready:
@@ -312,6 +324,8 @@ class Library:
                     if not os.access(engine / 'bin/wine', os.X_OK): game['issue'] = XBOX_ENGINE
                     elif not (engine / 'lib/external/libd3dshared.dylib').is_file(): game['issue'] = XBOX_GPTK
                 game['downloaded'] = ready
+                game['available'] = True
+                game['volume'] = locations.volume_name(location.parent)
             except (OSError, ValueError, KeyError, TypeError, AttributeError):
                 self.warn('xbox', 'A download record could not be read. Download the game again to repair it.')
 
@@ -335,7 +349,11 @@ class Library:
                 self.games[game['id']] = dict(game, arguments=[])
         return {'accounts': accounts, 'games': [{k: v for k, v in g.items() if k != 'arguments'}
                           for g in sorted(self.games.values(), key=lambda g: (g['title'].casefold(), g['id']))],
-                'warnings': self.warnings}
+                'warnings': self.warnings, 'xbox_location': self.xbox_location()}
+
+    def xbox_location(self):
+        try: return xbox_locations.describe()
+        except (OSError, ValueError, KeyError, TypeError): return None
 
     def command(self, game_id, install=False):
         self.scan()
@@ -343,6 +361,8 @@ class Library:
         if game is None: raise ValueError('This game is no longer installed. Refresh the library.')
         root = Path(__file__).resolve().parent
         if game['platform'] == 'xbox':
+            # A game on an unplugged drive is never downloaded again onto the Mac.
+            if game.get('available') is False: raise ValueError(game['issue'])
             if install:
                 if game.get('downloaded'): raise ValueError('This game is already downloaded. Use Play instead.')
                 if game.get('owned') is not True and not game['install_path']: raise ValueError('This game is not in your Xbox library.')
