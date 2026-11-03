@@ -68,6 +68,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     @Published var games: [InstalledGame] = []
     @Published var scanning = false
     @Published var scanWarnings: [String] = []
+    @Published var xboxLocation: XboxLocation?
     @Published var launchingGames: Set<String> = []
     @Published var stoppingGames: Set<String> = []
     @Published var libraryIssue: String?

@@ -96,6 +96,44 @@ extension SojuModel {
             syncAccount(.steam, input: ["snapshot": value])
         } catch { accountMessage = error.localizedDescription }
     }
+    /// Choose where new Xbox PC downloads go: a folder on an APFS external drive, or the default on this Mac.
+    func chooseXboxLocation(useDefault: Bool = false) {
+        guard !accountBusy else { return }
+        var folder = "--default"
+        if !useDefault {
+            let panel = NSOpenPanel()
+            panel.title = "Choose where Xbox PC games are downloaded"
+            panel.message = "Pick a folder on an external drive (APFS, Mac OS Extended or exFAT). Games already downloaded stay where they are."
+            panel.prompt = "Use This Folder"
+            panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
+            panel.directoryURL = URL(fileURLWithPath: "/Volumes")
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            folder = url.path
+            // Read the folder here so macOS asks now whether Soju may use this drive,
+            // not later in the middle of a library scan.
+            _ = try? FileManager.default.contentsOfDirectory(atPath: url.path)
+        }
+        do {
+            accountBusy = true; accountMessage = "Checking the download location…"
+            let (p, url) = try task(["xbox", "location", folder], logName: "xbox-location")
+            p.terminationHandler = { [weak self] process in
+                let output = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+                let lines = output.split(separator: "\n").map { $0.replacingOccurrences(of: "soju: ", with: "") }
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.accountBusy = false
+                    self.accountMessage = process.terminationStatus == 0
+                        ? lines.joined(separator: " ")
+                        : (lines.last ?? "Could not use that folder for Xbox downloads.")
+                    self.refreshLibrary()
+                }
+            }
+            try p.run()
+        } catch {
+            accountBusy = false
+            accountMessage = "Could not change the download location: " + error.localizedDescription
+        }
+    }
     func forgetAccount(_ platform: Launcher) {
         guard !accountBusy else { return }
         do {
@@ -242,6 +280,13 @@ struct AccountsView: View {
     @State private var userTask: Process?
     @State private var usersMessage = ""
     @AppStorage("soju.store.region") private var market = "US"
+    private var xboxLocationText: String {
+        guard let location = model.xboxLocation else { return "Downloads go to this Mac." }
+        var text = location.isDefault ? "Downloads go to this Mac" : "Downloads go to " + location.volume + " (" + location.path + ")"
+        if !location.available { return text + " · drive not connected" }
+        if let free = location.freeBytes { text += " · " + ByteCountFormatter.string(fromByteCount: free, countStyle: .file) + " free" }
+        return text
+    }
     @State private var confirmDisconnect = false
     private func summary(_ platform: Launcher) -> AccountSummary? { model.accountSummaries.first { $0.platform == platform } }
     var body: some View {
@@ -317,6 +362,19 @@ struct AccountsView: View {
                             } else {
                                 Button("Sign In to Microsoft…") { model.xboxSignIn(market: market) }
                                     .buttonStyle(.borderedProminent).disabled(model.accountBusy || !model.installed.contains(.xbox))
+                            }
+                        }
+                        if model.installed.contains(.xbox) {
+                            HStack(spacing: 10) {
+                                Label(xboxLocationText, systemImage: model.xboxLocation?.isDefault == false ? "externaldrive" : "internaldrive")
+                                    .font(.callout).foregroundStyle(model.xboxLocation?.available == false ? .orange : .secondary)
+                                    .lineLimit(2).textSelection(.enabled)
+                                Spacer()
+                                Button("Change…") { model.chooseXboxLocation() }.disabled(model.accountBusy)
+                                    .help("Download new Xbox PC games to a folder on an external drive (APFS, Mac OS Extended or exFAT).")
+                                if model.xboxLocation?.isDefault == false {
+                                    Button("Use This Mac") { model.chooseXboxLocation(useDefault: true) }.disabled(model.accountBusy)
+                                }
                             }
                         }
                     }.padding(12)

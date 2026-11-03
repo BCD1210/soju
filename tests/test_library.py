@@ -176,7 +176,9 @@ class LibraryTests(unittest.TestCase):
         self.assertIn('drive is unavailable', result['warnings'][0])
 
     def test_no_installations_is_valid_empty_library(self):
-        self.assertEqual(self.lib.scan(), {'accounts': [], 'games': [], 'warnings': []})
+        result = self.lib.scan()
+        self.assertTrue(result.pop('xbox_location')['default'])
+        self.assertEqual(result, {'accounts': [], 'games': [], 'warnings': []})
 
 
 if __name__ == '__main__': unittest.main()

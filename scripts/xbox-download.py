@@ -14,9 +14,11 @@ import signal
 import subprocess
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import xbox_locations as locations  # noqa: E402
+
 BASE = Path(os.environ.get('SOJU_BASE', str(Path.home() / '.battlenet-macos')))
 CLI = os.environ.get('SOJU_XODUS_BIN') or str(BASE / 'xodus/bin/xodus-cli')
-GAMES = BASE / 'xbox-bottle/drive_c/XboxGames'
 MARKETS = ('US', 'KR', 'GB', 'DE', 'JP')
 MARKER = '.soju-xbox-install.json'
 NO_XBOX_PROFILE = ("This Microsoft account has no Xbox profile yet. Sign in once at xbox.com and "
@@ -129,7 +131,7 @@ def stream(pid, choice, region, dest):
     # stderr joins stdout so every backend line goes through clean().
     process = subprocess.Popen(args, env=environment(), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, bufsize=1, errors='replace')
-    phase, shown, busy, auth = None, None, False, False
+    phase, shown, busy, auth, space = None, None, False, False, None
     try:
         for line in process.stdout:
             if line.startswith('NEXUS_PROGRESS '):
@@ -149,6 +151,10 @@ def stream(pid, choice, region, dest):
             elif line.strip():
                 busy = busy or 'another download is using this folder' in line
                 auth = auth or 'Xbox authentication request failed' in line
+                short = re.search(r'not enough free disk space.*?need (\d+) bytes, have (\d+) bytes', line)
+                if short:
+                    space = max(0, int(short.group(1)) - int(short.group(2)))
+                    continue   # reported below in words, without the folder path
                 print('  ' + clean(line), flush=True)
     finally:
         # Stopping Soju's download also stops the backend; its checkpoint stays.
@@ -161,6 +167,10 @@ def stream(pid, choice, region, dest):
         code = process.wait()
     if busy:
         raise DownloadError('This game is already downloading. Pause that download first, or wait for it to finish.')
+    if space is not None and code != 0:
+        raise DownloadError('Not enough free space on ' + locations.volume_name(dest) + ': this game needs about ' +
+                            size(space) + ' more. Free up space or choose another download location in Accounts, '
+                            'then download again to resume.')
     if auth and code != 0 and not has_xbox_profile():
         raise DownloadError(NO_XBOX_PROFILE)
     return code == 0 and phase == 'complete'
@@ -199,18 +209,24 @@ def main():
             raise DownloadError('Set up Xbox PC in Platforms first (or run: soju xbox-install).')
         region = market()
         choice = choose(resolve(pid, region), pid)
-        dest = GAMES / pid
+        dest = locations.destination(pid)
         dest.mkdir(parents=True, exist_ok=True)
+        if not locations.inside(dest, dest.parent) or dest.is_symlink():
+            raise DownloadError('The game folder is a link. Remove it and download again.')
         title = library_title(pid) or str(choice.get('title') or pid).strip()[:300]
-        print('Downloading ' + title + ' (' + str(choice.get('packageFormat')) + ') to ' + str(dest), flush=True)
+        print('Downloading ' + title + ' (' + str(choice.get('packageFormat')) + ') to ' + locations.tilde(dest), flush=True)
         if not stream(pid, choice, region, dest):
             raise DownloadError('The download did not finish. Download again to resume it.')
         record = dict(schema=1, product_id=pid, content_id=choice['contentId'], title=title,
                       installed_at=datetime.datetime.now(datetime.timezone.utc).isoformat())
         (dest / MARKER).write_text(json.dumps(record, ensure_ascii=False) + '\n')
+        try:
+            locations.remember(pid, dest, title)
+        except OSError:
+            pass   # the next library scan records it; the download itself is complete
         print(title + ' is downloaded. Press Play in Soju to start it.')
         return 0
-    except (DownloadError, OSError) as error:
+    except (DownloadError, locations.LocationError, OSError) as error:
         print('soju: ' + str(error), file=sys.stderr)
         return 1
     except KeyboardInterrupt:

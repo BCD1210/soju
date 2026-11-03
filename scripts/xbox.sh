@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Xbox PC / Microsoft Store through the Xodus backend: sign-in, downloads and play.
 #   xbox.sh install | prepare | login | logout [--device] | status | download <ProductId> | run <ProductId> | kill
+#           | location [<folder>|--default]
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
@@ -42,7 +43,13 @@ case "${1:-}" in
       fi
     fi
     echo "Xbox PC is ready. Sign in from Soju > Accounts (or: soju xbox-login)."
-    echo "Downloads go to $XBOX_HOME/drive_c/XboxGames." ;;
+    python3 "$ROOT/scripts/xbox_locations.py" show | head -1 ;;
+  location)
+    case "${2:-}" in
+      '') exec python3 "$ROOT/scripts/xbox_locations.py" show ;;
+      --default) exec python3 "$ROOT/scripts/xbox_locations.py" default ;;
+      *) exec python3 "$ROOT/scripts/xbox_locations.py" set "$2" ;;
+    esac ;;
   prepare)
     exec python3 "$ROOT/scripts/xbox-prefix.py" ;;
   run)
@@ -112,5 +119,5 @@ print("Signed in" if json.load(sys.stdin).get("stored") else "Not signed in")' ;
       esac
     done
     [ "$stopped" = 1 ] || echo "No Xbox download or game is running." ;;
-  *) echo "Usage: xbox.sh install|prepare|login|logout [--device]|status|download <ProductId>|run <ProductId>|kill" >&2; exit 64 ;;
+  *) echo "Usage: xbox.sh install|prepare|login|logout [--device]|status|download <ProductId>|run <ProductId>|kill|location [<folder>|--default]" >&2; exit 64 ;;
 esac

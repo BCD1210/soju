@@ -11,13 +11,18 @@ struct InstalledGame: Decodable, Identifiable {
     let owned: Bool?
     let downloaded: Bool?
     let format: String?
+    /// Xbox PC: false while the external drive holding the download is not connected.
+    let available: Bool?
+    /// Xbox PC: the drive the download is on ("this Mac" for the internal disk).
+    let volume: String?
+    var isOnUnpluggedDrive: Bool { platform == .xbox && available == false }
     /// Xbox PC: a folder with an unfinished download is not installed yet.
     var isInstalled: Bool { platform == .xbox ? downloaded == true : !installPath.isEmpty }
     var isPartialDownload: Bool { platform == .xbox && !installPath.isEmpty && downloaded != true }
     /// Owned but not downloadable (for example MSIXVC2 packages).
     var downloadBlocked: Bool { platform == .xbox && !isInstalled && !isPartialDownload && issue != nil }
     enum CodingKeys: String, CodingKey {
-        case id, platform, title, artwork, issue, owned, downloaded, format
+        case id, platform, title, artwork, issue, owned, downloaded, format, available, volume
         case installPath = "install_path"
     }
 }
@@ -26,6 +31,24 @@ struct LibrarySnapshot: Decodable {
     let accounts: [AccountSummary]?
     let games: [InstalledGame]
     let warnings: [String]
+    let xboxLocation: XboxLocation?
+    enum CodingKeys: String, CodingKey {
+        case accounts, games, warnings
+        case xboxLocation = "xbox_location"
+    }
+}
+/// Where new Xbox PC downloads go (scripts/xbox_locations.py describe()).
+struct XboxLocation: Decodable, Equatable {
+    let path: String
+    let volume: String
+    let isDefault: Bool
+    let available: Bool
+    let freeBytes: Int64?
+    enum CodingKeys: String, CodingKey {
+        case path, volume, available
+        case isDefault = "default"
+        case freeBytes = "free_bytes"
+    }
 }
 struct LibraryPreferences: Codable {
     var favorites: Set<String> = []
@@ -64,6 +87,7 @@ extension SojuModel {
                     if process.terminationStatus == 0, let result {
                         self.games = result.games; self.scanWarnings = result.warnings
                         self.accountSummaries = result.accounts ?? []
+                        self.xboxLocation = result.xboxLocation
                     } else {
                         self.scanWarnings = ["Could not refresh your library. Check that Python 3 is installed, then retry."]
                     }
@@ -74,7 +98,7 @@ extension SojuModel {
                 guard let self, let p, self.scanner === p, p.isRunning else { return }
                 p.terminate()
                 self.scanning = false; self.scanner = nil
-                self.scanWarnings = ["Scanning took too long. Reconnect any external game drives and refresh."]
+                self.scanWarnings = ["Scanning took too long. If macOS asks whether Soju may access a drive or folder, answer it; reconnect any external game drives, then refresh."]
             }
         } catch {
             scanner = nil; scanning = false
@@ -434,7 +458,7 @@ struct LibraryView: View {
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.primary.opacity(0.07), lineWidth: 1))
             .contextMenu {
                 Button("Show details") { selected = game }
-                Button("Show in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled)
+                Button("Show in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled || game.isOnUnpluggedDrive)
                 if game.platform.opensAWindow {
                     Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)
                 }
@@ -463,12 +487,20 @@ struct LibraryView: View {
             return parts.count > 1 ? parts.dropFirst().joined(separator: " · ") : progress
         }
         if game.platform == .xbox {
+            if game.isOnUnpluggedDrive { return "Drive not connected" }
             if game.isPartialDownload { return "Paused" }
             if game.downloadBlocked { return "Not supported" }
         }
         return !game.isInstalled ? "Not installed" : issue == nil ? "Installed" : "Needs attention"
     }
 
+    private func installedLabel(_ game: InstalledGame) -> String {
+        guard game.isInstalled else { return "Owned · not installed" }
+        if let volume = game.volume, volume != "this Mac" {
+            return game.isOnUnpluggedDrive ? "On " + volume + " · drive not connected" : "Installed on " + volume
+        }
+        return "Installed on this Mac"
+    }
     private func diagnose(_ game: InstalledGame) {
         selected = nil
         model.run(["game-doctor", game.id], title: "Checking " + game.title + "…")
@@ -481,7 +513,7 @@ struct LibraryView: View {
                 VStack(alignment: .leading, spacing: 13) {
                     Text(game.platform.title).font(.system(size: 11, weight: .semibold)).foregroundStyle(game.platform.accent)
                     Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded))
-                    Label(game.isInstalled ? "Installed on this Mac" : "Owned · not installed", systemImage: game.isInstalled ? "internaldrive" : "cloud").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Label(installedLabel(game), systemImage: !game.isInstalled ? "cloud" : game.volume.map { $0 != "this Mac" } == true ? "externaldrive" : "internaldrive").font(.system(size: 12)).foregroundStyle(.secondary)
                     Text(game.platform == .xbox ? "Downloaded from the Microsoft Store. Xbox PC support is experimental: not every game works. The first launch may download about 600 MB of Xbox runtime files and take a few minutes to set up." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                     if game.downloadBlocked, let issue = game.issue {
@@ -496,7 +528,7 @@ struct LibraryView: View {
                 }
             }
             HStack {
-                Button("Show files") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled)
+                Button("Show files") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled || game.isOnUnpluggedDrive)
                 Button("Diagnose") { diagnose(game) }.disabled(model.busy)
                 if game.platform.opensAWindow {
                     Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)

@@ -134,5 +134,7 @@ Not removed by this script (they are Homebrew's):
   brew uninstall protobuf rustup         Xodus build dependencies, if Soju installed them
 If you kept the Microsoft sign-in, it stays in your Keychain as "Xodus Service"
 (remove it in Keychain Access).
+Xbox games downloaded to an external drive stay on that drive (delete their
+folders in Finder if you no longer need them).
 EOT
 echo "Done."

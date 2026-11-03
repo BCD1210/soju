@@ -55,6 +55,7 @@ If the database is busy, incomplete or has an unsupported schema, the previous i
 Soju saves product IDs, titles, package format, box art and the Xbox gamertag (shown as the account label). It does not save the account e-mail. The sign-in itself
 stays in the macOS Keychain ("Xodus Service"); **Sign Out…** signs out and removes the import, even when the Xbox PC backend was removed.
 Owned Xbox games show **Download**. Downloads run beside other work, can be stopped and resume later.
+To download to an external drive, use **Change…** next to the download location under Xbox PC and pick a folder on an APFS, Mac OS Extended or exFAT drive. Games on a drive that is not plugged in stay in the library as **Drive not connected**.
 Games packaged as MSIXVC2 cannot be downloaded yet. **Play** starts a downloaded game on Soju's engine (experimental; needs the CX engine and Apple GPTK). Quitting the game copies its saves back into the game folder.
 
 ## Use your library

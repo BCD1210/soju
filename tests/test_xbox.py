@@ -265,6 +265,236 @@ class XboxLibraryTests(unittest.TestCase):
             self.lib.command('xbox:' + SILKSONG, install=True)
 
 
+class XboxLocationTests(unittest.TestCase):
+    """Downloads on external drives: scripts/xbox_locations.py and its callers."""
+    def setUp(self):
+        import xbox_locations
+        self.locs = xbox_locations
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name).resolve() / 'base'
+        self.games = self.base / 'xbox-bottle/drive_c/XboxGames'
+        marker = self.base / 'xbox-bottle/drive_c' / library.CLIENTS['xbox']
+        marker.parent.mkdir(parents=True)
+        marker.write_text('{}')
+        self.lib = library.Library(self.base)
+        for name, value in (('BASE', self.base), ('DEFAULT', self.games), ('STATE', self.base / 'xbox-locations.json')):
+            patcher = patch.object(self.locs, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.ext = self.base / 'drive/XboxGames'
+        self.ext.mkdir(parents=True)
+        fs = patch.object(self.locs, 'fs_type', return_value='apfs')
+        self.fs = fs.start()
+        self.addCleanup(fs.stop)
+
+    def finished(self, root, uid=SILKSONG, title='Silksong'):
+        folder = root / uid
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / '.soju-xbox-install.json').write_text(json.dumps(dict(schema=1, product_id=uid, title=title)))
+        return folder
+
+    def scan(self):
+        return {g['id']: g for g in self.lib.scan()['games']}
+
+    def test_location_must_be_a_real_folder_outside_system_folders(self):
+        link = self.base / 'to-etc'
+        link.symlink_to('/etc')
+        for bad in ('', 'relative/folder', str(self.ext) + '/../x', '/', '/Volumes', '/System/Library', '/usr', str(link),
+                    str(self.base / 'missing'), 'a\x00b'):
+            with self.subTest(bad=bad), self.assertRaises(self.locs.LocationError):
+                self.locs.set_current(bad)
+        self.assertFalse(self.locs.STATE.exists())
+        self.assertEqual(self.locs.set_current(str(self.ext)), self.ext)
+        state = json.loads(self.locs.STATE.read_text())
+        self.assertEqual(state['current'], str(self.ext))
+        self.assertEqual(self.locs.STATE.stat().st_mode & 0o777, 0o600)
+        self.assertTrue((self.ext / '.soju-xbox-root.json').is_file())
+
+    def test_unsupported_filesystems_are_refused(self):
+        for kind in ('msdos', 'ntfs', 'smbfs', 'nfs', ''):
+            self.fs.return_value = kind
+            with self.subTest(kind=kind), self.assertRaisesRegex(self.locs.LocationError, 'APFS'):
+                self.locs.set_current(str(self.ext))
+        for kind in ('hfs', 'exfat'):
+            self.fs.return_value = kind
+            self.locs.set_current(str(self.ext))
+
+    def test_external_game_is_listed_played_and_downloaded_there(self):
+        self.locs.set_current(str(self.ext))
+        folder = self.finished(self.ext)
+        wine = self.base / 'cx26-engine/bin/wine'
+        wine.parent.mkdir(parents=True)
+        wine.write_text('#!/bin/sh\n')
+        wine.chmod(0o755)
+        (self.base / 'cx26-engine/lib/external').mkdir(parents=True)
+        (self.base / 'cx26-engine/lib/external/libd3dshared.dylib').write_text('')
+        game = self.scan()['xbox:' + SILKSONG]
+        self.assertEqual(game['install_path'], str(folder))
+        self.assertTrue(game['downloaded'] and game['available'])
+        self.assertEqual(self.lib.command('xbox:' + SILKSONG)[-2:], ['run', SILKSONG])
+        self.assertEqual(self.locs.locate(SILKSONG), (folder, 'complete'))
+        self.assertEqual(self.locs.destination(VOID), self.ext / VOID)
+        self.assertEqual(self.lib.scan()['xbox_location']['default'], False)
+
+    def test_partial_download_resumes_in_its_own_folder_after_location_change(self):
+        partial = self.games / SILKSONG
+        partial.mkdir(parents=True)
+        (partial / '.nexus-streaming-v1.jsonl').write_text('{}\n')
+        self.locs.set_current(str(self.ext))
+        self.assertEqual(self.locs.destination(SILKSONG), partial)
+        self.assertFalse((self.ext / SILKSONG).exists())
+
+    def test_unplugged_drive_keeps_the_game_and_never_downloads_to_the_mac(self):
+        self.locs.set_current(str(self.ext))
+        self.finished(self.ext)
+        svc.save_account(self.base, 'xbox', [dict(id='xbox:' + SILKSONG, platform='xbox', title='Silksong', format='MSIXVC')], 'Xbox')
+        self.scan()
+        unplugged = self.base / 'unplugged'
+        self.ext.rename(unplugged)
+        game = self.scan()['xbox:' + SILKSONG]
+        self.assertEqual((game['downloaded'], game['available']), (True, False))
+        self.assertIn('not connected', game['issue'])
+        for install in (True, False):
+            with self.assertRaisesRegex(ValueError, 'not connected'):
+                self.lib.command('xbox:' + SILKSONG, install=install)
+        with self.assertRaisesRegex(self.locs.LocationError, 'not connected'):
+            self.locs.destination(SILKSONG)
+        with self.assertRaisesRegex(self.locs.LocationError, 'not connected'):
+            self.locs.destination(VOID)
+        self.assertFalse((self.games / SILKSONG).exists())
+        self.assertIn(SILKSONG, json.loads(self.locs.STATE.read_text())['games'])
+        unplugged.rename(self.ext)
+        self.assertTrue(self.scan()['xbox:' + SILKSONG]['available'])
+
+    def test_deleted_game_on_a_connected_drive_is_forgotten(self):
+        self.locs.set_current(str(self.ext))
+        folder = self.finished(self.ext)
+        self.scan()
+        (folder / '.soju-xbox-install.json').unlink()
+        folder.rmdir()
+        self.assertNotIn('xbox:' + SILKSONG, self.scan())
+        self.assertNotIn(SILKSONG, json.loads(self.locs.STATE.read_text())['games'])
+
+    def test_renamed_volume_is_found_by_its_id(self):
+        volumes = self.base / 'Volumes'
+        drive = volumes / 'T7' / 'XboxGames'
+        drive.mkdir(parents=True)
+        mounted = [(str(volumes / 'T7 1'), 'apfs', []), (str(volumes / 'Share'), 'smbfs', [])]
+        with patch.object(self.locs, 'VOLUMES', volumes), patch.object(self.locs, 'mounts', return_value=mounted):
+            self.locs.set_current(str(drive))
+            self.finished(drive)
+            self.scan()
+            (volumes / 'T7').rename(volumes / 'T7 1')
+            result = self.lib.scan()
+            game = {g['id']: g for g in result['games']}['xbox:' + SILKSONG]
+            self.assertTrue(game['available'])
+            self.assertEqual(game['install_path'], str(volumes / 'T7 1/XboxGames' / SILKSONG))
+            self.assertEqual(json.loads(self.locs.STATE.read_text())['current'], str(volumes / 'T7 1/XboxGames'))
+
+    def test_another_drive_with_the_same_name_is_not_used(self):
+        self.locs.set_current(str(self.ext))
+        (self.ext / '.soju-xbox-root.json').write_text(json.dumps({'schema': 1, 'id': 'someone-else'}))
+        with self.assertRaisesRegex(self.locs.LocationError, 'not connected'):
+            self.locs.destination(SILKSONG)
+
+    def test_a_second_drive_with_the_same_path_keeps_the_first_drives_games(self):
+        self.locs.set_current(str(self.ext))
+        self.finished(self.ext)
+        self.scan()
+        first = self.base / 'drive-a'
+        self.ext.parent.rename(first)                    # drive A unplugged
+        self.ext.mkdir(parents=True)                     # drive B mounts at the same path
+        self.locs.set_current(str(self.ext))
+        game = self.scan()['xbox:' + SILKSONG]
+        self.assertEqual((game['downloaded'], game['available']), (True, False))
+        with self.assertRaisesRegex(ValueError, 'not connected'):
+            self.lib.command('xbox:' + SILKSONG, install=True)
+        self.assertFalse((self.ext / SILKSONG).exists())
+        self.assertEqual(len(json.loads(self.locs.STATE.read_text())['roots']), 2)
+
+    def test_an_unreadable_drive_does_not_forget_its_games(self):
+        self.locs.set_current(str(self.ext))
+        self.finished(self.ext)
+        self.scan()
+        real = Path.iterdir
+        def broken(path):
+            if Path(path) == self.ext:
+                raise OSError('I/O error')
+            return real(path)
+        with patch.object(Path, 'iterdir', broken):
+            result = self.lib.scan()
+        self.assertTrue(any('could not be read' in w for w in result['warnings']))
+        self.assertIn(SILKSONG, json.loads(self.locs.STATE.read_text())['games'])
+
+    def test_game_in_two_folders_uses_the_finished_one(self):
+        self.locs.set_current(str(self.ext))
+        partial = self.games / SILKSONG
+        partial.mkdir(parents=True)
+        (partial / '.nexus-streaming-v1.jsonl').write_text('{}\n')
+        done = self.finished(self.ext)
+        self.assertEqual(self.locs.locate(SILKSONG), (done, 'complete'))
+
+    def test_links_out_of_a_download_folder_are_ignored(self):
+        self.locs.set_current(str(self.ext))
+        outside = self.finished(self.base / 'elsewhere')
+        (self.ext / VOID).symlink_to(outside)
+        self.assertEqual(self.locs.locate(VOID), (None, None))
+        with self.assertRaisesRegex(self.locs.LocationError, 'link'):
+            self.locs.destination(VOID)
+
+    def fake_download(self, streaming):
+        cli = self.base / 'xodus-cli'
+        plan = json.dumps(dict(schema=1, status='ready', choices=[XboxDownloadTests.CHOICE]))
+        cli.write_text('#!/bin/sh\n[ "$1" = resolve-package ] && { printf "%s\\n" ' + repr(plan) + '; exit 0; }\n'
+                       '[ "$1" = streaming ] || exit 9\n' + streaming)
+        cli.chmod(0o755)
+        env = dict(os.environ, SOJU_BASE=str(self.base), SOJU_XODUS_BIN=str(cli))
+        return subprocess.run([sys.executable, str(ROOT / 'scripts/xbox-download.py'), SILKSONG],
+                              env=env, capture_output=True, text=True, timeout=30)
+
+    def test_download_goes_to_the_chosen_drive_and_is_remembered(self):
+        self.locs.set_current(str(self.ext))
+        done = "printf '%s\\n' " + repr('NEXUS_PROGRESS ' + json.dumps(dict(schema=1, phase='complete'))) + '\n'
+        result = self.fake_download(done)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.ext / SILKSONG / '.soju-xbox-install.json').is_file())
+        self.assertFalse((self.games / SILKSONG).exists())
+        self.assertEqual(json.loads(self.locs.STATE.read_text())['games'][SILKSONG]['root'], str(self.ext))
+
+    def test_out_of_space_is_reported_in_words(self):
+        line = 'echo "Error: not enough free disk space on /Volumes/T7/x: need 5000000000 bytes, have 1000000000 bytes"; exit 1\n'
+        result = self.fake_download(line)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('Not enough free space', result.stderr)
+        self.assertIn('4.0 GB', result.stderr)
+        self.assertNotIn('/Volumes/T7/x', result.stdout + result.stderr)
+
+    def test_tampered_saved_location_is_refused(self):
+        self.locs.save({'schema': 1, 'current': '/usr', 'roots': [{'path': '/usr', 'id': ''}], 'games': {}})
+        with self.assertRaisesRegex(self.locs.LocationError, 'not allowed'):
+            self.locs.destination(SILKSONG)
+
+    def test_paths_in_messages_hide_the_user_name(self):
+        self.assertEqual(self.locs.tilde(Path.home() / 'Games'), '~/Games')
+        self.assertEqual(self.locs.tilde('/Volumes/T7/XboxGames'), '/Volumes/T7/XboxGames')
+
+    def test_cli_sets_and_resets_the_location(self):
+        env = dict(os.environ, SOJU_BASE=str(self.base))
+        run = lambda *a: subprocess.run(['/bin/bash', str(ROOT / 'scripts/xbox.sh'), 'location', *a],
+                                        env=env, capture_output=True, text=True, timeout=30)
+        bad = run('/System')
+        self.assertEqual(bad.returncode, 1)
+        self.assertIn('external drive', bad.stderr)
+        shown = run()
+        self.assertEqual(shown.returncode, 0, shown.stderr)
+        self.assertIn('Download location', shown.stdout)
+        self.assertEqual(run('--default').returncode, 0)
+        action = subprocess.run(['/bin/bash', str(ROOT / 'scripts/desktop-action.sh'), 'xbox', 'location', '/System'],
+                                env=env, capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(action.returncode, 0)
+
+
 class XboxDownloadTests(unittest.TestCase):
     CHOICE = dict(contentId='807c7d6a-409f-48be-8190-30b09baf7cd4', kind='Game', packageFormat='MSIXVC',
                   platform='Windows.Desktop', productId=SILKSONG, supported=True, title='Silksong')
@@ -418,7 +648,7 @@ class XboxInstallerPlanTests(unittest.TestCase):
 
     def test_cli_lists_xbox_commands(self):
         result = subprocess.run(['/bin/bash', str(ROOT / 'scripts/soju'), '--help'], capture_output=True, text=True)
-        for command in ('xbox-install', 'xbox-login', 'xbox-sync', 'xbox-download', 'xbox-logout'):
+        for command in ('xbox-install', 'xbox-login', 'xbox-sync', 'xbox-download', 'xbox-logout', 'xbox-location'):
             self.assertIn(command, result.stdout)
         bad = subprocess.run(['/bin/bash', str(ROOT / 'scripts/soju'), 'xbox-sync', 'XX'], capture_output=True, text=True)
         self.assertEqual(bad.returncode, 64)
@@ -720,6 +950,7 @@ class XboxStopAndSignOutTests(unittest.TestCase):
             root = Path(temp) / 'repo'
             (root / 'scripts').mkdir(parents=True)
             (root / 'scripts/xbox-run.py').write_text((ROOT / 'scripts/xbox-run.py').read_text())
+            (root / 'scripts/xbox_locations.py').write_text((ROOT / 'scripts/xbox_locations.py').read_text())
             # Stand-in for xbox-prefix.py: a long download running in a child process.
             (root / 'scripts/xbox-prefix.py').write_text(
                 'import subprocess, sys\n'
