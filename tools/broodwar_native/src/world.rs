@@ -99,6 +99,28 @@ pub unsafe fn snapshot(r:&Runtime,game:&Game,all:&[*mut Unit],player:usize,detai
     let pointers:HashSet<usize>=all.iter().map(|&u|u as usize).collect();
     let visible:Vec<_>=all.iter().copied().filter(|&u|visible(u,player) && !UnitId((*u).unit_id).is_subunit() && (*u).order!=bw_dat::order::DIE.0).collect();
     let units:Vec<_>=visible.iter().take(4096).map(|&u|unit_info(u,&pointers,player,details)).collect();
+    let dying: Vec<_> = all.iter().copied().filter(|&unit| {
+        // SAFETY: all is the live list collected on the same simulation thread.
+        let unit_ref = unsafe {&*unit};
+        let sprite = unit_ref.flingy.sprite;
+        if sprite.is_null() || unit_ref.flags & 0x60 != 0 {return false;}
+        // SAFETY: the unit owns this live sprite through the game-thread read.
+        if unsafe {(*sprite).flags & 0x20 != 0} {return false;}
+        (unsafe {super::visible(unit,player)}) && unit_ref.order == bw_dat::order::DIE.0 &&
+            !UnitId(unit_ref.unit_id).is_subunit()
+    }).take(4096).map(|unit| {
+        // SAFETY: these pointers belong to the same live list and no game step
+        // occurs while serializing the original image-chain state.
+        unsafe {unit_info(unit,&pointers,player,true)}
+    }).collect();
+    let (lone_sprites,lone_truncated) = match r.lone_sprites {
+        Some(first) => {
+            // SAFETY: supported Samase getter and pinned SCR layout, read only
+            // on the game thread; lone_snapshot bounds/cycle-checks traversal.
+            unsafe {super::visuals::lone_snapshot(first().cast(),player)}
+        }
+        None => (Vec::new(),false),
+    };
     let mut h=r.history.lock().unwrap();let mut bullets=Vec::new();let mut live=HashSet::new();
     let mut bullet=(r.bullets)() as *mut Bullet;
     for _ in 0..4096 {
@@ -124,7 +146,9 @@ pub unsafe fn snapshot(r:&Runtime,game:&Game,all:&[*mut Unit],player:usize,detai
         "playerColors":game.scr_init_color_rgba,"alliances":game.alliances[player],
         "map":{"width":game.map_width_tiles as u32*32,"height":game.map_height_tiles as u32*32,"tileset":game.tileset,
             "path":cstring(&game.map_path),"title":cstring(&game.map_title)},
-        "units":units,"bullets":bullets,"events":events,"eventSeq":h.sequence,
+        "units":units,"dyingUnits":dying,"loneSprites":lone_sprites,
+        "loneSpritesAvailable":r.lone_sprites.is_some(),"loneSpritesTruncated":lone_truncated,
+        "bullets":bullets,"events":events,"eventSeq":h.sequence,
         "eventsLost":since.map(|s|s+1<earliest).unwrap_or(false),"visibleCount":visible.len(),"truncated":visible.len()>4096})
 }
 
