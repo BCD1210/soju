@@ -91,6 +91,7 @@ final class Worker {
     }
     func run(_ commands: UnsafeBufferPointer<Command>, _ resources: UnsafeBufferPointer<SpanByte>, _ constants: SpanByte) throws -> String {
     let parseStarted=ProcessInfo.processInfo.systemUptime
+    var clearPipelines = [UInt: MTLRenderPipelineState]()
     var pipelineHits = 0, textureHits = 0, draws = 0, clears = 0, encoderCount = 0, bufferCount = 0, depthHits = 0
     let started=ProcessInfo.processInfo.systemUptime
     var cb: MTLCommandBuffer? = nil
@@ -308,8 +309,48 @@ final class Worker {
         if isClear || visibility != nil || activeKey != passKey {endPass()}
         let current=try commandBuffer()
         if isClear {
-            try need(r(0xe00)==0,"scissored clear unsupported")
-            guard let encoder = current.makeRenderCommandEncoder(descriptor:pass) else { throw Failure("clear encoder") }; encoderCount += 1; encoder.endEncoding();clears += 1
+            if r(0xe00) != 0 {
+                try need(mask & 3 == 0 && mask & 60 == 60 && colors.count == 1 && mask >> 6 == 0,
+                         "scissored clear requires one color target and no depth/stencil")
+                let color = colors[0]
+                try need(color.pixelFormat == .rgba8Unorm || color.pixelFormat == .bgra8Unorm,
+                         "scissored clear color format")
+                let x = r(0xe04) & 65535, y = r(0xe08) & 65535
+                let endX = min(r(0xe04) >> 16, w), endY = min(r(0xe08) >> 16, h)
+                if endX > x && endY > y {
+                    let key = color.pixelFormat.rawValue
+                    if clearPipelines[key] == nil {
+                        let source = """
+                        #include <metal_stdlib>
+                        using namespace metal;
+                        vertex float4 clear_vertex(uint i [[vertex_id]]) {
+                            float2 p[3] = {float2(-1,-1),float2(3,-1),float2(-1,3)};
+                            return float4(p[i],0,1);
+                        }
+                        fragment float4 clear_fragment(constant float4& c [[buffer(0)]]) { return c; }
+                        """
+                        let lib = try device.makeLibrary(source: source, options: nil)
+                        let d = MTLRenderPipelineDescriptor()
+                        d.vertexFunction = lib.makeFunction(name: "clear_vertex")
+                        d.fragmentFunction = lib.makeFunction(name: "clear_fragment")
+                        d.colorAttachments[0].pixelFormat = color.pixelFormat
+                        clearPipelines[key] = try device.makeRenderPipelineState(descriptor: d)
+                    }
+                    pass.colorAttachments[0].loadAction = .load
+                    guard let encoder = current.makeRenderCommandEncoder(descriptor: pass) else { throw Failure("scissor clear encoder") }
+                    encoderCount += 1
+                    encoder.setRenderPipelineState(clearPipelines[key]!)
+                    encoder.setScissorRect(MTLScissorRect(x:x,y:y,width:endX-x,height:endY-y))
+                    var rgba = SIMD4<Float>(Float(f(0xd80)),Float(f(0xd84)),Float(f(0xd88)),Float(f(0xd8c)))
+                    encoder.setFragmentBytes(&rgba,length:16,index:0)
+                    encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:3)
+                    encoder.endEncoding()
+                }
+            } else {
+                guard let encoder = current.makeRenderCommandEncoder(descriptor:pass) else { throw Failure("clear encoder") }
+                encoderCount += 1; encoder.endEncoding()
+            }
+            clears += 1
         } else {
             let pk = text(command.pipeline)
             if pipelines[pk] == nil {

@@ -2214,3 +2214,22 @@ fn first_seen_shader_frames() {
     }
     panic!("background pipeline failed to become ready");
 }
+
+#[test]
+fn scissored_color_clear_preserves_outside_and_accepts_single_layer_stride() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("scissored-clear", [0., 0., 1., 1.]);
+    h.methods(&mut e, &[
+        (0x81c, 1024), (0xe00, 1), (0xe04, (23 << 16) | 7),
+        (0xe08, (19 << 16) | 5), (0xd80, 1f32.to_bits()),
+        (0xd88, 0), (0x19d0, 60),
+    ]);
+    let dir = std::env::temp_dir().join(format!("soju-scissor-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let report = h.backend.execute(&dir, &mut h.memory).unwrap();
+    for (i, pixel) in report.images[0].rgba.chunks_exact(4).enumerate() {
+        let inside = (7..23).contains(&(i % 32)) && (5..19).contains(&(i / 32));
+        assert_eq!(pixel, if inside { &[255,0,0,255] } else { &[0,0,255,255] }, "pixel {i}");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}

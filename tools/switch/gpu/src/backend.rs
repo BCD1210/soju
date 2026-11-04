@@ -343,7 +343,7 @@ impl Backend {
             let format = crate::format::color(r.get(base + 0x10))?;
             let bytes_per_pixel = format.info().bytes as u32;
             require(
-                r.get(base + 0x18) == 1 && r.get(base + 0x20) == 0 && r.get(base + 0x1c) == 0,
+                r.get(base + 0x18) == 1 && r.get(base + 0x20) == 0,
                 "layered render target unsupported",
             )?;
             let layout = r.get(base + 0x14);
