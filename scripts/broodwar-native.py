@@ -201,7 +201,7 @@ def main():
     elif a.action=="xr-probe": launch_scene(probe=True)
     elif a.action in ("assets-check","assets-install","assets-rollback"):
         from model_assets import main as assets_main
-        return assets_main([a.action.removeprefix("assets-"),"--domain",a.domain]+([str(a.source)] if hasattr(a,"source") else []))
+        return assets_main([a.action.removeprefix("assets-")]+([str(a.source)] if hasattr(a,"source") else [])+["--domain",a.domain])
     elif a.action=="model-check":
         subprocess.run([str(RUNTIME/"soju-bw-scene"),"--model-check"],check=True)
     elif a.action=="play": play(None if a.menu else a.map)
