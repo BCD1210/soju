@@ -15,11 +15,11 @@ impl GraphicBuffer {
     pub fn size(&self) -> Result<usize, Error> {
         if !(1..=4096).contains(&self.width)
             || !(1..=2160).contains(&self.height)
-            || self.pitch < self.width * 4
+            || self.pitch < self.width * if self.format == 4 { 2 } else { 4 }
             || self.pitch > 65536
             || !self.pitch.is_multiple_of(64)
             || self.block > 5
-            || !matches!(self.format, 1 | 5)
+            || !matches!(self.format, 1 | 2 | 4 | 5)
         {
             return Err(Error::Malformed("display geometry or format"));
         }
@@ -68,20 +68,44 @@ impl GraphicBuffer {
         let pitch = usize::try_from(self.pitch).map_err(|_| Error::Malformed("pitch"))?;
         let bh = 1usize << self.block;
         let rows = 8 * bh;
-        let mut pixels = vec![0; width * height * 4];
+        let bytes_per_pixel = if self.format == 4 { 2 } else { 4 };
+        let row_bytes = width * bytes_per_pixel;
+        let mut pixels = vec![0; row_bytes * height];
         for y in 0..height {
             let base = (y / rows) * pitch * rows
                 + ((y / 8) % bh) * 512
                 + ((y % 8) / 2) * 64
                 + (y % 2) * 16;
-            for x in (0..width * 4).step_by(16) {
+            for x in (0..row_bytes).step_by(16) {
                 let offset =
                     base + (x / 64) * 512 * bh + ((x % 64) / 32) * 256 + ((x % 32) / 16) * 32;
-                let len = (width * 4 - x).min(16);
+                let len = (row_bytes - x).min(16);
                 let chunk = source
                     .get(offset..offset + len)
                     .ok_or(Error::Malformed("block-linear address"))?;
-                pixels[y * width * 4 + x..y * width * 4 + x + len].copy_from_slice(chunk);
+                pixels[y * row_bytes + x..y * row_bytes + x + len].copy_from_slice(chunk);
+            }
+        }
+        if self.format == 4 {
+            // libnx framebuffer.h RGB565: little-endian B5/G6/R5.
+            let mut rgba = Vec::with_capacity(width * height * 4);
+            for pixel in pixels.chunks_exact(2) {
+                let packed = u16::from_le_bytes([pixel[0], pixel[1]]);
+                let r = u8::try_from((packed >> 11) & 31).map_err(|_| Error::Malformed("red"))?;
+                let g = u8::try_from((packed >> 5) & 63).map_err(|_| Error::Malformed("green"))?;
+                let b = u8::try_from(packed & 31).map_err(|_| Error::Malformed("blue"))?;
+                rgba.extend_from_slice(&[
+                    (r << 3) | (r >> 2),
+                    (g << 2) | (g >> 4),
+                    (b << 3) | (b >> 2),
+                    255,
+                ]);
+            }
+            pixels = rgba;
+        }
+        if self.format == 2 {
+            for pixel in pixels.chunks_exact_mut(4) {
+                pixel[3] = 255;
             }
         }
         if self.format == 5 {

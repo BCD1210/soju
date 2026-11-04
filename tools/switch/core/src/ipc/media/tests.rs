@@ -388,3 +388,6 @@ fn vi_layer_parcel_and_close_order_preserve_display_lifecycle() {
         .unwrap();
     assert!(f.call(display, &layer).is_err());
 }
+
+#[path = "rgb565_tests.rs"]
+mod rgb565_tests;
