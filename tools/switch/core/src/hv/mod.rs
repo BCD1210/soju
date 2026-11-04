@@ -1,5 +1,7 @@
 //! Apple Silicon EL0 execution with 4 KiB stage-1 permissions and an EL1 bridge.
 mod ffi;
+mod context;
+pub use context::Context;
 
 use crate::memory::{MAX_ARENA, MemoryImage, PHYSICAL_BASE, ROOT};
 use crate::nro::{Homebrew, Region};

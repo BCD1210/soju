@@ -1,14 +1,17 @@
-//! One permanent host thread per guest thread, with deterministic scheduling.
+//! Four permanent core workers with saved guest contexts and deterministic scheduling.
 //! Only the selected worker receives a run command. Every quantum and host memory
 //! operation holds the shared ProcessGuard; channel waits and sleeping never do.
-use crate::hv::{Cpu, Error as HvError, Process, RunBudget, RunOutcome, ThreadState};
+use crate::hv::{Context, Error as HvError, Process, RunBudget, RunOutcome, ThreadState};
 use crate::kernel::{Dispatch, IpcRequest, Kernel, MAIN_THREAD, ThreadId, ThreadStatus};
 use crate::memory::GuestMemory;
 use crate::nro::Homebrew;
 use std::collections::BTreeMap;
-use std::sync::{Arc, mpsc};
-use std::thread::{self, JoinHandle};
+use std::sync::Arc;
+use std::thread;
+#[path = "runtime_worker.rs"]
+mod worker;
 use std::time::{Duration, Instant};
+use worker::{Command, Worker};
 
 #[derive(Debug)]
 pub enum Error {
@@ -83,85 +86,6 @@ impl IpcHandler for NoIpc {
         Ok(IpcReply::Unhandled)
     }
 }
-enum Command {
-    Run {
-        results: Option<Vec<u64>>,
-        budget: RunBudget,
-    },
-    Stop,
-}
-struct Worker {
-    commands: mpsc::Sender<Command>,
-    results: mpsc::Receiver<Result<RunOutcome, HvError>>,
-    join: Option<JoinHandle<()>>,
-}
-impl Worker {
-    fn new(process: Arc<Process>, state: ThreadState) -> Result<Self, Error> {
-        let (commands, receive) = mpsc::channel();
-        let (send, results) = mpsc::channel();
-        let (started, ready) = mpsc::channel();
-        let join = thread::spawn(move || {
-            let mut cpu = match Cpu::attach(Arc::clone(&process), state) {
-                Ok(cpu) => {
-                    let _ = started.send(Ok(()));
-                    cpu
-                }
-                Err(e) => {
-                    let _ = started.send(Err(e));
-                    return;
-                }
-            };
-            while let Ok(Command::Run { results, budget }) = receive.recv() {
-                let result = (|| {
-                    let mut guard = process.lock()?;
-                    if let Some(values) = results {
-                        cpu.set_svc_results(&mut guard, &values)?;
-                    }
-                    cpu.run_quantum(&mut guard, budget)
-                })();
-                let failed = result.is_err();
-                if send.send(result).is_err() || failed {
-                    break;
-                }
-            }
-        });
-        let ready = match ready.recv() {
-            Ok(result) => result,
-            Err(_) => {
-                let _ = join.join();
-                return Err(Error::Worker);
-            }
-        };
-        match ready {
-            Ok(()) => Ok(Self {
-                commands,
-                results,
-                join: Some(join),
-            }),
-            Err(error) => {
-                let _ = join.join();
-                Err(Error::Hypervisor(error))
-            }
-        }
-    }
-    fn run(&self, results: Option<Vec<u64>>, budget: RunBudget) -> Result<RunOutcome, Error> {
-        self.commands
-            .send(Command::Run { results, budget })
-            .map_err(|_| Error::Worker)?;
-        self.results
-            .recv()
-            .map_err(|_| Error::Worker)?
-            .map_err(Error::Hypervisor)
-    }
-}
-impl Drop for Worker {
-    fn drop(&mut self) {
-        let _ = self.commands.send(Command::Stop);
-        if let Some(join) = self.join.take() {
-            let _ = join.join();
-        }
-    }
-}
 #[derive(Debug, Default)]
 pub struct RuntimeProfile {
     pub worker: Duration,
@@ -175,7 +99,8 @@ pub struct Runtime {
     pub yield_on_frame: bool,
     process: Arc<Process>,
     kernel: Kernel,
-    workers: BTreeMap<ThreadId, Worker>,
+    workers: BTreeMap<ThreadId, Box<Context>>,
+    cores: Vec<Worker>,
     pub quantum: RunBudget,
     pub schedule: std::collections::VecDeque<ThreadId>,
     pending_ipc: Option<IpcRequest>,
@@ -186,14 +111,22 @@ impl Runtime {
         let mut workers = BTreeMap::new();
         workers.insert(
             MAIN_THREAD,
-            Worker::new(Arc::clone(&process), ThreadState::from_homebrew(boot))?,
+            Box::new(Context::from(ThreadState::from_homebrew(boot))),
         );
+        let mut cores = Vec::with_capacity(4);
+        for _ in 0..4 {
+            cores.push(Worker::new(
+                Arc::clone(&process),
+                ThreadState::from_homebrew(boot),
+            )?);
+        }
         Ok(Self {
             profile: RuntimeProfile::default(),
             yield_on_frame: false,
             process,
             kernel: Kernel::new(boot),
             workers,
+            cores,
             quantum: RunBudget::default(),
             schedule: std::collections::VecDeque::new(),
             pending_ipc: None,
@@ -233,8 +166,7 @@ impl Runtime {
                 sp: spec.stack,
                 tpidrro_el0: spec.tls,
             };
-            self.workers
-                .insert(id, Worker::new(Arc::clone(&self.process), state)?);
+            self.workers.insert(id, Box::new(Context::from(state)));
         }
         let exited: Vec<_> = self
             .workers
@@ -335,11 +267,23 @@ impl Runtime {
                 max_exits: self.quantum.max_exits,
             };
             let started = Instant::now();
-            let outcome = self
-                .workers
-                .get(&id)
-                .ok_or(Error::Worker)?
-                .run(results, budget)?;
+            let thread = self.kernel.thread(id).ok_or(Error::Worker)?;
+            let core = if thread.ideal_core >= 0 {
+                usize::try_from(thread.ideal_core).map_err(|_| Error::Worker)?
+            } else {
+                usize::try_from(thread.affinity.trailing_zeros()).map_err(|_| Error::Worker)?
+            };
+            let context = self.workers.remove(&id).ok_or(Error::Worker)?;
+            let (context, outcome) =
+                self.cores
+                    .get(core)
+                    .ok_or(Error::Worker)?
+                    .run(Command::Run {
+                        context,
+                        results,
+                        budget,
+                    })?;
+            self.workers.insert(id, context);
             self.profile.worker += started.elapsed();
             match outcome {
                 RunOutcome::Yield(_) => self.kernel.requeue(id),

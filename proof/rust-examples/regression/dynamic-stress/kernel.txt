@@ -1,0 +1,17 @@
+   Compiling soju-switch-core v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.07s
+     Running tests/kernel.rs (tools/switch/core/target/debug/deps/kernel-4518c205cd039e7a)
+
+running 9 tests
+test exited_threads_release_tls_after_last_handle_and_boot_queries_are_typed ... ok
+test shared_transfer_sessions_and_retained_object_lifetimes ... ok
+test condition_signal_reacquires_but_timeout_leaves_mutex_to_caller ... ok
+test diagnostic_info_timer_loader_and_process_exit ... ok
+test address_arbitration_modes_counts_and_invalid_comparison ... ok
+test event_alias_wait_timeout_cancellation_and_thread_join ... ok
+test thread_lifecycle_priority_affinity_and_round_robin ... ok
+test cancellation_latches_transfer_aliases_reject_and_resources_bound ... ok
+test heap_alias_attributes_and_queries ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.11s
+

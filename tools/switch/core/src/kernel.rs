@@ -3,6 +3,8 @@
 use crate::memory::{self, GuestMemory, PAGE};
 use crate::nro::{BASE, EXCEPTION_CONTEXT, Homebrew, LOADER_RETURN, STACK, STACK_SIZE};
 use std::collections::{BTreeMap, VecDeque};
+#[path = "kernel_threads.rs"]
+mod threads;
 
 pub type Handle = u32;
 pub type ThreadId = u32;
@@ -25,7 +27,7 @@ pub const INVALID_PRIORITY: u64 = 0xe001;
 pub const LIMIT_REACHED: u64 = 0x10801;
 pub const INVALID_CURRENT_MEMORY: u64 = 0xd401;
 const WAITERS: u32 = 0x40000000;
-const MAX_THREADS: usize = 16;
+const MAX_THREADS: usize = 128;
 const MAX_HANDLES: usize = 4096;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -644,9 +646,7 @@ impl Kernel {
             .collect();
         for (id, status) in expired {
             match status {
-                ThreadStatus::Waiting(Wait::Condition { mutex, .. }) => {
-                    self.reacquire(memory, id, mutex, TIMED_OUT)?
-                }
+                ThreadStatus::Waiting(Wait::Condition { .. }) => self.runnable(id, vec![TIMED_OUT]),
                 ThreadStatus::Waiting(Wait::Sleep) => self.runnable(id, vec![0]),
                 ThreadStatus::Waiting(Wait::Objects(objects)) => {
                     self.runnable(id, vec![TIMED_OUT]);
@@ -820,146 +820,7 @@ impl Kernel {
                 out(0)
             }
             7 => Dispatch::ProcessExited(0),
-            8 => {
-                if self
-                    .threads
-                    .values()
-                    .filter(|t| t.status != ThreadStatus::Exited)
-                    .count()
-                    >= MAX_THREADS
-                {
-                    return Err(LIMIT_REACHED);
-                }
-                if r[4] > 63
-                    || self.policy.as_ref().is_some_and(|p| {
-                        !(p.highest_priority..=p.lowest_priority).contains(&(r[4] as u32))
-                    })
-                {
-                    return Err(INVALID_PRIORITY);
-                }
-                if self.policy.as_ref().is_some_and(|p| p.min_core != 0)
-                    || ![0, 0xfffffffe, 0xffffffff].contains(&(r[5] as u32))
-                {
-                    return Err(INVALID_ENUM);
-                }
-                if !r[1].is_multiple_of(4) || !r[3].is_multiple_of(16) || r[3] < 16 {
-                    return Err(INVALID_ADDRESS);
-                }
-                memory
-                    .check_access(r[1], 4, 4)
-                    .map_err(|_| INVALID_CURRENT_MEMORY)?;
-                memory
-                    .check_access(r[3] - 16, 16, 2)
-                    .map_err(|_| INVALID_CURRENT_MEMORY)?;
-                self.allocation_available()?;
-                let id = self.next_handle;
-                let slot = (0..MAX_THREADS)
-                    .find(|slot| {
-                        !self
-                            .threads
-                            .values()
-                            .any(|t| t.spec.tls == 0x310000000 + (*slot * PAGE) as u64)
-                    })
-                    .ok_or(LIMIT_REACHED)?;
-                let tls = 0x310000000 + (slot * PAGE) as u64;
-                memory.map_zeroed(tls, PAGE, 3).map_err(|_| LIMIT_REACHED)?;
-                memory
-                    .set_state(tls, PAGE, 0xc)
-                    .map_err(|_| INVALID_MEMORY_STATE)?;
-                let handle = self.handle(Object::Thread(id))?;
-                self.threads.insert(
-                    id,
-                    Thread {
-                        spec: ThreadSpec {
-                            entry: r[1],
-                            argument: r[2],
-                            stack: r[3],
-                            tls,
-                            link: 0,
-                        },
-                        status: ThreadStatus::Suspended,
-                        priority: r[4] as u32,
-                        ideal_core: 0,
-                        affinity: 1,
-                        deadline: None,
-                        pending: None,
-                        cancelled: false,
-                    },
-                );
-                out(handle as u64)
-            }
-            9 => {
-                let id = self
-                    .resolve_thread(r[0] as u32, current)
-                    .ok_or(INVALID_HANDLE)?;
-                if self.threads[&id].status != ThreadStatus::Suspended {
-                    return Err(INVALID_STATE);
-                }
-                self.threads.get_mut(&id).expect("resolved").status = ThreadStatus::Runnable;
-                self.requeue(id);
-                ret(0)
-            }
-            10 => {
-                self.threads.get_mut(&current).expect("current").status = ThreadStatus::Exited;
-                self.ready.retain(|id| *id != current);
-                self.poll_objects();
-                let object = self
-                    .objects
-                    .iter()
-                    .find_map(|(id, e)| {
-                        matches!(e.object,Object::Thread(t) if t==current).then_some(*id)
-                    })
-                    .ok_or(INVALID_HANDLE)?;
-                self.release_object(memory, object)?;
-                Dispatch::ThreadExited
-            }
-            11 => {
-                if r[0] as i64 > 0 {
-                    self.block(current, Wait::Sleep, deadline(now, r[0]))
-                } else {
-                    ret(0)
-                }
-            }
-            12 => {
-                let id = self
-                    .resolve_thread(r[1] as u32, current)
-                    .ok_or(INVALID_HANDLE)?;
-                out(self.threads[&id].priority as u64)
-            }
-            13 => {
-                if r[1] > 63
-                    || self.policy.as_ref().is_some_and(|p| {
-                        !(p.highest_priority..=p.lowest_priority).contains(&(r[1] as u32))
-                    })
-                {
-                    return Err(INVALID_PRIORITY);
-                }
-                let id = self
-                    .resolve_thread(r[0] as u32, current)
-                    .ok_or(INVALID_HANDLE)?;
-                self.threads.get_mut(&id).expect("resolved").priority = r[1] as u32;
-                ret(0)
-            }
-            14 => {
-                let id = self
-                    .resolve_thread(r[2] as u32, current)
-                    .ok_or(INVALID_HANDLE)?;
-                let t = &self.threads[&id];
-                Dispatch::Return(vec![0, t.ideal_core as u64, t.affinity])
-            }
-            15 => {
-                let id = self
-                    .resolve_thread(r[0] as u32, current)
-                    .ok_or(INVALID_HANDLE)?;
-                if r[2] != 1 || ![0, 0xfffffffe, 0xffffffff].contains(&(r[1] as u32)) {
-                    return Err(INVALID_COMBINATION);
-                }
-                let t = self.threads.get_mut(&id).expect("resolved");
-                t.ideal_core = 0;
-                t.affinity = 1;
-                ret(0)
-            }
-            16 => ret(0),
+            8..=16 => self.dispatch_thread(memory, current, svc, r, now)?,
             17 => {
                 self.signal_event(r[0] as u32)?;
                 ret(0)
@@ -1140,13 +1001,7 @@ impl Kernel {
                     .map_err(|_| INVALID_CURRENT_MEMORY)?;
                 self.release_mutex(memory, r[0], current)?;
                 if r[3] == 0 {
-                    self.reacquire(memory, current, r[0], TIMED_OUT)?;
-                    if self.threads[&current].status == ThreadStatus::Runnable {
-                        self.threads.get_mut(&current).expect("current").pending = None;
-                        ret(TIMED_OUT)
-                    } else {
-                        Dispatch::Blocked
-                    }
+                    ret(TIMED_OUT)
                 } else {
                     self.block(
                         current,
@@ -1260,7 +1115,7 @@ impl Kernel {
                     ret(INVALID_ENUM)
                 } else {
                     let value = match id {
-                        0 => self.policy.as_ref().map_or(1, |p| {
+                        0 => self.policy.as_ref().map_or(15, |p| {
                             ((1u64 << (p.max_core + 1)) - 1) & !((1u64 << p.min_core) - 1)
                         }),
                         1 => self.policy.as_ref().map_or(u64::MAX, |p| {
@@ -1352,6 +1207,12 @@ impl Kernel {
                     self.runnable(id, vec![0]);
                 }
                 ret(0)
+            }
+            0x45 => {
+                if self.handles.len() + 2 > MAX_HANDLES { return Err(LIMIT_REACHED); }
+                let write = self.register_event(false)?;
+                let read = self.duplicate_handle(write)?;
+                Dispatch::Return(vec![0, u64::from(write), u64::from(read)])
             }
             0x7e if pc.checked_sub(4) == Some(LOADER_RETURN) => {
                 Dispatch::ProcessExited(r[0] as u32)

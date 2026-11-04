@@ -182,7 +182,7 @@ fn event_alias_wait_timeout_cancellation_and_thread_join() {
     assert_eq!(k.signal_event(alias), Err(INVALID_HANDLE));
 }
 #[test]
-fn mutex_condition_signal_and_timeout_reacquire_before_return() {
+fn condition_signal_reacquires_but_timeout_leaves_mutex_to_caller() {
     let (mut k, mut m) = setup();
     let child = create(&mut k, &mut m);
     let mutex = BASE + 4096;
@@ -236,17 +236,10 @@ fn mutex_condition_signal_and_timeout_reacquire_before_return() {
     );
     put32(&mut m, mutex, MAIN_THREAD);
     k.advance(&mut m, 250).unwrap();
-    assert!(k.take_results(child).is_none());
-    assert!(matches!(
-        k.thread(child).unwrap().status,
-        ThreadStatus::Waiting(Wait::Mutex {
-            result: TIMED_OUT,
-            ..
-        })
-    ));
-    assert_eq!(call(&mut k, &mut m, 0x1b, &[mutex]), [0]);
-    assert_eq!(read32(&m, mutex), child);
     assert_eq!(k.take_results(child), Some(vec![TIMED_OUT]));
+    assert_eq!(read32(&m, mutex), MAIN_THREAD);
+    assert_eq!(call(&mut k, &mut m, 0x1b, &[mutex]), [0]);
+    assert_eq!(read32(&m, mutex), 0);
 }
 #[test]
 fn address_arbitration_modes_counts_and_invalid_comparison() {

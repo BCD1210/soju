@@ -100,6 +100,7 @@ impl MemoryImage {
             0xd508751f,
             0xd5033b9f,
             0xd5033fdf,
+            0xd5033f5f, // CLREX: context switches cannot retain a previous thread reservation.
             0xd4000022,
         ]
         .into_iter()
