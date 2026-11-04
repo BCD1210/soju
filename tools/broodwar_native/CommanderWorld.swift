@@ -215,6 +215,9 @@ extension Commander {
                  "file":m.definition.file]
             }
             let diagnostics:Obj=["time":Date().timeIntervalSince1970,"frame":number(state,"frame"),
+                "selected":selected,"cardPage":wrists.page,"commandCard":wrists.choices.map{choice -> Obj in
+                    ["title":choice.title,"hotkey":choice.hotkey,"payload":choice.payload,
+                     "unavailable":choice.unavailable(state,selected.first.flatMap{units[$0]} ?? [:]) ?? ""]},
                 "units":rendered,"camera":[camera.position.x,camera.position.y,camera.position.z],"xr":xrRequested,
                 "protocol":number(state,"protocol"),"eventSequence":eventSequence,"eventsLost":lostEvents,
                 "creepTiles":creepNodes.count,"creepEdgeTiles":creepNodes.values.filter{$0.name?.hasPrefix("creep-edge-")==true}.count,
