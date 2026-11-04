@@ -36,6 +36,7 @@ const AS: &[CommandSpec<Nv>] = &[
     spec(0x40284109, 40, control::initialize_space),
     spec(0x40044101, 4, control::bind_space),
     spec(0xc0184102, 24, control::reserve),
+    spec(0xc0104103, 16, control::free_space),
     spec(0xc0284106, 40, control::map),
     spec(0xc0084105, 8, control::unmap),
 ];
@@ -91,6 +92,7 @@ pub(super) fn dispatch(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<
             | 0xc0284106
             | 0xc010480b
             | 0xc0184102
+            | 0xc0104103
     );
     if output.len > u64::try_from(MAX_BUFFER).map_err(|_| Error::Malformed("NV output limit"))?
         || output.len < output_size

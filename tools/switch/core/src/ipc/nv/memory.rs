@@ -143,6 +143,22 @@ impl AddressSpace {
         self.originals.insert(base, self.mappings[&base].clone());
         Ok(base)
     }
+    pub fn free_space(&mut self, data: &[u8]) -> Result<(), Error> {
+        use super::super::types::{read_u32, read_u64};
+        let base = read_u64(data, 0)?;
+        let pages = u64::from(read_u32(data, 8)?);
+        let page = u64::from(read_u32(data, 12)?);
+        let size = pages.checked_mul(page).ok_or(Error::Malformed("GPU free size"))?;
+        if pages == 0 || !matches!(page, 4096 | 65536 | 131072)
+            || !base.is_multiple_of(page)
+            || self.reservations.get(&base) != Some(&size)
+            || self.mappings.iter().any(|(&a, m)| a < base + size && base < a + m.span)
+        {
+            return Err(Error::Malformed("GPU free requires an unmapped whole reservation"));
+        }
+        self.reservations.remove(&base);
+        Ok(())
+    }
     pub fn modify(&mut self, data: &[u8]) -> Result<(), Error> {
         use super::super::types::{read_u32 as u32at, read_u64 as u64at};
         let kind = u32at(data, 4)?;

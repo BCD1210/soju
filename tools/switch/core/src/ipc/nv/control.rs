@@ -216,3 +216,10 @@ pub(super) fn unmap(nv: &mut Nv, r: &Request, _: &mut Context<'_>) -> Result<Rep
         .unmap(read_u64(data, 0)?)?;
     Ok(Reply::data(data.to_vec()))
 }
+pub(super) fn free_space(nv: &mut Nv, r: &Request, _: &mut Context<'_>) -> Result<Reply, Error> {
+    let data = args(r);
+    nv.spaces.get_mut(&r.u32(0)?)
+        .ok_or(Error::Malformed("uninitialized GPU address space"))?
+        .free_space(data)?;
+    Ok(Reply::data(data.to_vec()))
+}

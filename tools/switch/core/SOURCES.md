@@ -307,3 +307,9 @@ Session close removes the counters, and live plus retired entries are capped at
 4096 before admitting another channel. This is a bounded virtual lifetime policy,
 not a claim about the hardware allocator's ID reuse. A focused lifetime test and
 120-frame es2gears/dynamic_resolution desktop runs pass, including orderly exits.
+
+Task21: `NVGPU_AS_IOCTL_FREE_SPACE` uses the offset/pages/page_size layout at
+https://switchbrew.org/wiki/NV_services#NVGPU_AS_IOCTL_FREE_SPACE (2026-11-04).
+The supported path frees an exact whole reservation only after every mapping
+inside it has been unmapped; partial or occupied releases reject. The guest
+GPU coherence probe exercises this teardown after two native clears and CPU reads.

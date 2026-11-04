@@ -348,10 +348,23 @@ fn unmap_preserves_reservation_for_fixed_remap() {
     put32(&mut map, 8, allocation);
     put32(&mut map, 12, 65536);
     put64(&mut map, 32, fixed);
+    let mut free = vec![0; 16];
+    put64(&mut free, 0, fixed);
+    put32(&mut free, 8, 4);
+    put32(&mut free, 12, 65536);
     for _ in 0..2 {
         f.ioctl(space, 0xc0284106, &map, 40).unwrap();
+        assert!(f.ioctl(space, 0xc0104103, &free, 16).is_err());
         f.ioctl(space, 0xc0084105, &fixed.to_le_bytes(), 8).unwrap();
         assert!(f.nv.spaces[&space].resolve(fixed, 4).is_err());
         assert!(f.nv.spaces[&space].resolve(va, 4).is_ok());
     }
+    put32(&mut free, 8, 3);
+    assert!(f.ioctl(space, 0xc0104103, &free, 16).is_err());
+    put32(&mut free, 8, 4);
+    assert_eq!(f.ioctl(space, 0xc0104103, &free, 16).unwrap(), free);
+    assert!(f.ioctl(space, 0xc0104103, &free, 16).is_err());
+    assert!(f.ioctl(space, 0xc0284106, &map, 40).is_err());
+    assert!(f.nv.spaces[&space].resolve(va, 4).is_ok());
+    assert_eq!(read_u64(&f.ioctl(space, 0xc0184102, &reserve, 24).unwrap(), 16).unwrap(), fixed);
 }
