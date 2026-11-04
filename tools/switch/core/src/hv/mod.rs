@@ -1,21 +1,20 @@
 //! Apple Silicon EL0 execution with 4 KiB stage-1 permissions and an EL1 bridge.
 mod ffi;
 
-use crate::memory::{MemoryImage, PHYSICAL_BASE, ROOT};
+use crate::memory::{MAX_ARENA, MemoryImage, PHYSICAL_BASE, ROOT};
 use crate::nro::{Homebrew, Region};
 
-use std::alloc::{Layout, alloc_zeroed, dealloc};
 use std::fmt;
 use std::marker::PhantomData;
-use std::ptr::{self, NonNull};
+use std::ptr;
 use std::rc::Rc;
-use std::sync::{Mutex, MutexGuard, mpsc};
+use std::sync::{Arc, Mutex, MutexGuard, mpsc};
 use std::time::{Duration, Instant};
 
 pub const TIMER_HZ: u64 = 19_200_000;
 const GUEST: u64 = 0x10000;
 const VECTOR_SYNC: u64 = GUEST + 0x400;
-static VM_LOCK: Mutex<()> = Mutex::new(());
+static VM_LOCK: Mutex<bool> = Mutex::new(false);
 
 #[derive(Debug)]
 pub enum Error {
@@ -28,6 +27,9 @@ pub enum Error {
     Timeout,
     ExitBudget,
     Lock,
+    VmBusy,
+    WrongProcess,
+    InvalidState,
 }
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -56,17 +58,161 @@ pub struct SvcExit {
     pub timer_reads: usize,
 }
 
-/// Owns one process VM and a thread-affine vCPU. It cannot be sent between threads.
-/// Only trusted synthetic instruction sequences are supported at this milestone.
+/// The single VM and its memory. The mutex serializes ALL guest execution and
+/// host memory access; vCPUs hold an Arc until their thread-affine destruction.
+pub struct Process {
+    memory: Mutex<MemoryImage>,
+    start: Instant,
+    mapped: bool,
+    vm: bool,
+}
+pub struct ProcessGuard<'a> {
+    process: &'a Process,
+    memory: MutexGuard<'a, MemoryImage>,
+}
+impl Process {
+    pub fn new(boot: &Homebrew) -> Result<Arc<Self>, Error> {
+        let mut lease = VM_LOCK.lock().map_err(|_| Error::Lock)?;
+        if *lease {
+            return Err(Error::VmBusy);
+        }
+        let memory = MemoryImage::new(boot).map_err(Error::Memory)?;
+        // SAFETY: global lease excludes any other VM owner.
+        check("hv_vm_create", unsafe { ffi::hv_vm_create(ptr::null()) })?;
+        *lease = true;
+        drop(lease);
+        let mut process = Self {
+            memory: Mutex::new(memory),
+            start: Instant::now(),
+            mapped: false,
+            vm: true,
+        };
+        let pointer = process
+            .memory
+            .get_mut()
+            .map_err(|_| Error::Lock)?
+            .host_pointer();
+        // SAFETY: aligned stable allocation stays live until Process::drop unmaps it.
+        check("hv_vm_map", unsafe {
+            ffi::hv_vm_map(pointer.cast(), PHYSICAL_BASE, MAX_ARENA, 7)
+        })?;
+        process.mapped = true;
+        Ok(Arc::new(process))
+    }
+    pub fn lock(&self) -> Result<ProcessGuard<'_>, Error> {
+        Ok(ProcessGuard {
+            process: self,
+            memory: self.memory.lock().map_err(|_| Error::Lock)?,
+        })
+    }
+    pub fn elapsed_ns(&self) -> u64 {
+        self.start.elapsed().as_nanos().min(u64::MAX as u128) as u64
+    }
+    pub fn ticks(&self) -> u64 {
+        ticks(self.start.elapsed())
+    }
+}
+impl Drop for Process {
+    fn drop(&mut self) {
+        // SAFETY: last Arc implies every owning CPU was destroyed. On failure
+        // abort instead of freeing memory while the hypervisor still maps it.
+        unsafe {
+            if self.mapped && ffi::hv_vm_unmap(PHYSICAL_BASE, MAX_ARENA) != 0 {
+                std::process::abort();
+            }
+            if self.vm && ffi::hv_vm_destroy() != 0 {
+                std::process::abort();
+            }
+        }
+        *VM_LOCK.lock().unwrap_or_else(|e| e.into_inner()) = false;
+    }
+}
+impl ProcessGuard<'_> {
+    pub fn memory(&mut self) -> &mut dyn crate::memory::GuestMemory {
+        &mut *self.memory
+    }
+    pub fn map_zeroed(&mut self, address: u64, size: usize, permissions: u8) -> Result<(), Error> {
+        self.memory
+            .map_zeroed(address, size, permissions)
+            .map_err(Error::Memory)
+    }
+    pub fn protect(&mut self, address: u64, size: usize, permissions: u8) -> Result<(), Error> {
+        self.memory
+            .protect(address, size, permissions)
+            .map_err(Error::Memory)
+    }
+    pub fn unmap(&mut self, address: u64, size: usize) -> Result<(), Error> {
+        self.memory.unmap(address, size).map_err(Error::Memory)
+    }
+    pub fn alias(
+        &mut self,
+        destination: u64,
+        source: u64,
+        size: usize,
+        permissions: u8,
+    ) -> Result<(), Error> {
+        self.memory
+            .alias(destination, source, size, permissions)
+            .map_err(Error::Memory)
+    }
+    pub fn read(&self, address: u64, output: &mut [u8]) -> Result<(), Error> {
+        self.memory.read(address, output).map_err(Error::Memory)
+    }
+    pub fn write(&mut self, address: u64, input: &[u8]) -> Result<(), Error> {
+        self.memory.write(address, input).map_err(Error::Memory)
+    }
+}
+#[derive(Clone, Debug)]
+pub struct ThreadState {
+    pub registers: [u64; 31],
+    pub pc: u64,
+    pub sp: u64,
+    pub tpidrro_el0: u64,
+}
+impl ThreadState {
+    pub fn from_homebrew(boot: &Homebrew) -> Self {
+        let mut registers = [0; 31];
+        registers[0] = boot.x0;
+        registers[1] = boot.x1;
+        registers[30] = boot.x30;
+        Self {
+            registers,
+            pc: boot.pc,
+            sp: boot.sp,
+            tpidrro_el0: boot.tpidrro_el0,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug)]
+pub struct RunBudget {
+    pub max_duration: Duration,
+    pub max_exits: u32,
+}
+impl Default for RunBudget {
+    fn default() -> Self {
+        Self {
+            max_duration: Duration::from_millis(5),
+            max_exits: 64,
+        }
+    }
+}
+#[derive(Debug, PartialEq, Eq)]
+pub enum YieldReason {
+    Deadline,
+    ExitBudget,
+}
+#[derive(Debug)]
+pub enum RunOutcome {
+    Svc(Box<SvcExit>),
+    Yield(YieldReason),
+}
+/// A vCPU permanently attached to its creating host thread, retaining shared VM ownership.
 pub struct Cpu {
     vcpu: Option<u64>,
     exit: *const ffi::Exit,
-    arena: NonNull<u8>,
-    layout: Layout,
-    mapped: bool,
-    vm: bool,
-    start: Instant,
-    _lock: MutexGuard<'static, ()>,
+    process: Arc<Process>,
+    generation: u64,
+    pending_svc: bool,
     _thread: PhantomData<Rc<()>>,
 }
 impl Cpu {
@@ -100,51 +246,29 @@ impl Cpu {
         })
     }
     pub fn from_homebrew(boot: &Homebrew) -> Result<Self, Error> {
-        let image = MemoryImage::new(boot).map_err(Error::Memory)?;
-        let lock = VM_LOCK.lock().map_err(|_| Error::Lock)?;
-        let layout =
-            Layout::from_size_align(image.bytes.len(), 0x4000).map_err(|_| Error::Allocation)?;
-        // SAFETY: nonzero valid layout, retained until the VM mapping is removed.
-        let arena = NonNull::new(unsafe { alloc_zeroed(layout) }).ok_or(Error::Allocation)?;
+        Self::attach(Process::new(boot)?, ThreadState::from_homebrew(boot))
+    }
+    pub fn process(&self) -> Arc<Process> {
+        Arc::clone(&self.process)
+    }
+    pub fn attach(process: Arc<Process>, state: ThreadState) -> Result<Self, Error> {
+        let owner = Arc::clone(&process);
+        let _guard = owner.lock()?;
         let mut cpu = Self {
             vcpu: None,
             exit: ptr::null(),
-            arena,
-            layout,
-            mapped: false,
-            vm: false,
-            start: Instant::now(),
-            _lock: lock,
+            process,
+            generation: u64::MAX,
+            pending_svc: false,
             _thread: PhantomData,
         };
-        // SAFETY: arena was allocated for exactly image.bytes.len() bytes;
-        // allocations do not overlap and no vCPU or mapping exists yet.
-        unsafe {
-            ptr::copy_nonoverlapping(image.bytes.as_ptr(), cpu.arena.as_ptr(), image.bytes.len());
-        }
-        // SAFETY: SDK calls receive valid pointers; Cpu tracks successful acquisition
-        // so every early return destroys vCPU, mapping, and VM in that order.
-        unsafe {
-            check("hv_vm_create", ffi::hv_vm_create(ptr::null()))?;
-            cpu.vm = true;
-            check(
-                "hv_vm_map",
-                ffi::hv_vm_map(
-                    cpu.arena.as_ptr().cast(),
-                    PHYSICAL_BASE,
-                    cpu.layout.size(),
-                    7,
-                ),
-            )?;
-            cpu.mapped = true;
-            let mut id = 0;
-            check(
-                "hv_vcpu_create",
-                ffi::hv_vcpu_create(&mut id, &mut cpu.exit, ptr::null()),
-            )?;
-            cpu.vcpu = Some(id);
-        }
-        cpu.set_sys(ffi::MAIR_EL1, 0xff)?; // normal write-back memory, AttrIndx=0
+        let mut id = 0;
+        // SAFETY: called on this CPU's permanent owner thread; storage lives until destroy.
+        check("hv_vcpu_create", unsafe {
+            ffi::hv_vcpu_create(&mut id, &mut cpu.exit, ptr::null())
+        })?;
+        cpu.vcpu = Some(id);
+        cpu.set_sys(ffi::MAIR_EL1, 0x44ff)?; // normal write-back memory, AttrIndx=0
         // T0SZ=25 (39 bits), 4 KiB, inner-shareable WB walks, TTBR1 disabled,
         // IPS=40 bits. The stage-2 arena contains only low physical addresses.
         cpu.set_sys(
@@ -152,18 +276,18 @@ impl Cpu {
             25 | (1 << 8) | (1 << 10) | (3 << 12) | (1 << 23) | (2 << 32),
         )?;
         cpu.set_sys(ffi::TTBR0_EL1, ROOT)?;
-        cpu.set_sys(ffi::SCTLR_EL1, 0x30d00801)?;
+        cpu.set_sys(ffi::SCTLR_EL1, 0x30d01805)?;
         cpu.set_sys(ffi::CPACR_EL1, 3 << 20)?; // guest SIMD/FP
         cpu.set_sys(ffi::VBAR_EL1, GUEST)?;
         cpu.set_sys(ffi::CNTKCTL_EL1, 0)?; // trap EL0 CNTFRQ/CNTVCT reads to EL1
-        cpu.set_sys(ffi::SP_EL0, boot.sp)?;
+        cpu.set_sys(ffi::SP_EL0, state.sp)?;
         // The register-preserving EL1 bridge uses no stack.
         cpu.set_sys(ffi::SP_EL1, 0)?;
-        cpu.set_sys(ffi::TPIDRRO_EL0, boot.tpidrro_el0)?;
-        cpu.set_reg(ffi::PC, boot.pc)?;
-        cpu.set_reg(0, boot.x0)?;
-        cpu.set_reg(1, boot.x1)?;
-        cpu.set_reg(30, boot.x30)?;
+        cpu.set_sys(ffi::TPIDRRO_EL0, state.tpidrro_el0)?;
+        cpu.set_reg(ffi::PC, state.pc)?;
+        for (index, value) in state.registers.into_iter().enumerate() {
+            cpu.set_reg(index as u32, value)?;
+        }
         cpu.set_reg(ffi::CPSR, 0x3c0)?; // EL0t, asynchronous exceptions masked
         Ok(cpu)
     }
@@ -198,35 +322,129 @@ impl Cpu {
             ffi::hv_vcpu_set_sys_reg(self.id(), reg, value)
         })
     }
-    /// Run until one SVC, with a two-second watchdog and bounded host exits.
-    pub fn run_until_svc(&mut self) -> Result<SvcExit, Error> {
-        let id = self.id();
-        let (done, wait) = mpsc::channel();
-        let watchdog = std::thread::spawn(move || {
-            if wait.recv_timeout(Duration::from_secs(2)) == Err(mpsc::RecvTimeoutError::Timeout) {
-                // SAFETY: hv_vcpus_exit is explicitly cross-thread. The owner joins
-                // this watchdog before returning or destroying the vCPU.
-                unsafe { ffi::hv_vcpus_exit(&id, 1) };
-                true
-            } else {
-                false
-            }
-        });
-        let result = self.run_exits();
-        let _ = done.send(());
-        if watchdog.join().unwrap_or(true) {
-            Err(Error::Timeout)
+    fn validate(&self, guard: &ProcessGuard<'_>) -> Result<(), Error> {
+        if !ptr::eq(guard.process, Arc::as_ptr(&self.process)) {
+            Err(Error::WrongProcess)
         } else {
-            result
+            Ok(())
         }
     }
-    fn run_exits(&mut self) -> Result<SvcExit, Error> {
-        let mut timer_reads = 0;
+    pub fn set_svc_results(
+        &mut self,
+        guard: &mut ProcessGuard<'_>,
+        values: &[u64],
+    ) -> Result<(), Error> {
+        self.validate(guard)?;
+        if !self.pending_svc || values.len() > 31 {
+            return Err(Error::InvalidState);
+        }
+        for (i, v) in values.iter().enumerate() {
+            self.set_reg(i as u32, *v)?;
+        }
+        Ok(())
+    }
+    // Maintenance runs with EL1 MMU enabled, without changing GPRs, SIMD, ELR or
+    // SPSR. Canceled exits are retried until the private HVC completes. The guest
+    // cannot enter EL0 until both break-before-make phases have finished.
+    fn invalidate(&mut self) -> Result<(), Error> {
+        let pc = self.reg(ffi::PC)?;
+        let cpsr = self.reg(ffi::CPSR)?;
+        self.set_reg(ffi::PC, GUEST + 0x800)?;
+        self.set_reg(ffi::CPSR, 0x3c5)?;
+        let mut complete = false;
         for _ in 0..64 {
+            // SAFETY: this owner thread holds the process execution guard.
+            check("hv_vcpu_run", unsafe { ffi::hv_vcpu_run(self.id()) })?;
+            // SAFETY: exit storage is valid while this CPU is live.
+            let exit = unsafe { *self.exit };
+            if exit.reason == 0 {
+                continue;
+            }
+            if exit.reason != 1
+                || exit.exception.syndrome >> 26 != 0x16
+                || exit.exception.syndrome & 0xffff != 1
+            {
+                return Err(Error::UnexpectedExit {
+                    reason: exit.reason,
+                    syndrome: exit.exception.syndrome,
+                });
+            }
+            complete = true;
+            break;
+        }
+        if !complete {
+            return Err(Error::ExitBudget);
+        }
+        self.set_reg(ffi::PC, pc)?;
+        self.set_reg(ffi::CPSR, cpsr)
+    }
+    pub fn run_quantum(
+        &mut self,
+        guard: &mut ProcessGuard<'_>,
+        budget: RunBudget,
+    ) -> Result<RunOutcome, Error> {
+        self.validate(guard)?;
+        if budget.max_duration.is_zero() {
+            return Ok(RunOutcome::Yield(YieldReason::Deadline));
+        }
+        if budget.max_exits == 0 {
+            return Ok(RunOutcome::Yield(YieldReason::ExitBudget));
+        }
+        let started = Instant::now();
+        let id = self.id();
+        let duration = budget.max_duration;
+        let (done, wait) = mpsc::channel();
+        let watchdog = std::thread::spawn(move || {
+            if wait.recv_timeout(duration) == Err(mpsc::RecvTimeoutError::Timeout) {
+                // SAFETY: the owner joins this watchdog before CPU destruction.
+                check("hv_vcpus_exit", unsafe { ffi::hv_vcpus_exit(&id, 1) })
+            } else {
+                Ok(())
+            }
+        });
+        let result = (|| {
+            if self.generation != guard.memory.generation() {
+                self.invalidate()?;
+                guard.memory.publish();
+                self.invalidate()?;
+                self.generation = guard.memory.generation();
+            }
+            self.pending_svc = false;
+            if started.elapsed() >= duration {
+                return Ok(RunOutcome::Yield(YieldReason::Deadline));
+            }
+            self.run_exits(budget.max_exits)
+        })();
+        let _ = done.send(());
+        watchdog.join().map_err(|_| Error::Lock)??;
+        result
+    }
+    /// Compatibility wrapper with the original two-second, 64-exit bound.
+    pub fn run_until_svc(&mut self) -> Result<SvcExit, Error> {
+        let process = Arc::clone(&self.process);
+        let mut guard = process.lock()?;
+        match self.run_quantum(
+            &mut guard,
+            RunBudget {
+                max_duration: Duration::from_secs(2),
+                max_exits: 64,
+            },
+        )? {
+            RunOutcome::Svc(exit) => Ok(*exit),
+            RunOutcome::Yield(YieldReason::Deadline) => Err(Error::Timeout),
+            RunOutcome::Yield(YieldReason::ExitBudget) => Err(Error::ExitBudget),
+        }
+    }
+    fn run_exits(&mut self, max_exits: u32) -> Result<RunOutcome, Error> {
+        let mut timer_reads = 0;
+        for _ in 0..max_exits {
             // SAFETY: same owning thread; mapping remains live until Drop.
             check("hv_vcpu_run", unsafe { ffi::hv_vcpu_run(self.id()) })?;
             // SAFETY: framework-provided exit storage lives until vCPU destruction.
             let exit = unsafe { *self.exit };
+            if exit.reason == 0 {
+                return Ok(RunOutcome::Yield(YieldReason::Deadline));
+            }
             if exit.reason != 1 || exit.exception.syndrome >> 26 != 0x16 {
                 return Err(Error::UnexpectedExit {
                     reason: exit.reason,
@@ -249,12 +467,13 @@ impl Cpu {
                         *value = self.reg(index as u32)?;
                     }
                     self.set_reg(ffi::PC, VECTOR_SYNC + 4)?;
-                    return Ok(SvcExit {
+                    self.pending_svc = true;
+                    return Ok(RunOutcome::Svc(Box::new(SvcExit {
                         immediate: syndrome as u16,
                         registers,
                         guest_pc: elr,
                         timer_reads,
-                    });
+                    })));
                 }
                 0x18 => {
                     // ESR system-register ISS: Op0[21:20], Op2[19:17], Op1[16:14],
@@ -266,13 +485,15 @@ impl Cpu {
                     let crn = (iss >> 10) & 15;
                     let rt = ((iss >> 5) & 31) as u32;
                     let crm = (iss >> 1) & 15;
-                    if (op0, op1, crn, crm, iss & 1) != (3, 3, 14, 0, 1) || ![0, 2].contains(&op2) {
+                    if (op0, op1, crn, crm, iss & 1) != (3, 3, 14, 0, 1)
+                        || ![0, 1, 2].contains(&op2)
+                    {
                         return Err(Error::UnexpectedGuestException(syndrome));
                     }
                     let value = if op2 == 0 {
                         TIMER_HZ
                     } else {
-                        ticks(self.start.elapsed())
+                        self.process.ticks()
                     };
                     if rt != 31 {
                         self.set_reg(rt, value)?;
@@ -284,7 +505,7 @@ impl Cpu {
                 _ => return Err(Error::UnexpectedGuestException(syndrome)),
             }
         }
-        Err(Error::ExitBudget)
+        Ok(RunOutcome::Yield(YieldReason::ExitBudget))
     }
 }
 impl Drop for Cpu {
@@ -297,13 +518,6 @@ impl Drop for Cpu {
             {
                 std::process::abort();
             }
-            if self.mapped && ffi::hv_vm_unmap(PHYSICAL_BASE, self.layout.size()) != 0 {
-                std::process::abort();
-            }
-            if self.vm && ffi::hv_vm_destroy() != 0 {
-                std::process::abort();
-            }
-            dealloc(self.arena.as_ptr(), self.layout);
         }
     }
 }

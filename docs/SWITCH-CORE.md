@@ -129,8 +129,8 @@ no default features. The launcher still uses the Python runner.
 ## Apple Hypervisor CPU: bring-up
 
 The optional `hv` feature uses Apple's installed Hypervisor.framework SDK,
-without external crates. It creates one VM, a 16 KiB aligned host arena and one
-thread-affine vCPU. AArch64 programs run at EL0 with 4 KiB stage-1
+without external crates. It creates one VM, a 16 KiB aligned host arena and
+thread-affine vCPUs. AArch64 programs run at EL0 with 4 KiB stage-1
 translation enabled. Synchronous exceptions enter the EL1 vector; its HVC
 returns to the host, which reads ESR_EL1 and the preserved guest registers.
 Handled timer reads resume through ERET. CNTKCTL_EL1 disables direct EL0 timer
@@ -144,10 +144,10 @@ cargo test --offline --manifest-path tools/switch/core/Cargo.toml --features hv
 bash scripts/test-switch-hv.sh
 ```
 
-The first command runs seven pure tests, leaving five hardware integration
+The first command runs seventeen pure tests, leaving fifteen hardware integration
 tests ignored. The script builds just the integration test executable, signs
 it ad-hoc with `com.apple.security.hypervisor`, verifies its signature and runs
-all five tests serially (the local NRO case requires the environment variable
+all fifteen tests serially (the local NRO cases require the environment variable
 below). It does not install or launch Soju, download anything,
 or change services. CI does not run hardware tests.
 
@@ -185,10 +185,34 @@ SOJU_SWITCH_TEST_NRO="$HOME/.local/share/soju/switch/demo/2048-1.1.0.nro" \
 With the local 2048 1.1.0 NRO this reaches its first SVC, `0x2`
 (`SetMemoryPermission`), at PC `0x100006fcc`. This is a boot smoke test,
 **not** a frame-change or gameplay test. No instructions/second comparison
-has been measured. There is no Rust HLE kernel, guest-thread scheduler, IPC
-service implementation, window/input path or save persistence yet; M1 is
-not complete. The binary remains validation-only and the launcher still
+has been measured. IPC service implementation, window/input and save persistence
+are still pending; M1 is not complete. The binary remains validation-only and the launcher still
 uses the Python runner. No retail support has been established.
+
+### Kernel milestone (step 2)
+
+The process now owns a stable, bounded 512 MiB arena shared by permanent
+thread-affine vCPUs. A process guard serializes guest execution and host memory
+access. Live mappings support 4 KiB protection, aliases, unmapping and physical
+page reuse. Mapping generations drive EL1 translation maintenance before guest
+re-entry; executable host writes also invalidate cached code. The runtime uses
+one host thread per guest thread and bounded resumable quanta.
+
+The bounded HLE kernel implements the Python runner's non-IPC SVC families:
+heap and memory operations, threads, events, shared/transfer memory, handles,
+mutexes, condition waits, timing, named ports, GetInfo, Break and exit. It also
+implements address waits/signals, debug output and synchronization cancellation.
+IPC requests cross an explicit handler boundary; missing services stop with
+`IpcRequired` rather than returning success. The local 2048 1.1.0 NRO now passes
+kernel initialization and reaches that boundary for the service manager.
+
+Nine deterministic kernel scenarios cover memory and handle lifetimes,
+blocking/wakeup/timeout behavior, condition-mutex reacquisition, address
+arbitration and diagnostics. Fifteen signed hardware tests additionally cover
+distinct per-vCPU TLS/SIMD state, shared memory, warmed translation revocation,
+instruction replacement, syscall replies, resumable execution, multithreaded
+synchronization and a shared 19.2 MHz epoch for CNTVCT, CNTPCT and GetSystemTick.
+This does not establish complete Horizon kernel compatibility or gameplay.
 
 Validation on 2026-11-03: the full Python suite ran 320 tests with 21 skips
 and only the known `test_only_attributed_commits_fail` failure. The Switch

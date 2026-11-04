@@ -1,0 +1,365 @@
+//! One permanent host thread per guest thread, with deterministic scheduling.
+//! Only the selected worker receives a run command. Every quantum and host memory
+//! operation holds the shared ProcessGuard; channel waits and sleeping never do.
+use crate::hv::{Cpu, Error as HvError, Process, RunBudget, RunOutcome, ThreadState};
+use crate::kernel::{Dispatch, IpcRequest, Kernel, MAIN_THREAD, ThreadId, ThreadStatus};
+use crate::memory::GuestMemory;
+use crate::nro::Homebrew;
+use std::collections::BTreeMap;
+use std::sync::{Arc, mpsc};
+use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
+
+#[derive(Debug)]
+pub enum Error {
+    Hypervisor(HvError),
+    Worker,
+    Kernel(u64),
+    Ipc(String),
+}
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+impl std::error::Error for Error {}
+impl From<HvError> for Error {
+    fn from(e: HvError) -> Self {
+        Self::Hypervisor(e)
+    }
+}
+#[derive(Debug, PartialEq, Eq)]
+pub enum Stop {
+    ProcessExited(u32),
+    AllThreadsExited,
+    Break {
+        reason: u32,
+        address: u64,
+        size: u64,
+    },
+    Unsupported {
+        thread: ThreadId,
+        svc: u16,
+        pc: u64,
+    },
+    IpcRequired(IpcRequest),
+    BudgetExpired,
+}
+#[derive(Debug)]
+pub enum IpcReply {
+    Complete(Vec<u64>),
+    Deferred,
+    Unhandled,
+}
+/// Handlers use the borrow-only interface, never ownership of the mapped arena.
+/// Deferred requests must eventually call Kernel::complete_ipc from poll().
+pub trait IpcHandler {
+    fn dispatch(
+        &mut self,
+        request: &IpcRequest,
+        kernel: &mut Kernel,
+        memory: &mut dyn GuestMemory,
+    ) -> Result<IpcReply, String>;
+    fn poll(
+        &mut self,
+        _kernel: &mut Kernel,
+        _memory: &mut dyn GuestMemory,
+        _now: u64,
+    ) -> Result<(), String> {
+        Ok(())
+    }
+}
+pub struct NoIpc;
+impl IpcHandler for NoIpc {
+    fn dispatch(
+        &mut self,
+        _request: &IpcRequest,
+        _kernel: &mut Kernel,
+        _memory: &mut dyn GuestMemory,
+    ) -> Result<IpcReply, String> {
+        Ok(IpcReply::Unhandled)
+    }
+}
+enum Command {
+    Run {
+        results: Option<Vec<u64>>,
+        budget: RunBudget,
+    },
+    Stop,
+}
+struct Worker {
+    commands: mpsc::Sender<Command>,
+    results: mpsc::Receiver<Result<RunOutcome, HvError>>,
+    join: Option<JoinHandle<()>>,
+}
+impl Worker {
+    fn new(process: Arc<Process>, state: ThreadState) -> Result<Self, Error> {
+        let (commands, receive) = mpsc::channel();
+        let (send, results) = mpsc::channel();
+        let (started, ready) = mpsc::channel();
+        let join = thread::spawn(move || {
+            let mut cpu = match Cpu::attach(Arc::clone(&process), state) {
+                Ok(cpu) => {
+                    let _ = started.send(Ok(()));
+                    cpu
+                }
+                Err(e) => {
+                    let _ = started.send(Err(e));
+                    return;
+                }
+            };
+            while let Ok(Command::Run { results, budget }) = receive.recv() {
+                let result = (|| {
+                    let mut guard = process.lock()?;
+                    if let Some(values) = results {
+                        cpu.set_svc_results(&mut guard, &values)?;
+                    }
+                    cpu.run_quantum(&mut guard, budget)
+                })();
+                let failed = result.is_err();
+                if send.send(result).is_err() || failed {
+                    break;
+                }
+            }
+        });
+        let ready = match ready.recv() {
+            Ok(result) => result,
+            Err(_) => {
+                let _ = join.join();
+                return Err(Error::Worker);
+            }
+        };
+        match ready {
+            Ok(()) => Ok(Self {
+                commands,
+                results,
+                join: Some(join),
+            }),
+            Err(error) => {
+                let _ = join.join();
+                Err(Error::Hypervisor(error))
+            }
+        }
+    }
+    fn run(&self, results: Option<Vec<u64>>, budget: RunBudget) -> Result<RunOutcome, Error> {
+        self.commands
+            .send(Command::Run { results, budget })
+            .map_err(|_| Error::Worker)?;
+        self.results
+            .recv()
+            .map_err(|_| Error::Worker)?
+            .map_err(Error::Hypervisor)
+    }
+}
+impl Drop for Worker {
+    fn drop(&mut self) {
+        let _ = self.commands.send(Command::Stop);
+        if let Some(join) = self.join.take() {
+            let _ = join.join();
+        }
+    }
+}
+pub struct Runtime {
+    process: Arc<Process>,
+    kernel: Kernel,
+    workers: BTreeMap<ThreadId, Worker>,
+    pub quantum: RunBudget,
+    pub schedule: std::collections::VecDeque<ThreadId>,
+    pending_ipc: Option<IpcRequest>,
+}
+impl Runtime {
+    pub fn new(boot: &Homebrew) -> Result<Self, Error> {
+        let process = Process::new(boot)?;
+        let mut workers = BTreeMap::new();
+        workers.insert(
+            MAIN_THREAD,
+            Worker::new(Arc::clone(&process), ThreadState::from_homebrew(boot))?,
+        );
+        Ok(Self {
+            process,
+            kernel: Kernel::new(boot),
+            workers,
+            quantum: RunBudget::default(),
+            schedule: std::collections::VecDeque::new(),
+            pending_ipc: None,
+        })
+    }
+    pub fn process(&self) -> Arc<Process> {
+        Arc::clone(&self.process)
+    }
+    pub fn kernel(&self) -> &Kernel {
+        &self.kernel
+    }
+    pub fn kernel_mut(&mut self) -> &mut Kernel {
+        &mut self.kernel
+    }
+    fn now(&self) -> u64 {
+        self.process.elapsed_ns()
+    }
+    fn sync_workers(&mut self) -> Result<(), Error> {
+        let new: Vec<_> = self
+            .kernel
+            .threads()
+            .filter(|(id, t)| !self.workers.contains_key(id) && t.status != ThreadStatus::Exited)
+            .map(|(id, t)| (id, t.spec.clone()))
+            .collect();
+        for (id, spec) in new {
+            let mut registers = [0; 31];
+            registers[0] = spec.argument;
+            registers[30] = spec.link;
+            let state = ThreadState {
+                registers,
+                pc: spec.entry,
+                sp: spec.stack,
+                tpidrro_el0: spec.tls,
+            };
+            self.workers
+                .insert(id, Worker::new(Arc::clone(&self.process), state)?);
+        }
+        let exited: Vec<_> = self
+            .workers
+            .keys()
+            .copied()
+            .filter(|id| {
+                self.kernel
+                    .thread(*id)
+                    .is_none_or(|t| t.status == ThreadStatus::Exited)
+            })
+            .collect();
+        for id in exited {
+            self.workers.remove(&id);
+        }
+        Ok(())
+    }
+    fn ipc(
+        &mut self,
+        handler: &mut dyn IpcHandler,
+        request: IpcRequest,
+    ) -> Result<Option<Stop>, Error> {
+        let mut guard = self.process.lock()?;
+        match handler
+            .dispatch(&request, &mut self.kernel, guard.memory())
+            .map_err(Error::Ipc)?
+        {
+            IpcReply::Complete(results) => {
+                self.kernel
+                    .complete_ipc(request.thread, results)
+                    .map_err(Error::Kernel)?;
+                Ok(None)
+            }
+            IpcReply::Deferred => Ok(None),
+            IpcReply::Unhandled => {
+                self.pending_ipc = Some(request.clone());
+                Ok(Some(Stop::IpcRequired(request)))
+            }
+        }
+    }
+    /// A budget stop is explicit and resumable; it never means guest success.
+    pub fn run(
+        &mut self,
+        handler: &mut dyn IpcHandler,
+        max_duration: Duration,
+        max_quanta: u64,
+    ) -> Result<Stop, Error> {
+        let deadline = Instant::now() + max_duration;
+        let mut quanta = 0;
+        if let Some(request) = self.pending_ipc.take()
+            && let Some(stop) = self.ipc(handler, request)?
+        {
+            return Ok(stop);
+        }
+        loop {
+            if Instant::now() >= deadline || quanta >= max_quanta {
+                return Ok(Stop::BudgetExpired);
+            }
+            let now = self.now();
+            {
+                let mut guard = self.process.lock()?;
+                handler
+                    .poll(&mut self.kernel, guard.memory(), now)
+                    .map_err(Error::Ipc)?;
+                self.kernel
+                    .advance(guard.memory(), now)
+                    .map_err(Error::Kernel)?;
+            }
+            self.sync_workers()?;
+            if self.kernel.all_exited() {
+                return Ok(Stop::AllThreadsExited);
+            }
+            let Some(id) = self.kernel.next_runnable() else {
+                let wait = self
+                    .kernel
+                    .next_deadline()
+                    .map_or(1_000_000, |d| d.saturating_sub(now).min(1_000_000));
+                thread::sleep(Duration::from_nanos(wait.max(1)));
+                continue;
+            };
+            let results = self.kernel.take_results(id);
+            if self.schedule.len() == 1024 {
+                self.schedule.pop_front();
+            }
+            self.schedule.push_back(id);
+            quanta += 1;
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            let budget = RunBudget {
+                max_duration: self.quantum.max_duration.min(remaining),
+                max_exits: self.quantum.max_exits,
+            };
+            match self
+                .workers
+                .get(&id)
+                .ok_or(Error::Worker)?
+                .run(results, budget)?
+            {
+                RunOutcome::Yield(_) => self.kernel.requeue(id),
+                RunOutcome::Svc(exit) => {
+                    let now = self.now();
+                    let dispatch = {
+                        let mut guard = self.process.lock()?;
+                        self.kernel.dispatch(
+                            guard.memory(),
+                            id,
+                            exit.immediate,
+                            &exit.registers,
+                            exit.guest_pc,
+                            now,
+                        )
+                    };
+                    match dispatch {
+                        Dispatch::Return(results) => {
+                            self.kernel
+                                .set_results(id, results)
+                                .map_err(Error::Kernel)?;
+                            self.kernel.requeue(id);
+                        }
+                        Dispatch::Blocked | Dispatch::ThreadExited => {}
+                        Dispatch::ProcessExited(code) => return Ok(Stop::ProcessExited(code)),
+                        Dispatch::Break {
+                            reason,
+                            address,
+                            size,
+                        } => {
+                            return Ok(Stop::Break {
+                                reason,
+                                address,
+                                size,
+                            });
+                        }
+                        Dispatch::Unsupported(svc) => {
+                            return Ok(Stop::Unsupported {
+                                thread: id,
+                                svc,
+                                pc: exit.guest_pc,
+                            });
+                        }
+                        Dispatch::Ipc(request) => {
+                            if let Some(stop) = self.ipc(handler, request)? {
+                                return Ok(stop);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
