@@ -105,3 +105,39 @@ extension Models3D {
         if !failures.isEmpty { throw SceneError.invalid("Asset checks failed: \(failures)") }
     }
 }
+
+// Sample the original engine and render its actual unit transforms, without issuing orders.
+func liveModelProof()throws {
+    let commander=try Commander(art:Art()),map=try Bridge().request(["op":"scene"])
+    let nativeMap=map["map"] as? Obj ?? [:]
+    guard (nativeMap["path"] as? String ?? "").contains("Soju-Coverage-") else {throw SceneError.invalid("Live proof requires private Soju-Coverage map")}
+    let prepared=commander.art.manifest["map"] as! Obj
+    commander.mapWidth=Int(number(prepared,"width"));commander.mapHeight=Int(number(prepared,"height"));commander.mapTiles=prepared["tiles"] as! [Int]
+    let fog=try Bridge().request(["op":"terrain","x":0,"y":0,"width":commander.mapWidth,"height":commander.mapHeight])
+    commander.apply(map,fog)
+    Models3D.lights(commander.world,tileset:prepared["tileset"] as? String ?? "badlands")
+    commander.world.background.contents=NSColor(calibratedRed:0.1,green:0.13,blue:0.18,alpha:1)
+    commander.camera.camera=SCNCamera();commander.camera.camera!.fieldOfView=50;commander.camera.camera!.zFar=180;Models3D.exposure(commander.camera.camera!)
+    commander.world.rootNode.addChildNode(commander.camera)
+    let renderer=SCNRenderer(device:commander.art.device,options:nil);renderer.scene=commander.world;renderer.pointOfView=commander.camera;renderer.isPlaying=true
+    let out=argument("--proof-dir").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("3d-proof/m2/live")
+    try FileManager.default.createDirectory(at:out,withIntermediateDirectories:true)
+    var seen=Set<Int>(),records=[Obj]()
+    for (_,model) in commander.models.sorted(by:{$0.value.kind<$1.value.kind}) where !seen.contains(model.kind) && !model.root.isHidden {
+        seen.insert(model.kind)
+        let box=model.root.boundingBox,size=max(1,max(box.max.x-box.min.x,max(box.max.y-box.min.y,box.max.z-box.min.z)))
+        let center=SCNVector3(model.root.position.x,model.root.position.y+(box.max.y+box.min.y)/2,model.root.position.z)
+        commander.camera.position=SCNVector3(center.x+size*1.3,center.y+size*0.8,center.z+size*1.3)
+        commander.camera.look(at:center);Models3D.followLight(commander.world,position:center);commander.updateTerrain()
+        SCNTransaction.flush()
+        let image=renderer.snapshot(atTime:CACurrentMediaTime(),with:CGSize(width:960,height:720),antialiasingMode:.multisampling4X)
+        let filename="live-\(model.kind).png"
+        if let tiff=image.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let png=bitmap.representation(using:.png,properties:[:]) {try png.write(to:out.appendingPathComponent(filename))}
+        records.append(["type":model.kind,"position":[model.root.position.x,model.root.position.y,model.root.position.z],"action":model.action,"file":filename])
+    }
+    let report:Obj=["frame":number(map,"frame"),"map":nativeMap,"rendered":records,"missingTypes":Array(Set(commander.units.values.compactMap {u -> Int? in
+        let id=u["id"] as? String ?? "";return commander.models[id]==nil ? Int(number(u,"type")):nil
+    })).sorted(),"errors":Dictionary(uniqueKeysWithValues:commander.modelLibrary.errors.map{(String($0.key),$0.value)})]
+    try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent("live-proof.json"))
+    print("Live native frame \(Int(number(map,"frame"))): rendered \(records.count) types")
+}
