@@ -44,7 +44,7 @@ pub fn generate_compute(
         write!(s, ", constant uint* cb{slot} [[buffer({slot})]]").unwrap();
     }
     memory::parameters(program, options, &cb, false, &mut s)?;
-    s.push_str(") {\nuint r[255] = {};\nbool p[7] = {};\n");
+    s.push_str(") {\nuint r[255] = {};\nbool p[7] = {};\nbool soju_carry = false;\n");
     if launch.shared_bytes > 0 {
         writeln!(
             s,

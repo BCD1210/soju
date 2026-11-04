@@ -8,7 +8,7 @@ fn word(bytes: &[u8], offset: usize) -> Option<u32> {
     ))
 }
 
-fn audit(path: &Path, totals: &mut [usize; 4]) -> Result<(), Box<dyn Error>> {
+fn audit(path: &Path, totals: &mut [usize; 4], mapped: bool) -> Result<(), Box<dyn Error>> {
     if fs::metadata(path)?.len() > 128 * 1024 * 1024 {
         return Err("input exceeds 128 MiB audit limit".into());
     }
@@ -90,7 +90,48 @@ fn audit(path: &Path, totals: &mut [usize; 4]) -> Result<(), Box<dyn Error>> {
                     }
                 }
             }
+            // Symbolic allocation tests translation without treating cbuf handle
+            // offsets as native texture indices. It does not resolve guest textures.
+            let mut handles = std::collections::BTreeMap::new();
+            if mapped {
+                for (slot, chunk) in instructions.chunks_exact(8).enumerate() {
+                    if slot % 4 == 0 {
+                        continue;
+                    }
+                    if let Ok(x) = decoder::decode_instruction(
+                        (slot * 8) as u32,
+                        u64::from_le_bytes(chunk.try_into()?),
+                    ) {
+                        if matches!(x.opcode, decoder::Opcode::TEXS | decoder::Opcode::TLDS) {
+                            if let Some(decoder::Operand::Immediate(handle)) = x.operands.get(4) {
+                                handles.insert(
+                                    *handle,
+                                    if x.opcode == decoder::Opcode::TEXS && (x.raw >> 53) & 15 == 7
+                                    {
+                                        soju_switch_shader::texture::TextureType::D2Array
+                                    } else {
+                                        soju_switch_shader::texture::TextureType::D2
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            let texture_bindings = handles
+                .into_iter()
+                .enumerate()
+                .map(
+                    |(index, (handle, texture_type))| soju_switch_shader::texture::Binding {
+                        handle: soju_switch_shader::texture::Handle::Bound(handle),
+                        texture_index: index as u32,
+                        sampler_index: index as u32,
+                        texture_type,
+                    },
+                )
+                .collect();
             let options = msl::Options {
+                texture_bindings,
                 constant_buffer_bytes: [65536; 32],
                 global_memory: Some(msl::GlobalMemory {
                     buffer: 29,
@@ -129,6 +170,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let root = std::env::args_os()
         .nth(1)
         .ok_or("usage: corpus_audit <homebrew-directory>")?;
+    let mapped = std::env::args().nth(2).as_deref() == Some("--symbolic-textures");
+    println!("resources|symbolic-textures={mapped}");
     let mut paths = fs::read_dir(root)?
         .map(|entry| entry.map(|entry| entry.path()))
         .collect::<Result<Vec<_>, _>>()?;
@@ -139,7 +182,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             path.extension().and_then(|s| s.to_str()),
             Some("nro" | "dksh")
         ) {
-            audit(&path, &mut totals)?;
+            audit(&path, &mut totals, mapped)?;
         }
     }
     println!(

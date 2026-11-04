@@ -197,3 +197,17 @@ audit at `3deb0fb` gives the same totals. Remaining unknown prefixes are `5c90`
 (RRO, three occurrences) and `efd0` (four tessellation occurrences). Runtime
 es2gears now exercises FMNMX.FTZ, with 32 additional native/reference FTZ cases;
 that shader is generated at runtime and is outside the static DKSH totals.
+
+## Corpus expansion follow-up
+
+Closed RRO/MUFU pairs, reconverging if/else diamonds, FSET/FSETP/F2F/F2I FTZ,
+FMUL zero-wins, unsigned carry addition, integer instance ID, U16 conversion and
+TEXS A2D translation extend the supported subset. See SEMANTICS.md for numerical
+limits. All 521 embedded instruction occurrences decode, including ISBERD;
+the two tessellation programs still lack executable Metal stage lowering.
+
+`corpus_audit <directory> --symbolic-textures` separately allocates compact
+symbolic texture/sampler slots for TEXS/TLDS handles, preserving their declared
+type. It tests translation without confusing a cbuf handle offset with a native
+resource index. It does not discover real descriptors or demonstrate sampling
+correctness. The unflagged mode preserves the prior audit resource configuration.

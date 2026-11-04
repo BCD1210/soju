@@ -10,7 +10,7 @@ import sys
 source = pathlib.Path(sys.argv[1]).read_text()
 assert hashlib.sha256(source.encode()).hexdigest() == "97195e120336becb52f4aeabce28fb8ee0ead4c3f30efed10879e309eae3d3e6", "Unexpected ISA revision"
 root = pathlib.Path(__file__).resolve().parents[1]
-classes = 'ffma fadd fmul fmnmx fset fsetp rro mufu f2f f2i i2f i2i iadd iadd3 iscadd imad xmad iset isetp imnmx lop lop3 shl shr bfe bfi popc flo sel mov psetp p2r r2p ld st ldg stg lds sts ldl stl ldc ipa ald ast out tex texs tld tlds tld4 txq bra ssy sync pbk brk exit kil nop depbar bar'.split()
+classes = 'ffma fadd fmul fmnmx fset fsetp rro mufu f2f f2i i2f i2i iadd iadd3 iscadd imad xmad iset isetp imnmx lop lop3 shl shr bfe bfi popc flo sel mov psetp p2r r2p ld st ldg stg lds sts ldl stl ldc ipa ald ast isberd out tex texs tld tlds tld4 txq bra ssy sync pbk brk exit kil nop depbar bar'.split()
 tables = dict(re.findall(r'static struct insn tab(\w+)\[\] = \{(.*?)\n\};', source, re.S))
 rows = []
 for line in tables['root'].splitlines():
@@ -28,7 +28,7 @@ for line in tables['root'].splitlines():
     ops, flags, options, pending = [], [], [], []
     # ONV/ZNV modifiers in these texture rows are SM60-only, not GM20B.
     tail = re.sub(r'[OZ]N[V]\([^)]*\)', '', tail)
-    tokens = re.findall(r'ON\([^)]*\)|ZN\([^)]*\)|T\([^)]*\)|N\([^)]*\)|\b(?:REG_\d+|PRED\d+|INV_PRED41|[USF]\d+_\d+|C\d+_\w+|AMEM28|AMEMIDX|AMEM|LMEM|SMEM|GMEM|NCGMEM_20|NCGMEM|BTARG)\b', tail)
+    tokens = re.findall(r'ON\([^)]*\)|ZN\([^)]*\)|T\([^)]*\)|N\([^)]*\)|\b(?:REG_\d+|PRED\d+|INV_PRED41|[USF]\d+_\d+|C\d+_\w+|ISBERDMEM|AMEM28|AMEMIDX|AMEM|LMEM|SMEM|GMEM|NCGMEM_20|NCGMEM|BTARG)\b', tail)
     for token in tokens:
         if token.startswith(('ON(', 'ZN(')):
             bit, label = token[3:-1].split(',', 1)
@@ -49,7 +49,7 @@ for line in tables['root'].splitlines():
         elif token.startswith('N('):
             options.append((token[2:-1].strip().strip('"'),0))
         else:
-            ops.append(token)
+            ops.append("REG_08" if token == "ISBERDMEM" else token)
             flags.extend((*x, len(ops)-1) for x in pending); pending=[]
     assert not pending, (name,pending)
     fmt_flags = ','.join(f'({b},"{n}",{str(z).lower()},{i})' for b,n,z,i in flags)

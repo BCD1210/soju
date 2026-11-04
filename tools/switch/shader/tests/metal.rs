@@ -223,3 +223,13 @@ fn instance_id_is_integer_builtin_without_vertex_buffer() {
     assert!(s.contains("r[0] = soju_instance_id;"));
     assert!(!s.contains("[[attribute("));
 }
+
+#[test]
+fn scalar_array_sample_declares_layer_and_split_coordinates() {
+    let mut a = Assembler::default();
+    a.emit(0xd000000000000000 | PT | 7 << 53 | 4 << 8 | 8 << 20 | 255 << 28);
+    a.emit(EXIT);
+    let s = compile("texs_array", &a.finish(fragment_header()));
+    assert!(s.contains("texture2d_array<float>"));
+    assert!(s.contains("float2(as_type<float>(r[5]), as_type<float>(r[8])), r[4]"));
+}

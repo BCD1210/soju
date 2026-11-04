@@ -157,3 +157,14 @@ fn bar_operand_selectors_and_memory_spaces() {
         ]
     );
 }
+
+#[test]
+fn input_buffer_read_preserves_address_register_and_modes() {
+    let x = decode_instruction(8, 0xefd0000000000000 | 7 << 16 | 4 | 12 << 8 | 2 << 33).unwrap();
+    assert_eq!(x.opcode, Opcode::ISBERD);
+    assert_eq!(x.operands, [Operand::Register(4), Operand::Register(12)]);
+    assert!(x
+        .options
+        .iter()
+        .any(|o| o.name == "efd0_0" && o.bits == 2 << 33));
+}

@@ -14,6 +14,7 @@ pub struct Machine {
     pub local_id: [u32; 3],
     pub group_id: [u32; 3],
     pub killed: bool,
+    carry: bool,
     pc: usize,
     tokens: Vec<usize>,
 }
@@ -27,6 +28,7 @@ impl Default for Machine {
             local_id: [0; 3],
             group_id: [0; 3],
             killed: false,
+            carry: false,
             pc: 0,
             tokens: vec![],
         }

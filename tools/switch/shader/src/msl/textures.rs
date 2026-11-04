@@ -8,6 +8,9 @@ fn is_texture(x: &Instruction) -> bool {
 }
 fn kind(x: &Instruction) -> Result<TextureType> {
     use TextureType::*;
+    if x.opcode == Opcode::TEXS && bits(x.raw, 53, 4) == 7 {
+        return Ok(D2Array);
+    }
     if matches!(x.opcode, Opcode::TEXS | Opcode::TLDS | Opcode::TXQ) {
         return Ok(D2);
     }

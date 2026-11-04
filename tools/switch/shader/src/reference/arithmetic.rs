@@ -8,7 +8,15 @@ impl Machine {
         let mut dest = 0;
         let integer = match x.opcode {
             MOV | LDC | I2I => a(1)?,
-            IADD => a(1)?.wrapping_add(a(2)?),
+            IADD => {
+                let sum = u64::from(a(1)?)
+                    + u64::from(a(2)?)
+                    + u64::from(x.modified("x", None) && self.carry);
+                if x.modified("cc", None) {
+                    self.carry = sum > u64::from(u32::MAX);
+                }
+                sum as u32
+            }
             IADD3 => a(1)?.wrapping_add(a(2)?).wrapping_add(a(3)?),
             ISCADD => a(1)?.wrapping_shl(a(3)?).wrapping_add(a(2)?),
             IMAD => a(1)?.wrapping_mul(a(2)?).wrapping_add(a(3)?),
@@ -138,9 +146,15 @@ impl Machine {
                 }
             }
             F2I => {
-                let v = rounded(f(1)?, bits(x.raw, 39, 2));
+                let v = f(1)?;
+                let v = rounded(
+                    if x.modified("ftz", None) { ftz(v) } else { v },
+                    bits(x.raw, 39, 2),
+                );
                 if bits(x.raw, 12, 1) != 0 {
                     (v as i32) as u32
+                } else if bits(x.raw, 8, 2) == 1 {
+                    u32::from(v as u16)
                 } else {
                     v as u32
                 }

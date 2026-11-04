@@ -346,3 +346,93 @@ fn zero_wins_multiply_covers_exceptional_operands() {
         }
     }
 }
+
+#[test]
+fn carry_addition_propagates_into_high_word() {
+    let dir = gpu::setup();
+    let input: Vec<_> = (0u32..32)
+        .flat_map(|i| [u32::MAX - i, i + 1, 17, 23, 0, 0, 0, 0])
+        .collect();
+    let (binary, p) = program(
+        &[
+            alu(0x5c10000000000000, 0, 0, 1) | 1 << 47,
+            alu(0x5c10000000000000, 2, 2, 3) | 1 << 43,
+        ],
+        32,
+    );
+    let shader = compute::translate(
+        &binary[80..],
+        &gpu::launch(32, 0),
+        &gpu::options(input.len()),
+    )
+    .unwrap();
+    let expected = cpu(&p, &input, 0, 32);
+    for lane in expected.chunks_exact(8) {
+        assert_eq!((lane[4], lane[6]), (0, 41));
+    }
+    assert_eq!(
+        gpu::execute(&dir, "carry-add", &shader.source, &input, 32),
+        expected
+    );
+}
+
+#[test]
+fn flushed_conversion_rounds_subnormals_after_flushing() {
+    let dir = gpu::setup();
+    let input: Vec<_> = (0..32)
+        .flat_map(|i| [if i % 2 == 0 { 1 } else { 0x80000001 }, 0, 0, 0, 0, 0, 0, 0])
+        .collect();
+    for (name, mode) in [("ftz_floor", 1), ("ftz_ceil", 2)] {
+        let (binary, p) = program(
+            &[0x5cb0000000000000 | PT | 0xa00 | 1 << 12 | 1 << 44 | mode << 39],
+            32,
+        );
+        let shader = compute::translate(
+            &binary[80..],
+            &gpu::launch(32, 0),
+            &gpu::options(input.len()),
+        )
+        .unwrap();
+        let expected = cpu(&p, &input, 0, 32);
+        for lane in expected.chunks_exact(8) {
+            assert_eq!(lane[4], 0);
+        }
+        assert_eq!(
+            gpu::execute(&dir, name, &shader.source, &input, 32),
+            expected
+        );
+    }
+}
+
+#[test]
+fn unsigned_short_conversion_clamps_before_export() {
+    let dir = gpu::setup();
+    let values = [
+        -1f32,
+        0.,
+        0.6,
+        255.,
+        65535.,
+        65536.,
+        f32::INFINITY,
+        f32::NAN,
+    ];
+    let input: Vec<_> = (0..32)
+        .flat_map(|i| [values[i % 8].to_bits(), 0, 0, 0, 0, 0, 0, 0])
+        .collect();
+    let (binary, p) = program(&[0x5cb0000000000000 | PT | 0x900 | 1 << 44], 32);
+    let shader = compute::translate(
+        &binary[80..],
+        &gpu::launch(32, 0),
+        &gpu::options(input.len()),
+    )
+    .unwrap();
+    let expected = cpu(&p, &input, 0, 32);
+    for (i, lane) in expected.chunks_exact(8).enumerate() {
+        assert_eq!(lane[4], [0, 0, 1, 255, 65535, 65535, 65535, 0][i % 8]);
+    }
+    assert_eq!(
+        gpu::execute(&dir, "f2i-u16", &shader.source, &input, 32),
+        expected
+    );
+}

@@ -43,7 +43,8 @@ impl Machine {
             sampler_index: raw,
             texture_type: crate::texture::TextureType::D2,
         });
-        if binding.texture_type != crate::texture::TextureType::D2
+        if (x.opcode == TEXS && bits(x.raw, 53, 4) == 7)
+            || binding.texture_type != crate::texture::TextureType::D2
             || (!scalar && x.opcode != TXQ && bits(x.raw, 29, 2) != 1)
         {
             return Err(x.error("reference texture oracle supports 2D only"));

@@ -52,6 +52,7 @@ pub enum Opcode {
     IPA,
     ALD,
     AST,
+    ISBERD,
     OUT,
     TEX,
     TEXS,

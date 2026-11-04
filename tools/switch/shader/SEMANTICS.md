@@ -133,3 +133,11 @@ branch/reconvergence target at the consumer are accepted. This preserves the
 observable dataflow while avoiding an assumed intermediate encoding. Other RRO
 uses fail. Native/reference tests cover 96 finite inputs with relative/absolute
 2e-6 tolerance; this does not prove hardware approximation equivalence.
+
+Unsigned IADD.CC records the 33rd sum bit and IADD.X consumes it; negated
+carry operands remain rejected. F2I now supports unsigned 16-bit output with
+clamping to [0,65535] after rounding, and explicit input FTZ. TEXS A2D implicit
+sampling is translated with an integer array layer and split coordinates; this
+has a Metal compilation check, not a native array-sampling equivalence test.
+ISBERD's destination, address register, mode and width decode, but its input
+buffer addressing and tessellation execution semantics remain unsupported.

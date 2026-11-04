@@ -100,6 +100,26 @@ impl Emitter<'_> {
                     value(2)?
                 ))
             }
+            IADD if x.modified("cc", None) || x.modified("x", None) => {
+                if x.modifiers.iter().any(|m| m.name == "neg") {
+                    return Err(x.error("negated carry arithmetic unsupported"));
+                }
+                let carry = if x.modified("x", None) {
+                    "ulong(soju_carry)"
+                } else {
+                    "0ul"
+                };
+                let mut s = format!(
+                    "ulong sum = ulong({}) + ulong({}) + {carry};\n",
+                    a(1)?,
+                    a(2)?
+                );
+                if x.modified("cc", None) {
+                    s.push_str("soju_carry = (sum >> 32) != 0ul;\n");
+                }
+                s.push_str(&dst("uint(sum)".into())?);
+                Ok(s)
+            }
             IADD => dst(format!("({} + {})", a(1)?, a(2)?)),
             IADD3 => dst(format!("({} + {} + {})", a(1)?, a(2)?, a(3)?)),
             ISCADD => dst(format!("(({} << {}) + {})", a(1)?, a(3)?, a(2)?)),
@@ -214,12 +234,23 @@ impl Emitter<'_> {
                 },
                 a(1)?
             )),
-            F2I => dst(format!(
-                "soju_f2i({}, {}, {})",
-                f(1)?,
-                bits(x.raw, 12, 1) != 0,
-                bits(x.raw, 39, 2)
-            )),
+            F2I => {
+                let value = format!(
+                    "soju_f2i({}, {}, {})",
+                    if x.modified("ftz", None) {
+                        format!("soju_ftz({})", f(1)?)
+                    } else {
+                        f(1)?
+                    },
+                    bits(x.raw, 12, 1) != 0,
+                    bits(x.raw, 39, 2)
+                );
+                dst(if bits(x.raw, 8, 2) == 1 {
+                    format!("min({value}, 65535u)")
+                } else {
+                    value
+                })
+            }
             F2F => {
                 let v = f(1)?;
                 let v = if x.modified("ftz", None) {

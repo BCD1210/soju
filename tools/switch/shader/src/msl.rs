@@ -210,7 +210,9 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
         .unwrap();
     }
     memory::parameters(program, options, &cb, textures, &mut s)?;
-    s.push_str(") {\nuint r[255] = {};\nbool p[7] = {};\nStageOut out = {};\n");
+    s.push_str(
+        ") {\nuint r[255] = {};\nbool p[7] = {};\nbool soju_carry = false;\nStageOut out = {};\n",
+    );
     let local = header
         .local_positive
         .checked_add(header.local_negative)
