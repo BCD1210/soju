@@ -1,5 +1,27 @@
 # Official devkitPro example corpus
 
+## M2 method continuation (2026-11-04)
+
+No GPU scene is accepted. The eight selected headless probes and ordered method
+outcomes are tracked in [method-progress](../proof/rust-examples/gpu/method-progress/summary.txt);
+[the method ledger](../proof/rust-examples/gpu/METHODS.md) supersedes the earlier
+165c/0de4 blocker descriptions below.
+
+- Deko Example01–04 and deko_basic: B197:2310=0x418800 (`SET_FALCON04`),
+  whose effect is not described by the consulted B197/A097 headers.
+- OpenGL simple_triangle, textured_cube and es2gears: initialization completes,
+  then MapBufferEx rejects kind 0x17 (`NvKind_S8Z24_2CZ`, compressed depth/stencil).
+- Point-center/watchdog fields, bounded setup retention, MME scratch forwarding,
+  and isolated B1C0 setup/counters/inline uploads are covered by regression tests.
+  Retained state still undergoes backend validation at the first rendering action.
+
+The selected deko entries are independently scripted (A after 100 ms, with Down
+press/release pairs for subsequent entries). Example01 is a scissored-clear scene;
+Example02 is the triangle. Menu captures remain rejected and are not committed.
+Scissored clears, shader extent registration, compressed-depth handling, and the
+Falcon effect remain unfinished. No scene pixel acceptance test can pass yet.
+
+
 Latest M2 follow-up starts from pushed checkpoint `61bce81`. GPU work through
 `e633b45` from `feat/switch-shader` is merged, including the native command ring,
 draw variants and aligned uniform heap. Core changes and merges in this pass are
