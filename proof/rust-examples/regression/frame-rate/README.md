@@ -57,3 +57,21 @@ Validation: all ten existing scene tests passed; eleven NV Metal tests passed,
 including a new clear/overlapping constant write/next-submission clear test.
 The baseline Metal System Trace was saved under ignored `dist/frame-profile/`;
 it ran alongside validation and is for attribution only, not wall-time comparison.
+
+## Persistent memory generations
+
+The runner retains its checked GPU memory image while mapping identities match.
+Unchanged pages keep their generations; only changed pages are copied. Transaction
+commit compares only ranges written after the snapshot revision. Contiguous guest
+mappings can be borrowed during the host lease; fragmented mappings still use the
+copy fallback. This is not yet Metal no-copy guest memory. Shader extent/decoded
+instruction discovery is bounded and generation-checked, including after guest
+code changes. Packed-target writeback copies contiguous 16-byte pieces.
+
+The 120-frame measurement remains below 60 fps: 7.788 seconds overall. Per-frame
+averages: snapshot 7.803 ms, shader discovery 0.272 ms, prepare 17.429 ms,
+submit/wait 10.909 ms, readback 18.665 ms, commit 1.198 ms, display 1.003 ms.
+The run includes cold initialization, so submit/wait is not a steady-state value.
+Core library: 120 checks passed before adding the borrowing test; the new
+contiguous/fragmented/permission boundary test also passed. GPU memory generation
+checks passed. There is no claim that these changes alone satisfy throughput.

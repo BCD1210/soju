@@ -580,6 +580,11 @@ pub trait GuestMemory {
         permissions: u8,
     ) -> Result<(), Error>;
     fn attribute(&mut self, address: u64, size: usize, mask: u32, value: u32) -> Result<(), Error>;
+    /// Borrow only while the caller holds exclusive host access to the guest arena.
+    /// Noncontiguous physical mappings fall back to the checked copy interface.
+    fn contiguous(&self, _address: u64, _size: usize) -> Result<Option<&[u8]>, Error> {
+        Ok(None)
+    }
     fn read(&self, address: u64, output: &mut [u8]) -> Result<(), Error>;
     fn write(&mut self, address: u64, input: &[u8]) -> Result<(), Error>;
     fn write_kernel(&mut self, address: u64, input: &[u8]) -> Result<(), Error>;
@@ -602,6 +607,21 @@ impl GuestMemory for MemoryImage {
     }
     fn attribute(&mut self, a: u64, n: usize, m: u32, v: u32) -> Result<(), Error> {
         Self::attribute(self, a, n, m, v)
+    }
+    fn contiguous(&self, address: u64, size: usize) -> Result<Option<&[u8]>, Error> {
+        self.access(address, size, 1)?;
+        if size == 0 {
+            return Ok(Some(&[]));
+        }
+        let base = address & !4095;
+        let physical = self.pages[&base].physical;
+        for a in (base..address + size as u64).step_by(PAGE) {
+            if self.pages[&a].physical != physical + a - base {
+                return Ok(None);
+            }
+        }
+        let start = (physical - PHYSICAL_BASE + address - base) as usize;
+        Ok(Some(&self.bytes()[start..start + size]))
     }
     fn read(&self, a: u64, o: &mut [u8]) -> Result<(), Error> {
         Self::read(self, a, o)
@@ -666,6 +686,19 @@ mod tests {
             permissions: 5,
         });
         assert_eq!(MemoryImage::new(&b).err(), Some(Error::Overlap));
+    }
+    #[test]
+    fn contiguous_borrow_checks_permissions_and_physical_alias_order() {
+        let mut m = MemoryImage::new(&boot()).unwrap();
+        m.map_zeroed(0x20000, PAGE * 2, 3).unwrap();
+        m.write(0x20ffe, &[1, 2, 3, 4]).unwrap();
+        assert_eq!(m.contiguous(0x20ffe, 4).unwrap(), Some([1, 2, 3, 4].as_slice()));
+        m.alias(0x30000, 0x21000, PAGE, 3).unwrap();
+        m.alias(0x31000, 0x20000, PAGE, 3).unwrap();
+        assert!(m.contiguous(0x30000, PAGE * 2).unwrap().is_none());
+        m.protect(0x20000, PAGE, 0).unwrap();
+        assert_eq!(m.contiguous(0x20000, 1), Err(Error::Access));
+        assert!(m.contiguous((1 << 39) - 1, 2).is_err());
     }
     #[test]
     fn checked_live_memory_and_aliases() {

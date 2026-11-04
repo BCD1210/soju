@@ -5,15 +5,15 @@ use soju_switch_shader::msl::{GlobalMemory, Options};
 pub(super) fn register(
     dispatch: &soju_switch_gpu::compute::Dispatch,
     memory: &Memory,
-    mappings: &[(u64, u64, Vec<u8>)],
+    mappings: &[(u64, u64, usize)],
     backend: &mut Backend,
 ) -> Result<(), Error> {
     let address = dispatch.program();
     let (base, _, allocation) = mappings
         .iter()
-        .find(|(base, _, bytes)| address >= *base && address - *base < bytes.len() as u64)
+        .find(|(base, _, bytes)| address >= *base && address - *base < *bytes as u64)
         .ok_or(Error::Malformed("compute code outside GPU mappings"))?;
-    let available = (allocation.len() - (address - base) as usize).min(1024 * 1024);
+    let available = (*allocation - (address - base) as usize).min(1024 * 1024);
     let size = programs::code_extent(memory.read(address, available).map_err(gpu_error)?)?;
     // deko ComputeDriverCbuf: 32-byte dimensions, 16 uniform addresses,
     // 32 texture handles, 8 image handles, then 16 storage descriptors.

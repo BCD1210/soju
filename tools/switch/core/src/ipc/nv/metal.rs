@@ -35,6 +35,9 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 pub(super) struct Renderer {
     engine: Engine,
     backend: Backend,
+    memory: Memory,
+    mappings: Vec<(u64, u64, usize, u32, u64, u32)>,
+    programs: programs::Cache,
     copy: copy::CopyEngine,
     shadow_mode: u32,
     shadow: BTreeMap<u32, u32>,
@@ -95,7 +98,24 @@ impl Renderer {
         }
         let snapshot_span =
             soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Snapshot);
-        let mut memory = Memory::default();
+        let mappings = access
+            .space
+            .mappings
+            .iter()
+            .map(|(&a, m)| {
+                let size =
+                    usize::try_from(m.size).map_err(|_| Error::Malformed("Metal mapping size"))?;
+                let (guest, _) = access.space.resolve(a, size)?;
+                Ok((a, guest, size, m.view.allocation, m.view.generation, m.kind))
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        let reset = mappings != self.mappings;
+        let mut memory = if reset {
+            self.programs = programs::Cache::default();
+            Memory::default()
+        } else {
+            std::mem::take(&mut self.memory)
+        };
         let mut original = Vec::new();
         let mut total = 0u64;
         for (&address, mapping) in &access.space.mappings {
@@ -106,11 +126,25 @@ impl Renderer {
             let size = usize::try_from(mapping.size)
                 .map_err(|_| Error::Malformed("Metal mapping size"))?;
             let (guest, _) = access.space.resolve(address, size)?;
-            let mut bytes = vec![0; size];
-            access.memory.read(guest, &mut bytes)?;
-            memory.map(address, bytes.clone()).map_err(gpu_error)?;
-            original.push((address, guest, bytes));
+            let owned;
+            let bytes = if let Some(bytes) = access.memory.contiguous(guest, size)? {
+                bytes
+            } else {
+                owned = {
+                    let mut bytes = vec![0; size];
+                    access.memory.read(guest, &mut bytes)?;
+                    bytes
+                };
+                &owned
+            };
+            if reset {
+                memory.map(address, bytes.to_vec()).map_err(gpu_error)?;
+            } else {
+                memory.synchronize(address, bytes).map_err(gpu_error)?;
+            }
+            original.push((address, guest, size));
         }
+        let captured_revision = memory.revision();
         drop(snapshot_span);
         let mut backend = std::mem::take(&mut self.backend);
         let mut pending = false;
@@ -553,7 +587,13 @@ impl Renderer {
                         pending = false;
                         target_state.clear();
                     }
-                    programs::register(&snapshot, &memory, &original, &mut backend)?;
+                    programs::register(
+                        &snapshot,
+                        &memory,
+                        &original,
+                        &mut backend,
+                        &mut self.programs,
+                    )?;
                     // Hardware Y is scale * NDC + offset; Metal's viewport reverses NDC Y.
                     for index in 0..16 {
                         let offset = 0xa04 + index * 32;
@@ -602,13 +642,25 @@ impl Renderer {
         self.backend = backend;
         let _commit_span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Commit);
         let mut writes = Vec::new();
-        for (address, guest, bytes) in original {
-            let current = memory.read(address, bytes.len()).map_err(gpu_error)?;
-            for (i, (before, after)) in bytes.chunks(4096).zip(current.chunks(4096)).enumerate() {
+        for (address, guest, size) in original {
+            for offset in (0..size).step_by(4096) {
+                let n = (size - offset).min(4096);
+                let source = address + offset as u64;
+                if memory.generation(source, n).map_err(gpu_error)? <= captured_revision {
+                    continue;
+                }
+                let after = memory.read(source, n).map_err(gpu_error)?;
+                let destination = guest + offset as u64;
+                let mut scratch = [0; 4096];
+                let before = if let Some(bytes) = access.memory.contiguous(destination, n)? {
+                    bytes
+                } else {
+                    access.memory.read(destination, &mut scratch[..n])?;
+                    &scratch[..n]
+                };
                 if before != after {
-                    let destination = guest + (i * 4096) as u64;
-                    access.memory.check_access(destination, after.len(), 3)?;
-                    super::commit::validate_target(destination, after.len(), protected)?;
+                    access.memory.check_access(destination, n, 3)?;
+                    super::commit::validate_target(destination, n, protected)?;
                     writes.push(MemoryWrite {
                         address: destination,
                         bytes: after.to_vec(),
@@ -616,6 +668,8 @@ impl Renderer {
                 }
             }
         }
+        self.memory = memory;
+        self.mappings = mappings;
         Ok((writes, increments))
     }
     fn directory(&mut self) -> Result<PathBuf, Error> {

@@ -135,8 +135,10 @@ impl Target {
         let mut data = memory.read(self.address, self.size())?.to_vec();
         let row = self.width as usize * self.format.info().bytes;
         for y in 0..self.height as usize {
-            for x in 0..row {
-                data[surface.offset(x, y, 0)] = bytes[y * row + x];
+            for x in (0..row).step_by(16) {
+                let n = (row - x).min(16);
+                let offset = surface.offset(x, y, 0);
+                data[offset..offset + n].copy_from_slice(&bytes[y * row + x..y * row + x + n]);
             }
         }
         Ok(data)

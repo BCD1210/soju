@@ -16,4 +16,3 @@ test ipc::nv::tests::metal::metal_twod_copy_obeys_initialization_and_stages_pixe
 test ipc::nv::tests::metal::release_semaphore_stages_payload_after_counted_completion ... ok
 
 test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 109 filtered out; finished in 1.56s
-

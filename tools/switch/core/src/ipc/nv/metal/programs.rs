@@ -5,11 +5,24 @@ use soju_switch_shader::{
     msl::Options,
 };
 
+#[derive(Default)]
+pub(super) struct Cache(
+    BTreeMap<
+        u64,
+        (
+            u64,
+            usize,
+            Vec<soju_switch_shader::decoder::ScheduledInstruction>,
+        ),
+    >,
+);
+
 pub(super) fn register(
     snapshot: &soju_switch_gpu::engine::Snapshot,
     memory: &Memory,
-    mappings: &[(u64, u64, Vec<u8>)],
+    mappings: &[(u64, u64, usize)],
     backend: &mut Backend,
+    cache: &mut Cache,
 ) -> Result<(), Error> {
     let _span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::ShaderDiscovery);
     let registers = &snapshot.registers;
@@ -20,11 +33,31 @@ pub(super) fn register(
             .ok_or(Error::Malformed("shader address overflow"))?;
         let (base, _, allocation) = mappings
             .iter()
-            .find(|(base, _, bytes)| address >= *base && address - *base < bytes.len() as u64)
+            .find(|(base, _, bytes)| address >= *base && address - *base < *bytes as u64)
             .ok_or(Error::Malformed("shader outside GPU mappings"))?;
-        let available = (allocation.len() - (address - base) as usize).min(1024 * 1024);
+        let available = (*allocation - (address - base) as usize).min(1024 * 1024);
         let bytes = memory.read(address, available).map_err(gpu_error)?;
-        let size = shader_extent(bytes)?;
+        let valid = cache.0.get(&address).is_some_and(|(generation, size, _)| {
+            *size <= available && memory.generation(address, *size).ok() == Some(*generation)
+        });
+        if !valid {
+            let size = shader_extent(bytes)?;
+            let decoded = soju_switch_shader::decoder::decode(&bytes[80..size])
+                .map_err(|e| Error::Message(e.to_string()))?;
+            if cache.0.len() >= 256 {
+                cache.0.clear();
+            }
+            cache.0.insert(
+                address,
+                (
+                    memory.generation(address, size).map_err(gpu_error)?,
+                    size,
+                    decoded,
+                ),
+            );
+        }
+        let (_, size, decoded) = &cache.0[&address];
+        let size = *size;
         if std::env::var_os("SOJU_SWITCH_TRACE_GPU").is_some() {
             eprintln!(
                 "gpu-shader|{address:#x}|{size}|{:?}",
@@ -37,10 +70,8 @@ pub(super) fn register(
             }
         }
         let mut texture_bindings = Vec::new();
-        for decoded in soju_switch_shader::decoder::decode(&bytes[80..size])
-            .map_err(|e| Error::Message(e.to_string()))?
-        {
-            let instruction = decoded.instruction;
+        for decoded in decoded {
+            let instruction = &decoded.instruction;
             if matches!(
                 instruction.opcode,
                 Opcode::TEX | Opcode::TLD | Opcode::TLD4 | Opcode::TXQ

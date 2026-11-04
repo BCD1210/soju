@@ -83,6 +83,20 @@ impl Memory {
         self.mark(address..address + data.len() as u64);
         Ok(())
     }
+    /// Update only differing pages, preserving shader/resource generations for unchanged bytes.
+    pub fn synchronize(&mut self, address: u64, data: &[u8]) -> Result<()> {
+        self.read(address, data.len())?;
+        for (i, page) in data.chunks(4096).enumerate() {
+            let a = address + (i * 4096) as u64;
+            if self.read(a, page.len())? != page {
+                self.write(a, page)?;
+            }
+        }
+        Ok(())
+    }
+    pub fn revision(&self) -> u64 {
+        self.generation
+    }
     pub fn generation(&self, address: u64, size: usize) -> Result<u64> {
         self.read(address, size)?;
         if size == 0 {
@@ -98,5 +112,25 @@ impl Memory {
             .range(address..address + size as u64)
             .map(|(_, g)| *g)
             .fold(first, u64::max))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn synchronization_preserves_unchanged_ranges_and_marks_changed_pages() {
+        let mut memory = Memory::default();
+        let mut data = vec![7; 8193];
+        memory.map(0x1000, data.clone()).unwrap();
+        let original = memory.revision();
+        memory.synchronize(0x1000, &data).unwrap();
+        assert_eq!(memory.revision(), original);
+        data[8192] = 9;
+        memory.synchronize(0x1000, &data).unwrap();
+        assert_eq!(memory.generation(0x1000, 8192).unwrap(), original);
+        assert!(memory.generation(0x3000, 1).unwrap() > original);
+        assert_eq!(memory.read(0x1000, data.len()).unwrap(), data);
+        assert!(memory.synchronize(0x3000, &[0, 1]).is_err());
     }
 }
