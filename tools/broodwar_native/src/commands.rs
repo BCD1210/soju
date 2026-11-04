@@ -6,7 +6,7 @@ use super::{Runtime, VARS, active_units, handle, visible, log, world, production
 
 // SAFETY: caller runs on the game thread and passes a live unit from
 // active_units. The pool getter and unit remain valid during tag encoding.
-unsafe fn unit_tag(r: &Runtime, producer: *mut Unit) -> Result<u32, &'static str> {
+pub(super) unsafe fn unit_tag(r: &Runtime, producer: *mut Unit) -> Result<u32, &'static str> {
         let mut base = std::ptr::null_mut();
         let mut count = 0;
         (r.array)(&mut base,&mut count);
@@ -22,9 +22,16 @@ unsafe fn unit_tag(r: &Runtime, producer: *mut Unit) -> Result<u32, &'static str
 // SAFETY: selected unit is live and owned; the original handler consumes bytes
 // synchronously on the game thread. Unit tags are checked against the pool.
 unsafe fn send_one(r: &Runtime, producer: *mut Unit, command: &[u8]) -> Result<(), &'static str> {
-        let uid = unit_tag(r,producer)?;
-        let mut select = vec![0x63,1];
-        select.extend(uid.to_le_bytes());
+    send_selected(r, &[producer], command)
+}
+
+// SAFETY: all pointers are live owned units checked by request. The entire
+// selection is encoded before either packet is sent to the original handler.
+pub(super) unsafe fn send_selected(r: &Runtime, units: &[*mut Unit], command: &[u8]) -> Result<(), &'static str> {
+        let count = u8::try_from(units.len()).map_err(|_| "selection overflow")?;
+        if count == 0 || count > 12 { return Err("select 1 to 12 units"); }
+        let mut select = vec![0x63,count];
+        for &unit in units { select.extend(unit_tag(r,unit)?.to_le_bytes()); }
         (r.send)(select.as_ptr().cast(),select.len() as u32);
         (r.send)(command.as_ptr().cast(),command.len() as u32);
     Ok(())
@@ -100,6 +107,10 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         if (*ptr).player as usize != player || (*ptr).flingy.hitpoints <= 0 { return Err("unit is not owned or alive"); }
         if !selected.contains(&ptr) { selected.push(ptr); }
     }
+    if super::specialized::execute(r, &selected, req)? {
+        r.sequence.store(seq, Ordering::Relaxed);
+        return Ok(json!({"ok":true,"seq":seq,"frame":game.frame_count,"queued":true}));
+    }
     if op == "lift" && ![106,111,113,114,116,122].contains(&(*selected[0]).unit_id) {return Err("building cannot lift");}
     if op == "return_cargo" && ![7,41,64].contains(&(*selected[0]).unit_id) {return Err("return cargo requires a worker");}
     if op == "land" {
@@ -156,6 +167,11 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         },
         None => std::ptr::null_mut()
     };
+    if op == "unload_passenger" {
+        super::specialized::targeted(r, &selected, target)?;
+        r.sequence.store(seq, Ordering::Relaxed);
+        return Ok(json!({"ok":true,"seq":seq,"frame":game.frame_count,"queued":true}));
+    }
     if op == "rally" || op == "spell" || op == "load" {
         if op == "load" && (selected.len()!=1 || target.is_null() || (*target).player as usize!=player || UnitId((*selected[0]).unit_id).cargo_space_provided()==0) {
             return Err("load requires one transport and an owned target");

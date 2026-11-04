@@ -8,6 +8,7 @@ mod world;
 mod production;
 mod requirements;
 mod buttonsets;
+mod specialized;
 mod spells;
 mod commands;
 mod terrain;
