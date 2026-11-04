@@ -323,7 +323,10 @@ fn metal_retained_setup_rejects_reserved_fields_and_unclassified_method() {
         memory: &f.memory,
     };
     for (method, value) in [
-        (0x11e0, 0),
+        (0x15d0, 3),
+        (0x1534, 2),
+        (0x1570, 2),
+        (0x13b0, f32::NAN.to_bits()),
         (0x19bc, 1),
         (0x179c, 1),
         (0xc18, 1),
@@ -365,6 +368,14 @@ fn metal_retained_setup_rejects_reserved_fields_and_unclassified_method() {
         .submit(
             &methods(&[
                 (0, 0xb197),
+                (0x11e0, 0xeaa26e26),
+                (0x11e4, 0),
+                (0x11e8, u32::MAX),
+                (0x11ec, 0),
+                (0x15d0, 2),
+                (0x1534, 1),
+                (0x1570, 1),
+                (0x13b0, 16f32.to_bits()),
                 (0x1684, 1),
                 (0x19cc, 1),
                 (0x19e0, 1),
