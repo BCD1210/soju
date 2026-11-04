@@ -2246,17 +2246,32 @@ fn first_seen_shader_frames() {
 fn scissored_color_clear_preserves_outside_and_accepts_single_layer_stride() {
     let mut h = Harness::new();
     let (mut e, _) = h.engine("scissored-clear", [0., 0., 1., 1.]);
-    h.methods(&mut e, &[
-        (0x81c, 1024), (0xe00, 1), (0xe04, (23 << 16) | 7),
-        (0xe08, (19 << 16) | 5), (0xd80, 1f32.to_bits()),
-        (0xd88, 0), (0x19d0, 60),
-    ]);
+    h.methods(
+        &mut e,
+        &[
+            (0x81c, 1024),
+            (0xe00, 1),
+            (0xe04, (23 << 16) | 7),
+            (0xe08, (19 << 16) | 5),
+            (0xd80, 1f32.to_bits()),
+            (0xd88, 0),
+            (0x19d0, 60),
+        ],
+    );
     let dir = std::env::temp_dir().join(format!("soju-scissor-test-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let report = h.backend.execute(&dir, &mut h.memory).unwrap();
     for (i, pixel) in report.images[0].rgba.chunks_exact(4).enumerate() {
         let inside = (7..23).contains(&(i % 32)) && (5..19).contains(&(i / 32));
-        assert_eq!(pixel, if inside { &[255,0,0,255] } else { &[0,0,255,255] }, "pixel {i}");
+        assert_eq!(
+            pixel,
+            if inside {
+                &[255, 0, 0, 255]
+            } else {
+                &[0, 0, 255, 255]
+            },
+            "pixel {i}"
+        );
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
@@ -2548,4 +2563,54 @@ fn pending_pipeline_skips_frame_then_renders() {
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
     panic!("ready pipeline never rendered");
+}
+
+#[test]
+fn explicit_fragment_interpolation_multiplier_uses_reciprocal_w() {
+    let mut h = Harness::new();
+    let mut header = [0u32; 20];
+    header[0] = 2 | (5 << 10);
+    header[6] = 0xaa;
+    header[18] = 15;
+    let mut code = vec![0x010000000000f000 | PT | 4 | (u64::from(2f32.to_bits()) << 20)];
+    for c in 0..4 {
+        code.push((ipa(c, 0x80 + c * 4) & !(255 << 20)) | (4 << 20) | (1 << 54));
+    }
+    code.push(0xe30000000000000f | PT);
+    let mut binary: Vec<u8> = header.into_iter().flat_map(u32::to_le_bytes).collect();
+    for chunk in code.chunks(3) {
+        binary.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for word in chunk {
+            binary.extend(word.to_le_bytes());
+        }
+    }
+    let fs = h.program(binary);
+    let (mut e, address) = h.engine("ipa-multiply", [0.; 4]);
+    h.methods(&mut e, &[(0x2144, fs as u32), (0x1510, 255), (0x1910, 1)]);
+    let mut vertices = quad(-1., -1., 1., 1., 0.5, [0.25, 0.5, 0.75, 1.]);
+    for v in &mut vertices {
+        for component in &mut v[..4] {
+            *component *= 2.;
+        }
+    }
+    h.vertices(&mut e, &vertices, &[[0.; 4]]);
+    h.draw(&mut e, 6, false, false);
+    h.expected
+        .get_mut(&address)
+        .unwrap()
+        .1
+        .fill(Some([64, 128, 191, 255]));
+    let directory = std::env::temp_dir().join(format!("soju-ipa-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let report = h.backend.execute(&directory, &mut h.memory).unwrap();
+    for pixel in report.images[0].rgba.chunks_exact(4) {
+        assert!(
+            pixel
+                .iter()
+                .zip([64u8, 128, 191, 255])
+                .all(|(a, b)| a.abs_diff(b) <= 2),
+            "{pixel:?}"
+        );
+    }
+    std::fs::remove_dir_all(directory).unwrap();
 }

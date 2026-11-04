@@ -24,7 +24,7 @@ impl Emitter<'_> {
             if self.header.stage != Stage::Fragment {
                 return Err(x.error("IPA requires fragment stage"));
             }
-            if register_operand(x, 2)? != 255
+            if (bits(x.raw, 54, 2) != 1 && register_operand(x, 2)? != 255)
                 || register_operand(x, 3)? != 255
                 || predicate_operand(x, 4)? != "true"
             {
@@ -81,11 +81,18 @@ impl Emitter<'_> {
                     return Err(x.error("IPA.CONSTANT requires flat SPH interpolation"));
                 }
                 if r != 255 {
-                    let value = if x.modified("sat", None) {
-                        format!("soju_sat(in.{field})")
-                    } else {
-                        format!("in.{field}")
-                    };
+                    let mut value = format!("in.{field}");
+                    if x.opcode == Opcode::IPA && bits(x.raw, 54, 2) == 1 {
+                        // Metal has already divided the interpolated numerator by reciprocal W.
+                        // Restore that numerator before applying the guest's explicit multiplier.
+                        if attr.interpolation == Some(Interpolation::Perspective) {
+                            value = format!("({value} * in.position.w)");
+                        }
+                        value = format!("({value} * {})", source(x, 2, true)?);
+                    }
+                    if x.modified("sat", None) {
+                        value = format!("soju_sat({value})");
+                    }
                     writeln!(s, "r[{r}] = as_type<uint>({value});").unwrap();
                 }
             }

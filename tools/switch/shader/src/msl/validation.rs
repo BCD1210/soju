@@ -63,7 +63,7 @@ impl Emitter<'_> {
                 "ef90sz" => o.bits == 4 << 48,
                 "ef58sz" => o.bits == 4 << 48,
                 "eff0_0" => true,
-                "e000_0" => o.bits == 0 || o.bits == 2 << 54,
+                "e000_0" => matches!(o.bits >> 54, 0..=2),
                 "e000_1" => o.bits == 0,
                 "df60_0" => true,
                 "dc38_0" => o.bits == 0,

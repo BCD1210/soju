@@ -101,6 +101,9 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
             .inputs
             .iter()
             .any(|a| a.address >= 0x70 && a.address < 0x80)
+            || reachability::instructions(program)
+                .into_iter()
+                .any(|x| x.opcode == Opcode::IPA && bits(x.raw, 54, 2) == 1)
         {
             s.push_str("float4 position [[position]];\n");
         }

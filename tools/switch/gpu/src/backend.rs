@@ -732,17 +732,15 @@ impl Backend {
                         .iter()
                         .any(|a| (0x2c0..0x2e0).contains(&a.address));
                     for i in 0..8 {
-                        if r.get(0x1510) & (1 << i) != 0 {
-                            require(
-                                vh.outputs.iter().any(|a| a.address == 0x2c0 + i * 4),
-                                "enabled clip distance missing from shader",
-                            )?;
-                        } else if has_clip {
+                        if has_clip
+                            && (r.get(0x1510) & (1 << i) == 0
+                                || !vh.outputs.iter().any(|a| a.address == 0x2c0 + i * 4))
+                        {
                             writeln!(finish, "out.clip_distance[{i}]=1.0f;").unwrap();
                         }
                     }
                     require(
-                        r.get(0x1910) == 0,
+                        topology != 0 || r.get(0x1910) == 0,
                         "shader-selected point size slot unsupported",
                     )?;
                     if topology == 0 {

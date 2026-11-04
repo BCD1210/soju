@@ -73,3 +73,18 @@ counted no-ops. Example02 reaches B197 0d78 (draw count), where backend preparat
 rejects the retained setup snapshot (first diagnostic: 0110). Shader extent
 registration also remains undone; this checkpoint does not bypass those checks.
 Latest ordered outcomes and blockers: [scene-progress](scene-progress/summary.txt).
+
+## Example02 draw integration
+
+NVIDIA `clb197.h` supplies method names and fields. Explicitly validated disabled
+iterated blend (`0xdd0`), array restart (`0xde8`), antialias (`0x1534`), viewport
+enable (`0x192c`) and default blend options now pass the bridge. Viewport clip
+rectangles must contain the active scissor; depth clip must remain [0,1].
+`0xdd8` ZCULL criterion is an accepted/logged optimization no-op. The existing
+validated setup is retained for macro reads, then excluded from raster snapshots
+where the backend does not consume it. Unknown methods remain rejected.
+
+The source ledger for IPA encoding is the shader crate's pinned envytools
+`envydis/gm107.c` (`tabe000_0`, mode 1, operand registers 20 and 39). Arithmetic
+was inferred from the installed original homebrew shader and tested with W=2;
+no emulator/codegen source was used.

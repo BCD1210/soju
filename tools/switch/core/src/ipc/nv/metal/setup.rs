@@ -52,6 +52,11 @@ pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
         0x16b4 => value <= 3,
         0x1134 => value <= 1,
         0x1a2c => true,
+        0xdd0 | 0xde8 | 0x1534 | 0x2608 => value == 0,
+        0xfdc | 0x192c => value == 1,
+        0x1140 => value == 0x10,
+        0x19c0 => value == 1,
+        0x10f8 => value & !0x101 == 0,
         _ => return Ok(false),
     };
     if !valid {
@@ -86,7 +91,8 @@ pub(super) fn accepted_noop(class: u32, method: u32) -> bool {
     class == 0xb197
         && (matches!(
             method,
-            0x360
+            0xdd8
+                | 0x360
                 | 0x364
                 | 0xf64
                 | 0xf68

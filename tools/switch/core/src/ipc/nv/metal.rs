@@ -4,6 +4,7 @@ use soju_switch_gpu::{backend::Backend, engine::Engine, memory::Memory};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+mod programs;
 mod setup;
 
 struct MethodTrace {
@@ -401,6 +402,41 @@ impl Renderer {
                     r.0.retain(|offset, _| {
                         matches!(*offset,
                         0x800..=0x9e0 | 0xd80..=0xd90 | 0xda0 | 0xe00..=0xe08 | 0x121c)
+                    });
+                }
+                if matches!(
+                    snapshot.action,
+                    soju_switch_gpu::engine::Action::Draw { .. }
+                ) {
+                    let r = &snapshot.registers;
+                    for (clip, scissor) in [(0xc00, 0xe04), (0xc04, 0xe08)] {
+                        let lo = r.get(clip) & 0xffff;
+                        let hi = lo + (r.get(clip) >> 16);
+                        if r.get(0xe00) == 0
+                            || r.get(scissor) & 0xffff < lo
+                            || r.get(scissor) >> 16 > hi
+                        {
+                            return Err(Error::Malformed(
+                                "viewport clip outside scissor unsupported",
+                            ));
+                        }
+                    }
+                    if r.get(0xc08) != 0 || r.get(0xc0c) != 1f32.to_bits() {
+                        return Err(Error::Malformed(
+                            "non-default viewport depth clip unsupported",
+                        ));
+                    }
+                    programs::register(&snapshot.registers, &memory, &original, &mut backend)?;
+                    // Hardware Y is scale * NDC + offset; Metal's viewport reverses NDC Y.
+                    snapshot
+                        .registers
+                        .0
+                        .insert(0xa04, (-snapshot.registers.float(0xa04)).to_bits());
+                    snapshot.registers.0.retain(|&offset, value| {
+                        !setup::retain(offset, *value).unwrap_or(false)
+                            && !matches!(offset, 0x15b4 | 0x1234 | 0x15d0 | 0x153c
+                                | 0x165c | 0xde4 | 0xd00..=0xd3c | 0x194c | 0x1950
+                                | 0x74c | 0x16a8 | 0x1794 | 0xc00..=0xc0c)
                     });
                 }
                 backend.prepare(&snapshot, &memory).map_err(gpu_error)?;

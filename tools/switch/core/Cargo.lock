@@ -280,6 +280,7 @@ dependencies = [
  "soju-switch-fs",
  "soju-switch-gpu",
  "soju-switch-input",
+ "soju-switch-shader",
 ]
 
 [[package]]
