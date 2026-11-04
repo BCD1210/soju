@@ -131,8 +131,18 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
     s.push_str("};\nstruct StageOut {\n");
     if vertex {
         s.push_str("float4 position [[position]];\n");
+        if header.outputs.iter().any(|a| a.address == 0x6c) {
+            s.push_str("float point_size [[point_size]];\n");
+        }
+        if header
+            .outputs
+            .iter()
+            .any(|a| (0x2c0..0x2e0).contains(&a.address))
+        {
+            s.push_str("float clip_distance [[clip_distance]] [8];\n");
+        }
         for a in &header.outputs {
-            if (0x70..0x80).contains(&a.address) {
+            if (0x6c..0x80).contains(&a.address) || (0x2c0..0x2e0).contains(&a.address) {
                 continue;
             }
             if !(0x80..0x280).contains(&a.address) {

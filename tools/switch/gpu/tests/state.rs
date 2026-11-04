@@ -159,3 +159,55 @@ fn unimplemented_launches_are_not_silently_stored() {
         assert!(!e.registers.0.contains_key(&offset));
     }
 }
+
+#[test]
+fn host_semaphore_acquires_and_unsupported_release_modes() {
+    use soju_switch_gpu::sync::Host;
+    let mut host = Host::default();
+    let mut memory = Memory::default();
+    memory.map(0x1000, 8u32.to_le_bytes().to_vec()).unwrap();
+    host.method(0x14, 0x1000).unwrap();
+    host.method(0x18, 8).unwrap();
+    assert!(host
+        .method(0x1c, 1)
+        .unwrap()
+        .unwrap()
+        .acquired(&memory)
+        .unwrap());
+    host.method(0x18, 7).unwrap();
+    assert!(!host
+        .method(0x1c, 1)
+        .unwrap()
+        .unwrap()
+        .acquired(&memory)
+        .unwrap());
+    assert!(host
+        .method(0x1c, 4)
+        .unwrap()
+        .unwrap()
+        .acquired(&memory)
+        .unwrap());
+    assert!(!host
+        .method(0x1c, 8)
+        .unwrap()
+        .unwrap()
+        .acquired(&memory)
+        .unwrap());
+    host.method(0x18, 9).unwrap();
+    assert!(!host
+        .method(0x1c, 4)
+        .unwrap()
+        .unwrap()
+        .acquired(&memory)
+        .unwrap());
+    assert!(host
+        .method(0x1c, 8)
+        .unwrap()
+        .unwrap()
+        .acquired(&memory)
+        .unwrap());
+    assert!(host.method(0x1c, 2).is_err());
+    assert!(host.method(0x1c, (1 << 24) | (1 << 20) | 2).is_err());
+    assert!(host.method(0x14, 0x1001).is_err());
+    assert_eq!(memory.read(0x1000, 4).unwrap(), 8u32.to_le_bytes());
+}

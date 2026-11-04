@@ -24,34 +24,40 @@ impl Tic {
             (w[2] >> 21) & 7 == 3,
             "only Maxwell block-linear TIC supported",
         )?;
-        let bc1 = match w[0] & 127 {
-            8 => false,
-            0x24 => true,
-            _ => return Err(Error("TIC format unsupported".into())),
-        };
-        let identity = (2 << 7)
-            | (2 << 10)
-            | (2 << 13)
-            | (2 << 16)
-            | (2 << 19)
-            | (3 << 22)
-            | (4 << 25)
-            | (5 << 28);
+        let ty = (w[0] >> 7) & 7;
         require(
-            w[0] & !127 == identity,
-            "TIC requires UNORM identity components",
+            (0..4).all(|c| (w[0] >> (7 + c * 3)) & 7 == ty),
+            "mixed TIC component types unsupported",
         )?;
+        let format = crate::format::texture(w[0] & 127, ty, w[4] & (1 << 22) != 0)?;
+        require(
+            w[0] >> 31 == 0 && (0..4).all(|c| matches!((w[0] >> (19 + c * 3)) & 7, 0 | 2..=7)),
+            "invalid TIC swizzle",
+        )?;
+        require(
+            (0..4).all(|c| match (w[0] >> (19 + c * 3)) & 7 {
+                6 => ty == 4,
+                7 => ty != 4,
+                _ => true,
+            }),
+            "TIC constant-one type mismatch",
+        )?;
+        let bc1 = matches!(
+            format,
+            soju_switch_texture::format::Format::Bc1RgbaUnorm
+                | soju_switch_texture::format::Format::Bc1RgbaSrgb
+        );
         require(
             w[1] & 511 == 0 && w[2] & !0x60ffff == 0,
             "unsupported TIC address fields",
         )?;
         require(
-            w[3] & !0x38 == 0 && (w[3] >> 3) & 7 <= 5,
+            w[3] & !0x08000038 == 0 && (w[3] >> 3) & 7 <= 5,
             "TIC mips/depth/tile mode unsupported",
         )?;
         require(
-            w[4] & !0xffff == 1 << 23 && w[5] & !0xffff == 1 << 31 && w[6] == 0 && w[7] == 0,
-            "TIC requires normalized 2D single mip, no sRGB",
+            w[4] & !0x40ffff == 1 << 23 && w[5] & !0xffff == 1 << 31 && w[6] == 0 && w[7] == 0,
+            "TIC requires normalized 2D single mip",
         )?;
         let width = (w[4] & 65535) + 1;
         let height = (w[5] & 65535) + 1;
@@ -68,20 +74,27 @@ impl Tic {
             block_height: (w[3] >> 3) & 7,
         })
     }
+    pub fn format(&self) -> soju_switch_texture::format::Format {
+        crate::format::texture(
+            self.raw[0] & 127,
+            (self.raw[0] >> 7) & 7,
+            self.raw[4] & (1 << 22) != 0,
+        )
+        .expect("validated TIC")
+    }
+    pub fn swizzle(&self) -> [u32; 4] {
+        std::array::from_fn(|c| match (self.raw[0] >> (19 + c * 3)) & 7 {
+            6 | 7 => 1,
+            v => v,
+        })
+    }
     pub fn surface(&self) -> Surface {
+        let info = self.format().info();
         Surface {
-            width: if self.bc1 {
-                self.width.div_ceil(4)
-            } else {
-                self.width
-            } as usize,
-            height: if self.bc1 {
-                self.height.div_ceil(4)
-            } else {
-                self.height
-            } as usize,
+            width: (self.width as usize).div_ceil(info.block_w),
+            height: (self.height as usize).div_ceil(info.block_h),
             depth: 1,
-            bytes_per_block: if self.bc1 { 8 } else { 4 },
+            bytes_per_block: info.bytes,
             block_height_log2: self.block_height,
             block_depth_log2: 0,
         }

@@ -24,6 +24,9 @@ final class Worker {
     let device: MTLDevice
     let queue: MTLCommandQueue
     var targets = [String: MTLTexture](), generations = [String: Int](), depths = [String: MTLTexture](), depthGenerations = [String: Int]()
+    var occlusion: UInt64 = 0
+    var queryValues = [String: UInt32]()
+    var targetBytes = [String: Int]()
     var pipelines = [String: MTLRenderPipelineState](), depthStates = [String: MTLDepthStencilState]()
     var functions = [String: MTLFunction](), textureCache = [String: MTLTexture]()
     init() throws {
@@ -34,7 +37,25 @@ final class Worker {
     let root = URL(fileURLWithPath: directory)
     let data = try Data(contentsOf: root.appendingPathComponent("commands.json"))
     guard let commands = try JSONSerialization.jsonObject(with: data) as? [Object] else { throw Failure("invalid command protocol") }
-    var pipelineHits = 0, textureHits = 0, draws = 0, clears = 0
+    var pipelineHits = 0, textureHits = 0, draws = 0, clears = 0, encoderCount = 0, bufferCount = 0, depthHits = 0
+    let started=ProcessInfo.processInfo.systemUptime
+    var cb: MTLCommandBuffer? = nil
+    var activeEncoder: MTLRenderCommandEncoder? = nil
+    var activeKey=""
+    var retainedSamplers=[MTLSamplerState]()
+    func endPass() {activeEncoder?.endEncoding();activeEncoder=nil;activeKey=""}
+    func flush() throws {
+        endPass()
+        if let pending=cb {
+            pending.commit();pending.waitUntilCompleted()
+            try need(pending.status == .completed,"GPU command failed: \(String(describing:pending.error))")
+            cb=nil;retainedSamplers.removeAll()
+        }
+    }
+    func commandBuffer() throws -> MTLCommandBuffer {
+        if cb==nil {cb=queue.makeCommandBuffer();bufferCount += 1}
+        guard let buffer=cb else {throw Failure("command buffer")};return buffer
+    }
     func file(_ name: String) throws -> Data { try Data(contentsOf: root.appendingPathComponent(name)) }
     func buffer(_ name: String) throws -> MTLBuffer {
         let bytes = try file(name)
@@ -48,6 +69,8 @@ final class Worker {
         guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[source] = f; return f
     }
     for command in commands {
+        if command["query_reset"] != nil {try flush();occlusion=0;continue}
+        if let key=command["query_report"] as? String {try flush();queryValues[key]=UInt32(truncatingIfNeeded:occlusion);continue}
         guard let raw = command["registers"] as? Object, let attachments = command["targets"] as? [Object], let target = attachments.first else { throw Failure("missing state") }
         func r(_ a: Int) -> Int { number(raw,String(a)) }
         func f(_ a: Int) -> Double { Double(Float(bitPattern:UInt32(r(a)))) }
@@ -56,38 +79,56 @@ final class Worker {
         for target in attachments {
             let key = try string(target,"key")
         if targets[key] == nil {
-            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:w,height:h,mipmapped:false)
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(number(target,"metal")))!,width:w,height:h,mipmapped:false)
             descriptor.storageMode = .shared; descriptor.usage = [.renderTarget,.shaderRead]
-            guard let texture = device.makeTexture(descriptor:descriptor) else { throw Failure("color allocation") }; targets[key] = texture
+            guard let texture = device.makeTexture(descriptor:descriptor) else { throw Failure("color allocation") }; targets[key] = texture; targetBytes[key] = number(target,"bytes")
         }
         let color = targets[key]!
         if generations[key] != number(target,"generation") {
-            let initial = try file(string(target,"file"));try need(initial.count == w*h*4,"target initial bytes")
-            initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*4) }
+            if generations[key] != nil {try flush()}
+            let initial = try file(string(target,"file"));try need(initial.count == w*h*number(target,"bytes"),"target initial bytes")
+            initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*number(target,"bytes")) }
             generations[key] = number(target,"generation")
         }
             colors.append(color)
         }
-        var retainedSamplers = [MTLSamplerState]()
         let mask = number(command,"clear"), isClear = command["clear"] != nil
         let pass = MTLRenderPassDescriptor()
         for (slot, color) in colors.enumerated() {
             let a = pass.colorAttachments[slot]!
             a.texture = color; a.loadAction = isClear && mask & 60 != 0 && (mask >> 6) == slot ? .clear : .load; a.storeAction = .store
-            a.clearColor = MTLClearColor(red:f(0xd80),green:f(0xd84),blue:f(0xd88),alpha:f(0xd8c))
+            a.clearColor = color.pixelFormat == .r32Uint
+                ? MTLClearColor(red:Double(r(0xd80)),green:Double(r(0xd84)),blue:Double(r(0xd88)),alpha:Double(r(0xd8c)))
+                : MTLClearColor(red:f(0xd80),green:f(0xd84),blue:f(0xd88),alpha:f(0xd8c))
         }
+        try need(r(0x1514)<=1,"invalid occlusion enable")
+        let visibility = r(0x1514)==1 && !isClear ? device.makeBuffer(length:8,options:.storageModeShared) : nil
+        if let visibility {visibility.contents().storeBytes(of:UInt64(0),as:UInt64.self);pass.visibilityResultBuffer=visibility}
         var depthFormat = MTLPixelFormat.invalid
         if let depth = command["depth"] as? Object {
             let dk = try string(depth,"key")
-            depthFormat = number(depth,"format") == 0x19 ? .depth32Float_stencil8 : .depth32Float
+            depthFormat = [0x19,0x14].contains(number(depth,"format")) ? .depth32Float_stencil8 : (number(depth,"format")==0x13 ? .depth16Unorm : .depth32Float)
             if depthGenerations[dk] != number(depth,"generation") {
+                if depthGenerations[dk] != nil {try flush()}
                 depths.removeValue(forKey:dk)
             }
             if depths[dk] == nil {
-                try need(isClear && mask & 1 != 0 && (depthFormat != .depth32Float_stencil8 || mask & 2 != 0),"new zeta target requires clear before use")
                 let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:depthFormat,width:w,height:h,mipmapped:false)
                 descriptor.storageMode = .private;descriptor.usage = .renderTarget
                 guard let t = device.makeTexture(descriptor:descriptor) else { throw Failure("depth allocation") };depths[dk] = t; depthGenerations[dk] = number(depth,"generation")
+                endPass()
+                let upload=try commandBuffer()
+                guard let blit=upload.makeBlitCommandEncoder() else {throw Failure("depth upload encoder")}
+                func plane(_ name:String,_ bytesPerPixel:Int,_ options:MTLBlitOption) throws {
+                    let bytes=try file(string(depth,name)), row=((w*bytesPerPixel+255)/256)*256
+                    try need(bytes.count==w*h*bytesPerPixel,"depth initial bytes")
+                    guard let staging=device.makeBuffer(length:row*h,options:.storageModeShared) else {throw Failure("depth staging")}
+                    bytes.withUnsafeBytes {p in for y in 0..<h {memcpy(staging.contents().advanced(by:y*row),p.baseAddress!.advanced(by:y*w*bytesPerPixel),w*bytesPerPixel)} }
+                    blit.copy(from:staging,sourceOffset:0,sourceBytesPerRow:row,sourceBytesPerImage:row*h,sourceSize:MTLSize(width:w,height:h,depth:1),to:t,destinationSlice:0,destinationLevel:0,destinationOrigin:MTLOrigin(x:0,y:0,z:0),options:options)
+                }
+                try plane("zfile",depthFormat == .depth16Unorm ? 2 : 4,depthFormat == .depth32Float_stencil8 ? .depthFromDepthStencil : [])
+                if depthFormat == .depth32Float_stencil8 {try plane("sfile",1,.stencilFromDepthStencil)}
+                blit.endEncoding()
             }
             pass.depthAttachment.texture = depths[dk];pass.depthAttachment.loadAction = isClear && mask & 1 != 0 ? .clear : .load;pass.depthAttachment.storeAction = .store
             pass.depthAttachment.clearDepth = f(0xd90)
@@ -96,16 +137,19 @@ final class Worker {
                 pass.stencilAttachment.clearStencil = UInt32(r(0xda0))
             }
         }
-        guard let cb = queue.makeCommandBuffer() else { throw Failure("command buffer") }
+        let depthKey=(command["depth"] as? Object)?["key"] as? String ?? "none"
+        let passKey=try attachments.map{try string($0,"key")}.joined(separator:"|")+"|"+depthKey
+        if isClear || visibility != nil || activeKey != passKey {endPass()}
+        let current=try commandBuffer()
         if isClear {
             try need(r(0xe00)==0,"scissored clear unsupported")
-            guard let encoder = cb.makeRenderCommandEncoder(descriptor:pass) else { throw Failure("clear encoder") }; encoder.endEncoding();clears += 1
+            guard let encoder = current.makeRenderCommandEncoder(descriptor:pass) else { throw Failure("clear encoder") }; encoderCount += 1; encoder.endEncoding();clears += 1
         } else {
             let pk = try string(command,"pipeline")
             let vs = try function(string(command,"vertex"),"soju_vertex"), fs = try function(string(command,"fragment"),"soju_fragment")
             if pipelines[pk] == nil {
                 let descriptor = MTLRenderPipelineDescriptor();descriptor.vertexFunction = vs;descriptor.fragmentFunction = fs
-                for slot in colors.indices { descriptor.colorAttachments[slot].pixelFormat = .rgba8Unorm }
+                for slot in colors.indices { descriptor.colorAttachments[slot].pixelFormat = colors[slot].pixelFormat }
                 descriptor.depthAttachmentPixelFormat = depthFormat
                 if depthFormat == .depth32Float_stencil8 { descriptor.stencilAttachmentPixelFormat = depthFormat }
                 try need(r(0x12e4)<=1,"invalid per-target blend enable")
@@ -130,7 +174,7 @@ final class Worker {
                     let slot = number(a,"slot"), stream = number(a,"stream")
                     guard let format = MTLVertexFormat(rawValue:UInt(number(a,"format"))) else {throw Failure("vertex format")}
                     vertex.attributes[slot].format = format;vertex.attributes[slot].offset = number(a,"offset");vertex.attributes[slot].bufferIndex = stream
-                    vertex.layouts[stream].stride = number(a,"stride");vertex.layouts[stream].stepFunction = number(a,"instanced")==1 ? .perInstance : .perVertex;vertex.layouts[stream].stepRate = number(a,"rate")
+                    vertex.layouts[stream].stride = number(a,"stride");vertex.layouts[stream].stepFunction = number(a,"instanced")==1 ? .constant : .perVertex;vertex.layouts[stream].stepRate = number(a,"instanced")==1 ? 0 : 1
                 }
                 descriptor.vertexDescriptor = vertex
                 pipelines[pk] = try device.makeRenderPipelineState(descriptor:descriptor)
@@ -149,17 +193,28 @@ final class Worker {
                     d.frontFaceStencil = try stencil(false);d.backFaceStencil = try stencil(r(0x1594)==1)
                 }
                 guard let state = device.makeDepthStencilState(descriptor:d) else {throw Failure("depth/stencil state")};depthStates[pk] = state
+            } else {depthHits += 1}
+            if activeEncoder==nil {
+                activeEncoder=current.makeRenderCommandEncoder(descriptor:pass);activeKey=passKey;encoderCount += 1
             }
-            guard let encoder = cb.makeRenderCommandEncoder(descriptor:pass) else {throw Failure("render encoder")}
+            guard let encoder=activeEncoder else {throw Failure("render encoder")}
+            if visibility != nil {encoder.setVisibilityResultMode(.counting,offset:0)}
             encoder.setRenderPipelineState(pipelines[pk]!);encoder.setDepthStencilState(depthStates[pk]!)
             let sx=f(0xa00),sy=f(0xa04),sz=f(0xa08),ox=f(0xa0c),oy=f(0xa10),oz=f(0xa14)
-            try need([sx,sy,sz,ox,oy,oz].allSatisfy{$0.isFinite} && sx>0 && sy>0 && sz>=0 && oz>=0 && oz+sz<=1,"viewport supports positive XY scales and zero-to-one depth")
-            encoder.setViewport(MTLViewport(originX:ox-sx,originY:oy-sy,width:2*sx,height:2*sy,znear:oz,zfar:oz+sz))
+            let near = r(0xd7c)==0 ? oz-sz : oz, far=oz+sz
+            try need([sx,sy,sz,ox,oy,oz].allSatisfy{$0.isFinite} && sx != 0 && sy != 0 && near>=0 && near<=1 && far>=0 && far<=1,"invalid viewport/depth range")
+            encoder.setViewport(MTLViewport(originX:ox-abs(sx),originY:oy-abs(sy),width:2*abs(sx),height:2*abs(sy),znear:near,zfar:far))
+            let offset = r(0xdac)==0x1b01 ? r(0xdc4) : r(0xdc8)
+            try need([r(0xdc0),r(0xdc4),r(0xdc8)].allSatisfy{$0<=1},"invalid polygon offset enable")
+            if offset != 0 {
+                try need(r(0x1110)==1,"depth bias requires format-dependent units")
+                encoder.setDepthBias(Float(f(0x15bc)),slopeScale:Float(f(0x156c)),clamp:Float(f(0x187c)))
+            } else {encoder.setDepthBias(0,slopeScale:0,clamp:0)}
             if r(0xe00) != 0 {
                 let x=r(0xe04)&65535,y=r(0xe08)&65535,endX=r(0xe04)>>16,endY=r(0xe08)>>16
                 try need(x<endX && y<endY && endX<=w && endY<=h,"invalid scissor")
                 encoder.setScissorRect(MTLScissorRect(x:x,y:y,width:endX-x,height:endY-y))
-            }
+            } else {encoder.setScissorRect(MTLScissorRect(x:0,y:0,width:w,height:h))}
             if r(0x1918) != 0 {
                 switch r(0x1920) {case 0x404:encoder.setCullMode(.front);case 0x405:encoder.setCullMode(.back);default:throw Failure("cull face unsupported")}
             } else {encoder.setCullMode(.none)}
@@ -168,7 +223,12 @@ final class Worker {
             encoder.setTriangleFillMode(r(0xdac)==0x1b01 ? .lines : .fill)
             encoder.setBlendColor(red:Float(f(0x131c)),green:Float(f(0x1320)),blue:Float(f(0x1324)),alpha:Float(f(0x1328)))
             encoder.setStencilReferenceValues(front:UInt32(r(0x1394)),back:UInt32(r(r(0x1594)==1 ? 0xf54 : 0x1394)))
-            for b in array(command,"buffers") {encoder.setVertexBuffer(try buffer(string(b,"file")),offset:0,index:number(b,"slot"))}
+            for b in array(command,"buffers") {
+                let slot=number(b,"slot")
+                let a=array(command,"attributes").first{number($0,"stream")==slot}!
+                let offset=number(a,"instanced")==1 ? (number(command,"instance")/number(a,"rate"))*number(a,"stride") : 0
+                encoder.setVertexBuffer(try buffer(string(b,"file")),offset:offset,index:slot)
+            }
             for c in array(command,"constants") {
                 let b=try buffer(string(c,"file"));if number(c,"stage")==0 {encoder.setVertexBuffer(b,offset:0,index:number(c,"slot"))}else{encoder.setFragmentBuffer(b,offset:0,index:number(c,"slot"))}
             }
@@ -181,14 +241,17 @@ final class Worker {
                     if item["image"] != nil {
                         let tk=try string(item,"key")
                         if textureCache[tk]==nil {
-                            let tw=number(item,"width"),th=number(item,"height"),bc1=(item["bc1"] as? Bool)==true
-                            let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:bc1 ? .bc1_rgba : .rgba8Unorm,width:tw,height:th,mipmapped:false)
-                            d.storageMode = .shared;d.usage = .shaderRead
+                            let tw=number(item,"width"),th=number(item,"height")
+                            let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(number(item,"metal")))!,width:tw,height:th,mipmapped:false)
+                            d.storageMode = .shared;d.usage = [.shaderRead,.pixelFormatView]
                             guard let t=device.makeTexture(descriptor:d) else {throw Failure("sample texture allocation (BC1 device support required)")}
-                            let bytes=try file(string(item,"file"));let row=bc1 ? ((tw+3)/4)*8 : tw*4
-                            try need(bytes.count == row*(bc1 ? (th+3)/4 : th),"sample texture size")
+                            let bytes=try file(string(item,"file"));let row=number(item,"row")
+                            try need(bytes.count == row*number(item,"rows"),"sample texture size")
                             bytes.withUnsafeBytes{p in t.replace(region:MTLRegionMake2D(0,0,tw,th),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:row)}
-                            textureCache[tk]=t
+                            let components = (item["swizzle"] as! [NSNumber]).map { MTLTextureSwizzle(rawValue:$0.uint8Value)! }
+                            let swizzle = MTLTextureSwizzleChannels(red:components[0],green:components[1],blue:components[2],alpha:components[3])
+                            guard let view=t.makeTextureView(pixelFormat:t.pixelFormat,textureType:.type2D,levels:0..<1,slices:0..<1,swizzle:swizzle) else {throw Failure("texture view")}
+                            textureCache[tk]=view
                         }else{textureHits += 1}
                         let t=textureCache[tk]!;argument.setTexture(t,index:number(item,"image"));encoder.useResource(t,usage:.read,stages:stage==0 ? .vertex : .fragment)
                     }else{
@@ -203,21 +266,50 @@ final class Worker {
             let topology:MTLPrimitiveType
             switch number(command,"topology") {case 0:topology = .point;case 1:topology = .line;case 3:topology = .lineStrip;case 4:topology = .triangle;case 5:topology = .triangleStrip;default:throw Failure("primitive")}
             if let indexFile=command["indices"] as? String {
-                encoder.drawIndexedPrimitives(type:topology,indexCount:number(command,"count"),indexType:number(command,"indexSize")==2 ? .uint16 : .uint32,indexBuffer:try buffer(indexFile),indexBufferOffset:0,instanceCount:1,baseVertex:number(command,"baseVertex"),baseInstance:number(command,"instance"))
+                let indices=try buffer(indexFile)
+                for segment in array(command,"segments") {
+                    encoder.drawIndexedPrimitives(type:topology,indexCount:number(segment,"count"),indexType:number(command,"indexSize")==2 ? .uint16 : .uint32,indexBuffer:indices,indexBufferOffset:number(segment,"start")*number(command,"indexSize"),instanceCount:1,baseVertex:number(command,"baseVertex"),baseInstance:number(command,"instance"))
+                }
             }else{encoder.drawPrimitives(type:topology,vertexStart:number(command,"first"),vertexCount:number(command,"count"),instanceCount:1,baseInstance:number(command,"instance"))}
-            encoder.endEncoding();draws += 1
+            draws += 1
         }
-        cb.commit();cb.waitUntilCompleted();withExtendedLifetime(retainedSamplers) {};try need(cb.status == .completed,"GPU command failed: \(String(describing:cb.error))")
+        if let visibility {try flush();occlusion &+= visibility.contents().load(as:UInt64.self)}
     }
-    return "device=\(device.name) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
+    try flush()
+    let elapsed=ProcessInfo.processInfo.systemUptime-started
+    return "encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)
     for (key,t) in targets {
-        var bytes=[UInt8](repeating:0,count:t.width*t.height*4)
-        t.getBytes(&bytes,bytesPerRow:t.width*4,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
+        var bytes=[UInt8](repeating:0,count:t.width*t.height*targetBytes[key]!)
+        t.getBytes(&bytes,bytesPerRow:t.width*targetBytes[key]!,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
         try Data(bytes).write(to:root.appendingPathComponent("\(key).rgba"))
     }
+        if !depths.isEmpty {
+            guard let cb=queue.makeCommandBuffer(),let blit=cb.makeBlitCommandEncoder() else {throw Failure("depth readback encoder")}
+            var planes=[(String,MTLBuffer,Int,Int,Int)]()
+            for (key,t) in depths {
+                for stencil in [false,true] {
+                    if stencil && t.pixelFormat != .depth32Float_stencil8 {try Data().write(to:root.appendingPathComponent("\(key).stencil"));continue}
+                    let bpp=stencil ? 1 : (t.pixelFormat == .depth16Unorm ? 2 : 4), row=((t.width*bpp+255)/256)*256
+                    guard let buffer=device.makeBuffer(length:row*t.height,options:.storageModeShared) else {throw Failure("depth readback buffer")}
+                    let options:MTLBlitOption=t.pixelFormat == .depth32Float_stencil8 ? (stencil ? .stencilFromDepthStencil : .depthFromDepthStencil) : []
+                    blit.copy(from:t,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(x:0,y:0,z:0),sourceSize:MTLSize(width:t.width,height:t.height,depth:1),to:buffer,destinationOffset:0,destinationBytesPerRow:row,destinationBytesPerImage:row*t.height,options:options)
+                    planes.append((key+(stencil ? ".stencil" : ".depth"),buffer,row,t.width*bpp,t.height))
+                }
+            }
+            blit.endEncoding();cb.commit();cb.waitUntilCompleted();try need(cb.status == .completed,"depth readback failed")
+            for (name,buffer,row,width,height) in planes {
+                var bytes=Data()
+                for y in 0..<height {bytes.append(buffer.contents().advanced(by:y*row).assumingMemoryBound(to:UInt8.self),count:width)}
+                try bytes.write(to:root.appendingPathComponent(name))
+            }
+        }
+        for (key,value) in queryValues {
+            var little=value.littleEndian
+            try withUnsafeBytes(of:&little) {try Data($0).write(to:root.appendingPathComponent("\(key).query"))}
+        }
         return "readback_targets=\(targets.count)"
     }
 }
@@ -230,7 +322,7 @@ do {
                 try need(parts.count == 2,"invalid request")
                 let result = try parts[0] == "submit" ? worker.run(parts[1]) : worker.readback(parts[1])
                 print("OK \(result)"); fflush(stdout)
-            } catch { print("ERROR \(error)"); fflush(stdout) }
+            } catch { print("ERROR \(String(describing:error).replacingOccurrences(of:"\n",with:" "))"); fflush(stdout) }
         }
     } else {
         print(try worker.run(CommandLine.arguments[1]))

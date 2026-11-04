@@ -580,9 +580,9 @@ fn malformed_draw_resources_fail_before_native_execution() {
     let original = e.method(B197, 0xd78, 6, &mut h.memory).unwrap().unwrap();
     for (offset, value, message) in [
         (0x1f04, 0, "vertex stream limit"),
-        (0xd7c, 0, "clip depth"),
+        (0xd7c, 2, "clip depth"),
         (0x121c, 2, "CT_SELECT"),
-        (0x810, 0xcf, "render target requires"),
+        (0x810, 0xc1, "render target requires"),
         (0x2080, 0x21, "unsupported enabled shader stage"),
         (0x1160, 0, "vertex format"),
         (0x2144, 0, "shader extent"),
@@ -592,6 +592,20 @@ fn malformed_draw_resources_fail_before_native_execution() {
         let error = h.backend.prepare(&invalid, &h.memory).unwrap_err();
         assert!(error.0.contains(message), "{offset:#x}: {error}");
     }
+    let mut alias = original.clone();
+    alias.registers.0.insert(0x121c, 2 | (1 << 7));
+    for offset in (0..=0x20).step_by(4) {
+        alias
+            .registers
+            .0
+            .insert(0x840 + offset, original.registers.get(0x800 + offset));
+    }
+    assert!(h
+        .backend
+        .prepare(&alias, &h.memory)
+        .unwrap_err()
+        .0
+        .contains("aliased MRT"));
     let mut invalid = original.clone();
     invalid.action = soju_switch_gpu::engine::Action::Draw {
         topology: 4,
@@ -742,6 +756,7 @@ fn asynchronous_batches_preserve_depth_stencil_without_cpu_readback() {
     );
     h.draw(&mut e, 6, false, false);
     let second = h.backend.submit(&root).unwrap();
+    let empty = h.backend.submit(&root).unwrap();
     let sem_address = h.alloc(vec![0; 4]);
     let mut host = soju_switch_gpu::sync::Host::default();
     host.method(0x14, sem_address as u32).unwrap();
@@ -757,6 +772,7 @@ fn asynchronous_batches_preserve_depth_stencil_without_cpu_readback() {
         .unwrap());
     let mut syncpoint = soju_switch_gpu::sync::Syncpoint::default();
     syncpoint.complete(second).unwrap();
+    empty.wait().unwrap();
     assert_eq!(syncpoint.value, 1);
     assert!(
         h.memory.read(a, 4096).unwrap().iter().all(|b| *b == 0),
@@ -797,4 +813,879 @@ fn asynchronous_batches_preserve_depth_stencil_without_cpu_readback() {
         "persistent depth/stencil and deferred CPU readback: checked=2048; {}",
         report.diagnostics
     );
+}
+
+#[test]
+fn color_formats_clear_draw_and_write_back_raw_storage() {
+    use soju_switch_texture::format::Format;
+    let mut h = Harness::new();
+    let codes = [
+        0xc0, 0xca, 0xcb, 0xcf, 0xd0, 0xd1, 0xd5, 0xd6, 0xde, 0xe0, 0xe4, 0xe5, 0xe8, 0xe9, 0xea,
+        0xf2, 0xf3,
+    ];
+    let mut formats = BTreeMap::new();
+    for code in codes {
+        let format = soju_switch_gpu::format::color(code).unwrap();
+        let (mut e, _) = h.engine("format", [0.; 4]);
+        let info = format.info();
+        let surface = Surface {
+            width: 32,
+            height: 32,
+            depth: 1,
+            bytes_per_block: info.bytes,
+            block_height_log2: 0,
+            block_depth_log2: 0,
+        };
+        let a = h.alloc(vec![0; surface.size()]);
+        h.methods(
+            &mut e,
+            &[
+                (0x804, a as u32),
+                (0x810, code),
+                (0xd80, 0.25f32.to_bits()),
+                (0xd84, 0.5f32.to_bits()),
+                (0xd88, 0.75f32.to_bits()),
+                (0xd8c, 1f32.to_bits()),
+                (0x19d0, 60),
+            ],
+        );
+        // Integer attachment outputs preserve guest GPR bits, not float conversion.
+        let color = if format == Format::R32Uint {
+            [1., 0., 0., 1.]
+        } else {
+            [0.5, 0.25, 1., 1.]
+        };
+        h.vertices(&mut e, &quad(-1., -1., 0., 1., 0.5, color), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+        formats.insert(a, (format, surface));
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/format-target-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    let mut checked = 0;
+    for image in report.images {
+        let Some((format, surface)) = formats.get(&image.address) else {
+            continue;
+        };
+        let raw = surface
+            .deswizzle(h.memory.read(image.address, surface.size()).unwrap())
+            .unwrap();
+        assert_eq!(image.rgba, soju_switch_gpu::format::rgba(*format, &raw));
+        if *format == Format::R32Uint {
+            for (i, p) in raw.chunks_exact(4).enumerate() {
+                assert_eq!(
+                    u32::from_le_bytes(p.try_into().unwrap()),
+                    if i % 32 < 16 {
+                        1f32.to_bits()
+                    } else {
+                        0.25f32.to_bits()
+                    }
+                );
+            }
+        }
+        for (i, p) in image.rgba.chunks_exact(4).enumerate() {
+            let drawn = i % 32 < 16;
+            let mut expected = if drawn {
+                [128u8, 64, 255, 255]
+            } else {
+                [64, 128, 191, 255]
+            };
+            match format {
+                Format::R8Unorm | Format::R16Float | Format::R32Float => {
+                    expected[1] = 0;
+                    expected[2] = 0;
+                }
+                Format::Rg8Unorm | Format::Rg16Float | Format::Rg32Float => expected[2] = 0,
+                Format::R32Uint => expected = [255, 0, 0, 255],
+                Format::Rgba8Srgb | Format::Bgra8Srgb => {
+                    expected = if drawn {
+                        [188, 137, 255, 255]
+                    } else {
+                        [137, 188, 225, 255]
+                    };
+                }
+                _ => {}
+            }
+            let tolerance = if matches!(format, Format::B5G6R5Unorm | Format::A1Bgr5Unorm) {
+                5
+            } else {
+                2
+            };
+            assert!(
+                p.iter()
+                    .zip(expected)
+                    .all(|(a, b)| a.abs_diff(b) <= tolerance),
+                "{format:?} pixel {i}: {p:?} expected {expected:?}"
+            );
+            checked += 1;
+        }
+    }
+    assert_eq!(checked, 17 * 1024);
+    eprintln!("17 color formats: checked={checked}");
+}
+
+#[test]
+fn texture_formats_and_tic_swizzles_sample_on_metal() {
+    let mut h = Harness::new();
+    let cases = [
+        (0x3a, 2, false),
+        (0x2f, 7, false),
+        (0x29, 2, false),
+        (0x30, 7, false),
+        (1, 7, false),
+        (3, 7, false),
+        (4, 7, false),
+        (8, 2, false),
+        (8, 2, true),
+        (9, 2, false),
+        (0xc, 7, false),
+        (0xf, 7, false),
+        (0x14, 2, false),
+        (0x15, 2, false),
+        (0x18, 2, false),
+        (0x1b, 7, false),
+        (0x1d, 2, false),
+        (0x21, 7, false),
+        (0x24, 2, false),
+        (0x24, 2, true),
+        (0x25, 2, false),
+        (0x25, 2, true),
+        (0x26, 2, false),
+        (0x26, 2, true),
+        (0x27, 2, false),
+        (0x27, 1, false),
+        (0x28, 2, false),
+        (0x28, 1, false),
+        (0x10, 7, false),
+        (0x11, 7, false),
+        (0x17, 2, false),
+        (0x17, 2, true),
+        (0x40, 2, false),
+        (0x40, 2, true),
+        (0x41, 2, false),
+        (0x42, 2, false),
+        (0x44, 2, false),
+        (0x44, 2, true),
+        (0x45, 2, false),
+        (0x46, 2, false),
+    ];
+    let mut expected = BTreeMap::new();
+    for (code, ty, srgb) in cases {
+        let format = soju_switch_gpu::format::texture(code, ty, srgb).unwrap();
+        let info = format.info();
+        let size = info.block_w * info.block_h;
+        let mut linear = vec![0; size * info.bytes];
+        // Constant black blocks; BC7 mode 6, ASTC LDR void extent with opaque alpha.
+        if code == 0x17 {
+            for b in linear.chunks_exact_mut(16) {
+                b[0] = 0x40;
+            }
+        }
+        if code >= 0x40 {
+            for b in linear.chunks_exact_mut(16) {
+                b[..8].copy_from_slice(&[0xfc, 0xfd, 255, 255, 255, 255, 255, 255]);
+                b[14] = 255;
+                b[15] = 255;
+            }
+        }
+        let mut pixel = [0, 0, 255, 0];
+        match code {
+            8 => {
+                linear.fill(128);
+                pixel = [
+                    if srgb { 55 } else { 128 },
+                    if srgb { 55 } else { 128 },
+                    255,
+                    0,
+                ];
+            }
+            0x14 | 0x15 => {
+                for p in linear.chunks_exact_mut(2) {
+                    p.copy_from_slice(
+                        &(if code == 0x14 { 0xfc00u16 } else { 0xf800u16 }).to_le_bytes(),
+                    );
+                }
+                pixel = [255, 0, 255, 0];
+            }
+            0x3a => {
+                linear.copy_from_slice(&16384u16.to_le_bytes());
+                pixel[1] = 64;
+            }
+            0x29 => {
+                linear.copy_from_slice(&0x400000abu32.to_le_bytes());
+                pixel[1] = 64;
+            }
+            0x2f | 0x30 => {
+                linear[..4].copy_from_slice(&0.25f32.to_le_bytes());
+                pixel[1] = 64;
+            }
+            _ => {}
+        }
+        let w = info.block_w * info.block_w;
+        let height = info.block_h * info.block_h;
+        let surface = Surface {
+            width: info.block_w,
+            height: info.block_h,
+            depth: 1,
+            bytes_per_block: info.bytes,
+            block_height_log2: 0,
+            block_depth_log2: 0,
+        };
+        let tex = h.alloc(surface.swizzle(&linear).unwrap());
+        // B, R, constant-one, constant-zero exercises actual Metal texture views.
+        let words = [
+            code | (ty << 7)
+                | (ty << 10)
+                | (ty << 13)
+                | (ty << 16)
+                | (4 << 19)
+                | (2 << 22)
+                | (7 << 25),
+            tex as u32,
+            3 << 21,
+            0,
+            (1 << 23) | ((srgb as u32) << 22) | (w as u32 - 1),
+            (1 << 31) | (height as u32 - 1),
+            0,
+            0,
+        ];
+        let tic = h.alloc(words.into_iter().flat_map(u32::to_le_bytes).collect());
+        let tsc = h.alloc(
+            [
+                2u32 | 2 << 3 | 2 << 6,
+                1 | 1 << 4 | 1 << 6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect(),
+        );
+        let (mut e, a) = h.engine("sample-format", [1.; 4]);
+        h.methods(
+            &mut e,
+            &[
+                (0x2144, h.tex_fs as u32),
+                (0xf10, 1),
+                (0x1574, 0),
+                (0x1578, tic as u32),
+                (0x157c, 0),
+                (0x155c, 0),
+                (0x1560, tsc as u32),
+                (0x1564, 0),
+            ],
+        );
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+        expected.insert(a, (format, pixel));
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/format-texture-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    for image in report.images {
+        assert!(
+            image.rgba.chunks_exact(4).all(|p| p
+                .iter()
+                .zip(expected[&image.address].1)
+                .all(|(a, b)| a.abs_diff(b) <= 1)),
+            "{:?}: {:?}",
+            expected[&image.address],
+            &image.rgba[..4]
+        );
+    }
+    eprintln!("40 texture formats and TIC swizzles: checked={}", 40 * 1024);
+}
+
+#[test]
+fn depth16_and_depth24_stencil_render_on_metal() {
+    let mut h = Harness::new();
+    for format in [0x13, 0x14] {
+        let (mut e, _) = h.engine("depth-format", [0., 0., 0., 1.]);
+        let z = h.alloc(vec![0; 4096]);
+        h.methods(
+            &mut e,
+            &[
+                (0xfe4, z as u32),
+                (0xfe8, format),
+                (0x1228, 32),
+                (0x122c, 32),
+                (0x1230, 1),
+                (0x1538, 1),
+                (0xd90, 0.5f32.to_bits()),
+                (0x19d0, if format == 0x14 { 3 } else { 1 }),
+                (0x12cc, 1),
+                (0x12e8, 1),
+                (0x130c, 0x201),
+            ],
+        );
+        h.vertices(
+            &mut e,
+            &quad(-1., -1., 1., 1., 0.75, [1., 0., 0., 1.]),
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 6, false, false);
+        h.vertices(
+            &mut e,
+            &quad(-1., -1., 1., 1., 0.25, [0., 1., 0., 1.]),
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 6, false, false);
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/depth-format-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 2);
+    for image in report.images {
+        assert!(image.rgba.chunks_exact(4).all(|p| p == [0, 255, 0, 255]));
+    }
+    eprintln!("depth16 and promoted depth24/stencil: checked=2048");
+}
+
+#[test]
+fn raster_extras_and_occlusion_results_match_images() {
+    let mut h = Harness::new();
+    // Signed viewport plus negative-W clip convention and a non-default depth range.
+    let (mut e, a) = h.engine("signed-viewport", [0., 0., 0., 1.]);
+    let z = h.alloc(vec![0; 4096]);
+    h.methods(
+        &mut e,
+        &[
+            (0xa00, (-16f32).to_bits()),
+            (0xd7c, 0),
+            (0xa08, 0.3f32.to_bits()),
+            (0xa14, 0.5f32.to_bits()),
+            (0xfe4, z as u32),
+            (0xfe8, 0xa),
+            (0x1228, 32),
+            (0x122c, 32),
+            (0x1230, 1),
+            (0x1538, 1),
+            (0xd90, 0.4f32.to_bits()),
+            (0x19d0, 1),
+            (0x12cc, 1),
+            (0x12e8, 1),
+            (0x130c, 0x201),
+        ],
+    );
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 0., 1., -0.5, [1., 0., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [0., 0., 1., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.rect_expected(a, 16, 0, 32, 32, [255, 0, 0, 255]);
+
+    let (mut e, a) = h.engine("clip-distance", [0., 0., 0., 1.]);
+    let original = shader(false, true);
+    let mut header = original[..80].to_vec();
+    header[72..76].copy_from_slice(&1u32.to_le_bytes());
+    let mut instructions: Vec<u64> = original[80..]
+        .chunks_exact(8)
+        .enumerate()
+        .filter(|(i, _)| i % 4 != 0)
+        .map(|(_, b)| u64::from_le_bytes(b.try_into().unwrap()))
+        .collect();
+    instructions.insert(instructions.len() - 1, attr(true, 0x2c0, 0, 1));
+    for chunk in instructions.chunks(3) {
+        header.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for w in chunk {
+            header.extend(w.to_le_bytes());
+        }
+    }
+    let vs = h.program(header);
+    h.methods(&mut e, &[(0x2044, vs as u32), (0x1510, 1)]);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [0., 1., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.rect_expected(a, 16, 0, 32, 32, [0, 255, 0, 255]);
+
+    let (mut e, a) = h.engine("point-size", [0., 0., 0., 1.]);
+    h.methods(&mut e, &[(0x1518, 4f32.to_bits())]);
+    h.vertices(
+        &mut e,
+        &[vertex(0., 0., 0.5, [1., 1., 0., 1.], 0., 0.)],
+        &[[0.; 4]],
+    );
+    h.methods(&mut e, &[(0x1618, 0), (0xd78, 1), (0x1614, 0)]);
+    h.rect_expected(a, 14, 14, 18, 18, [255, 255, 0, 255]);
+
+    let (mut e, a) = h.engine("primitive-restart", [0., 0., 0., 1.]);
+    let vertices = quad(-1., -1., 1., 1., 0.5, [1., 0., 1., 1.]);
+    h.vertices(&mut e, &vertices, &[[0.; 4]]);
+    let indices = h.alloc(
+        [0u16, 1, 2, 1234, 3, 4, 5]
+            .into_iter()
+            .flat_map(u16::to_le_bytes)
+            .collect(),
+    );
+    h.methods(
+        &mut e,
+        &[
+            (0x17c8, 0),
+            (0x17cc, indices as u32),
+            (0x17d0, 0),
+            (0x17d4, (indices + 13) as u32),
+            (0x17d8, 1),
+            (0x1644, 1),
+            (0x1648, 1234),
+        ],
+    );
+    h.draw(&mut e, 7, true, false);
+    h.rect_expected(a, 0, 0, 32, 32, [255, 0, 255, 255]);
+
+    let (mut e, a) = h.engine("divisor-two", [0., 0., 0., 1.]);
+    h.vertices(
+        &mut e,
+        &quad(-0.25, -0.5, 0.25, 0.5, 0.5, [1., 0., 0., 0.5]),
+        &[[-0.5, 0., 0., 0.], [0.5, 0., 0., 0.]],
+    );
+    h.methods(
+        &mut e,
+        &[
+            (0x1c1c, 2),
+            (0x1360, 1),
+            (0x1340, 1),
+            (0x1344, 5),
+            (0x1348, 6),
+            (0x133c, 1),
+            (0x134c, 1),
+            (0x1350, 1),
+            (0x1358, 2),
+        ],
+    );
+    for next in [false, true, true] {
+        h.draw(&mut e, 6, false, next);
+    }
+    h.rect_expected(a, 4, 8, 12, 24, [192, 0, 0, 255]);
+    h.rect_expected(a, 20, 8, 28, 24, [128, 0, 0, 255]);
+
+    let (mut e, a) = h.engine("query-and-bias", [0., 0., 0., 1.]);
+    let z = h.alloc(vec![0; 4096]);
+    let query = h.alloc(vec![0; 4]);
+    h.methods(
+        &mut e,
+        &[
+            (0xfe4, z as u32),
+            (0xfe8, 0xa),
+            (0x1228, 32),
+            (0x122c, 32),
+            (0x1230, 1),
+            (0x1538, 1),
+            (0xd90, 1f32.to_bits()),
+            (0x19d0, 1),
+            (0x12cc, 1),
+            (0x12e8, 1),
+            (0x130c, 0x201),
+            (0x1514, 1),
+            (0x1530, 1),
+        ],
+    );
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [1., 0., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.75, [0., 0., 1., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.methods(
+        &mut e,
+        &[
+            (0x1b00, 0),
+            (0x1b04, query as u32),
+            (0x1b0c, (1 << 28) | (2 << 23) | (0xc << 12) | 2),
+            (0x1514, 0),
+            (0x1110, 1),
+            (0xdc8, 1),
+            (0x15bc, (-65536f32).to_bits()),
+        ],
+    );
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [0., 1., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.methods(&mut e, &[(0x1558, 0)]);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.1, [0., 0., 1., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.rect_expected(a, 0, 0, 32, 32, [0, 255, 0, 255]);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/raster-extras-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    assert_eq!(
+        u32::from_le_bytes(h.memory.read(query, 4).unwrap().try_into().unwrap()),
+        1024
+    );
+    for image in report.images {
+        let (name, expected) = &h.expected[&image.address];
+        for (i, (p, e)) in image.rgba.chunks_exact(4).zip(expected).enumerate() {
+            assert!(
+                p.iter().zip(e.unwrap()).all(|(a, b)| a.abs_diff(b) <= 2),
+                "{name} at {i}: {p:?} expected {e:?}"
+            );
+        }
+    }
+    eprintln!("viewport/clip/point/restart/divisor/bias/query: checked=6144; occlusion=1024");
+}
+
+#[test]
+#[ignore = "explicit throughput measurement"]
+fn microbenchmark_cached_draws() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("benchmark", [0., 0., 0., 1.]);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [0.25, 0.5, 0.75, 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/benchmark");
+    h.backend.submit(&root).unwrap().wait().unwrap();
+    const DRAWS: u32 = 1000;
+    let started = std::time::Instant::now();
+    for _ in 0..DRAWS {
+        h.draw(&mut e, 6, false, false);
+    }
+    let diagnostic = h.backend.submit(&root).unwrap().wait().unwrap();
+    let elapsed = started.elapsed().as_secs_f64();
+    assert!(
+        diagnostic.contains("encoders=1 command_buffers=1"),
+        "{diagnostic}"
+    );
+    assert!(diagnostic.contains("pipeline_hits=1000"), "{diagnostic}");
+    assert!(diagnostic.contains("depth_hits=1000"), "{diagnostic}");
+    let report = h.backend.readback(&root, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 1);
+    assert!(report.images[0]
+        .rgba
+        .chunks_exact(4)
+        .all(|p| p == [64, 128, 191, 255]));
+    eprintln!("benchmark {DRAWS} draws: end_to_end_seconds={elapsed:.6} end_to_end_draws_per_second={:.1}; {diagnostic}; checked=1024",DRAWS as f64/elapsed);
+}
+
+#[test]
+fn depth_import_writeback_and_cpu_invalidation() {
+    let mut h = Harness::new();
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/depth-io-checks");
+    for code in [0x13, 0x14, 0xa, 0x19] {
+        let bytes = match code {
+            0x13 => 2,
+            0x19 => 8,
+            _ => 4,
+        };
+        let surface = Surface {
+            width: 32,
+            height: 32,
+            depth: 1,
+            bytes_per_block: bytes,
+            block_height_log2: 1,
+            block_depth_log2: 0,
+        };
+        let packed = |z: f32, stencil: u8| -> Vec<u8> {
+            match code {
+                0x13 => ((z * 65535.).round() as u16).to_le_bytes().to_vec(),
+                0x14 => ((((z * 16777215.).round() as u32) << 8) | u32::from(stencil))
+                    .to_le_bytes()
+                    .to_vec(),
+                0x19 => {
+                    let mut b = z.to_le_bytes().to_vec();
+                    b.extend([stencil, 99, 98, 97]);
+                    b
+                }
+                _ => z.to_le_bytes().to_vec(),
+            }
+        };
+        let z = h.alloc(surface.swizzle(&packed(0.25, 1).repeat(1024)).unwrap());
+        let (mut e, _) = h.engine("depth-io", [0., 0., 0., 1.]);
+        h.methods(
+            &mut e,
+            &[
+                (0xfe4, z as u32),
+                (0xfe8, code),
+                (0xfec, 0x10),
+                (0x1228, 32),
+                (0x122c, 32),
+                (0x1230, 1),
+                (0x1538, 1),
+                (0x12cc, 1),
+                (0x12e8, 1),
+                (0x130c, 0x201),
+            ],
+        );
+        if matches!(code, 0x14 | 0x19) {
+            h.methods(
+                &mut e,
+                &[
+                    (0x1380, 1),
+                    (0x1384, 0x1e00),
+                    (0x1388, 0x1e00),
+                    (0x138c, 0x1e00),
+                    (0x1390, 0x202),
+                    (0x1394, 1),
+                    (0x1398, 255),
+                    (0x139c, 0),
+                ],
+            );
+        }
+        h.vertices(
+            &mut e,
+            &quad(-1., -1., 1., 1., 0.5, [1., 0., 0., 1.]),
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 6, false, false);
+        h.vertices(
+            &mut e,
+            &quad(-1., -1., 0., 1., 0.125, [0., 1., 0., 1.]),
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 6, false, false);
+        let report = h.backend.execute(&root, &mut h.memory).unwrap();
+        for (i, p) in report.images[0].rgba.chunks_exact(4).enumerate() {
+            assert_eq!(
+                p,
+                if i % 32 < 16 {
+                    &[0, 255, 0, 255]
+                } else {
+                    &[0, 0, 0, 255]
+                }
+            );
+        }
+        let raw = surface
+            .deswizzle(h.memory.read(z, surface.size()).unwrap())
+            .unwrap();
+        for (i, p) in raw.chunks_exact(bytes).enumerate() {
+            let expected = packed(if i % 32 < 16 { 0.125 } else { 0.25 }, 1);
+            assert_eq!(p, expected, "depth {code:x} raw pixel {i}");
+        }
+        h.memory
+            .write(z, &surface.swizzle(&packed(0.75, 2).repeat(1024)).unwrap())
+            .unwrap();
+        if matches!(code, 0x14 | 0x19) {
+            h.methods(&mut e, &[(0x1394, 2)]);
+        }
+        h.vertices(
+            &mut e,
+            &quad(-1., -1., 1., 1., 0.5, [0., 0., 1., 1.]),
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 6, false, false);
+        let report = h.backend.execute(&root, &mut h.memory).unwrap();
+        assert!(report.images[0]
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p == [0, 0, 255, 255]));
+        let raw = surface
+            .deswizzle(h.memory.read(z, surface.size()).unwrap())
+            .unwrap();
+        assert!(
+            raw.chunks_exact(bytes).all(|p| p == packed(0.5, 2)),
+            "depth format {code:x}"
+        );
+    }
+    eprintln!("depth import/writeback/CPU invalidation: checked=8192 color pixels and 8192 raw depth/stencil pixels");
+}
+
+#[test]
+fn unsigned_integer_texture_preserves_bits_through_sampling() {
+    let mut h = Harness::new();
+    let surface = Surface {
+        width: 2,
+        height: 2,
+        depth: 1,
+        bytes_per_block: 4,
+        block_height_log2: 0,
+        block_depth_log2: 0,
+    };
+    let values = [1u32, 0x3f800000, 0xdeadbeef, 0xffffffff];
+    let tex = h.alloc(
+        surface
+            .swizzle(
+                &values
+                    .into_iter()
+                    .flat_map(u32::to_le_bytes)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+    );
+    let tic = h.alloc(
+        [
+            0xfu32
+                | (4 << 7)
+                | (4 << 10)
+                | (4 << 13)
+                | (4 << 16)
+                | (2 << 19)
+                | (3 << 22)
+                | (4 << 25)
+                | (5 << 28),
+            tex as u32,
+            3 << 21,
+            0,
+            (1 << 23) | 1,
+            (1 << 31) | 1,
+            0,
+            0,
+        ]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect(),
+    );
+    let tsc = h.alloc(
+        [
+            2u32 | 2 << 3 | 2 << 6,
+            1 | 1 << 4 | 1 << 6,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect(),
+    );
+    let (mut e, _) = h.engine("uint-texture", [0.; 4]);
+    let target = h.alloc(vec![0; 4096]);
+    h.methods(
+        &mut e,
+        &[
+            (0x804, target as u32),
+            (0x810, 0xe4),
+            (0x2144, h.tex_fs as u32),
+            (0xf10, 1),
+            (0x1574, 0),
+            (0x1578, tic as u32),
+            (0x157c, 0),
+            (0x155c, 0),
+            (0x1560, tsc as u32),
+            (0x1564, 0),
+        ],
+    );
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    h.draw(&mut e, 6, false, false);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/uint-texture-checks");
+    h.backend.execute(&root, &mut h.memory).unwrap();
+    let target_surface = Surface {
+        width: 32,
+        height: 32,
+        ..surface
+    };
+    let raw = target_surface
+        .deswizzle(h.memory.read(target, 4096).unwrap())
+        .unwrap();
+    for (i, p) in raw.chunks_exact(4).enumerate() {
+        let expected = values[(i / 32 / 16) * 2 + (i % 32 / 16)];
+        assert_eq!(
+            u32::from_le_bytes(p.try_into().unwrap()),
+            expected,
+            "pixel {i}"
+        );
+    }
+    eprintln!("R32Uint nearest sampling: checked=1024 exact integer pixels");
+}
+
+#[test]
+fn bgra_views_and_srgb_sampling() {
+    let mut h = Harness::new();
+    let mut expected = BTreeMap::new();
+    for srgb in [false, true] {
+        let surface = Surface {
+            width: 1,
+            height: 1,
+            depth: 1,
+            bytes_per_block: 4,
+            block_height_log2: 0,
+            block_depth_log2: 0,
+        };
+        let tex = h.alloc(surface.swizzle(&[64, 128, 192, 255]).unwrap());
+        let tic = h.alloc(
+            [
+                8u32 | (2 << 7)
+                    | (2 << 10)
+                    | (2 << 13)
+                    | (2 << 16)
+                    | (4 << 19)
+                    | (3 << 22)
+                    | (2 << 25)
+                    | (5 << 28),
+                tex as u32,
+                3 << 21,
+                0,
+                (1 << 23) | ((srgb as u32) << 22),
+                1 << 31,
+                0,
+                0,
+            ]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect(),
+        );
+        let tsc = h.alloc(
+            [
+                2u32 | 2 << 3 | 2 << 6,
+                1 | 1 << 4 | 1 << 6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect(),
+        );
+        let (mut e, a) = h.engine("bgra", [0.; 4]);
+        h.methods(
+            &mut e,
+            &[
+                (0x2144, h.tex_fs as u32),
+                (0xf10, 1),
+                (0x1574, 0),
+                (0x1578, tic as u32),
+                (0x157c, 0),
+                (0x155c, 0),
+                (0x1560, tsc as u32),
+                (0x1564, 0),
+            ],
+        );
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+        expected.insert(
+            a,
+            if srgb {
+                [134u8, 55, 13, 255]
+            } else {
+                [192, 128, 64, 255]
+            },
+        );
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/bgra-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    for image in report.images {
+        assert!(image.rgba.chunks_exact(4).all(|p| p
+            .iter()
+            .zip(expected[&image.address])
+            .all(|(a, b)| a.abs_diff(b) <= 1)));
+    }
+    eprintln!("BGRA and BGRA sRGB texture views: checked=2048");
 }

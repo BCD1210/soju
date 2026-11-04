@@ -25,8 +25,10 @@ pub struct Backend {
     commands: Vec<String>,
     files: Vec<Vec<u8>>,
     targets: BTreeMap<String, Target>,
+    depth_targets: BTreeMap<String, Target>,
     worker: Option<crate::worker::Worker>,
     serial: u64,
+    queries: BTreeMap<String, (u64, u64, u64)>,
 }
 #[derive(Clone)]
 struct Target {
@@ -37,6 +39,7 @@ struct Target {
     pitch: bool,
     generation: u64,
     memory_identity: u64,
+    format: soju_switch_texture::format::Format,
 }
 #[derive(Debug)]
 pub struct Readback {
@@ -67,14 +70,32 @@ impl Target {
             width: self.width as usize,
             height: self.height as usize,
             depth: 1,
-            bytes_per_block: 4,
+            bytes_per_block: self.format.info().bytes,
             block_height_log2: self.block_height,
             block_depth_log2: 0,
         }
     }
+    fn writeback(&self, bytes: &[u8], memory: &Memory) -> Result<Vec<u8>> {
+        require(
+            bytes.len() == self.width as usize * self.height as usize * self.format.info().bytes,
+            "invalid attachment readback size",
+        )?;
+        if self.pitch {
+            return Ok(bytes.to_vec());
+        }
+        let surface = self.surface();
+        let mut data = memory.read(self.address, self.size())?.to_vec();
+        let row = self.width as usize * self.format.info().bytes;
+        for y in 0..self.height as usize {
+            for x in 0..row {
+                data[surface.offset(x, y, 0)] = bytes[y * row + x];
+            }
+        }
+        Ok(data)
+    }
     fn size(&self) -> usize {
         if self.pitch {
-            self.width as usize * self.height as usize * 4
+            self.width as usize * self.height as usize * self.format.info().bytes
         } else {
             self.surface().size()
         }
@@ -126,13 +147,38 @@ impl Backend {
     }
     /// Resolve immediately at each action, before later CPU/transfer writes.
     pub fn prepare(&mut self, s: &Snapshot, memory: &Memory) -> Result<()> {
+        match s.action {
+            Action::ResetOcclusion => {
+                self.commands.push("{\"query_reset\":true}".into());
+                return Ok(());
+            }
+            Action::ReportOcclusion { address } => {
+                let generation = memory.generation(address, 4)?;
+                let key = format!("{}-{address:x}", memory.identity);
+                self.commands
+                    .push(format!("{{\"query_report\":{}}}", quote(&key)));
+                self.queries
+                    .insert(key, (address, generation, memory.identity));
+                return Ok(());
+            }
+            _ => {}
+        }
         let r = &s.registers;
         for &offset in r.0.keys() {
-            let supported = matches!(offset,0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1538|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
+            let supported = matches!(offset,0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
             require(
                 supported,
                 &format!("Metal state method {offset:#x} is not implemented"),
             )?;
+        }
+        if let Some(&mode) = r.0.get(&0x1558) {
+            require(
+                mode <= 1,
+                "memory conditional rendering mode not implemented",
+            )?;
+            if mode == 0 {
+                return Ok(());
+            }
         }
         let attachment_count = r.get(0x121c) & 15;
         require(
@@ -146,10 +192,8 @@ impl Backend {
             let index = (r.get(0x121c) >> (4 + slot * 3)) & 7;
             require(selected.insert(index), "duplicate CT_SELECT target")?;
             let base = 0x800 + index * 64;
-            require(
-                r.get(base + 0x10) == 0xd5,
-                "render target requires A8B8G8R8 UNORM",
-            )?;
+            let format = crate::format::color(r.get(base + 0x10))?;
+            let bytes_per_pixel = format.info().bytes as u32;
             require(
                 r.get(base + 0x18) == 1 && r.get(base + 0x20) == 0 && r.get(base + 0x1c) == 0,
                 "layered render target unsupported",
@@ -162,10 +206,10 @@ impl Backend {
             let pitch = layout & 0x1000 != 0;
             let width = if pitch {
                 require(
-                    r.get(base + 0x08).is_multiple_of(4),
+                    r.get(base + 0x08).is_multiple_of(bytes_per_pixel),
                     "RGBA target pitch alignment",
                 )?;
-                r.get(base + 0x08) / 4
+                r.get(base + 0x08) / bytes_per_pixel
             } else {
                 r.get(base + 0x08)
             };
@@ -182,13 +226,22 @@ impl Backend {
                 pitch,
                 generation: 0,
                 memory_identity: memory.identity,
+                format,
             };
             let key = format!(
-                "{}-{:x}-d5-{width}-{height}-{layout}",
-                memory.identity, target.address
+                "{}-{:x}-{}-{width}-{height}-{layout}",
+                memory.identity,
+                target.address,
+                format.info().metal
             );
+            require(!batch_targets.contains_key(&key), "aliased MRT attachments")?;
             let initial = memory.read(target.address, target.size())?;
-            for (other_key, other) in self.targets.iter().chain(batch_targets.iter()) {
+            for (other_key, other) in self
+                .targets
+                .iter()
+                .chain(batch_targets.iter())
+                .chain(self.depth_targets.iter())
+            {
                 require(
                     other_key == &key
                         || target.address >= other.address + other.size() as u64
@@ -201,10 +254,23 @@ impl Backend {
             } else {
                 target.surface().deswizzle(initial).map_err(io)?
             };
+            let initial = if format == soju_switch_texture::format::Format::A1Bgr5Unorm {
+                initial
+                    .chunks_exact(2)
+                    .flat_map(|p| {
+                        u16::from_le_bytes([p[0], p[1]])
+                            .rotate_left(1)
+                            .to_le_bytes()
+                    })
+                    .collect()
+            } else {
+                initial
+            };
             let file = self.file(initial);
             let generation = memory.generation(target.address, target.size())?;
             target.generation = generation;
-            let target_json=format!("{{\"key\":{},\"width\":{width},\"height\":{height},\"generation\":{generation},\"file\":{file}}}",quote(&key));
+            let metal = format.info().metal;
+            let target_json=format!("{{\"key\":{},\"width\":{width},\"height\":{height},\"generation\":{generation},\"metal\":{metal},\"bytes\":{bytes_per_pixel},\"file\":{file}}}",quote(&key));
             target_jsons.push(target_json);
             batch_targets.insert(key, target);
         }
@@ -216,33 +282,87 @@ impl Backend {
                 .all(|t| t.width == width && t.height == height),
             "MRT size mismatch",
         )?;
+        let mut pending_depth = None;
         let depth = if r.get(0x1538) != 0 {
             require(
-                r.get(0x1538) == 1 && matches!(r.get(0xfe8), 0x0a | 0x19),
+                r.get(0x1538) == 1 && matches!(r.get(0xfe8), 0x0a | 0x19 | 0x13 | 0x14),
                 "unsupported depth format",
             )?;
             require(
                 r.get(0x1228) == width
                     && r.get(0x122c) == height
                     && matches!(r.get(0x1230), 1 | 0x10001)
-                    && r.get(0xfec) == 0
+                    && r.get(0xfec) & !0x70 == 0
+                    && ((r.get(0xfec) >> 4) & 7) <= 5
                     && r.get(0xff0) == 0,
                 "depth target layout mismatch",
             )?;
-            format!(
-                "{{\"key\":{},\"format\":{},\"generation\":{}}}",
-                quote(&format!(
-                    "{}-{:x}-{width}-{height}-{}",
-                    memory.identity,
-                    r.address(0xfe0),
-                    r.get(0xfe8)
-                )),
+            use soju_switch_texture::format::Format;
+            let format = match r.get(0xfe8) {
+                0x13 => Format::Depth16Unorm,
+                0x14 => Format::Depth24UnormStencil8,
+                0x19 => Format::Depth32FloatStencil8,
+                _ => Format::Depth32Float,
+            };
+            let mut t = Target {
+                address: r.address(0xfe0),
+                width,
+                height,
+                block_height: (r.get(0xfec) >> 4) & 7,
+                pitch: false,
+                generation: 0,
+                memory_identity: memory.identity,
+                format,
+            };
+            t.generation = memory.generation(t.address, t.size())?;
+            let key = format!(
+                "{}-{:x}-{width}-{height}-{}-{}",
+                memory.identity,
+                t.address,
                 r.get(0xfe8),
-                memory.generation(
-                    r.address(0xfe0),
-                    width as usize * height as usize * if r.get(0xfe8) == 0x19 { 8 } else { 4 }
-                )?
-            )
+                t.block_height
+            );
+            for (other_key, other) in self
+                .targets
+                .iter()
+                .chain(batch_targets.iter())
+                .chain(self.depth_targets.iter())
+            {
+                require(
+                    other_key == &key
+                        || t.address >= other.address + other.size() as u64
+                        || other.address >= t.address + t.size() as u64,
+                    "overlapping attachment views require readback",
+                )?;
+            }
+            let initial = t
+                .surface()
+                .deswizzle(memory.read(t.address, t.size())?)
+                .map_err(io)?;
+            let mut z = Vec::new();
+            let mut stencil = Vec::new();
+            for p in initial.chunks_exact(format.info().bytes) {
+                match format {
+                    Format::Depth16Unorm => z.extend(&p[..2]),
+                    Format::Depth24UnormStencil8 => {
+                        z.extend(
+                            ((u32::from_le_bytes(p.try_into().unwrap()) >> 8) as f32 / 16777215.)
+                                .to_le_bytes(),
+                        );
+                        stencil.push(p[0]);
+                    }
+                    Format::Depth32FloatStencil8 => {
+                        z.extend(&p[..4]);
+                        stencil.push(p[4]);
+                    }
+                    _ => z.extend(&p[..4]),
+                }
+            }
+            let zfile = self.file(z);
+            let sfile = self.file(stencil);
+            let json=format!("{{\"key\":{},\"format\":{},\"generation\":{},\"zfile\":{zfile},\"sfile\":{sfile}}}",quote(&key),r.get(0xfe8),t.generation);
+            pending_depth = Some((key, t));
+            json
         } else {
             require(
                 r.get(0x12cc) == 0 && r.get(0x12e8) == 0 && r.get(0x1380) == 0,
@@ -260,6 +380,7 @@ impl Backend {
             target_jsons.join(",")
         );
         match s.action {
+            Action::ResetOcclusion | Action::ReportOcclusion { .. } => unreachable!(),
             Action::Clear(mask) => {
                 require(
                     mask != 0
@@ -273,7 +394,7 @@ impl Backend {
                     "zeta clear without target",
                 )?;
                 require(
-                    mask & 2 == 0 || r.get(0xfe8) == 0x19,
+                    mask & 2 == 0 || matches!(r.get(0xfe8), 0x19 | 0x14),
                     "stencil clear needs stencil target",
                 )?;
                 write!(command, ",\"clear\":{mask}").unwrap();
@@ -285,10 +406,7 @@ impl Backend {
                 indexed,
                 instance,
             } => {
-                require(
-                    r.get(0xd7c) == 1,
-                    "only zero-to-positive-W clip depth is implemented",
-                )?;
+                require(r.get(0xd7c) <= 1, "invalid clip depth convention")?;
                 require(count > 0 && count <= 1_000_000, "invalid draw count")?;
                 for stage in [0, 2, 3, 4] {
                     require(
@@ -307,8 +425,49 @@ impl Backend {
                 let fa = base
                     .checked_add(u64::from(r.get(0x2144)))
                     .ok_or_else(|| Error("shader address overflow".into()))?;
-                let (vs, vh, vkey) = self.shader(va, memory, Stage::Vertex)?;
-                let (fs, fh, fkey) = self.shader(fa, memory, Stage::Fragment)?;
+                let (mut vs, vh, vkey) = self.shader(va, memory, Stage::Vertex)?;
+                let (mut fs, fh, fkey) = self.shader(fa, memory, Stage::Fragment)?;
+                for shader in [&mut vs, &mut fs] {
+                    if !shader.uses_texture_table {
+                        continue;
+                    }
+                    let mut kinds = BTreeSet::new();
+                    for binding in &shader.texture_bindings {
+                        require(
+                            binding.texture_index <= r.get(0x157c)
+                                && binding.sampler_index <= r.get(0x1564),
+                            "texture pool index out of bounds",
+                        )?;
+                        let tic_address = r
+                            .address(0x1574)
+                            .checked_add(u64::from(binding.texture_index) * 32)
+                            .ok_or_else(|| Error("TIC address overflow".into()))?;
+                        let tic = Tic::parse(memory.read(tic_address, 32)?)?;
+                        let integer = tic.format() == soju_switch_texture::format::Format::R32Uint;
+                        kinds.insert(integer);
+                        if integer {
+                            let sampler_address = r
+                                .address(0x155c)
+                                .checked_add(u64::from(binding.sampler_index) * 32)
+                                .ok_or_else(|| Error("TSC address overflow".into()))?;
+                            let sampler = Tsc::parse(memory.read(sampler_address, 32)?)?;
+                            require(
+                                sampler.min_filter == 1 && sampler.mag_filter == 1,
+                                "integer sampling requires nearest filtering",
+                            )?;
+                        }
+                    }
+                    require(
+                        kinds.len() <= 1,
+                        "mixed integer/float texture tables unsupported",
+                    )?;
+                    if kinds.contains(&true) {
+                        shader.source = shader
+                            .source
+                            .replace("texture2d<float>", "texture2d<uint>")
+                            .replace("float4 texel =", "uint4 texel =");
+                    }
+                }
                 require(
                     fh.color_masks[..attachment_count as usize]
                         .iter()
@@ -318,9 +477,81 @@ impl Backend {
                             .all(|x| *x == 0),
                     "fragment output target mismatch",
                 )?;
+                for slot in 0..attachment_count {
+                    let physical = (r.get(0x121c) >> (4 + slot * 3)) & 7;
+                    if r.get(0x810 + physical * 64) == 0xe4 {
+                        require(
+                            r.get(0x1360 + physical * 4) == 0,
+                            "integer attachment blending unsupported",
+                        )?;
+                        fs.source = fs.source.replace(
+                            &format!("float4 color{slot}"),
+                            &format!("uint4 color{slot}"),
+                        );
+                        for c in 0..4 {
+                            fs.source = fs.source.replace(
+                                &format!("out.color{slot}[{c}] = as_type<float>"),
+                                &format!("out.color{slot}[{c}] = as_type<uint>"),
+                            );
+                        }
+                    }
+                }
+                let mut finish = String::new();
+                for (axis, reg) in [("x", 0xa00), ("y", 0xa04)] {
+                    if r.float(reg) < 0. {
+                        writeln!(finish, "out.position.{axis} = -out.position.{axis};").unwrap();
+                    }
+                }
+                if r.get(0xd7c) == 0 {
+                    finish.push_str("out.position.z = (out.position.z + out.position.w) * 0.5f;\n");
+                }
+                require(
+                    r.get(0x1510) <= 255 && r.get(0x1940) == 0,
+                    "unsupported clip/cull mask",
+                )?;
+                let has_clip = vh
+                    .outputs
+                    .iter()
+                    .any(|a| (0x2c0..0x2e0).contains(&a.address));
+                for i in 0..8 {
+                    if r.get(0x1510) & (1 << i) != 0 {
+                        require(
+                            vh.outputs.iter().any(|a| a.address == 0x2c0 + i * 4),
+                            "enabled clip distance missing from shader",
+                        )?;
+                    } else if has_clip {
+                        writeln!(finish, "out.clip_distance[{i}]=1.0f;").unwrap();
+                    }
+                }
+                require(
+                    r.get(0x1910) == 0,
+                    "shader-selected point size slot unsupported",
+                )?;
+                if topology == 0 {
+                    let size = r.float(0x1518);
+                    require(size.is_finite() && size > 0., "invalid point size")?;
+                    if !vh.outputs.iter().any(|a| a.address == 0x6c) {
+                        vs.source = vs.source.replace(
+                            "float4 position [[position]];",
+                            "float4 position [[position]]; float point_size [[point_size]];",
+                        );
+                    }
+                    writeln!(finish, "out.point_size={size:?}f;").unwrap();
+                }
+                finish.push_str("return out;");
+                let entry = vs
+                    .source
+                    .find("vertex StageOut soju_vertex")
+                    .ok_or_else(|| Error("vertex entry missing".into()))?;
+                vs.source = format!(
+                    "{}{}",
+                    &vs.source[..entry],
+                    vs.source[entry..].replace("return out;", &finish)
+                );
                 let vfile = self.file(vs.source.as_bytes().to_vec());
                 let ffile = self.file(fs.source.as_bytes().to_vec());
-                let mut cache_state = Vec::new();
+                let mut cache_state = vs.source.as_bytes().to_vec();
+                cache_state.extend(fs.source.as_bytes());
                 // Canonical descriptor state: absent registers and explicit zero agree.
                 // Addresses, draw arguments, viewports and clears are dynamic state.
                 for a in (0..=0x2000).step_by(4) {
@@ -360,6 +591,7 @@ impl Backend {
                     .get(0x1438)
                     .checked_add(instance)
                     .ok_or_else(|| Error("base instance overflow".into()))?;
+                let mut segments = Vec::new();
                 let (index_file, min_vertex, max_vertex, index_size) = if indexed {
                     let size = match r.get(0x17d8) {
                         0 => 1,
@@ -387,8 +619,26 @@ impl Backend {
                             u32::from_le_bytes(word)
                         })
                         .collect::<Vec<_>>();
-                    let min = i64::from(*indices.iter().min().unwrap()) + i64::from(base_vertex);
-                    let max = i64::from(*indices.iter().max().unwrap()) + i64::from(base_vertex);
+                    require(r.get(0x1644) <= 1, "invalid primitive restart enable")?;
+                    let restart = r.get(0x1644) == 1;
+                    let marker = r.get(0x1648);
+                    let mut valid = Vec::new();
+                    let mut start = 0;
+                    for (i, &v) in indices.iter().enumerate() {
+                        if restart && v == marker {
+                            if i > start {
+                                segments.push((start, i - start));
+                            }
+                            start = i + 1;
+                        } else {
+                            valid.push(v);
+                        }
+                    }
+                    if start < indices.len() {
+                        segments.push((start, indices.len() - start));
+                    }
+                    let min = i64::from(*valid.iter().min().unwrap_or(&0)) + i64::from(base_vertex);
+                    let max = i64::from(*valid.iter().max().unwrap_or(&0)) + i64::from(base_vertex);
                     require(
                         min >= 0 && max <= u32::MAX as i64,
                         "base vertex outside range",
@@ -419,6 +669,16 @@ impl Backend {
                         0,
                     )
                 };
+                write!(
+                    command,
+                    ",\"segments\":[{}]",
+                    segments
+                        .iter()
+                        .map(|(start, count)| format!("{{\"start\":{start},\"count\":{count}}}"))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )
+                .unwrap();
                 let _ = min_vertex;
                 let slots = vh
                     .inputs
@@ -531,14 +791,71 @@ impl Backend {
                             .address
                             .checked_add(tic.surface().size() as u64)
                             .ok_or_else(|| Error("texture range overflow".into()))?;
-                        for rendered in self.targets.values().chain(batch_targets.values()) {
+                        for rendered in self
+                            .targets
+                            .values()
+                            .chain(batch_targets.values())
+                            .chain(self.depth_targets.values())
+                            .chain(pending_depth.iter().map(|(_, t)| t))
+                        {
                             require(
                                 tic.address >= rendered.address + rendered.size() as u64
                                     || rendered.address >= texture_end,
                                 "render-to-texture feedback requires execute before prepare",
                             )?;
                         }
-                        let data = self.textures.upload(&tic, memory)?;
+                        let mut data = self.textures.upload(&tic, memory)?;
+                        let info = tic.format().info();
+                        let mut metal = info.metal;
+                        let mut row = tic.surface().width * info.bytes;
+                        use soju_switch_texture::format::Format;
+                        if matches!(
+                            tic.format(),
+                            Format::Depth16Unorm
+                                | Format::Depth32Float
+                                | Format::Depth24UnormStencil8
+                                | Format::Depth32FloatStencil8
+                        ) {
+                            data = data
+                                .chunks_exact(info.bytes)
+                                .flat_map(|p| {
+                                    let z = match tic.format() {
+                                        Format::Depth16Unorm => {
+                                            u16::from_le_bytes([p[0], p[1]]) as f32 / 65535.
+                                        }
+                                        Format::Depth24UnormStencil8 => {
+                                            (u32::from_le_bytes(p[..4].try_into().unwrap()) >> 8)
+                                                as f32
+                                                / 16777215.
+                                        }
+                                        _ => f32::from_le_bytes(p[..4].try_into().unwrap()),
+                                    };
+                                    z.to_le_bytes()
+                                })
+                                .collect();
+                            metal = 55;
+                            row = tic.width as usize * 4;
+                        }
+                        let mut swizzle = tic.swizzle();
+                        if matches!(tic.format(), Format::B5G6R5Unorm | Format::A1Bgr5Unorm) {
+                            for c in &mut swizzle {
+                                *c = match *c {
+                                    2 => 4,
+                                    4 => 2,
+                                    v => v,
+                                };
+                            }
+                            if tic.format() == Format::A1Bgr5Unorm {
+                                data = data
+                                    .chunks_exact(2)
+                                    .flat_map(|p| {
+                                        u16::from_le_bytes([p[0], p[1]])
+                                            .rotate_left(1)
+                                            .to_le_bytes()
+                                    })
+                                    .collect();
+                            }
+                        }
                         let key = Key::new(Inputs {
                             program: &data,
                             header: &tic
@@ -550,7 +867,7 @@ impl Backend {
                         });
                         let key = key.0.iter().map(|v| format!("{v:02x}")).collect::<String>();
                         let file = self.file(data);
-                        textures.push(format!("{{\"stage\":{stage},\"count\":{count},\"image\":{index},\"key\":{},\"width\":{},\"height\":{},\"bc1\":{},\"file\":{file}}}",quote(&key),tic.width,tic.height,tic.bc1));
+                        textures.push(format!("{{\"stage\":{stage},\"count\":{count},\"image\":{index},\"key\":{},\"width\":{},\"height\":{},\"metal\":{},\"row\":{},\"rows\":{},\"swizzle\":{:?},\"file\":{file}}}",quote(&key),tic.width,tic.height,metal,row,tic.surface().height,swizzle));
                     }
                     for index in samplers {
                         require(index <= r.get(0x1564), "TSC pool index out of bounds")?;
@@ -568,12 +885,14 @@ impl Backend {
         command.push('}');
         self.commands.push(command);
         self.targets.extend(batch_targets);
+        if let Some((key, t)) = pending_depth {
+            self.depth_targets.insert(key, t);
+        }
         Ok(())
     }
     /// Queue a captured batch on the persistent GPU thread. No image readback occurs.
     /// The caller must synchronize before CPU/transfer access to pending targets.
     pub fn submit(&mut self, directory: &Path) -> Result<crate::worker::Fence> {
-        require(!self.commands.is_empty(), "empty command batch")?;
         self.serial += 1;
         let directory = directory.join(format!("batch-{}", self.serial));
         std::fs::create_dir_all(&directory).map_err(io)?;
@@ -599,17 +918,23 @@ impl Backend {
         Ok(fence)
     }
     /// Explicit CPU visibility boundary. Waits for queued work and writes pending
-    /// color targets to guest memory. Fence waits alone never copy image bytes.
+    /// color/depth targets and query results to guest memory. Fence waits alone never copy image bytes.
     pub fn readback(&mut self, directory: &Path, memory: &mut Memory) -> Result<Report> {
         require(
             self.commands.is_empty(),
             "submit prepared commands before readback",
         )?;
-        for t in self.targets.values() {
+        for t in self.targets.values().chain(self.depth_targets.values()) {
             require(
                 memory.identity == t.memory_identity
                     && memory.generation(t.address, t.size())? == t.generation,
                 "CPU write overlaps pending target; synchronize before writing",
+            )?;
+        }
+        for &(address, generation, identity) in self.queries.values() {
+            require(
+                memory.identity == identity && memory.generation(address, 4)? == generation,
+                "CPU write overlaps pending query",
             )?;
         }
         std::fs::create_dir_all(directory).map_err(io)?;
@@ -628,23 +953,74 @@ impl Backend {
         let mut writes = Vec::new();
         for (key, t) in &self.targets {
             let bytes = std::fs::read(directory.join(format!("{key}.rgba"))).map_err(io)?;
+            let bytes = if t.format == soju_switch_texture::format::Format::A1Bgr5Unorm {
+                bytes
+                    .chunks_exact(2)
+                    .flat_map(|p| {
+                        u16::from_le_bytes([p[0], p[1]])
+                            .rotate_right(1)
+                            .to_le_bytes()
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                bytes
+            };
             require(
-                bytes.len() == t.width as usize * t.height as usize * 4,
+                bytes.len() == t.width as usize * t.height as usize * t.format.info().bytes,
                 "invalid readback length",
             )?;
-            let data = if t.pitch {
-                bytes.clone()
-            } else {
-                t.surface().swizzle(&bytes).map_err(io)?
-            };
+            let data = t.writeback(&bytes, memory)?;
             memory.read(t.address, data.len())?;
             writes.push((t.address, data));
             images.push(Readback {
                 address: t.address,
                 width: t.width,
                 height: t.height,
-                rgba: bytes,
+                rgba: crate::format::rgba(t.format, &bytes),
             });
+        }
+        for (key, t) in &self.depth_targets {
+            use soju_switch_texture::format::Format;
+            let z = std::fs::read(directory.join(format!("{key}.depth"))).map_err(io)?;
+            let stencil = std::fs::read(directory.join(format!("{key}.stencil"))).map_err(io)?;
+            let pixels = t.width as usize * t.height as usize;
+            let depth_bytes = if t.format == Format::Depth16Unorm {
+                2
+            } else {
+                4
+            };
+            require(
+                z.len() == pixels * depth_bytes && (stencil.is_empty() || stencil.len() == pixels),
+                "invalid depth readback",
+            )?;
+            let mut raw = t
+                .surface()
+                .deswizzle(memory.read(t.address, t.size())?)
+                .map_err(io)?;
+            for (i, p) in raw.chunks_exact_mut(t.format.info().bytes).enumerate() {
+                let value = &z[i * depth_bytes..(i + 1) * depth_bytes];
+                match t.format {
+                    Format::Depth24UnormStencil8 => {
+                        require(stencil.len() == pixels, "missing stencil bytes")?;
+                        let f = f32::from_le_bytes(value.try_into().unwrap());
+                        let v = ((f.clamp(0., 1.) * 16777215.).round() as u32) << 8
+                            | u32::from(stencil[i]);
+                        p.copy_from_slice(&v.to_le_bytes());
+                    }
+                    Format::Depth32FloatStencil8 => {
+                        require(stencil.len() == pixels, "missing stencil bytes")?;
+                        p[..4].copy_from_slice(value);
+                        p[4] = stencil[i];
+                    }
+                    _ => p.copy_from_slice(value),
+                }
+            }
+            writes.push((t.address, t.writeback(&raw, memory)?));
+        }
+        for (key, &(address, _, _)) in &self.queries {
+            let data = std::fs::read(directory.join(format!("{key}.query"))).map_err(io)?;
+            require(data.len() == 4, "invalid query result")?;
+            writes.push((address, data));
         }
         for (address, data) in writes {
             memory.write(address, &data)?;
@@ -652,6 +1028,8 @@ impl Backend {
         self.commands.clear();
         self.files.clear();
         self.targets.clear();
+        self.depth_targets.clear();
+        self.queries.clear();
         Ok(Report {
             images,
             diagnostics,

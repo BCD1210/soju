@@ -162,3 +162,7 @@ ISA facts are derived from pinned MIT envytools, with its notice in
 [LICENSE.envytools](LICENSE.envytools). Importing the declarative table is an
 optional offline step guarded by the pinned file SHA-256. Implementation and
 hand-assembled fixtures are original.
+
+Vertex output maps now include point size (0x6c) and eight clip distances
+(0x2c0–0x2dc), from the pinned envytools SPH source. The GPU backend supplies
+clip enable and raster point-size state; its image suite exercises a clip plane.
