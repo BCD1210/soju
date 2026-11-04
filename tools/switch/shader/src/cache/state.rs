@@ -9,6 +9,9 @@ impl Key {
     /// in `render_state`; these cannot be inferred from shader words.
     pub fn for_shader(inputs: Inputs<'_>, options: &Options) -> Result<Self> {
         let mut state = b"Soju MSL ABI 2\0metal3.0\0-fno-fast-math\0-ffp-contract=off\0".to_vec();
+        for size in options.constant_buffer_bytes {
+            state.extend(size.to_le_bytes());
+        }
         state.push(options.texture_buffer);
         state.extend(options.texture_count.to_le_bytes());
         match options.global_memory {
@@ -65,6 +68,9 @@ mod tests {
         let original = Options::default();
         let key = Key::for_shader(inputs, &original).unwrap();
         let mut changed = original.clone();
+        changed.constant_buffer_bytes[1] = 96;
+        assert_ne!(key, Key::for_shader(inputs, &changed).unwrap());
+        changed = original.clone();
         changed.texture_buffer = 29;
         assert_ne!(key, Key::for_shader(inputs, &changed).unwrap());
         changed = original.clone();

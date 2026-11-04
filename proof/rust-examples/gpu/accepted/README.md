@@ -129,3 +129,23 @@ when the first GPU frame was captured. Wall-time warmup could also select a late
 frame. The capture harness now removes both timing dependencies. No sampling
 precision adjustment or tolerance increase was needed; sharp texel checks now
 pass as well. Normal desktop clocks and scheduling remain unchanged.
+
+## deko_basic: vertex-ID triangle
+
+`deko-basic.png` checks 912,978 pixels from the original 1280×720 sample:
+source vertex positions and RGB barycentric interpolation, with the source
+(.125, .294, .478, 1) background. Edge exclusion and channel tolerance two
+match Example02. It requires a completed native three-vertex draw.
+
+SPH input 0x2fc and ALD use Metal's integer vertex ID. Indexed scalar U32 LDC
+uses the submitted constant-buffer byte length, a wide address calculation,
+and alignment/range guards; invalid accesses return zero without host reads.
+Lengths participate in shader cache identity. A later shorter binding is rejected.
+Other LDC widths and addressing modes remain rejected.
+
+- `deko-basic.png` SHA-256: `5809f3f22178cd7dc570c12e24d516fd5ac6454a58deee029ca2789bebe8aeb7`
+- `main.c` SHA-256: `8f2a341b7f5f64e16a5cda941c5f6ad7615f0abf865683a1863bab63d3d44cf1`
+- `triangle_vsh.glsl` SHA-256: `fc443ee5de622649102a3e9656bda4677f0500ac2e30689061f3cae9b297dbbe`
+- `graphics__deko3d__deko_basic.nro` SHA-256: `79cfe7d71b644cc257dc2a23c488bca92984979fc5e0e3ca42c39b143b646e7f`
+
+Run all six scenes with `bash scripts/test-switch-gpu-accepted.sh`.

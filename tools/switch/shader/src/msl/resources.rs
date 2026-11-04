@@ -55,6 +55,12 @@ impl Emitter<'_> {
                 .find(|a| a.address == address)
                 .ok_or_else(|| x.error(format!("attribute 0x{address:x} absent from SPH")))?;
             let r = (u32::from(first) + c) as u8;
+            if !store && self.header.stage == Stage::Vertex && address == 0x2fc {
+                if r != 255 {
+                    writeln!(s, "r[{r}] = soju_vertex_id;").unwrap();
+                }
+                continue;
+            }
             if store {
                 let field = if address == 0x6c {
                     "point_size".into()

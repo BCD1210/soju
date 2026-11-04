@@ -217,10 +217,25 @@ impl Emitter<'_> {
                 let Some(Operand::Constant { slot, base, offset }) = x.operands.get(1) else {
                     return Err(x.error("invalid LDC operand"));
                 };
-                if *base != 255 || offset % 4 != 0 || *offset < 0 {
-                    return Err(x.error("indexed/unaligned LDC not supported"));
+                if offset % 4 != 0
+                    || *offset < 0
+                    || bits(x.raw, 44, 2) != 0
+                    || bits(x.raw, 48, 3) != 4
+                {
+                    return Err(x.error("LDC requires aligned scalar U32 default mode"));
                 }
-                dst(format!("cb{slot}[{}]", offset / 4))
+                if *base == 255 {
+                    return dst(format!("cb{slot}[{}]", offset / 4));
+                }
+                let bytes = self.options.constant_buffer_bytes[*slot as usize];
+                if bytes < 4 {
+                    return Err(x.error("indexed LDC requires bound byte length"));
+                }
+                let address = format!("(ulong({}) + {}ul)", reg(*base), offset);
+                dst(format!(
+                    "(({address} & 3ul)==0ul && {address}<={}ul ? cb{slot}[{address}/4ul] : 0u)",
+                    bytes - 4
+                ))
             }
             ALD | AST | IPA => self.attribute(x),
             LDL | STL => self.local(x),

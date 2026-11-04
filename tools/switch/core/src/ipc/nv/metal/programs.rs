@@ -93,6 +93,11 @@ pub(super) fn register(
                 address,
                 size,
                 Options {
+                    constant_buffer_bytes: snapshot
+                        .constants
+                        .get(registers.get(group_register) as usize)
+                        .map(|group| group.map(|binding| binding.map_or(0, |b| b.size)))
+                        .ok_or(Error::Malformed("constant group"))?,
                     texture_count: 16,
                     texture_bindings,
                     ..Options::default()

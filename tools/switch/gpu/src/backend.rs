@@ -797,6 +797,13 @@ impl Backend {
                         let cb = bindings[group][*slot as usize]
                             .ok_or_else(|| Error(format!("unbound cbuf {stage}:{slot}")))?;
                         require(cb.size > 0, "empty constant buffer")?;
+                        let address = if stage == 0 { va } else { fa };
+                        let declared =
+                            self.programs[&address].1.constant_buffer_bytes[*slot as usize];
+                        require(
+                            declared == 0 || declared <= cb.size,
+                            "constant buffer shrank below compiled bounds",
+                        )?;
                         let offset = uniform_offset(
                             &mut self.constant_upload,
                             &mut self.uniform_offsets,
@@ -933,6 +940,7 @@ impl Backend {
                 let slots = vh
                     .inputs
                     .iter()
+                    .filter(|a| a.address != 0x2fc)
                     .map(|a| (a.address / 16 - 8) as u32)
                     .collect::<BTreeSet<_>>();
                 let mut attrs = Vec::new();

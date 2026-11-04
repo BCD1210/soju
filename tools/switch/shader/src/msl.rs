@@ -15,6 +15,8 @@ pub struct GlobalMemory {
 
 #[derive(Debug, Clone)]
 pub struct Options {
+    /// Bound byte lengths required for checked dynamic constant loads.
+    pub constant_buffer_bytes: [u32; 32],
     /// Explicit host-resolved handles; empty retains the legacy paired-index ABI.
     pub texture_bindings: Vec<crate::texture::Binding>,
     pub global_memory: Option<GlobalMemory>,
@@ -26,6 +28,7 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
+            constant_buffer_bytes: [0; 32],
             texture_bindings: Vec::new(),
             global_memory: None,
             texture_buffer: 30,
@@ -86,7 +89,12 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
     s.push_str(HELPERS);
     s.push_str("struct StageIn {\n");
     if vertex {
-        let slots: BTreeSet<_> = header.inputs.iter().map(|a| a.address / 16).collect();
+        let slots: BTreeSet<_> = header
+            .inputs
+            .iter()
+            .filter(|a| a.address != 0x2fc)
+            .map(|a| a.address / 16)
+            .collect();
         for slot in slots {
             if !(8..39).contains(&slot) {
                 return Err(Error(format!(
@@ -184,6 +192,9 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
         if vertex { "vertex" } else { "fragment" }
     )
     .unwrap();
+    if vertex && header.inputs.iter().any(|a| a.address == 0x2fc) {
+        s.push_str(", uint soju_vertex_id [[vertex_id]]");
+    }
     for slot in &cb {
         write!(s, ", constant uint* cb{slot} [[buffer({slot})]]").unwrap();
     }

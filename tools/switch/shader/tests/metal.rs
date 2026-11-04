@@ -178,3 +178,33 @@ fn comparisons_and_predicate_logic() {
     assert!(s.contains("isnan("));
     assert!(s.contains("bool yes"));
 }
+
+#[test]
+fn vertex_id_is_integer_builtin_without_vertex_buffer() {
+    let mut h = vertex_header();
+    h[6] = 0;
+    h[10] = 1 << 31;
+    let mut a = Assembler::default();
+    a.emit(attr(false, 0x2fc, 0, 1));
+    a.emit(attr(true, 0x70, 0, 1));
+    a.emit(EXIT);
+    let s = compile("vertex_id", &a.finish(h));
+    assert!(s.contains("uint soju_vertex_id [[vertex_id]]"));
+    assert!(s.contains("r[0] = soju_vertex_id;"));
+    assert!(!s.contains("[[attribute("));
+}
+#[test]
+fn indexed_constant_load_requires_bounds_and_checks_alignment_and_overflow() {
+    let mut a = Assembler::default();
+    a.emit(0xef94001003070700);
+    a.emit(EXIT);
+    let binary = a.finish(vertex_header());
+    assert!(translate(&binary, &Options::default()).is_err());
+    let mut options = Options::default();
+    options.constant_buffer_bytes[1] = 96;
+    let source = translate(&binary, &options).unwrap().source;
+    assert!(source.contains("ulong(r[7]) + 48ul"));
+    assert!(source.contains("& 3ul)==0ul"));
+    assert!(source.contains("<=92ul"));
+    assert!(source.contains(": 0u"));
+}
