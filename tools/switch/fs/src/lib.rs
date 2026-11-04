@@ -8,8 +8,12 @@ pub mod crypto;
 pub mod error;
 pub mod hfs0;
 pub mod keys;
+pub mod lz4;
 pub mod nca;
+pub mod npdm;
+pub mod nso;
 pub mod pfs0;
+pub mod romfs;
 pub mod xci;
 
 pub use error::{Error, Result};

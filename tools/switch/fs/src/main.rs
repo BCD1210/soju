@@ -33,13 +33,24 @@ fn describe_nca(s: &dyn Storage, keys: &KeySet) -> String {
                 .map(|x| {
                     let files = if x.fs_type == soju_switch_fs::nca::FsType::PartitionFs {
                         match n.pfs0_files(x.index) {
-                            Ok(f) => format!(",\"files\":[{}]", f.iter().map(|e| json_str(&e.name)).collect::<Vec<_>>().join(",")),
+                            Ok(f) => {
+                                let mut extra = String::new();
+                                if let (Some(meta), Ok(sec)) = (f.iter().find(|e| e.name == "main.npdm"), n.section(x.index)) {
+                                    if let Ok(np) = sec.read_vec(meta.offset, meta.size.min(1 << 20) as usize).and_then(|b| soju_switch_fs::npdm::parse(&b)) {
+                                        extra = format!(",\"npdm\":{{\"name\":{},\"program_id\":\"{:016x}\",\"is_64bit\":{}}}", json_str(&np.name), np.program_id, np.is_64bit);
+                                    }
+                                }
+                                format!(",\"files\":[{}]{}", f.iter().map(|e| json_str(&e.name)).collect::<Vec<_>>().join(","), extra)
+                            }
                             Err(e) => format!(",\"error\":{}", json_str(&e.to_string())),
                         }
                     } else {
-                        String::new()
+                        match n.section(x.index).and_then(|s| soju_switch_fs::romfs::list(&s)) {
+                            Ok(f) => format!(",\"romfs_files\":{}", f.len()),
+                            Err(e) => format!(",\"error\":{}", json_str(&e.to_string())),
+                        }
                     };
-                    format!("{{\"index\":{},\"type\":\"{}\",\"size\":{}{}}}", x.index, if files.is_empty() { "romfs" } else { "pfs0" }, x.data_size, files)
+                    format!("{{\"index\":{},\"type\":\"{}\",\"size\":{}{}}}", x.index, if x.fs_type == soju_switch_fs::nca::FsType::PartitionFs { "pfs0" } else { "romfs" }, x.data_size, files)
                 })
                 .collect();
             format!(

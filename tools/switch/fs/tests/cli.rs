@@ -17,7 +17,8 @@ fn run(dir: &std::path::Path, file: &str, title: bool) -> (bool, String, String)
 fn nsp_xci_and_title_key_without_leaking_keys() {
     let dir = std::env::temp_dir().join(format!("soju-switch-fs-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let m = program_nca(&[("main", b"code"), ("main.npdm", b"META")], false);
+    let npdm = soju_switch_fs::npdm::build("Application", 0x0100000000010000, &["hid"], &[]);
+    let m = program_nca(&[("main", b"code"), ("main.npdm", &npdm)], false);
     std::fs::write(dir.join("prod.keys"), &m.prod_keys).unwrap();
     std::fs::write(dir.join("game.nsp"), pfs0::build(&[("aabbccdd.nca", &m.image), ("x.tik", b"t")])).unwrap();
     std::fs::write(dir.join("game.xci"), xci::build(&[("aabbccdd.nca", &m.image)], true)).unwrap();
@@ -29,6 +30,7 @@ fn nsp_xci_and_title_key_without_leaking_keys() {
         assert!(out.contains("\"content\":\"program\""), "{out}");
         assert!(out.contains("\"program_id\":\"0100000000010000\""), "{out}");
         assert!(out.contains("\"main.npdm\""), "{out}");
+        assert!(out.contains("\"npdm\":{\"name\":\"Application\""), "{out}");
         for s in &secrets {
             assert!(!out.contains(s.as_str()) && !err.contains(s.as_str()));
         }

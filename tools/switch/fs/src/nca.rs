@@ -264,7 +264,7 @@ pub mod fixture {
         let data_offset = 0x200u64; // a fake hash table precedes the PFS0
         let mut section = vec![0u8; data_offset as usize];
         section.extend_from_slice(&pfs);
-        while section.len() % MEDIA as usize != 0 {
+        while !section.len().is_multiple_of(MEDIA as usize) {
             section.push(0);
         }
         let section_end = section_start + section.len() as u64;

@@ -9,6 +9,9 @@ use crate::{cstr, u32le, u64le, Error, Result};
 /// Random-access byte source (file, memory, or a decrypted NCA section).
 pub trait Storage {
     fn len(&self) -> u64;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
     fn read_at(&self, offset: u64, buf: &mut [u8]) -> Result<()>;
 
     fn read_vec(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
@@ -113,7 +116,7 @@ pub fn build(files: &[(&str, &[u8])]) -> Vec<u8> {
         strings.extend_from_slice(name.as_bytes());
         strings.push(0);
     }
-    while (0x10 + files.len() * 0x18 + strings.len()) % 0x20 != 0 {
+    while !(0x10 + files.len() * 0x18 + strings.len()).is_multiple_of(0x20) {
         strings.push(0);
     }
     let mut out = Vec::new();
