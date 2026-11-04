@@ -104,3 +104,16 @@ register bits before guest conversion. Signed and unsigned scalar-fetch render
 oracles exercise I2F with unsaturated pixel values; pipeline identity already
 contains the attribute descriptors. SET_VERTEX_ATTRIBUTE_A begins at 0x1160.
 The gpu_console capture now displays the sample's text and palette.
+Rectangle-fill rasterization follows
+[NV_fill_rectangle](https://registry.khronos.org/OpenGL/extensions/NV/NV_fill_rectangle.txt)
+and pinned `clb197.h` SET_FILL_VIA_TRIANGLE/FILL_BBOX. A vertex wrapper evaluates
+three original vertices and emits the projected bounding rectangle, preserving
+winding, perspective/linear extrapolation and first/last flat provoking values.
+Triangles crossing a clip plane are discarded. The implemented path supports
+nonindexed triangles with procedural positions and constant-per-instance vertex
+inputs; per-vertex fetch, special outputs and vertex global-memory effects are
+rejected. FILL_ALL remains unsupported. Alpha testing uses the documented eight
+comparison functions and discards failed fragments before color/depth updates.
+The pixel oracle checks rectangle-only coverage, interpolated color, flat values,
+and alpha discard with Metal validation enabled. The public deko console capture
+was visually checked for complete glyph rectangles and palette colors.

@@ -534,3 +534,9 @@ SET_STREAM_OUT_CONTROL_STREAM/COMPONENT_COUNT/STRIDE at `0x700 + j*16` through
 at `0x2800 + i*128 + j*4` (four streams, 32 packed layout words each).
 The backend recognizes these ranges solely to return a precise unsupported
 transform-feedback error. Geometry is pipeline slot four, `0x2100` enable.
+
+| B197 | `0x113c` | 1 / 0 | `SET_FILL_VIA_TRIANGLE` |
+| B197 | `0x12ec` | 1 / 0 | `SET_ALPHA_TEST` |
+| B197 | `0x1310` | 1 / 0 | `SET_ALPHA_REF` |
+| B197 | `0x1314` | 1 / 0 | `SET_ALPHA_FUNC` |
+| B197 | `0x1684` | 1 / 0 | `SET_PROVOKING_VERTEX` |

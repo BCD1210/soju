@@ -3,7 +3,11 @@ use super::*;
 
 pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
     let valid = match method {
-        0xf1c | 0x1224 | 0x11f0 | 0x113c | 0x1658 | 0x1570 | 0xdb4 | 0x12ec => value == 0,
+        0xf1c | 0x1224 | 0x11f0 | 0x1658 | 0x1570 | 0xdb4 => value == 0,
+        0x12ec => value <= 1,
+        0x1310 => true,
+        0x1314 => matches!(value, 1..=8 | 0x200..=0x207),
+        0x113c => value <= 2,
         0x754 => value == 1,
         0x193c => matches!(value, 2 | 0x181d),
         0x1a00..=0x1a1c if method.is_multiple_of(4) => value == 0x1111,

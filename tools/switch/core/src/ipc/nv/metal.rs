@@ -651,7 +651,8 @@ impl Renderer {
                             }
                         }
                         snapshot.registers.0.retain(|&offset, value| {
-                            ((0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20
+                            (matches!(offset, 0x1684 | 0x113c | 0x12ec | 0x1310 | 0x1314)
+                                || (0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20
                                 || (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8
                                 || !setup::retain(offset, *value).unwrap_or(false))
                                 && !matches!(offset, 0x15b4 | 0x1234 | 0x15d0 | 0x153c

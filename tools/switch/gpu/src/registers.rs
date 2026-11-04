@@ -10,6 +10,41 @@ pub struct Method {
 pub const METHODS: &[Method] = &[
     Method {
         class: 0xb197,
+        offset: 0x1684,
+        count: 1,
+        stride: 0,
+        name: "SET_PROVOKING_VERTEX",
+    },
+    Method {
+        class: 0xb197,
+        offset: 0x113c,
+        count: 1,
+        stride: 0,
+        name: "SET_FILL_VIA_TRIANGLE",
+    },
+    Method {
+        class: 0xb197,
+        offset: 0x12ec,
+        count: 1,
+        stride: 0,
+        name: "SET_ALPHA_TEST",
+    },
+    Method {
+        class: 0xb197,
+        offset: 0x1310,
+        count: 1,
+        stride: 0,
+        name: "SET_ALPHA_REF",
+    },
+    Method {
+        class: 0xb197,
+        offset: 0x1314,
+        count: 1,
+        stride: 0,
+        name: "SET_ALPHA_FUNC",
+    },
+    Method {
+        class: 0xb197,
         offset: 0x0130,
         count: 1,
         stride: 0,

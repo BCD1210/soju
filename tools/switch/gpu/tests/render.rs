@@ -3205,3 +3205,56 @@ fn integer_vertex_fetch_preserves_bits_before_conversion() {
         assert!(report.images[0].rgba.chunks_exact(4).all(|p| p == expected));
     }
 }
+
+#[test]
+fn rectangle_fill_covers_pixels_outside_triangle_and_alpha_test_discards() {
+    let mut h = Harness::new();
+    let mut header = [0u32;20];
+    header[0] = 1 | 1 << 10;
+    header[10] = 1 << 31;
+    header[13] = (15 << 12) | (15 << 16);
+    let mov = |r: u64, value: f32| 0x010000000000f000 | PT | r | u64::from(value.to_bits()) << 20;
+    let add = |d: u64, a: u64, b: u64| 0x5c58000000000000 | PT | d | a << 8 | b << 20;
+    let mul = |d: u64, a: u64, b: u64| 0x5c68000000000000 | PT | d | a << 8 | b << 20;
+    let code = [attr(false, 0x2fc, 0, 1),
+        0x5cb8000000000000 | PT | 0xa00,
+        mov(4, -0.5), mov(5, 0.5), mov(6, -2.), mov(7, -1.),
+        add(1, 0, 6), mul(1, 0, 1), mul(1, 1, 7), add(1, 1, 4),
+        mul(0, 0, 5), add(0, 0, 4), mov(2, 0.5), mov(3, 1.),
+        attr(true, 0x70, 0, 4), add(4, 0, 5), mov(5, 1.), mov(6, 0.), mov(7, 1.),
+        attr(true, 0x80, 4, 4), 0xe30000000000000f | PT];
+    let mut bytes: Vec<_> = header.into_iter().flat_map(u32::to_le_bytes).collect();
+    for chunk in code.chunks(3) {
+        bytes.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for word in chunk { bytes.extend(word.to_le_bytes()); }
+    }
+    let vs = h.program(bytes);
+    let (mut e, a) = h.engine("rectangle-fill", [0.,0.,0.,1.]);
+    h.methods(&mut e, &[(0x2044, vs as u32), (0x113c, 2)]);
+    h.draw(&mut e, 3, false, false);
+    for y in 8..24 { for x in 8..24 {
+        h.expected.get_mut(&a).unwrap().1[y*32+x] = Some([(((x as f32+0.5-8.)/16.)*255.).round() as u8,255,0,255]);
+    }}
+    let (mut e, b) = h.engine("alpha-discard", [0.,0.,0.,1.]);
+    h.methods(&mut e, &[(0x2044, vs as u32), (0x113c, 2), (0x12ec, 1), (0x1314, 0x201), (0x1310, 0.5f32.to_bits())]);
+    h.draw(&mut e, 3, false, false);
+    let mut flat = shader(false, false);
+    flat[24..28].copy_from_slice(&0x55u32.to_le_bytes());
+    let flat = h.program(flat);
+    let mut addresses = vec![a,b];
+    for last in [0,1] {
+        let (mut e, target) = h.engine("rectangle-flat", [0.,0.,0.,1.]);
+        h.methods(&mut e, &[(0x2044, vs as u32), (0x2144, flat as u32), (0x113c, 2), (0x1684, last)]);
+        h.draw(&mut e, 3, false, false);
+        h.rect_expected(target, 8, 8, 24, 24, [if last == 0 {0} else {255},255,0,255]);
+        addresses.push(target);
+    }
+    let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/rectangle-fill");
+    let report = h.backend.execute(&directory, &mut h.memory).unwrap();
+    for address in addresses {
+        let image = report.images.iter().find(|image| image.address == address).unwrap();
+        for (i, (pixel, expected)) in image.rgba.chunks_exact(4).zip(&h.expected[&address].1).enumerate() {
+            assert_eq!(pixel, expected.unwrap(), "image {address:#x} pixel {i}");
+        }
+    }
+}

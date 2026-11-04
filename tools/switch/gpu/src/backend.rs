@@ -18,6 +18,7 @@ use std::{
 };
 
 mod compute;
+mod fill_rectangle;
 use crate::protocol::*;
 use std::fmt::Write;
 
@@ -72,7 +73,8 @@ fn compatible_draw(previous: &Snapshot, r: &Registers, action: &Action, capacity
                 instance,
             },
         ) => {
-            *topology != 7
+            r.get(0x113c) == 0
+                && *topology != 7
                 && topology == old_topology
                 && instance == old_instance
                 && (1..=1_000_000).contains(count)
@@ -503,7 +505,7 @@ impl Backend {
                 !crate::engine::stream_output_method(offset),
                 "transform feedback (stream output) is not implemented",
             )?;
-            let supported = matches!(offset,0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
+            let supported = matches!(offset,0x1684|0x113c|0x12ec|0x1310|0x1314|0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
             let viewport_array = (0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20;
             let scissor_array = (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8;
             if !supported && !viewport_array && !scissor_array {
@@ -824,6 +826,11 @@ impl Backend {
                     r.get(0x2040) == 0x11 && r.get(0x2140) == 0x51,
                     "Vertex B and fragment stages must be enabled",
                 )?;
+                let rectangle = r.get(0x113c) == 2;
+                require(r.get(0x113c) == 0 || rectangle, "FILL_ALL is not implemented")?;
+                if rectangle {
+                    require(topology == 4 && !indexed && first.is_multiple_of(3) && count.is_multiple_of(3), "rectangle requires complete nonindexed triangles")?;
+                }
                 let base = r.address(0x1608);
                 let va = base
                     .checked_add(u64::from(r.get(0x2044)))
@@ -926,6 +933,11 @@ impl Backend {
                 signature.extend(fkey.0);
                 for value in [
                     topology,
+                    r.get(0x113c),
+                    r.get(0x1684),
+                    r.get(0x12ec),
+                    r.get(0x1310),
+                    r.get(0x1314),
                     r.get(0xd7c),
                     r.get(0x1510),
                     r.get(0x1940),
@@ -954,6 +966,21 @@ impl Backend {
                 {
                     cached.clone()
                 } else {
+                    if r.get(0x12ec) != 0 {
+                        require(r.get(0x12ec) == 1 && fh.color_masks[0] & 8 != 0 && !fs.source.contains("uint4 color0"), "alpha test requires floating color0 alpha")?;
+                        let op = match r.get(0x1314) {
+                            1..=8 => r.get(0x1314) - 1,
+                            0x200..=0x207 => r.get(0x1314) - 0x200,
+                            _ => return Err(Error("alpha comparison function".into())),
+                        };
+                        let reference = format!("as_type<float>({}u)", r.get(0x1310));
+                        let condition = match op {
+                            0 => "false".into(), 7 => "true".into(),
+                            _ => format!("out.color0.a {} {reference}", ["", "<", "==", "<=", ">", "!=", ">="][op as usize]),
+                        };
+                        let start = fs.source.find("fragment StageOut soju_fragment").ok_or_else(|| Error("fragment entry missing".into()))?;
+                        fs.source = format!("{}{}", &fs.source[..start], fs.source[start..].replace("return out;", &format!("if (!({condition})) discard_fragment(); return out;")));
+                    }
                     let mut finish = String::new();
                     let viewport_array = vh.outputs.iter().any(|a| a.address == 0x68);
                     for (axis, reg) in [("x", 0xa00), ("y", 0xa04)] {
@@ -1014,6 +1041,10 @@ impl Backend {
                         &vs.source[..entry],
                         vs.source[entry..].replace("return out;", &finish)
                     );
+                    if rectangle {
+                        require(self.programs[&va].1.global_memory.is_none(), "rectangle vertex global-memory side effects unsupported")?;
+                        fill_rectangle::wrap(&mut vs, &vh, &fh, r.get(0x1684) == 1)?;
+                    }
                     let mut cache_state = signature.clone();
                     cache_state.extend(vs.source.as_bytes());
                     cache_state.extend(fs.source.as_bytes());
@@ -1207,6 +1238,10 @@ impl Backend {
                     occupied.insert(u32::from(global.buffer));
                 }
                 for slot in slots {
+                    if rectangle {
+                        let stream = r.get(0x1160 + slot * 4) & 31;
+                        require(r.get(0x1880 + stream * 4) == 1, "rectangle per-vertex attributes require vertex pulling")?;
+                    }
                     require(slot < 32, "vertex attribute slot")?;
                     let a = r.get(0x1160 + slot * 4);
                     let stream = a & 31;
@@ -1223,7 +1258,8 @@ impl Backend {
                         (4, 7) => (29, 8),
                         (0x12, 7) => (28, 4),
                         (0xa | 0x2f, 2) => (9, 4),
-                        (0x1b, 4) => (49, 2),
+                        (0x1b, 4 | 5) => (49, 2),
+                        (0x18, 4) => (1, 2),
                         (0x1b, 3) => (50, 2),
                         _ => return Err(Error(format!("vertex format {bits}/{ty} unsupported"))),
                     };
@@ -1477,8 +1513,8 @@ impl Backend {
                 command.constants = constants.into();
                 command.textures = textures.into();
                 command.topology = if topology == 7 { 4 } else { topology as _ };
-                command.first = first as _;
-                command.count = count as _;
+                command.first = i64::from(first) * if rectangle { 2 } else { 1 };
+                command.count = i64::from(count) * if rectangle { 2 } else { 1 };
                 command.indices = index_file.into();
                 command.index_size = index_size as _;
                 command.base_vertex = base_vertex as _;
