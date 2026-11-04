@@ -10,6 +10,8 @@ pub struct Spell {
 }
 
 pub const SPELLS: &[Spell] = &[
+    Spell {action:"nuclear_strike",title:"Nuclear strike",order:order::NUKE_PAINT,casters:&[1],unit_target:false},
+    Spell {action:"infest",title:"Infest Command Center",order:order::INFEST,casters:&[45],unit_target:true},
     Spell {action:"lockdown",title:"Lockdown",order:order::LOCKDOWN,casters:&[1],unit_target:true},
     Spell {action:"emp",title:"EMP shockwave",order:order::EMP_SHOCKWAVE,casters:&[9],unit_target:false},
     Spell {action:"matrix",title:"Defensive matrix",order:order::DEFENSIVE_MATRIX,casters:&[9],unit_target:true},
