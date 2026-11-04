@@ -134,6 +134,10 @@ func runtimeChecks()throws {
     try require(commander.wrists.pending==nil,"selection changes cancel stale targeting")
     commander.tabletop=true;commander.wrists.zoom=10;let closeHeight=commander.commanderHeight;commander.wrists.zoom=20
     try require(closeHeight==9 && commander.commanderHeight==18,"tabletop zoom changes world viewing distance at a centered head pose")
+    for (top,bottom,expected) in [([2.0,0.0],[0.0,2.0],0.0...0.5),([0.0,2.0],[2.0,0.0],0.5...1.0),([2.0,2.0],[0.0,0.0],0.0...1.0)] {
+        try require(Terrain3D.exposedEdge(top,bottom)==expected,"cliff edge clips exposed interval \(top)")
+    }
+    try require(Terrain3D.exposedEdge([0,0],[2,2])==nil,"lower cliff neighbor emits no duplicate wall")
     let report:Obj=["passed":true,"checks":passed,"source":"deterministic renderer inputs; not live-game acceptance"]
     let path=argument("--runtime-report").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("runtime-checks.json")
     try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:path,options:.atomic)
