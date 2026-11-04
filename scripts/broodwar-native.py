@@ -175,6 +175,8 @@ def main():
     p=sub.add_parser("scene")
     p.add_argument("--xr",action="store_true")
     sub.add_parser("xr-probe")
+    p=sub.add_parser("assets-review")
+    p.add_argument("source",type=pathlib.Path)
     for name in ("assets-check", "assets-install"):
         p=sub.add_parser(name)
         p.add_argument("source",type=pathlib.Path,help="Folder containing GLBs and optional catalog.json")
@@ -199,6 +201,8 @@ def main():
         build_scene(a.xr)
     elif a.action=="scene": launch_scene(a.xr)
     elif a.action=="xr-probe": launch_scene(probe=True)
+    elif a.action=="assets-review":
+        return subprocess.call([str(RUNTIME/"asset-venv/bin/python"), str(ROOT/"tools/broodwar_native/review_delivery.py"), str(a.source)])
     elif a.action in ("assets-check","assets-install","assets-rollback"):
         from model_assets import main as assets_main
         return assets_main([a.action.removeprefix("assets-")]+([str(a.source)] if hasattr(a,"source") else [])+["--domain",a.domain])
