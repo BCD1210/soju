@@ -153,3 +153,20 @@ A separate five-pair CPU workload measured 923.489 ms serialized, 316.818 ms wit
 the original parallel scheduler and 316.216 ms adaptive: 2.92x speedup, four guest
 cores overlapping, with all atomic checks passing. Raw numeric results accompany
 this report. There is no promise that every individual stress run beats serial.
+
+## Attachment conversion reuse
+
+Generation-checked linear readback captures are retained with immutable shared
+ownership and a 64 MiB bound. The native worker can restore an evicted texture
+from these captures without repeating guest-layout conversion. Guest writes,
+query/compute aliasing, and changed views invalidate reuse. Native-cache-disabled
+render tests exercise the restoration path. Depth writeback only imports old
+texels for formats whose per-texel padding must be preserved; other formats write
+the returned depth values directly and preserve tiled padding at writeback.
+
+All 29 active render tests pass with Metal validation, both normally and with
+native caching disabled (before the final depth-loop simplification); the final
+depth loop also passes all 29 normal tests. The ten accepted scenes pass after
+capture reuse. A 600-frame run after depth-loop simplification averaged 15.905 ms
+per subsequent frame (62.872 fps); p95 was 18.092 ms. Launch-inclusive first
+presentation was 1130.166 ms, so startup and strict 60 Hz pacing remain unmet.

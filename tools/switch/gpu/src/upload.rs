@@ -1,8 +1,10 @@
 //! Page-aligned immutable captures borrowed by Metal until the submission completes.
-use std::alloc::{alloc_zeroed, dealloc, handle_alloc_error, Layout};
+use std::alloc::{Layout, alloc_zeroed, dealloc, handle_alloc_error};
 use std::ops::Deref;
 use std::ptr::NonNull;
-pub(crate) struct Upload {
+#[derive(Clone)]
+pub(crate) struct Upload(std::sync::Arc<Storage>);
+struct Storage {
     pointer: NonNull<u8>,
     length: usize,
     layout: Layout,
@@ -18,23 +20,24 @@ impl Upload {
         unsafe {
             std::ptr::copy_nonoverlapping(bytes.as_ptr(), pointer.as_ptr(), bytes.len());
         }
-        Self {
+        Self(std::sync::Arc::new(Storage {
             pointer,
             length: bytes.len(),
             layout,
-        }
+        }))
     }
 }
-// SAFETY: captures are immutable and transferred to exactly one native submission owner.
-unsafe impl Send for Upload {}
+// SAFETY: storage is immutable; owners retain it until every native use completes.
+unsafe impl Send for Storage {}
+unsafe impl Sync for Storage {}
 impl Deref for Upload {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
         // SAFETY: the initialized allocation lives at least as long as this borrow.
-        unsafe { std::slice::from_raw_parts(self.pointer.as_ptr(), self.length) }
+        unsafe { std::slice::from_raw_parts(self.0.pointer.as_ptr(), self.0.length) }
     }
 }
-impl Drop for Upload {
+impl Drop for Storage {
     fn drop(&mut self) {
         // SAFETY: worker waits for GPU completion before releasing the batch owner.
         unsafe {
@@ -50,12 +53,17 @@ mod tests {
         for length in [0, 1, 16383, 16384, 16385] {
             let mut source = vec![37; length];
             let upload = Upload::copy(&source);
+            let upload = {
+                let retained = upload.clone();
+                drop(upload);
+                retained
+            };
             source.fill(0);
-            assert_eq!(upload.pointer.as_ptr() as usize % 16384, 0);
+            assert_eq!(upload.0.pointer.as_ptr() as usize % 16384, 0);
             assert!(upload.iter().all(|&b| b == 37));
             // SAFETY: layout covers the initialized padding as well as logical bytes.
             let padded = unsafe {
-                std::slice::from_raw_parts(upload.pointer.as_ptr(), upload.layout.size())
+                std::slice::from_raw_parts(upload.0.pointer.as_ptr(), upload.0.layout.size())
             };
             assert!(padded[length..].iter().all(|&b| b == 0));
         }

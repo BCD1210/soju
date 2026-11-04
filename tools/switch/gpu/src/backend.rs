@@ -1,10 +1,10 @@
 //! Resource resolution and a dependency-free protocol to the native Metal worker.
 use crate::{
+    Error, Result,
     engine::{Action, ConstantBuffer, Registers, Snapshot},
     memory::Memory,
     require,
     texture::{TextureCache, Tic, Tsc},
-    Error, Result,
 };
 use soju_switch_shader::{
     cache::{Inputs, Key},
@@ -39,7 +39,7 @@ pub struct Backend {
     files: Vec<crate::upload::Upload>,
     constant_upload: Vec<u8>,
     uniform_offsets: std::collections::HashMap<(u64, u64, u32), (u64, usize)>,
-    output_generations: std::collections::HashMap<String, (u64, u64)>,
+    output_generations: std::collections::HashMap<String, (u64, u64, Vec<crate::upload::Upload>)>,
     targets: BTreeMap<String, Target>,
     depth_targets: BTreeMap<String, Target>,
     worker: Option<crate::worker::Worker>,
@@ -325,6 +325,28 @@ impl Backend {
         self.files.push(crate::upload::Upload::copy(&bytes));
         name
     }
+    fn retained_attachments(
+        &mut self,
+        key: &str,
+        generation: u64,
+        count: usize,
+    ) -> Option<Vec<String>> {
+        let (_, _, files) = self
+            .output_generations
+            .get(key)
+            .filter(|(g, _, files)| *g == generation && files.len() == count)?;
+        let files = files.clone();
+        Some(
+            files
+                .into_iter()
+                .map(|file| {
+                    let name = format!("resource-{}.bin", self.files.len());
+                    self.files.push(file);
+                    name
+                })
+                .collect(),
+        )
+    }
     fn resource_file(
         &mut self,
         memory: &Memory,
@@ -575,11 +597,16 @@ impl Backend {
             target.native_generation = self
                 .output_generations
                 .get(&key)
-                .filter(|(memory_generation, _)| *memory_generation == generation)
-                .map_or(generation, |(_, native)| *native);
+                .filter(|(memory_generation, _, _)| *memory_generation == generation)
+                .map_or(generation, |(_, native, _)| *native);
             let upload_key = (key.clone(), generation);
             let file = if let Some((file, _)) = self.attachment_files.get(&upload_key) {
                 file.clone()
+            } else if let Some(files) = self.retained_attachments(&key, generation, 1) {
+                let file = files[0].clone();
+                self.attachment_files
+                    .insert(upload_key, (file.clone(), String::new()));
+                file
             } else {
                 let initial = if pitch {
                     initial.to_vec()
@@ -680,13 +707,17 @@ impl Backend {
             t.native_generation = self
                 .output_generations
                 .get(&key)
-                .filter(|(memory_generation, _)| *memory_generation == t.generation)
-                .map_or(t.generation, |(_, native)| *native);
+                .filter(|(memory_generation, _, _)| *memory_generation == t.generation)
+                .map_or(t.generation, |(_, native, _)| *native);
             // Record the dependency even when the packed attachment is already captured.
             let initial_bytes = capture(memory, &mut dependencies, t.address, t.size())?;
             let upload_key = (key.clone(), t.generation);
             let (zfile, sfile) = if let Some(files) = self.attachment_files.get(&upload_key) {
                 files.clone()
+            } else if let Some(files) = self.retained_attachments(&key, t.generation, 2) {
+                let files = (files[0].clone(), files[1].clone());
+                self.attachment_files.insert(upload_key, files.clone());
+                files
             } else {
                 let initial = t.surface().deswizzle(initial_bytes).map_err(io)?;
                 let mut z = Vec::new();
@@ -1559,8 +1590,28 @@ impl Backend {
         };
         let mut images = Vec::new();
         let mut writes = Vec::new();
+        let retain = self.queries.is_empty() && self.compute_targets.is_empty();
+        let mut retained = std::collections::HashMap::new();
+        let mut retained_bytes = 0usize;
+        let mut retain_files = |key: &String, files: &[&[u8]]| {
+            let size = files
+                .iter()
+                .map(|f| f.len().max(1).next_multiple_of(16384))
+                .sum::<usize>();
+            if retain && retained_bytes + size <= 64 * 1024 * 1024 {
+                retained_bytes += size;
+                retained.insert(
+                    key.clone(),
+                    files
+                        .iter()
+                        .map(|f| crate::upload::Upload::copy(f))
+                        .collect::<Vec<_>>(),
+                );
+            }
+        };
         for (key, t) in &self.targets {
             let bytes = take(format!("{key}.rgba"))?;
+            retain_files(key, &[&bytes]);
             let bytes = if t.format == soju_switch_texture::format::Format::A1Bgr5Unorm {
                 bytes
                     .chunks_exact(2)
@@ -1593,6 +1644,7 @@ impl Backend {
             use soju_switch_texture::format::Format;
             let z = take(format!("{key}.depth"))?;
             let stencil = take(format!("{key}.stencil"))?;
+            retain_files(key, &[&z, &stencil]);
             let pixels = t.width as usize * t.height as usize;
             let depth_bytes = if t.format == Format::Depth16Unorm {
                 2
@@ -1603,28 +1655,37 @@ impl Backend {
                 z.len() == pixels * depth_bytes && (stencil.is_empty() || stencil.len() == pixels),
                 "invalid depth readback",
             )?;
-            let mut raw = t
-                .surface()
-                .deswizzle(memory.read(t.address, t.size())?)
-                .map_err(io)?;
-            for (i, p) in raw.chunks_exact_mut(t.format.info().bytes).enumerate() {
-                let value = &z[i * depth_bytes..(i + 1) * depth_bytes];
-                match t.format {
-                    Format::Depth24UnormStencil8 => {
-                        require(stencil.len() == pixels, "missing stencil bytes")?;
+            let raw = match t.format {
+                Format::Depth24UnormStencil8 => {
+                    require(stencil.len() == pixels, "missing stencil bytes")?;
+                    let mut raw = vec![0; pixels * 4];
+                    for ((p, value), stencil) in
+                        raw.chunks_exact_mut(4).zip(z.chunks_exact(4)).zip(&stencil)
+                    {
                         let f = f32::from_le_bytes(value.try_into().unwrap());
                         let v = ((f.clamp(0., 1.) * 16777215.).round() as u32) << 8
-                            | u32::from(stencil[i]);
+                            | u32::from(*stencil);
                         p.copy_from_slice(&v.rotate_right(t.depth_rotation).to_le_bytes());
                     }
-                    Format::Depth32FloatStencil8 => {
-                        require(stencil.len() == pixels, "missing stencil bytes")?;
-                        p[..4].copy_from_slice(value);
-                        p[4] = stencil[i];
-                    }
-                    _ => p.copy_from_slice(value),
+                    raw
                 }
-            }
+                Format::Depth32FloatStencil8 => {
+                    require(stencil.len() == pixels, "missing stencil bytes")?;
+                    // Preserve the three guest padding bytes in every packed texel.
+                    let mut raw = t
+                        .surface()
+                        .deswizzle(memory.read(t.address, t.size())?)
+                        .map_err(io)?;
+                    for ((p, value), stencil) in
+                        raw.chunks_exact_mut(8).zip(z.chunks_exact(4)).zip(&stencil)
+                    {
+                        p[..4].copy_from_slice(value);
+                        p[4] = *stencil;
+                    }
+                    raw
+                }
+                _ => z,
+            };
             writes.push((t.address, t.writeback(&raw, memory)?));
         }
         for (key, &(address, _, _)) in &self.queries {
@@ -1640,14 +1701,29 @@ impl Backend {
         for (address, data) in writes {
             memory.write(address, &data)?;
         }
-        if self.queries.is_empty() && self.compute_targets.is_empty() {
+        if retain {
             if self.output_generations.len() > 1024 {
                 self.output_generations.clear();
+            }
+            let previous_bytes: usize = self
+                .output_generations
+                .values()
+                .flat_map(|(_, _, files)| files)
+                .map(|f| f.len().max(1).next_multiple_of(16384))
+                .sum();
+            if previous_bytes + retained_bytes > 64 * 1024 * 1024 {
+                for (_, _, files) in self.output_generations.values_mut() {
+                    files.clear();
+                }
             }
             for (key, t) in self.targets.iter().chain(self.depth_targets.iter()) {
                 self.output_generations.insert(
                     key.clone(),
-                    (memory.generation(t.address, t.size())?, t.native_generation),
+                    (
+                        memory.generation(t.address, t.size())?,
+                        t.native_generation,
+                        retained.remove(key).unwrap_or_default(),
+                    ),
                 );
             }
         } else {
