@@ -16,6 +16,7 @@ extension Commander {
         }.sorted {($0["id"] as? String ?? "")<($1["id"] as? String ?? "")}
     }
     func key(_ key:String) {
+        if key=="`" {devOverlay.toggle();label?.isHidden = !devOverlay;return}
         if key=="v" {toggleTabletop();return}
         if key=="q" {targetingOrder="attack_move";notice="Point at enemy or ground to attack"}
         if key=="h",!selected.isEmpty {command(["op":"hold","units":Array(selected.prefix(12))])}

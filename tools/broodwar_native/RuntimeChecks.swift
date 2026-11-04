@@ -77,6 +77,18 @@ func runtimeChecks()throws {
     try require(commander.worldSprites.nodes.count==1,"visible independent native sprite is rendered")
     commander.worldSprites.apply([:],ground:commander.ground,authored:[])
     try require(commander.worldSprites.nodes.isEmpty,"native disappearance removes sprite without a fabricated timeline")
+    let fallback=UnitBillboard(id:"fallback-live")
+    var sprite=unit("fallback-live")
+    sprite["image"]=["id":239,"frame":77,"frameset":68,"direction":9,"flags":2]
+    fallback.apply(sprite,ground:commander.ground,art:commander.worldSprites)
+    try require(fallback.layers.count==1 && fallback.evidence.first?["frame"] as? Int == 77 && fallback.layers[0]?.scale.x == -1,
+        "fallback preserves native directional frame and mirror flag")
+    sprite["renderHidden"]=true;fallback.apply(sprite,ground:commander.ground,art:commander.worldSprites)
+    try require(fallback.root.isHidden,"hidden native unit cannot leak through fallback")
+    sprite["image"]=["id":239,"frame":999999,"flags":0]
+    fallback.apply(sprite,ground:commander.ground,art:commander.worldSprites)
+    try require(fallback.layers.isEmpty,"invalid native frame removes stale fallback geometry")
+    try require(!commander.devOverlay,"developer overlay defaults off")
     let card=CommandCard();card.accept(["types":[["id":7,"mineralCost":75,"gasCost":9]]])
     let production=card.choices(["type":106,"building":true])
     try require(production.contains{$0.payload["op"] as? String == "train" && $0.title.hasSuffix("75/9")},"command card uses native DAT prices")

@@ -67,6 +67,8 @@ final class Commander: NSObject, NSApplicationDelegate {
     let worldSprites=WorldSprites();var creepTiles=Set<Int>(),creepNodes=[Int:SCNNode]()
     var eventSequence:Double=0,session="",lostEvents=0,deathCount=0
     var targetingOrder="move"
+    var devOverlay=CommandLine.arguments.contains("--dev-overlay")
+    var billboards=[String:UnitBillboard]()
     var mapWidth=0,mapHeight=0,mapTiles=[Int]()
     var state:Obj=[:];var busy=false;var initialized=false;var notice="Connecting to original client"
     var lastTick=CACurrentMediaTime();var lastSceneDiagnostic=0.0;var tick:Timer?;var poll:Timer?;var placingDepot=false
@@ -104,6 +106,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         label=NSTextField(wrappingLabelWithString:"");label.textColor = .white
         label.backgroundColor=NSColor.black.withAlphaComponent(0.75);label.drawsBackground=true
         label.font=NSFont.monospacedSystemFont(ofSize:13,weight:.medium)
+        label.isHidden = !devOverlay
         label.frame=NSRect(x:16,y:16,width:1370,height:64);label.autoresizingMask=[.width]
         window.contentView=view;view.addSubview(label);window.center();window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(view);NSApp.activate(ignoringOtherApps:true)
@@ -149,7 +152,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         let since=eventSequence,knownSession=session
         bridge.queue.async {
             do {
-                var request:Obj=["op":"state"]
+                var request:Obj=["op":"scene"]
                 if !knownSession.isEmpty {request["since"]=since}
                 let s=try self.bridge.request(request)
                 let metadata=knownSession != s["session"] as? String ? try? self.bridge.request(["op":"unit_types"]):nil

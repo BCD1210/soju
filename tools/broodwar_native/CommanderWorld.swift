@@ -22,7 +22,7 @@ extension Commander {
         if changed {
             for n in nodes.values {n.removeFromParentNode()}
             for m in retiring.values {m.root.removeFromParentNode()}
-            nodes.removeAll();models.removeAll();retiring.removeAll();effects.clear();worldSprites.clear();selected=[];controlGroups.removeAll()
+            nodes.removeAll();models.removeAll();billboards.removeAll();retiring.removeAll();effects.clear();worldSprites.clear();selected=[];controlGroups.removeAll()
             for node in creepNodes.values {node.removeFromParentNode()};creepNodes.removeAll();creepTiles.removeAll()
             for node in terrain.values {node.removeFromParentNode()}
             terrain.removeAll();fog.removeAll();fogPresentation.cache.removeAll()
@@ -61,7 +61,7 @@ extension Commander {
             }
         }
         for (id,n) in nodes where units[id]==nil {
-            n.removeFromParentNode();nodes.removeValue(forKey:id);models.removeValue(forKey:id)
+            n.removeFromParentNode();nodes.removeValue(forKey:id);models.removeValue(forKey:id);billboards.removeValue(forKey:id)
         }
         var unsupported=Set<Int>()
         for (id,u) in units {
@@ -73,6 +73,7 @@ extension Commander {
                     instance=try modelLibrary.make(kind);instance.root.name=id
                     // Commit a replacement only after import and rig binding succeed.
                     nodes[id]?.removeFromParentNode()
+                    billboards.removeValue(forKey:id)
                     models[id]=instance;nodes[id]=instance.root;world.rootNode.addChildNode(instance.root)
                 }
                 for e in events where e["kind"] as? String == "attack" && e["unit"] as? String == id {instance.attackUntilFrame=number(s,"frame")+5}
@@ -84,7 +85,15 @@ extension Commander {
                 if modelLibrary.errors[kind]==nil { modelLibrary.errors[kind]=String(describing:error) }
                 if let old=models[id],old.kind==kind {
                     old.apply(u,height:ground.elevation(number(u,"x")/32,number(u,"y")/32),frame:number(s,"frame"))
-                } else { unsupported.insert(kind);nodes[id]?.isHidden=true }
+                } else {
+                    unsupported.insert(kind)
+                    let billboard=billboards[id] ?? UnitBillboard(id:id)
+                    if billboards[id]==nil {
+                        nodes[id]?.removeFromParentNode();models.removeValue(forKey:id)
+                        billboards[id]=billboard;nodes[id]=billboard.root;world.rootNode.addChildNode(billboard.root)
+                    }
+                    billboard.apply(u,ground:ground,art:worldSprites)
+                }
             }
         }
         for (id,model) in retiring where model.updateDeath(frame:number(s,"frame"),now:CACurrentMediaTime()) {
@@ -92,7 +101,7 @@ extension Commander {
         }
         effects.apply(bullets:s["bullets"] as? [Obj] ?? [],events:events,units:units,frame:number(s,"frame"),ground:ground)
         worldSprites.apply(s,ground:ground,authored:Set(retiring.keys))
-        if !unsupported.isEmpty { notice="3D models unavailable for types: \(unsupported.sorted()). These units are not rendered." }
+        if !unsupported.isEmpty { notice="HD sprite fallback: \(unsupported.sorted())" }
         else if !modelLibrary.catalog.lastError.isEmpty { notice=modelLibrary.catalog.lastError }
         else if !modelLibrary.errors.isEmpty { notice="Asset update rejected; previous models retained: \(modelLibrary.errors.keys.sorted())" }
         else if ["Connecting","Connection:","3D models unavailable","Asset update rejected","Model catalog:","Reloading 3D assets"].contains(where:{notice.hasPrefix($0)}) { notice="Original engine connected · rigged 3D models" }
@@ -190,6 +199,7 @@ extension Commander {
                 "spriteFrames":effects.sprites.renderedFrames,"missingEffectImages":effects.sprites.missing.sorted(),"combatEvents":effects.counts,"deathAnimations":deathCount,"retiringModels":retiring.count,"projectiles":effects.projectiles.count,
                 "effectErrors":Dictionary(uniqueKeysWithValues:effects.library.errors.map{(String($0.key),$0.value)}),
                 "catalogError":modelLibrary.catalog.lastError,"assetErrors":Dictionary(uniqueKeysWithValues:modelLibrary.errors.map{(String($0.key),$0.value)}),
+                "billboardUnits":billboards.mapValues{$0.evidence},"devOverlay":devOverlay,
                 "missingTypes":Array(Set(units.values.compactMap { u -> Int? in let id=u["id"] as? String ?? "";return models[id]==nil ? Int(number(u,"type")):nil })).sorted()]
             record("3d-scene-diagnostics.json",diagnostics)
             record(xrRequested ? "3d-xr-diagnostics.json":"3d-desktop-diagnostics.json",diagnostics)
