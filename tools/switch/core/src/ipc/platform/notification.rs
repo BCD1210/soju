@@ -117,6 +117,16 @@ mod tests {
         nro::TLS,
     };
     #[test]
+    fn ordinary_application_launch_has_no_alarm_payload() {
+        let mut h = Harness::new();
+        let root = h.open("appletOE");
+        let proxy = h.child(root, 0);
+        let functions = h.child(proxy, 20);
+        let event = h.call(functions, req(150, vec![])).unwrap().copy_handles[0];
+        assert!(h.k.object_id(event).is_ok());
+        assert_eq!(h.call(functions, req(151, vec![])).unwrap().result, 0x680);
+    }
+    #[test]
     fn alarm_crud_preserves_parameters_and_validates_schedule_and_capacity() {
         let mut h = Harness::new();
         let session = h.open("notif:a");
