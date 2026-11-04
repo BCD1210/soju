@@ -148,6 +148,8 @@ final class WorldSprites {
         if let material=creepMaterials[file] {return material}
         guard let image=NSImage(contentsOf:folder.appendingPathComponent(file)) else {return nil}
         let material=SCNMaterial();material.lightingModel = .constant;material.diffuse.contents=image
+        var orientation=SCNMatrix4MakeScale(1,-1,1);orientation.m42=1
+        material.diffuse.contentsTransform=orientation
         material.isDoubleSided=true;material.writesToDepthBuffer=false
         creepMaterials[file]=material;return material
     }
