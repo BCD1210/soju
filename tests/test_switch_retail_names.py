@@ -17,7 +17,7 @@ CRATE = ROOT / 'tools/switch/fs/Cargo.toml'
 
 
 @unittest.skipUnless(shutil.which('cargo'), 'Rust is not installed')
-class RetailNames(unittest.TestCase):
+class Fixture(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         subprocess.run(['cargo', 'build', '--quiet', '--offline', '--release', '--bins', '--examples', '--manifest-path', str(CRATE)], check=True)
@@ -37,6 +37,9 @@ class RetailNames(unittest.TestCase):
         subprocess.run([str(self.target / 'examples/make_fixture'), str(fixture)], check=True)
         self.fixture = fixture
         switch_library.import_file(self.base, fixture / 'Kart.nsp')
+
+
+class RetailNames(Fixture):
 
     def test_without_keys_asks_for_them(self):
         [game] = switch_library.games(self.base)
@@ -79,6 +82,32 @@ class RetailNames(unittest.TestCase):
         rows = json.loads(subprocess.run([sys.executable, str(ROOT / 'scripts/switch_library.py'), 'list', '--json'],
                                          capture_output=True, text=True, env=dict(os.environ, SOJU_BASE=str(self.base)), check=True).stdout)
         self.assertEqual(rows[0]['title'], '카트 레이서')
+
+
+class Firmware(Fixture):
+    def test_import_firmware_needs_keys_then_copies_privately(self):
+        with self.assertRaises(ValueError) as caught:
+            switch_library.import_firmware(self.base, self.fixture / 'firmware')
+        self.assertIn('import-keys', str(caught.exception))
+        switch_library.import_keys(self.base, self.fixture / 'prod.keys')
+        version, report = switch_library.import_firmware(self.base, self.fixture / 'firmware')
+        self.assertEqual(version, '18.1.0')
+        self.assertEqual(report['nca_count'], 3)
+        names = {m['name'] for m in report['missing_needed']}
+        self.assertIn('TimeZoneBinary', names)
+        self.assertNotIn('FontStandard', names)
+        target = self.base / 'switch/firmware/18.1.0'
+        self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o700)
+        self.assertEqual(len(list(target.glob('*.nca'))), 3)
+
+    def test_firmware_from_other_keys_is_refused(self):
+        other = self.tmp / 'other.keys'
+        other.write_text('header_key = ' + '11' * 32 + '\n')
+        switch_library.import_keys(self.base, other)
+        with self.assertRaises(ValueError) as caught:
+            switch_library.import_firmware(self.base, self.fixture / 'firmware')
+        self.assertIn('could not be opened', str(caught.exception))
+        self.assertFalse((self.base / 'switch/firmware').exists())
 
 
 if __name__ == '__main__':

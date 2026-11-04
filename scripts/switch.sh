@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SWITCH_HOME="${SOJU_SWITCH_HOME:-$HOME/.local/share/soju/switch}"
 PYTHON="$SWITCH_HOME/venv/bin/python"
 case "${1:-help}" in
-  import|import-keys|list|remove)
+  import|import-keys|import-firmware|list|remove)
     exec python3 "$ROOT/scripts/switch_library.py" "$@"
     ;;
   setup)
@@ -33,7 +33,7 @@ case "${1:-help}" in
     exec "$PYTHON" "$ROOT/tools/switch/trace_nro.py" "$1" --play --max-steps 10000000
     ;;
   help|-h|--help)
-    echo "Experimental Switch homebrew: soju switch setup | import <file> | import-keys <prod.keys> [title.keys] | list [--json] | remove <id> | play <file.nro>"
+    echo "Experimental Switch homebrew: soju switch setup | import <file> | import-keys <prod.keys> [title.keys] | import-firmware <folder> | list [--json] | remove <id> | play <file.nro>"
     echo "Keys and games must be dumped from your own Switch. Soju never downloads them."
     echo "Two 2048 homebrew games have been checked. Account saves are experimental; SD files do not persist."
     echo "Controls: arrow keys, B to reset, Escape to close."
