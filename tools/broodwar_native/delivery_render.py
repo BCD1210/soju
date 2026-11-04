@@ -30,9 +30,10 @@ def render(job_path: pathlib.Path) -> None:
                 animation.action = action
                 if action.slots:
                     animation.action_slot = action.slots[0]
+    scene.frame_set(-1)
     scene.frame_set(0)
     bpy.context.view_layer.update()
-    meshes = [o for o in scene.objects if o.type == 'MESH']
+    meshes = [o for o in scene.objects if o.type == 'MESH' and o.visible_get()]
     vertices = []
     triangles = 0
     for obj in meshes:
@@ -87,10 +88,12 @@ def render(job_path: pathlib.Path) -> None:
     # One placement for all directions; never register individual images.
     factor = job['referenceHeight']/(high[2]-low[2])
     roots = [o for o in scene.objects if o.parent is None and o not in (cam, light)]
+    placement = bpy.data.objects.new('Calibration placement', None)
+    scene.collection.objects.link(placement)
     for obj in roots:
-        obj.location *= factor
-        obj.location.z += job['referenceFoot']-low[2]*factor
-        obj.scale *= factor
+        obj.parent = placement
+    placement.scale = (factor, factor, factor)
+    placement.location.z = job['referenceFoot']-low[2]*factor
     for material in bpy.data.materials:
         if not material.use_nodes:
             continue
