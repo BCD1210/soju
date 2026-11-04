@@ -39,4 +39,3 @@ test unsigned_integer_texture_preserves_bits_through_sampling ... ok
 test texture_formats_and_tic_swizzles_sample_on_metal ... ok
 
 test result: ok. 28 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.52s
-

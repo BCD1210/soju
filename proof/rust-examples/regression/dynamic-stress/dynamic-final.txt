@@ -1,0 +1,16 @@
+   Compiling soju-switch-core v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/core)
+    Finished `release` profile [optimized] target(s) in 0.33s
+/Users/mikekim/Projects/soju-switch-core/dist/testtitles/dynamic/runner: replacing existing signature
+module|rtld|0x100000000
+module|main|0x100003000
+module|subsdk0|0x100006000
+module|sdk|0x100009000
+PASS|cross-module RTTI and virtual dispatch
+PASS|cross-module exception and stack cleanup
+PASS|imported data GLOB_DAT
+PASS|cross-module JUMP_SLOT and RELATIVE
+PASS|shared imported data mutation
+PASS|dependency init arrays
+PASS|module TLS initialization and independence
+PASS|reverse fini arrays
+TOTAL|dynamic-modules|failures=0

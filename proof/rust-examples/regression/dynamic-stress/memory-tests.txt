@@ -149,4 +149,3 @@ test control_property_is_selected_by_program_identity_and_validated ... ok
 test loads_own_nsp_and_xci_modules_policy_and_romfs ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
-

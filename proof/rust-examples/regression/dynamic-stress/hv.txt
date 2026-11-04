@@ -29,4 +29,3 @@ test unsupported_exception_stops ... ok
 test virtual_cache_profile_and_checked_maintenance ... ok
 
 test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.26s
-

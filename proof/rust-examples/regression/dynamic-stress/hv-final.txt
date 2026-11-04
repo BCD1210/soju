@@ -1,0 +1,32 @@
+   Compiling soju-switch-gpu v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/gpu)
+   Compiling soju-switch-core v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.83s
+/Users/mikekim/Projects/soju-switch-core/tools/switch/core/target/debug/deps/hv_smoke-35d0bde61fc21419: replacing existing signature
+
+running 22 tests
+test cache_loop_batch_preserves_registers_flags_and_faults ... ok
+test el0_svc_and_virtual_timer ... EL0 SVC 0x26 reached host with x0=7
+CNTFRQ=19200000 Hz; two monotonic CNTVCT reads trapped
+ok
+test guest_cache_maintenance_publishes_guest_written_instructions ... ok
+test guest_cache_maintenance_reaches_other_vcpu ... ok
+test guest_cache_operands_cannot_access_private_unmapped_or_readonly_storage ... ok
+test host_instruction_patches_invalidate_without_mapping_changes ... ok
+test live_permissions_unmap_and_instruction_cache_are_observed ... ok
+test looping_guest_is_canceled ... ok
+test nro_boot_abi_and_page_permissions ... ok
+test optional_homebrew_ipc_presents_frame ... ok
+test optional_homebrew_reaches_first_svc ... ok
+test optional_homebrew_runtime_reaches_service_manager ... ok
+test runtime_creates_blocks_joins_and_exits_guest_threads ... ok
+test runtime_event_wait_timeout_and_signal ... ok
+test runtime_ipc_handoff_is_explicit_and_resumable ... ok
+test runtime_mutex_condition_and_address_waits_between_vcpus ... ok
+test runtime_system_tick_matches_physical_and_virtual_counter_epoch ... ok
+test shared_process_threads_tls_simd_and_translation_generations ... ok
+test svc_results_and_resumable_quantum_boundaries ... ok
+test synthetic_program_nca_starts_rtld_then_main_with_capabilities ... ok
+test unsupported_exception_stops ... ok
+test virtual_cache_profile_and_checked_maintenance ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.45s

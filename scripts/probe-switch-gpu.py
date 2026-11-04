@@ -11,6 +11,7 @@ parser.add_argument('binary', type=Path, help='isolated, Hypervisor-entitled run
 parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--corpus', type=Path, default=Path.home() / '.local/share/soju/switch/examples')
 parser.add_argument("--scene", help="probe one named scene")
+parser.add_argument("--input-start-ms", type=int, default=1000, help="wait for initial menu before scripted navigation")
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 scenes = [(f'deko-example{i:02}', 'graphics__deko3d__deko_examples', i - 1) for i in range(1, 10)]
@@ -30,8 +31,8 @@ with (args.output / 'summary.txt').open('w') as summary:
                 import json
                 states = []
                 for i in range(selection):
-                    states += [{'at_ms': 100 + i * 200, 'buttons': 32768}, {'at_ms': 200 + i * 200, 'buttons': 0}]
-                states += [{'at_ms': 100 + selection * 200, 'buttons': 1}]
+                    states += [{'at_ms': args.input_start_ms + i * 200, 'buttons': 32768}, {'at_ms': args.input_start_ms + 100 + i * 200, 'buttons': 0}]
+                states += [{'at_ms': args.input_start_ms + selection * 200, 'buttons': 1}]
                 inputs = Path(home) / 'inputs.json'
                 inputs.write_text(json.dumps(states))
                 argv += ['--inputs', str(inputs)]
