@@ -88,6 +88,20 @@ func runtimeChecks()throws {
     try require(streamedBillboard.shownColors[0]==streamRed,"pending owner change retains the displayed texture identity")
     waitForColor(streamBlue)
     try require(streamedBillboard.shownColors[0]==streamBlue,"same-frame owner change publishes its replacement texture")
+    commander.billboards["stream-transition"]=streamedBillboard
+    commander.sceneRevision+=1
+    try batchCheck.prepare(commander)
+    let firstBuffer=batchCheck.batches.first(where:{!$0.terrain})!.vertices
+    commander.sceneRevision+=1
+    try batchCheck.prepare(commander)
+    try require(batchCheck.batches.first(where:{!$0.terrain})!.vertices === firstBuffer,"unchanged native groups reuse packed vertex buffers")
+    if let node=streamedBillboard.layers[0] {
+        node.geometry=SCNPlane(width:2,height:3)
+        streamedBillboard.geometryRevision+=1;commander.sceneRevision+=1
+        try batchCheck.prepare(commander)
+        try require(batchCheck.batches.first(where:{!$0.terrain})!.vertices !== firstBuffer,"new geometry source invalidates cached native group")
+    }
+    commander.billboards.removeValue(forKey:"stream-transition")
     let cache=ResidentCache<Int>(limit:4)
     cache.insert(1,key:"first",bytes:2);cache.insert(2,key:"second",bytes:2)
     _=cache.get("first");cache.insert(3,key:"third",bytes:2)

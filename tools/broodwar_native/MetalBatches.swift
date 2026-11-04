@@ -24,6 +24,7 @@ final class MetalBatches {
     let samples:Int
     let depth:MTLDepthStencilState,shadowDepth:MTLDepthStencilState,overlayDepth:MTLDepthStencilState
     var batches=[Batch]()
+    private let groupCache=ResidentCache<(SCNGeometrySource,Batch)>(limit:128*1024*1024)
     let textures=ResidentCache<(NSImage,MTLTexture)>(limit:512*1024*1024)
     var ready=false,draws=0,visible=0,culled=0,lodCount=0
     var sourceRevision = -1,terrainRevision = -1
@@ -192,6 +193,10 @@ final class MetalBatches {
         for key in groups.keys.sorted() {
             let nodes=groups[key]!,node=nodes[0]
             guard let geometry=node.geometry,let material=geometry.firstMaterial else {continue}
+            let source=geometry.sources(for:.vertex).first
+            if let cached=groupCache.get(key),cached.0 === source,cached.1.nodes.count==nodes.count {
+                var batch=cached.1;batch.nodes=nodes;batches.append(batch);continue
+            }
             let shadow=key.hasSuffix("/true"),relief = !(geometry is SCNPlane)
             let (vertices,indices)=mesh(geometry)
             if vertices.isEmpty || indices.isEmpty {continue}
@@ -214,7 +219,12 @@ final class MetalBatches {
                 let radius=simd_length(SIMD3<Float>(Float(hi.x-lo.x),Float(hi.y-lo.y),Float(hi.z-lo.z)))*0.5
                 return (center,radius)
             }
-            batches.append(Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:flat,instances:(0..<3).map{_ in buffer(instances+instances)},nodes:nodes,textures:maps,terrain:false,shadow:shadow,mode:shadow ? 3:relief ? 1:0,depthDisabled:false,bounds:bounds))
+            let batch=Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:flat,instances:(0..<3).map{_ in buffer(instances+instances)},nodes:nodes,textures:maps,terrain:false,shadow:shadow,mode:shadow ? 3:relief ? 1:0,depthDisabled:false,bounds:bounds)
+            batches.append(batch)
+            if let source=source {
+                let bytes=batch.vertices.length+batch.indices.length+(batch.flatVertices?.length ?? 0)+batch.instances.reduce(0){$0+$1.length}
+                groupCache.insert((source,batch),key:key,bytes:bytes)
+            }
         }
         // Preserve creep edges and independent native sprite chains as overlays.
         for node in Array(commander.creepNodes.values)+Array(commander.worldSprites.nodes.values) {
