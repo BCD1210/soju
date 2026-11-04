@@ -5,6 +5,7 @@ import QuartzCore
 import CoreImage
 import Darwin
 import simd
+import os.signpost
 #if SOJU_OPENXR
 func xrDraw(_ context:UnsafeMutableRawPointer?,_ texture:UnsafeMutableRawPointer?,_ queue:UnsafeMutableRawPointer?,_ packet:UnsafePointer<SojuXREye>?) {
     guard let context=context,let texture=texture,let queue=queue,let packet=packet else { return }
@@ -19,6 +20,10 @@ func xrControls(_ context:UnsafeMutableRawPointer?,_ packet:UnsafePointer<SojuXR
 extension Commander {
     func renderEye(_ texture:MTLTexture,_ queue:MTLCommandQueue,_ eye:SojuXREye) {
         guard let renderer=xrRenderer,let buffer=queue.makeCommandBuffer() else { return }
+        buffer.label="Brood War eye \(eye.eye)"
+        let eyeStart=CACurrentMediaTime()
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"Eye encode")
+        defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Eye encode")}
         if eye.eye==0 { xrFrameTime=CACurrentMediaTime();frameMetrics.begin(units:nodes.count) }
         if xrOrigin==nil && eye.tracked != 0 {
             xrOrigin=SIMD3<Float>(eye.headX,eye.headY,eye.headZ)
@@ -32,7 +37,11 @@ extension Commander {
             hud.isHidden = !devOverlay
             let center=base+body.act((SIMD3<Float>(eye.headX,eye.headY,eye.headZ)-(xrOrigin ?? .zero))*worldUnitsPerMeter)
             let headRotation=body*simd_quatf(ix:eye.qx,iy:eye.qy,iz:eye.qz,r:eye.qw)
+            let updateStart=CACurrentMediaTime()
+            os_signpost(.begin,log:XRFrameMetrics.log,name:"Billboard update")
             for billboard in billboards.values {billboard.updateView(eye:center,orientation:headRotation,perspective:true,art:worldSprites)}
+            os_signpost(.end,log:XRFrameMetrics.log,name:"Billboard update")
+            frameMetrics.stage("billboardUpdate",milliseconds:(CACurrentMediaTime()-updateStart)*1000)
             hud.simdPosition=center+headRotation.act(SIMD3<Float>(0,0.45,-1.5)*worldUnitsPerMeter);hud.simdOrientation=headRotation;hud.simdScale=SIMD3<Float>(repeating:worldUnitsPerMeter)
             let text="Selected: \(selected.count)   Minerals: \(Int(number(state,"minerals")))   Action: \(actionNames[actionMode])\nLeft trigger: select / drag   Right trigger: command   Left grip: scale\n\(notice)"
             if devOverlay && text != hudText {
@@ -92,7 +101,13 @@ extension Commander {
                 "orientation":[xrCamera.simdOrientation.imag.x,xrCamera.simdOrientation.imag.y,xrCamera.simdOrientation.imag.z,xrCamera.simdOrientation.real]]
             if let data=try? JSONSerialization.data(withJSONObject:diagnostic,options:.prettyPrinted) { try? data.write(to:runtime.appendingPathComponent("xr-view-diagnostics.json"),options:.atomic) }
         }
+        let renderStart=CACurrentMediaTime()
+        frameMetrics.stage("eyeSetup",milliseconds:(renderStart-eyeStart)*1000)
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"SceneKit render")
         renderer.render(atTime:xrFrameTime,viewport:CGRect(x:0,y:0,width:texture.width,height:texture.height),commandBuffer:buffer,passDescriptor:pass)
+        os_signpost(.end,log:XRFrameMetrics.log,name:"SceneKit render")
+        frameMetrics.stage("sceneKitRenderEye",milliseconds:(CACurrentMediaTime()-renderStart)*1000)
+        let postStart=CACurrentMediaTime()
         if eye.eye==0 {xrStereoCaptureIndex=initialized ? captureFrames.reserve():nil}
         let captureIndex=(eye.eye==0 || CommandLine.arguments.contains("--record-stereo")) ? xrStereoCaptureIndex:nil
         let captureSuffix=eye.eye==0 ? "":"-right"
@@ -118,6 +133,7 @@ extension Commander {
         buffer.addCompletedHandler { [weak self] command in
             self?.frameMetrics.completed(frame:measuredFrame,eye:measuredEye,milliseconds:(command.gpuEndTime-command.gpuStartTime)*1000)
         }
+        frameMetrics.stage("eyePostRender",milliseconds:(CACurrentMediaTime()-postStart)*1000)
         buffer.commit()
         if eye.eye==1 {frameMetrics.submitted()}
     }
