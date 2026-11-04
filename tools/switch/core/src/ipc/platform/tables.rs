@@ -186,6 +186,8 @@ const APPLICATION_PROXY: &[CommandSpec<Platform>] = &[
 const HID: &[CommandSpec<Platform>] = &[
     c(0, 8, |s, _, x| s.child(Kind::HidResource, x)),
     c(11, 8, success),
+    c(21, 8, success),
+    c(31, 8, success),
     c(100, 16, success),
     c(102, 8, success),
     c(103, 8, success),

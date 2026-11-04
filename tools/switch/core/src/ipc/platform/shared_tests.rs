@@ -103,6 +103,8 @@ fn command_inventory_and_simple_services() {
     let hid = h.open("hid");
     for (id, len) in [
         (11, 8),
+        (21, 8),
+        (31, 8),
         (100, 16),
         (102, 8),
         (103, 8),
