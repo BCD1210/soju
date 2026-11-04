@@ -37,7 +37,7 @@ impl Fonts {
             if offset + unicode.len() > SHARED_SIZE {
                 return Err(Error::Malformed("host font image size"));
             }
-            records[1..].fill((
+            records.fill((
                 u32::try_from(offset).map_err(|_| Error::Malformed("font offset"))?,
                 u32::try_from(unicode.len()).map_err(|_| Error::Malformed("font size"))?,
             ));
@@ -185,7 +185,7 @@ mod tests {
         assert_eq!(&latin.bytes[..17], &[3; 17]);
         assert!(latin.bytes[17..].iter().all(|b| *b == 0));
         let unicode = Fonts::build(vec![3; 17], vec![4; 7]).unwrap();
-        assert_eq!(unicode.records[1..], [(4096, 7); 5]);
+        assert_eq!(unicode.records, [(4096, 7); 6]);
         assert_eq!(&unicode.bytes[4096..4103], &[4; 7]);
         assert!(Fonts::build(vec![], vec![]).is_err());
         assert!(Fonts::build(vec![0; 8 * 1024 * 1024], vec![0; 15 * 1024 * 1024]).is_err());

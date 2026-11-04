@@ -251,8 +251,8 @@ fn firmware_fonts_and_descriptor_rejection() {
     assert_eq!(reply.data, [1, 0, 0, 0, 6, 0, 0, 0]);
     for (write, values) in reply.writes.iter().zip([
         [0u32, 1, 2, 3, 4, 5],
-        [0, 4096, 4096, 4096, 4096, 4096],
-        [17, 7, 7, 7, 7, 7],
+        [4096, 4096, 4096, 4096, 4096, 4096],
+        [7, 7, 7, 7, 7, 7],
     ]) {
         assert_eq!(
             write.bytes,

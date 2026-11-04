@@ -17,6 +17,7 @@ python3 - "$BINARY" "$CORPUS" "$PROOF" <<'PY'
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 
@@ -27,12 +28,15 @@ if not examples:
 proof.mkdir(parents=True, exist_ok=True)
 timeout = float(os.environ.get('SOJU_SWITCH_TIMEOUT', '15'))
 frames = os.environ.get('SOJU_SWITCH_FRAMES', '1')
+font = Path(os.environ.get('SOJU_SWITCH_FONT', str(Path.home() / '.local/share/soju/switch/host-unicode-bmp.ttf')))
 with (proof / 'summary.txt').open('w') as summary:
     summary.write('name|result|detail\n')
     for nro in examples:
         capture = proof / f'{nro.stem}.png'
         capture.unlink(missing_ok=True)
         with tempfile.TemporaryDirectory(prefix='soju-example-') as home:
+            if font.is_file():
+                shutil.copyfile(font, Path(home) / 'host-unicode-bmp.ttf')
             env = dict(os.environ, SOJU_SWITCH_HOME=str(Path(home).resolve()))
             with (proof / f'{nro.stem}.log').open('w+') as log:
                 detail = ''
