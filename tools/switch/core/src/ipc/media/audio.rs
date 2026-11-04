@@ -98,7 +98,7 @@ const fn command(
         handler,
     }
 }
-pub(super) const SERVICE: &[CommandSpec<Media>] = &[command(1, 8, open)];
+pub(super) const SERVICE: &[CommandSpec<Media>] = &[command(1, 8, open), command(3, 16, open)];
 pub(super) const OUTPUT: &[CommandSpec<Media>] = &[
     command(0, 0, status),
     command(1, 0, start),
@@ -107,6 +107,8 @@ pub(super) const OUTPUT: &[CommandSpec<Media>] = &[
     command(4, 0, event),
     command(5, 0, released),
     command(6, 8, contains),
+    command(7, 8, append),
+    command(8, 0, released),
 ];
 fn output<'a>(media: &'a mut Media, ctx: &mut Context<'_>) -> Result<&'a mut Output, Error> {
     let output = media
