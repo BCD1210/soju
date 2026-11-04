@@ -55,9 +55,14 @@ pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
         0x166c | 0x168c | 0x1924 | 0x179c | 0x19bc => value == 0,
         0x1700..=0x177c if method.is_multiple_of(4) => value == u32::MAX,
         0xa18 => value == 0x6420,
-        // Higher viewport defaults are inert: shader translation rejects viewport-index output.
+        0xa20..=0xbf4 if method.is_multiple_of(4) && method % 32 <= 20 => {
+            f32::from_bits(value).is_finite()
+        }
+        0xa38..=0xbf8 if method % 32 == 24 => value == 0x6420,
+        0xc10..=0xcf4 if matches!(method % 16, 0 | 4) => true,
+        // Retain all scissor bounds; shader translation still rejects viewport-index output.
         0xe10..=0xef8 if method.is_multiple_of(16) => value == 1,
-        0xe10..=0xef8 if matches!(method % 16, 4 | 8) => value == 0x40000000,
+        0xe10..=0xef8 if matches!(method % 16, 4 | 8) => value as u16 <= (value >> 16) as u16,
         0xc18..=0xcfc if method % 16 == 8 => value == 0,
         0xc18..=0xcfc if method % 16 == 12 => value == 1f32.to_bits(),
         0x324..=0x338 if method.is_multiple_of(4) => value == 1f32.to_bits(),
@@ -146,4 +151,20 @@ pub(super) fn accepted_noop(class: u32, method: u32) -> bool {
 pub(super) fn shadowed(method: u32) -> bool {
     (0x800..=0x9fc).contains(&method) && method.is_multiple_of(4)
         || matches!(method, 0x139c | 0xfb4 | 0x15d0 | 0xff4 | 0xff8 | 0x13ac)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn higher_scissors_retain_ordered_bounds_and_reject_inverted_bounds() {
+        for slot in 1..16 {
+            for offset in [4, 8] {
+                let method = 0xe00 + slot * 16 + offset;
+                for value in [0, 0xffff0000, 0x05000000, 0x00400020] {
+                    assert!(super::retain(method, value).unwrap());
+                }
+                assert!(super::retain(method, 0x00200040).is_err());
+            }
+        }
+    }
 }

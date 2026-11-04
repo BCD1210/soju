@@ -62,3 +62,17 @@ NVIDIA clb197.h identifies the default line/stipple, viewport/scissor, depth-lay
 and depth-bounds methods. libnx `nv/types.h` identifies compressed kinds 53/E0/E9.
 A140 launch structure-size bit 12 has no effect with completion type FLUSH_ONLY;
 nonzero semaphore-release completion remains unsupported by inline uploads.
+
+The same pinned public driver revision supplies `utils.mme` (counted register
+fill), `pgraph.mme` (scratch completion polling), and `program.mme` (per-stage
+constant binding). Taken branches cancel exit in their delay slot. The runner
+acknowledges only the exact masked context-configuration operations listed by
+`gpu_3d_base.cpp`; other requests fail. This is a host-context model, not execution
+of a firmware image. The old interpreter's early exit concealed both incomplete
+five-group initialization and missing completion polling. Scissor bounds for
+higher slots are retained and validated; viewport-index shader output is still
+unsupported.
+
+- https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/maxwell/utils.mme
+- https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/maxwell/pgraph.mme
+- https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/maxwell/program.mme

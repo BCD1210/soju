@@ -79,7 +79,7 @@ impl MacroUpload {
                         next = target;
                     }
                 } else {
-                    new_branch = Some(target);
+                    new_branch = Some((target, taken));
                 }
             } else {
                 let mut result = match op {
@@ -175,6 +175,16 @@ impl MacroUpload {
                         return Err(invalid("MME output limit"));
                     }
                     emitted.push((selected, value));
+                    if selected == 0x2310 {
+                        let mut argument = |address| -> Result<u32, Error> {
+                            match emitted.iter().rev().find(|&&(m, _)| m == address) {
+                                Some(&(_, value)) => Ok(value),
+                                None => read(address),
+                            }
+                        };
+                        complete_context_write(value, &mut argument)?;
+                        emitted.push((0x3400, 1));
+                    }
                     method = Some(selected + increment * 4);
                 }
                 if matches!(assignment, 0 | 3 | 5) {
@@ -186,7 +196,7 @@ impl MacroUpload {
                 if dst != 0 {
                     registers[dst] = result;
                 }
-                new_exit = end;
+                new_exit = end && !branch.is_some_and(|(_, taken)| taken);
             }
             if finish {
                 if new_exit || parameter_index != parameters.len() {
@@ -194,7 +204,7 @@ impl MacroUpload {
                 }
                 return Ok(emitted);
             }
-            if let Some(target) = branch {
+            if let Some((target, _)) = branch {
                 next = target;
             }
             branch = new_branch;
@@ -203,4 +213,37 @@ impl MacroUpload {
         }
         Err(invalid("MME instruction budget exceeded"))
     }
+}
+
+// The public driver polls scratch word zero after these context-configuration
+// requests. Host caches/raster hardware own the corresponding physical state;
+// only the previously accepted setup profile is acknowledged here.
+fn complete_context_write(
+    address: u32,
+    argument: &mut impl FnMut(u32) -> Result<u32, Error>,
+) -> Result<(), Error> {
+    let value = argument(0x3404)?;
+    let mask = argument(0x3408)?;
+    let allowed = match address {
+        0x418800 => matches!((value, mask), (1, 1) | (0, 0x1800000)),
+        0x419a08 => (value, mask) == (0, 0x10),
+        0x419f78 => (value, mask) == (0, 8),
+        0x404468 => (value, mask) == (0x7ffffff, 0x3fffffff),
+        0x419a04 => matches!((value, mask), (1, 1) | (2, 2)),
+        0x418e40 => (0..8).any(|i| value == 7 << (i * 4) && mask == 15 << (i * 4)),
+        0x418e44 => (0..3).any(|i| value == 7 << (i * 4) && mask == 15 << (i * 4)),
+        0x418e58 => matches!((value, mask), (0x842, 0xffff) | (0x4f10000, 0xffff0000)),
+        0x418e5c => matches!((value, mask), (0x53, 0xffff) | (0xe90000, 0xffff0000)),
+        0x418e60 => matches!((value, mask), (0xea, 0xffff) | (0xeb0000, 0xffff0000)),
+        0x418e64 => matches!((value, mask), (0x208, 0xffff) | (0x2090000, 0xffff0000)),
+        0x418e68 => matches!((value, mask), (0x20a, 0xffff) | (0x20b0000, 0xffff0000)),
+        0x418e6c => (value, mask) == (0x644, 0xffff),
+        _ => false,
+    };
+    if !allowed || argument(0x3400)? != 0 {
+        return Err(Error::Message(format!(
+            "unsupported context request {address:#x} value={value:#x} mask={mask:#x}"
+        )));
+    }
+    Ok(())
 }

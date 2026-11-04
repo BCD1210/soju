@@ -220,3 +220,11 @@ Capture SHA-256:
 Run all ten scenes with `bash scripts/test-switch-gpu-accepted.sh`. The two
 new mesh tests require `SOJU_SWITCH_GPU_TEST_LENNY_MESH`; the script defaults
 to the local devkitPro source location, without copying the mesh into git.
+
+The expanded suite initially caught a deko Example04 regression after changing
+initial groups: its driver constant buffer appeared bound only to group zero.
+Tracing the public driver's counted initialization exposed an older MME bug:
+a taken branch failed to cancel the exit flag in its delay slot. Correct loop
+execution binds all five groups and requires the public setup completion poll.
+The interpreter now handles both, with counted-loop and bounded acknowledgement
+regressions. Higher scissor bounds are retained with minimum/maximum validation.

@@ -329,7 +329,7 @@ fn metal_retained_setup_rejects_reserved_fields_and_unclassified_method() {
         (0xc18, 1),
         (0xc1c, 0),
         (0xe10, 2),
-        (0xe14, 0x40000001),
+        (0xe14, 0x00010002),
         (0x2608, 32),
         (0x1688, 1),
         (0x1118, 1),

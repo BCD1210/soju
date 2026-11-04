@@ -157,13 +157,21 @@ fn macro_parameter_destinations_preserve_send_and_fetch_order() {
 }
 
 #[test]
-fn macro_exit_in_branch_delay_executes_target_once() {
+fn taken_branch_suppresses_exit_in_delay_slot() {
     let mut mme = MacroUpload::default();
     upload(
         &mut mme,
         0,
         0,
-        &[(0x40 << 14) | 0x21, (3 << 14) | 7, 0x91, 0xf, 0x841, 0xf],
+        &[
+            (0x40 << 14) | 0x21,
+            (3 << 14) | 7,
+            0x91,
+            0xf,
+            0x841,
+            0x91,
+            0x11,
+        ],
     );
     assert_eq!(mme.run(0, 17, &[], |_| Ok(0)).unwrap(), [(0x100, 17)]);
 }
@@ -268,4 +276,67 @@ fn variable_bitfield_extract_shifts_use_register_positions() {
         );
         assert!(mme.run(0, 32, &[0xabcde], |_| Ok(0)).is_err());
     }
+}
+
+#[test]
+fn counted_fill_writes_every_requested_register() {
+    let mut mme = MacroUpload::default();
+    upload(
+        &mut mme,
+        0,
+        0,
+        &[
+            (1 << 11) | (2 << 8) | 0x51,
+            (3 << 8) | 1,
+            (0x3ffff << 14) | (2 << 11) | (2 << 8) | 0x11,
+            (0x3ffff << 14) | (2 << 11) | 0x17,
+            (3 << 11) | 0xc1,
+            0x11,
+        ],
+    );
+    assert_eq!(
+        mme.run(0, 0x8904, &[5, 1], |_| Ok(0)).unwrap(),
+        [
+            (0x2410, 1),
+            (0x2430, 1),
+            (0x2450, 1),
+            (0x2470, 1),
+            (0x2490, 1)
+        ]
+    );
+}
+
+#[test]
+fn context_setup_ack_is_visible_to_poll_and_unknown_requests_fail() {
+    let mut mme = MacroUpload::default();
+    upload(
+        &mut mme,
+        0,
+        0,
+        &[
+            (0x1d00 << 14) | 0x251,
+            0x331,
+            0x1041,
+            0x1841,
+            (0x8c4 << 14) | 0x21,
+            0x841,
+            (0xd00 << 14) | 0x215,
+            (0x40 << 14) | 0x21,
+            (2 << 11) | 0xc1,
+            0x11,
+        ],
+    );
+    assert_eq!(
+        mme.run(0, 0x418800, &[1, 1], |_| Ok(0)).unwrap(),
+        [
+            (0x3400, 0),
+            (0x3404, 1),
+            (0x3408, 1),
+            (0x2310, 0x418800),
+            (0x3400, 1),
+            (0x100, 1)
+        ]
+    );
+    assert!(mme.run(0, 0x418804, &[1, 1], |_| Ok(0)).is_err());
+    assert!(mme.run(0, 0x418800, &[2, 1], |_| Ok(0)).is_err());
 }
