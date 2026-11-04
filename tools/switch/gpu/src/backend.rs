@@ -952,6 +952,16 @@ impl Backend {
                     .collect::<BTreeSet<_>>();
                 let mut attrs = Vec::new();
                 let mut streams = BTreeMap::<u32, u32>::new();
+                let mut stream_slots = BTreeMap::<u32, u32>::new();
+                let mut occupied: BTreeSet<u32> =
+                    vs.constant_buffers.iter().copied().map(u32::from).collect();
+                let options = &self.programs[&va].1;
+                if vs.uses_texture_table {
+                    occupied.insert(u32::from(options.texture_buffer));
+                }
+                if let Some(global) = options.global_memory {
+                    occupied.insert(u32::from(global.buffer));
+                }
                 for slot in slots {
                     require(slot < 32, "vertex attribute slot")?;
                     let a = r.get(0x1160 + slot * 4);
@@ -980,10 +990,19 @@ impl Backend {
                             && offset + bytes <= stride,
                         "invalid vertex stream stride/enable",
                     )?;
-                    require(
-                        !vs.constant_buffers.contains(&(stream as u8)) && stream < 30,
-                        "vertex stream/cbuf/texture buffer collision",
-                    )?;
+                    let metal_slot = if let Some(&slot) = stream_slots.get(&stream) {
+                        slot
+                    } else {
+                        let slot =
+                            (0..31)
+                                .find(|slot| !occupied.contains(slot))
+                                .ok_or_else(|| {
+                                    Error("vertex buffers exceed Metal binding capacity".into())
+                                })?;
+                        occupied.insert(slot);
+                        stream_slots.insert(stream, slot);
+                        slot
+                    };
                     let instanced = r.get(0x1880 + stream * 4);
                     require(instanced <= 1, "invalid instancing mode")?;
                     let rate = if instanced == 1 {
@@ -1005,7 +1024,7 @@ impl Backend {
                         .or_insert(length as u32);
                     attrs.push(AttributeCommand {
                         slot: slot as _,
-                        stream: stream as _,
+                        stream: i64::from(metal_slot),
                         offset: offset as _,
                         format: format as _,
                         stride: stride as _,
@@ -1027,7 +1046,7 @@ impl Backend {
                         capture(memory, &mut dependencies, address, length as usize)?.to_vec(),
                     );
                     buffers.push(BufferCommand {
-                        slot: stream as _,
+                        slot: i64::from(stream_slots[&stream]),
                         file: file.into(),
                     });
                 }

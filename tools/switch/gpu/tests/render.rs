@@ -1520,6 +1520,49 @@ fn depth_import_writeback_and_cpu_invalidation() {
 }
 
 #[test]
+fn vertex_streams_and_constants_have_independent_binding_spaces() {
+    let mut h = Harness::new();
+    let mut vertex = shader(false, true);
+    // Replace the fixture's position-offset add with cbuf0[0].
+    for word in vertex[80..].chunks_exact_mut(8) {
+        if u64::from_le_bytes(word.try_into().unwrap()) == 0x5c58000000000000 | PT | 12 << 20 {
+            word.copy_from_slice(&(0x4c58000000000000u64 | PT).to_le_bytes());
+        }
+    }
+    let vs = h.program(vertex);
+    let cb = h.alloc(0.5f32.to_le_bytes().to_vec());
+    let (mut e, _) = h.engine("vertex-binding-spaces", [0., 0., 0., 1.]);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 0., 1., 0.5, [1., 0., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.methods(
+        &mut e,
+        &[
+            (0x2044, vs as u32),
+            (0x2380, 4),
+            (0x2384, 0),
+            (0x2388, cb as u32),
+            (0x2410, 1),
+        ],
+    );
+    h.draw(&mut e, 6, false, false);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/vertex-bindings");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    for (i, pixel) in report.images[0].rgba.chunks_exact(4).enumerate() {
+        assert_eq!(
+            pixel,
+            if (8..24).contains(&(i % 32)) {
+                &[255, 0, 0, 255]
+            } else {
+                &[0, 0, 0, 255]
+            }
+        );
+    }
+}
+
+#[test]
 fn unsigned_integer_texture_preserves_bits_through_sampling() {
     let mut h = Harness::new();
     let surface = Surface {
