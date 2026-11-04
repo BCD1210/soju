@@ -161,7 +161,12 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "soju-switch-input",
 ]
+
+[[package]]
+name = "soju-switch-input"
+version = "0.1.0"
 
 [[package]]
 name = "syn"

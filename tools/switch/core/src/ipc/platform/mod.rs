@@ -69,7 +69,7 @@ pub struct Platform {
     owned_events: BTreeMap<ObjectId, Vec<Handle>>,
     retired_events: Vec<Handle>,
     exit_requested: bool,
-    buttons: u64,
+    input: soju_switch_input::NpadState,
     sample: u64,
     hid: Option<Handle>,
     time: Option<Handle>,
@@ -88,7 +88,7 @@ impl Platform {
             owned_events: BTreeMap::new(),
             retired_events: Vec::new(),
             exit_requested: false,
-            buttons: 0,
+            input: Default::default(),
             sample: 1,
             hid: None,
             time: None,
@@ -151,7 +151,13 @@ impl Platform {
         }
     }
     pub fn set_buttons(&mut self, mask: u64) {
-        self.buttons = mask;
+        self.input = soju_switch_input::NpadState {
+            buttons: mask,
+            ..Default::default()
+        };
+    }
+    pub fn set_input(&mut self, input: soju_switch_input::NpadState) {
+        self.input = input;
     }
     pub fn poll(
         &mut self,

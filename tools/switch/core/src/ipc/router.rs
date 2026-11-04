@@ -75,6 +75,9 @@ impl Hub {
     pub fn set_buttons(&mut self, mask: u64) {
         self.platform.set_buttons(mask);
     }
+    pub fn set_input(&mut self, input: soju_switch_input::NpadState) {
+        self.platform.set_input(input);
+    }
     pub fn request_exit(&mut self, kernel: &mut Kernel) -> Result<bool, Error> {
         self.platform.request_exit(kernel)
     }

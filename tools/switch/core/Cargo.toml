@@ -6,6 +6,7 @@ license = "GPL-3.0-or-later"
 publish = false
 
 [dependencies]
+soju-switch-input = { path = "../input" }
 base64 = "0.22.1"
 libc = "0.2.191"
 serde = { version = "1.0.229", features = ["derive"] }
@@ -17,3 +18,4 @@ sha2 = "0.10.9"
 [features]
 default = []
 hv = []
+desktop = ["hv"]

@@ -10,7 +10,7 @@ impl Platform {
             bytes[0x9a00] = 1;
             bytes[0x9a30] = 17;
             bytes[0x9a40] = 1;
-            bytes[0x9a48..0x9a78].copy_from_slice(&hid_sample(self.sample, self.buttons));
+            bytes[0x9a48..0x9a78].copy_from_slice(&hid_sample(self.sample, self.input));
             self.hid = Some(
                 ctx.kernel
                     .register_shared(ctx.memory, &bytes, 1)
@@ -47,12 +47,7 @@ impl Platform {
         if let Some(handle) = self.hid {
             self.sample = self.sample.wrapping_add(1);
             kernel
-                .write_shared(
-                    memory,
-                    handle,
-                    0x9a48,
-                    &hid_sample(self.sample, self.buttons),
-                )
+                .write_shared(memory, handle, 0x9a48, &hid_sample(self.sample, self.input))
                 .map_err(Error::Kernel)?;
         }
         if let Some(handle) = self.time {
@@ -63,11 +58,17 @@ impl Platform {
         Ok(())
     }
 }
-fn hid_sample(sample: u64, buttons: u64) -> [u8; 48] {
+fn hid_sample(sample: u64, input: soju_switch_input::NpadState) -> [u8; 48] {
     let mut bytes = [0; 48];
     bytes[..8].copy_from_slice(&sample.to_le_bytes());
     bytes[8..16].copy_from_slice(&sample.to_le_bytes());
-    bytes[16..24].copy_from_slice(&buttons.to_le_bytes());
+    bytes[16..24].copy_from_slice(&input.buttons.to_le_bytes());
+    for (i, value) in [input.left.x, input.left.y, input.right.x, input.right.y]
+        .iter()
+        .enumerate()
+    {
+        bytes[24 + i * 4..28 + i * 4].copy_from_slice(&value.to_le_bytes());
+    }
     bytes[40] = 1;
     bytes
 }

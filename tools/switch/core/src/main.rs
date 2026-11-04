@@ -3,8 +3,31 @@ use std::{fs::File, process::ExitCode};
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    #[cfg(all(feature = "desktop", target_os = "macos", target_arch = "aarch64"))]
+    if args.len() == 2 && args[0] == "--play" {
+        let home = std::env::var_os("SOJU_SWITCH_HOME")
+            .map(std::path::PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME")
+                    .map(|h| std::path::PathBuf::from(h).join(".local/share/soju/switch"))
+            });
+        let result = home
+            .ok_or_else(|| "HOME is not set".to_string())
+            .and_then(|home| {
+                soju_switch_core::desktop::play(std::path::Path::new(&args[1]), &home)
+            });
+        return match result {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("soju-switch-core: {e}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     if args.len() != 1 {
-        eprintln!("usage: soju-switch-core <homebrew.nro> (validate only)");
+        eprintln!(
+            "usage: soju-switch-core <homebrew.nro> (validate; desktop builds also accept --play <homebrew.nro>)"
+        );
         return ExitCode::from(2);
     }
     let result = File::open(&args[0])
@@ -13,7 +36,7 @@ fn main() -> ExitCode {
     match result {
         Ok(nro) => {
             println!(
-                "Valid NRO: {} image bytes, {} BSS bytes; execution is not implemented",
+                "Valid NRO: {} image bytes, {} BSS bytes; validation passed",
                 nro.image.len(),
                 nro.bss
             );

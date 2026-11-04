@@ -50,6 +50,7 @@ pub(super) const DISPLAY: &[CommandSpec<Media>] = &[
     command(1020, 8, close_display),
     command(2020, 80, open_layer),
     command(2021, 8, close_layer),
+    command(2031, 8, close_layer),
     command(2101, 16, scale),
     command(5202, 8, vsync),
 ];

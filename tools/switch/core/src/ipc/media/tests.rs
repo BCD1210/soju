@@ -382,7 +382,7 @@ fn vi_layer_parcel_and_close_order_preserve_display_lifecycle() {
         f.call(display, &req(1020, 1u64.to_le_bytes().to_vec()))
             .is_err()
     );
-    f.call(display, &req(2021, 1u64.to_le_bytes().to_vec()))
+    f.call(display, &req(2031, 1u64.to_le_bytes().to_vec()))
         .unwrap();
     f.call(display, &req(1020, 1u64.to_le_bytes().to_vec()))
         .unwrap();

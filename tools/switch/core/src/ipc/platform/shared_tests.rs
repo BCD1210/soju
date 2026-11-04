@@ -36,6 +36,18 @@ fn hid_and_time_map_real_shared_bytes() {
     assert_eq!(&sample[16..24], &buttons.to_le_bytes());
     assert_eq!(&sample[24..40], &[0; 16]);
     assert_eq!(&sample[40..], &[1, 0, 0, 0, 0, 0, 0, 0]);
+    h.p.set_input(soju_switch_input::NpadState {
+        buttons,
+        left: soju_switch_input::Stick { x: -32767, y: 1234 },
+        right: soju_switch_input::Stick { x: 42, y: -9000 },
+    });
+    h.p.poll(&mut h.k, &mut h.m, 3_000_000_000).unwrap();
+    h.m.read(addr + 0x9a48, &mut sample).unwrap();
+    let axes: Vec<_> = [-32767i32, 1234, 42, -9000]
+        .iter()
+        .flat_map(|v| v.to_le_bytes())
+        .collect();
+    assert_eq!(&sample[24..40], axes);
     let time = h.open("time:u");
     for id in 0..3 {
         let clock = h.child(time, id);
