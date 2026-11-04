@@ -64,3 +64,10 @@ def test_native_chain_draws_shadow_behind_sprite_and_repeats_deterministically(t
         assert result.getpixel((16,16)) == (255,0,0,255)
         assert result.getpixel((0,0)) == (255,255,255,255)
     assert renderer.render(snapshot,Region(0,0,32,32,1)).read_bytes() == first
+
+
+def test_uninitialized_player_color_does_not_blacken_team_paint() -> None:
+    from remastered_reference import player_color
+    assert player_color([[0,0,0,0]], 0) == (244,4,4)
+    assert player_color([[8,9,10,0]], 0) == (8,9,10)
+    assert player_color([], 11) == (255,255,255)
