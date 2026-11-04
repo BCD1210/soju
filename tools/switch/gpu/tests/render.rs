@@ -3178,6 +3178,8 @@ fn integer_vertex_fetch_preserves_bits_before_conversion() {
             attr(false, 0x80, 0, 4),
             attr(false, 0x90, 4, 1),
             0x5cb8000000000a00 | PT | 4 | (4 << 20) | if signed { 1 << 13 } else { 0 },
+            0x010000000000f000 | PT | 8 | (u64::from((if signed { -1f32 / 255. } else { 1f32 / 255. }).to_bits()) << 20),
+            0x5c68000000000000 | PT | 4 | (4 << 8) | (8 << 20),
             0x010000000000f000 | PT | 5,
             0x010000000000f000 | PT | 6,
             0x010000000000f000 | PT | 7 | (u64::from(1f32.to_bits()) << 20),
@@ -3199,7 +3201,7 @@ fn integer_vertex_fetch_preserves_bits_before_conversion() {
         h.draw(&mut e, 6, false, false);
         let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("target/integer-fetch-{signed}"));
         let report = h.backend.execute(&directory, &mut h.memory).unwrap();
-        let expected = if signed { [0, 0, 0, 255] } else { [255, 0, 0, 255] };
+        let expected = [1, 0, 0, 255];
         assert!(report.images[0].rgba.chunks_exact(4).all(|p| p == expected));
     }
 }

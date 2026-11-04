@@ -914,7 +914,7 @@ impl Backend {
                 }
                 // Integer vertex fetch must preserve register bits rather than convert to float.
                 for slot in 0..32 {
-                    let ty = (r.get(0x1e00 + slot * 4) >> 27) & 7;
+                    let ty = (r.get(0x1160 + slot * 4) >> 27) & 7;
                     let name = match ty { 3 => "int", 4 => "uint", _ => continue };
                     vs.source = vs.source.replace(
                         &format!("float4 a{slot} [[attribute({slot})]];"),

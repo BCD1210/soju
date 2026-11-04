@@ -101,5 +101,6 @@ Integer vertex input uses B197 SET_VERTEX_ATTRIBUTE_A NUM_UINT/NUM_SINT
 and COMPONENT_BIT_WIDTHS_R16, with Apple's installed MTLVertexDescriptor.h
 UShort/Short formats. The StageIn field uses uint4/int4 so ALD receives integer
 register bits before guest conversion. Signed and unsigned scalar-fetch render
-oracles exercise I2F and output clamping; pipeline identity already contains
-the attribute descriptors.
+oracles exercise I2F with unsaturated pixel values; pipeline identity already
+contains the attribute descriptors. SET_VERTEX_ATTRIBUTE_A begins at 0x1160.
+The gpu_console capture now displays the sample's text and palette.
