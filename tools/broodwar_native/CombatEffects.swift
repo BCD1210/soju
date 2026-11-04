@@ -19,6 +19,7 @@ final class CombatEffects {
     func clear() {
         for n in root.childNodes {n.removeFromParentNode()}
         projectiles.removeAll();meshes.removeAll();transients.removeAll();counts.removeAll()
+        sprites.renderedFrames=0;sprites.missing.removeAll()
     }
     func glow(_ color:NSColor,radius:CGFloat)->SCNNode {
         let geometry=SCNSphere(radius:radius);geometry.segmentCount=8
@@ -50,7 +51,10 @@ final class CombatEffects {
                 model.selection.isHidden=true;projectiles[id]=model.root;meshes[id]=model;root.addChildNode(model.root)
             }
             if projectiles[id]==nil {let node=glow(.yellow,radius:0.065);projectiles[id]=node;root.addChildNode(node)}
-            if meshes[id]==nil,let node=projectiles[id] {_ = sprites.apply(b,to:node)}
+            if meshes[id]==nil,let node=projectiles[id],!sprites.apply(b,to:node) {
+                node.geometry=glow(.yellow,radius:0.065).geometry
+                node.constraints=nil;node.name=nil;node.isHidden=false
+            }
             projectiles[id]?.position=position
             projectiles[id]?.eulerAngles.y=CGFloat(-number(b,"facing")*2*Double.pi/256)
         }

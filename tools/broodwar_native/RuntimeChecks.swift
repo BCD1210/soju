@@ -63,7 +63,9 @@ func runtimeChecks()throws {
     try require(commander.effects.projectiles.count==1,"native projectile is displayed")
     commander.effects.apply(bullets:[],events:[],units:[:],frame:1002,ground:commander.ground)
     try require(commander.effects.projectiles.isEmpty,"expired native projectile is removed")
+    commander.fog[0]=50;commander.controlGroups[4]=["a"]
     commander.apply(state(1,[unit("c")],session:"new-game"),[:])
+    try require(commander.fog.isEmpty && commander.controlGroups.isEmpty && commander.effects.sprites.renderedFrames==0,"new game clears fog control groups and sprite counters")
     try require(commander.deathCount==0 && commander.effects.counts.isEmpty && Set(commander.models.keys)==["c"],"new game clears old effects and identities")
     let report:Obj=["passed":true,"checks":passed,"source":"deterministic renderer inputs; not live-game acceptance"]
     let path=argument("--runtime-report").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("runtime-checks.json")

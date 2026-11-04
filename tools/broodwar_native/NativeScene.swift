@@ -313,6 +313,8 @@ final class Commander: NSObject, NSApplicationDelegate {
             for n in nodes.values {n.removeFromParentNode()}
             for m in retiring.values {m.root.removeFromParentNode()}
             nodes.removeAll();models.removeAll();retiring.removeAll();effects.clear();selected=[];controlGroups.removeAll()
+            for node in terrain.values {node.removeFromParentNode()}
+            terrain.removeAll();fog.removeAll();fogPresentation.cache.removeAll()
             initialized=false;session=newSession;eventSequence=0;deathCount=0;lostEvents=0
         }
         let events=changed ? []:(s["events"] as? [Obj] ?? []).filter{number($0,"seq")>eventSequence}
@@ -667,6 +669,7 @@ extension Commander {
 }
 #endif
 do {
+    if CommandLine.arguments.contains("--effect-proof") {try effectSpriteProof();exit(0)}
     if CommandLine.arguments.contains("--live-proof") {try liveModelProof();exit(0)}
     if CommandLine.arguments.contains("--runtime-check") {try runtimeChecks();exit(0)}
     if CommandLine.arguments.contains("--model-check") || CommandLine.arguments.contains("--model-proof") {
