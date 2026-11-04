@@ -6,6 +6,7 @@ struct ModelDefinition {
     let kind:Int, file:String, name:String
     let scale:Double, targetHeight:Double?, yawDegrees:Double, elevation:Double,flightHeight:Double
     let faceHeading:Bool, footPivot:Bool
+    let teamMask:String
     let animations:[String:[String]]
     let requiredAnimations:[String]
     let raw:Obj
@@ -13,6 +14,11 @@ struct ModelDefinition {
         guard (0...65535).contains(kind),let file=object["file"] as? String,
             !file.isEmpty,!file.hasPrefix("/"),!file.split(separator:"/").contains(".."),
             file.lowercased().hasSuffix(".glb") else { throw SceneError.invalid("Invalid model path/type \(kind)") }
+        teamMask=object["teamMask"] as? String ?? "none"
+        guard ["alpha","texture","none"].contains(teamMask) else {throw SceneError.invalid("Invalid teamMask")}
+        if teamMask=="texture" {
+            guard let path=object["teamMaskTexture"] as? String,!path.hasPrefix("/"),!path.split(separator:"/").contains("..") else {throw SceneError.invalid("Missing or unsafe teamMaskTexture")}
+        }
         self.kind=kind;self.file=file;raw=object
         name=object["name"] as? String ?? URL(fileURLWithPath:file).deletingPathExtension().lastPathComponent
         scale=(object["scale"] as? NSNumber)?.doubleValue ?? 1

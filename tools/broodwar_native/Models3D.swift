@@ -31,7 +31,7 @@ final class ModelInstance {
         "morph":["morph","transform"],"lift":["lift","takeoff"],"land":["land","landing"],
         "cast":["cast","spell"],"stunned":["stunned","disabled"],"repair":["repair","work"],
         "produce":["produce","production"],"depleted":["depleted"]]
-    init(asset:GLTFAsset,definition:ModelDefinition,revision:String)throws {
+    init(asset:GLTFAsset,definition:ModelDefinition,revision:String,folder:URL=runtime.appendingPathComponent("models-3d"))throws {
         self.definition=definition;self.revision=revision
         source=GLTFSCNSceneSource(asset:asset)
         guard let scene=source.defaultScene else { throw SceneError.invalid("No 3D scene: "+definition.file) }
@@ -46,7 +46,28 @@ final class ModelInstance {
         placement.eulerAngles.y=CGFloat(definition.yawDegrees*Double.pi/180)
         if definition.footPivot { rig.position.y -= box.min.y }
         // Preserve authored PBR textures, roughness, metallic and two-sidedness.
-        for material in source.materials { material.lightingModel = .physicallyBased }
+        for material in source.materials {
+            material.lightingModel = .physicallyBased
+            let names=definition.raw["teamMaterials"] as? [String] ?? []
+            if definition.teamMask != "none" && (names.isEmpty || names.contains(material.name ?? "")) {
+                let mask=definition.teamMask=="alpha" ? "texture2D(u_diffuseTexture, _surface.diffuseTexcoord).a":"texture2D(teamMaskTexture, _surface.diffuseTexcoord).r"
+                let textureUniform=definition.teamMask=="texture" ? "uniform sampler2D teamMaskTexture;":""
+                material.shaderModifiers=[.surface: """
+                uniform vec3 teamColor;
+                \(textureUniform)
+                #pragma body
+                float teamMask = \(mask);
+                _surface.diffuse.rgb = mix(_surface.diffuse.rgb, _surface.diffuse.rgb * teamColor, teamMask);
+                _surface.diffuse.a = 1.0;
+                """]
+                material.setValue(NSValue(scnVector3:SCNVector3(1,1,1)),forKey:"teamColor")
+                if let path=definition.raw["teamMaskTexture"] as? String,definition.teamMask=="texture" {
+                    let root=folder.resolvingSymlinksInPath(),url=folder.appendingPathComponent(path).resolvingSymlinksInPath()
+                    guard url.path.hasPrefix(root.path+"/"),let image=NSImage(contentsOf:url) else {throw SceneError.invalid("Missing team mask texture")}
+                    material.setValue(SCNMaterialProperty(contents:image),forKey:"teamMaskTexture")
+                }
+            }
+        }
         rig.enumerateChildNodes { node,_ in node.castsShadow=true }
         rig.enumerateChildNodes { node,_ in self.allNodes.append(node) }
         for name in definition.raw["turretNodes"] as? [String] ?? [] {
@@ -143,7 +164,11 @@ final class ModelInstance {
         guard rgba.count>=3,rgba != appliedTeamColor else {return};appliedTeamColor=rgba
         let names=Set(definition.raw["teamMaterials"] as? [String] ?? [])
         let color=NSColor(calibratedRed:CGFloat(rgba[0])/255,green:CGFloat(rgba[1])/255,blue:CGFloat(rgba[2])/255,alpha:1)
-        for material in source.materials where names.contains(material.name ?? "") {material.multiply.contents=color}
+        for material in source.materials {
+            if definition.teamMask != "none" && (names.isEmpty || names.contains(material.name ?? "")) {
+                material.setValue(NSValue(scnVector3:SCNVector3(color.redComponent,color.greenComponent,color.blueComponent)),forKey:"teamColor")
+            } else if names.contains(material.name ?? "") {material.multiply.contents=color}
+        }
     }
     func updateDeath(frame:Double,now:Double) -> Bool {
         guard dying else {return false}
@@ -223,21 +248,50 @@ final class Models3D {
         do {
             if let cached=assets[kind],cached.0==revision { asset=cached.1 }
             else { asset=try GLTFAsset(url:catalog.url(definition),options:[:]) }
-            let instance=try ModelInstance(asset:asset,definition:definition,revision:revision)
+            let instance=try ModelInstance(asset:asset,definition:definition,revision:revision,folder:catalog.folder)
             assets[kind]=(revision,asset);errors.removeValue(forKey:kind);failedRevisions.removeValue(forKey:kind);return instance
         } catch {
             errors[kind]=String(describing:error);failedRevisions[kind]=revision;throw error
         }
     }
-    static func lights(_ world:SCNScene) {
-        let ambient=SCNNode();ambient.light=SCNLight();ambient.light!.type = .ambient
-        ambient.light!.color=NSColor(calibratedRed:0.60,green:0.68,blue:0.80,alpha:1);ambient.light!.intensity=450
-        world.rootNode.addChildNode(ambient)
-        let sun=SCNNode();sun.light=SCNLight();sun.light!.type = .directional;sun.light!.intensity=1600
-        sun.light!.color=NSColor(calibratedRed:1,green:0.91,blue:0.78,alpha:1)
-        sun.light!.castsShadow=true;sun.light!.shadowMapSize=CGSize(width:2048,height:2048)
+    static let playerColors=[[244,4,4],[12,72,204],[44,180,148],[136,64,156],[248,140,20],[112,48,20],[204,224,208],[252,252,56]]
+    static func lights(_ world:SCNScene,tileset:String="badlands") {
+        let presets:[String:(Double,Double,NSColor)]=[
+            "badlands":(-0.8,-0.6,NSColor(calibratedRed:1,green:0.94,blue:0.84,alpha:1)),
+            "platform":(-0.65,0.4,NSColor(calibratedRed:0.88,green:0.93,blue:1,alpha:1)),
+            "install":(-0.9,0.2,.white),"ashworld":(-0.5,-1,NSColor(calibratedRed:1,green:0.76,blue:0.58,alpha:1)),
+            "jungle":(-0.9,0.8,NSColor(calibratedRed:1,green:0.96,blue:0.86,alpha:1)),
+            "desert":(-0.7,-0.4,NSColor(calibratedRed:1,green:0.92,blue:0.77,alpha:1)),
+            "ice":(-0.6,0.6,NSColor(calibratedRed:0.86,green:0.94,blue:1,alpha:1)),
+            "twilight":(-0.4,-0.8,NSColor(calibratedRed:0.94,green:0.86,blue:1,alpha:1))]
+        let preset=presets[tileset] ?? presets["badlands"]!
+        // Linear floating-point radiance, generated locally; no external environment art.
+        let width=256,height=128
+        var pixels=[Float]();pixels.reserveCapacity(width*height*4)
+        for y in 0..<height { for x in 0..<width {
+            let latitude=Double(y)/Double(height-1)*Double.pi
+            let longitude=Double(x)/Double(width-1)*2*Double.pi
+            let sky=max(0,cos(latitude)),softbox=pow(max(0,sin(latitude)*cos(longitude-0.8)),24)
+            let radiance=Float(0.12+0.45*sky+1.8*softbox)
+            pixels += [radiance,radiance,radiance,1]
+        }}
+        let data=pixels.withUnsafeBytes{Data($0)}
+        let environment=CIImage(bitmapData:data,bytesPerRow:width*16,size:CGSize(width:width,height:height),format:.RGBAf,colorSpace:CGColorSpace(name:CGColorSpace.linearSRGB)!)
+        let context=CIContext(options:[.workingColorSpace:CGColorSpace(name:CGColorSpace.linearSRGB)!])
+        world.lightingEnvironment.contents=context.createCGImage(environment,from:environment.extent,format:.RGBAh,colorSpace:CGColorSpace(name:CGColorSpace.linearSRGB)!)
+        world.lightingEnvironment.intensity=1.2
+        let fill=SCNNode();fill.light=SCNLight();fill.light!.type = .ambient;fill.light!.intensity=450
+        fill.light!.color=NSColor.white;world.rootNode.addChildNode(fill)
+        let sun=SCNNode();sun.name="commander-sun";sun.light=SCNLight();sun.light!.type = .directional;sun.light!.intensity=1050
+        sun.light!.color=preset.2;sun.light!.castsShadow=true;sun.light!.shadowMapSize=CGSize(width:2048,height:2048)
         sun.light!.shadowMode = .deferred;sun.light!.shadowSampleCount=8
-        sun.light!.shadowColor=NSColor.black.withAlphaComponent(0.45)
-        sun.eulerAngles=SCNVector3(-0.8,-0.6,0);world.rootNode.addChildNode(sun)
+        sun.light!.automaticallyAdjustsShadowProjection=false;sun.light!.orthographicScale=30
+        sun.light!.zNear=0.1;sun.light!.zFar=100;sun.light!.shadowColor=NSColor.black.withAlphaComponent(0.45)
+        sun.eulerAngles=SCNVector3(preset.0,preset.1,0);world.rootNode.addChildNode(sun)
+    }
+    static func followLight(_ world:SCNScene,position:SCNVector3) {
+        guard let sun=world.rootNode.childNode(withName:"commander-sun",recursively:false) else {return}
+        let forward=sun.simdOrientation.act(SIMD3<Float>(0,0,-1))
+        sun.simdPosition=SIMD3<Float>(Float(position.x),Float(position.y),Float(position.z))-forward*40
     }
 }

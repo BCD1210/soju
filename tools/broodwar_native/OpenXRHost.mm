@@ -152,6 +152,7 @@ extern "C" int soju_xr_init() {
         Eye& e=eyes[i];e.width=views[i].recommendedImageRectWidth;e.height=views[i].recommendedImageRectHeight;
         XrSwapchainCreateInfo info{XR_TYPE_SWAPCHAIN_CREATE_INFO};
         info.usageFlags=XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT|XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
+        // The Swift eye pass renders at 4x MSAA and resolves into this single-sample runtime image.
         info.format=format;info.sampleCount=1;info.width=e.width;info.height=e.height;info.faceCount=1;info.arraySize=1;info.mipCount=1;
         CHECK(xrCreateSwapchain(session,&info,&e.chain));
         uint32_t n=0;CHECK(xrEnumerateSwapchainImages(e.chain,0,&n,nullptr));

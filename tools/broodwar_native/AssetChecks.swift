@@ -71,6 +71,7 @@ extension Models3D {
                     a.root.removeFromParentNode();b.root.removeFromParentNode()
                     let preview=try make(kind)
                     preview.playAction("idle",force:true,blendDuration:0)
+                    preview.teamColor(Self.playerColors[0])
                     world.rootNode.addChildNode(preview.root)
                     let previewRenderer=SCNRenderer(device:device,options:nil)
                     previewRenderer.scene=world;previewRenderer.pointOfView=camera;previewRenderer.isPlaying=true
@@ -83,6 +84,13 @@ extension Models3D {
                         let image=previewRenderer.snapshot(atTime:previewTime+0.2,with:CGSize(width:640,height:640),antialiasingMode:.multisampling4X)
                         if let tiff=image.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let png=bitmap.representation(using:.png,properties:[:]) {
                             try png.write(to:out.appendingPathComponent("\(kind)-\(label).png"))
+                        }
+                    }
+                    for (player,color) in Self.playerColors.enumerated() where preview.definition.teamMask != "none" {
+                        preview.teamColor(color);SCNTransaction.flush()
+                        let image=previewRenderer.snapshot(atTime:previewTime+0.2,with:CGSize(width:640,height:640),antialiasingMode:.multisampling4X)
+                        if let tiff=image.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let png=bitmap.representation(using:.png,properties:[:]) {
+                            try png.write(to:out.appendingPathComponent("\(kind)-player-\(player+1).png"))
                         }
                     }
                 }

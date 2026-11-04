@@ -12,7 +12,8 @@
         "attack"
       ],
       "targetHeight": 1.7480118945,
-      "footPivot": true
+      "footPivot": true,
+      "teamMask": "alpha"
     },
     "7": {
       "file": "scv.glb",
@@ -28,7 +29,8 @@
         "carryWalk"
       ],
       "targetHeight": 1.877970562,
-      "footPivot": true
+      "footPivot": true,
+      "teamMask": "alpha"
     },
     "106": {
       "file": "command-center.glb",
@@ -36,7 +38,8 @@
       "yawDegrees": 0,
       "faceHeading": false,
       "targetHeight": 3.960560751,
-      "footPivot": true
+      "footPivot": true,
+      "teamMask": "alpha"
     },
     "109": {
       "file": "supply-depot.glb",
@@ -44,7 +47,8 @@
       "yawDegrees": 0,
       "faceHeading": false,
       "targetHeight": 1.209834751,
-      "footPivot": true
+      "footPivot": true,
+      "teamMask": "alpha"
     },
     "176": {
       "file": "mineral-0.glb",
@@ -57,7 +61,8 @@
         ]
       },
       "targetHeight": 1.214224398,
-      "footPivot": true
+      "footPivot": true,
+      "teamMask": "none"
     },
     "177": {
       "file": "mineral-1.glb",
@@ -65,7 +70,8 @@
       "yawDegrees": 0,
       "faceHeading": false,
       "targetHeight": 0.848815952,
-      "footPivot": true
+      "footPivot": true,
+      "teamMask": "none"
     },
     "178": {
       "file": "mineral-2.glb",
@@ -73,7 +79,8 @@
       "yawDegrees": 0,
       "faceHeading": false,
       "targetHeight": 0.70791373,
-      "footPivot": true
+      "footPivot": true,
+      "teamMask": "none"
     },
     "188": {
       "file": "geyser.glb",
@@ -86,7 +93,8 @@
         ]
       },
       "targetHeight": 1.465870343,
-      "footPivot": true
+      "footPivot": true,
+      "teamMask": "none"
     }
   }
 }
