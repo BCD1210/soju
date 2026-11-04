@@ -9,6 +9,7 @@ mod error_tests;
 mod exit_tests;
 mod fonts;
 mod hid_system;
+mod hid_debug;
 mod infrared;
 mod network;
 mod ns;
@@ -57,6 +58,7 @@ enum Kind {
     Hid,
     HidResource,
     HidSystem,
+    HidDebug,
     Infrared,
     Vibration,
     Time,
@@ -101,6 +103,7 @@ struct Player {
 pub struct Platform {
     objects: BTreeMap<ObjectId, Object>,
     usb: BTreeMap<ObjectId, usb::Session>,
+    hid_debug: hid_debug::Debug,
     notifications: notification::Notifications,
     infrared: BTreeMap<ObjectId, infrared::Session>,
     storage: BTreeMap<ObjectId, Rc<RefCell<Vec<u8>>>>,
@@ -137,6 +140,7 @@ impl Platform {
         Ok(Self {
             objects: BTreeMap::new(),
             usb: BTreeMap::new(),
+            hid_debug: Default::default(),
             notifications: Default::default(),
             infrared: BTreeMap::new(),
             storage: BTreeMap::new(),
@@ -195,6 +199,7 @@ impl Platform {
             "appletOE" => Kind::Oe,
             "hid" => Kind::Hid,
             "hid:sys" => Kind::HidSystem,
+            "hid:dbg" => Kind::HidDebug,
             "irs" => Kind::Infrared,
             "time:u" | "time:s" => Kind::Time,
             "acc:u0" | "acc:u1" => Kind::Account,
@@ -242,6 +247,7 @@ impl Platform {
     pub fn close_object(&mut self, id: ObjectId) {
         self.objects.remove(&id);
         self.usb.remove(&id);
+        self.retired_events.extend(self.hid_debug.close(id));
         self.notifications.close(id);
         if let Some(sensor) = self.seven_axis.remove(&id) {
             self.retired_events.extend(sensor.handles);

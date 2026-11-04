@@ -50,6 +50,7 @@ impl Platform {
             kernel
                 .write_shared(memory, handle, 0x9a48, &hid_sample(self.sample, self.input))
                 .map_err(Error::Kernel)?;
+            self.hid_debug.publish(kernel, memory, handle, self.sample)?;
             for &sensor in &self.six_axis {
                 let offset = sensor_offset(sensor)?;
                 let mut bytes = [0; 0x88];
@@ -78,7 +79,7 @@ impl Platform {
         Ok(())
     }
 }
-fn hid_sample(sample: u64, input: soju_switch_input::NpadState) -> [u8; 48] {
+pub(super) fn hid_sample(sample: u64, input: soju_switch_input::NpadState) -> [u8; 48] {
     let mut bytes = [0; 48];
     bytes[..8].copy_from_slice(&sample.to_le_bytes());
     bytes[8..16].copy_from_slice(&sample.to_le_bytes());

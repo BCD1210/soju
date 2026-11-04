@@ -33,6 +33,7 @@ const SERVICES: &[(&str, Family)] = &[
     ("appletOE", Family::Platform),
     ("hid", Family::Platform),
     ("hid:sys", Family::Platform),
+    ("hid:dbg", Family::Platform),
     ("irs", Family::Platform),
     ("time:u", Family::Platform),
     ("time:s", Family::Platform),

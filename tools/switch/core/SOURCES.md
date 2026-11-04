@@ -225,3 +225,14 @@ A first permission request supplies silence until capture is restarted. Headless
 runs never request microphone access. Captured samples are neither saved nor logged.
 Native compilation and deterministic silent-queue tests are verified; live
 microphone capture still requires a hardware/permission check.
+
+HDLS follows [HID debug services](https://switchbrew.org/wiki/HID_services#AttachHdlsWorkBuffer)
+and the public libnx `hiddbg.h` structures: retained RW transfer memory, distinct
+session/device identities, dedicated FullKey devices in free player slots,
+state-list dumps, and shared-memory buttons/sticks/colors/power publication.
+Detach and session close clear those slots. Unsupported controller types, motion
+attributes and assignment/state-list apply commands remain explicit errors.
+Legacy AbstractedPad commands are unavailable in the advertised modern profile;
+clearing their empty autopilot set does not detach independently owned HDLS devices.
+Both public HID debug examples reached three frames; the state roundtrip and
+shared-memory/transfer-lifetime test passed.
