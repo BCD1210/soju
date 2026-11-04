@@ -118,6 +118,14 @@ def play(map_path):
         map_path=map_path.expanduser().resolve()
         if not map_path.is_file():
             raise RuntimeError(f"Map does not exist: {map_path}")
+        # SCR reads this JSON setting, not the legacy registry tip value.
+        settings = RUNTIME / "documents/StarCraft/CSettings.json"
+        settings.parent.mkdir(parents=True, exist_ok=True)
+        preferences = json.loads(settings.read_text()) if settings.exists() else {}
+        preferences["tip"] = 0
+        pending = settings.with_suffix(".json.new")
+        pending.write_text(json.dumps(preferences, indent=4) + "\n")
+        os.replace(pending, settings)
     token_file=RUNTIME/"session-token"
     token_file.write_text(secrets.token_hex(32))
     token_file.chmod(0o600)
@@ -129,7 +137,30 @@ def play(map_path):
     if map_path is not None:
         command.extend(["--map",windows(map_path)])
     command.append(windows(RUNTIME/"mod"))
-    subprocess.run(command,env=env,cwd=RUNTIME,check=True)
+    process = subprocess.Popen(command,env=env,cwd=RUNTIME)
+    if map_path is not None:
+        deadline = time.monotonic() + 120
+        first_frame = None
+        while time.monotonic() < deadline:
+            try:
+                state = request()
+            except (OSError, RuntimeError):
+                time.sleep(0.5)
+                continue
+            from map_assets import local_map
+            if local_map(state["map"]["path"]) != map_path:
+                raise RuntimeError("Loaded map differs from the requested private map.")
+            if first_frame is not None and state["frame"] > first_frame:
+                print(json.dumps({"running": True, "map": str(map_path),
+                                  "firstFrame": first_frame, "frame": state["frame"]}), flush=True)
+                break
+            first_frame = state["frame"]
+            time.sleep(0.5)
+        else:
+            raise RuntimeError("Map startup timed out without advancing frames; inspect the dedicated client.")
+    result = process.wait()
+    if result:
+        raise subprocess.CalledProcessError(result, command)
 
 def launch_scene(xr=False, probe=False):
     exe=RUNTIME/("soju-bw-xr" if xr or probe else "soju-bw-scene")
