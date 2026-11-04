@@ -104,3 +104,21 @@ Additional boot-path references:
 - https://switchbrew.org/wiki/SSL_services (local context lifetime)
 - https://switchbrew.org/wiki/Filesystem_services (save identities)
 - Installed libnx public HID structure declarations (offsets checked by the probe compiler).
+
+
+Parallel execution and code-memory continuation (2026-11-04):
+
+- Installed Apple Hypervisor SDK `hv_vcpu.h` and `hv_vcpu_types.h`: thread-affine
+  vCPU ownership, cross-thread exit requests, virtual timer exit/mask behavior,
+  and the zero-offset relation to `mach_absolute_time()`.
+- Installed Mach time and pthread QoS headers: timer conversion and worker class.
+- https://switchbrew.org/wiki/SVC#CreateCodeMemory
+- https://switchbrew.org/wiki/SVC#ControlCodeMemory
+- Installed libnx `switch/kernel/svc.h` and public SVC assembly ABI: code-memory
+  operations, permissions, and register arguments.
+
+The code-memory implementation is a bounded single-process compatibility path:
+heap backing, one writable owner alias, one read/read-execute alias, exact-range
+unmaps, and final-handle cleanup. It permits both aliases in the same process;
+modern cross-process ownership restrictions and handle transfer are not modeled.
+This choice is explicit and is not evidence for cross-process JIT behavior.

@@ -28,7 +28,8 @@ SECTIONS {
  .fini_array : { KEEP(*(.fini_array .fini_array.*)) } :data
  .tdata : { __probe_tls_start = .; *(.tdata .tdata.*) } :data :tls
  .tbss : { *(.tbss .tbss.*) } :data :tls
- __probe_tls_size = SIZEOF(.tdata) + SIZEOF(.tbss);
+ __probe_tls_filesz = SIZEOF(.tdata);
+ __probe_tls_size = ADDR(.tbss) + SIZEOF(.tbss) - ADDR(.tdata);
  .bss : { __bss_start = .; *(.bss .bss.* COMMON) __bss_end = .; } :data
  /DISCARD/ : { *(.comment .note*) }
 }

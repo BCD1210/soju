@@ -1,4 +1,5 @@
 #include "abi.h"
+#include "threads.h"
 __attribute__((constructor)) static void init(void) { lifecycle = lifecycle * 10 + 3; }
 __attribute__((destructor)) static void fini(void) { lifecycle = lifecycle * 10 + 3; }
 void module_entry(void) {
@@ -9,4 +10,6 @@ void module_entry(void) {
  probe_check("shared imported data mutation", sub_add(7) == 78);
  probe_check("dependency init arrays", lifecycle == 123);
  probe_check("module TLS initialization and independence", sdk_tls() == 6 && sub_tls() == 101 && sdk_tls() == 7 && sub_tls() == 102);
+ check_thread_tls();
+ probe_check("main module TLS survives worker exits", sdk_tls() == 8 && sub_tls() == 103);
 }

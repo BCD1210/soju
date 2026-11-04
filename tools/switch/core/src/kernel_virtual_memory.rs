@@ -21,6 +21,105 @@ impl Kernel {
         r: &[u64; 31],
     ) -> Result<Dispatch, u64> {
         match svc {
+            0x4b => {
+                let source = range(r[1], r[2])?;
+                let size = usize::try_from(r[2]).map_err(|_| INVALID_SIZE)?;
+                self.allocation_available()?;
+                if source.start < HEAP || source.end > HEAP + self.heap_size as u64 {
+                    return Err(INVALID_MEMORY_STATE);
+                }
+                memory
+                    .check_access(source.start, size, 3)
+                    .map_err(|_| INVALID_MEMORY_STATE)?;
+                if self.objects.values().any(|entry| {
+                    matches!(entry.object,
+                    Object::Transfer { address, size } | Object::Code { address, size, .. }
+                    if source.start < address + size as u64 && address < source.end)
+                }) {
+                    return Err(INVALID_MEMORY_STATE);
+                }
+                for page in source.clone().step_by(PAGE) {
+                    let (_, _, mapping) = memory.query(page).map_err(|_| INVALID_MEMORY_STATE)?;
+                    if !mapping
+                        .is_some_and(|m| m.state == 5 && m.attribute == 0 && m.permissions == 3)
+                    {
+                        return Err(INVALID_MEMORY_STATE);
+                    }
+                }
+                // Validate the entire range before initializing the backing pages.
+                for address in source.clone().step_by(PAGE) {
+                    memory
+                        .write(address, &[0xff; PAGE])
+                        .map_err(|_| INVALID_MEMORY_STATE)?;
+                }
+                memory
+                    .protect(source.start, size, 0)
+                    .map_err(|_| INVALID_MEMORY_STATE)?;
+                return Ok(out(self.handle(Object::Code {
+                    address: source.start,
+                    size,
+                    owner: None,
+                    slave: None,
+                })? as u64));
+            }
+            0x4c => {
+                let handle = u32::try_from(r[0]).map_err(|_| INVALID_HANDLE)?;
+                let object = *self.handles.get(&handle).ok_or(INVALID_HANDLE)?;
+                let Object::Code {
+                    address,
+                    size,
+                    owner,
+                    slave,
+                } = self.objects.get(&object).ok_or(INVALID_HANDLE)?.object
+                else {
+                    return Err(INVALID_HANDLE);
+                };
+                let destination = range(r[2], r[3])?;
+                if r[3] != size as u64 {
+                    return Err(INVALID_SIZE);
+                }
+                if destination.start < CODE_START || destination.end > CODE_END {
+                    return Err(INVALID_MEMORY_STATE);
+                }
+                let (is_owner, map) = match r[1] {
+                    0 => (true, true),
+                    1 => (false, true),
+                    2 => (true, false),
+                    3 => (false, false),
+                    _ => return Err(INVALID_ENUM),
+                };
+                let previous = if is_owner { owner } else { slave };
+                if map {
+                    if (is_owner && r[4] != 3) || (!is_owner && !matches!(r[4], 1 | 5)) {
+                        return Err(INVALID_COMBINATION);
+                    }
+                    if previous.is_some() {
+                        return Err(INVALID_STATE);
+                    }
+                    memory
+                        .alias(destination.start, address, size, r[4] as u8)
+                        .map_err(|_| INVALID_MEMORY_STATE)?;
+                    memory
+                        .set_state(destination.start, size, if is_owner { 0x15 } else { 0x14 })
+                        .map_err(|_| INVALID_MEMORY_STATE)?;
+                } else {
+                    if r[4] != 0 {
+                        return Err(INVALID_COMBINATION);
+                    }
+                    if previous != Some(destination.start) {
+                        return Err(INVALID_MEMORY_STATE);
+                    }
+                    memory
+                        .unmap(destination.start, size)
+                        .map_err(|_| INVALID_MEMORY_STATE)?;
+                }
+                let Object::Code { owner, slave, .. } =
+                    &mut self.objects.get_mut(&object).ok_or(INVALID_HANDLE)?.object
+                else {
+                    unreachable!()
+                };
+                *(if is_owner { owner } else { slave }) = map.then_some(destination.start);
+            }
             0x2c | 0x2d => {
                 let area = range(r[0], r[1])?;
                 let size = usize::try_from(r[1]).map_err(|_| INVALID_SIZE)?;

@@ -1,6 +1,7 @@
 /* Bounded fixture linker: ELF64/AArch64 RELA and MOD0, executed entirely in guest. */
 #include "abi.h"
 #include <elf.h>
+#include <stdatomic.h>
 typedef struct {
  uintptr_t base;
  Elf64_Dyn *dynamic;
@@ -10,6 +11,9 @@ typedef struct {
  unsigned char tls[256];
 } Module;
 static Module modules[4];
+typedef struct { unsigned char modules[4][256]; } __attribute__((aligned(16))) ThreadTls;
+static ThreadTls thread_tls[128];
+static _Atomic unsigned tls_count;
 static unsigned failures;
 static void output(const char *s) {
  size_t n = 0; while (s[n]) ++n;
@@ -50,7 +54,19 @@ static uintptr_t resolve(const char *name) {
 }
 void *__tls_get_addr(const uintptr_t *index) {
  if (index[0] >= 4 || index[1] >= 256) fatal("TLS index");
- return modules[index[0]].tls + index[1];
+ uintptr_t tls;
+ __asm__ volatile("mrs %0, tpidrro_el0" : "=r"(tls));
+ /* This fixture owns the DTV pointer slot in each kernel-zeroed TLS page. */
+ ThreadTls **dtv = (ThreadTls **)(tls + 0x200);
+ if (!*dtv) {
+  unsigned slot = atomic_fetch_add_explicit(&tls_count, 1, memory_order_relaxed);
+  if (slot >= 128) fatal("TLS thread capacity");
+  ThreadTls *block = &thread_tls[slot];
+  for (unsigned m = 0; m < 4; ++m)
+   for (unsigned b = 0; b < 256; ++b) block->modules[m][b] = modules[m].tls[b];
+  *dtv = block;
+ }
+ return (*dtv)->modules[index[0]] + index[1];
 }
 static void relocate(Module *m, Elf64_Rela *r, size_t bytes) {
  for (size_t i = 0; i < bytes / sizeof(*r); ++i) {
@@ -105,10 +121,10 @@ void module_entry(uintptr_t base) {
   Module *m = &modules[i];
   relocate(m, (Elf64_Rela *)(m->base + tag(m, DT_RELA)), tag(m, DT_RELASZ));
   relocate(m, (Elf64_Rela *)(m->base + tag(m, DT_JMPREL)), tag(m, DT_PLTRELSZ));
-  Elf64_Sym *start = find(m, "__probe_tls_start"), *size = find(m, "__probe_tls_size");
+  Elf64_Sym *start = find(m, "__probe_tls_start"), *size = find(m, "__probe_tls_size"), *file = find(m, "__probe_tls_filesz");
   if (start && size) {
-   if (size->st_value > sizeof(m->tls)) fatal("TLS size");
-   for (size_t j = 0; j < size->st_value; ++j) m->tls[j] = *(unsigned char *)(m->base + start->st_value + j);
+   if (!file || file->st_value > size->st_value || size->st_value > sizeof(m->tls)) fatal("TLS size");
+   for (size_t j = 0; j < file->st_value; ++j) m->tls[j] = *(unsigned char *)(m->base + start->st_value + j);
   }
  }
  void (*register_frame)(const void *) = (void (*)(const void *))resolve("probe_register_frame");

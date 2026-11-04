@@ -19,11 +19,17 @@ The toolchain hides `_Unwind_Resume`; the build renames that imported reference 
 an exported wrapper in sdk. Actual throwing, matching, unwinding, destructor
 execution, dynamic_cast and virtual dispatch are exercised.
 
-This is a four-module, single-thread fixture, not a general-purpose runtime
-linker. TLS storage is one 256-byte block per module, populated from exported
-fixture template symbols; thread-specific allocation and TLSDESC are not covered.
-The exception support uses a bounded bump allocator and single-thread pthread
-adapters. Module discovery uses each MOD0 BSS end, not arbitrary sparse mapping
+This is a bounded four-module fixture. Each guest thread lazily receives a DTV
+with four independent 256-byte module blocks, initialized from exported template
+symbols; `.tbss` bytes remain zero. The fixture owns the pointer at offset 0x200
+in its kernel TLS page. Allocation uses an atomic index into 128 lifetime slots.
+Eight concurrent workers check imported TLS through 32 migrations each, twice;
+closing and recreating threads reuses kernel TLS pages with fresh module blocks.
+Main-thread TLS is checked again after both waves. This does not implement a
+general-purpose allocator, TLS destructors, unbounded slot recycling or TLSDESC.
+The exception support still uses a bounded bump allocator and single-thread
+pthread adapters. Exceptions are tested only on main; concurrent exception
+handling is not established. Module discovery uses each MOD0 BSS end, not arbitrary sparse mapping
 scans. Dependency order is fixed for this acyclic graph. Symbol versions, lazy
 binding, dlopen/dlclose, symbol visibility/interposition edge cases, weak undefined
 TLS, and arbitrary commercial runtime startup are not established.

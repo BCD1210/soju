@@ -108,6 +108,12 @@ enum Object {
         size: usize,
         permissions: u8,
     },
+    Code {
+        address: u64,
+        size: usize,
+        owner: Option<u64>,
+        slave: Option<u64>,
+    },
     Transfer {
         address: u64,
         size: usize,
@@ -364,6 +370,21 @@ impl Kernel {
             return Ok(());
         }
         match entry.object {
+            Object::Code {
+                address,
+                size,
+                owner,
+                slave,
+            } => {
+                for mapped in [owner, slave].into_iter().flatten() {
+                    memory
+                        .unmap(mapped, size)
+                        .map_err(|_| INVALID_MEMORY_STATE)?;
+                }
+                memory
+                    .protect(address, size, 3)
+                    .map_err(|_| INVALID_MEMORY_STATE)?;
+            }
             Object::Transfer { address, size } => memory
                 .protect(address, size, 3)
                 .map_err(|_| INVALID_MEMORY_STATE)?,
@@ -724,7 +745,7 @@ impl Kernel {
                 }
                 if requested < self.heap_size {
                     let end = HEAP + requested as u64;
-                    if self.aliases.iter().chain(self.code_mappings.iter()).any(|((_,source),size)|source+*size as u64>end) || self.objects.values().any(|e|matches!(e.object,Object::Transfer { address,size } if address+size as u64>end)) { return Err(INVALID_MEMORY_STATE); }
+                    if self.aliases.iter().chain(self.code_mappings.iter()).any(|((_,source),size)|source+*size as u64>end) || self.objects.values().any(|e|matches!(e.object,Object::Transfer { address,size } | Object::Code { address,size,.. } if address+size as u64>end)) { return Err(INVALID_MEMORY_STATE); }
                     memory
                         .unmap(end, self.heap_size - requested)
                         .map_err(|_| INVALID_MEMORY_STATE)?;
@@ -832,7 +853,9 @@ impl Kernel {
                 out(0)
             }
             7 => Dispatch::ProcessExited(0),
-            0x2c | 0x2d | 0x73 | 0x77 | 0x78 => self.dispatch_virtual_memory(memory, svc, r)?,
+            0x2c | 0x2d | 0x4b | 0x4c | 0x73 | 0x77 | 0x78 => {
+                self.dispatch_virtual_memory(memory, svc, r)?
+            }
             8..=16 => self.dispatch_thread(memory, current, svc, r, now)?,
             17 => {
                 self.signal_event(r[0] as u32)?;

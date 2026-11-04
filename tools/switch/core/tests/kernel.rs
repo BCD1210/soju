@@ -436,3 +436,66 @@ fn exited_threads_release_tls_after_last_handle_and_boot_queries_are_typed() {
         assert!(m.read(tls, &mut [0; 4]).is_err());
     }
 }
+
+#[test]
+fn code_memory_alias_permissions_lifetime_and_invalid_operations() {
+    let (mut k, mut m) = setup();
+    assert_eq!(call(&mut k, &mut m, 1, &[0, 0x200000]), [0, HEAP]);
+    let h = call(&mut k, &mut m, 0x4b, &[0, HEAP, 4096]);
+    assert_eq!(h[0], 0);
+    let h = h[1];
+    assert!(m.check_access(HEAP, 4, 1).is_err());
+    assert_eq!(call(&mut k, &mut m, 1, &[0, 0]), [INVALID_MEMORY_STATE]);
+    let owner = 0x600000000;
+    let slave = owner + 0x10000;
+    assert_eq!(
+        call(&mut k, &mut m, 0x4c, &[h, 0, owner, 4096, 5]),
+        [INVALID_COMBINATION]
+    );
+    assert_eq!(call(&mut k, &mut m, 0x4c, &[h, 0, owner, 4096, 3]), [0]);
+    assert_eq!(read32(&m, owner), u32::MAX);
+    put32(&mut m, owner, 0x52800540);
+    assert_eq!(call(&mut k, &mut m, 0x4c, &[h, 1, slave, 4096, 5]), [0]);
+    assert_eq!(read32(&m, slave), 0x52800540);
+    assert!(m.check_access(slave, 4, 5).is_ok());
+    assert!(m.check_access(slave, 4, 2).is_err());
+    assert_eq!(
+        call(&mut k, &mut m, 0x4c, &[h, 1, slave + 4096, 4096, 5]),
+        [INVALID_STATE]
+    );
+    assert_eq!(
+        call(&mut k, &mut m, 0x4c, &[h, 3, slave, 8192, 0]),
+        [INVALID_SIZE]
+    );
+    assert_eq!(call(&mut k, &mut m, 0x4c, &[h, 3, slave, 4096, 0]), [0]);
+    assert!(m.check_access(slave, 4, 1).is_err());
+    let duplicate = k.duplicate_handle(h as u32).unwrap();
+    assert_eq!(call(&mut k, &mut m, 22, &[h]), [0]);
+    assert!(m.check_access(HEAP, 4, 1).is_err());
+    assert_eq!(call(&mut k, &mut m, 22, &[duplicate as u64]), [0]);
+    assert_eq!(read32(&m, HEAP), 0x52800540);
+    assert!(m.check_access(HEAP, 4, 3).is_ok());
+    assert!(m.check_access(owner, 4, 1).is_err());
+    assert_eq!(
+        call(&mut k, &mut m, 0x4c, &[h, 0, owner, 4096, 3]),
+        [INVALID_HANDLE]
+    );
+}
+
+#[test]
+fn rejected_code_creation_preserves_the_entire_source() {
+    let (mut k, mut m) = setup();
+    assert_eq!(call(&mut k, &mut m, 1, &[0, 0x200000]), [0, HEAP]);
+    put32(&mut m, HEAP, 0x12345678);
+    put32(&mut m, HEAP + 4096, 0xabcdef01);
+    m.attribute(HEAP + 4096, 4096, 16, 16).unwrap();
+    assert_eq!(
+        call(&mut k, &mut m, 0x4b, &[0, HEAP, 8192]),
+        [INVALID_MEMORY_STATE]
+    );
+    assert_eq!(read32(&m, HEAP), 0x12345678);
+    assert_eq!(read32(&m, HEAP + 4096), 0xabcdef01);
+    assert!(m.check_access(HEAP, 8192, 3).is_ok());
+    m.attribute(HEAP + 4096, 4096, 16, 0).unwrap();
+    assert_eq!(call(&mut k, &mut m, 0x4b, &[0, HEAP, 8192])[0], 0);
+}
