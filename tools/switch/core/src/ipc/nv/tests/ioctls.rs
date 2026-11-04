@@ -243,8 +243,8 @@ fn invalid_mapping_modification_preserves_backing() {
     }
 }
 #[test]
-fn compressed_multisample_color_kind_is_retained_in_the_virtual_mapping() {
-    for kind in [0x53, 0xe0, 0xe9] {
+fn color_and_z16_kinds_are_retained_in_the_virtual_mapping() {
+    for kind in [0x1, 0x2, 0x53, 0xe0, 0xe9] {
         let mut f = Fixture::new();
         let (_, space, va) = f.setup();
         let allocation = f.nv.spaces[&space].mappings[&va].view.allocation;

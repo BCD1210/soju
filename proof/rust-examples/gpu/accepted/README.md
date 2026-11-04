@@ -178,3 +178,13 @@ Other LDC widths and addressing modes remain rejected.
 - `graphics__deko3d__deko_basic.nro` SHA-256: `79cfe7d71b644cc257dc2a23c488bca92984979fc5e0e3ca42c39b143b646e7f`
 
 Run all six scenes with `bash scripts/test-switch-gpu-accepted.sh`.
+
+
+SDL2 sdl2-simple is accepted with 2,073,600 exact RGBA checks on its first
+1920x1080 presentation. The source initializes x=0, draws a gray (111) background,
+and draws six 64x64 rectangles (RGB at the top and bottom), then increments x
+after presenting. `gpu_sdl.rs` checks every pixel without edge exclusions.
+The runner retains libnx NvKind_Z16 (1) and NvKind_Z16_2C (2); the existing Metal
+D16 path provides canonical uncompressed guest storage, as with the other
+compression kinds. Capture: `sdl2-simple.png`. The full-loop probe times out;
+first-presentation acceptance is the result reported here.

@@ -71,7 +71,7 @@ impl AddressSpace {
         if u32at(data, 0)? & !5 != 0
             || !matches!(
                 kind,
-                0 | 0x11 | 0x17 | 0x51 | 0x53 | 0xdb | 0xe0 | 0xe9 | 0xfe
+                0 | 0x1 | 0x2 | 0x11 | 0x17 | 0x51 | 0x53 | 0xdb | 0xe0 | 0xe9 | 0xfe
             )
             || !matches!(page, 4096 | 65536 | 131072)
             || (u32at(data, 0)? & 1 == 0 && u64at(data, 32)? != 0)
@@ -154,7 +154,7 @@ impl AddressSpace {
             || u32at(data, 12)? != 0
             || !matches!(
                 kind,
-                0 | 0x11 | 0x17 | 0x51 | 0x53 | 0xdb | 0xe0 | 0xe9 | 0xfe
+                0 | 0x1 | 0x2 | 0x11 | 0x17 | 0x51 | 0x53 | 0xdb | 0xe0 | 0xe9 | 0xfe
             )
             || !offset.is_multiple_of(4096)
             || size == 0
