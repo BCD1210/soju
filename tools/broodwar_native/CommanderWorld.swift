@@ -116,9 +116,13 @@ extension Commander {
                 if let n=terrain[index] { n.geometry?.firstMaterial?.multiply.contents=fogPresentation.texture(x:x,y:y,width:mapWidth,fog:fog);continue }
                 guard let a=tiles[String(mapTiles[index])],let file=a["file"] as? String else { continue }
                 do {
-                    let material=try art.material(file);material.lightingModel = .lambert
+                    // HD megatiles already contain the original terrain lighting.
+                    let material=try art.material(file)
+                    material.multiply.wrapS = .clamp;material.multiply.wrapT = .clamp
+                    material.multiply.minificationFilter = .linear;material.multiply.magnificationFilter = .linear
                     let p=ground.geometry(tileX:x,tileY:y,material:material)
                     let n=SCNNode(geometry:p);n.name="terrain"
+                    n.castsShadow=false
                     n.position=SCNVector3(CGFloat(x),0,CGFloat(y))
                     p.firstMaterial?.multiply.contents=fogPresentation.texture(x:x,y:y,width:mapWidth,fog:fog)
                     world.rootNode.addChildNode(n);terrain[index]=n
@@ -160,7 +164,16 @@ extension Commander {
         camera.position.z=max(0.1,min(CGFloat(mapHeight)-0.1,camera.position.z))
         camera.position.y=CGFloat(ground.elevation(Double(camera.position.x),Double(camera.position.z))+commanderHeight)
         camera.eulerAngles=SCNVector3(pitch,yaw,0)
+        if CommandLine.arguments.contains("--top-down") {
+            camera.position.y=40;camera.eulerAngles=SCNVector3(-Double.pi/2,0,0)
+        }
         Models3D.followLight(world,position:camera.position)
+        if !xrRequested,initialized,let index=captureFrames.reserve(),
+            let tiff=view.snapshot().tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let image=bitmap.cgImage {
+            captureFrames.save(image,index:index,metadata:["frame":number(state,"frame"),
+                "camera":[camera.position.x,camera.position.y,camera.position.z],
+                "map":state["map"] ?? [:],"terrainTiles":terrain.count,"topDown":camera.camera?.usesOrthographicProjection ?? false])
+        }
         if now-lastSceneDiagnostic>1 {
             lastSceneDiagnostic=now
             let rendered:[Obj]=models.map { id,m in
