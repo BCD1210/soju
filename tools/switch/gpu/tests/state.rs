@@ -283,7 +283,8 @@ fn inactive_sampler_compare_function_does_not_reject_color_sampling() {
             let bytes: Vec<_> = words.into_iter().flat_map(u32::to_le_bytes).collect();
             let sampler = soju_switch_gpu::texture::Tsc::parse(&bytes).unwrap();
             assert_eq!(sampler.address_u, 2);
-            for unsupported in [1 << 23] {
+            {
+                let unsupported = 1 << 23;
                 let mut bytes = bytes.clone();
                 bytes[..4].copy_from_slice(&(words[0] | unsupported).to_le_bytes());
                 assert!(soju_switch_gpu::texture::Tsc::parse(&bytes).is_err());
