@@ -507,3 +507,108 @@ fn graphics_inline_upload_flush_profiles_stage_without_early_publication() {
         .unwrap();
     assert_eq!(original, [0; 4]);
 }
+
+#[test]
+fn compute_dispatch_stages_bounded_storage_writes_before_fence_publication() {
+    let mut f = Fixture::new();
+    let (fd, space, va) = f.setup();
+    let target = va + 0x10000;
+    let mov = |register: u64, value: u32| {
+        0x010000000000f000u64 | (7 << 16) | register | (u64::from(value) << 20)
+    };
+    let ops = [
+        mov(0, 0x12345678),
+        mov(12, target as u32),
+        mov(13, (target >> 32) as u32),
+        0xeedc000000000000 | (7 << 16) | (12 << 8) | (1 << 45),
+        0xe30000000007000f,
+    ];
+    let mut code = Vec::new();
+    for chunk in ops.chunks(3) {
+        code.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for word in chunk {
+            code.extend(word.to_le_bytes());
+        }
+    }
+    f.memory.write(crate::kernel::HEAP + 0x1000, &code).unwrap();
+    let mut qmd = [0u32; 64];
+    qmd[6] = 1 << 6;
+    qmd[8] = 0x1000;
+    qmd[11] = 1 << 26;
+    qmd[12] = 1;
+    qmd[13] = 1 | (1 << 16);
+    qmd[18] = 0x17 | (1 << 16);
+    qmd[19] = 1 | (1 << 16);
+    qmd[20] = 1;
+    qmd[29] = (va + 0x3000) as u32;
+    qmd[30] = ((va + 0x3000) >> 32) as u32 | (768 << 15);
+    qmd[47] = 0x800;
+    let qmd: Vec<_> = qmd.into_iter().flat_map(u32::to_le_bytes).collect();
+    f.memory.write(crate::kernel::HEAP + 0x2000, &qmd).unwrap();
+    let mut driver = vec![0; 768];
+    put64(&mut driver, 320, target);
+    put32(&mut driver, 328, 16);
+    f.memory
+        .write(crate::kernel::HEAP + 0x3000, &driver)
+        .unwrap();
+    let methods: Vec<_> = [
+        (0, 0xb1c0),
+        (0x1608, (va >> 32) as u32),
+        (0x160c, va as u32),
+        (0x2b4, ((va + 0x2000) >> 8) as u32),
+        (0x2bc, 3),
+        (0, 0xb197),
+        (0x2c8, (1 << 20) | fd),
+    ]
+    .into_iter()
+    .map(|(method, value)| gpu::Method {
+        address: va,
+        subchannel: 0,
+        method,
+        value,
+    })
+    .collect();
+    let access = submit::Access {
+        space: &f.nv.spaces[&space],
+        memory: &f.memory,
+    };
+    let (writes, increments) = Renderer::default()
+        .submit(&methods, fd, Some(1), &access, &[])
+        .unwrap();
+    assert_eq!(increments, 1);
+    let mut output = [0; 16];
+    f.memory
+        .read(crate::kernel::HEAP + 0x10000, &mut output)
+        .unwrap();
+    assert_eq!(output, [0; 16]);
+    assert_eq!(f.nv.channels[&fd].completed, 0);
+    assert_eq!(writes.len(), 1);
+    assert_eq!(writes[0].address, crate::kernel::HEAP + 0x10000);
+    assert_eq!(&writes[0].bytes[..4], &0x12345678u32.to_le_bytes());
+    assert!(writes[0].bytes[4..].iter().all(|&b| b == 0));
+    for write in writes {
+        f.memory.write(write.address, &write.bytes).unwrap();
+    }
+    f.memory
+        .read(crate::kernel::HEAP + 0x10000, &mut output)
+        .unwrap();
+    assert_eq!(&output[..4], &0x12345678u32.to_le_bytes());
+    assert_eq!(&output[4..], &[0; 12]);
+    put64(&mut driver, 336, target + 16);
+    put32(&mut driver, 344, 16);
+    f.memory
+        .write(crate::kernel::HEAP + 0x3000, &driver)
+        .unwrap();
+    let access = submit::Access {
+        space: &f.nv.spaces[&space],
+        memory: &f.memory,
+    };
+    let error = Renderer::default()
+        .submit(&methods, fd, Some(1), &access, &[])
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("multiple compute storage buffers")
+    );
+}

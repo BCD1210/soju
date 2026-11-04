@@ -118,8 +118,12 @@ pub(super) fn register(
 
 fn shader_extent(bytes: &[u8]) -> Result<usize, Error> {
     soju_switch_shader::header::Header::parse(bytes).map_err(|e| Error::Message(e.to_string()))?;
+    Ok(80 + code_extent(&bytes[80..])?)
+}
+
+pub(super) fn code_extent(bytes: &[u8]) -> Result<usize, Error> {
     let mut furthest_target = 0;
-    for (slot, word) in bytes[80..].chunks_exact(8).enumerate() {
+    for (slot, word) in bytes.chunks_exact(8).enumerate() {
         if slot % 4 == 0 {
             continue;
         }
@@ -139,7 +143,7 @@ fn shader_extent(bytes: &[u8]) -> Result<usize, Error> {
             } else {
                 target
             };
-            if !target.is_multiple_of(8) || u64::from(target) + 88 > bytes.len() as u64 {
+            if !target.is_multiple_of(8) || u64::from(target) + 8 > bytes.len() as u64 {
                 return Err(Error::Malformed("shader target outside mapped bound"));
             }
             furthest_target = furthest_target.max(target);
@@ -149,8 +153,8 @@ fn shader_extent(bytes: &[u8]) -> Result<usize, Error> {
             && instruction.raw & 31 == 15
             && instruction.address >= furthest_target
         {
-            let size = 80 + (slot + 1) * 8;
-            let decoded = soju_switch_shader::decoder::decode(&bytes[80..size])
+            let size = (slot + 1) * 8;
+            let decoded = soju_switch_shader::decoder::decode(&bytes[..size])
                 .map_err(|e| Error::Message(e.to_string()))?;
             soju_switch_shader::ir::Program::build(&decoded)
                 .map_err(|e| Error::Message(format!("shader extent: {e}")))?;

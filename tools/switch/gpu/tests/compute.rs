@@ -30,6 +30,9 @@ fn launch_fields_and_unsupported_modes_are_checked() {
     e.method(B1C0, 0x2b4, 0x20, &m).unwrap();
     for version in [0x06, 0x17] {
         let mut q = qmd(version);
+        q[6] = (1 << 6) | (1 << 12);
+        q[11] = 1 << 26;
+        q[47] = 0x800;
         q[20] = 1 << 2;
         q[33] = 0x56780000;
         q[34] = 0x34 | 16 << 15;
@@ -49,6 +52,7 @@ fn launch_fields_and_unsupported_modes_are_checked() {
         (14, 1),
         (11, 1 << 24),
         (20, 1 << 8),
+        (47, 1 << 24),
     ] {
         let mut q = qmd(0x17);
         q[word] |= bits;
@@ -128,6 +132,9 @@ fn qmd_shared_kernel_writes_image_and_preserves_order() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target/compute-checks");
     for version in [0x06, 0x17] {
         let mut q = qmd(version);
+        q[6] = (1 << 6) | (1 << 12);
+        q[11] = 1 << 26;
+        q[47] = 0x800;
         q[20] = 1 << 2;
         q[33] = 0x3000;
         q[34] = 16 << 15;

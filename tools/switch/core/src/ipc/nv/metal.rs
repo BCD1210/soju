@@ -4,6 +4,7 @@ use soju_switch_gpu::{backend::Backend, engine::Engine, memory::Memory};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+mod compute;
 mod copy;
 mod programs;
 mod setup;
@@ -43,6 +44,7 @@ pub(super) struct Renderer {
     pub(super) noop_counts: BTreeMap<(u32, u32), u64>,
     compute_counters: BTreeMap<u32, u32>,
     compute_upload: Engine,
+    compute: soju_switch_gpu::compute::Engine,
     graphics_upload: Engine,
     directory: Option<PathBuf>,
     faulted: bool,
@@ -259,7 +261,20 @@ impl Renderer {
                 continue;
             }
             if class == 0xb1c0 {
-                if setup::compute_field(method, value)? {
+                if matches!(method, 0x1608 | 0x160c | 0x2b4 | 0x2bc) {
+                    if let Some(dispatch) = self
+                        .compute
+                        .method(class, method, value, &memory)
+                        .map_err(gpu_error)?
+                    {
+                        compute::register(&dispatch, &memory, &original, &mut backend)?;
+                        backend
+                            .prepare_compute(&dispatch, &memory)
+                            .map_err(gpu_error)?;
+                        let dir = self.directory()?;
+                        backend.execute(&dir, &mut memory).map_err(gpu_error)?;
+                    }
+                } else if setup::compute_field(method, value)? {
                     self.compute_setup.insert(method, value);
                 } else if method == 0x248 {
                     if value & !0xffff3f != 0 {

@@ -1,0 +1,2 @@
+scene|result|detail
+deko-example09|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 43 command 11: IPC: Message(\\\"Metal setup field 0x1658=0x1\\\")\")")

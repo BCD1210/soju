@@ -32,15 +32,16 @@ impl Dispatch {
         // in Memory range generations; cache allocation hints have no semantic effect.
         for (i, &word) in raw.iter().enumerate() {
             let allowed = match i {
-                6 => 1 << 12,     // REQUIRE_SCHEDULING_PCAS
-                7 => 0xfc00_0000, // cache invalidation flags
+                6 => (1 << 12) | (1 << 6), // scheduling PCAS and global cache hint
+                7 => 0xfc00_0000,          // cache invalidation flags
                 8 | 12 | 13 | 19 => u32::MAX,
+                11 => 1 << 26, // unlimited API calls; CALL is rejected by translator
                 17 => 0x3ffff,
                 18 => 0xffff_00ff,
                 20 => 0x6000_00ff, // cbuf valid and L1 configuration
                 29..=44 if i % 2 == 1 => u32::MAX,
                 29..=44 => 0xffff_c0ff, // size, invalidate, 40-bit address
-                45 => 0x00ff_ffff,
+                45 | 47 => 0x00ff_ffff,
                 46 => u32::MAX, // local negative and register count
                 _ => 0,
             };
@@ -49,6 +50,10 @@ impl Dispatch {
                 &format!("unsupported QMD word {i} flags"),
             )?;
         }
+        require(
+            raw[47] <= 1024 * 1024,
+            "compute call stack allocation exceeds limit",
+        )?;
         let groups = [raw[12], raw[13] & 0xffff, raw[13] >> 16];
         require(groups.iter().all(|v| *v > 0), "empty compute grid")?;
         require(
