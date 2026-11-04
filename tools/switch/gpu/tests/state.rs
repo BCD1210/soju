@@ -283,7 +283,7 @@ fn inactive_sampler_compare_function_does_not_reject_color_sampling() {
             let bytes: Vec<_> = words.into_iter().flat_map(u32::to_le_bytes).collect();
             let sampler = soju_switch_gpu::texture::Tsc::parse(&bytes).unwrap();
             assert_eq!(sampler.address_u, 2);
-            for unsupported in [1 << 9, 1 << 23] {
+            for unsupported in [1 << 23] {
                 let mut bytes = bytes.clone();
                 bytes[..4].copy_from_slice(&(words[0] | unsupported).to_le_bytes());
                 assert!(soju_switch_gpu::texture::Tsc::parse(&bytes).is_err());
@@ -308,6 +308,7 @@ fn anisotropic_sampler_decodes_all_documented_ratios() {
             ];
             let bytes: Vec<_> = words.into_iter().flat_map(u32::to_le_bytes).collect();
             let sampler = soju_switch_gpu::texture::Tsc::parse(&bytes).unwrap();
+            assert_eq!(sampler.compare, None);
             assert_eq!(sampler.max_anisotropy, if min == 3 { ratio } else { 1 });
         }
     }
@@ -326,4 +327,13 @@ fn array_tic_accounts_for_every_layer_and_rejects_nonarray_depth() {
     words[4] = (5 << 23) | 7;
     words[5] = (1 << 31) | (2048 << 16) | 7;
     assert!(parse(words).is_err());
+}
+#[test]
+fn active_sampler_comparison_decodes_all_eight_functions() {
+    for function in 0..8u32 {
+        let bytes = [0x200 | function << 10, 0x51, 0, 0, 0, 0, 0, 0]
+            .into_iter().flat_map(u32::to_le_bytes).collect::<Vec<_>>();
+        let sampler = soju_switch_gpu::texture::Tsc::parse(&bytes).unwrap();
+        assert_eq!(sampler.compare, Some(function));
+    }
 }

@@ -1355,7 +1355,7 @@ impl Backend {
                     let count = options.texture_count;
                     require(
                         shader.texture_bindings.iter().all(|b| {
-                            matches!(b.texture_type, soju_switch_shader::texture::TextureType::D2 | soju_switch_shader::texture::TextureType::D2Array)
+                            matches!(b.texture_type, soju_switch_shader::texture::TextureType::D2 | soju_switch_shader::texture::TextureType::D2Array | soju_switch_shader::texture::TextureType::Shadow2D | soju_switch_shader::texture::TextureType::Shadow2DArray)
                         }),
                         "only 2D/array texture argument tables supported",
                     )?;
@@ -1376,7 +1376,9 @@ impl Backend {
                             .checked_add(u64::from(index) * 32)
                             .ok_or_else(|| Error("TIC address overflow".into()))?;
                         let tic = Tic::parse(capture(memory, &mut dependencies, addr, 32)?)?;
-                        let array = texture_type == soju_switch_shader::texture::TextureType::D2Array;
+                        use soju_switch_shader::texture::TextureType;
+                        let array = matches!(texture_type, TextureType::D2Array | TextureType::Shadow2DArray);
+                        let shadow = matches!(texture_type, TextureType::Shadow2D | TextureType::Shadow2DArray);
                         require(tic.array == array, "shader/TIC array type mismatch")?;
                         let texture_end = tic
                             .address
@@ -1429,9 +1431,10 @@ impl Backend {
                                     z.to_le_bytes()
                                 })
                                 .collect();
-                            metal = 55;
+                            metal = if shadow { 252 } else { 55 };
                             row = tic.width as usize * 4;
                         }
+                        require(!shadow || metal == 252, "comparison texture must contain depth")?;
                         let mut swizzle = tic.swizzle();
                         if matches!(tic.format(), Format::B5G6R5Unorm | Format::A1Bgr5Unorm) {
                             for c in &mut swizzle {
@@ -1459,14 +1462,14 @@ impl Backend {
                                 .into_iter()
                                 .flat_map(u32::to_le_bytes)
                                 .collect::<Vec<_>>(),
-                            render_state: &[],
+                            render_state: &[u8::from(shadow)],
                         });
                         let key = key.0.iter().map(|v| format!("{v:02x}")).collect::<String>();
                         let file = self.file(data);
                         textures.push(TextureCommand {
                             stage,
                             count: count as _,
-                            image: (index + if array { 5 * count } else { 0 }) as _,
+                            image: (index + if shadow { if array { 8 * count } else { 7 * count } } else if array { 5 * count } else { 0 }) as _,
                             layers: tic.layers as _,
                             array: i64::from(array),
                             sampler: -1,
@@ -1501,6 +1504,7 @@ impl Backend {
                             min: t.min_filter as _,
                             mag: t.mag_filter as _,
                             anisotropy: t.max_anisotropy as _,
+                            compare: t.compare.map_or(-1, i64::from),
                             ..TextureCommand::default()
                         });
                     }

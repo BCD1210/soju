@@ -135,6 +135,7 @@ pub(crate) struct TextureCommand {
     pub min: i64,
     pub mag: i64,
     pub anisotropy: i64,
+    pub compare: i64,
     pub swizzle0: i64,
     pub swizzle1: i64,
     pub swizzle2: i64,

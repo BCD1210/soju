@@ -554,7 +554,7 @@ final class Worker {
                 let stageItems=items(command.textures).filter{Int($0.stage)==stage}
                 if stageItems.isEmpty {continue}
                 let tableKey = pk + ":" + String(stage) + ":" + stageItems.map { item in
-                    "\(text(item.key)):\(item.image):\(item.sampler):\(item.count):\(item.u):\(item.v):\(item.min):\(item.mag):\(item.anisotropy)"
+                    "\(text(item.key)):\(item.image):\(item.sampler):\(item.count):\(item.u):\(item.v):\(item.min):\(item.mag):\(item.anisotropy):\(item.compare)"
                 }.joined(separator: "|")
                 touch("a", tableKey)
                 if let resolved = argumentTables[tableKey] {
@@ -586,19 +586,35 @@ final class Worker {
                             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(Int(item.metal)))!,width:tw,height:th,mipmapped:false)
                             d.textureType = item.array == 1 ? .type2DArray : .type2D
                             d.arrayLength=layers
-                            d.storageMode = .shared;d.usage = [.shaderRead,.pixelFormatView]
+                            d.storageMode = item.metal == 252 ? .private : .shared;d.usage = [.shaderRead,.pixelFormatView]
                             guard let t=device.makeTexture(descriptor:d) else {throw Failure("sample texture allocation (BC1 device support required)")}
                             let bytes=try file(text(item.file));let row=Int(item.row)
                             try need(bytes.count == row*Int(item.rows)*layers,"sample texture size")
-                            bytes.withUnsafeBytes{p in
+                            if item.metal == 252 {
+                                let pitch = (row + 255) & ~255
+                                guard let staging=device.makeBuffer(length:pitch*th*layers,options:.storageModeShared),let upload=queue.makeCommandBuffer(),let blit=upload.makeBlitCommandEncoder() else {throw Failure("depth sample upload allocation")}
+                                bytes.withUnsafeBytes { source in
+                                    for y in 0..<(th*layers) { staging.contents().advanced(by:y*pitch).copyMemory(from:source.baseAddress!.advanced(by:y*row),byteCount:row) }
+                                }
                                 for layer in 0..<layers {
-                                    t.replace(region:MTLRegionMake2D(0,0,tw,th),mipmapLevel:0,slice:layer,withBytes:p.baseAddress!.advanced(by:layer*row*Int(item.rows)),bytesPerRow:row,bytesPerImage:row*Int(item.rows))
+                                    blit.copy(from:staging,sourceOffset:layer*pitch*th,sourceBytesPerRow:pitch,sourceBytesPerImage:pitch*th,sourceSize:MTLSizeMake(tw,th,1),to:t,destinationSlice:layer,destinationLevel:0,destinationOrigin:MTLOriginMake(0,0,0))
+                                }
+                                blit.endEncoding();upload.commit();upload.waitUntilCompleted()
+                                try need(upload.status == .completed,"depth sample upload failed")
+                            } else {
+                                bytes.withUnsafeBytes{p in
+                                    for layer in 0..<layers {
+                                        t.replace(region:MTLRegionMake2D(0,0,tw,th),mipmapLevel:0,slice:layer,withBytes:p.baseAddress!.advanced(by:layer*row*Int(item.rows)),bytesPerRow:row,bytesPerImage:row*Int(item.rows))
+                                    }
                                 }
                             }
                             let components = [item.swizzle0,item.swizzle1,item.swizzle2,item.swizzle3].map { MTLTextureSwizzle(rawValue:UInt8($0))! }
                             let swizzle = MTLTextureSwizzleChannels(red:components[0],green:components[1],blue:components[2],alpha:components[3])
+                            if item.metal == 252 { textureCache[tk]=t }
+                            else {
                             guard let view=t.makeTextureView(pixelFormat:t.pixelFormat,textureType:d.textureType,levels:0..<1,slices:0..<layers,swizzle:swizzle) else {throw Failure("texture view")}
                             textureCache[tk]=view
+                            }
                         }else{textureHits += 1}
                         let t=textureCache[tk]!;tableTextures.append(t);argument.setTexture(t,index:Int(item.image))
                     }else{
@@ -607,6 +623,8 @@ final class Worker {
                         d.minFilter=Int(item.min)==1 ? .nearest : .linear;d.magFilter=Int(item.mag)==1 ? .nearest : .linear;d.mipFilter = .notMipmapped;d.supportArgumentBuffers=true
                         try need((1...16).contains(Int(item.anisotropy)), "sampler anisotropy range")
                         d.maxAnisotropy=Int(item.anisotropy)
+                        try need((-1...7).contains(Int(item.compare)), "sampler comparison range")
+                        if item.compare >= 0 { d.compareFunction=MTLCompareFunction(rawValue:UInt(item.compare))! }
                         guard let sampler=device.makeSamplerState(descriptor:d) else {throw Failure("sampler allocation")};tableSamplers.append(sampler);argument.setSamplerState(sampler,index:9*Int(item.count)+Int(item.sampler))
                     }
                 }

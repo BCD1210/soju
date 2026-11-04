@@ -44,6 +44,10 @@ pub struct MetalShader {
     pub uses_texture_table: bool,
     pub entry_point: &'static str,
 }
+/// Resolve the statically bound texture operand and its instruction-defined type.
+pub fn texture_descriptor(instruction: &Instruction) -> Result<Option<(u32, crate::texture::TextureType)>> {
+    textures::descriptor(instruction)
+}
 pub fn generate(header: &Header, program: &Program, options: &Options) -> Result<MetalShader> {
     if !matches!(header.stage, Stage::Vertex | Stage::Fragment) {
         return Err(Error(

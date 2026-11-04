@@ -3258,3 +3258,34 @@ fn rectangle_fill_covers_pixels_outside_triangle_and_alpha_test_discards() {
         }
     }
 }
+
+#[test]
+fn depth_sampler_comparisons_cover_all_functions_and_cache_keys() {
+    let mut h = Harness::new();
+    let surface = Surface { width:4, height:4, depth:1, bytes_per_block:4, block_height_log2:0, block_depth_log2:0 };
+    let depth = h.alloc(surface.swizzle(&[0.5f32.to_le_bytes();16].concat()).unwrap());
+    let mut checked = Vec::new();
+    for function in 0..8u32 { for reference in [0.25f32,0.5,0.75] {
+        let mut header=[0u32;20];header[0]=2|5<<10;header[18]=15;
+        let mov=|r:u64,f:f32|0x010000000000f000|PT|r|u64::from(f.to_bits())<<20;
+        let code=[mov(4,0.5),mov(5,0.5),mov(6,reference),0xc038000000000000|PT|4<<8|255<<20|1<<29|15<<31|1<<50,0xe30000000000000f|PT];
+        let mut bytes:Vec<_>=header.into_iter().flat_map(u32::to_le_bytes).collect();
+        for chunk in code.chunks(3) { bytes.extend(0x001f8000fc0007e0u64.to_le_bytes());for word in chunk {bytes.extend(word.to_le_bytes());} }
+        let fs=h.program(bytes);
+        let (mut e,a)=h.engine("depth-compare",[1.,0.,1.,1.]);
+        let words=[0x2f | 7<<7 | 7<<10 | 7<<13 | 7<<16 | 2<<19 | 3<<22 | 4<<25 | 5<<28,depth as u32,3<<21,0,(1<<23)|3,(1<<31)|3,0,0];
+        let tic=h.alloc(words.into_iter().flat_map(u32::to_le_bytes).collect());
+        let tsc=h.alloc([2u32|2<<3|2<<6|1<<9|function<<10,1|1<<4|1<<6,0,0,0,0,0,0].into_iter().flat_map(u32::to_le_bytes).collect());
+        h.methods(&mut e,&[(0xf10,1),(0x1574,0),(0x1578,tic as u32),(0x157c,0),(0x155c,0),(0x1560,tsc as u32),(0x1564,0),(0x2144,fs as u32)]);
+        h.vertices(&mut e,&quad(-1.,-1.,1.,1.,0.5,[1.;4]),&[[0.;4]]);
+        h.draw(&mut e,6,false,false);
+        let pass=match function {0=>false,1=>reference<0.5,2=>reference==0.5,3=>reference<=0.5,4=>reference>0.5,5=>reference!=0.5,6=>reference>=0.5,7=>true,_=>unreachable!()};
+        checked.push((a,if pass {255} else {0}));
+    }}
+    let directory=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/depth-compare");
+    let report=h.backend.execute(&directory,&mut h.memory).unwrap();
+    for (address,value) in checked {
+        let image=report.images.iter().find(|image|image.address==address).unwrap();
+        for pixel in image.rgba.chunks_exact(4) { assert_eq!(pixel,[value;4],"target {address:#x}"); }
+    }
+}

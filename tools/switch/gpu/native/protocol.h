@@ -67,6 +67,7 @@ typedef struct {
     int64_t min;
     int64_t mag;
     int64_t anisotropy;
+    int64_t compare;
     int64_t swizzle0;
     int64_t swizzle1;
     int64_t swizzle2;

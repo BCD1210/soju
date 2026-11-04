@@ -72,24 +72,12 @@ pub(super) fn register(
         let mut texture_bindings = Vec::new();
         for decoded in decoded {
             let instruction = &decoded.instruction;
-            if matches!(
-                instruction.opcode,
-                Opcode::TEX | Opcode::TLD | Opcode::TLD4 | Opcode::TXQ
-            ) {
-                return Err(Error::Malformed(
-                    "texture instruction handle discovery unsupported",
-                ));
-            }
-            if !matches!(instruction.opcode, Opcode::TEXS | Opcode::TLDS) {
+            if !matches!(instruction.opcode, Opcode::TEX | Opcode::TEXS | Opcode::TLD | Opcode::TLDS | Opcode::TLD4 | Opcode::TXQ) {
                 continue;
             }
-            let Some(soju_switch_shader::decoder::Operand::Immediate(handle)) =
-                instruction.operands.get(4)
-            else {
-                return Err(Error::Malformed(
-                    "dynamic texture handle discovery unsupported",
-                ));
-            };
+            let (handle, texture_type) = soju_switch_shader::msl::texture_descriptor(instruction)
+                .map_err(|e| Error::Message(e.to_string()))?
+                .ok_or(Error::Malformed("dynamic texture handle discovery unsupported"))?;
             let group = registers.get(group_register) as usize;
             let slot = registers.get(0x2608) as usize;
             let binding = snapshot
@@ -113,14 +101,10 @@ pub(super) fn register(
                     .unwrap(),
             );
             texture_bindings.push(soju_switch_shader::texture::Binding {
-                handle: soju_switch_shader::texture::Handle::Bound(*handle),
+                handle: soju_switch_shader::texture::Handle::Bound(handle),
                 texture_index: packed & 0xfffff,
                 sampler_index: packed >> 20,
-                texture_type: if instruction.opcode == Opcode::TEXS && (instruction.raw >> 53) & 15 == 7 {
-                    soju_switch_shader::texture::TextureType::D2Array
-                } else {
-                    soju_switch_shader::texture::TextureType::D2
-                },
+                texture_type,
             });
         }
         let options = Options {

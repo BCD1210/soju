@@ -43,6 +43,10 @@ fn bound(x: &Instruction) -> Option<u32> {
         _ => None,
     }
 }
+pub(super) fn descriptor(x: &Instruction) -> Result<Option<(u32, TextureType)>> {
+    if !is_texture(x) { return Ok(None); }
+    bound(x).map(|handle| kind(x).map(|kind| (handle, kind))).transpose()
+}
 pub(super) fn bindings(program: &Program, o: &Options) -> Result<Vec<Binding>> {
     if !o.texture_bindings.is_empty() {
         return crate::texture::normalize(&o.texture_bindings, o.texture_count);

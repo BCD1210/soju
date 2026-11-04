@@ -121,6 +121,7 @@ pub struct Tsc {
     pub min_filter: u32,
     pub mag_filter: u32,
     pub max_anisotropy: u32,
+    pub compare: Option<u32>,
 }
 impl Tsc {
     pub fn parse(bytes: &[u8]) -> Result<Self> {
@@ -128,7 +129,7 @@ impl Tsc {
         let (u, v, p) = (w[0] & 7, (w[0] >> 3) & 7, (w[0] >> 6) & 7);
         // The comparison function is inactive when DEPTH_COMPARE (bit 9) is zero.
         require(
-            u <= 2 && v <= 2 && p <= 2 && matches!(w[0] & !0x701dff, 0 | 0x26000),
+            u <= 2 && v <= 2 && p <= 2 && matches!(w[0] & !0x701fff, 0 | 0x26000),
             &format!(
                 "TSC wrap/compare/reserved fields unsupported: control={:#010x}",
                 w[0]
@@ -145,6 +146,7 @@ impl Tsc {
             "TSC requires point/linear, no mip/LOD/border overrides",
         )?;
         Ok(Self {
+            compare: (w[0] & 0x200 != 0).then_some((w[0] >> 10) & 7),
             address_u: u,
             address_v: v,
             min_filter: min,

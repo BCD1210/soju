@@ -117,3 +117,11 @@ comparison functions and discards failed fragments before color/depth updates.
 The pixel oracle checks rectangle-only coverage, interpolated color, flat values,
 and alpha discard with Metal validation enabled. The public deko console capture
 was visually checked for complete glyph rectangles and palette colors.
+
+Depth comparison sampling decodes DEPTH_COMPARE and DEPTH_COMPARE_FUNC from
+the public TSC layout. TEX.DC retains its instruction-defined Shadow2D/array
+resource type. Guest depth formats are converted to Depth32Float and uploaded
+to private Metal depth textures; native samplers carry all eight comparisons.
+Comparison state participates in sampler-table identity, and depth/color views
+have separate texture identities. A Metal pixel oracle exercises all eight
+functions with references below, equal to and above the stored depth (24 draws).
