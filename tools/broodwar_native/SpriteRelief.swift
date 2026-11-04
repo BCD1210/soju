@@ -7,7 +7,7 @@ import simd
 final class SpriteRelief {
     let device=MTLCreateSystemDefaultDevice()!
     let dataTextures=ResidentCache<MTLTexture>(limit:256*1024*1024)
-    let materials=ResidentCache<SCNMaterial>(limit:2048)
+    let materials=ResidentCache<SCNMaterial>(limit:64*1024*1024)
     var meshes=[String:SCNGeometry](),depthAtlases=[String:NSBitmapImageRep]()
     var contactHeights=[String:Float]()
     let alphaAtlases=ResidentCache<NSBitmapImageRep>(limit:128*1024*1024)
@@ -128,7 +128,19 @@ final class SpriteRelief {
         """]
         m.setValue(NSValue(scnVector3:SCNVector3(Self.reference)),forKey:"reliefLight")
         m.setValue(NSValue(scnVector3:SCNVector3(0,0,1)),forKey:"reliefEye")
-        materials.insert(m,key:key,bytes:1)
+        // Material copies retain their map properties, including textures installed
+        // by the stream decoder. Charge image-backed maps for their eventual upload.
+        var retained=0
+        for contents in [m.diffuse.contents]+names.map({(m.value(forKey:"relief_"+$0) as? SCNMaterialProperty)?.contents}) {
+            if let texture=contents as? MTLTexture {retained+=MetalBatches.textureBytes(texture)}
+            else if let image=contents as? NSImage {
+                let width=max(1,image.representations.map{$0.pixelsWide}.max() ?? Int(image.size.width))
+                let height=max(1,image.representations.map{$0.pixelsHigh}.max() ?? Int(image.size.height))
+                let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:width,height:height,mipmapped:true)
+                retained+=device.heapTextureSizeAndAlign(descriptor:descriptor).size
+            }
+        }
+        materials.insert(m,key:key,bytes:retained)
         return m.copy() as! SCNMaterial
     }
 }
