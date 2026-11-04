@@ -214,3 +214,14 @@ unsignaled AM notification channel. Records currently live for the runner's
 lifetime; host wake/relaunch scheduling and cross-run alarm persistence are
 not implemented. Undocumented error cases fail explicitly rather than returning
 invented notification-module result values.
+
+Audio input follows [Audio services](https://switchbrew.org/wiki/Audio_services#audin:u):
+48 kHz PCM16 mono/stereo buffers complete in capture order, publish PCM before
+signaling release events, and retain pending durations across stop/start.
+Desktop capture uses Apple's AVAudioEngine and AVAudioConverter. Permission is
+checked using AVCaptureDevice authorizationStatusForMediaType; a missing usage
+description, denied permission, absent device or engine failure supplies silence.
+A first permission request supplies silence until capture is restarted. Headless
+runs never request microphone access. Captured samples are neither saved nor logged.
+Native compilation and deterministic silent-queue tests are verified; live
+microphone capture still requires a hardware/permission check.

@@ -63,6 +63,7 @@ const SERVICES: &[(&str, Family)] = &[
     ("vi:m", Family::Media),
     ("vi:u", Family::Media),
     ("audout:u", Family::Media),
+    ("audin:u", Family::Media),
     ("audren:u", Family::Media),
 ];
 const SM: &[CommandSpec<Hub>] = &[
@@ -78,6 +79,7 @@ const SM: &[CommandSpec<Hub>] = &[
     },
 ];
 impl Hub {
+    pub fn enable_microphone(&mut self) { self.media.enable_microphone(); }
     pub fn new(nro_path: &Path, home: &Path) -> Result<Self, Error> {
         let mut platform = Platform::new(home)?;
         let bytes = std::fs::read(nro_path)?;

@@ -31,6 +31,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rustc-link-lib=static=soju_context");
     }
     println!("cargo:rerun-if-changed=native/host.m");
+    println!("cargo:rerun-if-changed=native/microphone.m");
+    println!("cargo:rerun-if-changed=native/microphone.plist");
     println!("cargo:rerun-if-env-changed=SOJU_SDL_PREFIX");
     if env::var_os("CARGO_FEATURE_DESKTOP").is_none() {
         return Ok(());
@@ -58,19 +60,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
     assert!(status.success(), "native host compilation failed");
     assert!(
-        Command::new("ar")
-            .arg("crs")
-            .arg(out.join("libsoju_host.a"))
-            .arg(out.join("host.o"))
-            .status()
-            .unwrap()
-            .success()
+        Command::new("clang")
+            .args([
+                "-fobjc-arc",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-c",
+                "native/microphone.m",
+                "-o"
+            ])
+            .arg(out.join("microphone.o"))
+            .status()?
+            .success(),
+        "microphone compilation failed"
     );
+    let plist =
+        PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("native/microphone.plist");
+    println!(
+        "cargo:rustc-link-arg=-Wl,-sectcreate,__TEXT,__info_plist,{}",
+        plist.display()
+    );
+    assert!(Command::new("ar")
+        .arg("crs")
+        .arg(out.join("libsoju_host.a"))
+        .arg(out.join("host.o"))
+        .arg(out.join("microphone.o"))
+        .status()
+        .unwrap()
+        .success());
     println!("cargo:rustc-link-search=native={}", out.display());
     println!("cargo:rustc-link-search=native={prefix}/lib");
     println!("cargo:rustc-link-lib=static=soju_host");
     println!("cargo:rustc-link-lib=SDL2");
-    for framework in ["Foundation", "AppKit", "GameController", "AudioToolbox"] {
+    for framework in [
+        "Foundation",
+        "AppKit",
+        "GameController",
+        "AudioToolbox",
+        "AVFoundation",
+    ] {
         println!("cargo:rustc-link-lib=framework={framework}");
     }
     Ok(())

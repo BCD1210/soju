@@ -413,3 +413,6 @@ fn native_graphic_buffer_format_supplies_unspecified_outer_format() {
     put(&mut body, 68, 0);
     assert!(f.transaction(binder, 14, &body).is_err());
 }
+
+#[path = "audio_input_tests.rs"]
+mod audio_input_tests;

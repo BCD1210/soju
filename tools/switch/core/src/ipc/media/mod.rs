@@ -1,5 +1,7 @@
 //! VI, Binder and timed audio services over normalized IPC.
 mod audio;
+mod audio_input;
+mod microphone;
 mod display;
 mod frame;
 mod renderer;
@@ -19,6 +21,8 @@ enum Interface {
     Child,
     Audio,
     Output,
+    InputManager,
+    Input,
     RendererManager,
     Renderer,
 }
@@ -27,16 +31,20 @@ pub struct Media {
     objects: BTreeMap<ObjectId, Interface>,
     displays: BTreeMap<ObjectId, display::Display>,
     audio: BTreeMap<ObjectId, audio::Output>,
+    inputs: BTreeMap<ObjectId, audio_input::Input>,
+    microphone_enabled: bool,
     renderers: BTreeMap<ObjectId, renderer::Renderer>,
     retired_events: Vec<Handle>,
     frame: Option<Frame>,
     pub frame_conversion_time: std::time::Duration,
 }
 impl Media {
+    pub fn enable_microphone(&mut self) { self.microphone_enabled = true; }
     pub fn open(&mut self, name: &str, ctx: &mut Context<'_>) -> Result<Handle, Error> {
         let interface = match name {
             "vi:m" | "vi:u" => Interface::Vi,
             "audout:u" => Interface::Audio,
+            "audin:u" => Interface::InputManager,
             "audren:u" => Interface::RendererManager,
             _ => return Err(Error::Malformed("unknown media service")),
         };
@@ -59,6 +67,8 @@ impl Media {
             Interface::Child => &[],
             Interface::Audio => audio::SERVICE,
             Interface::Output => audio::OUTPUT,
+            Interface::InputManager => audio_input::SERVICE,
+            Interface::Input => audio_input::INPUT,
             Interface::RendererManager => renderer::SERVICE,
             Interface::Renderer => renderer::RENDERER,
         };
@@ -66,6 +76,7 @@ impl Media {
     }
     pub fn close_object(&mut self, id: ObjectId) {
         self.objects.remove(&id);
+        if let Some(input) = self.inputs.remove(&id) { self.retired_events.push(input.event); }
         if let Some(renderer) = self.renderers.remove(&id) {
             self.retired_events.push(renderer.event);
             self.retired_events.push(renderer.work_handle);
@@ -103,6 +114,7 @@ impl Media {
         for renderer in self.renderers.values_mut() {
             renderer.poll(kernel, now_ns)?;
         }
+        for input in self.inputs.values_mut() { input.poll(kernel, memory, now_ns)?; }
         for output in self.audio.values_mut() {
             output.poll(kernel, now_ns)?;
         }

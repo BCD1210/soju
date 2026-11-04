@@ -106,6 +106,7 @@ fn combine(keys: &[u16], p: &[f32; 22]) -> NpadState {
 }
 pub fn play(path: &Path, home: &Path) -> Result<(), String> {
     let (mut runtime, mut hub) = crate::launch::load(path, home)?;
+    hub.enable_microphone();
     let window = Window::new()?;
     let mut audio = crate::host_audio::Audio::default();
     runtime.yield_on_frame = true;
