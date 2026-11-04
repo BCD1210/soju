@@ -12,14 +12,12 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/soju"
 swiftc -swift-version 5 -parse-as-library -O -target arm64-apple-macosx14.0 \
   "$ROOT/app/Soju.swift" "$ROOT/app/Library.swift" "$ROOT/app/Accounts.swift" "$ROOT/app/Discover.swift" "$ROOT/app/PurchaseLinks.swift" "$ROOT/app/SteamLogin.swift" -o "$APP/Contents/MacOS/Soju"
 for dir in scripts tools patches third_party resources; do
-  ditto "$ROOT/$dir" "$APP/Contents/Resources/soju/$dir"
+  mkdir -p "$APP/Contents/Resources/soju/$dir"
+  rsync -a --exclude target --exclude __pycache__ "$ROOT/$dir/" "$APP/Contents/Resources/soju/$dir/"
 done
 for file in install.sh VERSION LICENSE NOTICE; do
   cp "$ROOT/$file" "$APP/Contents/Resources/soju/"
 done
-# Local Rust test executables and caches are not app resources.
-rm -rf "$APP/Contents/Resources/soju/tools/switch/core/target"
-find "$APP" -name __pycache__ -type d -prune -exec rm -rf {} +
 python3 - "$APP" "$VERSION" <<'PY'
 import plistlib, sys
 from pathlib import Path

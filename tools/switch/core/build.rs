@@ -40,7 +40,7 @@ fn main() {
     println!("cargo:rustc-link-search=native={prefix}/lib");
     println!("cargo:rustc-link-lib=static=soju_host");
     println!("cargo:rustc-link-lib=SDL2");
-    for framework in ["Foundation", "GameController", "AudioToolbox"] {
+    for framework in ["Foundation", "AppKit", "GameController", "AudioToolbox"] {
         println!("cargo:rustc-link-lib=framework={framework}");
     }
 }

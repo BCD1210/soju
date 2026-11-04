@@ -19,7 +19,7 @@ final class RenderCompiler {
     let root: URL
     init(_ device: MTLDevice) {
         self.device = device
-        root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SOJU_GPU_CACHE_DIR"] ?? FileManager.default.currentDirectoryPath + "/target/soju-metal-cache-v1", isDirectory: true)
+        root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SOJU_GPU_CACHE_DIR"] ?? NSHomeDirectory() + "/Library/Caches/Soju/Metal/v1", isDirectory: true)
     }
     func digest(_ bytes: Data) -> String { SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() }
     func compile(_ key: String, _ descriptor: MTLRenderPipelineDescriptor, _ vertex: String, _ fragment: String) throws -> CompiledRender {

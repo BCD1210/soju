@@ -331,7 +331,7 @@ and the runner's first-scene integration. No public signatures or ABI changed.
 
 Render pipelines use versioned, device/OS-scoped Metal binary archives keyed by
 the stable pipeline key, exact MSL and compiler options. Archives live in
-`target/soju-metal-cache-v1` relative to process cwd, overridden with
+`~/Library/Caches/Soju/Metal/v1`, overridden with
 `SOJU_GPU_CACHE_DIR`. `SOJU_GPU_DISK_CACHE_BYTES` defaults to 128 MiB; zero disables
 persistence. SHA-256 envelopes reject corrupt payloads before Metal reads them;
 atomic replacement prevents partial publication. Cache failures fall back to

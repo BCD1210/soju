@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
 #import <GameController/GameController.h>
 #include <SDL2/SDL.h>
 
@@ -22,6 +23,9 @@ int soju_host_open(void) {
     memset(pressed_until, 0, sizeof(pressed_until));
     memset(pressed_frame, 0, sizeof(pressed_frame));
     frame_number = 0;
+    [NSApplication sharedApplication];
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "metal");
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) return -1;
     window = SDL_CreateWindow("Soju — Switch homebrew", SDL_WINDOWPOS_CENTERED,
@@ -29,6 +33,8 @@ int soju_host_open(void) {
     if (!window) return -1;
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) return -1;
+    [NSApp activateIgnoringOtherApps:YES];
+    SDL_RaiseWindow(window);
     [GCController startWirelessControllerDiscoveryWithCompletionHandler:nil];
     return 0;
 }
@@ -43,6 +49,10 @@ int soju_host_present(const unsigned char *pixels, int w, int h) {
     if (SDL_UpdateTexture(texture, NULL, pixels, w * 4)) return -1;
     if (SDL_RenderClear(renderer) || SDL_RenderCopy(renderer, texture, NULL, NULL)) return -1;
     SDL_RenderPresent(renderer);
+    if (frame_number == 0) {
+        [NSApp activateIgnoringOtherApps:YES];
+        SDL_RaiseWindow(window);
+    }
     ++frame_number;
     return 0;
 }
