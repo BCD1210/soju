@@ -14,11 +14,12 @@ use soju_switch_shader::{
 use soju_switch_texture::Surface;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fmt::Write,
     path::Path,
 };
 
 mod compute;
+use crate::protocol::*;
+use std::fmt::Write;
 
 #[derive(Default)]
 pub struct Backend {
@@ -26,7 +27,7 @@ pub struct Backend {
     compute_targets: BTreeMap<String, compute::ComputeTarget>,
     programs: BTreeMap<u64, (usize, Options)>,
     pub textures: TextureCache,
-    commands: Vec<(String, u32)>,
+    commands: Vec<Command>,
     profile: Option<[std::time::Duration; 3]>,
     prepared: Option<(Snapshot, (u64, u64), usize)>,
     file_cache: std::collections::HashMap<Vec<u8>, String>,
@@ -65,14 +66,6 @@ pub struct Report {
 }
 fn io(e: impl std::fmt::Display) -> Error {
     Error(e.to_string())
-}
-fn quote(s: &str) -> String {
-    format!(
-        "\"{}\"",
-        s.replace('\\', "\\\\")
-            .replace('"', "\\\"")
-            .replace('\n', "\\n")
-    )
 }
 impl Target {
     fn surface(&self) -> Surface {
@@ -149,7 +142,7 @@ impl Backend {
         if let Some(name) = self.file_cache.get(&bytes) {
             return name.clone();
         }
-        let name = quote(&format!("resource-{}.bin", self.files.len()));
+        let name = format!("resource-{}.bin", self.files.len());
         self.file_cache.insert(bytes.clone(), name.clone());
         self.files.push(bytes);
         name
@@ -204,7 +197,7 @@ impl Backend {
                 && previous.constants == *bindings
                 && previous.action == *action
             {
-                self.commands[*index].1 += 1;
+                self.commands[*index].repeats += 1;
                 return Ok(());
             }
         }
@@ -212,14 +205,20 @@ impl Backend {
         let mut clock = self.profile.map(|_| std::time::Instant::now());
         match *action {
             Action::ResetOcclusion => {
-                self.commands.push(("{\"query_reset\":true}".into(), 1));
+                self.commands.push(Command {
+                    kind: 2,
+                    ..Command::default()
+                });
                 return Ok(());
             }
             Action::ReportOcclusion { address } => {
                 let generation = memory.generation(address, 4)?;
                 let key = format!("{}-{address:x}", memory.identity);
-                self.commands
-                    .push((format!("{{\"query_report\":{}}}", quote(&key)), 1));
+                self.commands.push(Command {
+                    kind: 3,
+                    key: key.clone().into(),
+                    ..Command::default()
+                });
                 self.queries
                     .insert(key, (address, generation, memory.identity));
                 return Ok(());
@@ -254,7 +253,7 @@ impl Backend {
         )?;
         let mut selected = BTreeSet::new();
         let mut batch_targets = BTreeMap::<String, Target>::new();
-        let mut target_jsons = Vec::new();
+        let mut target_commands = Vec::new();
         for slot in 0..attachment_count {
             let index = (r.get(0x121c) >> (4 + slot * 3)) & 7;
             require(selected.insert(index), "duplicate CT_SELECT target")?;
@@ -337,8 +336,15 @@ impl Backend {
             let generation = memory.generation(target.address, target.size())?;
             target.generation = generation;
             let metal = format.info().metal;
-            let target_json=format!("{{\"key\":{},\"width\":{width},\"height\":{height},\"generation\":{generation},\"metal\":{metal},\"bytes\":{bytes_per_pixel},\"file\":{file}}}",quote(&key));
-            target_jsons.push(target_json);
+            target_commands.push(TargetCommand {
+                key: key.clone().into(),
+                width: width as _,
+                height: height as _,
+                generation: generation as _,
+                metal: metal as _,
+                bytes: bytes_per_pixel as _,
+                file: file.into(),
+            });
             batch_targets.insert(key, target);
         }
         let target = batch_targets.values().next().unwrap();
@@ -427,25 +433,37 @@ impl Backend {
             }
             let zfile = self.file(z);
             let sfile = self.file(stencil);
-            let json=format!("{{\"key\":{},\"format\":{},\"generation\":{},\"zfile\":{zfile},\"sfile\":{sfile}}}",quote(&key),r.get(0xfe8),t.generation);
+            let command = DepthCommand {
+                key: key.clone().into(),
+                format: r.get(0xfe8) as _,
+                generation: t.generation as _,
+                zfile: zfile.into(),
+                sfile: sfile.into(),
+            };
             pending_depth = Some((key, t));
-            json
+            vec![command]
         } else {
             require(
                 r.get(0x12cc) == 0 && r.get(0x12e8) == 0 && r.get(0x1380) == 0,
                 "depth state without zeta",
             )?;
-            "null".into()
+            Vec::new()
         };
-        let registers =
-            r.0.iter()
-                .map(|(a, b)| format!("\"{a}\":{b}"))
+        let mut command = Command {
+            registers: r
+                .0
+                .iter()
+                .map(|(&address, &value)| Reg {
+                    address: address as _,
+                    value: value as _,
+                })
                 .collect::<Vec<_>>()
-                .join(",");
-        let mut command = format!(
-            "{{\"registers\":{{{registers}}},\"targets\":[{}],\"depth\":{depth}",
-            target_jsons.join(",")
-        );
+                .into(),
+            targets: target_commands.into(),
+            depth: depth.into(),
+            repeats: 1,
+            ..Command::default()
+        };
         self.checkpoint(&mut clock, 0);
         match *action {
             Action::ResetOcclusion | Action::ReportOcclusion { .. } => unreachable!(),
@@ -458,14 +476,15 @@ impl Backend {
                     "partial-channel/layer clear unsupported",
                 )?;
                 require(
-                    mask & 3 == 0 || depth != "null",
+                    mask & 3 == 0 || !command.depth.is_empty(),
                     "zeta clear without target",
                 )?;
                 require(
                     mask & 2 == 0 || matches!(r.get(0xfe8), 0x19 | 0x14),
                     "stencil clear needs stencil target",
                 )?;
-                write!(command, ",\"clear\":{mask}").unwrap();
+                command.kind = 1;
+                command.clear = mask as _;
             }
             Action::Draw {
                 topology,
@@ -686,9 +705,11 @@ impl Backend {
                         self.constant_upload.resize(offset, 0);
                         self.constant_upload
                             .extend_from_slice(memory.read(cb.address, cb.size as usize)?);
-                        constants.push(format!(
-                            "{{\"stage\":{stage},\"slot\":{slot},\"offset\":{offset}}}"
-                        ));
+                        constants.push(ConstantCommand {
+                            stage,
+                            slot: *slot as _,
+                            offset: offset as _,
+                        });
                     }
                 }
                 let base_vertex = r.get(0x1434) as i32;
@@ -766,7 +787,7 @@ impl Backend {
                         "base vertex on nonindexed draw unsupported",
                     )?;
                     (
-                        "null".into(),
+                        String::new(),
                         first,
                         first
                             .checked_add(count - 1)
@@ -774,16 +795,14 @@ impl Backend {
                         0,
                     )
                 };
-                write!(
-                    command,
-                    ",\"segments\":[{}]",
-                    segments
-                        .iter()
-                        .map(|(start, count)| format!("{{\"start\":{start},\"count\":{count}}}"))
-                        .collect::<Vec<_>>()
-                        .join(",")
-                )
-                .unwrap();
+                command.segments = segments
+                    .iter()
+                    .map(|&(start, count)| SegmentCommand {
+                        start: start as _,
+                        count: count as _,
+                    })
+                    .collect::<Vec<_>>()
+                    .into();
                 let _ = min_vertex;
                 let slots = vh
                     .inputs
@@ -843,7 +862,15 @@ impl Backend {
                         .entry(stream)
                         .and_modify(|n| *n = (*n).max(length as u32))
                         .or_insert(length as u32);
-                    attrs.push(format!("{{\"slot\":{slot},\"stream\":{stream},\"offset\":{offset},\"format\":{format},\"stride\":{stride},\"instanced\":{instanced},\"rate\":{rate}}}"));
+                    attrs.push(AttributeCommand {
+                        slot: slot as _,
+                        stream: stream as _,
+                        offset: offset as _,
+                        format: format as _,
+                        stride: stride as _,
+                        instanced: instanced as _,
+                        rate: rate as _,
+                    });
                 }
                 let mut buffers = Vec::new();
                 for (stream, length) in streams {
@@ -856,7 +883,10 @@ impl Backend {
                         "vertex stream limit exceeded",
                     )?;
                     let file = self.file(memory.read(address, length as usize)?.to_vec());
-                    buffers.push(format!("{{\"slot\":{stream},\"file\":{file}}}"));
+                    buffers.push(BufferCommand {
+                        slot: stream as _,
+                        file: file.into(),
+                    });
                 }
                 let mut textures = Vec::new();
                 for (stage, shader, address) in [(0, &vs, va), (1, &fs, fa)] {
@@ -972,7 +1002,24 @@ impl Backend {
                         });
                         let key = key.0.iter().map(|v| format!("{v:02x}")).collect::<String>();
                         let file = self.file(data);
-                        textures.push(format!("{{\"stage\":{stage},\"count\":{count},\"image\":{index},\"key\":{},\"width\":{},\"height\":{},\"metal\":{},\"row\":{},\"rows\":{},\"swizzle\":{:?},\"file\":{file}}}",quote(&key),tic.width,tic.height,metal,row,tic.surface().height,swizzle));
+                        textures.push(TextureCommand {
+                            stage,
+                            count: count as _,
+                            image: index as _,
+                            sampler: -1,
+                            key: key.into(),
+                            width: tic.width as _,
+                            height: tic.height as _,
+                            metal: metal as _,
+                            row: row as _,
+                            rows: tic.surface().height as _,
+                            swizzle0: swizzle[0] as _,
+                            swizzle1: swizzle[1] as _,
+                            swizzle2: swizzle[2] as _,
+                            swizzle3: swizzle[3] as _,
+                            file: file.into(),
+                            ..TextureCommand::default()
+                        });
                     }
                     for index in samplers {
                         require(index <= r.get(0x1564), "TSC pool index out of bounds")?;
@@ -981,14 +1028,36 @@ impl Backend {
                             .checked_add(u64::from(index) * 32)
                             .ok_or_else(|| Error("TSC address overflow".into()))?;
                         let t = Tsc::parse(memory.read(addr, 32)?)?;
-                        textures.push(format!("{{\"stage\":{stage},\"count\":{count},\"sampler\":{index},\"u\":{},\"v\":{},\"min\":{},\"mag\":{}}}",t.address_u,t.address_v,t.min_filter,t.mag_filter));
+                        textures.push(TextureCommand {
+                            stage,
+                            count: count as _,
+                            image: -1,
+                            sampler: index as _,
+                            u: t.address_u as _,
+                            v: t.address_v as _,
+                            min: t.min_filter as _,
+                            mag: t.mag_filter as _,
+                            ..TextureCommand::default()
+                        });
                     }
                 }
-                write!(command,",\"pipeline\":{},\"vertex\":{vfile},\"fragment\":{ffile},\"attributes\":[{}],\"buffers\":[{}],\"constants\":[{}],\"textures\":[{}],\"topology\":{topology},\"first\":{first},\"count\":{count},\"indices\":{index_file},\"indexSize\":{index_size},\"baseVertex\":{base_vertex},\"instance\":{base_instance}",quote(&pipeline),attrs.join(","),buffers.join(","),constants.join(","),textures.join(",")).unwrap();
+                command.pipeline = pipeline.into();
+                command.vertex = vfile.into();
+                command.fragment = ffile.into();
+                command.attributes = attrs.into();
+                command.buffers = buffers.into();
+                command.constants = constants.into();
+                command.textures = textures.into();
+                command.topology = topology as _;
+                command.first = first as _;
+                command.count = count as _;
+                command.indices = index_file.into();
+                command.index_size = index_size as _;
+                command.base_vertex = base_vertex as _;
+                command.instance = base_instance as _;
             }
         }
         self.checkpoint(&mut clock, 2);
-        command.push('}');
         if matches!(action, Action::Draw { .. }) && r.get(0x1514) == 0 {
             self.prepared = Some((
                 Snapshot {
@@ -1000,7 +1069,7 @@ impl Backend {
                 self.commands.len(),
             ));
         }
-        self.commands.push((command, 1));
+        self.commands.push(command);
         self.targets.extend(batch_targets);
         if let Some((key, t)) = pending_depth {
             self.depth_targets.insert(key, t);
@@ -1018,28 +1087,13 @@ impl Backend {
             !directory.to_string_lossy().contains(['\n', '\t']),
             "invalid worker directory",
         )?;
-        std::fs::write(directory.join("constants.bin"), &self.constant_upload).map_err(io)?;
-        for (i, data) in self.files.iter().enumerate() {
-            std::fs::write(directory.join(format!("resource-{i}.bin")), data).map_err(io)?;
-        }
-        std::fs::write(
-            directory.join("commands.json"),
-            format!(
-                "[{}]",
-                self.commands
-                    .iter()
-                    .map(|(command, repeats)| {
-                        format!("{{\"repeats\":{repeats},{}", &command[1..])
-                    })
-                    .collect::<Vec<_>>()
-                    .join(",")
-            ),
-        )
-        .map_err(io)?;
+        let commands = std::mem::take(&mut self.commands);
+        let files = std::mem::take(&mut self.files);
+        let constants = std::mem::take(&mut self.constant_upload);
         let fence = self
             .worker
             .get_or_insert_with(crate::worker::Worker::new)
-            .request("submit", directory)?;
+            .submit(directory, commands, files, constants)?;
         self.prepared = None;
         self.commands.clear();
         self.files.clear();
@@ -1082,7 +1136,7 @@ impl Backend {
         )?;
         let diagnostics = self
             .worker
-            .as_ref()
+            .as_mut()
             .ok_or_else(|| Error("no submitted work".into()))?
             .request("readback", directory.clone())?
             .wait()?;

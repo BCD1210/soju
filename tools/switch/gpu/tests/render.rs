@@ -1921,3 +1921,53 @@ fn borrowed_repeated_draws_preserve_blending_and_constant_uploads() {
             .all(|p| p.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 1)));
     }
 }
+
+#[test]
+fn queued_batches_keep_captured_constants_alive_across_ring_wraps() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("queued", [0., 0., 0., 1.]);
+    let program = h.program(shader_with_tint(false, false, true));
+    let cb = h.alloc(vec![0; 16]);
+    h.methods(
+        &mut e,
+        &[
+            (0x2144, program as u32),
+            (0x2380, 16),
+            (0x2384, 0),
+            (0x2388, cb as u32),
+            (0x2490, 0x21),
+        ],
+    );
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/queued-checks");
+    let mut fences = Vec::new();
+    for batch in 0..24 {
+        let color = if batch % 2 == 0 {
+            [1f32, 0., 0., 1.]
+        } else {
+            [0f32, 1., 0., 1.]
+        };
+        h.memory
+            .write(
+                cb,
+                &color
+                    .into_iter()
+                    .flat_map(f32::to_le_bytes)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
+        for (offset, value) in [(0x1618, 4), (0xd78, 6), (0x1614, 0)] {
+            e.method_into(B197, offset, value, &mut h.memory, &mut h.backend)
+                .unwrap();
+        }
+        fences.push(h.backend.submit(&root).unwrap());
+    }
+    for fence in fences {
+        fence.wait().unwrap();
+    }
+    let report = h.backend.readback(&root, &mut h.memory).unwrap();
+    assert!(report.images[0]
+        .rgba
+        .chunks_exact(4)
+        .all(|p| p == [0, 255, 0, 255]));
+}
