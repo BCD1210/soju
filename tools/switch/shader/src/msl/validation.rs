@@ -42,7 +42,7 @@ impl Emitter<'_> {
                     x.opcode,
                     FADD | FMUL | FFMA | ReducedSin | ReducedCos | ReducedExp2 | MUFU | F2F | IPA
                 ),
-                "ftz" => matches!(x.opcode, FADD | FMNMX | FSET | FSETP),
+                "ftz" => matches!(x.opcode, FADD | FMNMX | FSET | FSETP | F2F),
                 "bf" => matches!(x.opcode, FSET | ISET),
                 "w" => matches!(x.opcode, SHL | SHR),
                 "nodep" => matches!(x.opcode, TEX | TEXS | TLD | TLDS | TLD4 | TXQ),
@@ -67,7 +67,7 @@ impl Emitter<'_> {
                 "5cb8_2" | "5980_1" | "5c68_1" | "5cc0_0" | "5cc0_1" | "5cc0_2" | "5cc0_3"
                 | "5b00_0" | "5b00_1" | "5100_0" | "5c20_0" | "5c40_1" | "5be0_0" | "ef90_0"
                 | "ef40_0" | "ef50_0" => o.bits == 0,
-                "5c68_0" => o.bits == 0 || o.bits == 1 << 44,
+                "5c68_0" => matches!(o.bits >> 44, 0..=2),
                 "5980_0" => o.bits == 0 || o.bits == 1 << 53,
                 "5bb0_0" | "5b60_0" | "5c30_0" | "5a00_0" | "5a00_1" | "5c40_0" | "5cb0_1"
                 | "5080_0" | "5ca8_0" => true,

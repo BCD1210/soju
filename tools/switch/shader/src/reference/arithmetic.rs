@@ -156,6 +156,18 @@ impl Machine {
                 };
                 let mut v = match x.opcode {
                     FADD => f(1)? + f(2)?,
+                    FMUL if x
+                        .options
+                        .iter()
+                        .any(|o| o.name == "5c68_0" && o.bits == 2 << 44) =>
+                    {
+                        let (a, b) = (ftz(f(1)?), ftz(f(2)?));
+                        if a == 0. || b == 0. {
+                            0.
+                        } else {
+                            ftz(a * b)
+                        }
+                    }
                     FMUL => f(1)? * f(2)?,
                     FFMA => f(1)?.mul_add(f(2)?, f(3)?),
                     FMNMX => {

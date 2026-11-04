@@ -298,3 +298,51 @@ fn flush_to_zero_comparisons_handle_signed_subnormals() {
         expected
     );
 }
+
+#[test]
+fn zero_wins_multiply_covers_exceptional_operands() {
+    let dir = gpu::setup();
+    let values = [
+        0.,
+        -0.,
+        f32::from_bits(1),
+        f32::from_bits(0x80000001),
+        f32::INFINITY,
+        f32::NAN,
+        2.,
+        -3.,
+    ];
+    let input: Vec<_> = (0..64)
+        .flat_map(|i| {
+            [
+                values[i % 8].to_bits(),
+                values[i / 8].to_bits(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+        })
+        .collect();
+    let (binary, p) = program(&[alu(0x5c68000000000000, 0, 0, 1) | 2 << 44], 32);
+    let shader = compute::translate(
+        &binary[80..],
+        &gpu::launch(32, 0),
+        &gpu::options(input.len()),
+    )
+    .unwrap();
+    let actual = gpu::execute(&dir, "fmz", &shader.source, &input, 32);
+    let expected = cpu(&p, &input, 0, 32);
+    for i in 0..64 {
+        let (a, b) = (actual[i * 8 + 4], expected[i * 8 + 4]);
+        assert!(
+            a == b || f32::from_bits(a).is_nan() && f32::from_bits(b).is_nan(),
+            "lane {i}: {a:x} {b:x}"
+        );
+        if i % 8 < 4 || i / 8 < 4 {
+            assert_eq!(a, 0);
+        }
+    }
+}

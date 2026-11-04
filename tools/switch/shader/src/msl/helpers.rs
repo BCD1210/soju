@@ -3,6 +3,10 @@ inline float soju_ftz(float v) {
     uint b = as_type<uint>(v);
     return as_type<float>((b & 0x7f800000u) == 0u ? b & 0x80000000u : b);
 }
+inline float soju_fmz(float a, float b) {
+    a = soju_ftz(a); b = soju_ftz(b);
+    return a == 0.0f || b == 0.0f ? 0.0f : soju_ftz(a * b);
+}
 inline float soju_min(float a, float b) {
     if (a == 0.0f && b == 0.0f) return as_type<float>(as_type<uint>(a) | as_type<uint>(b));
     return fmin(a, b);

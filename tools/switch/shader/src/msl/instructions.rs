@@ -70,6 +70,13 @@ impl Emitter<'_> {
                 };
                 let v = match x.opcode {
                     FADD => format!("({} + {})", value(1)?, value(2)?),
+                    FMUL if x
+                        .options
+                        .iter()
+                        .any(|o| o.name == "5c68_0" && o.bits == 2 << 44) =>
+                    {
+                        format!("soju_fmz({}, {})", f(1)?, f(2)?)
+                    }
                     FMUL => format!("({} * {})", value(1)?, value(2)?),
                     _ => format!("fma({}, {}, {})", value(1)?, value(2)?, value(3)?),
                 };
@@ -215,6 +222,11 @@ impl Emitter<'_> {
             )),
             F2F => {
                 let v = f(1)?;
+                let v = if x.modified("ftz", None) {
+                    format!("soju_ftz({v})")
+                } else {
+                    v
+                };
                 let mode = bits(x.raw, 39, 4) & 11;
                 fdst(match mode {
                     0 | 3 => v,

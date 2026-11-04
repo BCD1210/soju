@@ -76,3 +76,12 @@ Closed RRO/MUFU pairs:
   intermediate register, with no control-flow entry at the consumer. Metal/Rust
   math evaluates the complete function; intermediate hardware bits and hardware
   approximation errors are not emulated. Escaping intermediates are rejected.
+
+Zero-wins multiplication contract:
+- Pinned `envydis/gm107.c`, `tab5c68_0`, identifies FMUL mode 2 as FMZ.
+- https://raw.githubusercontent.com/envytools/envytools/f102b82381f3f11cee113d16374c87091db039d9/hwtest/g80_fp.cc
+- https://raw.githubusercontent.com/envytools/envytools/f102b82381f3f11cee113d16374c87091db039d9/nvhw/fp.c
+  Hardware-test reference describes zero-wins multiplication: flushed-zero input
+  wins over NaN/infinity and produces positive zero. This older hardware reference
+  supplies the numerical contract, not proof of every Maxwell exceptional case.
+  Soju's implementation is original and tests the stated contract on Metal.
