@@ -291,3 +291,21 @@ proofs. White-player paint and authored emission remain bright by design. The
 existing Marine head/silhouette and coarse geometry still fall below Remastered
 quality; lighting cannot supply missing geometry. Physical headset and all-tileset
 visual acceptance remain unverified.
+
+## M1 team-paint correction — 2026-11-04 UTC
+
+The source diffuse alpha is **inverse** team coverage: alpha 255 preserves paint,
+alpha 0 applies team colour, and intermediate values retain authored gradients.
+Marine alpha is 94.345% fully opaque and 0.229% zero; SCV KMC is 94.553% opaque
+and 0.959% zero. No binary threshold is applied. The renderer uploads straight
+RGB independently of the original mask, avoiding loss at zero alpha through
+premultiplication. Colour textures remain sRGB; mask alpha stays linear and player
+RGB is decoded to linear before multiplication.
+
+Private evidence: `runtime/3d-proof/m1-fix/alpha-analysis.json`, diffuse RGB/alpha
+PNGs, and `before/` / `after/` paired player-1 and neutral (`player-9`) renders.
+`check_team_colour.py` excludes the background and compares hue/saturation only
+where RGB also changes perceptibly. The regression ceiling is 35% of model pixels:
+Marine 84.395% → 12.905%; SCV 93.866% → 11.692%. Both pass, with nonzero coverage.
+`after/` also contains four views for all eight baseline types and eight-player
+palettes. These are shading checks, not final geometry/art approval.
