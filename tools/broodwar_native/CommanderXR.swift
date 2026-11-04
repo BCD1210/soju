@@ -103,8 +103,8 @@ extension Commander {
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float_stencil8,width:texture.width,height:texture.height,mipmapped:false)
             desc.storageMode = .private;desc.usage = .renderTarget
             desc.textureType = .type2DMultisample;desc.sampleCount=4
-            xrDepth[index]=art.device.makeTexture(descriptor:desc)
-            desc.pixelFormat=output.pixelFormat;xrColor[index]=art.device.makeTexture(descriptor:desc)
+            xrDepth[index]=TextureResidency.shared.make(art.device,desc)
+            desc.pixelFormat=output.pixelFormat;xrColor[index]=TextureResidency.shared.make(art.device,desc)
         }
         let pass=xrScenePass;pass.colorAttachments[0].texture=xrColor[index]
         pass.colorAttachments[0].resolveTexture=output
@@ -144,11 +144,11 @@ extension Commander {
                     var rightProjection=simd_float4x4(projection)
                     rightProjection.columns.0.x=2/(rr-rl);rightProjection.columns.1.y=2/(ru-rd)
                     rightProjection.columns.2.x=(rr+rl)/(rr-rl);rightProjection.columns.2.y=(ru+rd)/(ru-rd)
-                    metalBatches!.render(command:buffer,output:output,camera:xrCamera,eye:position,rightTransform:rightTransform,rightProjection:rightProjection)
+                    try metalBatches!.render(command:buffer,output:output,camera:xrCamera,eye:position,rightTransform:rightTransform,rightProjection:rightProjection)
                 }
                 metalBatches!.copyEye(command:buffer,to:output,eye:Int(eye.eye))
-                metalBatches!.renderOverlay(renderer:renderer,command:buffer,output:output,camera:xrCamera,eye:Int(eye.eye),time:xrFrameTime)
-            } catch {fputs("Metal batches: \(error)\n",stderr);NSApp.terminate(nil)}
+                try metalBatches!.renderOverlay(renderer:renderer,command:buffer,output:output,camera:xrCamera,eye:Int(eye.eye),time:xrFrameTime)
+            } catch {buffer.commit();fputs("Metal batches: \(error)\n",stderr);NSApp.terminate(nil);return}
         } else {
             renderer.render(atTime:xrFrameTime,viewport:CGRect(x:0,y:0,width:texture.width,height:texture.height),commandBuffer:buffer,passDescriptor:pass)
         }
@@ -168,7 +168,7 @@ extension Commander {
             if eye.eye==0 {lastMirrorTime=xrFrameTime}
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:texture.pixelFormat,width:texture.width,height:texture.height,mipmapped:false)
             desc.usage = .shaderRead;desc.storageMode = .private
-            if let copy=art.device.makeTexture(descriptor:desc),let blit=buffer.makeBlitCommandEncoder() {
+            if let copy=TextureResidency.shared.make(art.device,desc),let blit=buffer.makeBlitCommandEncoder() {
                 blit.copy(from:texture,to:copy);blit.endEncoding()
                 buffer.addCompletedHandler { [weak self] command in
                     guard command.status == .completed,let ci=CIImage(mtlTexture:copy,options:nil),let cg=context.createCGImage(ci.transformed(by:CGAffineTransform(translationX:0,y:CGFloat(copy.height)).scaledBy(x:1,y:-1)),from:ci.extent) else { return }

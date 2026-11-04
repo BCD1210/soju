@@ -78,7 +78,7 @@ final class SpriteRelief {
         }}
         let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:w,height:h,mipmapped:false)
         descriptor.storageMode = .shared;descriptor.usage = .shaderRead
-        guard let texture=device.makeTexture(descriptor:descriptor) else {return nil}
+        guard let texture=TextureResidency.shared.make(device,descriptor) else {return nil}
         bytes.withUnsafeBytes{texture.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:w*4)}
         dataTextures.insert(texture,key:key,bytes:w*h*4)
         return texture

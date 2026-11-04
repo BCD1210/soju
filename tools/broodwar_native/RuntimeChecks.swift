@@ -276,6 +276,22 @@ func runtimeChecks()throws {
     commander.requireFidelity=true
     commander.apply(state(1001,[unit("unapproved")]),[:])
     try require(commander.models.isEmpty && commander.billboards["unapproved"] != nil,"unapproved live model uses the HD image fallback")
+    let residency=TextureResidency(limit:1024)
+    try require(residency.reserve(768) && !residency.reserve(512),"texture admission counts pinned owners across caches")
+    residency.release(768)
+    try require(residency.reserve(1024) && !residency.reserve(1),"texture admission reuses released capacity without overshoot")
+    residency.release(1024)
+    try require(number(residency.report(),"residentBytes")==0,"texture residency returns to zero after release")
+    let textureBudget=TextureResidency(limit:8*1024*1024)
+    var retainedView:MTLTexture?
+    autoreleasepool {
+        let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:64,height:64,mipmapped:false)
+        let texture=textureBudget.make(commander.art.device,descriptor)
+        retainedView=texture?.makeTextureView(pixelFormat:.rgba8Unorm_srgb)
+    }
+    try require(retainedView != nil && number(textureBudget.report(),"residentBytes")>0,"a retained view keeps its texture residency lease")
+    retainedView=nil
+    try require(number(textureBudget.report(),"residentBytes")==0,"final texture owner releases the residency lease")
     let report:Obj=["passed":true,"checks":passed,"source":"deterministic renderer inputs; not live-game acceptance"]
     let path=argument("--runtime-report").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("runtime-checks.json")
     try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:path,options:.atomic)

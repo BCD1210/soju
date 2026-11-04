@@ -130,7 +130,7 @@ final class Art {
         }}
         let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:w,height:h,mipmapped:true)
         desc.usage = .shaderRead;desc.storageMode = .shared
-        guard let t=device.makeTexture(descriptor:desc),let queue=device.makeCommandQueue(),let command=queue.makeCommandBuffer(),let blit=command.makeBlitCommandEncoder() else { throw SceneError.invalid("Metal texture allocation") }
+        guard let t=TextureResidency.shared.make(device,desc),let queue=device.makeCommandQueue(),let command=queue.makeCommandBuffer(),let blit=command.makeBlitCommandEncoder() else { throw SceneError.invalid("Metal texture allocation") }
         rgba.withUnsafeBytes {t.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:w*4)}
         blit.generateMipmaps(for:t);blit.endEncoding();command.commit();command.waitUntilCompleted()
         textures[name]=t;return t
@@ -160,7 +160,7 @@ final class Art {
             }}
             let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:paddedWidth,height:paddedHeight,mipmapped:true)
             descriptor.storageMode = .shared;descriptor.usage = .shaderRead
-            guard let image=device.makeTexture(descriptor:descriptor),let queue=device.makeCommandQueue(),let command=queue.makeCommandBuffer(),let blit=command.makeBlitCommandEncoder() else {throw SceneError.invalid("Terrain gutter allocation")}
+            guard let image=TextureResidency.shared.make(device,descriptor),let queue=device.makeCommandQueue(),let command=queue.makeCommandBuffer(),let blit=command.makeBlitCommandEncoder() else {throw SceneError.invalid("Terrain gutter allocation")}
             pixels.withUnsafeBytes {image.replace(region:MTLRegionMake2D(0,0,paddedWidth,paddedHeight),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:paddedWidth*4)}
             blit.generateMipmaps(for:image);blit.endEncoding();command.commit();command.waitUntilCompleted()
             textures[key]=image;padded=image

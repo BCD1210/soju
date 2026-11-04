@@ -88,6 +88,7 @@ final class XRFrameMetrics {
             "targetHz":90,"budgetMs":1000.0/90,"unitCount":unitCount,"elapsedSeconds":first>0 ? previous-first:0,
             "snapshotSource":argument("--snapshot") ?? "live","frameIntervals":intervals.summary(),
             "stereoCPUEncode":cpu.summary(),"stereoGPU":gpu.summary(),"stagesCPU":stages.mapValues{$0.summary()},
+            "textureResidency":TextureResidency.shared.report(),
             "captureEnabled":argument("--record-dir") != nil,
             "method":"Consecutive left-eye starts, both-eye CPU submission and summed GPU duration. No sample cap or implicit warm-up exclusion. Arm with metrics-start-file after warm-up. Percentiles are upper histogram edges (0.01 ms); values >=1000 ms use maximum. Missed slots are cadence estimates, not compositor telemetry."]
         lock.unlock()
