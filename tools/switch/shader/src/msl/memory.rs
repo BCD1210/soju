@@ -7,7 +7,7 @@ pub(super) fn parameters(
     textures: bool,
     s: &mut String,
 ) -> Result<()> {
-    if !program.instructions.iter().any(|x| {
+    if !reachability::instructions(program).into_iter().any(|x| {
         matches!(
             x.opcode,
             Opcode::LD | Opcode::ST | Opcode::LDG | Opcode::STG

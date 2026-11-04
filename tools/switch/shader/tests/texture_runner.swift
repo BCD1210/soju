@@ -43,6 +43,7 @@ func run() throws {
     let output = device.makeTexture(descriptor: outputDescriptor)!
     let pass = MTLRenderPassDescriptor()
     pass.colorAttachments[0].texture = output
+    pass.colorAttachments[0].clearColor = MTLClearColorMake(0,0,0,0)
     pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
     let command = queue.makeCommandBuffer()!
     let encoder = command.makeRenderCommandEncoder(descriptor: pass)!

@@ -60,7 +60,7 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
     }
     let mut cb = BTreeSet::new();
     let mut textures = false;
-    for x in &program.instructions {
+    for x in reachability::instructions(program) {
         for o in &x.operands {
             if let Operand::Constant { slot, .. } = o {
                 cb.insert(*slot);
@@ -239,3 +239,5 @@ mod memory;
 pub use compute::generate_compute;
 
 mod textures;
+
+mod reachability;

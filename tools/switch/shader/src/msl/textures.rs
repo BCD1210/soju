@@ -45,7 +45,10 @@ pub(super) fn bindings(program: &Program, o: &Options) -> Result<Vec<Binding>> {
         return crate::texture::normalize(&o.texture_bindings, o.texture_count);
     }
     let mut bindings = Vec::new();
-    for x in program.instructions.iter().filter(|x| is_texture(x)) {
+    for x in reachability::instructions(program)
+        .into_iter()
+        .filter(|x| is_texture(x))
+    {
         if let Some(handle) = bound(x) {
             bindings.push(Binding {
                 handle: Handle::Bound(handle),
@@ -59,9 +62,8 @@ pub(super) fn bindings(program: &Program, o: &Options) -> Result<Vec<Binding>> {
 }
 pub(super) fn declarations(program: &Program, o: &Options) -> Result<String> {
     let table = bindings(program, o)?;
-    let kinds: BTreeSet<_> = program
-        .instructions
-        .iter()
+    let kinds: BTreeSet<_> = reachability::instructions(program)
+        .into_iter()
         .filter(|x| is_texture(x))
         .map(kind)
         .collect::<Result<_>>()?;
@@ -214,7 +216,7 @@ impl Emitter<'_> {
         let texture = format!("resources.{images}[handle]");
         let sample = format!("resources.samplers[pair.y], {coordexpr}{layer}");
         let expr=match x.opcode {
-            TEX|TEXS=>if shadow {format!("float4({texture}.sample_compare({sample}, as_type<float>({}){}))",reg(coord+total-1),if lod_zero {", level(0.0f)"} else {""})} else {format!("{texture}.sample({sample}{})",if lod_zero {", level(0.0f)"} else {""})},
+            TEX|TEXS=>if shadow {format!("float4({texture}.sample_compare({sample}, as_type<float>({}){}))",reg(coord+total-1),if lod_zero && !matches!(ty,D1|D1Array) {", level(0.0f)"} else {""})} else {format!("{texture}.sample({sample}{})",if lod_zero && !matches!(ty,D1|D1Array) {", level(0.0f)"} else {""})},
             TLD|TLDS=>{if matches!(ty,Cube|CubeArray|Shadow2D|Shadow2DArray) {return Err(x.error("texture read type unsupported"));}format!("{texture}.read({coordexpr}{layer}{})",if matches!(ty,D1|D1Array) {""} else {", 0u"})},
             TLD4=>{if ty!=D2 {return Err(x.error("gather currently requires float 2D"));}let component=["x","y","z","w"][bits(x.raw,if is_bound.is_some() {56} else {38},2) as usize];format!("{texture}.gather({sample}, int2(0), component::{component})")},
             TXQ=>format!("uint4({texture}.get_width({}), {texture}.get_height({}), 1u, {texture}.get_num_mip_levels())",reg(coord),reg(coord)),

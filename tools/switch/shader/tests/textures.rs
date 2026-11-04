@@ -98,6 +98,25 @@ fn texture_families_render_against_reference() {
     };
     let cases = vec![
         (
+            "unknown_bindless",
+            vec![
+                mov32(6, 0x5678),
+                0xdeb8000000000000 | PT | 4 << 8 | 6 << 20 | 1 << 29 | 15 << 31,
+            ],
+            false,
+        ),
+        (
+            "position_kill",
+            vec![
+                ipa(12, 0x70),
+                mov32(13, 2f32.to_bits()),
+                alu(0x5bb0000000000000, 7, 12, 13) | 7 << 39 | 4 << 48,
+                0xe33000000000000f,
+                tex(0xc038000000000000, 0, 5),
+            ],
+            false,
+        ),
+        (
             "two_textures",
             vec![
                 tex(0xc038000000000000, 0, 5),
@@ -189,7 +208,11 @@ fn texture_families_render_against_reference() {
             a.emit(op);
         }
         a.emit(EXIT);
-        let binary = a.finish(fragment_header());
+        let mut h = fragment_header();
+        if name == "position_kill" {
+            h[5] = 1 << 28;
+        }
+        let binary = a.finish(h);
         let options = Options {
             texture_count: 2,
             texture_bindings: bindings(),
@@ -212,8 +235,6 @@ fn texture_families_render_against_reference() {
             bindings: bindings(),
             ..Memory::default()
         };
-        let mut cpu = Machine::default();
-        cpu.run(&p, &mut memory).unwrap();
         let path = dir.join(name);
         fs::write(path.with_extension("metal"), shader.source).unwrap();
         command(
@@ -243,74 +264,21 @@ fn texture_families_render_against_reference() {
                 .arg(dir.join("vertex.metallib")),
         );
         let result = fs::read(path.with_extension("output")).unwrap();
-        for (i, chunk) in result.chunks_exact(4).enumerate() {
-            let actual = u32::from_le_bytes(chunk.try_into().unwrap());
-            assert_eq!(
-                actual,
-                cpu.registers[i % 4],
-                "{name} pixel {} component {}",
-                i / 4,
-                i % 4
-            );
+        for pixel in 0..16 {
+            let mut cpu = Machine::default();
+            cpu.attributes
+                .insert(0x70, (pixel as f32 % 4.0 + 0.5).to_bits());
+            cpu.run(&p, &mut memory).unwrap();
+            for c in 0..4 {
+                let start = (pixel * 4 + c) * 4;
+                let actual = u32::from_le_bytes(result[start..start + 4].try_into().unwrap());
+                let expected = if cpu.killed { 0 } else { cpu.registers[c] };
+                assert_eq!(actual, expected, "{name} pixel {pixel} component {c}");
+            }
         }
     }
-    eprintln!("GPU texture equivalence: 7 programs × 16 pixels = 112 cases");
+    eprintln!("GPU texture equivalence: 9 programs × 16 pixels = 144 cases");
 }
 
-#[test]
-#[cfg(target_os = "macos")]
-fn declared_texture_types_compile() {
-    use TextureType::*;
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/texture-types");
-    fs::create_dir_all(&dir).unwrap();
-    for (name, ty, dimension, array, shadow) in [
-        ("1d", D1, 0, false, false),
-        ("2d", D2, 1, false, false),
-        ("3d", D3, 2, false, false),
-        ("cube", Cube, 3, false, false),
-        ("1da", D1Array, 0, true, false),
-        ("2da", D2Array, 1, true, false),
-        ("cubea", CubeArray, 3, true, false),
-        ("shadow", Shadow2D, 1, false, true),
-        ("shadowa", Shadow2DArray, 1, true, true),
-    ] {
-        let mut a = Assembler::default();
-        a.emit(
-            0xc038000000000000
-                | PT
-                | 4 << 8
-                | 255 << 20
-                | dimension << 29
-                | 15 << 31
-                | u64::from(array) << 28
-                | u64::from(shadow) << 50,
-        );
-        a.emit(EXIT);
-        let options = Options {
-            texture_count: 1,
-            texture_bindings: vec![Binding {
-                handle: Handle::Bound(0),
-                texture_index: 0,
-                sampler_index: 0,
-                texture_type: ty,
-            }],
-            ..Options::default()
-        };
-        let shader = translate(&a.finish(fragment_header()), &options).unwrap();
-        let path = dir.join(name).with_extension("metal");
-        fs::write(&path, shader.source).unwrap();
-        command(
-            Command::new("xcrun")
-                .args([
-                    "metal",
-                    "-std=metal3.0",
-                    "-fno-fast-math",
-                    "-ffp-contract=off",
-                    "-c",
-                ])
-                .arg(&path)
-                .arg("-o")
-                .arg(path.with_extension("air")),
-        );
-    }
-}
+#[path = "common/texture_types.rs"]
+mod texture_types;

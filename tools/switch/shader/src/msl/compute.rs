@@ -8,7 +8,9 @@ pub fn generate_compute(
 ) -> Result<MetalShader> {
     launch.validate()?;
     let header = launch.header()?;
-    let has_barrier = program.instructions.iter().any(|x| x.opcode == Opcode::BAR);
+    let has_barrier = reachability::instructions(program)
+        .into_iter()
+        .any(|x| x.opcode == Opcode::BAR);
     if has_barrier {
         for node in &program.body {
             match node {
@@ -22,9 +24,8 @@ pub fn generate_compute(
             }
         }
     }
-    let cb: BTreeSet<_> = program
-        .instructions
-        .iter()
+    let cb: BTreeSet<_> = reachability::instructions(program)
+        .into_iter()
         .flat_map(|x| &x.operands)
         .filter_map(|o| match o {
             Operand::Constant { slot, .. } => Some(*slot),

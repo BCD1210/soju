@@ -18,6 +18,7 @@ func run() throws {
     guard let command = queue.makeCommandBuffer(), let encoder = command.makeComputeCommandEncoder() else { throw NSError(domain: "command unavailable", code: 4) }
     encoder.setComputePipelineState(pipeline)
     encoder.setBuffer(buffer, offset: 0, index: 0)
+    encoder.setBuffer(buffer, offset: 0, index: 1)
     encoder.dispatchThreadgroups(MTLSize(width: count / width, height: 1, depth: 1), threadsPerThreadgroup: MTLSize(width: width, height: 1, depth: 1))
     encoder.endEncoding()
     command.commit()

@@ -120,3 +120,53 @@ fn reserved_header_bits_are_preserved_without_inventing_attributes() {
     assert!(h.outputs.is_empty());
     assert_eq!(h.omap[5], 1 << 12);
 }
+
+#[test]
+fn unreachable_resources_do_not_create_bindings_or_collisions() {
+    let mut a = Assembler::default();
+    a.emit(EXIT);
+    a.emit(0xc038000000000000 | PT | 255 << 20 | 1 << 29 | 15 << 31 | 8191 << 36);
+    a.emit(0x4c98000000000000 | PT | 15 << 39 | 31 << 34);
+    let shader = translate(&a.finish(fragment_header()), &Options::default()).unwrap();
+    assert!(!shader.uses_texture_table);
+    assert!(shader.constant_buffers.is_empty());
+    assert!(shader.texture_bindings.is_empty());
+}
+
+#[test]
+fn divergent_and_counted_barriers_are_rejected() {
+    let mut qmd = [0u32; 64];
+    qmd[18] = 0x17 | 32 << 16;
+    qmd[19] = 1 | 1 << 16;
+    let launch = soju_switch_shader::compute::Launch::parse(
+        &qmd.into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect::<Vec<_>>(),
+    )
+    .unwrap();
+    let barrier = 0xf0a8008000000000 | PT | 1 << 44 | 1 << 43 | 7 << 39;
+    for b in [barrier & !PT, barrier | 32 << 20, barrier | 1 << 8] {
+        let mut a = Assembler::default();
+        a.emit(b);
+        a.emit(EXIT);
+        let binary = a.finish(fragment_header());
+        assert!(soju_switch_shader::compute::translate(
+            &binary[80..],
+            &launch,
+            &Options::default()
+        )
+        .is_err());
+    }
+    let mut a = Assembler::default();
+    a.branch(0xe24000000000000f, "end");
+    a.emit(barrier);
+    a.label("end");
+    a.emit(EXIT);
+    let binary = a.finish(fragment_header());
+    assert!(
+        soju_switch_shader::compute::translate(&binary[80..], &launch, &Options::default())
+            .unwrap_err()
+            .0
+            .contains("straight-line")
+    );
+}

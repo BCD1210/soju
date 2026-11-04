@@ -25,7 +25,11 @@ impl Machine {
         };
         let address = match space {
             Space::Global => addr.wrapping_sub(m.global_base),
-            Space::Local => addr.wrapping_add(u64::from(m.local_negative)),
+            Space::Local => u64::from(
+                self.register(*base)
+                    .wrapping_add_signed(*offset)
+                    .wrapping_add(m.local_negative),
+            ),
             _ => addr,
         };
         if *space == Space::Attribute {

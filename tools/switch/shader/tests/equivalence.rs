@@ -12,6 +12,16 @@ fn memory(op: u64, r: u8, offset: u64) -> u64 {
     op | PT | u64::from(r) | 240 << 8 | offset << 20
 }
 fn program(ops: &[u64], width: u32) -> (Vec<u8>, Program) {
+    program_with(
+        |a| {
+            for &op in ops {
+                a.emit(op);
+            }
+        },
+        width,
+    )
+}
+fn program_with(body: impl FnOnce(&mut Assembler), width: u32) -> (Vec<u8>, Program) {
     let mut a = Assembler::default();
     a.emit(0xf0c8000000000000 | PT | 240 | 0x21 << 20);
     a.emit(0xf0c8000000000000 | PT | 241 | 0x25 << 20);
@@ -20,9 +30,7 @@ fn program(ops: &[u64], width: u32) -> (Vec<u8>, Program) {
     for r in 0..4 {
         a.emit(memory(0xeed4000000000000, r, u64::from(r) * 4));
     }
-    for &op in ops {
-        a.emit(op);
-    }
+    body(&mut a);
     for r in 0..4 {
         a.emit(memory(0xeedc000000000000, r, 16 + u64::from(r) * 4));
     }
@@ -35,12 +43,14 @@ fn cpu(p: &Program, input: &[u32], shared: usize, width: u32) -> Vec<u32> {
     let mut m = Memory {
         global: input.to_vec(),
         shared: vec![0; shared],
+        constants: std::collections::BTreeMap::from([(1, input.to_vec())]),
         ..Memory::default()
     };
     for group in 0..input.len() / 8 / width as usize {
         let mut lanes: Vec<_> = (0..width)
             .map(|i| {
                 let mut lane = Machine::default();
+                lane.local = vec![0; 4];
                 lane.local_id = [i, 0, 0];
                 lane.group_id = [group as u32, 0, 0];
                 lane
@@ -186,43 +196,5 @@ fn arithmetic_grid_matches_cpu_reference() {
     eprintln!("GPU equivalence: {count} arithmetic program/input cases");
 }
 
-#[test]
-fn shared_reduction_and_predicate_transfers_match_cpu() {
-    let dir = gpu::setup();
-    let mut ops = vec![
-        0xf0c8000000000000 | PT | 10 | 0x21 << 20,
-        0x3848000000000000 | PT | 11 | 10 << 8 | 2 << 20,
-        0xef5c000000000000 | PT | 11 << 8,
-    ];
-    let barrier = 0xf0a8008000000000 | PT | 1 << 44 | 1 << 43 | 7 << 39;
-    ops.push(barrier);
-    for stride in [16, 8, 4, 2, 1] {
-        ops.push(0xef4c000000000000 | PT | 11 << 8);
-        ops.push(0xef4c000000000000 | PT | 1 | 11 << 8 | (stride * 4) << 20);
-        ops.push(alu(0x5c10000000000000, 0, 0, 1));
-        ops.push(0x3660000000000000 | PT | 7 | 10 << 8 | stride << 20 | 7 << 39 | 1 << 49);
-        ops.push(0xef5c000000000000 | 11 << 8); // @P0 STS
-        ops.push(barrier);
-    }
-    ops.push(0xef4c000000000000 | PT | 255 << 8);
-    ops.push(0x38f0000000000000 | PT | 2 << 8 | 0x7f << 20);
-    ops.push(0x38e8000000000000 | PT | 2 | 255 << 8 | 0x7f << 20);
-    let input: Vec<_> = (0..32)
-        .flat_map(|i| [i + 1, 0, i * 7, 0, 0, 0, 0, 0])
-        .collect();
-    let (binary, p) = program(&ops, 32);
-    let shader = compute::translate(
-        &binary[80..],
-        &gpu::launch(32, 128),
-        &gpu::options(input.len()),
-    )
-    .unwrap();
-    let expected = cpu(&p, &input, 32, 32);
-    for lane in expected.chunks_exact(8) {
-        assert_eq!(lane[4], 528);
-        assert_eq!(lane[6], lane[2] & 127);
-    }
-    let actual = gpu::execute(&dir, "reduction", &shader.source, &input, 32);
-    assert_eq!(actual, expected);
-    eprintln!("GPU equivalence: 32 reduction/predicate-transfer invocations, sum=528");
-}
+#[path = "common/compute_cases.rs"]
+mod compute_cases;

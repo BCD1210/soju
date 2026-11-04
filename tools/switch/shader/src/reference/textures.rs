@@ -33,17 +33,21 @@ impl Machine {
         } else {
             Handle::Bound(raw)
         };
-        let binding = m
-            .bindings
-            .iter()
-            .find(|b| b.handle == handle)
-            .copied()
-            .unwrap_or(Binding {
-                handle,
-                texture_index: raw,
-                sampler_index: raw,
-                texture_type: crate::texture::TextureType::D2,
-            });
+        let found = m.bindings.iter().find(|b| b.handle == handle).copied();
+        if !m.bindings.is_empty() && found.is_none() {
+            return self.texture_result(x, [0; 4]);
+        }
+        let binding = found.unwrap_or(Binding {
+            handle,
+            texture_index: raw,
+            sampler_index: raw,
+            texture_type: crate::texture::TextureType::D2,
+        });
+        if binding.texture_type != crate::texture::TextureType::D2
+            || (!scalar && x.opcode != TXQ && bits(x.raw, 29, 2) != 1)
+        {
+            return Err(x.error("reference texture oracle supports 2D only"));
+        }
         let texture = m
             .textures
             .get(binding.texture_index as usize)
@@ -82,7 +86,12 @@ impl Machine {
             )
             .map(f32::to_bits),
             TLD | TLDS => texel(self.register(coord), y).map(f32::to_bits),
-            TXQ => [texture.width, texture.height, 1, 1],
+            TXQ => {
+                if self.register(coord) != 0 {
+                    return Err(x.error("reference texture has only mip level zero"));
+                }
+                [texture.width, texture.height, 1, 1]
+            }
             TLD4 => {
                 let u = f32::from_bits(self.register(coord));
                 let v = f32::from_bits(y);
@@ -99,6 +108,10 @@ impl Machine {
             }
             _ => return Err(x.error("unsupported reference texture")),
         };
+        self.texture_result(x, value)
+    }
+    fn texture_result(&mut self, x: &Instruction, value: [u32; 4]) -> Result<()> {
+        let scalar = matches!(x.opcode, Opcode::TEXS | Opcode::TLDS);
         let mask = if scalar {
             [1, 2, 4, 8, 3, 9, 10, 12][bits(x.raw, 50, 3) as usize]
         } else {
