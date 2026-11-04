@@ -172,6 +172,10 @@ def bundle(source, domain="units"):
                     require(0 < value <= 1000, "Invalid "+name)
         if "flightHeight" in definition:
             require(0 <= definition["flightHeight"] < 1000, "Invalid flightHeight")
+        require(definition.get("teamMask", "none") in ("alpha", "texture", "none"), "Invalid teamMask")
+        if definition.get("teamMask") == "texture":
+            mask = contained(source, definition.get("teamMaskTexture", ""))
+            require(mask.is_file() and mask.suffix.lower() in (".png", ".jpg", ".jpeg"), "Invalid teamMaskTexture")
         for field in ("turretNodes", "teamMaterials"):
             if field in definition:
                 require(isinstance(definition[field], list) and all(isinstance(v, str) and v for v in definition[field]), "Invalid "+field)
@@ -195,6 +199,11 @@ def install(source, runtime=RUNTIME, check=True, domain="units"):
         target = stage/f"unit-{kind}.glb"
         shutil.copy2(path, target)
         entries[kind] = {**definition, "file": str(target.relative_to(folder))}
+        if definition.get("teamMask") == "texture":
+            mask = contained(source, definition["teamMaskTexture"])
+            copied = stage/f"mask-{kind}{mask.suffix}"
+            shutil.copy2(mask, copied)
+            entries[kind]["teamMaskTexture"] = str(copied.relative_to(folder))
     proposed = {"schemaVersion": 1, "release": release, "models": entries}
     candidate = stage/"catalog.json"
     candidate.write_text(json.dumps(proposed, indent=2)+"\n")

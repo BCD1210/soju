@@ -93,23 +93,52 @@ final class Art {
         let b=[UInt8](try Data(contentsOf:assets.appendingPathComponent(name)))
         guard b.count>=128,Array(b[0..<4])==[68,68,83,32] else { throw SceneError.invalid("Unsupported texture "+name) }
         let w=Int(u32(b,16)),h=Int(u32(b,12)),four=String(bytes:b[84..<88],encoding:.ascii) ?? ""
-        let format:MTLPixelFormat;let block:Int
+        let block:Int
         switch four {
-        case "DXT1":format = .bc1_rgba;block=8
-        case "DXT5":format = .bc3_rgba;block=16
+        case "DXT1":block=8
+        case "DXT5":block=16
         default:throw SceneError.invalid("Unsupported DDS encoding "+four)
         }
         let row=((w+3)/4)*block,size=row*((h+3)/4)
         guard w>0,h>0,w<=16384,h<=16384,b.count>=128+size else { throw SceneError.invalid("Invalid DDS bounds") }
-        let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:format,width:w,height:h,mipmapped:false)
+        // Decode BC tiles once so Metal can build a complete filtered RGBA mip chain.
+        var rgba=[UInt8](repeating:0,count:w*h*4)
+        func rgb565(_ n:Int)->[Int] {[(n>>11)*255/31,((n>>5)&63)*255/63,(n&31)*255/31]}
+        for by in 0..<((h+3)/4) { for bx in 0..<((w+3)/4) {
+            let offset=128+(by*((w+3)/4)+bx)*block,co=offset+(block==16 ? 8:0)
+            let c0=Int(b[co])|Int(b[co+1])<<8,c1=Int(b[co+2])|Int(b[co+3])<<8
+            let first=rgb565(c0),second=rgb565(c1)
+            var colors=[first,second,[Int](repeating:0,count:3),[Int](repeating:0,count:3)]
+            for c in 0..<3 {
+                colors[2][c]=c0>c1 || block==16 ? (2*first[c]+second[c])/3:(first[c]+second[c])/2
+                colors[3][c]=c0>c1 || block==16 ? (first[c]+2*second[c])/3:0
+            }
+            var alpha=[255,255,255,255,255,255,255,255],alphaBits:UInt64=0
+            if block==16 {
+                alpha[0]=Int(b[offset]);alpha[1]=Int(b[offset+1])
+                if alpha[0]>alpha[1] {for i in 2...7 {alpha[i]=((8-i)*alpha[0]+(i-1)*alpha[1])/7}}
+                else {for i in 2...5 {alpha[i]=((6-i)*alpha[0]+(i-1)*alpha[1])/5};alpha[6]=0;alpha[7]=255}
+                for i in 0..<6 {alphaBits |= UInt64(b[offset+2+i]) << (8*i)}
+            }
+            let colorBits=u32(b,co+4)
+            for py in 0..<4 {for px in 0..<4 {
+                let x=bx*4+px,y=by*4+py
+                if x>=w || y>=h {continue}
+                let pixel=py*4+px,ci=Int((colorBits >> (2*pixel))&3),dst=(y*w+x)*4
+                for c in 0..<3 {rgba[dst+c]=UInt8(colors[ci][c])}
+                rgba[dst+3]=block==16 ? UInt8(alpha[Int((alphaBits >> (3*pixel))&7)]):(c0<=c1 && ci==3 ? 0:255)
+            }}
+        }}
+        let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:w,height:h,mipmapped:true)
         desc.usage = .shaderRead;desc.storageMode = .shared
-        guard let t=device.makeTexture(descriptor:desc) else { throw SceneError.invalid("Metal texture allocation") }
-        b.withUnsafeBytes { t.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:$0.baseAddress!.advanced(by:128),bytesPerRow:row) }
+        guard let t=device.makeTexture(descriptor:desc),let queue=device.makeCommandQueue(),let command=queue.makeCommandBuffer(),let blit=command.makeBlitCommandEncoder() else { throw SceneError.invalid("Metal texture allocation") }
+        rgba.withUnsafeBytes {t.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:w*4)}
+        blit.generateMipmaps(for:t);blit.endEncoding();command.commit();command.waitUntilCompleted()
         textures[name]=t;return t
     }
     func material(_ file:String) throws -> SCNMaterial {
         let m=SCNMaterial();m.lightingModel = .constant;m.diffuse.contents=try texture(file)
-        m.diffuse.minificationFilter = .linear;m.diffuse.magnificationFilter = .linear
+        m.diffuse.mipFilter = .linear;m.diffuse.maxAnisotropy=8;m.diffuse.minificationFilter = .linear;m.diffuse.magnificationFilter = .linear
         m.diffuse.wrapS = .clamp;m.diffuse.wrapT = .clamp;m.isDoubleSided=true
         return m
     }
@@ -150,7 +179,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     var lastTick=CACurrentMediaTime();var lastSceneDiagnostic=0.0;var tick:Timer?;var poll:Timer?;var placingDepot=false
     #if SOJU_OPENXR
     var xrTimer:Timer?;var xrRenderer:SCNRenderer?;var xrCamera=SCNNode()
-    var xrDepth=[Int:MTLTexture]();var lastXRInput=CACurrentMediaTime();var turnHeld=false
+    var xrColor=[Int:MTLTexture]();var xrDepth=[Int:MTLTexture]();var lastXRInput=CACurrentMediaTime();var turnHeld=false
     var eyePositions=[SIMD3<Float>](repeating:.zero,count:2);var headCenter:SIMD3<Float>?
     var xrOrigin:SIMD3<Float>?;var xrOriginYaw:Float=0;var xrDrawCount=0;var xrFrameTime=0.0
     let reticle=SCNNode(geometry:SCNSphere(radius:0.06))
@@ -173,7 +202,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         camera.camera=SCNCamera();camera.camera!.fieldOfView=80
         camera.camera!.zNear=0.03;camera.camera!.zFar=150
         world.rootNode.addChildNode(camera);view.pointOfView=camera
-        Models3D.lights(world);world.rootNode.addChildNode(effects.root)
+        Models3D.lights(world,tileset:(art.manifest["map"] as? Obj)?["tileset"] as? String ?? "badlands");world.rootNode.addChildNode(effects.root)
         label=NSTextField(wrappingLabelWithString:"");label.textColor = .white
         label.backgroundColor=NSColor.black.withAlphaComponent(0.75);label.drawsBackground=true
         label.font=NSFont.monospacedSystemFont(ofSize:13,weight:.medium)
@@ -303,7 +332,8 @@ final class Commander: NSObject, NSApplicationDelegate {
                 for e in events where e["kind"] as? String == "attack" && e["unit"] as? String == id {instance.attackUntilFrame=number(s,"frame")+5}
                 instance.apply(u,height:ground.elevation(number(u,"x")/32,number(u,"y")/32),frame:number(s,"frame"))
                 let colors=s["playerColors"] as? [[Int]] ?? [],owner=Int(number(u,"owner"))
-                if colors.indices.contains(owner) {instance.teamColor(colors[owner])}
+                if colors.indices.contains(owner),colors[owner].prefix(3).contains(where:{$0>0}) {instance.teamColor(colors[owner])}
+                else if Models3D.playerColors.indices.contains(owner) {instance.teamColor(Models3D.playerColors[owner])}
             } catch {
                 if modelLibrary.errors[kind]==nil { modelLibrary.errors[kind]=String(describing:error) }
                 if let old=models[id],old.kind==kind {
@@ -372,6 +402,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         camera.position.z=max(0.1,min(CGFloat(mapHeight)-0.1,camera.position.z))
         camera.position.y=CGFloat(ground.elevation(Double(camera.position.x),Double(camera.position.z))+1.65)
         camera.eulerAngles=SCNVector3(pitch,yaw,0)
+        Models3D.followLight(world,position:camera.position)
         if now-lastSceneDiagnostic>1 {
             lastSceneDiagnostic=now
             let rendered:[Obj]=models.map { id,m in
@@ -528,10 +559,14 @@ extension Commander {
         let index=Int(eye.eye)
         if xrDepth[index]?.width != texture.width || xrDepth[index]?.height != texture.height {
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float_stencil8,width:texture.width,height:texture.height,mipmapped:false)
-            desc.storageMode = .private;desc.usage = .renderTarget;xrDepth[index]=art.device.makeTexture(descriptor:desc)
+            desc.storageMode = .private;desc.usage = .renderTarget
+            desc.textureType = .type2DMultisample;desc.sampleCount=4
+            xrDepth[index]=art.device.makeTexture(descriptor:desc)
+            desc.pixelFormat=texture.pixelFormat;xrColor[index]=art.device.makeTexture(descriptor:desc)
         }
-        let pass=MTLRenderPassDescriptor();pass.colorAttachments[0].texture=texture
-        pass.colorAttachments[0].loadAction = .clear;pass.colorAttachments[0].storeAction = .store
+        let pass=MTLRenderPassDescriptor();pass.colorAttachments[0].texture=xrColor[index]
+        pass.colorAttachments[0].resolveTexture=texture
+        pass.colorAttachments[0].loadAction = .clear;pass.colorAttachments[0].storeAction = .multisampleResolve
         pass.colorAttachments[0].clearColor=MTLClearColorMake(0.025,0.035,0.05,1)
         pass.depthAttachment.texture=xrDepth[index];pass.depthAttachment.loadAction = .clear
         pass.depthAttachment.storeAction = .dontCare;pass.depthAttachment.clearDepth=1

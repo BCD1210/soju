@@ -87,6 +87,18 @@ class AssetsTest(unittest.TestCase):
     def test_bad_flight_height_rejected(self):
         self.model.with_suffix(".json").write_text('{"flightHeight":-1}')
         with self.assertRaisesRegex(ValueError,"flightHeight"):assets.bundle(self.source)
+    def test_invalid_mask_and_escaping_texture_rejected(self):
+        sidecar=self.model.with_suffix(".json")
+        sidecar.write_text('{"teamMask":"blue"}')
+        with self.assertRaisesRegex(ValueError,"teamMask"):assets.bundle(self.source)
+        sidecar.write_text('{"teamMask":"texture","teamMaskTexture":"../mask.png"}')
+        with self.assertRaises(ValueError):assets.bundle(self.source)
+    def test_mask_texture_survives_install(self):
+        (self.source/"mask.png").write_bytes(b"private-mask")
+        self.model.with_suffix(".json").write_text('{"teamMask":"texture","teamMaskTexture":"mask.png"}')
+        assets.install(self.source,self.runtime,check=False)
+        definition=json.loads((self.runtime/"models-3d/catalog.json").read_text())["models"]["65000"]
+        self.assertEqual((self.runtime/"models-3d"/definition["teamMaskTexture"]).read_bytes(),b"private-mask")
     def test_bad_team_materials_rejected(self):
         self.model.with_suffix(".json").write_text('{"teamMaterials":"all materials"}')
         with self.assertRaisesRegex(ValueError,"teamMaterials"):assets.bundle(self.source)

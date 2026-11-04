@@ -12,15 +12,17 @@ def build(xr=False,sdk=None,loader=None):
     RUNTIME.mkdir(parents=True,exist_ok=True)
     output=RUNTIME/("soju-bw-xr" if xr else "soju-bw-scene")
     temporary=output.with_suffix(".new")
-    command=["swiftc","-O"]
+    developer=pathlib.Path(subprocess.check_output(["xcode-select","-p"],text=True).strip())
+    mac_sdk=developer/"Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+    command=["xcrun","swiftc","-sdk",str(mac_sdk),"-O"]
     if xr:
         sdk=sdk or LAB/"_deps/openxr-src/include"
         loader=loader or LAB/"_deps/openxr-build/src/loader"
         if not (sdk/"openxr/openxr.h").is_file() or not (loader/"libopenxr_loader.dylib").is_file():
             raise RuntimeError("Supply the verified macOS x86_64 OpenXR SDK and loader paths")
         obj=RUNTIME/"OpenXRHost.o"
-        subprocess.run(["clang++","-std=c++17","-fobjc-arc","-arch","x86_64","-mmacosx-version-min=14.0",
-            "-I",str(sdk),"-c",str(HERE/"OpenXRHost.mm"),"-o",str(obj)],check=True)
+        subprocess.run(["xcrun","clang++","-std=c++17","-fobjc-arc","-arch","x86_64","-mmacosx-version-min=14.0",
+            "-isysroot",str(mac_sdk),"-I",str(sdk),"-c",str(HERE/"OpenXRHost.mm"),"-o",str(obj)],check=True)
         command+=["-target","x86_64-apple-macosx14.0","-D","SOJU_OPENXR","-import-objc-header",
             str(HERE/"OpenXRHost.h"),str(obj),"-lc++","-L",str(loader),"-lopenxr_loader",
             "-Xlinker","-rpath","-Xlinker",str(loader)]

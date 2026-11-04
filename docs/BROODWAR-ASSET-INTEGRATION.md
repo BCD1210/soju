@@ -248,3 +248,46 @@ OpenXR session and rendered the advancing native frame with no missing types.
 The complete native combat acceptance was rerun after this map transition and
 passed again. `runtime-checks.json` also verifies material isolation, so one
 unit's team tint cannot change another unit's materials.
+
+## M1 shading milestone — 2026-11-04 UTC
+
+`teamMask` accepts `alpha`, `texture`, or `none` (default). Alpha mode samples
+original diffuse alpha as the paint mask, mixes diffuse RGB toward RGB multiplied
+by player colour, and keeps the surface opaque. Texture mode requires a relative
+`teamMaskTexture` PNG/JPEG (red channel); installation copies it into the release.
+Optional `teamMaterials` limits the mask to named materials. Native player RGB
+wins; an unset all-zero native colour falls back to the standard eight-player
+palette. This fallback was necessary in the live private UMS session.
+
+The converter preserves its decoded SC2 tangent normals and emission, and derives
+bounded roughness/metallic maps from matching specular textures. This is an
+approximation of legacy specular art, not measured PBR authoring. SCV KMC has no
+source normal/specular maps. Environment lighting is generated as floating-point
+linear radiance in memory, with sun presets for all eight tilesets. The directional
+shadow volume follows the camera. DDS terrain is decoded once into sRGB RGBA with
+GPU-generated mipmaps, trilinear filtering and anisotropy. OpenXR renders each eye
+into 4x multisample colour/depth attachments and resolves into its runtime image.
+
+Evidence stays under `~/.local/share/soju/broodwar-native/3d-proof/m1/`:
+
+| Type | Before PNGs | After PNGs | Eight-player PNGs |
+| --- | --- | --- | --- |
+| Marine 0 | `before/0-{north,east,south,west}.png` | `after/0-{north,east,south,west}.png` | `after/0-player-{1..8}.png` |
+| SCV 7 | `before/7-{north,east,south,west}.png` | `after/7-{north,east,south,west}.png` | `after/7-player-{1..8}.png` |
+| Command Center 106 | `before/106-{north,east,south,west}.png` | `after/106-{north,east,south,west}.png` | `after/106-player-{1..8}.png` |
+| Supply Depot 109 | `before/109-{north,east,south,west}.png` | `after/109-{north,east,south,west}.png` | `after/109-player-{1..8}.png` |
+| Minerals 176,177,178 | `before/{176,177,178}-{north,east,south,west}.png` | `after/{176,177,178}-{north,east,south,west}.png` | Neutral, no mask |
+| Geyser 188 | `before/188-{north,east,south,west}.png` | `after/188-{north,east,south,west}.png` | Neutral, no mask |
+
+32 before views, 32 after views, 32 team-colour views, and `xr-simulator.png`.
+`before/asset-checks.json` and `after/asset-checks.json` both pass eight types.
+Both scene builds pass, 27 Python/Swift regression tests pass, and `--runtime-check`
+passes 24 checks. The simulator capture shows 72 fps, zero displayed loss/error/drop;
+this is a short observation, not a performance benchmark. Build commands explicitly
+use the selected Xcode SDK to avoid a locally observed CLT/Xcode SDK mismatch.
+
+Masked paint no longer produces untreated white patches in the coloured-player
+proofs. White-player paint and authored emission remain bright by design. The
+existing Marine head/silhouette and coarse geometry still fall below Remastered
+quality; lighting cannot supply missing geometry. Physical headset and all-tileset
+visual acceptance remain unverified.
