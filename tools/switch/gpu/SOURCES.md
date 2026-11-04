@@ -139,3 +139,21 @@ this is a resolve prerequisite, not multisample resolve acceptance.
 Validation: the copy-surface test exercises all 49 pitch/block-height pairs,
 with disjoint and overlapping storage, partial rectangles crossing GOBs, and
 invalid layouts/addresses without writes. The 13 GPU state tests also pass.
+
+## Native multisample transfer foundation
+
+Apple Metal Shading Language Specification (2026-06-04), sections on fragment
+inputs/outputs and multisample texture reads:
+https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf
+
+The transfer helper uses per-sample fragment invocation, depth output and the
+Metal 2.1 stencil reference output with replace operations. Its explicit 4x
+expanded-row contract preserves each sample independently. It supports RGBA8,
+BGRA8, Depth32Float and Depth32Float_Stencil8, rejects other layouts/formats and
+bounds transfers to 64 MiB per primary plane. These tests establish the native
+transfer contract; guest sample ordering and B197 integration remain separate.
+
+The native test runs with Metal API validation, round-trips 560 independently
+initialized samples across all four formats, verifies nonuniform stencil,
+rejects short uploads without mutation, and compares two native color resolves
+against the four-sample average while checking source sample preservation.
