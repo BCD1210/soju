@@ -142,6 +142,8 @@ pub(crate) struct TextureCommand {
 #[repr(C)]
 #[derive(Clone, Default)]
 pub(crate) struct Command {
+    pub reference: i64,
+    pub constant_delta: i64,
     pub kind: i64,
     pub repeats: i64,
     pub clear: i64,
