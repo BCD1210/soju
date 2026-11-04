@@ -853,3 +853,27 @@ fn cache_loop_batch_preserves_registers_flags_and_faults() {
     let mut cpu = Cpu::attach(process, state).unwrap();
     assert!(matches!(cpu.run_until_svc(), Err(Error::Memory(_))));
 }
+
+#[path = "common/program.rs"]
+mod program_fixture;
+#[test]
+#[ignore = "requires ad-hoc hypervisor entitlement; use scripts/test-switch-hv.sh"]
+fn synthetic_program_nca_starts_rtld_then_main_with_capabilities() {
+    use soju_switch_core::{
+        program::Program,
+        runtime::{NoIpc, Runtime, Stop},
+    };
+    for allowed in [true, false] {
+        let (bytes, keys, _) = program_fixture::package("nsp", allowed);
+        let program = Program::load(&bytes, "nsp", &keys).unwrap();
+        let mut runtime = Runtime::from_program(&program).unwrap();
+        let stop = runtime
+            .run(&mut NoIpc, std::time::Duration::from_secs(2), 100)
+            .unwrap();
+        if allowed {
+            assert_eq!(stop, Stop::ProcessExited(0));
+        } else {
+            assert!(matches!(stop, Stop::Unsupported { svc: 7, .. }));
+        }
+    }
+}

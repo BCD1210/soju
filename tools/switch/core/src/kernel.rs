@@ -114,6 +114,8 @@ struct Entry {
 }
 #[derive(Debug)]
 pub struct Kernel {
+    policy: Option<crate::program::Policy>,
+    stack_size: usize,
     threads: BTreeMap<ThreadId, Thread>,
     ready: VecDeque<ThreadId>,
     handles: BTreeMap<Handle, ObjectId>,
@@ -171,6 +173,15 @@ fn deadline(now: u64, timeout: u64) -> Option<u64> {
     }
 }
 impl Kernel {
+    pub fn configure_program(&mut self, program: &crate::program::Program) {
+        self.program_id = program.metadata.program_id;
+        self.stack_size = program.metadata.main_thread_stack_size as usize;
+        self.policy = Some(program.policy.clone());
+        let main = self.threads.get_mut(&MAIN_THREAD).expect("main thread");
+        main.priority = program.metadata.main_thread_priority.into();
+        main.ideal_core = program.metadata.main_thread_core.into();
+        main.affinity = 1 << program.metadata.main_thread_core;
+    }
     pub fn new(boot: &Homebrew) -> Self {
         let main = Thread {
             spec: ThreadSpec {
@@ -195,6 +206,8 @@ impl Kernel {
             .map(|r| r.bytes.len())
             .sum();
         let mut kernel = Self {
+            policy: None,
+            stack_size: STACK_SIZE,
             threads: BTreeMap::from([(MAIN_THREAD, main)]),
             ready: VecDeque::from([MAIN_THREAD]),
             handles: BTreeMap::new(),
@@ -667,6 +680,13 @@ impl Kernel {
         pc: u64,
         now: u64,
     ) -> Dispatch {
+        if self
+            .policy
+            .as_ref()
+            .is_some_and(|p| !p.syscalls.get(svc as usize).copied().unwrap_or(false))
+        {
+            return Dispatch::Unsupported(svc);
+        }
         if !self.threads.contains_key(&current) {
             return ret(INVALID_HANDLE);
         }
@@ -810,10 +830,16 @@ impl Kernel {
                 {
                     return Err(LIMIT_REACHED);
                 }
-                if r[4] > 63 {
+                if r[4] > 63
+                    || self.policy.as_ref().is_some_and(|p| {
+                        !(p.highest_priority..=p.lowest_priority).contains(&(r[4] as u32))
+                    })
+                {
                     return Err(INVALID_PRIORITY);
                 }
-                if ![0, 0xfffffffe, 0xffffffff].contains(&(r[5] as u32)) {
+                if self.policy.as_ref().is_some_and(|p| p.min_core != 0)
+                    || ![0, 0xfffffffe, 0xffffffff].contains(&(r[5] as u32))
+                {
                     return Err(INVALID_ENUM);
                 }
                 if !r[1].is_multiple_of(4) || !r[3].is_multiple_of(16) || r[3] < 16 {
@@ -901,7 +927,11 @@ impl Kernel {
                 out(self.threads[&id].priority as u64)
             }
             13 => {
-                if r[1] > 63 {
+                if r[1] > 63
+                    || self.policy.as_ref().is_some_and(|p| {
+                        !(p.highest_priority..=p.lowest_priority).contains(&(r[1] as u32))
+                    })
+                {
                     return Err(INVALID_PRIORITY);
                 }
                 let id = self
@@ -1230,20 +1260,37 @@ impl Kernel {
                     ret(INVALID_ENUM)
                 } else {
                     let value = match id {
-                        0 => 1,
-                        1 => u64::MAX,
+                        0 => self.policy.as_ref().map_or(1, |p| {
+                            ((1u64 << (p.max_core + 1)) - 1) & !((1u64 << p.min_core) - 1)
+                        }),
+                        1 => self.policy.as_ref().map_or(u64::MAX, |p| {
+                            (u64::MAX >> (63 - p.lowest_priority))
+                                & (u64::MAX << p.highest_priority)
+                        }),
                         2 => 0x500000000,
                         3 => 0x40000000,
                         4 => HEAP,
                         5 | 6 | 21 => HEAP_LIMIT as u64,
-                        7 => (self.image_size + STACK_SIZE) as u64,
-                        12 => BASE,
-                        13 => 0x600000000,
+                        7 => (self.image_size + self.stack_size) as u64,
+                        12 => {
+                            if self.policy.is_some() {
+                                0x200000
+                            } else {
+                                BASE
+                            }
+                        }
+                        13 => {
+                            if self.policy.is_some() {
+                                (1 << 39) - 0x200000
+                            } else {
+                                0x600000000
+                            }
+                        }
                         14 => STACK,
                         15 => 0x10000000,
                         18 => self.program_id,
                         20 => EXCEPTION_CONTEXT,
-                        22 => (self.image_size + STACK_SIZE + self.heap_size) as u64,
+                        22 => (self.image_size + self.stack_size + self.heap_size) as u64,
                         23 | 28 => 0,
                         24 => MAX_THREADS.saturating_sub(
                             self.threads

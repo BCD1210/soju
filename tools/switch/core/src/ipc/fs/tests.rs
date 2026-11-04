@@ -416,3 +416,33 @@ fn sd_finish_boundary_and_account_failed_commit_keep_previous_snapshot() {
     assert!(f.call(file, 0, vec![0; 23], None, Some(1)).is_err());
     assert!(f.call(sd, 99, vec![], None, None).is_err());
 }
+
+#[path = "../../../tests/common/program.rs"]
+mod program_fixture;
+#[test]
+fn program_romfs_storage_is_readonly_and_bounded() {
+    let mut f = Fixture::new();
+    let (bytes, keys, expected) = program_fixture::package("nsp", true);
+    let program = crate::program::Program::load(&bytes, "nsp", &keys).unwrap();
+    f.fs = Filesystem::new_program(&program, &f.home.join("program")).unwrap();
+    let proxy = f.open();
+    let storage = f.child(proxy, 200, vec![], None);
+    assert_eq!(
+        number(f.call(storage, 4, vec![], None, None).unwrap()),
+        expected.len() as u64
+    );
+    let range = |offset: u64, size: u64| [offset.to_le_bytes(), size.to_le_bytes()].concat();
+    let read = f.call(storage, 0, range(4, 5), None, Some(5)).unwrap();
+    assert_eq!(read.writes[0].bytes, expected[4..9]);
+    assert!(
+        f.call(
+            storage,
+            0,
+            range(expected.len() as u64 - 1, 2),
+            None,
+            Some(2)
+        )
+        .is_err()
+    );
+    assert!(f.call(storage, 1, range(0, 1), Some(b"x"), None).is_err());
+}

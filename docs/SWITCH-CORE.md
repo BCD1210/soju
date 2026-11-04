@@ -7,8 +7,8 @@ runner by default. A synthetic tone NRO reaches a real CoreAudio AudioUnit.
 This completes the bounded M1 implementation and automated acceptance described
 below; it does not establish general Switch or retail-game compatibility.
 
-No commercial Switch game, NSP/XCI execution, online service or physical gamepad
-has been verified. The runtime is experimental and is not a security sandbox;
+No commercial Switch game, online service or physical gamepad has been verified.
+Synthetic NSP/XCI loading and a synthetic Program-NCA boot are verified below. The runtime is experimental and is not a security sandbox;
 run only files you trust. No keys, firmware, games or third-party emulator code
 are included in this implementation.
 
@@ -211,6 +211,63 @@ Earlier Python-only checks covered TooTallNate's 2048 1.2.0 (play/save/restart)
 and Snakey NX 0.4.0 (stopped on unsupported graphics). Those results do not
 establish Rust compatibility for either NRO.
 
+## Program loader skeleton (M4 preparation)
+
+`program::Program::load(storage, extension, keys)` uses the existing filesystem
+crate without modifying it. It selects one Program NCA from NSP or XCI secure
+content, reads its ExeFS, and maps `rtld`, `main`, `subsdk0` through `subsdk9`
+when present, and `sdk` when present. Text is RX, rodata R, data/BSS RW; compressed
+NSO segments and requested hashes are handled by the filesystem crate. Page overlap,
+unknown NSO flags, malformed metadata, duplicate Program NCAs, resource limits and
+unsupported capabilities are explicit errors. No filenames or keys are fetched.
+
+The skeleton accepts the AArch64/39-bit NPDM profile only, with a bounded fixed
+layout inside that address space. It sets the main stack size, priority, virtual
+core and affinity from NPDM, reports its address-space bounds, applies ThreadInfo
+priority limits and EnableSystemCalls masks, and rejects all other capability
+types (except all-ones padding). The scheduler remains serialized; additional
+thread creation still supports virtual core zero only. Nonzero system resources,
+other address-space profiles and newer process flags are rejected. ACID signatures
+and service/FS access-control authorization are not verified; this is not a secure
+loader or general retail compatibility claim.
+
+`Runtime::from_program` starts at `rtld` with the process main-thread handle.
+`Hub::new_program` mounts the Program RomFS as read-only FSP current-process
+storage (command 200; storage Read/GetSize). It uses a separate program-ID save
+namespace. RomFS is bounded to 256 MiB, with reads limited to 8 MiB and validated
+against guest memory and IPC TLS. Retail playback is not exposed by the launcher.
+
+Tests construct all NSOs, NPDM, RomFS and NSP/XCI bytes themselves, using
+`nca::fixture` and made-up keys entirely in memory. The signed fixture executes
+its own `rtld` branch into its own `main`, which reaches ExitProcess successfully;
+removing the SVC capability produces an explicit unsupported-SVC stop. Portable
+tests verify module order/permissions, both containers, main thread metadata,
+RomFS bytes through the FSP storage object, out-of-range reads, rejected writes,
+missing keys and invalid metadata. The fixture does not implement dynamic linking:
+relocation/import handling remains the guest rtld's responsibility and has not
+been exercised with an SDK.
+
+A typical real program may stop at an unsupported capability before executing.
+If its metadata is accepted, expected early calls include QueryMemory/GetInfo,
+SetHeapSize, thread/synchronization SVCs, ConnectToNamedPort and SendSyncRequest,
+followed by SM, FSP, applet, HID, NV and audio interfaces. This is an expectation
+from the available interfaces, not a trace of a commercial title. Audren, general
+retail services, patch/BKTR mounting, full capabilities and real rtld behavior are
+not verified. References: [NPDM](https://switchbrew.org/wiki/NPDM) and
+[NSO0](https://switchbrew.org/wiki/NSO0).
+
+## GPU merge status (M2 incomplete)
+
+`feat/switch-shader` was merged at `59db612`, including the persistent Metal
+worker, deferred readback, fences and eight-target support. Neither imported
+crate was edited. Its nine existing GPU tests pass, including four native Metal
+render/resource tests. These test that crate's synthetic method streams only.
+The runner's NV GPFIFO path still uses its existing CPU command subset; it is
+**not connected to this Metal backend**. Snakey NX was not downloaded or run in
+this session, and there are no Snakey screenshots or frame-change acceptance
+results. The official release URL is still needed; the supplied checksum alone
+does not locate an authorized download. No general Switch web search was used.
+
 ## Validation commands
 
 ```sh
@@ -231,3 +288,9 @@ test, and 97 Python Switch tests (95 passed, two optional NRO cases skipped).
 Clippy passed with warnings denied. The app was built and signature-verified,
 not installed or published. Fresh setup and both launcher selections were tested
 in `dist/`; the user's installed runner was not replaced.
+
+Follow-up validation: 86 portable desktop Rust tests (74 library, nine kernel,
+three loader), 22 signed Hypervisor tests, 97 Python tests (95 passed, two optional
+cases skipped), Clippy with warnings denied and the app build passed. The signed
+2048 input/save/restart acceptance passed after the performance changes. GPU crate:
+nine tests passed, including four Metal tests. No changes were pushed.

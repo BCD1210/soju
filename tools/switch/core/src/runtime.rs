@@ -199,6 +199,11 @@ impl Runtime {
             pending_ipc: None,
         })
     }
+    pub fn from_program(program: &crate::program::Program) -> Result<Self, Error> {
+        let mut runtime = Self::new(&program.boot)?;
+        runtime.kernel.configure_program(program);
+        Ok(runtime)
+    }
     pub fn process(&self) -> Arc<Process> {
         Arc::clone(&self.process)
     }

@@ -69,6 +69,16 @@ impl Hub {
             now_ns: 0,
         })
     }
+    pub fn new_program(program: &crate::program::Program, home: &Path) -> Result<Self, Error> {
+        Ok(Self {
+            platform: Platform::new(home)?,
+            filesystem: Filesystem::new_program(program, home)?,
+            nv: Nv::default(),
+            media: Media::default(),
+            domains: BTreeMap::new(),
+            now_ns: 0,
+        })
+    }
     pub fn program_id(&self) -> u64 {
         self.filesystem.program_id()
     }

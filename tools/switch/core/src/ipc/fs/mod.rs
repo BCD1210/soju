@@ -27,6 +27,7 @@ enum Object {
         mode: u32,
     },
     SelfFile,
+    RomStorage,
     Directory {
         entries: Vec<u8>,
         position: usize,
@@ -40,6 +41,7 @@ pub struct Filesystem {
     hash: String,
     program: u64,
     nro: Vec<u8>,
+    romfs: Option<Vec<u8>>,
     store: Store,
     sd: Tree,
     sd_dirty: bool,
@@ -58,7 +60,19 @@ macro_rules! command {
 }
 impl Filesystem {
     pub fn new(nro_path: &Path, home: &Path) -> Result<Self, Error> {
-        let nro = std::fs::read(nro_path)?;
+        Self::from_image(std::fs::read(nro_path)?, home, None)
+    }
+    pub fn new_program(program: &crate::program::Program, home: &Path) -> Result<Self, Error> {
+        let mut fs = Self::from_image(
+            program.metadata.program_id.to_le_bytes().to_vec(),
+            home,
+            Some(program.metadata.program_id),
+        )?;
+        fs.nro.clear();
+        fs.romfs = (!program.romfs.is_empty()).then(|| program.romfs.clone());
+        Ok(fs)
+    }
+    fn from_image(nro: Vec<u8>, home: &Path, program_id: Option<u64>) -> Result<Self, Error> {
         let digest = Sha256::digest(&nro);
         let hash = digest
             .iter()
@@ -71,8 +85,9 @@ impl Filesystem {
         let sd = store.load_sd()?;
         Ok(Self {
             hash,
-            program,
+            program: program_id.unwrap_or(program),
             nro,
+            romfs: None,
             store,
             sd,
             sd_dirty: false,
@@ -124,6 +139,7 @@ impl Filesystem {
                 command!(22, 0x65, proxy),
                 command!(51, 0x48, proxy),
                 command!(61, 1, proxy),
+                command!(200, 0, proxy),
             ],
             Object::Volume(_) => &[
                 command!(0, 16, volume),
@@ -141,11 +157,40 @@ impl Filesystem {
                 command!(3, 8, file),
                 command!(4, 0, file),
             ],
+            Object::RomStorage => &[command!(0, 16, rom_storage), command!(4, 0, rom_storage)],
             Object::SelfFile => &[command!(0, 24, file), command!(4, 0, file)],
             Object::Directory { .. } => &[command!(0, 0, cursor), command!(1, 0, cursor)],
             Object::Reader { .. } => &[command!(0, 0, cursor)],
         };
         dispatch_table(self, table, req, ctx)
+    }
+    fn rom_storage(&mut self, req: &Request, ctx: &mut Context<'_>) -> Result<Reply, Error> {
+        let data = self
+            .romfs
+            .as_ref()
+            .ok_or(Error::Malformed("RomFS not mounted"))?;
+        if req.command_id == 4 {
+            return Ok(Reply::data((data.len() as u64).to_le_bytes().to_vec()));
+        }
+        let offset = usize::try_from(req.u64(0)?).map_err(|_| Error::Malformed("RomFS offset"))?;
+        let size = usize::try_from(req.u64(8)?).map_err(|_| Error::Malformed("RomFS size"))?;
+        if size > MAX_FILE {
+            return Err(Error::Malformed("RomFS read limit"));
+        }
+        let end = offset
+            .checked_add(size)
+            .ok_or(Error::Malformed("RomFS read overflow"))?;
+        let bytes = data
+            .get(offset..end)
+            .ok_or(Error::Malformed("RomFS read bounds"))?;
+        let output = req.output()?;
+        if output.address < ctx.tls.saturating_add(256)
+            && ctx.tls < output.address.saturating_add(size as u64)
+        {
+            return Err(Error::Malformed("RomFS output overlaps TLS"));
+        }
+        ctx.memory.check_access(output.address, size, 2)?;
+        Reply::success().write(output, bytes.to_vec())
     }
     fn tree(&self, volume: Volume) -> Result<&Tree, Error> {
         match volume {
@@ -190,6 +235,12 @@ impl Filesystem {
     }
     fn proxy(&mut self, req: &Request, ctx: &mut Context<'_>) -> Result<Reply, Error> {
         match req.command_id {
+            200 => {
+                if self.romfs.is_none() {
+                    return Err(Error::Malformed("no Program RomFS mounted"));
+                }
+                Ok(Reply::object(self.register(Object::RomStorage, ctx)?))
+            }
             1 => Ok(Reply::success()),
             18 => Ok(Reply::object(
                 self.register(Object::Volume(Volume::Sd), ctx)?,
