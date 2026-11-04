@@ -48,7 +48,7 @@ impl MacroUpload {
         let mut parameter_index = 0;
         let mut branch = None;
         let mut finish = false;
-        for _ in 0..4096 {
+        for _ in 0..1_048_576 {
             let word = *self
                 .instructions
                 .get(&u32::try_from(pc).map_err(|_| invalid("MME PC bounds"))?)
@@ -171,7 +171,7 @@ impl MacroUpload {
                 };
                 if let Some(value) = send {
                     let selected = method.ok_or(invalid("MME missing output selector"))?;
-                    if selected > 0x3ffc || emitted.len() >= 1024 {
+                    if selected > 0x3ffc || emitted.len() >= 262_144 {
                         return Err(invalid("MME output limit"));
                     }
                     emitted.push((selected, value));

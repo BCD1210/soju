@@ -340,3 +340,16 @@ fn context_setup_ack_is_visible_to_poll_and_unknown_requests_fail() {
     assert!(mme.run(0, 0x418804, &[1, 1], |_| Ok(0)).is_err());
     assert!(mme.run(0, 0x418800, &[2, 1], |_| Ok(0)).is_err());
 }
+
+#[test]
+fn long_macro_output_is_bounded_without_truncating_valid_draw_batches() {
+    let mut mme = MacroUpload::default();
+    let mut words = vec![(0x40 << 14) | 0x21];
+    words.extend(std::iter::repeat_n(0x841, 4096));
+    words.extend([0x91, 0x11]);
+    upload(&mut mme, 0, 0, &words);
+    assert_eq!(mme.run(0, 37, &[], |_| Ok(0)).unwrap(), vec![(0x100, 37); 4096]);
+    let mut looping = MacroUpload::default();
+    upload(&mut looping, 0, 0, &[7, 0x11]);
+    assert!(looping.run(0, 0, &[], |_| Ok(0)).is_err());
+}
