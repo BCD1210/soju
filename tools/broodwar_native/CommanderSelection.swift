@@ -5,7 +5,9 @@ extension Commander {
     func selectBox(_ rect:NSRect,add:Bool) {
         let candidates=units.keys.sorted().filter { id in
             guard let unit=units[id],number(unit,"owner")==number(state,"player"),
-                let node=nodes[id],!node.isHidden,view.isNode(node,insideFrustumOf:camera) else {return false}
+                unit["renderHidden"] as? Bool != true else {return false}
+            if let worker=sceneWorker {return worker.mailbox.presented()?.unitPositions[id].flatMap{sceneProject($0)}.map{rect.contains($0)} ?? false}
+            guard let node=nodes[id],!node.isHidden,view.isNode(node,insideFrustumOf:camera) else {return false}
             let p=view.projectPoint(node.worldPosition)
             return p.z>=0 && p.z<=1 && rect.contains(NSPoint(x:p.x,y:p.y))
         }
@@ -16,7 +18,9 @@ extension Commander {
         guard let first=selected.first,let original=units[first] else {return}
         selected=Array(units.keys.sorted().filter { id in
             guard let unit=units[id],number(unit,"type")==number(original,"type"),
-                number(unit,"owner")==number(state,"player"),let node=nodes[id],!node.isHidden else {return false}
+                number(unit,"owner")==number(state,"player") else {return false}
+            if let worker=sceneWorker {return worker.mailbox.presented()?.unitPositions[id].flatMap{sceneProject($0)} != nil}
+            guard let node=nodes[id],!node.isHidden else {return false}
             return view.isNode(node,insideFrustumOf:camera)
         }.prefix(12))
         notice="Selected \(selected.count) of type \(Int(number(original,"type")))"

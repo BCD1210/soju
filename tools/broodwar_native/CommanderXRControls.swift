@@ -61,8 +61,9 @@ extension Commander {
         guard input.aimValid != 0 else {reticle.isHidden=true;wrists.ray.isHidden=true;wrists.dragStart=nil;wrists.box.geometry=nil;return}
         let from=handPosition(raw),direction=(xrBody*simd_quatf(ix:input.qx,iy:input.qy,iz:input.qz,r:input.qw)).act(SIMD3<Float>(0,0,-1))
         let end=from+direction*100
-        let hits=world.rootNode.hitTestWithSegment(from:SCNVector3(from.x,from.y,from.z),to:SCNVector3(end.x,end.y,end.z),options:[SCNHitTestOption.searchMode.rawValue:SCNHitTestSearchMode.closest.rawValue,SCNHitTestOption.categoryBitMask.rawValue:5])
-        let hit=hits.first(where:{$0.node.name?.hasPrefix("card-")==true || $0.node.name=="terrain" || unitID($0.node) != nil})
+        let hit:ScenePickHit?
+        if let worker=sceneWorker {hit=worker.mailbox.presented()?.hit(origin:from,direction:direction,accept:{_ in true})}
+        else {hit=world.rootNode.hitTestWithSegment(from:SCNVector3(from),to:SCNVector3(end),options:[SCNHitTestOption.searchMode.rawValue:SCNHitTestSearchMode.all.rawValue,SCNHitTestOption.categoryBitMask.rawValue:5]).compactMap{scenePick($0,origin:from)}.min(by:{$0.distance<$1.distance})}
         wrists.ray.isHidden=false
         wrists.line(from:SCNVector3(from.x,from.y,from.z),to:hit?.worldCoordinates ?? SCNVector3(end.x,end.y,end.z),color:wrists.pending==nil ? .cyan:.orange)
         guard let hit=hit else {
@@ -70,7 +71,7 @@ extension Commander {
             reticle.isHidden=true;return
         }
         reticle.isHidden=false;reticle.position=hit.worldCoordinates;reticle.position.y+=0.07
-        if input.rightPressed != 0,let name=hit.node.name,name.hasPrefix("card-"),let index=Int(name.dropFirst(5)) {
+        if input.rightPressed != 0,case .card(let index)=hit.target {
             wrists.cardClicks+=1
             switch index {
             case -1:wrists.page=(wrists.page+1)%max(1,(wrists.choices.count+8)/9)
@@ -86,7 +87,7 @@ extension Commander {
             return
         }
         let point=hit.worldCoordinates
-        if input.leftPressed != 0 || (input.leftHeld != 0 && wrists.dragStart==nil) {wrists.dragStart=point;wrists.dragUnit=unitID(hit.node)}
+        if input.leftPressed != 0 || (input.leftHeld != 0 && wrists.dragStart==nil) {wrists.dragStart=point;wrists.dragUnit=hit.unitID}
         if let start=wrists.dragStart,input.leftHeld != 0 {
             let points=[start,SCNVector3(point.x,start.y,start.z),point,SCNVector3(start.x,point.y,point.z),start].map{SCNVector3($0.x,$0.y+0.1,$0.z)}
             let geometry=SCNGeometry(sources:[SCNGeometrySource(vertices:points)],elements:[SCNGeometryElement(indices:[Int32(0),1,1,2,2,3,3,4],primitiveType:.line)])
@@ -94,34 +95,43 @@ extension Commander {
         }
         if input.leftReleased != 0,let start=wrists.dragStart {
             wrists.dragStart=nil;wrists.box.geometry=nil
-            if hypot(point.x-start.x,point.z-start.z)>0.5 && (wrists.dragUnit==nil || wrists.dragUnit != unitID(hit.node)) {
+            if hypot(point.x-start.x,point.z-start.z)>0.5 && (wrists.dragUnit==nil || wrists.dragUnit != hit.unitID) {
                 selected=Array(units.keys.sorted().filter {id in
-                    guard let u=units[id],number(u,"owner")==number(state,"player"),let node=nodes[id],!node.isHidden else {return false}
-                    return node.position.x>=min(start.x,point.x) && node.position.x<=max(start.x,point.x) && node.position.z>=min(start.z,point.z) && node.position.z<=max(start.z,point.z) && xrRenderer?.isNode(node,insideFrustumOf:xrCamera)==true
+                    guard let u=units[id],number(u,"owner")==number(state,"player"),let position=xrSelectablePosition(id) else {return false}
+                    return position.x>=Float(min(start.x,point.x)) && position.x<=Float(max(start.x,point.x)) && position.z>=Float(min(start.z,point.z)) && position.z<=Float(max(start.z,point.z))
                 }.prefix(12));wrists.boxSelections+=1
-            } else if let id=unitID(hit.node),let unit=units[id],number(unit,"owner")==number(state,"player") {
+            } else if let id=hit.unitID,let unit=units[id],number(unit,"owner")==number(state,"player") {
                 selected=[id]
                 if now-wrists.lastTap<0.4 && wrists.lastUnit==id {
                     selected=Array(units.keys.sorted().filter {candidate in
-                        guard let u=units[candidate],let node=nodes[candidate],!node.isHidden else {return false}
-                        return number(u,"owner")==number(state,"player") && number(u,"type")==number(unit,"type") && xrRenderer?.isNode(node,insideFrustumOf:xrCamera)==true
+                        guard let u=units[candidate],xrSelectablePosition(candidate) != nil else {return false}
+                        return number(u,"owner")==number(state,"player") && number(u,"type")==number(unit,"type")
                     }.prefix(12));wrists.doubleTaps+=1
                 }
                 wrists.lastTap=now;wrists.lastUnit=id;wrists.page=0
             }
         }
-        if input.rightPressed != 0 && hit.node.name?.hasPrefix("card-") != true {
+        if input.rightPressed != 0 && !hit.name.hasPrefix("card-") {
             if let choice=wrists.pending {cardCommand(choice,hit:hit)}
-            else if let id=unitID(hit.node),let unit=units[id] {
+            else if let id=hit.unitID,let unit=units[id] {
                 if !contextCommand(id),number(unit,"owner")==number(state,"player") {selected=[id];wrists.page=0}
             } else if !selected.isEmpty {groundCommand(point)}
         }
         if now-lastAimLog>1 || input.leftPressed != 0 || input.rightPressed != 0 || input.leftReleased != 0 {
             lastAimLog=now
             record("xr-input-diagnostics.json",["time":Date().timeIntervalSince1970,"selected":selected,"leftPressed":input.leftPressed,"rightPressed":input.rightPressed,
-                "leftHeld":input.leftHeld,"rightHeld":input.rightHeld,"leftReleased":input.leftReleased,"hit":hit.node.name ?? "","hitUnit":unitID(hit.node) ?? "","point":[point.x,point.y,point.z],
+                "leftHeld":input.leftHeld,"rightHeld":input.rightHeld,"leftReleased":input.leftReleased,"hit":hit.name,"hitUnit":hit.unitID ?? "","point":[point.x,point.y,point.z],
                 "leftValid":input.leftValid,"aimValid":input.aimValid,"worldUnitsPerMeter":worldUnitsPerMeter,"boxSelections":wrists.boxSelections,"doubleTaps":wrists.doubleTaps,"cardClicks":wrists.cardClicks])
         }
+    }
+    func xrSelectablePosition(_ id:String)->SIMD3<Float>? {
+        if let worker=sceneWorker {
+            guard let position=worker.mailbox.presented()?.unitPositions[id],let camera=metalXRLoop?.latest().camera else {return nil}
+            let clip=camera.projection*simd_inverse(camera.transform)*SIMD4<Float>(position,1)
+            return clip.w>0 && abs(clip.x)<=clip.w && abs(clip.y)<=clip.w && abs(clip.z)<=clip.w ? position:nil
+        }
+        guard let node=nodes[id],!node.isHidden,xrRenderer?.isNode(node,insideFrustumOf:xrCamera)==true else {return nil}
+        return node.simdWorldPosition
     }
 }
 #endif

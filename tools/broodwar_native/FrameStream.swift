@@ -13,6 +13,7 @@ final class FrameStream {
     private let lock=NSLock()
     private let resident=ResidentCache<Prepared>(limit:192*1024*1024)
     private var pending=Set<String>(),failed=Set<String>()
+    var onReady:(()->Void)?
     private lazy var source=WorldSprites(streaming:false)
     private lazy var loader=MTKTextureLoader(device:source.relief.device)
     private func key(_ id:Int,_ frame:Int,_ color:[Int])->String {"\(id)/\(frame)/\(color)"}
@@ -56,6 +57,7 @@ final class FrameStream {
                 pending.remove(key)
                 if let result=result,cost<=resident.limit {resident.insert(result,key:key,bytes:cost)}else {failed.insert(key)}
                 lock.unlock()
+                if result != nil {onReady?()}
             }
         }
     }

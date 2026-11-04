@@ -10,7 +10,9 @@ final class CombatEffects {
     var projectiles=[String:SCNNode](),meshes=[String:ModelInstance]()
     var transients=[(SCNNode,Double,Double)]()
     var counts=[String:Int]()
-    init()throws {
+    let authoredModels:Bool
+    init(authoredModels:Bool=true)throws {
+        self.authoredModels=authoredModels
         let folder=runtime.appendingPathComponent("effects-3d")
         try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
         library=try Models3D(folder:folder,includeDefaults:false)
@@ -46,7 +48,7 @@ final class CombatEffects {
             if let old=meshes[id],old.kind != kind || old.revision != library.catalog.signatures[kind] {
                 projectiles.removeValue(forKey:id)?.removeFromParentNode();meshes.removeValue(forKey:id)
             }
-            if meshes[id]==nil,library.catalog.definitions[kind] != nil,let model=try? library.make(kind) {
+            if authoredModels,meshes[id]==nil,library.catalog.definitions[kind] != nil,let model=try? library.make(kind) {
                 projectiles.removeValue(forKey:id)?.removeFromParentNode()
                 model.selection.isHidden=true;projectiles[id]=model.root;meshes[id]=model;root.addChildNode(model.root)
             }

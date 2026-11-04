@@ -9,45 +9,35 @@ final class DesktopSurface:MTKView {
 }
 final class DesktopMetal:NSObject,MTKViewDelegate {
     unowned let commander:Commander
-    let surface:DesktopSurface,queue:MTLCommandQueue,overlay:SCNRenderer
+    let surface:DesktopSurface,queue:MTLCommandQueue
     init(commander:Commander)throws {
         self.commander=commander
         surface=DesktopSurface(frame:commander.view.bounds,device:commander.art.device)
         queue=commander.art.device.makeCommandQueue()!
-        overlay=SCNRenderer(device:commander.art.device,options:nil)
         super.init()
         commander.metalBatches=try MetalBatches(device:commander.art.device)
         surface.colorPixelFormat = .bgra8Unorm_srgb;surface.framebufferOnly=false
         surface.autoresizingMask=[.width,.height];surface.preferredFramesPerSecond=90
         surface.delegate=self
-        overlay.scene=commander.world;overlay.pointOfView=commander.camera;overlay.usesReverseZ=false
-        commander.view.isPlaying=false;commander.view.rendersContinuously=false
+        commander.view.isPlaying=false;commander.view.rendersContinuously=false;commander.view.scene=nil
         commander.view.addSubview(surface,positioned:.below,relativeTo:commander.label)
     }
     func mtkView(_ view:MTKView,drawableSizeWillChange size:CGSize) {}
     var requestedCapture:URL?
+    private var framePacket:ScenePacket?
+    struct Presentation {let camera:MetalBatches.CameraPacket,viewport:SIMD2<Float>}
+    private(set) var presentation:Presentation?
     let captureContext=CIContext()
     func draw(in view:MTKView) {
         guard commander.initialized,let drawable=view.currentDrawable,let command=queue.makeCommandBuffer(),let batches=commander.metalBatches else {return}
-        let camera=commander.camera,aspect=Float(view.drawableSize.width/view.drawableSize.height)
-        let near=Float(camera.camera!.zNear),far=Float(camera.camera!.zFar)
-        var projection=matrix_identity_float4x4
-        if camera.camera!.usesOrthographicProjection {
-            let scale=Float(camera.camera!.orthographicScale)
-            projection.columns.0.x=1/(scale*aspect);projection.columns.1.y=1/scale
-            projection.columns.2.z = -2/(far-near);projection.columns.3.z = -(far+near)/(far-near)
-        } else {
-            let f=1/tan(Float(camera.camera!.fieldOfView)*Float.pi/360)
-            projection.columns.0.x=f/aspect;projection.columns.1.y=f
-            projection.columns.2=SIMD4<Float>(0,0,-(far+near)/(far-near),-1)
-            projection.columns.3=SIMD4<Float>(0,0,-2*far*near/(far-near),0)
-        }
-        camera.camera!.projectionTransform=SCNMatrix4(projection)
+        commander.sceneWorker?.mailbox.acquire(into:&framePacket)
+        guard let camera=commander.desktopCameraPacket else {return}
+        let position=camera.transform.columns.3
         do {
-        batches.prepareAsync(commander)
-        try batches.render(command:command,output:drawable.texture,camera:camera,eye:camera.simdWorldPosition,rightTransform:camera.simdWorldTransform,rightProjection:projection)
+        if let packet=framePacket {batches.consume(packet)}else {batches.suspend()}
+        try batches.render(command:command,output:drawable.texture,camera:camera,eye:SIMD3<Float>(position.x,position.y,position.z),rightTransform:camera.transform,rightProjection:camera.projection)
         batches.copyEye(command:command,to:drawable.texture,eye:0)
-        try batches.renderOverlay(renderer:overlay,command:command,output:drawable.texture,camera:camera,eye:0,time:CACurrentMediaTime())
+        presentation=Presentation(camera:camera,viewport:SIMD2<Float>(Float(commander.view.bounds.width),Float(commander.view.bounds.height)))
         } catch {command.commit();fputs("Desktop batches: \(error)\n",stderr);return}
         let index=commander.captureFrames.reserve(),manual=requestedCapture
         requestedCapture=nil
