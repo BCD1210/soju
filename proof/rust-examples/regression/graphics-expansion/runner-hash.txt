@@ -1,0 +1,2 @@
+a50be89|desktop signed runner|sha256=11eafb247a652d42d1133fc9b9147cca962ac9176faf7c945e94805acd0020aa
+8fb07bb|desktop signed runner|sha256=2f0999f3a0fbf9a47fd20151594bf8f68d63399f1b8caf8027955d9ad31f57d8

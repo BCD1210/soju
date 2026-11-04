@@ -1,0 +1,106 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+     Running unittests src/lib.rs (tools/switch/shader/target/debug/deps/soju_switch_shader-93df09f9b8086958)
+
+running 11 tests
+test cache::tests::framing_and_each_compilation_input_affect_key ... ok
+test header::tests::vertex_maps_and_allocations ... ok
+test header::tests::fragment_layout_and_errors ... ok
+test decoder::tests::forms_and_modifiers ... ok
+test cache::tests::cache_rejects_corruption_truncation_wrong_key_and_version ... ok
+test cache::state::tests::key_includes_options_resources_target_and_compiler_state ... ok
+test ir::tests::structured_counted_loop ... ok
+test decoder::tests::schedules_and_errors ... ok
+test ir::tests::rejects_bad_flow ... ok
+test msl::tests::rejects_unimplemented_modes ... ok
+test msl::tests::cbuf_binding_rz_and_predicated_exit ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/compute.rs (tools/switch/shader/target/debug/deps/compute-c54de74692eb1045)
+
+running 2 tests
+test qmd_fields_and_limits ... ok
+test memory_predicate_transfers_and_barrier_compile ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+     Running tests/decoder_table.rs (tools/switch/shader/target/debug/deps/decoder_table-294ac8039e800f09)
+
+running 4 tests
+test operands_predicates_and_constant_swapped_forms ... ok
+test bar_operand_selectors_and_memory_spaces ... ok
+test every_requested_class_has_a_reference_encoding ... ok
+test input_buffer_read_preserves_address_register_and_modes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/equivalence.rs (tools/switch/shader/target/debug/deps/equivalence-6445479281fd33d9)
+
+running 13 tests
+test compute_cases::reconvergence_and_break_loop_matches_cpu ... ok
+test compute_cases::negative_local_address_bias_matches_gpu ... ok
+test reconverging_diamond_keeps_mutated_condition_in_its_arm ... ok
+test unsigned_short_conversion_clamps_before_export ... ok
+test compute_cases::shared_reduction_and_predicate_transfers_match_cpu ... ok
+test flush_to_zero_comparisons_handle_signed_subnormals ... ok
+test carry_addition_propagates_into_high_word ... ok
+test flushed_conversion_rounds_subnormals_after_flushing ... ok
+test zero_wins_multiply_covers_exceptional_operands ... ok
+test reduced_functions_match_native_math ... ok
+test compute_cases::explicit_ftz_preserves_zero_signs_and_records_non_ftz_limit ... ok
+test compute_cases::memory_predicate_and_scheduling_classes_match_cpu ... ok
+test arithmetic_grid_matches_cpu_reference ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.65s
+
+     Running tests/metal.rs (tools/switch/shader/target/debug/deps/metal-16b677a2f321984f)
+
+running 12 tests
+test indexed_constant_load_requires_bounds_and_checks_alignment_and_overflow ... ok
+test comparisons_and_predicate_logic ... ok
+test instance_id_is_integer_builtin_without_vertex_buffer ... ok
+test vertex_id_is_integer_builtin_without_vertex_buffer ... ok
+test loop_with_reconvergence ... ok
+test predicated_exit_and_kill ... ok
+test passthrough_vertex ... ok
+test loop_with_break_stack ... ok
+test arithmetic_and_local_memory ... ok
+test textured_fragment_with_cbuf_color ... ok
+test scalar_array_sample_declares_layer_and_split_coordinates ... ok
+test bindless_texture_level_zero ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/rejections.rs (tools/switch/shader/target/debug/deps/rejections-a25462c7fe6a6ff0)
+
+running 12 tests
+test reserved_header_bits_are_preserved_without_inventing_attributes ... ok
+test rejects_stack_disagreement_and_crossed_tokens ... ok
+test excessive_structured_nesting_is_an_error ... ok
+test rejects_unsupported_geometry_and_numeric_modes ... ok
+test reduction_intermediate_cannot_escape_or_be_entered ... ok
+test divergent_and_counted_barriers_are_rejected ... ok
+test forward_selection_is_structured ... ok
+test rejects_irreducible_multi_entry_loop ... ok
+test rejects_indirect_branch_and_scheduling_target_outside_code ... ok
+test unreachable_resources_do_not_create_bindings_or_collisions ... ok
+test rejects_missing_attribute_and_resource_collision ... ok
+test rejects_all_reachable_out_encodings_and_stream_modes ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/textures.rs (tools/switch/shader/target/debug/deps/textures-499cf246412db49d)
+
+running 3 tests
+test handle_conflicts_and_independent_sampler_indices ... ok
+test texture_types::declared_texture_types_compile ... ok
+test texture_families_render_against_reference ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.91s
+
+   Doc-tests soju_switch_shader
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

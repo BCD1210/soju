@@ -1,45 +1,38 @@
 # Remaining graphics boundaries
 
-These are failure probes, not accepted scenes. Menu frames and timeout captures
-are not pixel evidence. Reproduce with `scripts/probe-switch-gpu.py` and a signed
-runner built from `tools/switch/core` with `--features desktop`. Use `--scene` to
-select one entry. All probes use the locally supplied, unmodified examples.
+Final probes use the signed runner at 8fb07bb, after the ten-scene acceptance
+suite passes. These are failure probes, not accepted scenes. Their ordered
+method tails and full-trace hashes are in
+[`../../regression/graphics-expansion/blocker-method-tails.txt`](../../regression/graphics-expansion/blocker-method-tails.txt).
 
-| Sample | Current first boundary |
-| --- | --- |
-| deko Example05 | B197 0x320=0x201; tessellation stages have no Metal lowering |
-| deko Example06–07 | CSAA/MSAA/linked-TSC gate; native multisample attachments and resolves are absent |
-| deko Example08 | higher viewport clip setup 0xe14=0x05000000 |
-| deko Example09 | compute method 0x2b4=0x02000a20; runner QMD integration remains incomplete |
-| OpenGL textured_cube, lenny | shader opcode RRO (`0x5c90`), after depth and extent fixes |
-| OpenGL dynamic_resolution | unsupported MME opcode, after depth fix |
-| OpenGL gpu_console | unsupported MME opcode |
-| SDL2 sdl2-simple | GPU mapping kind 0x02 after controller hold request support |
+| Scene | Observed first boundary | Work still needed |
+| --- | --- | --- |
+| deko Example05 | B197 0x320=0x201 | Tessellation stage ABI, ISBERD addressing, patch execution, smoothed wide wireframe |
+| deko Example06–07 | Multisample state gate | Native multisample attachments, sample-count pipeline state, resolve and guest writeback |
+| deko Example08 | Inactive/swapped vertex attribute | Missing/default vertex-attribute path, subsequent multipass/MRT and viewport selection validation |
+| deko Example09 | B1C0 0x2b4=0x02000a20 | Submitted QMD integration and ordered compute-to-graphics visibility |
+| OpenGL textured_cube | TSC wrap/compare/aniso | Native sampler/mip state and source texture oracle |
+| OpenGL gpu_console | TEXS array texture type mismatch | Typed TIC/native array resources and layer bindings |
+| deko_console | NV ioctl 0xc0084105 | Requested channel operation, then graphics scene acceptance |
 
-The local Example07 source is mesh loading/lighting with MSAA and sRGB; Example08
-is deferred shading/multipass and programs higher viewport state. The corpus
-contains six OpenGL NROs and one SDL2 graphics NRO; no separate EGL or instancing
-NRO is installed. Existing backend instanced-fetch support has no new corpus
-multi-instance pixel acceptance in this change.
+The corrected counted macro initialization now retains all viewport/scissor
+array setup. This removes Example08's former 0xe14 setup gate, but does not
+implement shader viewport selection. Its final probe now reaches vertex input
+validation. No unclassified method is silently accepted to get past these stops.
 
-OpenGL es2gears is now accepted; see `../accepted/README.md`. The full-scene
-probe still exceeds its 30-second budget because it requests 100,000 frames.
-Its separate first-presentation test completes and passes source-derived RGB
-checks. The four OpenGL depth blockers shared S8Z24 (0x16), now implemented with
-correct high-byte stencil packing and native readback tests.
+OpenGL lenny, dynamic_resolution and SDL2 sdl2-simple are newly accepted;
+es2gears remains accepted. See [`../accepted/README.md`](../accepted/README.md).
+The installed corpus contains six OpenGL NROs and one SDL2 graphics NRO, with
+no separate EGL NRO. dynamic_resolution is the instancing scene: it issues 64
+instances and now has source-derived multi-instance pixel acceptance.
 
-Static DKSH auditing also exposes shader blockers behind the initial method
-gates: tessellation programs contain `0xefd0` instructions; lighting/composition
-and sinewave compute contain RRO. Neither opcode has been guessed or treated as
-a no-op. Example05 additionally requests smoothed four-pixel wireframe lines.
+The static shader audit decodes all 521 occurrences. It translates 14/16
+programs with symbolic typed resource mappings; the two tessellation stages
+remain unsupported. The legacy resource audit is 11/16. Runtime resource binding
+and native execution are separate from symbolic shader compilation.
 
-No unclassified state has been accepted as a no-op to pass these boundaries.
-Tessellation, MSAA, multiple-viewport selection, compute integration and the
-remaining GL/SDL pixel oracles are still outstanding. The full 59-example corpus
-frame count is a boot/presentation metric and does not establish these scenes.
-
-SDL HID commands 120/121 follow the public libnx `hidSetNpadJoyHoldType` and
-`hidGetNpadJoyHoldType` ABI (resource ID followed by the hold enum on set). Only
-vertical/horizontal values are retained; reserved values are rejected. The
-currently exposed standard controller has no single-Joy-Con coordinate transform.
-Reference: https://github.com/switchbrew/libnx/blob/master/nx/source/services/hid.c
+Reproduce each failure with `scripts/probe-switch-gpu.py <signed-runner>
+--scene <name> --output <directory>`. Probes request 100,000 frames with a 30-second
+budget; menu captures and timeouts are never accepted images. See the
+[backend gap document](../../regression/graphics-expansion/tessellation-and-rendering-gaps.md)
+for concrete implementation contracts and public references.

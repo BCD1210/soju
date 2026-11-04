@@ -1,0 +1,2 @@
+    Checking soju-switch-shader v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/shader)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.55s

@@ -3,6 +3,48 @@
 Branch: `feat/switch-core`. The requested shader tip `5e298df` was merged first
 in `b6d6823`. All commits remain local.
 
+## Graphics expansion from e7f5db4
+
+Three additional scenes are accepted: **SDL2 sdl2-simple, OpenGL lenny, and
+OpenGL dynamic_resolution**. All ten scene tests pass. Captures and the
+source-derived pixel rules are in [`../gpu/accepted/`](../gpu/accepted/).
+The instanced scene checks 74,707 surface pixels across 41 visible instances
+from the source's 64-instance draw, plus 1,652,199 background pixels.
+
+| Measurement | Before | After |
+| --- | --- | --- |
+| Accepted scenes | 7 | 10 |
+| Default backend, 59 examples, 15 s each | 34 frames / 24 stops / 1 exit | 34 / 24 / 1 |
+| Explicit synchronous Metal, same budget | 37 frames / 21 stops / 1 exit | 39 / 19 / 1 |
+| Static DKSH decoding | 514/521 | 521/521 |
+| Static translation, unchanged resource options | 8/16 | 11/16 |
+| Static translation, symbolic typed texture slots | 9/16 | 14/16 |
+
+The matching Metal baseline was built from e7f5db4. Three samples changed from
+stop to frame; es2gears changed from frame to a 15-second timeout. Its separate
+fixed-pose pixel test passes. Neither corpus totals nor menu frames establish
+scene correctness. The shader resource modes are reported separately rather
+than comparing the new symbolic mode with the old legacy count.
+
+**The requested 16/16 static translations are not achieved.** Both remaining
+programs are tessellation stages; ISBERD now decodes but has no stage/addressing
+backend. The 59-example run plus selected-scene probes audited 16 distinct
+runtime shader blobs, 15 translated; gpu_console's fragment shader fails on
+array-texture binding. That census covers reached graphics registration, not
+stages hidden behind earlier method gates. No extracted shader files are saved.
+
+Validation: core **113 passed**, shader **57 passed**, GPU **40 passed / 5 existing
+ignored**, accepted scenes **10 passed**. All-target Clippy with warnings denied
+and formatting checks pass. The complete suite found and fixed a counted MME
+initialization regression before final acceptance.
+
+Evidence and reproduction: [`graphics-expansion/README.md`](graphics-expansion/README.md).
+Concrete remaining boundaries and backend contracts:
+[`../gpu/remaining/README.md`](../gpu/remaining/README.md) and
+[`tessellation-and-rendering-gaps.md`](graphics-expansion/tessellation-and-rendering-gaps.md).
+This remains partial runner compatibility work. All step commits remain local;
+no input binaries, keys or proprietary runtime material were added.
+
 ## Graphics follow-up from 3deb0fb
 
 One additional scene is accepted: **OpenGL es2gears**, with its capture under
