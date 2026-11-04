@@ -37,6 +37,10 @@ def reconstruct(kind, image, source, resolution=160, elevation=32., group=0):
     references.mkdir(exist_ok=True)
     from PIL import Image
     views = [{k: frame(info, atlas, group*17+d) for k, atlas in atlases.items()} for d in range(17)]
+    for d in range(17,32):
+        mirrored={k:np.fliplr(v).copy() for k,v in views[32-d].items()}
+        if 'normal' in mirrored:mirrored['normal'][...,0]=255-mirrored['normal'][...,0]
+        views.append(mirrored)
     for d, view in enumerate(views):
         for name, pixels in view.items():
             Image.fromarray(pixels).save(references / f'{d:02}-{name}.png')
@@ -53,7 +57,7 @@ def reconstruct(kind, image, source, resolution=160, elevation=32., group=0):
     if hull.sum() < 100:
         raise ValueError('Directional intersection is empty: verify offsets, poses and camera')
     grid = hull.reshape((resolution,)*3)
-    # A second half-turn is not fabricated: only measured directions constrain the volume.
+    # The other 15 directions follow the game's horizontal sprite-mirroring rule.
     # Closed padding guarantees no cut boundary at the volume edge.
     sdf = ndimage.distance_transform_edt(grid) - ndimage.distance_transform_edt(~grid)
     occupied = points[hull]
@@ -96,15 +100,20 @@ def reconstruct(kind, image, source, resolution=160, elevation=32., group=0):
     refined[:, [0, -1], :] = -1
     refined[:, :, [0, -1]] = -1
     refined = ndimage.gaussian_filter(refined, .55)
+    components, _ = ndimage.label(refined > 0)
+    counts = np.bincount(components.ravel())
+    fragments = (components > 0) & (counts[components] < 64)
+    refined[fragments] = -1
     verts, faces, _, _ = marching_cubes(refined, level=0, spacing=(step,)*3, allow_degenerate=False)
     verts += axis[0]
     np.savez_compressed(out/'reconstruction.npz', vertices=verts, faces=faces, zbuffers=np.stack(zbuffers))
     config = {'type': kind, 'image': image, 'sourceManifest': str(source), 'group': group,
               'width': width, 'height': height, 'elevation': elevation, 'resolution': resolution,
+              'viewCount':32,'measuredViews':17,'mirroredViews':15,
               'voxelSizePixels': step, 'initialTriangles': len(faces), 'occupiedVoxels': int(hull.sum()),
               'depthFits': fits, 'usedDepthViews': sum(f['pixelsPerDepthByte'] > 0 and f['rmsePixels'] <= 5 for f in fits),
               'status': 'experimental-unvalidated', 'layers': list(atlases),
-              'limitations': ['Only 17 measured views; unseen undersides are inferred.',
+              'limitations': ['17 measured plus 15 horizontally mirrored views; unseen undersides are inferred.',
                              'Camera and per-view depth affine fits are provisional.',
                              'Static pose only; action/iscript mapping unresolved.']}
     (out/'reconstruction.json').write_text(json.dumps(config, indent=2)+'\n')
