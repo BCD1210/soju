@@ -30,7 +30,7 @@ final class UnitBillboard {
         var keep=Set<Int>();evidence=[]
         for (index,native) in chain.enumerated() {
             guard Int(number(native,"flags"))&0x40==0,let id=native["id"] as? Int,
-                let entry=art.images[String(id)],let records=entry["frames"] as? [Obj] else {continue}
+                let entry=art.images[String(id)],let records=art.frameRecords(id) else {continue}
             let frame=Int(number(native,"frame"))
             guard records.indices.contains(frame) else {continue}
             let prepared=art.stream?.get(id,frame:frame,color:color)
@@ -91,7 +91,7 @@ final class UnitBillboard {
         let rotation=perspective ? simd_quatf(angle:Float(azimuth),axis:SIMD3<Float>(0,1,0))*simd_quatf(angle:-Float(Terrain3D.canonicalElevation),axis:SIMD3<Float>(1,0,0)):orientation
         var contact=0.0
         let main=unit["image"] as? Obj ?? [:]
-        if perspective,let entry=art.images[String(Int(number(main,"id")))],let records=entry["frames"] as? [Obj] {
+        if perspective,let entry=art.images[String(Int(number(main,"id")))],let records=art.frameRecords(Int(number(main,"id"))) {
             let (frame,_)=Self.viewFrame(main,azimuth:azimuth,count:records.count)
             if records.indices.contains(frame) {
                 contact=max(0,(number(records[frame],"oy")+number(records[frame],"h"))/number(entry,"scale")-number(entry,"grpHeight")/2+number(main,"offsetY"))/32
@@ -99,7 +99,7 @@ final class UnitBillboard {
         }
         var buildingLift:Float=0
         if perspective,unit["building"] as? Bool == true,unit["airborne"] as? Bool != true,
-           let entry=art.images[String(Int(number(main,"id")))],let records=entry["frames"] as? [Obj] {
+           let entry=art.images[String(Int(number(main,"id")))],let records=art.frameRecords(Int(number(main,"id"))) {
             let (frame,_)=Self.viewFrame(main,azimuth:azimuth,count:records.count)
             let id=Int(number(main,"id"))
             let key="\(id)/\(frame)"
@@ -113,7 +113,7 @@ final class UnitBillboard {
         for index in layerOrder {
             guard let native=nativeLayers[index] else {continue}
             guard let node=layers[index],let entry=art.images[String(Int(number(native,"id")))],
-                let records=entry["frames"] as? [Obj] else {continue}
+                let records=art.frameRecords(Int(number(native,"id"))) else {continue}
             let shadow=Int(number(native,"drawfunc"))==10
             let (frame,mirrored)=perspective && !shadow ? Self.viewFrame(native,azimuth:azimuth,count:records.count):(Int(number(native,"frame")),Int(number(native,"flags"))&2 != 0)
             let id=Int(number(native,"id"))
@@ -170,7 +170,7 @@ final class UnitBillboard {
     func projectedLayers(view:SCNView,art:WorldSprites)->[Obj] {
         nativeLayers.sorted(by:{$0.key<$1.key}).compactMap { index,native in
             guard let node=layers[index],
-                let entry=art.images[String(Int(number(native,"id")))],let records=entry["frames"] as? [Obj],
+                let entry=art.images[String(Int(number(native,"id")))],let records=art.frameRecords(Int(number(native,"id"))),
                 let frame=shown[index],records.indices.contains(frame) else {return nil}
             let record=records[frame],scale=number(entry,"scale")
             let left=number(record,"ox")/(number(entry,"grpWidth")*scale)-0.5
@@ -195,6 +195,7 @@ final class WorldSprites {
     let root=SCNNode(),folder=runtime.appendingPathComponent("world-sprites")
     let images:[String:Obj],creep:[String:Obj]
     let creepEdges:[String:[Int]]
+    private var frameCatalog=[Int:[Obj]]()
     let colorContext=CIContext()
     var nodes=[String:SCNNode]()
     let frames=ResidentCache<NSImage>(limit:512*1024*1024)
@@ -208,6 +209,11 @@ final class WorldSprites {
         creepEdges=creep.mapValues{$0["edgeLookup"] as? [Int] ?? []}
         root.name="native-world-sprites"
     }
+    func frameRecords(_ id:Int)->[Obj]? {
+        if let cached=frameCatalog[id] {return cached}
+        guard let records=images[String(id)]?["frames"] as? [Obj] else {return nil}
+        frameCatalog[id]=records;return records
+    }
     static func playerColor(_ colors:[[Int]],owner:Int)->[Int] {
         if colors.indices.contains(owner),colors[owner].count>=3,colors[owner].prefix(3).contains(where:{$0>0}) {return Array(colors[owner].prefix(3))}
         return Models3D.playerColors.indices.contains(owner) ? Models3D.playerColors[owner]:[255,255,255]
@@ -220,7 +226,7 @@ final class WorldSprites {
         let tint=(layer=="diffuse" || layer=="bright") ? color:[]
         let key="\(id)/\(frame)/\(tint)/\(layer)"
         if let image=frames.get(key) {return image}
-        guard let entry=images[String(id)],let records=entry["frames"] as? [Obj],records.indices.contains(frame),let file=(layer=="diffuse" ? entry["file"] as? String:((entry["relief"] as? Obj)?["files"] as? [String:String])?[layer]) else {if layer=="diffuse" {missing.insert(id)};return nil}
+        guard let entry=images[String(id)],let records=frameRecords(id),records.indices.contains(frame),let file=(layer=="diffuse" ? entry["file"] as? String:((entry["relief"] as? Obj)?["files"] as? [String:String])?[layer]) else {if layer=="diffuse" {missing.insert(id)};return nil}
         let atlas:NSImage
         if let cached=atlases.get(file) {atlas=cached}
         else {guard let loaded=NSImage(contentsOf:folder.appendingPathComponent(file)) else {return nil};atlas=loaded;atlases.insert(loaded,key:file,bytes:Int(loaded.size.width*loaded.size.height)*4)}
