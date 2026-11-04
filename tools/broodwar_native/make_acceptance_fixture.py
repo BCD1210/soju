@@ -26,7 +26,7 @@ def build(source: Path, destination: Path) -> None:
     width, height = struct.unpack('<HH', data[b'DIM '])
     assert width >= 64 and height >= 64, 'Fixture needs at least 64 by 64 tiles'
     assert not destination.exists(), 'Choose an unused output path'
-    player = 6
+    player = 0
     placed = []
     # Terran production, transport, mode users and Zerg production share the human slot.
     layout = [(214,24,16),(106,24,16),(111,32,16),(112,40,16),(113,48,16),
@@ -39,8 +39,8 @@ def build(source: Path, destination: Path) -> None:
     for index, (kind, x, y) in enumerate(layout):
         placed.append(unit(30000+index,x*32,y*32,kind,11 if kind in (176,188) else player,5000 if kind in (176,188) else 0))
     for index in range(8):
-        placed.append(unit(31000+index,(55+index%4)*32,(30+index//4*2)*32,37,0))
-    owners = bytes([5,0,0,0,0,0,6,0,0,0,0,0])
+        placed.append(unit(31000+index,(55+index%4)*32,(30+index//4*2)*32,37,1))
+    owners = bytes([6,5,0,0,0,0,0,0,0,0,0,0])
     # One Always trigger grants resources once. No victory or autonomous build scripts.
     trigger = bytearray(2400)
     trigger[15] = 22
@@ -51,7 +51,8 @@ def build(source: Path, destination: Path) -> None:
     for kind in (0,5,9,10,11):
         tech[44*12+player*44+kind] = 1
     replacements = {b'UNIT':b''.join(placed),b'OWNR':owners,b'IOWN':owners,
-                    b'SIDE':bytes([0,0,0,0,0,0,1,0,0,0,0,0]),
+                    b'SIDE':bytes([1,0,0,0,0,0,0,0,0,0,0,0]),
+                    b'FORC':bytes([0,1,2,2,2,2,2,2])+bytes(12),
                     b'TRIG':bytes(trigger),b'MBRF':bytes(2400),b'PTEx':bytes(tech),
                     b'MASK':bytes(width*height),b'THG2':b'',b'DD2 ':b''}
     # Use the known walkable start tile from the owned source across the test arena.
