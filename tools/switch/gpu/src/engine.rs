@@ -14,7 +14,15 @@ pub(crate) fn stream_output_method(offset: u32) -> bool {
 pub struct Registers(pub BTreeMap<u32, u32>);
 impl Registers {
     pub fn get(&self, offset: u32) -> u32 {
-        self.0.get(&offset).copied().unwrap_or(0)
+        self.0.get(&offset).copied().unwrap_or(match offset {
+            // Initial graphics context: Vertex A/B share group zero; subsequent
+            // pipeline stages bind their own constant-buffer group.
+            0x2090 => 1,
+            0x20d0 => 2,
+            0x2110 => 3,
+            0x2150 => 4,
+            _ => 0,
+        })
     }
     pub fn address(&self, offset: u32) -> u64 {
         (u64::from(self.get(offset)) << 32) | u64::from(self.get(offset + 4))

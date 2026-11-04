@@ -188,3 +188,35 @@ The runner retains libnx NvKind_Z16 (1) and NvKind_Z16_2C (2); the existing Meta
 D16 path provides canonical uncompressed guest storage, as with the other
 compression kinds. Capture: `sdl2-simple.png`. The full-loop probe times out;
 first-presentation acceptance is the result reported here.
+
+## OpenGL lenny and dynamic_resolution
+
+Two further scenes pass `gpu_lenny.rs` using the locally installed lenny mesh
+(3,345 vertices, 1,115 triangles), source projection, per-instance transforms,
+perspective-correct quaternion normals and view vectors, depth, and the source
+ambient/diffuse/specular equation. No expected values come from a capture.
+RGB tolerance is two; triangle interiors exclude 1.5-pixel edges, silhouettes
+and boundaries between instances have a two-pixel guard. Alpha and animation
+are outside these first-pose checks.
+
+- lenny: 5,720 surface and 881,588 background pixels, zero mismatches.
+- dynamic_resolution: 74,707 surface pixels across 41 visible instances and
+  1,652,199 background pixels, zero mismatches. The source issues 64 instances;
+  some are occluded or offscreen. Its initial handheld viewport is 1280x720
+  within the 1920x1080 buffer.
+
+Fixes include RRO/MUFU pairs, structured shader branches, FMUL.FMZ, MME
+bitfield operations, integer instance IDs, and initial stage constant groups.
+The group defaults model the initial context required by the observed stream:
+fragment group four is used before an explicit binding-group write. NVIDIA's
+public B197 header documents the fields, not these initial values. Explicit
+writes override the modelled defaults; native tests check both paths.
+
+Capture SHA-256:
+
+- `opengl-lenny.png`: `9699464924dd0be990e6a04be2281196ac50d9a4c230d2387afe8564d1abfaa4`
+- `opengl-dynamic_resolution.png`: `20a3d030daaadc17fd403f1864d9fbde0169b210bc7c405f4be3f26486df947a`
+
+Run all ten scenes with `bash scripts/test-switch-gpu-accepted.sh`. The two
+new mesh tests require `SOJU_SWITCH_GPU_TEST_LENNY_MESH`; the script defaults
+to the local devkitPro source location, without copying the mesh into git.

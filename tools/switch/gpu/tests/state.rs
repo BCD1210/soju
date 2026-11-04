@@ -257,3 +257,20 @@ fn transform_feedback_methods_reject_without_mutating_state() {
         }
     }
 }
+
+#[test]
+fn initial_stage_binding_groups_allow_explicit_overrides() {
+    let mut r = soju_switch_gpu::engine::Registers::default();
+    for (offset, group) in [
+        (0x2010, 0),
+        (0x2050, 0),
+        (0x2090, 1),
+        (0x20d0, 2),
+        (0x2110, 3),
+        (0x2150, 4),
+    ] {
+        assert_eq!(r.get(offset), group);
+    }
+    r.0.insert(0x2150, 0);
+    assert_eq!(r.get(0x2150), 0);
+}

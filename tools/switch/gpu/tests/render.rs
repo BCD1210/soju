@@ -2811,3 +2811,34 @@ fn instance_builtin_positions_two_separate_draws() {
         assert_eq!(pixel, expected.unwrap());
     }
 }
+
+#[test]
+fn implicit_fragment_group_uses_pixel_constants() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("initial-fragment-group", [0.; 4]);
+    e.registers.0.remove(&0x2150);
+    let fs = h.program(shader_with_tint(false, false, true));
+    let cb = h.alloc(
+        [0.25f32, 0.5, 0.75, 1.]
+            .into_iter()
+            .flat_map(f32::to_le_bytes)
+            .collect(),
+    );
+    h.methods(
+        &mut e,
+        &[
+            (0x2144, fs as u32),
+            (0x2380, 16),
+            (0x2384, 0),
+            (0x2388, cb as u32),
+            (0x2490, 0x21),
+        ],
+    );
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    h.draw(&mut e, 6, false, false);
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/initial-fragment-group");
+    let report = h.backend.execute(&dir, &mut h.memory).unwrap();
+    for pixel in report.images[0].rgba.chunks_exact(4) {
+        assert_eq!(pixel, [64, 128, 191, 255]);
+    }
+}
