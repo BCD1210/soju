@@ -1,0 +1,9 @@
+scene|result|detail
+deko-example01|accepted|921600 source-derived pixels checked; accepted/deko-example01.png
+deko-example02|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 43 command 11: IPC: Message(\\\"Metal submission: Metal state method 0x110 is not implemented\\\")\")")
+deko-example03|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 43 command 11: IPC: Message(\\\"Metal method 0xb197:0x12c8=0x19: unsupported B197 effect CLEAR_ZCULL_REGION at 0x12c8\\\")\")")
+deko-example04|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 43 command 11: IPC: Message(\\\"Metal method 0xb0b5:0x410=0x200: unknown method b0b5:0410\\\")\")")
+deko-basic|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 41 command 11: IPC: Message(\\\"Metal submission: Metal state method 0x110 is not implemented\\\")\")")
+opengl-simple_triangle|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 40 command 11: IPC: Message(\\\"Metal method 0xa140:0x1b0=0x1001: inline upload supports pitch/no semaphore only\\\")\")")
+opengl-textured_cube|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 40 command 11: IPC: Message(\\\"Metal method 0xa140:0x1b0=0x1001: inline upload supports pitch/no semaphore only\\\")\")")
+opengl-es2gears|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 40 command 11: IPC: Message(\\\"Metal method 0xa140:0x1b0=0x1001: inline upload supports pitch/no semaphore only\\\")\")")

@@ -399,3 +399,27 @@ Core implementation commits: `bdc37aa` (mapping kinds/fixed big pages),
 ISA references. Audren routing, SDL completion, accepted triangles/cubes/textures,
 shader extent tracking, broader engine initialization and persistent core-side
 GPU resources are not done.
+
+## Current GPU acceptance checkpoint
+
+This supersedes the earlier “no accepted scenes” checkpoint above.
+
+| Scene | Result | Current boundary |
+| --- | --- | --- |
+| deko Example01 Simple Setup | **Accepted** | Native scissored-clear image; all 921,600 source-derived pixels pass. |
+| deko Example02 Triangle | Not accepted | Draw reached; backend rejects retained setup state (`0110` first). Draw-state adaptation and shader extents remain. |
+| deko Example03 Cube | Not accepted | B197 `12c8=19`, CLEAR_ZCULL_REGION. |
+| deko Example04 Textured Cube | Not accepted | B0B5 `0410=200`, unsupported copy-engine setup. |
+| deko_basic | Not accepted | Same draw-state integration boundary as Example02. |
+| OpenGL simple_triangle / textured_cube / es2gears | Not accepted | A140 `01b0=1001`, inline-upload launch profile unsupported. |
+
+[Accepted capture, hashes and reproduction](../proof/rust-examples/gpu/accepted/README.md).
+[Method table](../proof/rust-examples/gpu/METHODS.md).
+[Ordered per-scene outcomes](../proof/rust-examples/gpu/scene-progress/summary.txt).
+The method probe uses a large frame budget and does not run pixel acceptance;
+its timeout for Example01 is not a rejection of the separate passing acceptance test.
+No triangle, cube, texture or gears image is being claimed as accepted.
+
+The current default-backend 59-example corpus remains 33 frame / 25 stop /
+1 clean exit; the opt-in Metal scene acceptance is measured separately.
+All changes are committed locally, with no push and no installed-runner replacement.

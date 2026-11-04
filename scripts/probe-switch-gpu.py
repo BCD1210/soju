@@ -10,11 +10,16 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('binary', type=Path, help='isolated, Hypervisor-entitled runner')
 parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--corpus', type=Path, default=Path.home() / '.local/share/soju/switch/examples')
+parser.add_argument("--scene", help="probe one named scene")
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 scenes = [(f'deko-example{i:02}', 'graphics__deko3d__deko_examples', i - 1) for i in range(1, 5)]
 scenes += [('deko-basic', 'graphics__deko3d__deko_basic', None)]
 scenes += [(f'opengl-{name}', f'graphics__opengl__{name}', None) for name in ('simple_triangle', 'textured_cube', 'es2gears')]
+if args.scene:
+    scenes = [scene for scene in scenes if scene[0] == args.scene]
+    if not scenes:
+        parser.error("unknown scene")
 with (args.output / 'summary.txt').open('w') as summary:
     summary.write('scene|result|detail\n')
     for scene, name, selection in scenes:

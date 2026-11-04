@@ -63,3 +63,13 @@ policy now supersedes the Falcon and compressed-kind stops.
 Example01 is accepted; see [capture and reproduction](accepted/README.md).
 Its ordered method outcomes are saved alongside the capture. Passing setup alone
 continues to mean only successful dispatch, not acceptance of other scenes.
+
+Example02 continuation additionally validates disabled early-Z, post-Z mask,
+interlock, render-target offset, fill-via-triangle, point/line/polygon smoothing,
+alpha test and logic operation; full CT_WRITE masks only. Viewport clipping is
+retained for the observed deko (`181d`) and OpenGL (`2`) profiles. These states
+are **not yet translated at a draw**. Subtiling performance knobs 0360/0364 are
+counted no-ops. Example02 reaches B197 0d78 (draw count), where backend preparation
+rejects the retained setup snapshot (first diagnostic: 0110). Shader extent
+registration also remains undone; this checkpoint does not bypass those checks.
+Latest ordered outcomes and blockers: [scene-progress](scene-progress/summary.txt).

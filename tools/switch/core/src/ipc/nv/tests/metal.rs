@@ -328,6 +328,10 @@ fn metal_retained_setup_rejects_reserved_fields_and_unclassified_method() {
         (0x1528, 1),
         (0x135c, 1),
         (0x124, 4),
+        (0x210, 1),
+        (0xf1c, 1),
+        (0x19c4, 1),
+        (0x1a00, 0x1110),
         (0x23fc, 0x418800),
     ] {
         assert!(
@@ -352,6 +356,11 @@ fn metal_retained_setup_rejects_reserved_fields_and_unclassified_method() {
                 (0x19e0, 1),
                 (0x3400, 0x42),
                 (0x110, 0),
+                (0x193c, 2),
+                (0x210, 0),
+                (0xf1c, 0),
+                (0x19c4, 0),
+                (0x1a00, 0x1111),
             ]),
             fd,
             None,

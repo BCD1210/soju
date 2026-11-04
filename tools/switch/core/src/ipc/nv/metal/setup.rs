@@ -3,6 +3,13 @@ use super::*;
 
 pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
     let valid = match method {
+        0xf1c | 0x1224 | 0x11f0 | 0x113c | 0x1658 | 0x1570 | 0xdb4 | 0x12ec => value == 0,
+        0x754 => value == 1,
+        0x193c => matches!(value, 2 | 0x181d),
+        0x1a00..=0x1a1c if method.is_multiple_of(4) => value == 0x1111,
+        0x19c4 => value == 0,
+        0x19c8 => value == 0x1503,
+        0x210 => value == 0,
         0xf40 => value == 0,
         0xd9c => value == 0,
         0xfbc | 0xfc0 | 0xfc4 | 0xfc8 => value == 0xffff,
@@ -79,7 +86,9 @@ pub(super) fn accepted_noop(class: u32, method: u32) -> bool {
     class == 0xb197
         && (matches!(
             method,
-            0xf64
+            0x360
+                | 0x364
+                | 0xf64
                 | 0xf68
                 | 0xf6c
                 | 0xf70
