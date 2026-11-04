@@ -15,6 +15,7 @@ use std::{
 unsafe extern "C" {
     fn soju_host_open() -> i32;
     fn soju_host_close();
+    fn soju_host_drain() -> i32;
     fn soju_host_error() -> *const std::ffi::c_char;
     fn soju_host_present(pixels: *const u8, width: i32, height: i32) -> i32;
     fn soju_host_poll(keys: *mut u8, pad: *mut f32) -> i32;
@@ -111,8 +112,6 @@ pub fn play(path: &Path, home: &Path) -> Result<(), String> {
     let mut audio = crate::host_audio::Audio::default();
     runtime.yield_on_frame = true;
     let mut closing = None;
-    let period = Duration::from_nanos(16_666_667);
-    let mut next_frame = Instant::now();
     let mut first_frame = None;
     let mut presented = 0u64;
     let benchmark = std::env::var("SOJU_SWITCH_BENCH_FRAMES")
@@ -120,9 +119,6 @@ pub fn play(path: &Path, home: &Path) -> Result<(), String> {
         .and_then(|s| s.parse::<u64>().ok())
         .filter(|n| *n > 1);
     loop {
-        if closing.is_none() {
-            std::thread::sleep(next_frame.saturating_duration_since(Instant::now()));
-        }
         let (quit, input) = window.poll();
         let quit = quit || benchmark.is_some_and(|n| presented >= n);
         hub.set_input(input);
@@ -149,15 +145,12 @@ pub fn play(path: &Path, home: &Path) -> Result<(), String> {
             let now = Instant::now();
             first_frame.get_or_insert(now);
             presented += 1;
-            next_frame += period;
-            if now.saturating_duration_since(next_frame) > period {
-                next_frame = now;
-            }
         }
         if closing.is_some_and(|start| start.elapsed() > hub.exit_grace()) {
             return Err("guest did not respond within the applet exit grace period".into());
         }
     }
+    check(unsafe { soju_host_drain() })?;
     if benchmark.is_some() {
         let elapsed = first_frame.map_or(0., |start| start.elapsed().as_secs_f64());
         eprintln!("Framebuffer conversion: {:?}", hub.frame_conversion_time());

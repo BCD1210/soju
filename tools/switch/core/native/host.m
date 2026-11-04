@@ -2,18 +2,23 @@
 #import <AppKit/AppKit.h>
 #import <GameController/GameController.h>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_metal.h>
+#import <QuartzCore/CAMetalLayer.h>
+int soju_presenter_open(CAMetalLayer *layer);
+int soju_presenter_submit(const unsigned char *pixels, int width, int height);
+int soju_presenter_drain(void);
+void soju_presenter_close(void);
 
 static SDL_Window *window;
-static SDL_Renderer *renderer;
-static SDL_Texture *texture;
-static int width, height;
+static SDL_MetalView metal_view;
 static Uint64 pressed_until[SDL_NUM_SCANCODES];
 static Uint64 pressed_frame[SDL_NUM_SCANCODES];
 static Uint64 frame_number;
 
 void soju_host_close(void) {
-    SDL_DestroyTexture(texture); texture = NULL;
-    SDL_DestroyRenderer(renderer); renderer = NULL;
+    soju_presenter_close();
+    if (metal_view) SDL_Metal_DestroyView(metal_view);
+    metal_view = NULL;
     SDL_DestroyWindow(window); window = NULL;
     [GCController stopWirelessControllerDiscovery];
     SDL_Quit();
@@ -29,31 +34,34 @@ int soju_host_open(void) {
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) return -1;
     window = SDL_CreateWindow("Soju — Switch homebrew", SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+        SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_METAL);
     if (!window) return -1;
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) return -1;
+    metal_view = SDL_Metal_CreateView(window);
+    if (!metal_view || soju_presenter_open((__bridge CAMetalLayer *)SDL_Metal_GetLayer(metal_view))) {
+        SDL_SetError("Metal presentation initialization failed"); return -1;
+    }
     [NSApp activateIgnoringOtherApps:YES];
     SDL_RaiseWindow(window);
     [GCController startWirelessControllerDiscoveryWithCompletionHandler:nil];
     return 0;
 }
 int soju_host_present(const unsigned char *pixels, int w, int h) {
-    if (!texture || w != width || h != height) {
-        SDL_DestroyTexture(texture);
-        texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, w, h);
-        if (!texture) return -1;
-        width = w; height = h;
-        if (SDL_RenderSetLogicalSize(renderer, w, h)) return -1;
+    int drawable_width, drawable_height;
+    SDL_Metal_GetDrawableSize(window, &drawable_width, &drawable_height);
+    CAMetalLayer *layer = (__bridge CAMetalLayer *)SDL_Metal_GetLayer(metal_view);
+    layer.drawableSize = CGSizeMake(MAX(drawable_width,1), MAX(drawable_height,1));
+    if (soju_presenter_submit(pixels,w,h)) {
+        SDL_SetError("Metal presentation failed"); return -1;
     }
-    if (SDL_UpdateTexture(texture, NULL, pixels, w * 4)) return -1;
-    if (SDL_RenderClear(renderer) || SDL_RenderCopy(renderer, texture, NULL, NULL)) return -1;
-    SDL_RenderPresent(renderer);
     if (frame_number == 0) {
         [NSApp activateIgnoringOtherApps:YES];
         SDL_RaiseWindow(window);
     }
     ++frame_number;
+    return 0;
+}
+int soju_host_drain(void) {
+    if (soju_presenter_drain()) { SDL_SetError("Metal presentation completion failed"); return -1; }
     return 0;
 }
 // Flat arrays keep the Objective-C/Rust ABI independent of compiler bool layout.

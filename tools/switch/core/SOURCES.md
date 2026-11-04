@@ -265,3 +265,27 @@ sinewave.glsl and Example09_SimpleCompute.cpp. It checks the compute launch and
 and width registers survive draw normalization. Inactive point/polygon AA bits
 are accepted for line draws; polygon smoothing and wide aliased line draws
 still reject. See the GPU source ledger for the public rasterization contract.
+
+## Asynchronous desktop presentation
+
+Apple's Metal guidance describes independently owned in-flight storage released
+by command-buffer completion handlers:
+https://developer.apple.com/library/archive/documentation/3DDrawing/Conceptual/MTLBestPracticesGuide/TripleBuffering.html
+SDL's public SDL_Metal_CreateView/GetLayer/GetDrawableSize APIs retain native
+window/input integration. The presenter uses three bounded upload textures,
+per-slot ownership semaphores, a serial encoding queue, CAMetalLayer drawables
+and completion-driven reuse. Drawable acquisition and presentation occur off the
+runtime thread. Shutdown drains encoding and all submitted work. Resize changes
+only a free slot's texture; active uploads remain owned until completion.
+
+The old host-loop timer and SDL_RenderPresent wait are removed. Display sync is
+provided by CAMetalLayer; temporary lack of a drawable (occlusion/minimization)
+releases the slot without a presentation. Native command failures are sticky and
+reported on subsequent submission or final drain. This host swapchain does not
+relax guest attachment-writeback or syncpoint visibility requirements.
+
+The native check queues 96 frames with alternating dimensions, overwrites/frees
+caller memory immediately, resizes the window and verifies all three retained
+uploads after GPU completion. It also exercises close/reopen and invalid calls,
+with Metal API validation enabled. Run the ignored presenter integration test
+on a logged-in macOS desktop.

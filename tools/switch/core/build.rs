@@ -31,6 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rustc-link-lib=static=soju_context");
     }
     println!("cargo:rerun-if-changed=native/host.m");
+    println!("cargo:rerun-if-changed=native/presenter.m");
     println!("cargo:rerun-if-changed=native/microphone.m");
     println!("cargo:rerun-if-changed=native/microphone.plist");
     println!("cargo:rerun-if-env-changed=SOJU_SDL_PREFIX");
@@ -75,6 +76,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .success(),
         "microphone compilation failed"
     );
+    assert!(
+        Command::new("clang")
+            .args([
+                "-fobjc-arc",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-c",
+                "native/presenter.m",
+                "-o"
+            ])
+            .arg(out.join("presenter.o"))
+            .status()?
+            .success(),
+        "presenter compilation failed"
+    );
     let plist =
         PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("native/microphone.plist");
     println!(
@@ -86,6 +103,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .arg(out.join("libsoju_host.a"))
         .arg(out.join("host.o"))
         .arg(out.join("microphone.o"))
+        .arg(out.join("presenter.o"))
         .status()
         .unwrap()
         .success());
@@ -99,6 +117,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "GameController",
         "AudioToolbox",
         "AVFoundation",
+        "Metal",
+        "QuartzCore",
     ] {
         println!("cargo:rustc-link-lib=framework={framework}");
     }
