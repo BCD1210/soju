@@ -30,3 +30,5 @@ pub mod cache;
 pub mod compute;
 
 pub mod reference;
+
+pub mod texture;

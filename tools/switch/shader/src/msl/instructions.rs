@@ -224,7 +224,7 @@ impl Emitter<'_> {
             }
             ALD | AST | IPA => self.attribute(x),
             LDL | STL => self.local(x),
-            TEX => self.texture(x),
+            TEX | TEXS | TLD | TLDS | TLD4 | TXQ => self.texture(x),
             _ => Err(x.error("opcode decoded but Metal lowering is not implemented")),
         }
     }

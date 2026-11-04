@@ -15,6 +15,8 @@ pub struct GlobalMemory {
 
 #[derive(Debug, Clone)]
 pub struct Options {
+    /// Explicit host-resolved handles; empty retains the legacy paired-index ABI.
+    pub texture_bindings: Vec<crate::texture::Binding>,
     pub global_memory: Option<GlobalMemory>,
     /// Metal argument buffer binding. Must not collide with a used cbuf slot.
     pub texture_buffer: u8,
@@ -24,6 +26,7 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
+            texture_bindings: Vec::new(),
             global_memory: None,
             texture_buffer: 30,
             texture_count: 128,
@@ -32,6 +35,7 @@ impl Default for Options {
 }
 #[derive(Debug, Clone)]
 pub struct MetalShader {
+    pub texture_bindings: Vec<crate::texture::Binding>,
     pub source: String,
     pub constant_buffers: Vec<u8>,
     pub uses_texture_table: bool,
@@ -154,7 +158,7 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
     }
     s.push_str("};\n");
     if textures {
-        writeln!(s,"struct TextureTable {{\narray<texture2d<float>, {}> images [[id(0)]];\narray<sampler, {}> samplers [[id({})]];\n}};",options.texture_count,options.texture_count,options.texture_count).unwrap();
+        s.push_str(&textures::declarations(program, options)?);
     }
     let entry = if vertex {
         "soju_vertex"
@@ -203,6 +207,7 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
     s.push_str(&emitter.finish());
     s.push_str("}\n");
     Ok(MetalShader {
+        texture_bindings: textures::bindings(program, options)?,
         source: s,
         constant_buffers: cb.into_iter().collect(),
         uses_texture_table: textures,
@@ -232,3 +237,5 @@ mod tests;
 mod compute;
 mod memory;
 pub use compute::generate_compute;
+
+mod textures;

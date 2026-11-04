@@ -39,3 +39,13 @@ No external reference is required by the build or tests.
   Cross-check of launch fields; the NVIDIA Maxwell header takes precedence.
 - https://raw.githubusercontent.com/envytools/envytools/f102b82381f3f11cee113d16374c87091db039d9/docs/hw/graph/maxwell/compute.rst
   Examined; placeholder documentation, no semantic facts taken.
+- https://raw.githubusercontent.com/NVIDIA/open-gpu-doc/master/classes/3d/clb197.h
+  Examined public texture pool and bindless-cbuf configuration fields. These do
+  not establish packed-handle decoding; no native descriptor layout is guessed.
+- https://docs.nvidia.com/cuda/archive/12.8.1/cuda-binary-utilities/index.html
+  Public Maxwell instruction overview; not sufficient to establish OUT stream
+  allocation or destination-register semantics.
+
+The Apple MSL PDF was subsequently downloaded and inspected locally for texture
+sample/read/gather/query types, argument-buffer IDs, and threadgroup barriers.
+All downloaded reference files remain under ignored `target/reference`.

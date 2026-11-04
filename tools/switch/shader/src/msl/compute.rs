@@ -66,6 +66,7 @@ pub fn generate_compute(
     emitter.nodes(&program.body, &mut s)?;
     s.push_str("}\n");
     Ok(MetalShader {
+        texture_bindings: Vec::new(),
         source: s,
         constant_buffers: cb.into_iter().collect(),
         uses_texture_table: false,

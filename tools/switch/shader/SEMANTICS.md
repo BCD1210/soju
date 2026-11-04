@@ -85,3 +85,36 @@ This fixes an observed CPU/Metal discrepancy; it is a PTX-style contract, not a
 claim about undocumented GM20B tie behavior. Tests compare NaNs by classification,
 not payload. Arithmetic-grid tests do not establish denormal preservation or
 MUFU approximation bounds outside their tested inputs.
+
+## Texture binding normalization and tests
+
+`Options::texture_bindings` accepts explicit `Bound(immediate)` or
+`Bindless(register_value)` mappings to independent texture/sampler indices and a
+texture type. Duplicate identical mappings are deduplicated and conflicts are
+errors. `MetalShader::texture_bindings` returns the canonical sorted table. The
+caller must resolve native descriptor memory to this table; the translator does
+not silently reinterpret packed native handles as table indices. Empty mappings
+retain the earlier paired-index ABI. Dynamic handles not present in an explicit
+table return zero. Both resource indices are bounds-checked before access.
+
+Texture argument IDs are `type_group * texture_count + texture_index`; groups
+0–8 are 2D, 1D, 3D, cube, 1D array, 2D array, cube array, 2D shadow, 2D array
+shadow. Samplers start at ID `9 * texture_count`. Only used image types are
+declared. The Metal buffer binding is still configurable (default 30). This is
+an ABI change; callers must rebuild argument buffers and invalidate old caches.
+
+TEX supports these declared float/depth types, implicit fragment LOD and level
+zero. Array-layer and shadow-reference values occupy the corresponding
+coordinate-register tuple. TEXS/TLDS support 2D single/two-component output
+masks only; three/four-component split destinations are rejected. TLD/TLDS use
+integer coordinates at level zero. TLD4 supports 2D component gather without
+offsets. TXQ supports bound 2D dimension queries only. Explicit LOD, bias,
+multisampling, packed offsets, other query modes and bindless TXQ remain errors.
+
+The CPU texture oracle implements 2D nearest clamp/repeat, level-zero reads,
+component gather and dimension queries. The GPU suite renders an original
+translated ALD/AST vertex shader plus seven fragment programs. A two-texture
+fixture uses separate clamp/repeat samplers and nonuniform texels; gather uses
+all four texels. Other texture types have compiler checks, not numerical GPU
+conformance tests. This distinction is intentional and must not be read as
+hardware-validated native coordinate packing or descriptor compatibility.

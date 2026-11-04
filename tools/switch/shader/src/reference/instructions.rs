@@ -4,6 +4,7 @@ impl Machine {
         use Opcode::*;
         match x.opcode {
             NOP | DEPBAR => Ok(()),
+            TEX | TEXS | TLD | TLDS | TLD4 | TXQ => self.texture(x, m),
             P2R | R2P => self.transfer(x, m),
             FSET | FSETP | ISET | ISETP | PSETP => self.compare(x, m),
             LD | ST | LDG | STG | LDS | STS | LDL | STL | ALD | AST | IPA => self.memory(x, m),

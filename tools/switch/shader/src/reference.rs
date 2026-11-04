@@ -34,6 +34,9 @@ impl Default for Machine {
 }
 #[derive(Debug, Default)]
 pub struct Memory {
+    pub textures: Vec<Texture>,
+    pub samplers: Vec<Sampler>,
+    pub bindings: Vec<crate::texture::Binding>,
     pub global: Vec<u32>,
     pub global_base: u64,
     pub shared: Vec<u32>,
@@ -149,3 +152,6 @@ mod instructions;
 mod memory;
 mod operands;
 mod predicates;
+
+mod textures;
+pub use textures::{Sampler, Texture};
