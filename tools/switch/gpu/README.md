@@ -242,3 +242,19 @@ Other report sizes, timestamps, and report types are rejected. SET_RENDER_ENABLE
 TRUE/FALSE works; memory predicate modes remain explicitly unsupported.
 Six images check 6,144 pixels; the query verifies 1,024 passing samples and excludes
 occluded fragments. The bias check verifies direction, not cross-device bit precision.
+
+## Batching and benchmark
+
+Compatible consecutive draws share a render encoder and command buffer. Attachment
+changes and clears end a pass; CPU upload invalidation and query boundaries also
+flush outstanding GPU work. Disabled scissor explicitly restores the full target.
+Diagnostics include encoder/command-buffer counts, pipeline/depth-state cache hits,
+worker elapsed seconds and draws/second. Caches persist across submissions.
+
+Run `cargo test --offline --test render microbenchmark -- --ignored --nocapture`.
+On Apple M4 Pro, 1,000 warmed draws used one encoder and one command buffer, with
+1,000 pipeline hits and 1,000 depth-state hits: 5,304 draws/second inside the native
+worker (0.189 seconds), or 715 draws/second including Rust preparation, translation,
+resource-file writes and submission (1.398 seconds). Compilation/warmup and final
+readback are excluded from those timings. The final image checks all 1,024 pixels.
+This is a small headless workload, not game performance or GPU-only throughput.

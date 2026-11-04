@@ -37,7 +37,25 @@ final class Worker {
     let root = URL(fileURLWithPath: directory)
     let data = try Data(contentsOf: root.appendingPathComponent("commands.json"))
     guard let commands = try JSONSerialization.jsonObject(with: data) as? [Object] else { throw Failure("invalid command protocol") }
-    var pipelineHits = 0, textureHits = 0, draws = 0, clears = 0
+    var pipelineHits = 0, textureHits = 0, draws = 0, clears = 0, encoderCount = 0, bufferCount = 0, depthHits = 0
+    let started=ProcessInfo.processInfo.systemUptime
+    var cb: MTLCommandBuffer? = nil
+    var activeEncoder: MTLRenderCommandEncoder? = nil
+    var activeKey=""
+    var retainedSamplers=[MTLSamplerState]()
+    func endPass() {activeEncoder?.endEncoding();activeEncoder=nil;activeKey=""}
+    func flush() throws {
+        endPass()
+        if let pending=cb {
+            pending.commit();pending.waitUntilCompleted()
+            try need(pending.status == .completed,"GPU command failed: \(String(describing:pending.error))")
+            cb=nil;retainedSamplers.removeAll()
+        }
+    }
+    func commandBuffer() throws -> MTLCommandBuffer {
+        if cb==nil {cb=queue.makeCommandBuffer();bufferCount += 1}
+        guard let buffer=cb else {throw Failure("command buffer")};return buffer
+    }
     func file(_ name: String) throws -> Data { try Data(contentsOf: root.appendingPathComponent(name)) }
     func buffer(_ name: String) throws -> MTLBuffer {
         let bytes = try file(name)
@@ -51,8 +69,8 @@ final class Worker {
         guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[source] = f; return f
     }
     for command in commands {
-        if command["query_reset"] != nil {occlusion=0;continue}
-        if let key=command["query_report"] as? String {queryValues[key]=UInt32(truncatingIfNeeded:occlusion);continue}
+        if command["query_reset"] != nil {try flush();occlusion=0;continue}
+        if let key=command["query_report"] as? String {try flush();queryValues[key]=UInt32(truncatingIfNeeded:occlusion);continue}
         guard let raw = command["registers"] as? Object, let attachments = command["targets"] as? [Object], let target = attachments.first else { throw Failure("missing state") }
         func r(_ a: Int) -> Int { number(raw,String(a)) }
         func f(_ a: Int) -> Double { Double(Float(bitPattern:UInt32(r(a)))) }
@@ -67,13 +85,13 @@ final class Worker {
         }
         let color = targets[key]!
         if generations[key] != number(target,"generation") {
+            if generations[key] != nil {try flush()}
             let initial = try file(string(target,"file"));try need(initial.count == w*h*number(target,"bytes"),"target initial bytes")
             initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*number(target,"bytes")) }
             generations[key] = number(target,"generation")
         }
             colors.append(color)
         }
-        var retainedSamplers = [MTLSamplerState]()
         let mask = number(command,"clear"), isClear = command["clear"] != nil
         let pass = MTLRenderPassDescriptor()
         for (slot, color) in colors.enumerated() {
@@ -89,6 +107,7 @@ final class Worker {
             let dk = try string(depth,"key")
             depthFormat = [0x19,0x14].contains(number(depth,"format")) ? .depth32Float_stencil8 : (number(depth,"format")==0x13 ? .depth16Unorm : .depth32Float)
             if depthGenerations[dk] != number(depth,"generation") {
+                if depthGenerations[dk] != nil {try flush()}
                 depths.removeValue(forKey:dk)
             }
             if depths[dk] == nil {
@@ -104,10 +123,13 @@ final class Worker {
                 pass.stencilAttachment.clearStencil = UInt32(r(0xda0))
             }
         }
-        guard let cb = queue.makeCommandBuffer() else { throw Failure("command buffer") }
+        let depthKey=(command["depth"] as? Object)?["key"] as? String ?? "none"
+        let passKey=try attachments.map{try string($0,"key")}.joined(separator:"|")+"|"+depthKey
+        if isClear || visibility != nil || activeKey != passKey {endPass()}
+        let current=try commandBuffer()
         if isClear {
             try need(r(0xe00)==0,"scissored clear unsupported")
-            guard let encoder = cb.makeRenderCommandEncoder(descriptor:pass) else { throw Failure("clear encoder") }; encoder.endEncoding();clears += 1
+            guard let encoder = current.makeRenderCommandEncoder(descriptor:pass) else { throw Failure("clear encoder") }; encoderCount += 1; encoder.endEncoding();clears += 1
         } else {
             let pk = try string(command,"pipeline")
             let vs = try function(string(command,"vertex"),"soju_vertex"), fs = try function(string(command,"fragment"),"soju_fragment")
@@ -157,8 +179,11 @@ final class Worker {
                     d.frontFaceStencil = try stencil(false);d.backFaceStencil = try stencil(r(0x1594)==1)
                 }
                 guard let state = device.makeDepthStencilState(descriptor:d) else {throw Failure("depth/stencil state")};depthStates[pk] = state
+            } else {depthHits += 1}
+            if activeEncoder==nil {
+                activeEncoder=current.makeRenderCommandEncoder(descriptor:pass);activeKey=passKey;encoderCount += 1
             }
-            guard let encoder = cb.makeRenderCommandEncoder(descriptor:pass) else {throw Failure("render encoder")}
+            guard let encoder=activeEncoder else {throw Failure("render encoder")}
             if visibility != nil {encoder.setVisibilityResultMode(.counting,offset:0)}
             encoder.setRenderPipelineState(pipelines[pk]!);encoder.setDepthStencilState(depthStates[pk]!)
             let sx=f(0xa00),sy=f(0xa04),sz=f(0xa08),ox=f(0xa0c),oy=f(0xa10),oz=f(0xa14)
@@ -175,7 +200,7 @@ final class Worker {
                 let x=r(0xe04)&65535,y=r(0xe08)&65535,endX=r(0xe04)>>16,endY=r(0xe08)>>16
                 try need(x<endX && y<endY && endX<=w && endY<=h,"invalid scissor")
                 encoder.setScissorRect(MTLScissorRect(x:x,y:y,width:endX-x,height:endY-y))
-            }
+            } else {encoder.setScissorRect(MTLScissorRect(x:0,y:0,width:w,height:h))}
             if r(0x1918) != 0 {
                 switch r(0x1920) {case 0x404:encoder.setCullMode(.front);case 0x405:encoder.setCullMode(.back);default:throw Failure("cull face unsupported")}
             } else {encoder.setCullMode(.none)}
@@ -232,12 +257,13 @@ final class Worker {
                     encoder.drawIndexedPrimitives(type:topology,indexCount:number(segment,"count"),indexType:number(command,"indexSize")==2 ? .uint16 : .uint32,indexBuffer:indices,indexBufferOffset:number(segment,"start")*number(command,"indexSize"),instanceCount:1,baseVertex:number(command,"baseVertex"),baseInstance:number(command,"instance"))
                 }
             }else{encoder.drawPrimitives(type:topology,vertexStart:number(command,"first"),vertexCount:number(command,"count"),instanceCount:1,baseInstance:number(command,"instance"))}
-            encoder.endEncoding();draws += 1
+            draws += 1
         }
-        cb.commit();cb.waitUntilCompleted();withExtendedLifetime(retainedSamplers) {};try need(cb.status == .completed,"GPU command failed: \(String(describing:cb.error))")
-        if let visibility {occlusion &+= visibility.contents().load(as:UInt64.self)}
+        if let visibility {try flush();occlusion &+= visibility.contents().load(as:UInt64.self)}
     }
-    return "device=\(device.name) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
+    try flush()
+    let elapsed=ProcessInfo.processInfo.systemUptime-started
+    return "encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)

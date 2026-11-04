@@ -1317,3 +1317,38 @@ fn raster_extras_and_occlusion_results_match_images() {
     }
     eprintln!("viewport/clip/point/restart/divisor/bias/query: checked=6144; occlusion=1024");
 }
+
+#[test]
+#[ignore = "explicit throughput measurement"]
+fn microbenchmark_cached_draws() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("benchmark", [0., 0., 0., 1.]);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [0.25, 0.5, 0.75, 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/benchmark");
+    h.backend.submit(&root).unwrap().wait().unwrap();
+    const DRAWS: u32 = 1000;
+    let started = std::time::Instant::now();
+    for _ in 0..DRAWS {
+        h.draw(&mut e, 6, false, false);
+    }
+    let diagnostic = h.backend.submit(&root).unwrap().wait().unwrap();
+    let elapsed = started.elapsed().as_secs_f64();
+    assert!(
+        diagnostic.contains("encoders=1 command_buffers=1"),
+        "{diagnostic}"
+    );
+    assert!(diagnostic.contains("pipeline_hits=1000"), "{diagnostic}");
+    assert!(diagnostic.contains("depth_hits=1000"), "{diagnostic}");
+    let report = h.backend.readback(&root, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 1);
+    assert!(report.images[0]
+        .rgba
+        .chunks_exact(4)
+        .all(|p| p == [64, 128, 191, 255]));
+    eprintln!("benchmark {DRAWS} draws: end_to_end_seconds={elapsed:.6} end_to_end_draws_per_second={:.1}; {diagnostic}; checked=1024",DRAWS as f64/elapsed);
+}
