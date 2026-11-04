@@ -172,7 +172,7 @@ extension Commander {
             let signature=interior ? "creep":"creep-edge-\(edge)"
             if creepNodes[index]?.name==signature {continue}
             creepNodes.removeValue(forKey:index)?.removeFromParentNode()
-            let material=interior ? worldSprites.creepMaterial(tileset:tileset,index:(x*7+y*13)%16):worldSprites.creepEdgeMaterial(tileset:tileset,frame:edge)
+            let material=interior ? worldSprites.creepMaterial(tileset:tileset,index:x*7+y*13):worldSprites.creepEdgeMaterial(tileset:tileset,frame:edge)
             if let material=material {
                 let node=SCNNode(geometry:ground.geometry(tileX:x,tileY:y,material:material))
                 node.position=SCNVector3(Double(x),0,Double(y));node.name=signature;node.castsShadow=false
