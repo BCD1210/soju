@@ -444,7 +444,10 @@ final class MetalBatches {
         guard stereoColor != nil,stereoDepth != nil,depthViews.count==2 else {throw SceneError.invalid("Stereo texture residency limit")}
         stereoPass.stencilAttachment.texture=stereoDepth
         stereoPass.stencilAttachment.loadAction = .clear;stereoPass.stencilAttachment.storeAction = .store
-        guard ready else {return}
+        guard ready else {
+            command.makeRenderCommandEncoder(descriptor:stereoPass)?.endEncoding()
+            return
+        }
         os_signpost(.begin,log:XRFrameMetrics.log,name:"GPU ring wait")
         available.wait()
         os_signpost(.end,log:XRFrameMetrics.log,name:"GPU ring wait")
@@ -461,14 +464,14 @@ final class MetalBatches {
         visibilityLock.lock()
         let occlusionValid=lastVisibilityFrame>=0 && simd_equal(vp,visibleVP) && simd_equal(rightVP,visibleRightVP) && frame%30 != 0
         for i in visibleNow.indices {visibleNow[i]=visibleLast[i]}
-        let epoch=visibilityEpoch,submittedFrame=frame
+        let epoch=visibilityEpoch,submittedFrame=frame,queryCount=batches.count
         visibilityLock.unlock()
         command.addCompletedHandler { [weak self,available] completed in
             defer {available.signal()}
             guard completed.status == .completed,let self=self else {return}
             self.visibilityLock.lock();defer{self.visibilityLock.unlock()}
             guard epoch==self.visibilityEpoch,submittedFrame>self.lastVisibilityFrame else {return}
-            let result=query.contents().bindMemory(to:UInt64.self,capacity:self.batches.count)
+            let result=query.contents().bindMemory(to:UInt64.self,capacity:queryCount)
             for i in self.visibleLast.indices {self.visibleLast[i]=result[i]>0}
             self.visibleVP=vp;self.visibleRightVP=rightVP;self.lastVisibilityFrame=submittedFrame
         }
