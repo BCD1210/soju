@@ -13,7 +13,15 @@ On OXRSys, a fresh title-screen A/Start posts Enter to the game window only whil
 TitleScreenPanel is open. A release gate prevents that press carrying into Play.
 A black projection background makes OXRSys stream quad-only menus. During loading,
 the in-process virtual pad returns neutral controls instead of disconnecting;
-external BodyWalk writers retain their timeout. Regression tests cover all three.
+external BodyWalk writers retain their timeout.
+
+The UI thread restores native controller layout on the front end. A VR Play/New
+strip maps stick-right/A to native Start, and the name screen has a stick/A keyboard
+with X erase, Y case and native B back. Screen changes consume held buttons.
+Keyboard events use the game's window thread and TranslateMessage with scoped
+modifier state; they never activate the desktop window. Physical typing stays on
+the original input path. Front-end, native-panel, composition and atlas tests cover
+the portable state and layout rules; name entry is also verified live.
 
 ## Rebuild
 

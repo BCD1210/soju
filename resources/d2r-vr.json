@@ -43,10 +43,10 @@
   },
   "mod_patch": {
     "url": "https://github.com/BCD1210/soju/releases/download/vr-mod-v1/d2rl-pcvr-soju.dll",
-    "size": 15562752,
-    "sha256": "6bb382c8bb567959120ae39d69c66b97cde67778685a88b9358dc3e158db3f70",
+    "size": 15577088,
+    "sha256": "5d88447228efcc7d51288909c252fe0719318bacd6be92a8ef5ae18c9d41812a",
     "patch": "patches/d2r-pcvr/vr-character-create.patch",
-    "patch_sha256": "ff944f52f33baa3a002ca26f0f74f2978f593ee78a79b231dfaf073abda72dd3",
+    "patch_sha256": "7317ee23b03238b8bff580352d1648da040fccca7cf68d9e9fc3c227994acbbb",
     "base_commit": "70ad0e665952f1bd829176ba461a85ebb974c3f0",
     "source_url": "https://github.com/bearstonem/d2r-pcvr/tree/70ad0e665952f1bd829176ba461a85ebb974c3f0",
     "license": "MPL-2.0; source patch and license in patches/d2r-pcvr; rebuild with scripts/build-vr-mod.py"
