@@ -101,8 +101,9 @@ final class CommandCard {
             result.append(CommandChoice(cloaked ? "Decloak":"Cloak",["op":"ability","action":cloaked ? "decloak":"cloak"]))
         }
         if [11,42,69,125].contains(kind) {result += [CommandChoice("Load",["op":"load"],.unit),CommandChoice("Unload all",["op":"unload"])]}
-        if building {result += [CommandChoice("Cancel train",["op":"cancel","action":"train"]),
-            CommandChoice("Cancel research",["op":"cancel","action":"research"]),CommandChoice("Cancel upgrade",["op":"cancel","action":"upgrade"])]}
+        if building && (unit["buildQueue"] as? [Int] ?? []).contains(where:{$0<228}) {result.append(CommandChoice("Cancel train",["op":"cancel","action":"train"]))}
+        if building && number(unit,"order")==75 {result.append(CommandChoice("Cancel research",["op":"cancel","action":"research"]))}
+        if building && number(unit,"order")==76 {result.append(CommandChoice("Cancel upgrade",["op":"cancel","action":"upgrade"]))}
         if unit["completed"] as? Bool == false {result.append(CommandChoice("Cancel construction",["op":"cancel","action":"construction"]))}
         if [36,59,97].contains(kind) {result.append(CommandChoice("Cancel morph",["op":"cancel","action":"morph"]))}
         let hotkeys=["move":"M","attack_move":"A","stop":"S","hold":"H","patrol":"P","gather":"G","repair":"R","rally":"R","return_cargo":"C","lift":"L","land":"L","select_larvae":"S"]
