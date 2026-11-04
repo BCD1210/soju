@@ -44,13 +44,13 @@ final class MetalBatches {
         guard device.supportsVertexAmplificationCount(2) else {throw SceneError.invalid("Two-view vertex amplification unavailable")}
         let samples=xrRequested ? 1:4;self.samples=samples
         self.device=device;loader=MTKTextureLoader(device:device);queue=device.makeCommandQueue()!
-        func solid(_ rgba:[UInt8])->MTLTexture {
+        func solid(_ rgba:[UInt8])throws->MTLTexture {
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
-            let t=device.makeTexture(descriptor:d)!
+            guard let t=TextureResidency.shared.make(device,d) else {throw SceneError.invalid("Solid texture residency limit")}
             rgba.withUnsafeBytes{t.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4)}
             return t
         }
-        white=solid([255,255,255,255]);black=solid([0,0,0,255]);normal=solid([128,128,255,255])
+        white=try solid([255,255,255,255]);black=try solid([0,0,0,255]);normal=try solid([128,128,255,255])
         let library=try device.makeLibrary(source:Self.shader,options:nil)
         func makePipeline(_ mode:UInt32)throws->MTLRenderPipelineState {
             let shadow=mode==0 || mode==3
@@ -105,7 +105,7 @@ final class MetalBatches {
         let key=String(describing:ObjectIdentifier(image))+"/\(topLeft)"
         if let cached=textures.get(key) {return cached.1}
         guard let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {return fallback}
-        let t=Self.colorView(try loader.newTexture(cgImage:Self.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:topLeft ? MTKTextureLoader.Origin.topLeft:MTKTextureLoader.Origin.bottomLeft]))
+        let t=Self.colorView(try TextureResidency.shared.load(loader,Self.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:topLeft ? MTKTextureLoader.Origin.topLeft:MTKTextureLoader.Origin.bottomLeft]))
         textures.insert((image,t),key:key,bytes:Self.textureBytes(t));return t
     }
     func mesh(_ geometry:SCNGeometry,transform:simd_float4x4=matrix_identity_float4x4,slice:Float=0,uvTransform:SCNMatrix4=SCNMatrix4Identity)->([Vertex],[UInt32]) {
@@ -156,11 +156,11 @@ final class MetalBatches {
             guard let first=nodes.first?.geometry?.firstMaterial?.diffuse.contents as? MTLTexture else {continue}
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:first.pixelFormat,width:first.width,height:first.height,mipmapped:true)
             d.textureType = .type2DArray;d.arrayLength=nodes.count;d.storageMode = .private;d.usage = .shaderRead
-            let array=device.makeTexture(descriptor:d)!
+            guard let array=TextureResidency.shared.make(device,d) else {throw SceneError.invalid("Terrain texture residency limit")}
             let firstMask=try texture(nodes[0].geometry?.firstMaterial?.multiply.contents,fallback:white)
             let fd=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:firstMask.width,height:firstMask.height,mipmapped:false)
             fd.textureType = .type2DArray;fd.arrayLength=nodes.count;fd.storageMode = .private;fd.usage = .shaderRead
-            let fog=device.makeTexture(descriptor:fd)!
+            guard let fog=TextureResidency.shared.make(device,fd) else {throw SceneError.invalid("Fog texture residency limit")}
             let command=queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
             var vertices=[Vertex](),indices=[UInt32]()
             for (slice,node) in nodes.enumerated() {
@@ -237,17 +237,18 @@ final class MetalBatches {
         ready=true
         fputs("Metal batches ready: \(batches.count) draws, \(commander.nodes.count) objects\n",stderr)
     }
-    func renderOverlay(renderer:SCNRenderer,command:MTLCommandBuffer,output:MTLTexture,camera:SCNNode,eye:Int,time:Double) {
+    func renderOverlay(renderer:SCNRenderer,command:MTLCommandBuffer,output:MTLTexture,camera:SCNNode,eye:Int,time:Double)throws {
         guard depthViews.indices.contains(eye) else {return}
         let depth=depthViews[eye]
         camera.camera?.categoryBitMask=3
         if overlayColor?.width != output.width || overlayColor?.height != output.height {
             let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm_srgb,width:output.width,height:output.height,mipmapped:false)
             descriptor.usage=[.renderTarget,.shaderRead];descriptor.storageMode = .private
-            overlayResolved=device.makeTexture(descriptor:descriptor)
-            if samples>1 {descriptor.textureType = .type2DMultisample;descriptor.sampleCount=samples;descriptor.usage = .renderTarget;overlayColor=device.makeTexture(descriptor:descriptor)}
+            overlayResolved=TextureResidency.shared.make(device,descriptor)
+            if samples>1 {descriptor.textureType = .type2DMultisample;descriptor.sampleCount=samples;descriptor.usage = .renderTarget;overlayColor=TextureResidency.shared.make(device,descriptor)}
             else {overlayColor=overlayResolved}
         }
+        guard overlayColor != nil,overlayResolved != nil else {throw SceneError.invalid("Overlay texture residency limit")}
         let pass=overlayPass
         pass.colorAttachments[0].texture=overlayColor;pass.colorAttachments[0].clearColor=MTLClearColorMake(0,0,0,0);pass.colorAttachments[0].loadAction = .clear;pass.colorAttachments[0].storeAction = samples>1 ? .multisampleResolve:.store
         pass.colorAttachments[0].resolveTexture=samples>1 ? overlayResolved:nil
@@ -270,15 +271,15 @@ final class MetalBatches {
         while let current=parent {value*=Float(current.opacity);parent=current.parent}
         return value
     }
-    func render(command:MTLCommandBuffer,output:MTLTexture,camera:SCNNode,eye:SIMD3<Float>,rightTransform:simd_float4x4,rightProjection:simd_float4x4) {
+    func render(command:MTLCommandBuffer,output:MTLTexture,camera:SCNNode,eye:SIMD3<Float>,rightTransform:simd_float4x4,rightProjection:simd_float4x4)throws {
         if stereoResolved?.width != output.width || stereoResolved?.height != output.height {
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm_srgb,width:output.width,height:output.height,mipmapped:false)
             d.textureType = .type2DArray;d.arrayLength=2;d.storageMode = .private;d.usage = [.renderTarget,.shaderRead]
-            stereoResolved=device.makeTexture(descriptor:d)
+            stereoResolved=TextureResidency.shared.make(device,d)
             d.usage = .renderTarget
-            if samples>1 {d.textureType = .type2DMultisampleArray;d.sampleCount=samples;stereoColor=device.makeTexture(descriptor:d)}
+            if samples>1 {d.textureType = .type2DMultisampleArray;d.sampleCount=samples;stereoColor=TextureResidency.shared.make(device,d)}
             else {stereoColor=stereoResolved}
-            d.pixelFormat = .depth32Float_stencil8;stereoDepth=device.makeTexture(descriptor:d)
+            d.pixelFormat = .depth32Float_stencil8;stereoDepth=TextureResidency.shared.make(device,d)
             depthViews=(0..<2).compactMap {eye in stereoDepth?.makeTextureView(pixelFormat:.depth32Float_stencil8,textureType:samples>1 ? .type2DMultisample:.type2D,levels:0..<1,slices:eye..<(eye+1))}
             stereoPass.renderTargetArrayLength=2
             stereoPass.colorAttachments[0].texture=stereoColor;stereoPass.colorAttachments[0].resolveTexture=samples>1 ? stereoResolved:nil
@@ -286,6 +287,7 @@ final class MetalBatches {
             stereoPass.colorAttachments[0].clearColor=MTLClearColorMake(0.0019349845,0.0027089783,0.0039359395,1)
             stereoPass.depthAttachment.texture=stereoDepth;stereoPass.depthAttachment.loadAction = .clear;stereoPass.depthAttachment.storeAction = .store;stereoPass.depthAttachment.clearDepth=1
         }
+        guard stereoColor != nil,stereoDepth != nil,depthViews.count==2 else {throw SceneError.invalid("Stereo texture residency limit")}
         stereoPass.stencilAttachment.texture=stereoDepth
         stereoPass.stencilAttachment.loadAction = .clear;stereoPass.stencilAttachment.storeAction = .store
         guard ready else {return}

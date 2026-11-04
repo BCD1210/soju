@@ -43,18 +43,19 @@ final class DesktopMetal:NSObject,MTKViewDelegate {
             projection.columns.3=SIMD4<Float>(0,0,-2*far*near/(far-near),0)
         }
         camera.camera!.projectionTransform=SCNMatrix4(projection)
-        do {try batches.prepare(commander)}
-        catch {fputs("Desktop batches: \(error)\n",stderr);return}
-        batches.render(command:command,output:drawable.texture,camera:camera,eye:camera.simdWorldPosition,rightTransform:camera.simdWorldTransform,rightProjection:projection)
+        do {
+        try batches.prepare(commander)
+        try batches.render(command:command,output:drawable.texture,camera:camera,eye:camera.simdWorldPosition,rightTransform:camera.simdWorldTransform,rightProjection:projection)
         batches.copyEye(command:command,to:drawable.texture,eye:0)
-        batches.renderOverlay(renderer:overlay,command:command,output:drawable.texture,camera:camera,eye:0,time:CACurrentMediaTime())
+        try batches.renderOverlay(renderer:overlay,command:command,output:drawable.texture,camera:camera,eye:0,time:CACurrentMediaTime())
+        } catch {command.commit();fputs("Desktop batches: \(error)\n",stderr);return}
         let index=commander.captureFrames.reserve(),manual=requestedCapture
         requestedCapture=nil
         if index != nil || manual != nil {
             let metadata=commander.desktopCaptureMetadata()
             let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:drawable.texture.pixelFormat,width:drawable.texture.width,height:drawable.texture.height,mipmapped:false)
             descriptor.usage = .shaderRead;descriptor.storageMode = .private
-            guard let texture=commander.art.device.makeTexture(descriptor:descriptor),let blit=command.makeBlitCommandEncoder() else {command.present(drawable);command.commit();return}
+            guard let texture=TextureResidency.shared.make(commander.art.device,descriptor),let blit=command.makeBlitCommandEncoder() else {command.present(drawable);command.commit();return}
             blit.copy(from:drawable.texture,to:texture);blit.endEncoding()
             command.addCompletedHandler { [weak self] completed in
                 guard completed.status == .completed,let self=self,
