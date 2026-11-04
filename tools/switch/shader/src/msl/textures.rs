@@ -164,9 +164,6 @@ impl Emitter<'_> {
         if !scalar && x.opcode != TXQ && is_bound.is_some() && register_operand(x, 2)? != 255 {
             return Err(x.error("auxiliary texture operands unsupported"));
         }
-        if scalar && !matches!(x.operands.first(), Some(Operand::Register(255))) {
-            return Err(x.error("TEXS/TLDS currently support one/two-component destinations only"));
-        }
         let lod_zero = match x.opcode {
             TLD | TLDS => true,
             TEXS => bits(x.raw, 53, 4) == 2,
@@ -228,17 +225,28 @@ impl Emitter<'_> {
             "bindless"
         };
         let mut s=format!("uint handle = {handle};\nuint2 pair = soju_{lookup}(handle);\nhandle = pair.x;\n{}4 texel = {{}};\nif (pair.x < {}u && pair.y < {}u) texel = {expr};\n",if x.opcode==TXQ {"uint"} else {"float"},self.options.texture_count,self.options.texture_count);
-        let mask = if scalar {
+        let split = scalar && register_operand(x, 0)? != 255;
+        let mask = if split {
+            *[7u32, 11, 13, 14, 15]
+                .get(bits(x.raw, 50, 3) as usize)
+                .ok_or_else(|| x.error("reserved split texture component mask"))?
+        } else if scalar {
             [1, 2, 4, 8, 3, 9, 10, 12][bits(x.raw, 50, 3) as usize]
         } else {
             bits(x.raw, 31, 4)
         };
         let mut dest = u32::from(register_operand(x, usize::from(scalar))?);
-        if dest + mask.count_ones() > 256 {
+        if dest + if split { 2 } else { mask.count_ones() } > 256
+            || (split && u32::from(register_operand(x, 0)?) + mask.count_ones() - 2 > 256)
+        {
             return Err(x.error("texture destination range overflow"));
         }
+        let mut written = 0;
         for c in 0..4 {
             if mask & (1 << c) != 0 {
+                if split && written == 2 {
+                    dest = u32::from(register_operand(x, 0)?);
+                }
                 if dest != 255 {
                     writeln!(
                         s,
@@ -253,6 +261,7 @@ impl Emitter<'_> {
                     .unwrap();
                 }
                 dest += 1;
+                written += 1;
             }
         }
         Ok(s)

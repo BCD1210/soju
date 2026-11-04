@@ -443,3 +443,53 @@ fn release_semaphore_stages_payload_after_counted_completion() {
             .is_err()
     );
 }
+
+#[test]
+fn graphics_inline_upload_flush_profiles_stage_without_early_publication() {
+    let mut f = Fixture::new();
+    let (fd, space, va) = f.setup();
+    let access = submit::Access {
+        space: &f.nv.spaces[&space],
+        memory: &f.memory,
+    };
+    for class in [0xb197, 0xa140] {
+        for flags in [1, 0x11, 0x41, 0x51] {
+            let stream = methods(&[
+                (0, class),
+                (0x180, 4),
+                (0x184, 1),
+                (0x188, ((va + 0x10000) >> 32) as u32),
+                (0x18c, (va + 0x10000) as u32),
+                (0x190, 0),
+                (0x1b0, flags),
+                (0x1b4, 0x12345678),
+            ]);
+            let (writes, count) = Renderer::default()
+                .submit(&stream, fd, Some(0), &access, &[])
+                .unwrap();
+            assert_eq!(count, 0);
+            assert!(
+                writes
+                    .iter()
+                    .any(|w| w.address == crate::kernel::HEAP + 0x10000
+                        && w.bytes[..4] == 0x12345678u32.to_le_bytes())
+            );
+        }
+        assert!(
+            Renderer::default()
+                .submit(
+                    &methods(&[(0, class), (0x1b0, 0x21)]),
+                    fd,
+                    None,
+                    &access,
+                    &[]
+                )
+                .is_err()
+        );
+    }
+    let mut original = [0; 4];
+    f.memory
+        .read(crate::kernel::HEAP + 0x10000, &mut original)
+        .unwrap();
+    assert_eq!(original, [0; 4]);
+}

@@ -237,3 +237,164 @@ fn deko_example03_matches_source_cube() {
     eprintln!("Example03: {checked} source-derived pixel checks");
     fs::remove_dir_all(home).unwrap();
 }
+#[test]
+#[ignore = "requires a signed runner and local devkitPro examples"]
+fn deko_example04_matches_source_texture() {
+    let runner = std::env::var_os("SOJU_SWITCH_GPU_TEST_RUNNER").expect("signed runner path");
+    let nro = std::env::var_os("SOJU_SWITCH_GPU_TEST_NRO").expect("local deko_examples NRO");
+    let output =
+        PathBuf::from(std::env::var_os("SOJU_SWITCH_GPU_TEST_OUTPUT").expect("capture directory"));
+    fs::create_dir_all(&output).unwrap();
+    let home = output.join(format!("texture-home-{}", std::process::id()));
+    fs::create_dir(&home).unwrap();
+    let input = home.join("inputs.json");
+    fs::write(
+        &input,
+        r#"[{"at_ms":100,"buttons":32768},{"at_ms":200,"buttons":0},{"at_ms":300,"buttons":32768},{"at_ms":400,"buttons":0},{"at_ms":500,"buttons":32768},{"at_ms":600,"buttons":0},{"at_ms":700,"buttons":1}]"#,
+    )
+    .unwrap();
+    let capture = output.join("deko-example04.png");
+    let result = Command::new(runner)
+        .env("SOJU_SWITCH_HOME", &home)
+        .env("SOJU_SWITCH_GPU", "metal")
+        .env("SOJU_SWITCH_TRACE_GPU", "1")
+        .env("SOJU_GPU_ASYNC_PIPELINES", "0")
+        .arg("--headless")
+        .arg(nro)
+        .args(["--frames", "1", "--warmup-ms", "1000", "--capture"])
+        .arg(&capture)
+        .arg("--inputs")
+        .arg(input)
+        .output()
+        .unwrap();
+    fs::write(
+        output.join("deko-example04.log"),
+        [&result.stdout[..], &result.stderr[..]].concat(),
+    )
+    .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&result.stderr)
+            .contains("gpu-status|0xb197|0x0d78|0x00000018|handled")
+    );
+    let mut reader = png::Decoder::new(BufReader::new(fs::File::open(capture).unwrap()))
+        .read_info()
+        .unwrap();
+    let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut pixels).unwrap();
+    assert_eq!(
+        (info.width, info.height, info.color_type),
+        (1280, 720, png::ColorType::Rgba)
+    );
+    let texture = decode_bc1(
+        &fs::read(std::env::var_os("SOJU_SWITCH_GPU_TEST_BC1").expect("local example BC1 path"))
+            .unwrap(),
+    );
+    assert!(
+        String::from_utf8_lossy(&result.stderr)
+            .contains("gpu-status|0xb0b5|0x0300|0x00000286|handled")
+    );
+    let mut interior = 0;
+    let mut checked = 0;
+    for (i, p) in pixels[..info.buffer_size()].chunks_exact(4).enumerate() {
+        let (x, y) = (i % 1280, i / 1280);
+        // At the initial source pose: scale .5, translate Z=-3, front Z=.5,
+        // vertical FOV 40 degrees. The +Z quad covers this projected square.
+        let half = 72. / (20f64.to_radians().tan());
+        let u = (x as f64 + 0.5 - (640. - half)) / (2. * half);
+        let v = (y as f64 + 0.5 - (360. - half)) / (2. * half);
+        let edge = u.min(v).min(1. - u).min(1. - v);
+        if edge.abs() < 0.008 {
+            continue;
+        }
+        let expected = if edge > 0. {
+            let tx = (u * 256. - 0.5).clamp(0., 255.);
+            let ty = (v * 256. - 0.5).clamp(0., 255.);
+            let (ix, iy) = (tx.floor() as usize, ty.floor() as usize);
+            let neighbors = [
+                texture[iy * 256 + ix],
+                texture[iy * 256 + (ix + 1).min(255)],
+                texture[(iy + 1).min(255) * 256 + ix],
+                texture[(iy + 1).min(255) * 256 + (ix + 1).min(255)],
+            ];
+            // Exclude sharp texel transitions: tiny initial source animation changes sampling.
+            if (0..3).any(|c| {
+                neighbors.iter().map(|p| p[c]).max().unwrap()
+                    - neighbors.iter().map(|p| p[c]).min().unwrap()
+                    > 24
+            }) {
+                continue;
+            }
+            interior += 1;
+            std::array::from_fn(|c| {
+                let fx = tx - ix as f64;
+                let fy = ty - iy as f64;
+                ((neighbors[0][c] as f64 * (1. - fx) + neighbors[1][c] as f64 * fx) * (1. - fy)
+                    + (neighbors[2][c] as f64 * (1. - fx) + neighbors[3][c] as f64 * fx) * fy)
+                    .round() as u8
+            })
+        } else {
+            [0, 0, 0, 0]
+        };
+        assert!(
+            p.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 6),
+            "pixel ({x},{y}) {p:?} != {expected:?}"
+        );
+        checked += 1;
+    }
+    assert!(checked > 800_000);
+    assert!(interior > 30_000);
+    eprintln!("Example04: {checked} source-derived pixel checks");
+    fs::remove_dir_all(home).unwrap();
+}
+
+fn decode_bc1(bytes: &[u8]) -> Vec<[u8; 4]> {
+    assert_eq!(bytes.len(), 32768);
+    let mut image = vec![[0; 4]; 256 * 256];
+    for (i, block) in bytes.chunks_exact(8).enumerate() {
+        let a = u16::from_le_bytes(block[..2].try_into().unwrap());
+        let b = u16::from_le_bytes(block[2..4].try_into().unwrap());
+        let rgb = |v: u16| {
+            let r = (v >> 11) as u8;
+            let g = ((v >> 5) & 63) as u8;
+            let b = (v & 31) as u8;
+            [
+                (r << 3) | (r >> 2),
+                (g << 2) | (g >> 4),
+                (b << 3) | (b >> 2),
+                255,
+            ]
+        };
+        let mut palette = [rgb(a), rgb(b), [0; 4], [0; 4]];
+        palette[2] = std::array::from_fn(|c| {
+            if c == 3 {
+                255
+            } else if a > b {
+                ((2 * palette[0][c] as u16 + palette[1][c] as u16) / 3) as u8
+            } else {
+                ((palette[0][c] as u16 + palette[1][c] as u16) / 2) as u8
+            }
+        });
+        palette[3] = std::array::from_fn(|c| {
+            if a <= b {
+                0
+            } else if c == 3 {
+                255
+            } else {
+                ((palette[0][c] as u16 + 2 * palette[1][c] as u16) / 3) as u8
+            }
+        });
+        let indices = u32::from_le_bytes(block[4..].try_into().unwrap());
+        for y in 0..4 {
+            for x in 0..4 {
+                image[(i / 64 * 4 + y) * 256 + i % 64 * 4 + x] =
+                    palette[((indices >> (2 * (y * 4 + x))) & 3) as usize];
+            }
+        }
+    }
+    image
+}

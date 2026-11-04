@@ -7,12 +7,13 @@ use soju_switch_shader::{
 };
 
 pub(super) fn register(
-    registers: &soju_switch_gpu::engine::Registers,
+    snapshot: &soju_switch_gpu::engine::Snapshot,
     memory: &Memory,
     mappings: &[(u64, u64, Vec<u8>)],
     backend: &mut Backend,
 ) -> Result<(), Error> {
-    for stage in [0x2044, 0x2144] {
+    let registers = &snapshot.registers;
+    for (stage, group_register) in [(0x2044, 0x2050), (0x2144, 0x2150)] {
         let address = registers
             .address(0x1608)
             .checked_add(u64::from(registers.get(stage)))
@@ -35,12 +36,65 @@ pub(super) fn register(
                 eprintln!("gpu-instruction|{:?}", item.instruction);
             }
         }
+        let mut texture_bindings = Vec::new();
+        for decoded in soju_switch_shader::decoder::decode(&bytes[80..size])
+            .map_err(|e| Error::Message(e.to_string()))?
+        {
+            let instruction = decoded.instruction;
+            if matches!(
+                instruction.opcode,
+                Opcode::TEX | Opcode::TLD | Opcode::TLD4 | Opcode::TXQ
+            ) {
+                return Err(Error::Malformed(
+                    "texture instruction handle discovery unsupported",
+                ));
+            }
+            if !matches!(instruction.opcode, Opcode::TEXS | Opcode::TLDS) {
+                continue;
+            }
+            let Some(soju_switch_shader::decoder::Operand::Immediate(handle)) =
+                instruction.operands.get(4)
+            else {
+                return Err(Error::Malformed(
+                    "dynamic texture handle discovery unsupported",
+                ));
+            };
+            let group = registers.get(group_register) as usize;
+            let slot = registers.get(0x2608) as usize;
+            let binding = snapshot
+                .constants
+                .get(group)
+                .and_then(|g| g.get(slot))
+                .copied()
+                .flatten()
+                .ok_or(Error::Malformed("unbound texture handle cbuf"))?;
+            let offset = handle
+                .checked_mul(4)
+                .ok_or(Error::Malformed("texture handle offset"))?;
+            if offset.checked_add(4).is_none_or(|end| end > binding.size) {
+                return Err(Error::Malformed("texture handle exceeds cbuf"));
+            }
+            let packed = u32::from_le_bytes(
+                memory
+                    .read(binding.address + u64::from(offset), 4)
+                    .map_err(gpu_error)?
+                    .try_into()
+                    .unwrap(),
+            );
+            texture_bindings.push(soju_switch_shader::texture::Binding {
+                handle: soju_switch_shader::texture::Handle::Bound(*handle),
+                texture_index: packed & 0xfffff,
+                sampler_index: packed >> 20,
+                texture_type: soju_switch_shader::texture::TextureType::D2,
+            });
+        }
         backend
             .program(
                 address,
                 size,
                 Options {
                     texture_count: 16,
+                    texture_bindings,
                     ..Options::default()
                 },
             )

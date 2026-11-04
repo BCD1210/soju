@@ -281,6 +281,7 @@ dependencies = [
  "soju-switch-gpu",
  "soju-switch-input",
  "soju-switch-shader",
+ "soju-switch-texture",
 ]
 
 [[package]]

@@ -101,3 +101,17 @@ Single-layer ZT_ARRAY_PITCH does not change the selected layer's address.
 Discard provenance: devkitPro/deko3d `source/maxwell/engine_3d.def` (word 0x3de),
 `source/maxwell/gpu_3d_base.cpp`, `dkCmdBufDiscardDepthStencil`.
 https://github.com/devkitPro/deko3d/blob/master/source/maxwell/gpu_3d_base.cpp
+
+## Example04 transfers and texture descriptors
+
+B0B5 `0400`–`041c`, `0700`–`0720`, `0728`–`073c` configure checked virtual
+addresses, pitches, remaps and block-linear geometry; `0300` launches copies.
+Unknown methods, physical addresses, semaphores, reductions, nonidentity remaps
+and unsupported 3D layouts reject before destination publication.
+B197 inline `0180/0184/0188/018c/0190/01b0/01b4` uses isolated upload state.
+
+Sources: NVIDIA `classes/dma-copy/clb0b5.h`, `classes/3d/clb197tex.h`,
+deko3d public header `dkMakeImageHandle`/`dkMakeSamplerHandle` (20-bit image
+index and upper sampler index), and pinned envytools `tabd200_2` split TEXS
+component masks. Native tests check distinct RGBA components; copied texture
+bytes are validated separately with origins, padding and overlapping ranges.

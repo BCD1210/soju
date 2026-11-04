@@ -51,12 +51,19 @@ impl Tic {
             "unsupported TIC address fields",
         )?;
         require(
-            w[3] & !0x08000038 == 0 && (w[3] >> 3) & 7 <= 5,
-            "TIC mips/depth/tile mode unsupported",
+            w[3] & !0x08070038 == 0 && (w[3] >> 3) & 7 <= 5,
+            &format!("TIC mips/depth/tile mode unsupported: {w:08x?}"),
         )?;
+        let mut w4 = w[4];
+        if w4 >> 29 == 7 {
+            w4 &= !(7 << 29);
+        }
         require(
-            w[4] & !0x40ffff == 1 << 23 && w[5] & !0xffff == 1 << 31 && w[6] == 0 && w[7] == 0,
-            "TIC requires normalized 2D single mip",
+            w4 & !0x1840ffff == 1 << 23
+                && w[5] & !0xffff == 1 << 31
+                && matches!(w[6], 0 | 0x03000000)
+                && w[7] == 0,
+            &format!("TIC requires normalized 2D single mip: {w:08x?}"),
         )?;
         let width = (w[4] & 65535) + 1;
         let height = (w[5] & 65535) + 1;
@@ -111,7 +118,7 @@ impl Tsc {
         let w = words(bytes)?;
         let (u, v, p) = (w[0] & 7, (w[0] >> 3) & 7, (w[0] >> 6) & 7);
         require(
-            u <= 2 && v <= 2 && p <= 2 && w[0] & !511 == 0,
+            u <= 2 && v <= 2 && p <= 2 && matches!(w[0] & !511, 0 | 0x26400),
             "TSC wrap/compare/aniso unsupported",
         )?;
         let mag = w[1] & 7;
@@ -119,8 +126,9 @@ impl Tsc {
         require(
             matches!(mag, 1 | 2)
                 && matches!(min, 1 | 2)
-                && w[1] & !0x37 == 0x40
-                && w[2..].iter().all(|x| *x == 0),
+                && matches!(w[1] & !0x37, 0x40 | 0x340)
+                && matches!(w[2], 0 | 0x00f00000)
+                && w[3..].iter().all(|x| *x == 0),
             "TSC requires point/linear, no mip/LOD/border overrides",
         )?;
         Ok(Self {

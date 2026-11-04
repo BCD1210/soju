@@ -2632,3 +2632,87 @@ fn nonindexed_quad_expands_to_two_triangles() {
         .all(|p| p == [255, 0, 0, 255]));
     std::fs::remove_dir_all(directory).unwrap();
 }
+
+#[test]
+fn split_texs_exports_four_distinct_components() {
+    let mut h = Harness::new();
+    let mut header = [0u32; 20];
+    header[0] = 2 | (5 << 10);
+    header[18] = 15;
+    let code = [
+        0x010000000000f000 | PT | 4 | (u64::from(0.5f32.to_bits()) << 20),
+        0x010000000000f000 | PT | 5 | (u64::from(0.5f32.to_bits()) << 20),
+        0xd000000000000000 | PT | (4 << 8) | (5 << 20) | (2 << 28) | (1 << 53) | (4 << 50),
+        0xe30000000000000f | PT,
+    ];
+    let mut binary: Vec<u8> = header.into_iter().flat_map(u32::to_le_bytes).collect();
+    for chunk in code.chunks(3) {
+        binary.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for word in chunk {
+            binary.extend(word.to_le_bytes());
+        }
+    }
+    let fs = h.program(binary);
+    let (mut e, _) = h.engine("split-texs", [0.; 4]);
+    let surface = Surface {
+        width: 8,
+        height: 8,
+        depth: 1,
+        bytes_per_block: 4,
+        block_height_log2: 1,
+        block_depth_log2: 0,
+    };
+    let tex = h.alloc(surface.swizzle(&[51u8, 102, 153, 204].repeat(64)).unwrap());
+    let words = [
+        8 | (2 << 7)
+            | (2 << 10)
+            | (2 << 13)
+            | (2 << 16)
+            | (2 << 19)
+            | (3 << 22)
+            | (4 << 25)
+            | (5 << 28),
+        tex as u32,
+        3 << 21,
+        (1 << 3) | 0x70000,
+        (1 << 23) | 7 | 0xe8000000,
+        (1 << 31) | 7,
+        0x03000000,
+        0,
+    ];
+    let tic = h.alloc(words.into_iter().flat_map(u32::to_le_bytes).collect());
+    let tsc = h.alloc(
+        [0x26492u32, 0x362, 0x00f00000, 0, 0, 0, 0, 0]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect(),
+    );
+    h.methods(
+        &mut e,
+        &[
+            (0xf10, 1),
+            (0x1574, 0),
+            (0x1578, tic as u32),
+            (0x157c, 0),
+            (0x155c, 0),
+            (0x1560, tsc as u32),
+            (0x1564, 0),
+            (0x2144, fs as u32),
+        ],
+    );
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    h.draw(&mut e, 6, false, false);
+    let directory = std::env::temp_dir().join(format!("soju-texs-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let report = h.backend.execute(&directory, &mut h.memory).unwrap();
+    for pixel in report.images[0].rgba.chunks_exact(4) {
+        assert!(
+            pixel
+                .iter()
+                .zip([51u8, 102, 153, 204])
+                .all(|(a, b)| a.abs_diff(b) <= 1),
+            "{pixel:?}"
+        );
+    }
+    std::fs::remove_dir_all(directory).unwrap();
+}

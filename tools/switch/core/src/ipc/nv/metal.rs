@@ -4,6 +4,7 @@ use soju_switch_gpu::{backend::Backend, engine::Engine, memory::Memory};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+mod copy;
 mod programs;
 mod setup;
 
@@ -32,6 +33,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 #[derive(Default)]
 pub(super) struct Renderer {
     engine: Engine,
+    copy: copy::CopyEngine,
     shadow_mode: u32,
     shadow: BTreeMap<u32, u32>,
     macros: gpu::mme::MacroUpload,
@@ -41,6 +43,7 @@ pub(super) struct Renderer {
     pub(super) noop_counts: BTreeMap<(u32, u32), u64>,
     compute_counters: BTreeMap<u32, u32>,
     compute_upload: Engine,
+    graphics_upload: Engine,
     directory: Option<PathBuf>,
     faulted: bool,
 }
@@ -135,6 +138,10 @@ impl Renderer {
                         "Metal unsupported class {value:#x}"
                     )));
                 }
+                if value == 0xb197 {
+                    // The runner's GM20B graphics context uses Maxwell TICs.
+                    self.engine.registers.0.entry(0xf10).or_insert(1);
+                }
                 self.bindings.insert(subchannel, value);
                 trace.accepted = true;
                 continue;
@@ -223,6 +230,34 @@ impl Renderer {
                 trace.accepted = true;
                 continue;
             }
+            if class == 0xb197
+                && matches!(
+                    method,
+                    0x180 | 0x184 | 0x188 | 0x18c | 0x190 | 0x1b0 | 0x1b4
+                )
+            {
+                let upload_value = if method == 0x1b0 {
+                    if value & !0x50 != 1 {
+                        return Err(Error::Malformed("B197 inline launch flags"));
+                    }
+                    1
+                } else {
+                    value
+                };
+                self.graphics_upload
+                    .method(0xa140, method, upload_value, &mut memory)
+                    .map_err(gpu_error)?;
+                trace.accepted = true;
+                continue;
+            }
+            if class == 0xa140 && method == 0x1b0 && value & !0x50 == 1 {
+                value = 1;
+            }
+            if class == 0xb0b5 {
+                self.copy.method(method, value, &mut memory)?;
+                trace.accepted = true;
+                continue;
+            }
             if class == 0xb1c0 {
                 if setup::compute_field(method, value)? {
                     self.compute_setup.insert(method, value);
@@ -236,7 +271,7 @@ impl Renderer {
                     0x180 | 0x184 | 0x188 | 0x18c | 0x190 | 0x1b0 | 0x1b4
                 ) {
                     let value = if method == 0x1b0 {
-                        if value & !0x40 != 1 {
+                        if value & !0x50 != 1 {
                             return Err(Error::Malformed("Metal compute inline launch flags"));
                         }
                         1
@@ -427,7 +462,7 @@ impl Renderer {
                             "non-default viewport depth clip unsupported",
                         ));
                     }
-                    programs::register(&snapshot.registers, &memory, &original, &mut backend)?;
+                    programs::register(&snapshot, &memory, &original, &mut backend)?;
                     // Hardware Y is scale * NDC + offset; Metal's viewport reverses NDC Y.
                     snapshot
                         .registers

@@ -66,3 +66,29 @@ byte method `0xf78` as `DiscardRenderTarget`, so it is logged as a no-op.
 Pixel shader barriers complete synchronously.
 
 - Capture SHA-256: `0b60192ab10cf45532e905d6d4adc8f9d4e12f946df7a8c04716b1eacf889702`
+
+## deko3d Example04: Textured Cube
+
+`deko-example04.png` is the first-pose native Metal capture. The headless test
+checks 851,810 pixels using an independent BC1 decoder and bilinear sampling of
+the locally installed `cat-256x256.bc1`. It checks the projected front face and
+black background; the projection edge and high-gradient texel transitions are
+excluded to accommodate initial animation time. Channel tolerance is six and
+more than 30,000 interior texture pixels must be checked. The source asset is
+not copied into the repository. Set `SOJU_SWITCH_GPU_TEST_BC1` to override it.
+
+B0B5 copies support bounded pitched/block-linear line and rectangular transfers,
+source/destination origins, identity component remaps, and overlap-safe capture.
+All ranges are checked before writing. Block layout uses soju-switch-texture.
+The scene also exercises B197 inline descriptor uploads, normalized bound TEXS
+handles read from the selected guest constant buffer, split RGBA destinations,
+BC1 sampling, independent sampler descriptors, uniforms and depth testing.
+
+The runner initializes its GM20B context with Maxwell texture headers selected.
+Descriptor support includes the observed single-mip LOD quality, sector promotion,
+sampler-border and non-anisotropic defaults; comparison/reduction/anisotropic
+filtering, additional mips and arbitrary descriptor modes remain unsupported.
+B197/B1C0/A140 pitched inline uploads accept flush-only and sysmembar-disable
+flags because the bridge publishes in order. Semaphore-release modes still stop.
+
+- Capture SHA-256: `f74115efb0e22f5b6c01fdb7f9ce4c8fb28920dd61f912663ad1d517adb2a563`

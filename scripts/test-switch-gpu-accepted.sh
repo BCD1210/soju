@@ -10,4 +10,5 @@ codesign --verify --strict "$ROOT/dist/gpu-accepted/runner"
 export SOJU_SWITCH_GPU_TEST_RUNNER="$ROOT/dist/gpu-accepted/runner"
 export SOJU_SWITCH_GPU_TEST_NRO="${SOJU_SWITCH_GPU_TEST_NRO:-$HOME/.local/share/soju/switch/examples/graphics__deko3d__deko_examples.nro}"
 export SOJU_SWITCH_GPU_TEST_OUTPUT="${SOJU_SWITCH_GPU_TEST_OUTPUT:-$ROOT/dist/gpu-accepted}"
+export SOJU_SWITCH_GPU_TEST_BC1="${SOJU_SWITCH_GPU_TEST_BC1:-$HOME/devkitpro/opt/devkitpro/examples/switch/graphics/deko3d/deko_examples/romfs/cat-256x256.bc1}"
 cargo test --offline --manifest-path "$CORE/Cargo.toml" --features desktop --test gpu_examples -- --ignored --nocapture

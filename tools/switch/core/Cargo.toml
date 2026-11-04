@@ -6,6 +6,7 @@ license = "GPL-3.0-or-later"
 publish = false
 
 [dependencies]
+soju-switch-texture = { path = "../texture" }
 soju-switch-shader = { path = "../shader" }
 soju-switch-gpu = { path = "../gpu" }
 soju-switch-fs = { path = "../fs" }
