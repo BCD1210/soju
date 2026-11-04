@@ -66,3 +66,16 @@ curvature and the depth-gradient signs agree with -Nx/Nz and Ny/Nz. World-space
 versus camera-space still needs a registered cross-view residual test. Recovering
 a surface from these layers is an inverse-rendering experiment, not access to
 the original meshes. Hidden undersides and action topology remain unobserved.
+
+## Follow-up calibration evidence
+
+`remastered_calibrate.py` writes `runtime/3d-proof/rm/calibration.json`. The coarse
+100³-voxel sweep checks elevations 15–75° in 5° increments and both azimuth signs.
+The negative-sign convention has the best mean silhouette scores: Marine 0.8681
+at 30°, SCV 0.8615 at 40°. These use a 3×3 projected-voxel dilation and must not be
+confused with the stricter Blender mesh gate. Final candidates use 32°, 224³
+voxels and 15 mirrored views in addition to the 17 original measurements.
+
+Classic `images.dat` explicitly marks Marine/SCV as turnable and the inspected
+buildings/resources as non-turnable. The all-type inventory records that flag and
+the iscript ID. It does not infer action names from the number of frame groups.
