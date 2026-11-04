@@ -6,7 +6,7 @@ import CoreImage
 import Darwin
 import simd
 extension Commander {
-    func cardCommand(_ choice:CommandChoice,hit:SCNHitTestResult?) {
+    func cardCommand(_ choice:CommandChoice,hit:ScenePickHit?) {
         guard !selected.isEmpty else {return}
         guard let unit=selected.first.flatMap({units[$0]}) else {return}
         if let reason=choice.unavailable(state,unit) {notice=reason;return}
@@ -18,11 +18,11 @@ extension Commander {
         switch choice.target {
         case .none:break
         case .unit:
-            guard let hit=hit,let id=unitID(hit.node) else {notice="Aim at a visible unit";return};payload["target"]=id
+            guard let hit=hit,let id=hit.unitID else {notice="Aim at a visible unit";return};payload["target"]=id
         case .ground,.rally:
             guard let hit=hit else {return}
             let point=Terrain3D.mapPosition(hit.worldCoordinates)
-            if choice.target == .rally,let id=unitID(hit.node) {payload["target"]=id}
+            if choice.target == .rally,let id=hit.unitID {payload["target"]=id}
             else if ["build","addon","land"].contains(payload["op"] as? String ?? "") {
                 payload["tileX"]=max(0,Int(point.x)-1);payload["tileY"]=max(0,Int(point.z)-1)
             } else {payload["x"]=max(0,Int(point.x*32));payload["y"]=max(0,Int(point.z*32))}
@@ -97,7 +97,7 @@ extension Commander {
         if key=="l" { modelLibrary.catalog.poll(force:true);notice="Reloading 3D assets";refresh() }
         if key=="x",!selected.isEmpty { command(["op":"stop","units":Array(selected.prefix(12))]) }
         #if SOJU_OPENXR
-        if key=="r" { xrOrigin=nil;notice="Recenter requested" }
+        if key=="r" { xrOrigin=nil;metalXRLoop?.recenter();notice="Recenter requested" }
         #endif
         if key=="b" { placingDepot.toggle();notice=placingDepot ? "Point at ground: SCV Depot / Probe Pylon / Drone Hatchery" : "Build cancelled" }
         if ["1","2","3"].contains(key) {
@@ -123,16 +123,30 @@ extension Commander {
         return nil
     }
     func select(at p:NSPoint) {
+        if sceneWorker != nil {
+            if let id=sceneHit(p,accept:{if case .unit=$0 {return true};return false})?.unitID,
+               let unit=units[id],number(unit,"owner")==number(state,"player") {selected=[id];notice="Selected unit \(Int(number(unit,"type")))"}
+            return
+        }
         if let hit=view.hitTest(p,options:[SCNHitTestOption.categoryBitMask:5]).first(where:{unitID($0.node) != nil}),let id=unitID(hit.node),
             let u=units[id],number(u,"owner")==number(state,"player") {
             selected=[id];notice="Selected unit \(Int(number(u,"type")))"
         }
     }
     func move(to p:NSPoint) {
+        if sceneWorker != nil {
+            if let choice=wrists.pending {
+                let hit=sceneHit(p,accept:{ target in if choice.target == .unit {if case .unit=target {return true};return false};return target == .terrain})
+                cardCommand(choice,hit:hit);return
+            }
+            if !placingDepot,let id=sceneHit(p,accept:{if case .unit=$0 {return true};return false})?.unitID,contextCommand(id) {return}
+            guard !selected.isEmpty,let hit=sceneHit(p,accept:{$0 == .terrain}) else {notice="Select units and right-click explored ground";return}
+            groundCommand(hit.worldCoordinates);return
+        }
         let hits=view.hitTest(p,options:[SCNHitTestOption.categoryBitMask:5])
         if let choice=wrists.pending {
             let hit=hits.first{choice.target == .unit ? unitID($0.node) != nil:$0.node.name=="terrain"}
-            cardCommand(choice,hit:hit);return
+            cardCommand(choice,hit:hit.flatMap{scenePick($0)});return
         }
         if !placingDepot,let hit=hits.first(where:{unitID($0.node) != nil}),let id=unitID(hit.node),contextCommand(id) {return}
         guard !selected.isEmpty,let hit=hits.first(where:{$0.node.name=="terrain"}) else { notice="Select units and right-click explored ground";return }

@@ -83,11 +83,15 @@ final class Commander: NSObject, NSApplicationDelegate {
     var terrainWorker:TerrainWorker?
     var metalBatches:MetalBatches?
     var desktopMetal:DesktopMetal?
+    var sceneWorker:NativeSceneWorker?
+    var desktopCameraPacket:MetalBatches.CameraPacket?
     #if SOJU_OPENXR
     var xrStereoCaptureIndex:Int?
     var lastMirrorTime=0.0
+    var lastPacketMirror:CGImage?
     var xrActivity:NSObjectProtocol?
     var xrPumpActive=false
+    var metalXRLoop:MetalXRLoop?
     var xrRenderer:SCNRenderer?;var xrCamera=SCNNode()
     let xrScenePass=MTLRenderPassDescriptor()
     var xrOutputViews=[ObjectIdentifier:MTLTexture]()
@@ -136,14 +140,23 @@ final class Commander: NSObject, NSApplicationDelegate {
         window.makeFirstResponder(view);NSApp.activate(ignoringOtherApps:true)
         tick=Timer.scheduledTimer(withTimeInterval:1/60,repeats:true) { [weak self] _ in self?.step() }
         poll=Timer.scheduledTimer(withTimeInterval:0.1,repeats:true) { [weak self] _ in self?.refresh() }
-        if useMetalBatches {terrainWorker=TerrainWorker()}
+        if useMetalBatches {
+            sceneWorker=NativeSceneWorker(device:art.device)
+            if metalBatches==nil {
+                do {metalBatches=try MetalBatches(device:art.device)}
+                catch {fputs("Metal scene setup: \(error)\n",stderr);NSApp.terminate(nil);return}
+            }
+            sendSceneView()
+        }
         refresh()
         #if SOJU_OPENXR
         if xrRequested {
-            xrRenderer=SCNRenderer(device:art.device,options:nil);xrRenderer!.scene=world
-            xrRenderer!.usesReverseZ=false;xrRenderer!.isJitteringEnabled=false;xrRenderer!.isPlaying=true
+            if !useMetalBatches {
+                xrRenderer=SCNRenderer(device:art.device,options:nil);xrRenderer!.scene=world
+                xrRenderer!.usesReverseZ=false;xrRenderer!.isJitteringEnabled=false;xrRenderer!.isPlaying=true
+            }
             xrCamera.camera=SCNCamera();xrCamera.camera!.zNear=0.03;xrCamera.camera!.zFar=150;Models3D.exposure(xrCamera.camera!)
-            world.rootNode.addChildNode(xrCamera);xrRenderer!.pointOfView=xrCamera
+            world.rootNode.addChildNode(xrCamera);xrRenderer?.pointOfView=xrCamera
             view.pointOfView=xrCamera;view.isPlaying=false;view.rendersContinuously=false;view.scene=nil
             let mirror=MirrorView(frame:view.bounds);mirror.autoresizingMask=[.width,.height];mirror.imageScaling = .scaleProportionallyUpOrDown
             view.addSubview(mirror,positioned:.below,relativeTo:label);self.mirror=mirror;mirrorContext=CIContext(mtlDevice:art.device)
@@ -156,13 +169,16 @@ final class Commander: NSObject, NSApplicationDelegate {
             xrActivity=ProcessInfo.processInfo.beginActivity(options:[.userInitiated,.latencyCritical],reason:"Interactive stereo rendering")
             pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE,0)
             xrPumpActive=true
-            pumpXR()
+            if let worker=sceneWorker,let batches=metalBatches {
+                let loop=MetalXRLoop(mailbox:worker.mailbox,batches:batches,metrics:frameMetrics,captures:captureFrames,device:art.device)
+                metalXRLoop=loop;loop.start()
+            } else {pumpXR()}
         }
         #endif
     }
     func applicationWillTerminate(_ notification:Notification) {
         #if SOJU_OPENXR
-        if xrRequested { xrPumpActive=false;soju_xr_close() }
+        if xrRequested { xrPumpActive=false;if let loop=metalXRLoop {loop.stop()}else {soju_xr_close()} }
         if let activity=xrActivity {ProcessInfo.processInfo.endActivity(activity);xrActivity=nil}
         #endif
     }
@@ -177,12 +193,11 @@ final class Commander: NSObject, NSApplicationDelegate {
                     let capturedCreep=capture["creepTiles"] as? [Int] else {
                     throw SceneError.invalid("Snapshot requires native state, fog and creep")
                 }
-                apply(snapshot,[:])
-                fog=Dictionary(uniqueKeysWithValues:capturedFog.compactMap { key,value in
+                let snapshotFog:[Int:UInt8]=Dictionary(uniqueKeysWithValues:capturedFog.compactMap { key,value in
                     guard let index=Int(key),let byte=UInt8(exactly:value) else {return nil}
                     return (index,byte)
                 })
-                creepTiles=Set(capturedCreep);updateTerrain();initialized=true
+                apply(snapshot,[:],capturedTerrain:(snapshotFog,Set(capturedCreep)));initialized=true
             } catch {notice="Snapshot: \(error)"}
             return
         }
@@ -206,7 +221,7 @@ final class Commander: NSObject, NSApplicationDelegate {
                 let f=try self.bridge.request(["op":"terrain","x":x,"y":y,"width":regionWidth,"height":regionHeight])
                 let prepared=PreparedState(s,previous:self.bridge.previousState)
                 self.bridge.previousState=s
-                DispatchQueue.main.async { if let metadata=metadata {self.wrists.card.accept(metadata)};self.apply(s,f,prepared:prepared);self.busy=false }
+                DispatchQueue.main.async { if let metadata=metadata {self.wrists.card.accept(metadata)};self.apply(s,f,prepared:prepared);if self.sceneWorker==nil {self.busy=false} }
             } catch {
                 DispatchQueue.main.async { self.notice="Connection: \(error)";self.busy=false }
             }
@@ -215,7 +230,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     func restartForMap() {
         notice="Preparing changed map";tick?.invalidate();poll?.invalidate()
         #if SOJU_OPENXR
-        if xrRequested {xrPumpActive=false;soju_xr_close()}
+        if xrRequested {xrPumpActive=false;if let loop=metalXRLoop {loop.stop()}else {soju_xr_close()}}
         #endif
         exit(78) // Launcher prepares the new map, then restarts this viewer.
     }

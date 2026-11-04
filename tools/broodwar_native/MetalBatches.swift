@@ -29,21 +29,38 @@ final class MetalBatches {
         let sceneRevision:Int,terrainRevision:Int,terrainFogRevision:Int,mapWidth:Int
         let terrain:[Int:SCNNode],billboards:[UnitBillboard],overlays:[SCNNode],objectCount:Int
     }
-    struct Batch {
+    fileprivate struct Batch {
         var vertices:MTLBuffer;var indices:MTLBuffer;var count:Int;var flatVertices:MTLBuffer?
         var instances:[MTLBuffer];var nodes:[SCNNode];var textures:[MTLTexture]
         var drawNodes=[DrawNode]()
         var terrain:Bool;var shadow:Bool;var mode:Float;var depthDisabled:Bool;var bounds:[(SIMD3<Float>,Float)]
+        var primitive:MTLPrimitiveType = .triangle
+    }
+    // Construction nodes never cross the publication boundary. GPU instance
+    // storage is written only by the render owner after acquiring its ring slot.
+    struct PacketBatch {
+        let vertices:MTLBuffer,indices:MTLBuffer,count:Int,flatVertices:MTLBuffer?
+        let instances:[MTLBuffer],textures:[MTLTexture],drawNodes:[DrawNode]
+        let terrain:Bool,shadow:Bool,mode:Float,depthDisabled:Bool,bounds:[(SIMD3<Float>,Float)]
+        let primitive:MTLPrimitiveType
+        fileprivate init(_ source:Batch) {
+            vertices=source.vertices;indices=source.indices;count=source.count;flatVertices=source.flatVertices
+            instances=source.instances;textures=source.textures;drawNodes=source.drawNodes
+            terrain=source.terrain;shadow=source.shadow;mode=source.mode
+            depthDisabled=source.depthDisabled;bounds=source.bounds
+            primitive=source.primitive
+        }
     }
     let device:MTLDevice,loader:MTKTextureLoader,queue:MTLCommandQueue
     let pipelines:[MTLRenderPipelineState]
+    let linePipelines:[MTLRenderPipelineState]
     let compositePipeline:MTLRenderPipelineState
     var overlayColor:MTLTexture?,overlayResolved:MTLTexture?
     private var depthViews=[MTLTexture]()
     private let overlayPass=MTLRenderPassDescriptor(),compositePass=MTLRenderPassDescriptor()
     let samples:Int
     let depth:MTLDepthStencilState,shadowDepth:MTLDepthStencilState,overlayDepth:MTLDepthStencilState
-    var batches=[Batch]()
+    private(set) var batches=[PacketBatch]()
     private let preparationQueue=DispatchQueue(label:"soju.bw.batch-prepare",qos:.userInitiated)
     private var builder:MetalBatches?
     private var preparing=false
@@ -51,6 +68,13 @@ final class MetalBatches {
     private var capturedTerrain=[Int:(SCNGeometry,AnyObject,SCNNode)]()
     private var submittedRevision = -1
     private var submittedGeometry=[(UnitBillboard,Int)]()
+    private var packetGeneration = -1,packetSession=""
+    func suspend() {ready=false}
+    func consume(_ packet:ScenePacket) {
+        guard packet.generation != packetGeneration || packet.session != packetSession else {return}
+        batches=packet.batches;packetGeneration=packet.generation;packetSession=packet.session
+        resetVisibility();ready=true
+    }
 
     private func input(_ commander:Commander)->Input {
         func detached(_ node:SCNNode,geometry preparedGeometry:SCNGeometry?=nil)->SCNNode {
@@ -111,16 +135,13 @@ final class MetalBatches {
                 do {
                     if builder==nil {builder=try MetalBatches(device:device)}
                     try builder!.prepare(snapshot)
-                    let completed=builder!.batches.map { source -> Batch in
-                        var packet=source;packet.nodes.removeAll();return packet
-                    }
-                    let visibility=builder!.visibilityBuffers
-                    let last=[Bool](repeating:true,count:completed.count),now=[Bool](repeating:true,count:completed.count)
+                    let completed=builder!.batches
                     DispatchQueue.main.async { [self] in
                         let retired=batches
                         visibilityLock.lock()
                         visibilityEpoch+=1;lastVisibilityFrame = -1
-                        batches=completed;visibilityBuffers=visibility;visibleLast=last;visibleNow=now
+                        batches=completed
+                        for i in completed.indices {visibleLast[i]=true;visibleNow[i]=true}
                         visibilityLock.unlock()
                         ready=true;preparing=false
                         preparationQueue.async {withExtendedLifetime(retired) {}}
@@ -149,12 +170,14 @@ final class MetalBatches {
         let available=DispatchSemaphore(value:1)
         var query:MTLBuffer?,epoch=0,frame=0,count=0
         var left=matrix_identity_float4x4,right=matrix_identity_float4x4
+        var retained=[PacketBatch]()
         var handler:MTLCommandBufferHandler!
     }
     private let completionSlots=(0..<3).map{_ in CompletionSlot()}
     private var ring=0,frame=0,visibilityEpoch=0
     private let visibilityLock=NSLock()
-    private var visibilityBuffers=[MTLBuffer](),visibleLast=[Bool](),visibleNow=[Bool]()
+    private var visibilityBuffers=[MTLBuffer]()
+    private var visibleLast=[Bool](repeating:true,count:65536),visibleNow=[Bool](repeating:true,count:65536)
     private var lastVisibilityFrame = -1
     private var visibleVP=matrix_identity_float4x4,visibleRightVP=matrix_identity_float4x4
     private(set) var occlusionSkipped=0
@@ -171,10 +194,10 @@ final class MetalBatches {
         }
         white=try solid([255,255,255,255]);black=try solid([0,0,0,255]);normal=try solid([128,128,255,255])
         let library=try device.makeLibrary(source:Self.shader,options:nil)
-        func makePipeline(_ mode:UInt32)throws->MTLRenderPipelineState {
+        func makePipeline(_ mode:UInt32,_ topology:MTLPrimitiveTopologyClass)throws->MTLRenderPipelineState {
             let shadow=mode==0 || mode==3
             let d=MTLRenderPipelineDescriptor();d.label=shadow ? "Batched ground shadows":"Batched terrain and relief"
-            d.inputPrimitiveTopology = .triangle
+            d.inputPrimitiveTopology=topology
             d.vertexFunction=library.makeFunction(name:"batchVertex");let constants=MTLFunctionConstantValues();var value=mode
             constants.setConstantValue(&value,type:.uint,index:0)
             d.fragmentFunction=try library.makeFunction(name:"batchFragment",constantValues:constants)
@@ -185,7 +208,8 @@ final class MetalBatches {
             d.colorAttachments[0].sourceAlphaBlendFactor = .one;d.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
             return try device.makeRenderPipelineState(descriptor:d)
         }
-        pipelines=try (UInt32(0)..<4).map{try makePipeline($0)}
+        pipelines=try (UInt32(0)..<4).map{try makePipeline($0,.triangle)}
+        linePipelines=try (UInt32(0)..<4).map{try makePipeline($0,.line)}
         let composite=MTLRenderPipelineDescriptor()
         composite.vertexFunction=library.makeFunction(name:"compositeVertex")
         composite.fragmentFunction=library.makeFunction(name:"compositeFragment")
@@ -202,15 +226,16 @@ final class MetalBatches {
         for slot in completionSlots {
             let available=slot.available
             slot.handler={ [weak self,weak slot,available] completed in
-                defer {available.signal()}
+                defer {slot?.retained=[];available.signal()}
                 guard completed.status == .completed,let self=self,let slot=slot,let query=slot.query else {return}
                 self.visibilityLock.lock();defer{self.visibilityLock.unlock()}
                 guard slot.epoch==self.visibilityEpoch,slot.frame>self.lastVisibilityFrame else {return}
                 let result=query.contents().bindMemory(to:UInt64.self,capacity:slot.count)
-                for i in self.visibleLast.indices {self.visibleLast[i]=result[i]>0}
+                for i in 0..<slot.count {self.visibleLast[i]=result[i]>0}
                 self.visibleVP=slot.left;self.visibleRightVP=slot.right;self.lastVisibilityFrame=slot.frame
             }
         }
+        visibilityBuffers=(0..<3).map{_ in device.makeBuffer(length:65536*8,options:.storageModeShared)!}
     }
     static func colorImage(_ image:CGImage)->CGImage {
         guard let space=CGColorSpace(name:CGColorSpace.sRGB),
@@ -221,7 +246,11 @@ final class MetalBatches {
     static func textureBytes(_ texture:MTLTexture)->Int {
         max(texture.allocatedSize,texture.parent?.allocatedSize ?? 0,texture.width*texture.height*4)
     }
-    static func retainedBytes(_ batch:Batch)->Int {
+    private static func retainedBytes(_ batch:Batch)->Int {
+        batch.vertices.length+batch.indices.length+(batch.flatVertices?.length ?? 0)+batch.instances.reduce(0){$0+$1.length}
+            + batch.textures.reduce(0){$0+textureBytes($1)}
+    }
+    static func retainedBytes(_ batch:PacketBatch)->Int {
         batch.vertices.length+batch.indices.length+(batch.flatVertices?.length ?? 0)+batch.instances.reduce(0){$0+$1.length}
             + batch.textures.reduce(0){$0+textureBytes($1)}
     }
@@ -236,6 +265,15 @@ final class MetalBatches {
     }
     func texture(_ value:Any?,fallback:MTLTexture,topLeft:Bool=true)throws->MTLTexture {
         if let t=value as? MTLTexture {return t}
+        if let color=value as? NSColor,let rgb=color.usingColorSpace(.sRGB) {
+            let key="solid/\(rgb.redComponent)/\(rgb.greenComponent)/\(rgb.blueComponent)/\(rgb.alphaComponent)"
+            if let cached=textures.get(key) {return cached.1}
+            let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:1,height:1,mipmapped:false)
+            guard let texture=TextureResidency.shared.make(device,descriptor) else {throw SceneError.invalid("Solid texture residency limit")}
+            let bytes=[rgb.redComponent,rgb.greenComponent,rgb.blueComponent,rgb.alphaComponent].map{UInt8(max(0,min(255,($0*255).rounded())))}
+            bytes.withUnsafeBytes{texture.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4)}
+            textures.insert((NSImage(size:NSSize(width:1,height:1)),texture),key:key,bytes:Self.textureBytes(texture));return texture
+        }
         guard let image=value as? NSImage else {return fallback}
         let key=String(describing:ObjectIdentifier(image))+"/\(topLeft)"
         if let cached=textures.get(key) {return cached.1}
@@ -244,28 +282,29 @@ final class MetalBatches {
         textures.insert((image,t),key:key,bytes:Self.textureBytes(t));return t
     }
     func mesh(_ geometry:SCNGeometry,transform:simd_float4x4=matrix_identity_float4x4,slice:Float=0,uvTransform:SCNMatrix4=SCNMatrix4Identity)->([Vertex],[UInt32]) {
-        guard let positions=geometry.sources(for:.vertex).first,let coords=geometry.sources(for:.texcoord).first else {return ([],[])}
+        guard let positions=geometry.sources(for:.vertex).first else {return ([],[])}
+        let coords=geometry.sources(for:.texcoord).first
         var vertices=[Vertex](),indices=[UInt32]()
         vertices.reserveCapacity(positions.vectorCount)
         let pOffset=positions.dataOffset,pStride=positions.dataStride,pBytes=positions.bytesPerComponent
-        let tOffset=coords.dataOffset,tStride=coords.dataStride,tBytes=coords.bytesPerComponent
+        let tOffset=coords?.dataOffset ?? 0,tStride=coords?.dataStride ?? 0,tBytes=coords?.bytesPerComponent ?? 4
         positions.data.withUnsafeBytes { (p:UnsafeRawBufferPointer) in
-            coords.data.withUnsafeBytes { (t:UnsafeRawBufferPointer) in
+            (coords?.data ?? Data()).withUnsafeBytes { (t:UnsafeRawBufferPointer) in
                 func value(_ data:UnsafeRawBufferPointer,_ offset:Int,_ bytes:Int)->Float {
                     bytes==8 ? Float(data.loadUnaligned(fromByteOffset:offset,as:Double.self)):data.loadUnaligned(fromByteOffset:offset,as:Float.self)
                 }
                 for i in 0..<positions.vectorCount {
                     let pi=pOffset+i*pStride,ti=tOffset+i*tStride
                     let position=SIMD4<Float>(value(p,pi,pBytes),value(p,pi+pBytes,pBytes),value(p,pi+2*pBytes,pBytes),1)
-                    let u=value(t,ti,tBytes)*Float(uvTransform.m11)+Float(uvTransform.m41)
-                    let v=value(t,ti+tBytes,tBytes)*Float(uvTransform.m22)+Float(uvTransform.m42)
+                    let u=(coords==nil ? 0:value(t,ti,tBytes))*Float(uvTransform.m11)+Float(uvTransform.m41)
+                    let v=(coords==nil ? 0:value(t,ti+tBytes,tBytes))*Float(uvTransform.m22)+Float(uvTransform.m42)
                     vertices.append(Vertex(position:transform*position,uv:SIMD4<Float>(u,v,slice,0)))
                 }
             }
         }
-        for element in geometry.elements where element.primitiveType == .triangles {
+        for element in geometry.elements where element.primitiveType == .triangles || element.primitiveType == .line {
             element.data.withUnsafeBytes { bytes in
-                for i in 0..<element.primitiveCount*3 {
+                for i in 0..<element.primitiveCount*(element.primitiveType == .line ? 2:3) {
                     let offset=i*element.bytesPerIndex
                     let index:UInt32=element.bytesPerIndex==4 ? bytes.loadUnaligned(fromByteOffset:offset,as:UInt32.self):element.bytesPerIndex==2 ? UInt32(bytes.loadUnaligned(fromByteOffset:offset,as:UInt16.self)):UInt32(bytes[offset])
                     indices.append(index)
@@ -278,13 +317,13 @@ final class MetalBatches {
     func prepare(_ commander:Commander)throws {
         try prepare(input(commander))
     }
-    private func prepare(_ commander:Input)throws {
+    func prepare(_ commander:Input)throws {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"Batch prepare")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Batch prepare")}
         sourceRevision=commander.sceneRevision;terrainRevision=commander.terrainRevision
         terrainFogRevision=commander.terrainFogRevision
         revisions=commander.billboards.map{($0,$0.geometryRevision)}
-        batches=try prepareTerrain(commander.terrain,width:commander.mapWidth)
+        var constructed=try prepareTerrain(commander.terrain,width:commander.mapWidth)
         var groups=[String:[SCNNode]]()
         for billboard in commander.billboards where !billboard.root.isHidden {
             for (index,native) in billboard.nativeLayers {
@@ -300,7 +339,7 @@ final class MetalBatches {
             guard let geometry=node.geometry,let material=geometry.firstMaterial else {continue}
             let source=geometry.sources(for:.vertex).first
             if let cached=groupCache.get(key),cached.0 === source,cached.1.nodes.count==nodes.count {
-                var batch=cached.1;batch.nodes=nodes;batches.append(batch);continue
+                var batch=cached.1;batch.nodes=nodes;constructed.append(batch);continue
             }
             let shadow=key.hasSuffix("/true"),relief = !(geometry is SCNPlane)
             let (vertices,indices)=mesh(geometry)
@@ -325,7 +364,7 @@ final class MetalBatches {
                 return (center,radius)
             }
             let batch=Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:flat,instances:(0..<3).map{_ in buffer(instances+instances)},nodes:nodes,textures:maps,terrain:false,shadow:shadow,mode:shadow ? 3:relief ? 1:0,depthDisabled:false,bounds:bounds)
-            batches.append(batch)
+            constructed.append(batch)
             if let source=source {
                 groupCache.insert((source,batch),key:key,bytes:Self.retainedBytes(batch))
             }
@@ -341,14 +380,16 @@ final class MetalBatches {
             let (lo,hi)=node.boundingBox
             let center=SIMD3<Float>(Float((lo.x+hi.x)/2),Float((lo.y+hi.y)/2),Float((lo.z+hi.z)/2))
             let radius=simd_length(SIMD3<Float>(Float(hi.x-lo.x),Float(hi.y-lo.y),Float(hi.z-lo.z)))*0.5
-            batches.append(Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:nil,instances:(0..<3).map{_ in buffer([instance])},nodes:[node],textures:[diffuse,normal,black,black,black,white],terrain:false,shadow:true,mode:(material.multiply.contents as? NSColor)==NSColor.black ? 3:0,depthDisabled:!material.readsFromDepthBuffer,bounds:[(center,radius)]))
+            constructed.append(Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:nil,instances:(0..<3).map{_ in buffer([instance])},nodes:[node],textures:[diffuse,normal,black,black,black,white],terrain:false,shadow:true,mode:(material.multiply.contents as? NSColor)==NSColor.black ? 3:0,depthDisabled:!material.readsFromDepthBuffer,bounds:[(center,radius)]))
+            constructed[constructed.count-1].primitive=geometry.elements.first?.primitiveType == .line ? .line:.triangle
         }
-        for i in batches.indices {
-            batches[i].drawNodes=batches[i].nodes.map { node in
+        for i in constructed.indices {
+            constructed[i].drawNodes=constructed[i].nodes.map { node in
                 DrawNode(transform:node.simdWorldTransform,scale:node.simdScale,opacity:inheritedOpacity(node),hidden:node.isHidden,
                     billboard:node.constraints?.contains(where:{$0 is SCNBillboardConstraint})==true)
             }
         }
+        batches=constructed.map(PacketBatch.init)
         resetVisibility()
         ready=true
     }
@@ -416,8 +457,8 @@ final class MetalBatches {
     private func resetVisibility() {
         visibilityLock.lock()
         visibilityEpoch+=1;lastVisibilityFrame = -1
-        visibleLast=[Bool](repeating:true,count:batches.count);visibleNow=[Bool](repeating:true,count:batches.count)
-        visibilityBuffers=(0..<3).map{_ in device.makeBuffer(length:max(8,batches.count*8),options:.storageModeShared)!}
+        precondition(batches.count<=visibleLast.count,"Native batch visibility capacity exceeded")
+        for i in batches.indices {visibleLast[i]=true;visibleNow[i]=true}
         visibilityLock.unlock()
     }
     func renderOverlay(renderer:SCNRenderer,command:MTLCommandBuffer,output:MTLTexture,camera:SCNNode,eye:Int,time:Double)throws {
@@ -484,7 +525,7 @@ final class MetalBatches {
         completionSlots[ring].available.wait()
         os_signpost(.end,log:XRFrameMetrics.log,name:"GPU ring wait")
         let slot=ring;ring=(ring+1)%3
-        let query=visibilityBuffers[slot];memset(query.contents(),0,query.length)
+        let query=visibilityBuffers[slot];memset(query.contents(),0,batches.count*8)
         stereoPass.visibilityResultBuffer=query
         guard let encoder=command.makeRenderCommandEncoder(descriptor:stereoPass) else {completionSlots[slot].available.signal();return}
         encoder.label="Instanced terrain, relief and shadows"
@@ -495,10 +536,11 @@ final class MetalBatches {
         frame+=1
         visibilityLock.lock()
         let occlusionValid=lastVisibilityFrame>=0 && simd_equal(vp,visibleVP) && simd_equal(rightVP,visibleRightVP) && frame%30 != 0
-        for i in visibleNow.indices {visibleNow[i]=visibleLast[i]}
+        for i in batches.indices {visibleNow[i]=visibleLast[i]}
         let epoch=visibilityEpoch,submittedFrame=frame,queryCount=batches.count
         visibilityLock.unlock()
         let completion=completionSlots[slot]
+        completion.retained=batches
         completion.query=query;completion.epoch=epoch;completion.frame=submittedFrame;completion.count=queryCount
         completion.left=vp;completion.right=rightVP
         command.addCompletedHandler(completion.handler)
@@ -518,7 +560,7 @@ final class MetalBatches {
             encoder.setDepthStencilState(shadow ? shadowDepth:depth)
             for (batchIndex,batch) in batches.enumerated() where batch.shadow==shadow {
                 if occlusionValid && !visibleNow[batchIndex] {occlusionSkipped+=1;continue}
-                encoder.setRenderPipelineState(pipelines[Int(batch.mode)])
+                encoder.setRenderPipelineState((batch.primitive == .line ? linePipelines:pipelines)[Int(batch.mode)])
                 encoder.setDepthStencilState(batch.depthDisabled ? overlayDepth:shadow ? shadowDepth:depth)
                 encoder.setVisibilityResultMode(.counting,offset:batchIndex*8)
                 var count=1,farCount=0
@@ -533,7 +575,8 @@ final class MetalBatches {
                             model=simd_float4x4(camera.orientation);model.columns.3=translation
                             model.columns.0 *= node.scale.x;model.columns.1 *= node.scale.y;model.columns.2 *= node.scale.z
                         }
-                        let center=model*SIMD4<Float>(batch.bounds[index].0,1),radius=batch.bounds[index].1+simd_length(SIMD3<Float>(rightTransform.columns.3.x,rightTransform.columns.3.y,rightTransform.columns.3.z)-eye)
+                        let stretch=max(simd_length(model.columns.0),simd_length(model.columns.1),simd_length(model.columns.2))
+                        let center=model*SIMD4<Float>(batch.bounds[index].0,1),radius=batch.bounds[index].1*stretch+simd_length(SIMD3<Float>(rightTransform.columns.3.x,rightTransform.columns.3.y,rightTransform.columns.3.z)-eye)
                         let p=vp*center
                         // Conservative sphere support against all six homogeneous planes.
                         let outside=planes.contains { plane in simd_dot(plane,center) < -radius*simd_length(SIMD3<Float>(plane.x,plane.y,plane.z)) }
@@ -550,7 +593,7 @@ final class MetalBatches {
                 encoder.setVertexBuffer(batch.vertices,offset:0,index:0);encoder.setVertexBuffer(batch.instances[slot],offset:0,index:1)
                 if batch.terrain {encoder.setFragmentTexture(batch.textures[0],index:6);encoder.setFragmentTexture(batch.textures[1],index:7)}
                 else {for (index,texture) in batch.textures.enumerated(){encoder.setFragmentTexture(texture,index:index)}}
-                if count>0 {encoder.drawIndexedPrimitives(type:.triangle,indexCount:batch.count,indexType:.uint32,indexBuffer:batch.indices,indexBufferOffset:0,instanceCount:count);draws+=1}
+                if count>0 {encoder.drawIndexedPrimitives(type:batch.primitive,indexCount:batch.count,indexType:.uint32,indexBuffer:batch.indices,indexBufferOffset:0,instanceCount:count);draws+=1}
                 if farCount>0,let flat=batch.flatVertices {
                     encoder.setVertexBuffer(flat,offset:0,index:0)
                     encoder.setVertexBuffer(batch.instances[slot],offset:batch.drawNodes.count*MemoryLayout<Instance>.stride,index:1)

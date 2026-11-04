@@ -22,7 +22,7 @@ struct PreparedState {
     }
 }
 extension Commander {
-    func apply(_ s:Obj,_ f:Obj,prepared preparedState:PreparedState?=nil) {
+    func apply(_ s:Obj,_ f:Obj,prepared preparedState:PreparedState?=nil,capturedTerrain:([Int:UInt8],Set<Int>)?=nil) {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"State apply")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"State apply")}
         let liveMap=s["map"] as? Obj ?? [:]
@@ -34,7 +34,7 @@ extension Commander {
             let actual=liveMap["path"] as? String,expected.lowercased() != actual.lowercased() {
             restartForMap();return
         }
-        modelLibrary.catalog.poll()
+        if sceneWorker==nil {modelLibrary.catalog.poll()}
         let newSession=s["session"] as? String ?? "legacy"
         let changed=newSession != session
         if changed {
@@ -100,6 +100,13 @@ extension Commander {
             updateTerrain(dirty:sameRegion ? dirty:nil);lastTerrainUpdate=packet
         }
         selected=selected.filter { units[$0] != nil }
+        if let captured=capturedTerrain {fog=captured.0;creepTiles=captured.1;updateTerrain()}
+        if let worker=sceneWorker {
+            notice="Native HD relief and sprite chains · authored rigs: SOJU_BW_RENDERER=scenekit"
+            worker.submit(NativeSceneWorker.Update(state:s,fog:fog,creep:creepTiles)) { [weak self] in self?.busy=false }
+            sendSceneView()
+            return
+        }
         for e in events where e["kind"] as? String == "death" {
             guard let id=e["unit"] as? String,units[id]==nil,retiring[id]==nil,
                 let dead=e["state"] as? Obj,dead["renderHidden"] as? Bool != true else {continue}
@@ -173,6 +180,7 @@ extension Commander {
         return cameraMapPosition
     }
     func updateTerrain(dirty:Set<Int>?=nil) {
+        if sceneWorker != nil {return}
         if let worker=terrainWorker {
             let center=terrainCenter
             worker.submit(TerrainWorker.Request(session:session,center:SIMD2<Int>(Int(center.x),Int(center.z)),
@@ -287,6 +295,13 @@ extension Commander {
     }
     var commanderHeight:Double {tabletop ? Double(wrists.zoom)*0.9:1.65}
     func desktopCaptureMetadata()->Obj {
+        if let packet=sceneWorker?.mailbox.presented() {
+            var metadata=packet.diagnostics
+            metadata["snapshotSource"]=argument("--snapshot") ?? "live";metadata["creepTiles"]=metadata["creepTilesSnapshot"]
+            metadata["elevationDegrees"]=Double(argument("--elevation") ?? "90") ?? 90
+            metadata["terrainProjection"]="HD oblique relief at 32 degrees"
+            return metadata
+        }
         return ["frame":number(state,"frame"),
                 "spriteBounds":billboards.mapValues{$0.projectedLayers(view:view,art:worldSprites)},
                 "camera":[camera.position.x,camera.position.y,camera.position.z],
@@ -297,10 +312,21 @@ extension Commander {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"World tick")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"World tick")}
         let now=CACurrentMediaTime(),dt=CGFloat(min(0.1,now-lastTick));lastTick=now
+        #if SOJU_OPENXR
+        if let loop=metalXRLoop {
+            let feedback=loop.latest();xrOrigin=feedback.origin;xrOriginYaw=feedback.originYaw;headCenter=feedback.center
+            if let packet=feedback.camera {xrCamera.simdTransform=packet.transform;xrCamera.camera?.projectionTransform=SCNMatrix4(packet.projection)}
+            if let image=feedback.image,lastPacketMirror !== image {lastPacketMirror=image;mirror?.image=NSImage(cgImage:image,size:.zero)}
+            while let input=loop.takeInput() {controls(input)}
+            let error=loop.error();if !error.isEmpty {notice=error;label?.stringValue=error;label?.isHidden=false}
+        }
+        #endif
+        if sceneWorker==nil {
         SCNTransaction.begin();SCNTransaction.disableActions=true
         for (id,model) in models { model.advance(dt:Double(dt),now:now,selected:selected.contains(id)) }
         for model in retiring.values {model.advance(dt:Double(dt),now:now,selected:false)}
         SCNTransaction.commit()
+        }
         var forward:CGFloat=0,side:CGFloat=0
         if view.keys.contains(13) { forward+=1 };if view.keys.contains(1) { forward-=1 }
         if view.keys.contains(0) { side-=1 };if view.keys.contains(2) { side+=1 }
@@ -315,10 +341,11 @@ extension Commander {
             if let center=argument("--camera")?.split(separator:",").last,let z=Double(center) {camera.position.z=CGFloat(z+40/tan(elevation))}
         }
         if !xrRequested {
-            for billboard in billboards.values {billboard.updateView(eye:camera.simdWorldPosition,orientation:camera.simdOrientation,perspective:camera.camera?.usesOrthographicProjection != true,art:worldSprites,recordEvidence:captureFrames.folder != nil || now-lastSceneDiagnostic>1)}
+            if sceneWorker==nil {for billboard in billboards.values {billboard.updateView(eye:camera.simdWorldPosition,orientation:camera.simdOrientation,perspective:camera.camera?.usesOrthographicProjection != true,art:worldSprites,recordEvidence:captureFrames.folder != nil || now-lastSceneDiagnostic>1)}}
             updateDesktopCard()
         }
-        Models3D.followLight(world,position:camera.position)
+        sendSceneView()
+        if sceneWorker==nil {Models3D.followLight(world,position:camera.position)}
         if !xrRequested,!useMetalBatches,initialized,let index=captureFrames.reserve(),
             let tiff=view.snapshot().tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let image=bitmap.cgImage {
             captureFrames.save(image,index:index,metadata:desktopCaptureMetadata())
@@ -332,7 +359,7 @@ extension Commander {
                  "animationWarning":m.animationError,"animationPlayers":m.activePlayers.count,
                  "file":m.definition.file]
             }
-            let diagnostics:Obj=["time":Date().timeIntervalSince1970,"frame":number(state,"frame"),
+            var diagnostics:Obj=["time":Date().timeIntervalSince1970,"frame":number(state,"frame"),
                 "selected":selected,"cardPage":wrists.page,"commandCard":wrists.choices.map{choice -> Obj in
                     ["title":choice.title,"hotkey":choice.hotkey,"payload":choice.payload,
                      "unavailable":choice.unavailable(state,selected.first.flatMap{units[$0]} ?? [:]) ?? ""]},
@@ -345,6 +372,12 @@ extension Commander {
                 "catalogError":modelLibrary.catalog.lastError,"assetErrors":Dictionary(uniqueKeysWithValues:modelLibrary.errors.map{(String($0.key),$0.value)}),
                 "billboardUnits":billboards.mapValues{$0.evidence},"devOverlay":devOverlay,
                 "missingTypes":Array(Set(units.values.compactMap { u -> Int? in let id=u["id"] as? String ?? "";return models[id]==nil ? Int(number(u,"type")):nil })).sorted()]
+            if let packet=sceneWorker?.mailbox.latest() {
+                diagnostics.merge(packet.diagnostics){_,new in new}
+                diagnostics["packetGeneration"]=packet.generation;diagnostics["packetNativeFrame"]=packet.nativeFrame
+                diagnostics["packetAgeMs"]=(CACurrentMediaTime()-packet.publishedAt)*1000
+            }
+            if let error=sceneWorker?.mailbox.error(),!error.isEmpty {notice="Native scene: "+error;diagnostics["sceneWorkerError"]=error}
             record("3d-scene-diagnostics.json",diagnostics)
             record(xrRequested ? "3d-xr-diagnostics.json":"3d-desktop-diagnostics.json",diagnostics)
         }

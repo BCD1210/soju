@@ -379,6 +379,7 @@ func runtimeChecks()throws {
     isolatedCamera.simdPosition=SIMD3<Float>(9,8,7)
     isolatedCamera.camera!.usesOrthographicProjection=true
     try require(cameraPacket.transform.columns.3==SIMD4<Float>(1,2,3,1) && !cameraPacket.orthographic,"typed camera packet retains its pose and projection mode independently of scene mutations")
+    try scenePacketChecks(device:commander.art.device,require:require)
     let report:Obj=["passed":true,"checks":passed,"source":"deterministic renderer inputs; not live-game acceptance"]
     let path=argument("--runtime-report").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("runtime-checks.json")
     try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:path,options:.atomic)

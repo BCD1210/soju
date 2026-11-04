@@ -19,6 +19,7 @@ func xrControls(_ context:UnsafeMutableRawPointer?,_ packet:UnsafePointer<SojuXR
 }
 extension Commander {
     func pumpXR() {
+        precondition(!useMetalBatches,"SceneKit pump requires explicit fallback renderer")
         guard xrPumpActive else {return}
         os_signpost(.begin,log:XRFrameMetrics.log,name:"Frame loop")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Frame loop")}
@@ -37,6 +38,7 @@ extension Commander {
     }
 
     func renderEye(_ texture:MTLTexture,_ queue:MTLCommandQueue,_ eye:SojuXREye) {
+        precondition(!useMetalBatches,"SceneKit eye callback requires explicit fallback renderer")
         if eye.eye==0,xrDrawCount==120,let path=argument("--metal-capture") {
             let capture=MTLCaptureDescriptor();capture.captureObject=queue;capture.destination = .gpuTraceDocument
             capture.outputURL=URL(fileURLWithPath:path)
@@ -105,7 +107,7 @@ extension Commander {
             }
         } else {output=texture}
         let index=Int(eye.eye)
-        if !useMetalBatches,xrDepth[index]?.width != texture.width || xrDepth[index]?.height != texture.height {
+        if !useMetalBatches,(xrDepth[index]?.width != texture.width || xrDepth[index]?.height != texture.height) {
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float_stencil8,width:texture.width,height:texture.height,mipmapped:false)
             desc.storageMode = .private;desc.usage = .renderTarget
             desc.textureType = .type2DMultisample;desc.sampleCount=4

@@ -54,7 +54,7 @@ final class TerrainWorker {
                     if nx>=0 && nx<mapWidth && ny>=0 && ny<mapHeight {dirty.insert(ny*mapWidth+nx)}
                 }}
             }
-            let full=session != request.session || center != request.center || radius != request.radius
+            let full=session != request.session || center != request.center || radius != request.radius || !notice.isEmpty
             if session != request.session {
                 for n in terrain.values {n.removeFromParentNode()};for n in creepNodes.values {n.removeFromParentNode()}
                 terrain.removeAll();creepNodes.removeAll();fogPresentation.cache.removeAll()
