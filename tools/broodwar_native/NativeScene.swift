@@ -185,6 +185,7 @@ final class Commander: NSObject, NSApplicationDelegate {
 do {
     if CommandLine.arguments.contains("--effect-proof") {try effectSpriteProof();exit(0)}
     if CommandLine.arguments.contains("--live-proof") {try liveModelProof();exit(0)}
+    if argument("--command-audit") != nil {try commandAudit();exit(0)}
     if CommandLine.arguments.contains("--runtime-check") {try runtimeChecks();exit(0)}
     if CommandLine.arguments.contains("--model-check") || CommandLine.arguments.contains("--model-proof") {
         guard let device=MTLCreateSystemDefaultDevice() else { throw SceneError.invalid("Metal device unavailable") }

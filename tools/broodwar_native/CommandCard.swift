@@ -37,12 +37,13 @@ final class CommandCard {
     }
     func choices(_ unit:Obj)->[CommandChoice] {
         let kind=Int(number(unit,"type")),building=unit["building"] as? Bool == true
+        if kind>=176 || [4,6,18,24,26,31,33,73,85,89,90,93,94,95,96].contains(kind) {return []}
         var result=[CommandChoice]()
-        if !building {
+        if !building && ![35,36,59,97].contains(kind) {
             result += [CommandChoice("Move",["op":"move"],.ground),CommandChoice("Attack",["op":"attack_move"],.ground),
                        CommandChoice("Stop",["op":"stop"]),CommandChoice("Hold",["op":"hold"]),
                        CommandChoice("Patrol",["op":"patrol"],.ground)]
-        } else {result.append(CommandChoice("Rally",["op":"rally"],.rally))}
+        } else if [106,111,113,114,130,131,132,133,154,155,160,167].contains(kind) {result.append(CommandChoice("Rally",["op":"rally"],.rally))}
         if unit["worker"] as? Bool == true {result.append(CommandChoice("Gather",["op":"gather"],.unit))}
         if unit["worker"] as? Bool == true && number(unit,"carrying") != 0 {result.append(CommandChoice("Return cargo",["op":"return_cargo"]))}
         if [131,132,133].contains(kind) {result.append(CommandChoice("Select larvae",["op":"select_larvae"]))}
@@ -108,7 +109,7 @@ final class CommandCard {
         if [36,59,97].contains(kind) {result.append(CommandChoice("Cancel morph",["op":"cancel","action":"morph"]))}
         let hotkeys=["move":"M","attack_move":"A","stop":"S","hold":"H","patrol":"P","gather":"G","repair":"R","rally":"R","return_cargo":"C","lift":"L","land":"L","select_larvae":"S"]
         let unitKeys:[Int:String]=[7:"S",64:"P",106:"C",109:"S",110:"R",111:"B",112:"A",113:"F",114:"S",116:"I",122:"E",123:"A",124:"T",125:"U",107:"C",108:"N",131:"H",149:"E",142:"S",135:"H",139:"E",141:"S",138:"Q",136:"D",140:"U",134:"N",143:"C",154:"N",156:"P",157:"A",160:"G",164:"Y",166:"F",163:"C",169:"F",170:"A",167:"S",172:"B",171:"B",165:"T",155:"R",159:"O",132:"L",133:"H"]
-        return result.map { entry in
+        let priced=result.map { entry in
             var choice=entry
             let op=choice.payload["op"] as? String ?? "",id=Int(number(choice.payload,"type"))
             choice.hotkey=hotkeys[op] ?? ""
@@ -117,7 +118,8 @@ final class CommandCard {
                 choice.mineralCost=number(dat,"mineralCost");choice.gasCost=number(dat,"gasCost")
                 choice.race=Int(number(dat,"race"))
                 choice.supplyCost=["train","morph"].contains(op) ? max(0,number(dat,"supplyCost")-(op=="morph" ? number(costs[kind] ?? [:],"supplyCost"):0)):0
-                choice.hotkey=unitKeys[id] ?? ""
+                let trainedKeys:[Int:String]=[0:"M",1:"G",2:"V",3:"G",5:"T",8:"W",9:"V",11:"D",12:"B",32:"F",34:"C",37:"Z",38:"H",39:"U",41:"D",42:"O",43:"M",44:"G",45:"Q",46:"D",47:"S",50:"I",58:"V",60:"O",61:"K",62:"D",65:"Z",66:"D",67:"T",69:"S",70:"S",71:"A",72:"C",83:"V",84:"O",103:"L"]
+                choice.hotkey=unitKeys[id] ?? trainedKeys[id] ?? ""
             }
             if op=="research" {
                 let dat=technologies[id] ?? [:];choice.priced=technologies[id] != nil
@@ -127,6 +129,14 @@ final class CommandCard {
             if op=="spell",let spell=spells.first(where:{$0["action"] as? String==choice.payload["action"] as? String}) {choice.energyCost=number(spell,"energy")}
             if op=="ability" {choice.hotkey=["stim":"T","burrow":"B","unburrow":"U"][choice.payload["action"] as? String ?? ""] ?? ""}
             if op=="cancel" {choice.hotkey="Esc"}
+            return choice
+        }
+        var used=Set<String>()
+        return priced.enumerated().map { index,entry in
+            if index%9==0 {used.removeAll()}
+            var choice=entry
+            if choice.hotkey.isEmpty || used.contains(choice.hotkey) {choice.hotkey=String(index%9+1)}
+            used.insert(choice.hotkey)
             return choice
         }
     }
