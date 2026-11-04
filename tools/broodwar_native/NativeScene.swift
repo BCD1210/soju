@@ -642,6 +642,7 @@ extension Commander {
 }
 #endif
 do {
+    if CommandLine.arguments.contains("--live-proof") {try liveModelProof();exit(0)}
     if CommandLine.arguments.contains("--runtime-check") {try runtimeChecks();exit(0)}
     if CommandLine.arguments.contains("--model-check") || CommandLine.arguments.contains("--model-proof") {
         guard let device=MTLCreateSystemDefaultDevice() else { throw SceneError.invalid("Metal device unavailable") }
