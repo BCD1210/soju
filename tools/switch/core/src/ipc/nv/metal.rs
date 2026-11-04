@@ -4,6 +4,8 @@ use soju_switch_gpu::{backend::Backend, engine::Engine, memory::Memory};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+mod setup;
+
 struct MethodTrace {
     enabled: bool,
     class: u32,
@@ -32,6 +34,9 @@ pub(super) struct Renderer {
     macros: gpu::mme::MacroUpload,
     bindings: BTreeMap<u32, u32>,
     twod: BTreeMap<u32, u32>,
+    compute_setup: BTreeMap<u32, u32>,
+    compute_counters: BTreeMap<u32, u32>,
+    compute_upload: Engine,
     directory: Option<PathBuf>,
     faulted: bool,
 }
@@ -180,6 +185,42 @@ impl Renderer {
                 increments = increments
                     .checked_add(1)
                     .ok_or(Error::Malformed("Metal syncpoint overflow"))?;
+                trace.accepted = true;
+                continue;
+            }
+            if class == 0xb1c0 {
+                if setup::compute_field(method, value)? {
+                    self.compute_setup.insert(method, value);
+                } else if method == 0x248 {
+                    if value & !0xffff3f != 0 {
+                        return Err(Error::Malformed("Metal compute reference counter fields"));
+                    }
+                    self.compute_counters.insert(value & 63, value >> 8);
+                } else if matches!(
+                    method,
+                    0x180 | 0x184 | 0x188 | 0x18c | 0x190 | 0x1b0 | 0x1b4
+                ) {
+                    let value = if method == 0x1b0 {
+                        if value & !0x40 != 1 {
+                            return Err(Error::Malformed("Metal compute inline launch flags"));
+                        }
+                        1
+                    } else {
+                        value
+                    };
+                    self.compute_upload
+                        .method(0xa140, method, value, &mut memory)
+                        .map_err(gpu_error)?;
+                } else {
+                    return Err(Error::Message(format!(
+                        "Metal compute method {method:#x}={value:#x} unsupported"
+                    )));
+                }
+                trace.accepted = true;
+                continue;
+            }
+            if class == 0xb197 && setup::retain(method, value)? {
+                self.engine.registers.0.insert(method, value);
                 trace.accepted = true;
                 continue;
             }

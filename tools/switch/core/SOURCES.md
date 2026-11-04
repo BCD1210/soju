@@ -37,3 +37,9 @@ this is not enough evidence to implement its firmware-mediated effect.
 B197 SET_MME_SHADOW_SCRATCH is ordinary 32-bit scratch storage. The MME
 interpreter forwards its latest emitted scratch value to subsequent reads;
 reads after emissions to other methods still fail explicitly.
+
+- https://raw.githubusercontent.com/NVIDIA/open-gpu-doc/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/compute/clb1c0.h
+  B1C0 local/shared windows, pool addresses and limits, reference-counter selector
+  and value, and inline DMA layout/completion/barrier fields. Setup is isolated
+  from the 3D engine; pitch/no-semaphore inline data uses the existing bounded
+  upload engine. Scheduling/compute dispatch remains explicitly unsupported here.

@@ -259,3 +259,106 @@ fn metal_twod_copy_obeys_initialization_and_stages_pixels() {
         );
     }
 }
+
+#[test]
+fn metal_compute_initial_upload_is_isolated_and_staged() {
+    let mut f = Fixture::new();
+    let (fd, space, va) = f.setup();
+    let access = submit::Access {
+        space: &f.nv.spaces[&space],
+        memory: &f.memory,
+    };
+    let init = methods(&[
+        (0, 0xb1c0),
+        (0x790, 1),
+        (0x794, 0x300000),
+        (0x248, 0x3803f),
+        (0x180, 4),
+        (0x184, 1),
+        (0x188, (va >> 32) as u32),
+        (0x18c, va as u32 + 0x10000),
+        (0x190, 0),
+        (0x1b0, 0x41),
+        (0x1b4, 0x12345678),
+        (0x110, 0),
+    ]);
+    let (writes, count) = Renderer::default()
+        .submit(&init, fd, None, &access, &[])
+        .unwrap();
+    assert_eq!(count, 0);
+    assert!(
+        writes
+            .iter()
+            .any(|w| w.address == crate::kernel::HEAP + 0x10000
+                && w.bytes[..4] == 0x12345678u32.to_le_bytes())
+    );
+    let mut original = [0; 4];
+    f.memory
+        .read(crate::kernel::HEAP + 0x10000, &mut original)
+        .unwrap();
+    assert_eq!(original, [0; 4]);
+    for (method, value) in [(0x790, 256), (0x248, 64), (0x1b0, 0x61), (0x2bc, 2)] {
+        assert!(
+            Renderer::default()
+                .submit(
+                    &methods(&[(0, 0xb1c0), (method, value)]),
+                    fd,
+                    None,
+                    &access,
+                    &[]
+                )
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn metal_retained_setup_rejects_reserved_fields_and_unknown_falcon() {
+    let mut f = Fixture::new();
+    let (fd, space, _) = f.setup();
+    let access = submit::Access {
+        space: &f.nv.spaces[&space],
+        memory: &f.memory,
+    };
+    for (method, value) in [
+        (0x1684, 2),
+        (0x19cc, 2),
+        (0x19e0, 2),
+        (0x1000, 0x30),
+        (0x1528, 1),
+        (0x135c, 1),
+        (0x124, 3),
+        (0x2310, 0x418800),
+    ] {
+        assert!(
+            Renderer::default()
+                .submit(
+                    &methods(&[(0, 0xb197), (method, value)]),
+                    fd,
+                    None,
+                    &access,
+                    &[]
+                )
+                .is_err(),
+            "{method:x}"
+        );
+    }
+    let (writes, count) = Renderer::default()
+        .submit(
+            &methods(&[
+                (0, 0xb197),
+                (0x1684, 1),
+                (0x19cc, 1),
+                (0x19e0, 1),
+                (0x3400, 0x42),
+                (0x110, 0),
+            ]),
+            fd,
+            None,
+            &access,
+            &[],
+        )
+        .unwrap();
+    assert!(writes.is_empty());
+    assert_eq!(count, 0);
+}
