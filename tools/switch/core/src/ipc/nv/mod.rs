@@ -64,7 +64,7 @@ pub struct Nv {
 }
 impl Nv {
     pub fn open(&mut self, name: &str, ctx: &mut Context<'_>) -> Result<Handle, Error> {
-        if name != "nvdrv:a" {
+        if !matches!(name, "nvdrv:a" | "nvdrv") {
             return Err(Error::Malformed("unsupported NV service"));
         }
         let (handle, object) = ctx.new_session(Family::Nv)?;

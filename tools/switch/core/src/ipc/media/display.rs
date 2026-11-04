@@ -40,7 +40,10 @@ const fn command(
         handler,
     }
 }
-pub(super) const VI: &[CommandSpec<Media>] = &[command(2, 4, open_display_service)];
+pub(super) const VI: &[CommandSpec<Media>] = &[
+    command(0, 4, open_display_service),
+    command(2, 4, open_display_service),
+];
 pub(super) const DISPLAY: &[CommandSpec<Media>] = &[
     command(100, 0, child),
     command(101, 0, child),

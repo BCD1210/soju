@@ -21,7 +21,22 @@ int main(void) {
                 accountProfileClose(&profile);
             }
         }
+        AppletStorage exhausted;
+        Result rc = appletPopLaunchParameter(&exhausted, AppletLaunchParameterKind_PreselectedUser);
+        check("launch parameter consumed once", 0, R_FAILED(rc));
         accountExit();
+    }
+    Service arp;
+    if (CALL(smGetService(&arp, "arp:r"))) {
+        u64 process = 0, instance = 0;
+        CALL(svcGetProcessId(&process, CUR_PROCESS_HANDLE));
+        CALL(serviceDispatchInOut(&arp, 3, process, instance));
+        NacpStruct control = {0};
+        CALL(serviceDispatchIn(&arp, 1, instance,
+            .buffer_attrs = { SfBufferAttr_HipcMapAlias | SfBufferAttr_Out },
+            .buffers = { { &control, sizeof(control) } }));
+        check("GetApplicationControlProperty title", 0, strcmp(control.lang[0].name, "Soju application probe") == 0);
+        serviceClose(&arp);
     }
     appletExit();
     return finish();

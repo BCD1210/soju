@@ -9,7 +9,24 @@ pub(super) const BSD: &[CommandSpec<Platform>] = &[
     c(2, 12, socket),
     c(3, 12, socket),
 ];
-pub(super) const SSL: &[CommandSpec<Platform>] = &[c(0, 16, unavailable), c(5, 4, interface)];
+pub(super) const SSL: &[CommandSpec<Platform>] = &[
+    c(0, 16, |s, r, x| {
+        let version = r.u32(0)?;
+        if version == 0 || version & !0x1000079 != 0 {
+            return Err(Error::Malformed("SSL version mask"));
+        }
+        s.child(Kind::SslContext, x)
+    }),
+    c(1, 0, |s, _, x| {
+        let count = s
+            .objects
+            .values()
+            .filter(|o| o.kind == Kind::SslContext && o.client == x.client)
+            .count() as u32;
+        Ok(Reply::data(count.to_le_bytes().to_vec()))
+    }),
+    c(5, 4, interface),
+];
 pub(super) const DNS: &[CommandSpec<Platform>] =
     &[c(6, 16, resolve), c(8, 8, one), c(9, 16, success)];
 fn socket(_: &mut Platform, _: &Request, _: &mut Context<'_>) -> Result<Reply, Error> {
@@ -79,6 +96,6 @@ mod tests {
                 .result,
             0
         );
-        assert_ne!(h.call(ssl, req(0, vec![0; 16])).unwrap().result, 0);
+        assert!(h.call(ssl, req(0, vec![0; 16])).is_err());
     }
 }

@@ -23,6 +23,7 @@ pub struct Program {
     pub policy: Policy,
     pub modules: Vec<(String, u64)>,
     pub romfs: Vec<u8>,
+    pub control: Option<Vec<u8>>,
 }
 fn fail(s: &str) -> String {
     s.into()
@@ -86,6 +87,7 @@ impl Program {
         }
         let entries = title::nca_entries(storage, extension).map_err(|e| e.to_string())?;
         let mut loaded = None;
+        let mut controls = std::collections::BTreeMap::new();
         for entry in entries {
             let sub = Sub {
                 inner: storage,
@@ -93,6 +95,29 @@ impl Program {
                 size: entry.size,
             };
             let nca = Nca::open(&sub, &keys).map_err(|e| e.to_string())?;
+            if nca.header.content_type == ContentType::Control {
+                for section in nca
+                    .header
+                    .sections
+                    .iter()
+                    .filter(|s| s.fs_type == FsType::RomFs)
+                {
+                    let storage = nca.section(section.index).map_err(|e| e.to_string())?;
+                    for file in soju_switch_fs::romfs::list(&storage).map_err(|e| e.to_string())? {
+                        if file.path == "/control.nacp" {
+                            if file.size != 0x4000 {
+                                return Err(fail("invalid control property size"));
+                            }
+                            let bytes = storage
+                                .read_vec(file.offset, 0x4000)
+                                .map_err(|e| e.to_string())?;
+                            if controls.insert(nca.header.program_id, bytes).is_some() {
+                                return Err(fail("duplicate application control property"));
+                            }
+                        }
+                    }
+                }
+            }
             if nca.header.content_type != ContentType::Program {
                 continue;
             }
@@ -103,7 +128,9 @@ impl Program {
             }
             loaded = Some(Self::from_nca(&nca)?);
         }
-        loaded.ok_or_else(|| fail("container has no Program NCA"))
+        let mut program = loaded.ok_or_else(|| fail("container has no Program NCA"))?;
+        program.control = controls.remove(&program.metadata.program_id);
+        Ok(program)
     }
     fn from_nca(nca: &Nca<'_>) -> Result<Self, String> {
         let sections: Vec<_> = nca
@@ -266,6 +293,7 @@ impl Program {
             policy,
             modules,
             romfs,
+            control: None,
         })
     }
 }

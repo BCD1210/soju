@@ -198,3 +198,36 @@ fn command_inventory_and_simple_services() {
         assert!(table.windows(2).all(|pair| pair[0].id < pair[1].id));
     }
 }
+
+#[test]
+fn stationary_sensor_stops_publishing_after_stop() {
+    let mut h = Harness::new();
+    let hid = h.open("hid");
+    let resource = h.child(hid, 0);
+    let shared = h.call(resource, req(0, vec![])).unwrap().copy_handles[0];
+    let address = 0x80000000;
+    assert_eq!(
+        svc(&mut h, 0x13, &[u64::from(shared), address, 0x40000, 1]),
+        [0]
+    );
+    let sensor = 0x00022004u32;
+    let mut data = vec![0; 16];
+    data[..4].copy_from_slice(&sensor.to_le_bytes());
+    h.call(hid, req(66, data.clone())).unwrap();
+    h.p.poll(&mut h.k, &mut h.m, 20_000_000).unwrap();
+    let offset = shared::sensor_offset(sensor).unwrap() as u64;
+    let mut before = [0; 0x88];
+    h.m.read(address + offset, &mut before).unwrap();
+    assert_eq!(&before[24..32], &1u64.to_le_bytes());
+    assert_eq!(&before[48..56], &2u64.to_le_bytes());
+    assert_eq!(&before[64..68], &1f32.to_le_bytes());
+    assert_eq!(&before[68..80], &[0; 12]);
+    h.call(hid, req(67, data)).unwrap();
+    h.p.poll(&mut h.k, &mut h.m, 40_000_000).unwrap();
+    let mut after = [0; 0x88];
+    h.m.read(address + offset, &mut after).unwrap();
+    assert_eq!(before, after);
+    for bad in [0, 0xff022004, 0x00022a04, 0x00032004] {
+        assert!(shared::sensor_offset(bad).is_err());
+    }
+}

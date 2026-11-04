@@ -31,8 +31,8 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
                 &[
                     c(0, 0, Platform::message_event),
                     c(1, 0, Platform::message),
-                    c(5, 0, zero),
-                    c(6, 0, zero),
+                    c(5, 0, operation_mode),
+                    c(6, 0, operation_mode),
                     c(9, 0, one),
                 ]
             }
@@ -124,7 +124,7 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
             const {
                 &[
                     c(0, 0, |s, _, x| s.child(Kind::ApmSession, x)),
-                    c(1, 0, zero),
+                    c(1, 0, operation_mode),
                 ]
             }
         }
@@ -168,6 +168,29 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
                 ]
             }
         }
+        Kind::Prepo => const { &[c(10300, 0, zero)] },
+        Kind::Arp => {
+            const {
+                &[
+                    c(1, 8, |s, r, _| {
+                        if r.u64(0)? != 1 {
+                            return Err(Error::Malformed("application instance"));
+                        }
+                        let bytes = s
+                            .control
+                            .as_ref()
+                            .ok_or(Error::Malformed("missing application control property"))?;
+                        Reply::success().write(r.output()?, bytes.clone())
+                    }),
+                    c(3, 8, |_, r, _| {
+                        if r.u64(0)? != 1 {
+                            return Err(Error::Malformed("application process"));
+                        }
+                        Ok(Reply::data(1u64.to_le_bytes().to_vec()))
+                    }),
+                ]
+            }
+        }
         Kind::Parental => const { &[c(1, 0, success), c(1031, 0, zero)] },
         Kind::Fonts => {
             const {
@@ -183,6 +206,7 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
         }
         Kind::Bsd => network::BSD,
         Kind::Ssl => network::SSL,
+        Kind::SslContext => const { &[c(3, 0, zero)] },
         Kind::Dns => network::DNS,
         Kind::Nifm => {
             const {
@@ -243,6 +267,7 @@ const HID: &[CommandSpec<Platform>] = &[
     c(31, 8, success),
     c(66, 16, |s, r, _| {
         let handle = r.u32(0)?;
+        shared::sensor_offset(handle)?;
         if !s.six_axis.contains(&handle) && s.six_axis.len() >= 64 {
             return Err(Error::Malformed("six-axis handle limit"));
         }
@@ -250,10 +275,14 @@ const HID: &[CommandSpec<Platform>] = &[
         Ok(Reply::success())
     }),
     c(67, 16, |s, r, _| {
+        shared::sensor_offset(r.u32(0)?)?;
         s.six_axis.remove(&r.u32(0)?);
         Ok(Reply::success())
     }),
-    c(82, 16, one),
+    c(82, 16, |_, r, _| {
+        shared::sensor_offset(r.u32(0)?)?;
+        Ok(Reply::data(1u64.to_le_bytes().to_vec()))
+    }),
     c(100, 16, |s, r, _| {
         s.npad_styles = r.u32(0)?;
         Ok(Reply::success())
@@ -293,3 +322,7 @@ const HID: &[CommandSpec<Platform>] = &[
     c(205, 0, zero),
     c(206, 8, success),
 ];
+
+fn operation_mode(s: &mut Platform, _: &Request, _: &mut Context<'_>) -> Result<Reply, Error> {
+    Ok(Reply::data(s.operation_mode.to_le_bytes().to_vec()))
+}

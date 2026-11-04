@@ -141,9 +141,13 @@ fn parse<T: serde::de::DeserializeOwned>(raw: &[u8]) -> Result<T, Error> {
     serde_json::from_value(value.0).map_err(json_error)
 }
 pub(super) fn valid_attr(attr: &[u8; 64]) -> bool {
-    attr[32] == 1
-        && attr[8] == 1
-        && attr[9..24].iter().all(|b| *b == 0)
+    let user = match attr[32] {
+        1 => attr[8] == 1 && attr[9..24].iter().all(|b| *b == 0),
+        2 | 5 => attr[8..24].iter().all(|b| *b == 0),
+        _ => false,
+    };
+    user && attr[24..32].iter().all(|b| *b == 0)
+        && attr[33] == 0
         && attr[36..].iter().all(|b| *b == 0)
 }
 fn decode_tree(dirs: Vec<String>, files: BTreeMap<String, String>) -> Result<Tree, Error> {

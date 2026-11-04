@@ -61,9 +61,12 @@ enum Kind {
     FriendService,
     ParentalFactory,
     Parental,
+    Prepo,
+    Arp,
     Fonts,
     Bsd,
     Ssl,
+    SslContext,
     Dns,
     Random,
     Nifm,
@@ -92,12 +95,15 @@ pub struct Platform {
     exit_locked: bool,
     input: soju_switch_input::NpadState,
     sample: u64,
+    sensor_last_ns: u64,
     joy_hold_type: u64,
     npad_styles: u32,
     handheld_mode: u64,
     six_axis: std::collections::BTreeSet<u32>,
     performance: [u32; 2],
     launch_popped: bool,
+    operation_mode: u32,
+    control: Option<Vec<u8>>,
     hid: Option<Handle>,
     time: Option<Handle>,
     font_handle: Option<Handle>,
@@ -119,12 +125,19 @@ impl Platform {
             exit_locked: false,
             input: Default::default(),
             sample: 1,
+            sensor_last_ns: 0,
             joy_hold_type: 0,
             npad_styles: 0,
             handheld_mode: 0,
             six_axis: Default::default(),
             performance: [0x20000, 0x10000],
             launch_popped: false,
+            operation_mode: match std::env::var("SOJU_SWITCH_DOCKED").as_deref() {
+                Ok("1") => 1,
+                Ok("0") | Err(_) => 0,
+                _ => return Err(Error::Malformed("SOJU_SWITCH_DOCKED must be 0 or 1")),
+            },
+            control: None,
             hid: None,
             time: None,
             font_handle: None,
@@ -136,6 +149,13 @@ impl Platform {
     /// Select a reproducible wall-clock origin; `now_ns` remains the caller's monotonic clock.
     pub fn set_clock_epoch(&mut self, seconds: i64) {
         self.clock = time::Clock::Fixed(seconds);
+    }
+    pub fn set_control(&mut self, bytes: Vec<u8>) -> Result<(), Error> {
+        if bytes.len() != 0x4000 {
+            return Err(Error::Malformed("application control property size"));
+        }
+        self.control = Some(bytes);
+        Ok(())
     }
     pub fn open(&mut self, name: &str, ctx: &mut Context<'_>) -> Result<Handle, Error> {
         let kind = match name {
@@ -149,6 +169,8 @@ impl Platform {
             "acc:u0" | "acc:u1" => Kind::Account,
             "apm:p" | "apm" => Kind::Apm,
             "friend:u" => Kind::Friends,
+            "prepo:u" => Kind::Prepo,
+            "arp:r" => Kind::Arp,
             "pctl" | "pctl:a" => Kind::ParentalFactory,
             "pl:u" => Kind::Fonts,
             "bsd:s" | "bsd:u" => Kind::Bsd,

@@ -39,6 +39,8 @@ const SERVICES: &[(&str, Family)] = &[
     ("apm:p", Family::Platform),
     ("apm", Family::Platform),
     ("friend:u", Family::Platform),
+    ("prepo:u", Family::Platform),
+    ("arp:r", Family::Platform),
     ("pctl", Family::Platform),
     ("pctl:a", Family::Platform),
     ("pl:u", Family::Platform),
@@ -52,7 +54,9 @@ const SERVICES: &[(&str, Family)] = &[
     ("psm", Family::Platform),
     ("fsp-srv", Family::Filesystem),
     ("nvdrv:a", Family::Nv),
+    ("nvdrv", Family::Nv),
     ("vi:m", Family::Media),
+    ("vi:u", Family::Media),
     ("audout:u", Family::Media),
     ("audren:u", Family::Media),
 ];
@@ -70,8 +74,14 @@ const SM: &[CommandSpec<Hub>] = &[
 ];
 impl Hub {
     pub fn new(nro_path: &Path, home: &Path) -> Result<Self, Error> {
+        let mut platform = Platform::new(home)?;
+        let bytes = std::fs::read(nro_path)?;
+        if let Some(control) = nro_control(&bytes) {
+            platform.set_control(control)?;
+        }
+        drop(bytes);
         Ok(Self {
-            platform: Platform::new(home)?,
+            platform,
             filesystem: Filesystem::new(nro_path, home)?,
             nv: Nv::default(),
             media: Media::default(),
@@ -80,8 +90,12 @@ impl Hub {
         })
     }
     pub fn new_program(program: &crate::program::Program, home: &Path) -> Result<Self, Error> {
+        let mut platform = Platform::new(home)?;
+        if let Some(control) = &program.control {
+            platform.set_control(control.clone())?;
+        }
         Ok(Self {
-            platform: Platform::new(home)?,
+            platform,
             filesystem: Filesystem::new_program(program, home)?,
             nv: Nv::default(),
             media: Media::default(),
@@ -827,4 +841,22 @@ mod tests {
         assert_eq!(m.bytes, [9; 32]);
         assert_eq!(m.writes, 0);
     }
+}
+
+// Appended NRO assets are file data, never executable mappings.
+fn nro_control(bytes: &[u8]) -> Option<Vec<u8>> {
+    let word = |at| Some(u32::from_le_bytes(bytes.get(at..at + 4)?.try_into().ok()?) as usize);
+    let asset = word(0x18)?;
+    if bytes.get(asset..asset.checked_add(4)?)? != b"ASET" {
+        return None;
+    }
+    let wide =
+        |at| usize::try_from(u64::from_le_bytes(bytes.get(at..at + 8)?.try_into().ok()?)).ok();
+    let offset = wide(asset.checked_add(0x18)?)?;
+    let len = wide(asset.checked_add(0x20)?)?;
+    if len != 0x4000 {
+        return None;
+    }
+    let start = asset.checked_add(offset)?;
+    Some(bytes.get(start..start.checked_add(len)?)?.to_vec())
 }

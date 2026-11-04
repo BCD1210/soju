@@ -76,3 +76,24 @@ fn mode_roundtrips_and_invalid_modes_do_not_change_state() {
         Err(Error::Unsupported { .. })
     ));
 }
+
+#[test]
+fn control_property_is_exact_and_short_buffers_are_rejected() {
+    let mut h = Harness::new();
+    assert!(h.p.set_control(vec![0; 16]).is_err());
+    let mut bytes = vec![0; 0x4000];
+    bytes[..5].copy_from_slice(b"probe");
+    h.p.set_control(bytes.clone()).unwrap();
+    let arp = h.open("arp:r");
+    let mut request = req(1, 1u64.to_le_bytes().to_vec());
+    request.buffers.push(Buffer {
+        kind: BufferKind::Receive,
+        address: crate::nro::TLS + 0x1000,
+        len: 0x4000,
+        index: 0,
+    });
+    let reply = h.call(arp, request.clone()).unwrap();
+    assert_eq!(reply.writes[0].bytes, bytes);
+    request.buffers[0].len = 0x3fff;
+    assert!(h.call(arp, request).is_err());
+}

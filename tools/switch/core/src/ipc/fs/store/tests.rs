@@ -249,3 +249,36 @@ fn snapshot_directory_file_counts_and_duplicate_identities_are_bounded() {
     bad.get_mut(&attr(1)).unwrap().size = 3;
     assert!(encode_saves(&bad).is_err());
 }
+
+#[test]
+fn cache_and_bcat_identities_roundtrip_separately() {
+    let sandbox = Sandbox::new();
+    let store = Store::new(&sandbox.0, "boot-probe").unwrap();
+    let mut entries = Saves::new();
+    for (index, kind) in [1u8, 2, 5].into_iter().enumerate() {
+        let mut identity = [0; 64];
+        identity[32] = kind;
+        if kind == 1 {
+            identity[8] = 1;
+        }
+        assert!(valid_attr(&identity));
+        let mut tree = Tree::empty();
+        tree.files.insert("/same-path".into(), vec![kind]);
+        entries.insert(
+            identity,
+            Save {
+                tree,
+                size: 4096,
+                id: index as u64 + 1,
+            },
+        );
+        identity[24] = 1;
+        assert!(!valid_attr(&identity));
+    }
+    store.save(&entries).unwrap();
+    let loaded = store.load_saves().unwrap();
+    assert_eq!(loaded.len(), 3);
+    for (identity, save) in loaded {
+        assert_eq!(save.tree.files["/same-path"], [identity[32]]);
+    }
+}

@@ -35,7 +35,7 @@ pub struct Media {
 impl Media {
     pub fn open(&mut self, name: &str, ctx: &mut Context<'_>) -> Result<Handle, Error> {
         let interface = match name {
-            "vi:m" => Interface::Vi,
+            "vi:m" | "vi:u" => Interface::Vi,
             "audout:u" => Interface::Audio,
             "audren:u" => Interface::RendererManager,
             _ => return Err(Error::Malformed("unknown media service")),

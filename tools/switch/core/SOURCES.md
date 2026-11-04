@@ -93,6 +93,14 @@ Service command/layout references (consulted 2026-11-04):
 - https://switchbrew.org/wiki/Parental_Control_services
 
 The local profile has one user, no network connection and no parental restrictions.
-Six-axis start/stop and stationary status are covered; motion samples are not yet
-published. Unsupported commands still stop explicitly. A successful boot probe
+Six-axis start/stop and stationary shared-memory samples are covered; host motion
+input is not connected. Unsupported commands still stop explicitly. A successful boot probe
 is not evidence that an untested application boots.
+
+Additional boot-path references:
+
+- https://switchbrew.org/wiki/Glue_services (ARP control property)
+- https://switchbrew.org/wiki/BCAT_services (prepo transmission status)
+- https://switchbrew.org/wiki/SSL_services (local context lifetime)
+- https://switchbrew.org/wiki/Filesystem_services (save identities)
+- Installed libnx public HID structure declarations (offsets checked by the probe compiler).

@@ -70,3 +70,38 @@ fn rejects_unsupported_or_inconsistent_npdm() {
         assert!(Program::load(&bytes, "nsp", &keys).is_err());
     }
 }
+
+#[test]
+fn control_property_is_selected_by_program_identity_and_validated() {
+    use soju_switch_fs::{nca::fixture as nca_fixture, pfs0, romfs};
+    let (package, keys, _) = fixture::package("nsp", true);
+    let entry = pfs0::parse(&package).unwrap().remove(0);
+    let program = &package[entry.offset as usize..(entry.offset + entry.size) as usize];
+    let mut nacp = vec![0; 0x4000];
+    nacp[..5].copy_from_slice(b"probe");
+    let control = nca_fixture::control_nca(&romfs::build(&[("/control.nacp", &nacp)])).image;
+    let bytes = pfs0::build(&[("program.nca", program), ("control.nca", &control)]);
+    assert_eq!(
+        Program::load(&bytes, "nsp", &keys).unwrap().control,
+        Some(nacp)
+    );
+    let duplicate = pfs0::build(&[
+        ("program.nca", program),
+        ("a.nca", &control),
+        ("b.nca", &control),
+    ]);
+    assert!(
+        Program::load(&duplicate, "nsp", &keys)
+            .err()
+            .unwrap()
+            .contains("duplicate application control property")
+    );
+    let short = nca_fixture::control_nca(&romfs::build(&[("/control.nacp", b"short")])).image;
+    let bytes = pfs0::build(&[("program.nca", program), ("control.nca", &short)]);
+    assert!(
+        Program::load(&bytes, "nsp", &keys)
+            .err()
+            .unwrap()
+            .contains("invalid control property size")
+    );
+}
