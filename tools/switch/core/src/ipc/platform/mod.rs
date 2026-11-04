@@ -3,6 +3,7 @@ mod applet;
 #[cfg(test)]
 mod error_tests;
 mod fonts;
+mod settings;
 mod shared;
 #[cfg(test)]
 mod shared_tests;
@@ -25,6 +26,7 @@ use std::{
 enum Kind {
     Empty,
     Firmware,
+    Settings,
     Ae,
     Oe,
     LibraryProxy,
@@ -103,7 +105,8 @@ impl Platform {
     }
     pub fn open(&mut self, name: &str, ctx: &mut Context<'_>) -> Result<Handle, Error> {
         let kind = match name {
-            "set" | "ns:am2" | "psm" => Kind::Empty,
+            "ns:am2" | "psm" => Kind::Empty,
+            "set" => Kind::Settings,
             "set:sys" => Kind::Firmware,
             "appletAE" => Kind::Ae,
             "appletOE" => Kind::Oe,

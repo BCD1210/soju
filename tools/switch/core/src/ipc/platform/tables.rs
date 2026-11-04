@@ -1,5 +1,5 @@
 use super::*;
-const fn c(
+pub(super) const fn c(
     id: u32,
     n: usize,
     handler: fn(&mut Platform, &Request, &mut Context<'_>) -> Result<Reply, Error>,
@@ -13,6 +13,7 @@ const fn c(
 pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
     match kind {
         Kind::Empty => &[],
+        Kind::Settings => settings::COMMANDS,
         Kind::Firmware => const { &[c(3, 0, firmware), c(4, 0, firmware)] },
         Kind::Ae => {
             const {
