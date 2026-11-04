@@ -271,6 +271,10 @@ final class Models3D {
         }
     }
     static let playerColors=[[244,4,4],[12,72,204],[44,180,148],[136,64,156],[248,140,20],[112,48,20],[204,224,208],[252,252,56]]
+    static func exposure(_ camera:SCNCamera) {
+        // Match desktop proof and eye passes; avoid per-eye adaptive exposure.
+        camera.wantsHDR=false;camera.wantsExposureAdaptation=false;camera.exposureOffset=0
+    }
     static func lights(_ world:SCNScene,tileset:String="badlands") {
         let presets:[String:(Double,Double,NSColor)]=[
             "badlands":(-0.8,-0.6,NSColor(calibratedRed:1,green:0.94,blue:0.84,alpha:1)),

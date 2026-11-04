@@ -146,7 +146,9 @@ extern "C" int soju_xr_init() {
     CHECK(xrEnumerateViewConfigurationViews(instance,systemId,XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,2,&count,views.data()));
     uint32_t nformats=0;CHECK(xrEnumerateSwapchainFormats(session,0,&nformats,nullptr));
     std::vector<int64_t> formats(nformats);CHECK(xrEnumerateSwapchainFormats(session,nformats,&nformats,formats.data()));
-    int64_t format=MTLPixelFormatBGRA8Unorm;
+    int64_t format=MTLPixelFormatBGRA8Unorm_sRGB;
+    if(std::find(formats.begin(),formats.end(),format)==formats.end())format=MTLPixelFormatBGRA8Unorm;
+    std::fprintf(stderr,"XR swapchain format: %lld (sRGB render view used for UNORM fallback)\n",(long long)format);
     if(std::find(formats.begin(),formats.end(),format)==formats.end()){std::strcpy(statusText,"BGRA8 swapchain unavailable");return 0;}
     for(size_t i=0;i<2;i++) {
         Eye& e=eyes[i];e.width=views[i].recommendedImageRectWidth;e.height=views[i].recommendedImageRectHeight;

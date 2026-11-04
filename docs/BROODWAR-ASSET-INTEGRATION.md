@@ -309,3 +309,23 @@ where RGB also changes perceptibly. The regression ceiling is 35% of model pixel
 Marine 84.395% → 12.905%; SCV 93.866% → 11.692%. Both pass, with nonzero coverage.
 `after/` also contains four views for all eight baseline types and eight-player
 palettes. These are shading checks, not final geometry/art approval.
+
+## M1 XR output correction — 2026-11-04 UTC
+
+OpenXR now requests BGRA8 sRGB (Metal format 81), with an sRGB render view for
+runtimes offering only BGRA8 UNORM. The 4x MSAA attachment matches that view and
+resolves to display-encoded eye pixels. Previously the eye pass wrote linear
+values into display bytes, unlike desktop snapshots. Desktop/proof/XR cameras
+now explicitly share fixed exposure 0, HDR tone mapping disabled, and no adaptive
+exposure. The existing calibrated sun 1050, ambient 450 and IBL 1.2 are retained:
+correcting the output transfer restores visibility without inflating illumination.
+
+`runtime/3d-proof/m1-fix/xr-simulator-before.png` and `xr-simulator.png` record
+the same scene/camera. `luminance.json` reports Rec.709 weighted encoded and linear
+means, excluding the top 145 pixels of simulator chrome, plus full-frame values.
+The initial baseline scene mean is 0.08642 (linear 0.00981); the corrected scene
+is approximately 0.162 (linear 0.030), comparable to desktop proofs at 0.190.
+`check_scene_luminance.py` requires >1.5x improvement and 0.7–1.5x desktop brightness.
+`xr-view-diagnostics.json` records the actual swapchain/render formats and exposure.
+Simulator receipt was 72 fps with zero displayed loss/error/drop at capture;
+this is not physical-headset acceptance.
