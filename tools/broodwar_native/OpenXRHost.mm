@@ -17,7 +17,7 @@ XrSystemId systemId=0;
 XrSession session=XR_NULL_HANDLE;
 XrSpace localSpace=XR_NULL_HANDLE;
 XrActionSet actions=XR_NULL_HANDLE;
-XrAction poseAction=XR_NULL_HANDLE,selectAction=XR_NULL_HANDLE,moveAction=XR_NULL_HANDLE,gripAction=XR_NULL_HANDLE;
+XrAction poseAction=XR_NULL_HANDLE,selectAction=XR_NULL_HANDLE,triggerAction=XR_NULL_HANDLE,moveAction=XR_NULL_HANDLE,gripAction=XR_NULL_HANDLE;
 XrPath hands[2]={0,0};
 XrSpace handSpace[2]={XR_NULL_HANDLE,XR_NULL_HANDLE};
 bool previousSelect[2]={false,false},previousGrip[2]={false,false};
@@ -52,15 +52,16 @@ bool setupActions() {
     if(!check(xrCreateActionSet(instance,&set,&actions),"xrCreateActionSet"))return false;
     if(!action(poseAction,"aim",XR_ACTION_TYPE_POSE_INPUT) ||
        !action(selectAction,"select",XR_ACTION_TYPE_BOOLEAN_INPUT) ||
+       !action(triggerAction,"trigger",XR_ACTION_TYPE_FLOAT_INPUT) ||
        !action(moveAction,"move",XR_ACTION_TYPE_VECTOR2F_INPUT) ||
-       !action(gripAction,"menu",XR_ACTION_TYPE_BOOLEAN_INPUT))return false;
+       !action(gripAction,"grip",XR_ACTION_TYPE_FLOAT_INPUT))return false;
     for(const char* profile:{"/interaction_profiles/khr/simple_controller","/interaction_profiles/oculus/touch_controller"}) {
         bool touch=std::strstr(profile,"oculus")!=nullptr;
         std::vector<XrActionSuggestedBinding> bindings;
         for(const char* hand:{"left","right"}) {
             std::string base=std::string("/user/hand/")+hand;
             bindings.push_back({poseAction,path((base+"/input/aim/pose").c_str())});
-            bindings.push_back({selectAction,path((base+(touch?"/input/trigger/value":"/input/select/click")).c_str())});
+            bindings.push_back({touch?triggerAction:selectAction,path((base+(touch?"/input/trigger/value":"/input/select/click")).c_str())});
             if(touch){bindings.push_back({moveAction,path((base+"/input/thumbstick").c_str())});
                 bindings.push_back({gripAction,path((base+"/input/squeeze/value").c_str())});}
         }
@@ -88,13 +89,17 @@ void input(XrTime time,void* context,SojuXRControls callback) {
         XrActionStateGetInfo get{XR_TYPE_ACTION_STATE_GET_INFO};get.action=selectAction;get.subactionPath=hands[h];
         XrActionStateBoolean select{XR_TYPE_ACTION_STATE_BOOLEAN};
         xrGetActionStateBoolean(session,&get,&select);
-        bool now=select.isActive && select.currentState;
+        get.action=triggerAction;XrActionStateFloat trigger{XR_TYPE_ACTION_STATE_FLOAT};
+        xrGetActionStateFloat(session,&get,&trigger);
+        bool now=(select.isActive && select.currentState) ||
+            (trigger.isActive && trigger.currentState>(previousSelect[h]?0.4f:0.6f));
         if(h==0)result.leftPressed=now&&!previousSelect[h];else result.rightPressed=now&&!previousSelect[h];
         if(h==0){result.leftHeld=now;result.leftReleased=!now&&previousSelect[h];}
         else {result.rightHeld=now;result.rightReleased=!now&&previousSelect[h];}
         previousSelect[h]=now;
-        get.action=gripAction;XrActionStateBoolean grip{XR_TYPE_ACTION_STATE_BOOLEAN};
-        xrGetActionStateBoolean(session,&get,&grip);bool squeezed=grip.isActive&&grip.currentState;
+        get.action=gripAction;XrActionStateFloat grip{XR_TYPE_ACTION_STATE_FLOAT};
+        xrGetActionStateFloat(session,&get,&grip);
+        bool squeezed=grip.isActive&&grip.currentState>(previousGrip[h]?0.4f:0.6f);
         if(h==0)result.leftGripPressed=squeezed&&!previousGrip[h];else result.rightGripPressed=squeezed&&!previousGrip[h];
         if(h==0)result.leftGripHeld=squeezed;else result.rightGripHeld=squeezed;
         previousGrip[h]=squeezed;
