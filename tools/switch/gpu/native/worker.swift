@@ -696,47 +696,58 @@ final class Worker {
                 }
             }
         }
-    for (key,t) in targets where dirtyAttachments.contains(key) {
-        if t.sampleCount > 1 { try output(key + ".rgba", transfer().download(t)); continue }
-        var bytes=Data(count:t.width*t.height*targetBytes[key]!)
-        bytes.withUnsafeMutableBytes { storage in
-            t.getBytes(storage.baseAddress!,bytesPerRow:t.width*targetBytes[key]!,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
+        var transfers = [(String, MTLTexture, Int, MTLBlitOption)]()
+        for (key,t) in targets where dirtyAttachments.contains(key) {
+            if t.sampleCount > 1 { try output(key + ".rgba", transfer().download(t)); continue }
+            guard let bpp = targetBytes[key] else { throw Failure("missing color transfer format") }
+            transfers.append((key + ".rgba", t, bpp, []))
         }
-        try output(key + ".rgba", bytes)
-    }
-        for (key,t) in depths where dirtyAttachments.contains(key) && t.sampleCount > 1 {
-            try output(key + ".depth", transfer().download(t))
-            try output(key + ".stencil", t.pixelFormat == .depth32Float_stencil8 ? transfer().download(t, stencil: true) : Data())
-        }
-        if depths.contains(where: { dirtyAttachments.contains($0.key) && $0.value.sampleCount == 1 }) {
-            guard let cb=queue.makeCommandBuffer(),let blit=cb.makeBlitCommandEncoder() else {throw Failure("depth readback encoder")}
-            var planes=[(String,MTLBuffer,Int,Int,Int)]()
-            for (key,t) in depths where dirtyAttachments.contains(key) && t.sampleCount == 1 {
-                for stencil in [false,true] {
-                    if stencil && t.pixelFormat != .depth32Float_stencil8 {try output(key + ".stencil", Data());continue}
-                    let bpp=stencil ? 1 : (t.pixelFormat == .depth16Unorm ? 2 : 4), row=((t.width*bpp+255)/256)*256
-                    let buffer: MTLBuffer
-                    if let index=readbackBuffers.firstIndex(where: { $0.length >= row*t.height }) {
-                        buffer=readbackBuffers.remove(at:index)
-                    } else {
-                        guard let allocation=device.makeBuffer(length:row*t.height,options:.storageModeShared) else {throw Failure("depth readback buffer")}
-                        buffer=allocation
-                    }
-                    let options:MTLBlitOption=t.pixelFormat == .depth32Float_stencil8 ? (stencil ? .stencilFromDepthStencil : .depthFromDepthStencil) : []
-                    blit.copy(from:t,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(x:0,y:0,z:0),sourceSize:MTLSize(width:t.width,height:t.height,depth:1),to:buffer,destinationOffset:0,destinationBytesPerRow:row,destinationBytesPerImage:row*t.height,options:options)
-                    planes.append((key+(stencil ? ".stencil" : ".depth"),buffer,row,t.width*bpp,t.height))
-                }
+        for (key,t) in depths where dirtyAttachments.contains(key) {
+            if t.sampleCount > 1 {
+                try output(key + ".depth", transfer().download(t))
+                try output(key + ".stencil", t.pixelFormat == .depth32Float_stencil8 ? transfer().download(t, stencil: true) : Data())
+                continue
             }
-            blit.endEncoding();cb.commit();cb.waitUntilCompleted();try need(cb.status == .completed,"depth readback failed")
-            for (name,buffer,row,width,height) in planes {
-                var bytes=Data(count:width*height)
-                bytes.withUnsafeMutableBytes { storage in
-                    for y in 0..<height {
-                        storage.baseAddress!.advanced(by:y*width).copyMemory(from:buffer.contents().advanced(by:y*row),byteCount:width)
-                    }
+            let packed = t.pixelFormat == .depth32Float_stencil8
+            transfers.append((key + ".depth", t, t.pixelFormat == .depth16Unorm ? 2 : 4, packed ? .depthFromDepthStencil : []))
+            if packed { transfers.append((key + ".stencil", t, 1, .stencilFromDepthStencil)) }
+            else { try output(key + ".stencil", Data()) }
+        }
+        if !transfers.isEmpty {
+            guard let cb=queue.makeCommandBuffer(),let blit=cb.makeBlitCommandEncoder() else {throw Failure("attachment readback encoder")}
+            var planes=[(String,MTLBuffer,Int,Int,Int)]()
+            for (name,t,bpp,options) in transfers {
+                let row=((t.width*bpp+255)/256)*256
+                let buffer: MTLBuffer
+                if let index=readbackBuffers.firstIndex(where: { $0.length >= row*t.height }) {
+                    buffer=readbackBuffers.remove(at:index)
+                } else {
+                    guard let allocation=device.makeBuffer(length:row*t.height,options:.storageModeShared) else {throw Failure("attachment readback buffer")}
+                    buffer=allocation
                 }
-                try output(name, bytes)
-                // Completion above and the owned Data copy make the scratch buffer reusable.
+                blit.copy(from:t,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(x:0,y:0,z:0),sourceSize:MTLSize(width:t.width,height:t.height,depth:1),to:buffer,destinationOffset:0,destinationBytesPerRow:row,destinationBytesPerImage:row*t.height,options:options)
+                planes.append((name,buffer,row,t.width*bpp,t.height))
+            }
+            blit.endEncoding()
+            let completion = NativeSpan("attachment_completion")
+            cb.commit();cb.waitUntilCompleted()
+            completion.end()
+            try need(cb.status == .completed,"attachment readback failed")
+            for (name,buffer,row,width,height) in planes {
+                if row == width {
+                    // The callback/file writer consumes this borrowed view synchronously.
+                    // Keep the Metal buffer alive until output returns, then pool it.
+                    try output(name, Data(bytesNoCopy:buffer.contents(),count:width*height,deallocator:.none))
+                } else {
+                    var bytes=Data(count:width*height)
+                    bytes.withUnsafeMutableBytes { storage in
+                        for y in 0..<height {
+                            storage.baseAddress!.advanced(by:y*width).copyMemory(from:buffer.contents().advanced(by:y*row),byteCount:width)
+                        }
+                    }
+                    try output(name, bytes)
+                }
+                // Completion and synchronous consumption make the scratch buffer reusable.
                 let budget=min(32*1024*1024,pressure.budget(cacheBudget)/8)
                 if readbackBuffers.reduce(0, { $0+$1.length })+buffer.length <= budget {
                     readbackBuffers.append(buffer)
