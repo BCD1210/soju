@@ -7,6 +7,7 @@ import QuartzCore
 import CoreImage
 import Darwin
 import simd
+let useMetalBatches=ProcessInfo.processInfo.environment["SOJU_BW_RENDERER"] != "scenekit"
 let xrRequested=CommandLine.arguments.contains("--xr")
 
 final class MirrorView: NSImageView { override func hitTest(_ point:NSPoint)->NSView? { nil } }
@@ -74,13 +75,18 @@ final class Commander: NSObject, NSApplicationDelegate {
     var devOverlay=CommandLine.arguments.contains("--dev-overlay")
     var billboards=[String:UnitBillboard]()
     var mapWidth=0,mapHeight=0,mapTiles=[Int]()
+    var sceneRevision=0,terrainRevision=0
     var state:Obj=[:];var busy=false;var initialized=false;var notice="Connecting to original client"
     var lastTick=CACurrentMediaTime();var lastSceneDiagnostic=0.0;var tick:Timer?;var poll:Timer?;var placingDepot=false
+    var metalBatches:MetalBatches?
+    var desktopMetal:DesktopMetal?
     #if SOJU_OPENXR
     var xrStereoCaptureIndex:Int?
     var lastMirrorTime=0.0
-    var metalBatches:MetalBatches?
-    var xrTimer:Timer?;var xrRenderer:SCNRenderer?;var xrCamera=SCNNode()
+    var xrPumpActive=false
+    var xrRenderer:SCNRenderer?;var xrCamera=SCNNode()
+    let xrScenePass=MTLRenderPassDescriptor()
+    var xrOutputViews=[ObjectIdentifier:MTLTexture]()
     var xrColor=[Int:MTLTexture]();var xrDepth=[Int:MTLTexture]();var lastXRInput=CACurrentMediaTime();var turnHeld=false
     var eyePositions=[SIMD3<Float>](repeating:.zero,count:2);var headCenter:SIMD3<Float>?
     var xrOrigin:SIMD3<Float>?;var xrOriginYaw:Float=0;var xrDrawCount=0;var xrFrameTime=0.0
@@ -101,7 +107,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         view.autoresizingMask=[.width,.height];view.commander=self;view.scene=world
         view.preferredFramesPerSecond=60;view.rendersContinuously=true;view.isPlaying=true
         view.antialiasingMode = .multisampling4X
-        world.background.contents=NSColor(calibratedRed:0.025,green:0.035,blue:0.05,alpha:1)
+        world.background.contents=useMetalBatches ? NSColor.clear:NSColor(calibratedRed:0.025,green:0.035,blue:0.05,alpha:1)
         camera.camera=SCNCamera();camera.camera!.fieldOfView=80
         camera.camera!.zNear=0.03;camera.camera!.zFar=150;Models3D.exposure(camera.camera!)
         if CommandLine.arguments.contains("--top-down") {
@@ -118,6 +124,10 @@ final class Commander: NSObject, NSApplicationDelegate {
         label.frame=NSRect(x:16,y:16,width:1370,height:64);label.autoresizingMask=[.width]
         window.contentView=view;view.addSubview(label);
         if !xrRequested {desktopCard.frame=NSRect(x:1010,y:100,width:410,height:320);desktopCard.autoresizingMask=[.minXMargin,.maxYMargin];view.addSubview(desktopCard)}
+        if useMetalBatches && !xrRequested {
+            do {desktopMetal=try DesktopMetal(commander:self)}
+            catch {fputs("Metal desktop: \(error)\n",stderr);NSApp.terminate(nil);return}
+        }
         window.center();window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(view);NSApp.activate(ignoringOtherApps:true)
         tick=Timer.scheduledTimer(withTimeInterval:1/60,repeats:true) { [weak self] _ in self?.step() }
@@ -138,21 +148,14 @@ final class Commander: NSObject, NSApplicationDelegate {
             reticle.categoryBitMask=2;reticle.geometry?.materials=[marker];reticle.isHidden=true;reticle.name="aim-marker"
             world.rootNode.addChildNode(reticle)
             for node in [wrists.commands,wrists.resources,wrists.ray,wrists.box] {world.rootNode.addChildNode(node)}
-            // xrWaitFrame owns pacing. Avoid a second 90 Hz deadline in the
-            // replay path: a busy main loop otherwise skips a whole period.
-            let xrPollInterval=CommandLine.arguments.contains("--metal-batches") ? 0.001:1.0/90
-            xrTimer=Timer.scheduledTimer(withTimeInterval:xrPollInterval,repeats:true) { [weak self] _ in
-                guard let self=self else { return }
-                if soju_xr_step(Unmanaged.passUnretained(self).toOpaque(),xrDraw,xrControls)==0 {
-                    self.notice=String(cString:soju_xr_status());self.xrTimer?.invalidate();soju_xr_close()
-                }
-            }
+            xrPumpActive=true
+            pumpXR()
         }
         #endif
     }
     func applicationWillTerminate(_ notification:Notification) {
         #if SOJU_OPENXR
-        if xrRequested { xrTimer?.invalidate();soju_xr_close() }
+        if xrRequested { xrPumpActive=false;soju_xr_close() }
         #endif
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender:NSApplication)->Bool { true }
@@ -202,7 +205,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     func restartForMap() {
         notice="Preparing changed map";tick?.invalidate();poll?.invalidate()
         #if SOJU_OPENXR
-        if xrRequested {xrTimer?.invalidate();soju_xr_close()}
+        if xrRequested {xrPumpActive=false;soju_xr_close()}
         #endif
         exit(78) // Launcher prepares the new map, then restarts this viewer.
     }

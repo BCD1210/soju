@@ -123,13 +123,13 @@ extension Commander {
         return nil
     }
     func select(at p:NSPoint) {
-        if let hit=view.hitTest(p,options:nil).first(where:{unitID($0.node) != nil}),let id=unitID(hit.node),
+        if let hit=view.hitTest(p,options:[SCNHitTestOption.categoryBitMask:5]).first(where:{unitID($0.node) != nil}),let id=unitID(hit.node),
             let u=units[id],number(u,"owner")==number(state,"player") {
             selected=[id];notice="Selected unit \(Int(number(u,"type")))"
         }
     }
     func move(to p:NSPoint) {
-        let hits=view.hitTest(p,options:nil)
+        let hits=view.hitTest(p,options:[SCNHitTestOption.categoryBitMask:5])
         if let choice=wrists.pending {
             let hit=hits.first{choice.target == .unit ? unitID($0.node) != nil:$0.node.name=="terrain"}
             cardCommand(choice,hit:hit);return

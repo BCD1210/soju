@@ -18,6 +18,16 @@ func xrControls(_ context:UnsafeMutableRawPointer?,_ packet:UnsafePointer<SojuXR
     Unmanaged<Commander>.fromOpaque(context).takeUnretainedValue().controls(packet.pointee)
 }
 extension Commander {
+    func pumpXR() {
+        guard xrPumpActive else {return}
+        let result=soju_xr_step(Unmanaged.passUnretained(self).toOpaque(),xrDraw,xrControls)
+        guard result != 0 else {xrPumpActive=false;notice=String(cString:soju_xr_status());soju_xr_close();return}
+        // xrWaitFrame sets the deadline. Yield to input/state work between frames,
+        // without imposing a second periodic timer on an active session.
+        if result==2 {DispatchQueue.main.asyncAfter(deadline:.now()+0.01) { [weak self] in self?.pumpXR() }}
+        else {DispatchQueue.main.async { [weak self] in self?.pumpXR() }}
+    }
+
     func renderEye(_ texture:MTLTexture,_ queue:MTLCommandQueue,_ eye:SojuXREye) {
         if eye.eye==0,xrDrawCount==120,let path=argument("--metal-capture") {
             let capture=MTLCaptureDescriptor();capture.captureObject=queue;capture.destination = .gpuTraceDocument
@@ -26,7 +36,7 @@ extension Commander {
             catch {fputs("Metal capture: \(error)\n",stderr)}
         }
         guard let renderer=xrRenderer,let buffer=queue.makeCommandBuffer() else { return }
-        buffer.label="Brood War eye \(eye.eye)"
+        buffer.label=eye.eye==0 ? "Brood War left eye":"Brood War right eye"
         let eyeStart=CACurrentMediaTime()
         os_signpost(.begin,log:XRFrameMetrics.log,name:"Eye encode")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Eye encode")}
@@ -45,17 +55,19 @@ extension Commander {
             let headRotation=body*simd_quatf(ix:eye.qx,iy:eye.qy,iz:eye.qz,r:eye.qw)
             let updateStart=CACurrentMediaTime()
             os_signpost(.begin,log:XRFrameMetrics.log,name:"Billboard update")
-            for billboard in billboards.values {billboard.updateView(eye:center,orientation:headRotation,perspective:true,art:worldSprites)}
+            for billboard in billboards.values {billboard.updateView(eye:center,orientation:headRotation,perspective:true,art:worldSprites,recordEvidence:captureFrames.folder != nil || xrDrawCount%90==0)}
             os_signpost(.end,log:XRFrameMetrics.log,name:"Billboard update")
             frameMetrics.stage("billboardUpdate",milliseconds:(CACurrentMediaTime()-updateStart)*1000)
             hud.simdPosition=center+headRotation.act(SIMD3<Float>(0,0.45,-1.5)*worldUnitsPerMeter);hud.simdOrientation=headRotation;hud.simdScale=SIMD3<Float>(repeating:worldUnitsPerMeter)
+            if devOverlay {
             let text="Selected: \(selected.count)   Minerals: \(Int(number(state,"minerals")))   Action: \(actionNames[actionMode])\nLeft trigger: select / drag   Right trigger: command   Left grip: scale\n\(notice)"
-            if devOverlay && text != hudText {
+            if text != hudText {
                 hudText=text
                 let size=NSSize(width:1200,height:180),image=NSImage(size:NSSize(width:1200,height:180))
                 image.lockFocus();NSColor.black.withAlphaComponent(0.8).setFill();NSRect(origin:.zero,size:size).fill()
                 (text as NSString).draw(in:NSRect(x:20,y:12,width:1160,height:158),withAttributes:[.font:NSFont.monospacedSystemFont(ofSize:30,weight:.medium),.foregroundColor:NSColor.white])
                 image.unlockFocus();hud.geometry?.firstMaterial?.diffuse.contents=image
+            }
             }
         }
         eyePositions[Int(eye.eye)]=position
@@ -75,18 +87,24 @@ extension Commander {
         SCNTransaction.commit();SCNTransaction.flush()
         // SceneKit shades in linear light; the runtime consumes display-encoded bytes.
         // An sRGB view also covers runtimes advertising only BGRA8Unorm.
-        guard let output = texture.pixelFormat == .bgra8Unorm ? texture.makeTextureView(pixelFormat:.bgra8Unorm_srgb) : texture else {
-            fputs("XR sRGB render view unavailable\n",stderr);return
-        }
+        let output:MTLTexture
+        if texture.pixelFormat == .bgra8Unorm {
+            let key=ObjectIdentifier(texture)
+            if let cached=xrOutputViews[key] {output=cached}
+            else {
+                guard let view=texture.makeTextureView(pixelFormat:.bgra8Unorm_srgb) else {fputs("XR sRGB view unavailable\n",stderr);return}
+                xrOutputViews[key]=view;output=view
+            }
+        } else {output=texture}
         let index=Int(eye.eye)
-        if !CommandLine.arguments.contains("--metal-batches"),xrDepth[index]?.width != texture.width || xrDepth[index]?.height != texture.height {
+        if !useMetalBatches,xrDepth[index]?.width != texture.width || xrDepth[index]?.height != texture.height {
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float_stencil8,width:texture.width,height:texture.height,mipmapped:false)
             desc.storageMode = .private;desc.usage = .renderTarget
             desc.textureType = .type2DMultisample;desc.sampleCount=4
             xrDepth[index]=art.device.makeTexture(descriptor:desc)
             desc.pixelFormat=output.pixelFormat;xrColor[index]=art.device.makeTexture(descriptor:desc)
         }
-        let pass=MTLRenderPassDescriptor();pass.colorAttachments[0].texture=xrColor[index]
+        let pass=xrScenePass;pass.colorAttachments[0].texture=xrColor[index]
         pass.colorAttachments[0].resolveTexture=output
         pass.colorAttachments[0].loadAction = .clear;pass.colorAttachments[0].storeAction = .multisampleResolve
         pass.colorAttachments[0].clearColor=MTLClearColorMake(0.025,0.035,0.05,1)
@@ -111,7 +129,7 @@ extension Commander {
         let renderStart=CACurrentMediaTime()
         frameMetrics.stage("eyeSetup",milliseconds:(renderStart-eyeStart)*1000)
         os_signpost(.begin,log:XRFrameMetrics.log,name:"SceneKit render")
-        if CommandLine.arguments.contains("--metal-batches"),argument("--snapshot") != nil {
+        if useMetalBatches {
             do {
                 if metalBatches==nil {metalBatches=try MetalBatches(device:art.device)}
                 try metalBatches!.prepare(self)
@@ -127,6 +145,7 @@ extension Commander {
                     metalBatches!.render(command:buffer,output:output,camera:xrCamera,eye:position,rightTransform:rightTransform,rightProjection:rightProjection)
                 }
                 metalBatches!.copyEye(command:buffer,to:output,eye:Int(eye.eye))
+                metalBatches!.renderOverlay(renderer:renderer,command:buffer,output:output,camera:xrCamera,eye:Int(eye.eye),time:xrFrameTime)
             } catch {fputs("Metal batches: \(error)\n",stderr);NSApp.terminate(nil)}
         } else {
             renderer.render(atTime:xrFrameTime,viewport:CGRect(x:0,y:0,width:texture.width,height:texture.height),commandBuffer:buffer,passDescriptor:pass)
