@@ -44,7 +44,7 @@ extension Commander {
             if !CommandLine.arguments.contains("--top-down") {
                 let x=Double(camera.position.x),z=Double(camera.position.z)
                 camera.position=Terrain3D.worldPosition(x,ground.elevation(x,z),z)
-                camera.position.y += CGFloat(commanderHeight)
+                camera.position.y += CGFloat(commanderHeight);placedEyeHeight=commanderHeight
             }
             initialized=true
         }
@@ -119,11 +119,11 @@ extension Commander {
     var terrainCenter:SCNVector3 {
         if CommandLine.arguments.contains("--top-down"),let values=argument("--camera")?.split(separator:","),values.count==2,
            let x=Double(values[0]),let z=Double(values[1]) {return SCNVector3(x,0,z)}
-        if tabletop {return SCNVector3(camera.position.x-sin(yaw)*CGFloat(wrists.zoom),0,camera.position.z-cos(yaw)*CGFloat(wrists.zoom))}
+        if tabletop {let p=cameraMapPosition;return SCNVector3(p.x-sin(yaw)*CGFloat(wrists.zoom),0,p.z-cos(yaw)*CGFloat(wrists.zoom))}
         #if SOJU_OPENXR
         if xrRequested,let h=headCenter { return Terrain3D.mapPosition(SCNVector3(Double(h.x),Double(h.y)-commanderHeight,Double(h.z))) }
         #endif
-        return Terrain3D.mapPosition(SCNVector3(camera.position.x,camera.position.y-CGFloat(commanderHeight),camera.position.z))
+        return cameraMapPosition
     }
     func updateTerrain() {
         let tiles=art.manifest["tiles"] as? [String:Obj] ?? [:]
@@ -182,13 +182,20 @@ extension Commander {
         }
         for (index,node) in creepNodes where !creepKeep.contains(index) {node.removeFromParentNode();creepNodes.removeValue(forKey:index)}
     }
+    var cameraMapPosition:SCNVector3 {
+        Terrain3D.mapPosition(SCNVector3(camera.position.x,camera.position.y-CGFloat(placedEyeHeight),camera.position.z))
+    }
     func walk(_ dx:CGFloat,_ dz:CGFloat) {
+        var native=cameraMapPosition
         for axis in 0..<2 {
-            let x=camera.position.x+(axis==0 ? dx:0),z=camera.position.z+(axis==1 ? dz:0)
-            let before=ground.elevation(Double(camera.position.x),Double(camera.position.z))
-            guard ground.walkable(Double(x),Double(z)),abs(ground.elevation(Double(x),Double(z))-before)<0.4 else { continue }
-            camera.position.x=x;camera.position.z=z
+            let x=native.x+(axis==0 ? dx:0),z=native.z+(axis==1 ? dz:0)
+            let before=ground.elevation(Double(native.x),Double(native.z))
+            guard ground.walkable(Double(x),Double(z)),abs(ground.elevation(Double(x),Double(z))-before)<0.4 else {continue}
+            native.x=x;native.z=z
         }
+        native.x=max(0.1,min(CGFloat(mapWidth)-0.1,native.x));native.z=max(0.1,min(CGFloat(mapHeight)-0.1,native.z))
+        camera.position=Terrain3D.worldPosition(Double(native.x),ground.elevation(Double(native.x),Double(native.z)),Double(native.z))
+        camera.position.y += CGFloat(commanderHeight);placedEyeHeight=commanderHeight
     }
     var commanderHeight:Double {tabletop ? Double(wrists.zoom)*0.9:1.65}
     func step() {
@@ -202,12 +209,7 @@ extension Commander {
         if view.keys.contains(0) { side-=1 };if view.keys.contains(2) { side+=1 }
         let speed:CGFloat=4
         if !CommandLine.arguments.contains("--top-down") {
-        camera.position=Terrain3D.mapPosition(SCNVector3(camera.position.x,camera.position.y-CGFloat(commanderHeight),camera.position.z))
-        walk((-sin(yaw)*forward+cos(yaw)*side)*speed*dt,(-cos(yaw)*forward-sin(yaw)*side)*speed*dt)
-        camera.position.x=max(0.1,min(CGFloat(mapWidth)-0.1,camera.position.x))
-        camera.position.z=max(0.1,min(CGFloat(mapHeight)-0.1,camera.position.z))
-        camera.position=Terrain3D.worldPosition(Double(camera.position.x),ground.elevation(Double(camera.position.x),Double(camera.position.z)),Double(camera.position.z))
-        camera.position.y += CGFloat(commanderHeight)
+            walk((-sin(yaw)*forward+cos(yaw)*side)*speed*dt,(-cos(yaw)*forward-sin(yaw)*side)*speed*dt)
         }
         camera.eulerAngles=SCNVector3(pitch,yaw,0)
         if CommandLine.arguments.contains("--top-down") {
@@ -215,11 +217,15 @@ extension Commander {
             camera.position.y=40;camera.eulerAngles=SCNVector3(-elevation,0,0)
             if let center=argument("--camera")?.split(separator:",").last,let z=Double(center) {camera.position.z=CGFloat(z+40/tan(elevation))}
         }
-        if !xrRequested {updateDesktopCard()}
+        if !xrRequested {
+            for billboard in billboards.values {billboard.updateView(eye:camera.simdWorldPosition,orientation:camera.simdOrientation,perspective:camera.camera?.usesOrthographicProjection != true,art:worldSprites)}
+            updateDesktopCard()
+        }
         Models3D.followLight(world,position:camera.position)
         if !xrRequested,initialized,let index=captureFrames.reserve(),
             let tiff=view.snapshot().tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let image=bitmap.cgImage {
             captureFrames.save(image,index:index,metadata:["frame":number(state,"frame"),
+                "spriteBounds":billboards.mapValues{$0.projectedLayers(view:view,art:worldSprites)},
                 "camera":[camera.position.x,camera.position.y,camera.position.z],
                 "snapshotSource":argument("--snapshot") ?? "live", "terrainProjection":"HD oblique relief at 32 degrees", "state":state,"fog":Dictionary(uniqueKeysWithValues:fog.map{(String($0.key),Int($0.value))}),"creepTiles":Array(creepTiles).sorted(),"elevationDegrees":Double(argument("--elevation") ?? "90") ?? 90,"viewHeight":camera.camera?.orthographicScale ?? 0,
                 "map":state["map"] ?? [:],"terrainTiles":terrain.count,"topDown":camera.camera?.usesOrthographicProjection ?? false])
