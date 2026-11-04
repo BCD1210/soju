@@ -18,7 +18,7 @@ final class SpriteRelief {
         if let mesh=meshes[key] {return mesh.copy() as? SCNGeometry}
         guard let entry=art.images[String(id)],let relief=entry["relief"] as? Obj,
             let files=relief["files"] as? [String:String],let file=files["ao_depth"],
-            let records=entry["frames"] as? [Obj],records.indices.contains(frame) else {return nil}
+            let records=art.frameRecords(id),records.indices.contains(frame) else {return nil}
         let depth:NSBitmapImageRep
         if let cached=depthAtlases[file] {depth=cached}
         else {

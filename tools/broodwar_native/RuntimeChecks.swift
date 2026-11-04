@@ -73,6 +73,11 @@ func runtimeChecks()throws {
     try require(prepared?.geometry != nil,"background stream publishes a complete relief frame")
     try require(prepared?.image.pixelFormat == .rgba8Unorm_srgb || prepared?.image.pixelFormat == .bgra8Unorm_srgb,"streamed color is explicitly sRGB")
     let streamedArt=WorldSprites(streaming:true),streamedBillboard=UnitBillboard(id:"stream-transition")
+    let catalogFirst=streamedArt.frameRecords(239)!,catalogAgain=streamedArt.frameRecords(239)!
+    let sharedCatalog=catalogFirst.withUnsafeBufferPointer { first in
+        catalogAgain.withUnsafeBufferPointer { again in first.baseAddress==again.baseAddress }
+    }
+    try require(!catalogFirst.isEmpty && sharedCatalog,"repeated frame metadata lookups reuse typed array storage")
     let streamedUnit:Obj=["x":100,"y":100,"image":["id":239,"frame":68,"flags":0]]
     let streamRed=[244,4,4],streamBlue=[4,4,244]
     func waitForColor(_ color:[Int]) {
