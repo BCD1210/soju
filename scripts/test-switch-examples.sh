@@ -6,7 +6,11 @@ CORE="$ROOT/tools/switch/core"
 CORPUS="${SOJU_SWITCH_EXAMPLES:-$HOME/.local/share/soju/switch/examples}"
 PROOF="${SOJU_SWITCH_PROOF:-$HOME/.local/share/soju/switch/proof/rust-examples}"
 cargo build --offline --release --manifest-path "$CORE/Cargo.toml" --features hv
-BINARY="$CORE/target/release/soju-switch-core"
+mkdir -p "$ROOT/dist"
+RUN=$(mktemp -d "$ROOT/dist/examples-run.XXXXXX")
+trap 'rm -rf "$RUN"' EXIT
+BINARY="$RUN/soju-switch-core"
+cp "$CORE/target/release/soju-switch-core" "$BINARY"
 codesign --force --sign - --entitlements "$CORE/hypervisor.entitlements" "$BINARY"
 codesign --verify --strict "$BINARY"
 python3 - "$BINARY" "$CORPUS" "$PROOF" <<'PY'
