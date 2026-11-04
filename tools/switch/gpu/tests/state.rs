@@ -145,15 +145,17 @@ fn tic_tsc_validation_and_cache_invalidation() {
 }
 
 #[test]
-fn catalogued_unimplemented_launches_are_not_silently_stored() {
+fn unimplemented_launches_are_not_silently_stored() {
     let mut e = Engine::default();
     let mut m = Memory::default();
     for offset in [0x1214, 0x1218, 0x17e4, 0x17f0] {
-        assert!(e
-            .method(B197, offset, 3, &mut m)
-            .unwrap_err()
-            .0
-            .contains("unsupported B197 effect"));
+        let error = e.method(B197, offset, 3, &mut m).unwrap_err();
+        let expected = if soju_switch_gpu::registers::lookup(B197, offset).is_some() {
+            "unsupported B197 effect"
+        } else {
+            "unknown method"
+        };
+        assert!(error.0.contains(expected), "{offset:#x}: {error}");
         assert!(!e.registers.0.contains_key(&offset));
     }
 }
