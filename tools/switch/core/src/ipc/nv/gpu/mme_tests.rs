@@ -117,3 +117,76 @@ fn mme_upload_limits_and_invalid_execution_do_not_wrap() {
     upload(&mut mme, 0, 0, &[0x4011, 0x100021, 0x41, 0x91, 0x11]);
     assert_eq!(mme.run(0, 0, &[], |_| Ok(0)).unwrap(), vec![(0x100, 0)]);
 }
+
+#[test]
+fn macro_parameter_destinations_preserve_send_and_fetch_order() {
+    let selector = ((0x1040u32) << 14) | 0x21;
+    type Case<'a> = (&'a [u32], u32, &'a [u32], &'a [(u32, u32)]);
+    let cases: &[Case<'_>] = &[
+        (
+            &[selector, 0xa31, 0x1041, 0x91, 0x11],
+            7,
+            &[9],
+            &[(0x100, 7), (0x104, 9)],
+        ),
+        (&[0xa51, 0x1041, 0x91, 0x11], 0x1040, &[7], &[(0x100, 7)]),
+        (
+            &[0xa61, 0x1041, 0x91, 0x11],
+            0x1040,
+            &[9],
+            &[(0x100, 9), (0x104, 0x1040)],
+        ),
+        (
+            &[0xa71, 0x1041, 0x91, 0x11],
+            0x3040,
+            &[],
+            &[(0x100, 3), (0x10c, 0x3040)],
+        ),
+    ];
+    for &(program, argument, parameters, expected) in cases {
+        let mut mme = MacroUpload::default();
+        upload(&mut mme, 0, 0, program);
+        assert_eq!(
+            mme.run(0, argument, parameters, |_| Ok(0)).unwrap(),
+            expected
+        );
+        if !parameters.is_empty() {
+            assert!(mme.run(0, argument, &[], |_| Ok(0)).is_err());
+        }
+    }
+}
+
+#[test]
+fn macro_exit_in_branch_delay_executes_target_once() {
+    let mut mme = MacroUpload::default();
+    upload(
+        &mut mme,
+        0,
+        0,
+        &[(0x40 << 14) | 0x21, (3 << 14) | 7, 0x91, 0xf, 0x841, 0xf],
+    );
+    assert_eq!(mme.run(0, 17, &[], |_| Ok(0)).unwrap(), [(0x100, 17)]);
+}
+
+#[test]
+fn branch_exit_modifier_only_exits_when_branch_is_not_taken() {
+    let mut mme = MacroUpload::default();
+    upload(
+        &mut mme,
+        0,
+        0,
+        &[
+            (0x1040 << 14) | 0x21,
+            (3 << 14) | (1 << 11) | 0x97,
+            0x841,
+            0xf,
+            0x91,
+            0x841,
+        ],
+    );
+    assert_eq!(mme.run(0, 0, &[], |_| Ok(0)).unwrap(), [(0x100, 0)]);
+    assert_eq!(
+        mme.run(0, 3, &[], |_| Ok(0)).unwrap(),
+        [(0x100, 3), (0x104, 3)]
+    );
+}

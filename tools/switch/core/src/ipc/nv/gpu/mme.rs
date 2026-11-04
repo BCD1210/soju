@@ -1,7 +1,7 @@
 use super::{Error, invalid};
 use std::collections::BTreeMap;
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
-pub(super) struct MacroUpload {
+pub(crate) struct MacroUpload {
     instruction_pointer: u32,
     entry_pointer: u32,
     instructions: BTreeMap<u32, u32>,
@@ -63,12 +63,13 @@ impl MacroUpload {
             let imm = i64::from(raw) - if raw & (1 << 17) != 0 { 1 << 18 } else { 0 };
             let mut next = pc + 1;
             let mut new_branch = None;
-            let mut new_exit = false;
+            let new_exit;
             if op == 7 {
-                if branch.is_some() || finish || end {
+                if branch.is_some() || finish {
                     return Err(invalid("nested MME branch delay"));
                 }
                 let taken = (registers[a] != 0) == (word & 0x10 != 0);
+                new_exit = end && !taken;
                 let target = if taken { pc + imm } else { pc + 2 };
                 if target < 0 {
                     return Err(invalid("MME branch target bounds"));
@@ -113,10 +114,31 @@ impl MacroUpload {
                     },
                     _ => return Err(invalid("unsupported MME opcode")),
                 };
-                if !matches!(assignment, 0 | 1 | 2 | 4) {
-                    return Err(invalid("unsupported MME assignment"));
+                if matches!(assignment, 2 | 5 | 6 | 7) {
+                    method = Some((result & 0xfff) * 4);
+                    increment = (result >> 12) & 63;
                 }
-                if assignment == 0 {
+                let send = match assignment {
+                    3 | 4 => Some(result),
+                    6 => {
+                        let parameter = *parameters
+                            .get(parameter_index)
+                            .ok_or(invalid("MME parameter underflow"))?;
+                        parameter_index += 1;
+                        Some(parameter)
+                    }
+                    7 => Some((result >> 12) & 63),
+                    _ => None,
+                };
+                if let Some(value) = send {
+                    let selected = method.ok_or(invalid("MME missing output selector"))?;
+                    if selected > 0x3ffc || emitted.len() >= 1024 {
+                        return Err(invalid("MME output limit"));
+                    }
+                    emitted.push((selected, value));
+                    method = Some(selected + increment * 4);
+                }
+                if matches!(assignment, 0 | 3 | 5) {
                     result = *parameters
                         .get(parameter_index)
                         .ok_or(invalid("MME parameter underflow"))?;
@@ -124,24 +146,6 @@ impl MacroUpload {
                 }
                 if dst != 0 {
                     registers[dst] = result;
-                }
-                match assignment {
-                    2 => {
-                        if result >> 16 != 0 {
-                            return Err(invalid("MME method selector"));
-                        }
-                        method = Some((result & 0xfff) * 4);
-                        increment = (result >> 12) & 15;
-                    }
-                    4 => {
-                        let selected = method.ok_or(invalid("MME missing output selector"))?;
-                        if selected > 0x3ffc || emitted.len() >= 1024 {
-                            return Err(invalid("MME output limit"));
-                        }
-                        emitted.push((selected, result));
-                        method = Some(selected + increment * 4);
-                    }
-                    _ => {}
                 }
                 new_exit = end;
             }
@@ -152,9 +156,6 @@ impl MacroUpload {
                 return Ok(emitted);
             }
             if let Some(target) = branch {
-                if new_exit {
-                    return Err(invalid("MME exit in branch delay"));
-                }
                 next = target;
             }
             branch = new_branch;
