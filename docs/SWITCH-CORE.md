@@ -12,6 +12,9 @@ Synthetic NSP/XCI loading and a synthetic Program-NCA boot are verified below. T
 run only files you trust. No keys, firmware, games or third-party emulator code
 are included in this implementation.
 
+For windowless execution, scripted inputs and corpus testing, see the
+[headless harness instructions](SWITCH-EXAMPLES.md#reproduce).
+
 ## Try it
 
 Requirements: Apple Silicon macOS, Xcode command-line tools, Cargo, Python 3 and
@@ -263,10 +266,11 @@ worker, deferred readback, fences and eight-target support. Neither imported
 crate was edited. Its nine existing GPU tests pass, including four native Metal
 render/resource tests. These test that crate's synthetic method streams only.
 The runner's NV GPFIFO path still uses its existing CPU command subset; it is
-**not connected to this Metal backend**. Snakey NX was not downloaded or run in
-this session, and there are no Snakey screenshots or frame-change acceptance
-results. The official release URL is still needed; the supplied checksum alone
-does not locate an authorized download. No general Switch web search was used.
+**not connected to this Metal backend**. The current acceptance corpus is 59
+official devkitPro examples; Snakey NX is deferred. The windowless harness captures
+32 first frames versus the supplied Unicorn baseline of two, but no GPU-rendered
+example is verified. See [the per-example report](SWITCH-EXAMPLES.md) for source
+comparisons, exact blockers, local commits and regression evidence.
 
 ## Validation commands
 
