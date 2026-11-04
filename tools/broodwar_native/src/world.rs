@@ -113,13 +113,13 @@ pub unsafe fn snapshot(r:&Runtime,game:&Game,all:&[*mut Unit],player:usize,detai
         // occurs while serializing the original image-chain state.
         unsafe {unit_info(unit,&pointers,player,true)}
     }).collect();
-    let (lone_sprites,lone_truncated) = match r.lone_sprites {
-        Some(first) => {
+    let (lone_sprites,lone_truncated) = match (r.lone_sprites,r.sprite_position) {
+        (Some(first),Some(position)) => {
             // SAFETY: supported Samase getter and pinned SCR layout, read only
             // on the game thread; lone_snapshot bounds/cycle-checks traversal.
-            unsafe {super::visuals::lone_snapshot(first().cast(),player)}
+            unsafe {super::visuals::lone_snapshot(first().cast(),player,position)}
         }
-        None => (Vec::new(),false),
+        _ => (Vec::new(),false),
     };
     let mut h=r.history.lock().unwrap();let mut bullets=Vec::new();let mut live=HashSet::new();
     let mut bullet=(r.bullets)() as *mut Bullet;
@@ -147,7 +147,7 @@ pub unsafe fn snapshot(r:&Runtime,game:&Game,all:&[*mut Unit],player:usize,detai
         "map":{"width":game.map_width_tiles as u32*32,"height":game.map_height_tiles as u32*32,"tileset":game.tileset,
             "path":cstring(&game.map_path),"title":cstring(&game.map_title)},
         "units":units,"dyingUnits":dying,"loneSprites":lone_sprites,
-        "loneSpritesAvailable":r.lone_sprites.is_some(),"loneSpritesTruncated":lone_truncated,
+        "loneSpritesAvailable":r.lone_sprites.is_some() && r.sprite_position.is_some(),"loneSpritesTruncated":lone_truncated,
         "bullets":bullets,"events":events,"eventSeq":h.sequence,
         "eventsLost":since.map(|s|s+1<earliest).unwrap_or(false),"visibleCount":visible.len(),"truncated":visible.len()>4096})
 }

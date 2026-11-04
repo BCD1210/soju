@@ -18,6 +18,7 @@ const VARS: [u16; 3] = [VarId::IsMultiplayer as u16, VarId::IsReplay as u16, Var
 struct Runtime {
     game: Getter, units: Getter, hidden: Getter, bullets: Getter, issue: Order,
     lone_sprites: Option<Getter>,
+    sprite_position: Option<visuals::SpritePosition>,
     history: Mutex<world::History>, session: String,
     tiles: unsafe extern "C" fn() -> *mut u32,
     send: unsafe extern "C" fn(*const c_void, u32),
@@ -170,6 +171,7 @@ pub unsafe extern "C" fn samase_plugin_init(api: *const PluginApi) {
     let Some(tiles) = ((*api).map_tile_flags)() else { log("terrain flags unavailable"); return; };
     let runtime = Runtime {game,units,hidden,bullets,issue,tiles,send,array,
         lone_sprites: ((*api).first_lone_sprite)(),
+        sprite_position: ((*api).get_sprite_position)(),
         history:Mutex::new(world::History::default()),
         session:format!("{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()),read:(*api).read_vars,socket,token,sequence:AtomicU64::new(0)};
     if RUNTIME.set(runtime).is_err() { return; }
