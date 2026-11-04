@@ -27,6 +27,13 @@ Usage:
   soju d2r            Launch Diablo II: Resurrected directly
   soju kill           Stop everything in the Battle.net bottle
   soju controllers    Game Controllers panel of the Battle.net bottle (is my pad seen?)
+  soju switch setup|play <2048.nro>  Experimental Switch homebrew (2048 only)
+  soju bw-native setup|build|play|state|status|order|stop  Original Brood War client
+  soju bw-native scene-build --xr                       Build OpenXR commander
+  soju bw-vr                                            Launch OpenXR commander (2.5D)
+  soju bw-native setup|build|play|state|status|order|stop  Original Brood War client
+  soju bw-native scene-build --xr                       Build OpenXR commander
+  soju bw-vr                                            Launch OpenXR commander (2.5D)
   soju vr setup       D2R in VR (offline): copy the Battle.net bottle and install D2R VR Unleashed
   soju vr play        Play D2R in VR (OXRSys client on the headset; offline characters)
   soju vr play --flat Open the VR copy without VR to create offline characters with the mouse
@@ -76,6 +83,11 @@ case "${1:-}" in
   epic-install)   shift; exec bash "$ROOT/scripts/create-epic-bottle.sh" "$@" ;;
   gog-install)    shift; exec bash "$ROOT/scripts/create-gog-bottle.sh" "$@" ;;
   steam-install)  shift; export SOJU_PLATFORMS=steam; exec bash "$ROOT/install.sh" "$@" ;;
+  switch)         shift; exec bash "$ROOT/scripts/switch.sh" "$@" ;;
+  bw-native)      shift; exec python3 "$ROOT/scripts/broodwar-native.py" "$@" ;;
+  bw-vr)          shift; exec python3 "$ROOT/scripts/broodwar-native.py" scene --xr "$@" ;;
+  bw-native)      shift; exec python3 "$ROOT/scripts/broodwar-native.py" "$@" ;;
+  bw-vr)          shift; exec python3 "$ROOT/scripts/broodwar-native.py" scene --xr "$@" ;;
   vr)             shift; exec python3 "$ROOT/scripts/d2r-vr.py" "$@" ;;
   xbox-install)   exec bash "$ROOT/scripts/xbox.sh" install ;;
   xbox-login)     exec bash "$ROOT/scripts/xbox.sh" login ;;

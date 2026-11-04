@@ -1,0 +1,20 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Soju · Brood War Commander</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#071017;color:#e8f5f5;font:14px system-ui}canvas{display:block}
+#panel{position:absolute;top:20px;left:20px;width:340px;background:#091820ed;border:1px solid #365159;border-radius:12px;padding:20px;box-shadow:0 12px 50px #0007}
+h1{font-size:23px;margin:5px 0 12px}.eyebrow{font-size:11px;letter-spacing:2px;color:#83b9bf}.stats{font-size:17px;color:#7be8cf;padding:12px 0;border-block:1px solid #264048}
+p{color:#a9c1c9;line-height:1.65}.buttons{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}button{border:1px solid #43606b;background:#20353f;color:#e9f7f9;padding:9px;border-radius:6px;cursor:pointer}button:hover{background:#35515e}button:disabled{opacity:.5;cursor:default}#selected{color:#fff;margin-top:14px}#message{color:#f6d6a0;min-height:35px}
+#cross{position:absolute;left:50%;top:50%;pointer-events:none;color:#ffffff90;font-size:20px;transform:translate(-50%,-50%)}
+#badge{position:absolute;bottom:18px;right:20px;font-size:12px;color:#adc2cc;background:#0a1821d9;padding:10px 15px;border-radius:6px}
+</style>
+<main id="panel"><div class="eyebrow">SOJU / COMMANDER LAB</div><h1>Brood War</h1>
+<div class="stats" id="stats">게임 연결 중…</div>
+<div id="selected">유닛을 선택하세요</div>
+<p>왼쪽 클릭: 아군 선택<br>오른쪽 클릭: 이동 · 채취 · 공격<br>WASD: 지휘관 이동 · 드래그: 둘러보기</p>
+<div class="buttons"><button id="view">전술 시점</button><button id="follow">나를 따라와</button><button id="stop">정지</button></div>
+<div class="buttons"><button id="depot">서플라이 100</button><button id="barracks">배럭 150</button><button id="train">유닛 생산 50</button></div>
+<div class="buttons"><button id="vr" disabled>VR 기기 확인 중</button></div>
+<p id="message">SCV를 선택하고 미네랄을 오른쪽 클릭하세요.</p>
+<small style="color:#8da3ad">실제 OpenBW 게임 상태 · 임시 3D 모델<br>지휘관 마린 1기 추가 · 상대 AI 미연결</small>
+</main><div id="cross">+</div><div id="badge">브루드워 지휘관 프로토타입 · VR 실기기 미검증</div>
+<script>window.SOJU_TOKEN="__TOKEN__";</script><script type="module" src="/viewer.js"></script></html>

@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "models": {
+    "0": {
+      "file": "marine.glb",
+      "scale": 2,
+      "yawDegrees": 180,
+      "faceHeading": true,
+      "requiredAnimations": [
+        "idle",
+        "walk",
+        "attack"
+      ],
+      "targetHeight": 1.7480118945,
+      "footPivot": true
+    },
+    "7": {
+      "file": "scv.glb",
+      "scale": 1.65,
+      "yawDegrees": 180,
+      "faceHeading": true,
+      "requiredAnimations": [
+        "idle",
+        "walk",
+        "attack",
+        "work",
+        "carryIdle",
+        "carryWalk"
+      ],
+      "targetHeight": 1.877970562,
+      "footPivot": true
+    },
+    "106": {
+      "file": "command-center.glb",
+      "scale": 1,
+      "yawDegrees": 0,
+      "faceHeading": false,
+      "targetHeight": 3.960560751,
+      "footPivot": true
+    },
+    "109": {
+      "file": "supply-depot.glb",
+      "scale": 1.15,
+      "yawDegrees": 0,
+      "faceHeading": false,
+      "targetHeight": 1.209834751,
+      "footPivot": true
+    },
+    "176": {
+      "file": "mineral-0.glb",
+      "scale": 1,
+      "yawDegrees": 0,
+      "faceHeading": false,
+      "animations": {
+        "idle": [
+          "Stand A_full"
+        ]
+      },
+      "targetHeight": 1.214224398,
+      "footPivot": true
+    },
+    "177": {
+      "file": "mineral-1.glb",
+      "scale": 1,
+      "yawDegrees": 0,
+      "faceHeading": false,
+      "targetHeight": 0.848815952,
+      "footPivot": true
+    },
+    "178": {
+      "file": "mineral-2.glb",
+      "scale": 1,
+      "yawDegrees": 0,
+      "faceHeading": false,
+      "targetHeight": 0.70791373,
+      "footPivot": true
+    },
+    "188": {
+      "file": "geyser.glb",
+      "scale": 1,
+      "yawDegrees": 0,
+      "faceHeading": false,
+      "animations": {
+        "idle": [
+          "Cover_full"
+        ]
+      },
+      "targetHeight": 1.465870343,
+      "footPivot": true
+    }
+  }
+}
