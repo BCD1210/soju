@@ -1,0 +1,5 @@
+scene|result|detail
+deko-example05|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 44 command 11: IPC: Message(\\\"Metal method 0xb197:0x320=0x201: unknown method b197:0320\\\")\")")
+deko-example06|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 44 command 11: IPC: Malformed(\\\"Metal CSAA, MSAA or linked TSC unsupported\\\")\")")
+deko-example07|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 44 command 11: IPC: Malformed(\\\"Metal CSAA, MSAA or linked TSC unsupported\\\")\")")
+deko-example09|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 44 command 11: IPC: Message(\\\"Metal setup field 0x1658=0x1\\\")\")")

@@ -1,0 +1,21 @@
+   Compiling soju-switch-shader v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/shader)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.90s
+     Running `tools/switch/shader/target/debug/examples/corpus_audit /Users/mikekim/.local/share/soju/switch/examples --symbolic-textures`
+resources|symbolic-textures=true
+graphics__deko3d__deko_basic.nro@285381:0|type=1|translated|opcodes={MUFU: 1, IPA: 5, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_basic.nro@285893:0|type=0|translated|opcodes={SHL: 1, LDC: 8, ALD: 1, AST: 2, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_console.nro@277189:0|type=1|translated|opcodes={FFMA: 4, FADD: 4, F2I: 1, IPA: 11, TEXS: 1, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_console.nro@277957:0|type=0|translated|opcodes={FFMA: 4, FADD: 5, FMUL: 3, MUFU: 2, F2F: 1, I2F: 1, SHL: 3, MOV: 5, LDC: 12, ALD: 3, AST: 5, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@404165:0|type=1|translated|opcodes={FFMA: 2, FADD: 3, FMUL: 4, MUFU: 2, MOV: 6, IPA: 7, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@404933:0|type=1|translated|opcodes={FFMA: 21, FADD: 9, FMUL: 19, FMNMX: 2, FSETP: 1, MUFU: 10, RRO: 1, MOV: 4, IPA: 10, BRA: 1, SSY: 1, SYNC: 2, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@406213:0|type=0|translated|opcodes={MOV: 1, ALD: 3, AST: 2, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@406725:0|type=1|translated|opcodes={MUFU: 1, MOV: 1, IPA: 4, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@407237:0|type=1|translated|opcodes={FFMA: 19, FADD: 9, FMUL: 21, FMNMX: 2, FSETP: 1, MUFU: 8, RRO: 1, F2I: 2, IPA: 2, TLDS: 3, BRA: 1, SSY: 1, SYNC: 2, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@408517:0|type=0|translated|opcodes={IADD: 1, ISETP: 2, LOP: 2, MOV: 6, ALD: 2, AST: 1, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@409285:0|type=5|translated|opcodes={FFMA: 5, FADD: 5, FMUL: 3, MUFU: 2, RRO: 1, I2F: 2, IADD: 4, ISCADD: 3, SHL: 1, MOV: 10, STG: 8, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@410053:0|type=3|only standalone Vertex B and Fragment stages have a Metal backend|opcodes={XMAD: 3, ISETP: 1, LOP: 1, BFE: 1, MOV: 6, ALD: 2, AST: 6, ISBERD: 1, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@410821:0|type=4|only standalone Vertex B and Fragment stages have a Metal backend|opcodes={FFMA: 16, FADD: 2, FMUL: 8, XMAD: 7, LOP: 1, BFE: 1, MOV: 4, ALD: 7, AST: 2, ISBERD: 3, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@411845:0|type=1|translated|opcodes={MUFU: 1, IPA: 3, TEXS: 1, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@412357:0|type=0|translated|opcodes={FFMA: 28, FADD: 4, FMUL: 15, MUFU: 1, MOV: 2, ALD: 5, AST: 6, EXIT: 1}|unknown-prefixes={}
+graphics__deko3d__deko_examples.nro@413637:0|type=0|translated|opcodes={FFMA: 20, FADD: 4, FMUL: 8, ALD: 3, AST: 2, EXIT: 1}|unknown-prefixes={}
+total|programs=16|instructions=521|decoded=521|translated=14
