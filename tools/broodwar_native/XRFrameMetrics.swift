@@ -1,7 +1,14 @@
 import Foundation
 import QuartzCore
+import os.signpost
 
 final class XRFrameMetrics {
+    static let log=OSLog(subsystem:"soju.broodwar",category:"XRFrame")
+    private var stages=[String:[Double]]()
+    func stage(_ name:String, milliseconds:Double) {
+        lock.lock();defer{lock.unlock()}
+        if stages[name,default:[]].count<10000 {stages[name,default:[]].append(milliseconds)}
+    }
     private let lock=NSLock()
     private var previous=0.0,start=0.0,intervals=[Double](),cpu=[Double](),gpu=[Double]()
     private var eyeGPU=[Int:[Int:Double]]()
@@ -36,6 +43,7 @@ final class XRFrameMetrics {
             let data:Obj=["targetHz":90,"budgetMs":1000.0/90,"unitCount":unitCount,
                 "snapshotSource":argument("--snapshot") ?? "live","frameIntervals":summary(intervals),
                 "stereoCPUEncode":summary(cpu),"stereoGPU":summary(gpu),
+                "stagesCPU":stages.mapValues{summary($0)},
                 "captureEnabled":argument("--record-dir") != nil,
                 "method":"Consecutive left-eye starts; CPU both-eye encoding; sum of both Metal command-buffer GPU durations. Warm-up excluded. Includes simulator pacing, not network receive latency."]
             if let bytes=try? JSONSerialization.data(withJSONObject:data,options:.prettyPrinted) {
