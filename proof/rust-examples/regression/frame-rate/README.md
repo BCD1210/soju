@@ -105,3 +105,15 @@ prepare 1879.291 ms, submit/wait 926.043 ms, readback 1080.965 ms. This is still
 below the requested sustained throughput. GPU tests passed with Metal validation;
 121 core library checks passed. New tests cover aligned capture ownership/padding,
 fragmented aliases, unmapped holes, permissions and unchanged range generations.
+
+## Draw-range reuse
+
+Validated non-indexed draw state can now be referenced with a different first
+vertex/count when every captured vertex stream covers the new range. Topology,
+instance, resource bindings, pipeline state and range generations must agree;
+indexed and quad expansion stay on their existing paths. Native references retain
+per-draw first/count and independently captured constant offsets.
+
+120-frame run: 4.451 seconds overall, prepare 1156.137 ms. All 29 GPU render tests
+passed with Metal validation, including a new varying-first/count pixel oracle
+and an out-of-bounds rejection. Sustained 60 fps is still not established.

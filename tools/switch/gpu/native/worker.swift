@@ -36,7 +36,7 @@ func schedulePasses(_ commands: UnsafeBufferPointer<Command>) throws -> [Int] {
         groups.removeAll(keepingCapacity: true);groupIDs.removeAll(keepingCapacity: true);owners.removeAll(keepingCapacity: true)
     }
     for (index, input) in commands.enumerated() {
-        let source = input.kind == 5 ? Int(input.reference) : index
+        let source = (input.kind == 5 || input.kind == 6) ? Int(input.reference) : index
         try need(source >= 0 && source <= index, "invalid scheduling reference")
         let command = commands[source]
         if command.kind != 0 || command.depth.length != 0 || items(command.registers).contains(where: { $0.address == 0x1514 && $0.value != 0 }) {
@@ -210,9 +210,10 @@ final class Worker {
     var pipelineUsage = [Int: CacheStamp]()
     for inputIndex in scheduled {
         let input = commands[inputIndex]
-        let commandIndex = input.kind == 5 ? Int(input.reference) : inputIndex
+        let commandIndex = (input.kind == 5 || input.kind == 6) ? Int(input.reference) : inputIndex
         try need(commandIndex >= 0 && commandIndex <= inputIndex, "invalid command reference")
-        let command = commands[commandIndex]
+        var command = commands[commandIndex]
+        if input.kind == 6 { command.first = input.first; command.count = input.count }
         if command.kind == 4 {
             endPass()
             let key=text(command.key), source=text(command.source)
@@ -531,7 +532,7 @@ final class Worker {
             for (slot, resource, offset) in vertexBindings[commandIndex]! { bind(encoder, 0, resource, offset, slot) }
             for c in items(command.constants) {
                 guard let b=uploadRing[uploadSlot] else {throw Failure("missing constant upload")}
-                let offset = input.kind == 5 ? uniformOffset(input, Int(c.stage), Int(c.slot)) : Int(c.offset)
+                let offset = (input.kind == 5 || input.kind == 6) ? uniformOffset(input, Int(c.stage), Int(c.slot)) : Int(c.offset)
                 bind(encoder, Int(c.stage), b, offset, Int(c.slot))
             }
             for stage in 0...1 {

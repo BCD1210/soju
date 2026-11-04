@@ -29,7 +29,7 @@ func sharedDepthPlans(_ commands: UnsafeBufferPointer<Command>, _ order: [Int]) 
         span.removeAll(); union.removeAll(); slots.removeAll(); sets.removeAll(); identity = ""
     }
     for index in order {
-        let input = commands[index], source = input.kind == 5 ? Int(input.reference) : index
+        let input = commands[index], source = (input.kind == 5 || input.kind == 6) ? Int(input.reference) : index
         let command = commands[source]
         guard command.kind == 0, let depth = items(command.depth).first,
               let first = items(command.targets).first,

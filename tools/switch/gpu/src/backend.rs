@@ -52,6 +52,76 @@ struct PreparedVariant {
     dependencies: Vec<(u64, usize, u64)>,
     constants: Vec<ConstantBuffer>,
     views: (usize, usize),
+    vertex_capacity: u64,
+}
+fn compatible_draw(previous: &Snapshot, r: &Registers, action: &Action, capacity: u64) -> bool {
+    match (&previous.action, action) {
+        (
+            Action::Draw {
+                topology: old_topology,
+                indexed: false,
+                instance: old_instance,
+                ..
+            },
+            Action::Draw {
+                topology,
+                first,
+                count,
+                indexed: false,
+                instance,
+            },
+        ) => {
+            *topology != 7
+                && topology == old_topology
+                && instance == old_instance
+                && (1..=1_000_000).contains(count)
+                && first
+                    .checked_add(*count - 1)
+                    .is_some_and(|last| u64::from(last) < capacity)
+                && previous
+                    .registers
+                    .0
+                    .iter()
+                    .filter(|(a, _)| !matches!(**a, 0xd74 | 0xd78))
+                    .eq(r.0.iter().filter(|(a, _)| !matches!(**a, 0xd74 | 0xd78)))
+        }
+        _ => false,
+    }
+}
+fn vertex_capacity(command: &Command, files: &[crate::upload::Upload]) -> u64 {
+    command
+        .attributes
+        .iter()
+        .filter(|a| a.instanced == 0)
+        .map(|a| {
+            let Some(buffer) = command.buffers.iter().find(|b| b.slot == a.stream) else {
+                return 0;
+            };
+            let Some(index) = std::str::from_utf8(&buffer.file)
+                .ok()
+                .and_then(|s| s.strip_prefix("resource-"))
+                .and_then(|s| s.strip_suffix(".bin"))
+                .and_then(|s| s.parse::<usize>().ok())
+            else {
+                return 0;
+            };
+            let Some(bytes) = files.get(index) else {
+                return 0;
+            };
+            let width = match a.format {
+                31 => 16,
+                30 => 12,
+                29 => 8,
+                28 | 9 => 4,
+                _ => return 0,
+            };
+            if a.stride <= 0 || a.offset < 0 || bytes.len() < a.offset as usize + width {
+                return 0;
+            }
+            ((bytes.len() - a.offset as usize - width) / a.stride as usize + 1) as u64
+        })
+        .min()
+        .unwrap_or(u64::from(u32::MAX) + 1)
 }
 fn capture<'a>(
     memory: &'a Memory,
@@ -333,9 +403,9 @@ impl Backend {
         }
         if let Some(variant) = self.variants.iter_mut().find(|v| {
             v.epoch.0 == memory.identity
-                && v.state.registers == *r
                 && v.state.constants == *bindings
-                && v.state.action == *action
+                && ((v.state.registers == *r && v.state.action == *action)
+                    || compatible_draw(&v.state, r, action, v.vertex_capacity))
                 && v.views == (self.targets.len(), self.depth_targets.len())
                 && (v.epoch == memory.epoch()
                     || v.dependencies
@@ -349,6 +419,13 @@ impl Backend {
                 repeats: 1,
                 ..Command::default()
             };
+            if variant.state.action != *action {
+                if let Action::Draw { first, count, .. } = action {
+                    command.kind = 6;
+                    command.first = i64::from(*first);
+                    command.count = i64::from(*count);
+                }
+            }
             for (cb, binding) in variant.constants.iter().zip(template.constants.iter()) {
                 let offset = uniform_offset(
                     &mut self.constant_upload,
@@ -1373,6 +1450,7 @@ impl Backend {
                 dependencies,
                 constants: captured_constants,
                 views: (self.targets.len(), self.depth_targets.len()),
+                vertex_capacity: vertex_capacity(&self.commands[*index], &self.files),
             });
         }
         Ok(())

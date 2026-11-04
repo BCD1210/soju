@@ -23,7 +23,7 @@ extension Worker {
             var local = [Int: Int](), batch = [Command]()
             for index in group {
                 var command = commands[index]
-                if command.kind == 5 {
+                if (command.kind == 5 || command.kind == 6) {
                     guard let reference = local[Int(command.reference)] else { throw Failure("parallel reference escaped attachment group") }
                     command.reference = Int64(reference)
                 }
@@ -64,7 +64,7 @@ extension Worker {
     func independentGroups(_ commands: UnsafeBufferPointer<Command>) throws -> [[Int]]? {
         var groups = [[Int]](), ids = [String: Int](), owners = [String: String](), generations = [String: Int64]()
         for (index, input) in commands.enumerated() {
-            let source = input.kind == 5 ? Int(input.reference) : index
+            let source = (input.kind == 5 || input.kind == 6) ? Int(input.reference) : index
             try need(source >= 0 && source <= index, "invalid parallel reference")
             let command = commands[source]
             guard command.kind == 0, command.depth.length == 0,

@@ -3029,3 +3029,27 @@ fn shader_selects_all_sixteen_viewports_and_scissors() {
         }
     }
 }
+
+#[test]
+fn draw_range_references_keep_first_vertex_count_and_bounds() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("draw-ranges", [0., 0., 0., 1.]);
+    let mut vertices = quad(-1., -1., 0., 1., 0.5, [1., 0., 0., 1.]);
+    vertices.extend(quad(0., -1., 1., 1., 0.5, [0., 1., 0., 1.]));
+    h.vertices(&mut e, &vertices, &[[0.; 4]]);
+    h.draw(&mut e, 12, false, false);
+    h.methods(&mut e, &[(0x19d0, 60)]);
+    h.draw(&mut e, 6, false, false);
+    h.methods(&mut e, &[(0xd74, 6)]);
+    h.draw(&mut e, 6, false, false);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/draw-range-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    for (i, pixel) in report.images[0].rgba.chunks_exact(4).enumerate() {
+        assert_eq!(pixel, if i % 32 < 16 { &[255, 0, 0, 255] } else { &[0, 255, 0, 255] });
+    }
+    h.methods(&mut e, &[(0xd74, 0)]);
+    h.draw(&mut e, 12, false, false);
+    h.methods(&mut e, &[(0xd74, 12), (0x1618, 4)]);
+    let invalid = e.method(B197, 0xd78, 1, &mut h.memory).unwrap().unwrap();
+    assert!(h.backend.prepare(&invalid, &h.memory).is_err());
+}
