@@ -75,7 +75,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     var devOverlay=CommandLine.arguments.contains("--dev-overlay")
     var billboards=[String:UnitBillboard]()
     var mapWidth=0,mapHeight=0,mapTiles=[Int]()
-    var sceneRevision=0,terrainRevision=0
+    var sceneRevision=0,terrainRevision=0,terrainFogRevision=0
     var lastTerrainUpdate:TerrainUpdateKey?
     var state:Obj=[:];var busy=false;var initialized=false;var notice="Connecting to original client"
     let diagnosticQueue=DispatchQueue(label:"soju.bw.diagnostics",qos:.utility)
@@ -202,7 +202,9 @@ final class Commander: NSObject, NSApplicationDelegate {
                     DispatchQueue.main.async {self.apply(s,[:]);self.busy=false};return
                 }
                 let f=try self.bridge.request(["op":"terrain","x":x,"y":y,"width":regionWidth,"height":regionHeight])
-                DispatchQueue.main.async { if let metadata=metadata {self.wrists.card.accept(metadata)};self.apply(s,f);self.busy=false }
+                let prepared=PreparedState(s,previous:self.bridge.previousState)
+                self.bridge.previousState=s
+                DispatchQueue.main.async { if let metadata=metadata {self.wrists.card.accept(metadata)};self.apply(s,f,prepared:prepared);self.busy=false }
             } catch {
                 DispatchQueue.main.async { self.notice="Connection: \(error)";self.busy=false }
             }

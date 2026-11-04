@@ -109,6 +109,17 @@ func runtimeChecks()throws {
         try batchCheck.prepare(commander)
         try require(batchCheck.batches.first(where:{!$0.terrain})!.vertices !== firstBuffer,"new geometry source invalidates cached native group")
     }
+    let asynchronous=try MetalBatches(device:commander.art.device)
+    let originalLayer=streamedBillboard.layers[0]!
+    let originalTransform=originalLayer.simdWorldTransform
+    asynchronous.prepareAsync(commander)
+    originalLayer.position.x += 10
+    let deadline=Date().addingTimeInterval(15)
+    while !asynchronous.ready && Date()<deadline {RunLoop.current.run(until:Date().addingTimeInterval(0.01))}
+    try require(asynchronous.ready,"background batch preparation publishes a completed snapshot")
+    let captured=asynchronous.batches.first(where:{!$0.terrain})!.drawNodes[0].transform
+    try require(simd_equal(captured,originalTransform),"published batch retains captured transforms when source nodes move")
+    originalLayer.simdWorldTransform=originalTransform
     commander.billboards.removeValue(forKey:"stream-transition")
     let cache=ResidentCache<Int>(limit:4)
     cache.insert(1,key:"first",bytes:2);cache.insert(2,key:"second",bytes:2)
@@ -323,6 +334,21 @@ func runtimeChecks()throws {
     try require(commander.terrainRevision==stableTerrainRevision,"unchanged terrain packet preserves geometry across native frames")
     commander.apply(state(2002,[]),["x":0,"y":0,"width":1,"height":1,"fog":"0","creep":"0"])
     try require(commander.terrain[0]==nil && commander.fog[0]==48,"changed fog packet removes hidden terrain without stale visibility")
+    let terrainPacket:Obj=["x":0,"y":0,"width":3,"height":3,"fog":"222222222","creep":"000000000"]
+    commander.apply(state(2003,[]),terrainPacket)
+    let terrainBatches=try MetalBatches(device:commander.art.device)
+    try terrainBatches.prepare(commander)
+    let beforeTerrain=terrainBatches.batches.first(where:{$0.terrain})!
+    commander.apply(state(2004,[]),["x":0,"y":0,"width":3,"height":3,"fog":"222212222","creep":"000000000"])
+    try terrainBatches.prepare(commander)
+    let afterTerrain=terrainBatches.batches.first(where:{$0.terrain})!
+    try require(beforeTerrain.vertices === afterTerrain.vertices && beforeTerrain.textures[0] === afterTerrain.textures[0],"fog changes preserve terrain vertex buffers and diffuse arrays")
+    try require(beforeTerrain.textures[1] !== afterTerrain.textures[1],"fog changes publish a new mask array without mutating the previous snapshot")
+    let previous=state(2100,[unit("stable"),unit("changed")])
+    var moved=unit("changed");moved["x"]=x+32
+    let diff=PreparedState(state(2101,[unit("stable"),moved]),previous:previous)
+    try require(diff.dirty==Set(["changed"]),"state diff preserves stationary units while marking movement")
+    try require(PreparedState(state(2102,[unit("stable")],session:"next"),previous:previous).dirty==Set(["stable"]),"session changes invalidate otherwise unchanged units")
     let report:Obj=["passed":true,"checks":passed,"source":"deterministic renderer inputs; not live-game acceptance"]
     let path=argument("--runtime-report").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("runtime-checks.json")
     try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:path,options:.atomic)
