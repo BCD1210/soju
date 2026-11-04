@@ -72,6 +72,21 @@ func runtimeChecks()throws {
     let prepared=streaming.get(239,frame:68,color:[244,4,4])
     try require(prepared?.geometry != nil,"background stream publishes a complete relief frame")
     try require(prepared?.image.pixelFormat == .rgba8Unorm_srgb || prepared?.image.pixelFormat == .bgra8Unorm_srgb,"streamed color is explicitly sRGB")
+    if let prepared=prepared,let payload=prepared.geometry {
+        let first=payload.geometry(),second=payload.geometry()
+        let expected=batchCheck.mesh(second)
+        try require(first.sources[0] !== second.sources[0] && first.elements[0] !== second.elements[0],"streamed relief reconstruction owns distinct SceneKit sources and elements")
+        second.elements[0].primitiveRange=NSRange(location:0,length:1)
+        let originalRange=second.elements[0].primitiveRange
+        first.elements[0].primitiveRange=NSRange(location:0,length:0);first.materials=[SCNMaterial()]
+        let preserved=batchCheck.mesh(second)
+        try require(!expected.0.isEmpty && expected.1==preserved.1 && second.elements[0].primitiveCount==payload.indices.count/3 && second.elements[0].primitiveRange==originalRange,"mutating one streamed relief reconstruction cannot change another owner's mesh")
+        let firstMaterial=prepared.material.material(),secondMaterial=prepared.material.material()
+        let firstMap=firstMaterial.value(forKey:"relief_normal") as! SCNMaterialProperty
+        let secondMap=secondMaterial.value(forKey:"relief_normal") as! SCNMaterialProperty
+        firstMap.contents=NSColor.red
+        try require(firstMap !== secondMap && !(secondMap.contents is NSColor),"streamed material reconstruction owns independent map properties")
+    }
     let streamedArt=WorldSprites(streaming:true),streamedBillboard=UnitBillboard(id:"stream-transition")
     let catalogFirst=streamedArt.frameRecords(239)!,catalogAgain=streamedArt.frameRecords(239)!
     let sharedCatalog=catalogFirst.withUnsafeBufferPointer { first in

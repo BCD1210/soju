@@ -5,6 +5,30 @@ import simd
 
 func frameResourceChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws {
     let renderer=try MetalBatches(device:device)
+    let payload=SpriteRelief.Mesh(vertices:[SCNVector3(-1,-1,0),SCNVector3(1,-1,0),SCNVector3(0,1,0)],
+        uv:[CGPoint(x:0,y:0),CGPoint(x:1,y:0),CGPoint(x:0.5,y:1)],indices:[0,1,2])
+    final class MeshResults {
+        let lock=NSLock();var checks=0,failures=0
+        func record(_ okay:Bool) {lock.lock();checks+=1;if !okay {failures+=1};lock.unlock()}
+    }
+    let results=MeshResults()
+    DispatchQueue.concurrentPerform(iterations:2) { _ in
+        guard let consumer=try? MetalBatches(device:device) else {results.record(false);return}
+        let cache=ResidentCache<SpriteRelief.Mesh>(limit:payload.bytes)
+        for iteration in 0..<512 {autoreleasepool {
+            cache.insert(payload,key:"frame",bytes:payload.bytes)
+            let saved=cache.get("frame")!
+            cache.insert(payload,key:"replacement",bytes:payload.bytes)
+            let source=saved.geometry(),owned=saved.geometry()
+            owned.elements[0].primitiveRange=NSRange(location:0,length:1)
+            let originalRange=owned.elements[0].primitiveRange
+            source.elements[0].primitiveRange=NSRange(location:0,length:0)
+            let extracted=consumer.mesh(owned)
+            results.record(cache.get("frame")==nil && owned.elements[0].primitiveRange==originalRange && extracted.0.count==3 && extracted.1==[0,1,2] && extracted.0[0].position.x == -1)
+            if iteration==511 {print("Relief owner extraction: 512 evictions and reconstructions completed")}
+        }}
+    }
+    try require(results.checks==1024 && results.failures==0,"two concurrent relief consumers survive 1024 cache evictions and independent geometry mutations")
     let plane=SCNPlane(width:0.9,height:0.065)
     let (planeMesh,_)=renderer.mesh(plane)
     let width=planeMesh.map{$0.position.x}.max()!-planeMesh.map{$0.position.x}.min()!

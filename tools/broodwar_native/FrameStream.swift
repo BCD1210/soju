@@ -6,8 +6,46 @@ import MetalKit
 // The worker owns its decoders and SceneKit construction objects. Only completed,
 // immutable resources cross to the render thread; a cache miss never decodes there.
 final class FrameStream {
+    struct Material {
+        enum Map {
+            case texture(MTLTexture)
+            case color(SIMD4<Float>)
+            init(_ contents:Any?) {
+                if let texture=contents as? MTLTexture {self = .texture(texture)}
+                else {
+                    let color=(contents as? NSColor)?.usingColorSpace(.sRGB) ?? .black
+                    self = .color(SIMD4<Float>(Float(color.redComponent),Float(color.greenComponent),Float(color.blueComponent),Float(color.alphaComponent)))
+                }
+            }
+            var contents:Any {
+                switch self {
+                case .texture(let texture):return texture
+                case .color(let color):return NSColor(srgbRed:CGFloat(color.x),green:CGFloat(color.y),blue:CGFloat(color.z),alpha:CGFloat(color.w))
+                }
+            }
+        }
+        let diffuse:MTLTexture,maps:[String:Map],shaders:[SCNShaderModifierEntryPoint:String]?
+        init(_ material:SCNMaterial,diffuse:MTLTexture) {
+            self.diffuse=diffuse;shaders=material.shaderModifiers
+            maps=Dictionary(uniqueKeysWithValues:["normal","bright","specular","emissive","ao_depth"].map {
+                ($0,Map((material.value(forKey:"relief_"+$0) as? SCNMaterialProperty)?.contents))
+            })
+        }
+        func material()->SCNMaterial {
+            let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
+            material.diffuse.contents=diffuse;material.readsFromDepthBuffer=true;material.writesToDepthBuffer=true
+            material.transparencyMode = .aOne;material.shaderModifiers=shaders
+            for (name,map) in maps {
+                let property=SCNMaterialProperty(contents:map.contents);property.wrapS = .clamp;property.wrapT = .clamp
+                material.setValue(property,forKey:"relief_"+name)
+            }
+            material.setValue(NSValue(scnVector3:SCNVector3(SpriteRelief.reference)),forKey:"reliefLight")
+            material.setValue(NSValue(scnVector3:SCNVector3(0,0,1)),forKey:"reliefEye")
+            return material
+        }
+    }
     struct Prepared {
-        let geometry:SCNGeometry?,material:SCNMaterial,image:MTLTexture,contact:Float
+        let geometry:SpriteRelief.Mesh?,material:Material,image:MTLTexture,contact:Float
     }
     let queue=DispatchQueue(label:"soju.bw.hd-stream",qos:.userInitiated)
     private let lock=NSLock()
@@ -36,7 +74,7 @@ final class FrameStream {
                     guard let image=source.texture(id,frame:frame,color:color),
                         let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {throw SceneError.invalid("Missing sprite frame")}
                     let diffuse=MetalBatches.colorView(try TextureResidency.shared.load(loader,MetalBatches.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.topLeft]))
-                    let mesh=source.relief.geometry(id,frame:frame,art:source)
+                    let mesh=source.relief.meshData(id,frame:frame,art:source)
                     let material=source.relief.material(id,frame:frame,color:color,art:source)
                     material.diffuse.contents=diffuse;cost+=MetalBatches.textureBytes(diffuse)
                     for name in ["normal","bright","specular","emissive","ao_depth"] {
@@ -47,9 +85,9 @@ final class FrameStream {
                         if let texture=property.contents as? MTLTexture {cost+=MetalBatches.textureBytes(texture)}
                     }
                     if let mesh=mesh {
-                        cost+=mesh.sources.reduce(0){$0+$1.data.count}+mesh.elements.reduce(0){$0+$1.data.count}
+                        cost+=mesh.bytes
                     }
-                    result=Prepared(geometry:mesh,material:material,image:diffuse,contact:source.relief.contactHeights["\(id)/\(frame)"] ?? 0)
+                    result=Prepared(geometry:mesh,material:Material(material,diffuse:diffuse),image:diffuse,contact:source.relief.contactHeights["\(id)/\(frame)"] ?? 0)
                 } catch {fputs("HD stream \(id)/\(frame): \(error)\n",stderr)}
                 os_signpost(.begin,log:XRFrameMetrics.log,name:"Stream publish")
                 defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Stream publish")}

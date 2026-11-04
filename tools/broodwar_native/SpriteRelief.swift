@@ -8,14 +8,25 @@ final class SpriteRelief {
     let device=MTLCreateSystemDefaultDevice()!
     let dataTextures=ResidentCache<MTLTexture>(limit:96*1024*1024)
     let materials=ResidentCache<SCNMaterial>(limit:32*1024*1024)
-    var meshes=[String:SCNGeometry](),depthAtlases=[String:NSBitmapImageRep]()
+    struct Mesh {
+        let vertices:[SCNVector3],uv:[CGPoint],indices:[Int32]
+        var bytes:Int {vertices.count*MemoryLayout<SCNVector3>.stride+uv.count*MemoryLayout<CGPoint>.stride+indices.count*MemoryLayout<Int32>.stride}
+        func geometry()->SCNGeometry {
+            SCNGeometry(sources:[SCNGeometrySource(vertices:vertices),SCNGeometrySource(textureCoordinates:uv)],
+                        elements:[SCNGeometryElement(indices:indices,primitiveType:.triangles)])
+        }
+    }
+    var meshes=[String:Mesh](),depthAtlases=[String:NSBitmapImageRep]()
     var contactHeights=[String:Float]()
     let alphaAtlases=ResidentCache<NSBitmapImageRep>(limit:128*1024*1024)
     static let sun=SIMD3<Float>(-0.22033581,0.89032002,0.39847509)
     static let reference=SIMD3<Float>(-0.22033581,0.54387457,0.80972377)
     func geometry(_ id:Int,frame:Int,art:WorldSprites)->SCNGeometry? {
+        meshData(id,frame:frame,art:art)?.geometry()
+    }
+    func meshData(_ id:Int,frame:Int,art:WorldSprites)->Mesh? {
         let key="\(id)/\(frame)"
-        if let mesh=meshes[key] {return mesh.copy() as? SCNGeometry}
+        if let mesh=meshes[key] {return mesh}
         guard let entry=art.images[String(id)],let relief=entry["relief"] as? Obj,
             let files=relief["files"] as? [String:String],let file=files["ao_depth"],
             let records=art.frameRecords(id),records.indices.contains(frame) else {return nil}
@@ -59,11 +70,10 @@ final class SpriteRelief {
             let a=Int32(y*(nx+1)+x),b=a+1,c=a+Int32(nx+1),d=c+1
             indices += [a,c,b,b,c,d]
         }}
-        let mesh=SCNGeometry(sources:[SCNGeometrySource(vertices:vertices),SCNGeometrySource(textureCoordinates:uv)],
-                             elements:[SCNGeometryElement(indices:indices,primitiveType:.triangles)])
+        let mesh=Mesh(vertices:vertices,uv:uv,indices:indices)
         contactHeights[key]=minimum.isFinite ? Float(minimum):0
         if meshes.count>512 {meshes.removeAll()};meshes[key]=mesh
-        return mesh.copy() as? SCNGeometry
+        return mesh
     }
     func dataTexture(_ id:Int,frame:Int,layer:String,art:WorldSprites)->MTLTexture? {
         let key="\(id)/\(frame)/\(layer)"

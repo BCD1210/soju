@@ -54,8 +54,8 @@ final class UnitBillboard {
             let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
             material.diffuse.contents=image;material.diffuse.wrapS = .clamp;material.diffuse.wrapT = .clamp
             material.readsFromDepthBuffer=false;material.writesToDepthBuffer=false;plane.materials=[material];node.geometry=plane
-            if !shadow,let mesh=(prepared?.geometry?.copy() as? SCNGeometry) ?? (art.stream==nil ? art.relief.geometry(id,frame:frame,art:art):nil) {
-                mesh.materials=[(prepared?.material.copy() as? SCNMaterial) ?? art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
+            if !shadow,let mesh=prepared?.geometry?.geometry() ?? (art.stream==nil ? art.relief.geometry(id,frame:frame,art:art):nil) {
+                mesh.materials=[prepared?.material.material() ?? art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
             }
             node.isHidden=false;node.castsShadow=false;node.renderingOrder=node.geometry is SCNPlane ? 1000+Int(number(unit,"y"))*32+chain.count-index:0
             if shadow {
@@ -130,8 +130,8 @@ final class UnitBillboard {
                     stream.request(id,frame:frame,color:team);lastEye=nil;continue
                 }
                 geometryRevision &+= 1
-                if !shadow,let mesh=(prepared?.geometry?.copy() as? SCNGeometry) ?? (art.stream==nil ? art.relief.geometry(id,frame:frame,art:art):nil) {
-                    mesh.materials=[(prepared?.material.copy() as? SCNMaterial) ?? art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh;node.renderingOrder=0
+                if !shadow,let mesh=prepared?.geometry?.geometry() ?? (art.stream==nil ? art.relief.geometry(id,frame:frame,art:art):nil) {
+                    mesh.materials=[prepared?.material.material() ?? art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh;node.renderingOrder=0
                 } else {node.geometry?.firstMaterial?.diffuse.contents=prepared?.image ?? art.texture(id,frame:frame,color:team) as Any?}
                 shown[index]=frame;shownImages[index]=id;shownColors[index]=team;node.isHidden=false
                 if let prepared=prepared {contacts[index]=prepared.contact}
