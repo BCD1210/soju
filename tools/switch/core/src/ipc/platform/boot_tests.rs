@@ -97,3 +97,28 @@ fn control_property_is_exact_and_short_buffers_are_rejected() {
     request.buffers[0].len = 0x3fff;
     assert!(h.call(arp, request).is_err());
 }
+
+#[test]
+fn desktop_power_profile_has_consistent_charge_and_mains_supply() {
+    let mut h = Harness::new();
+    let power = h.open("psm");
+    assert_eq!(
+        h.call(power, req(0, vec![])).unwrap().data,
+        100u32.to_le_bytes()
+    );
+    assert_eq!(
+        h.call(power, req(1, vec![])).unwrap().data,
+        1u32.to_le_bytes()
+    );
+    for command in [13, 15] {
+        assert_eq!(
+            h.call(power, req(command, vec![])).unwrap().data,
+            100f64.to_le_bytes()
+        );
+    }
+    assert_eq!(h.call(power, req(14, vec![])).unwrap().data, [1]);
+    assert!(matches!(
+        h.call(power, req(999, vec![])),
+        Err(Error::Unsupported { .. })
+    ));
+}

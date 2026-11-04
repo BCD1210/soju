@@ -32,6 +32,7 @@ use std::{
 enum Kind {
     Empty,
     Firmware,
+    Power,
     Settings,
     Ae,
     Oe,
@@ -159,7 +160,8 @@ impl Platform {
     }
     pub fn open(&mut self, name: &str, ctx: &mut Context<'_>) -> Result<Handle, Error> {
         let kind = match name {
-            "ns:am2" | "psm" => Kind::Empty,
+            "ns:am2" => Kind::Empty,
+            "psm" => Kind::Power,
             "set" => Kind::Settings,
             "set:sys" => Kind::Firmware,
             "appletAE" => Kind::Ae,

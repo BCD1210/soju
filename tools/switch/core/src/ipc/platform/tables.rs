@@ -13,6 +13,24 @@ pub(super) const fn c(
 pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
     match kind {
         Kind::Empty => &[],
+        // The desktop profile is permanently on mains power with full charge.
+        Kind::Power => {
+            const {
+                &[
+                    c(0, 0, |_, _, _| {
+                        Ok(Reply::data(100u32.to_le_bytes().to_vec()))
+                    }),
+                    c(1, 0, |_, _, _| Ok(Reply::data(1u32.to_le_bytes().to_vec()))),
+                    c(13, 0, |_, _, _| {
+                        Ok(Reply::data(100f64.to_le_bytes().to_vec()))
+                    }),
+                    c(14, 0, |_, _, _| Ok(Reply::data(vec![1]))),
+                    c(15, 0, |_, _, _| {
+                        Ok(Reply::data(100f64.to_le_bytes().to_vec()))
+                    }),
+                ]
+            }
+        }
         Kind::Settings => settings::COMMANDS,
         Kind::Firmware => const { &[c(3, 0, firmware), c(4, 0, firmware)] },
         Kind::Ae => {

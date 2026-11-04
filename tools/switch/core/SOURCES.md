@@ -130,3 +130,13 @@ API implementation: https://github.com/switchbrew/libnx/blob/master/nx/source/nv
 and https://github.com/switchbrew/libnx/blob/master/nx/source/nvidia/fence.c .
 The synchronous runner accepts waits only for committed completion values; future
 threshold waits remain unsupported, rather than returning premature success.
+
+## Desktop power queries
+
+The public libnx `nx/source/services/psm.c` command wrappers (consulted 2026-11-04)
+and installed `switch/services/psm.h` define charge (0, u32), charger (1, u32),
+raw charge (13, double), sufficient supply (14, bool), and battery age (15, double):
+https://github.com/switchbrew/libnx/blob/master/nx/source/services/psm.c
+The desktop profile reports constant full charge, full battery health and mains
+power. These are virtual-device values, not host battery telemetry. Unimplemented
+power-management commands remain errors.

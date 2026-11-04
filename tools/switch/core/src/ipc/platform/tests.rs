@@ -137,7 +137,7 @@ fn ae_oe_graph_and_unknown_interfaces() {
         h.call(settings, req(99, vec![])),
         Err(Error::Unsupported { .. })
     ));
-    for name in ["ns:am2", "psm"] {
+    for name in ["ns:am2"] {
         let s = h.open(name);
         assert!(matches!(
             h.call(s, req(0, vec![])),
