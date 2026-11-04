@@ -299,3 +299,59 @@ fn control_event_slots_wait_only_for_committed_fences_and_close_cleanly() {
         .unwrap();
     assert!(f.nv.fence_events.is_empty());
 }
+
+#[test]
+fn unmap_retires_split_views_and_allows_backing_release() {
+    let mut f = Fixture::new();
+    let (channel, space, va) = f.setup();
+    let allocation = f.nv.spaces[&space].mappings[&va].view.allocation;
+    let mut modify = vec![0; 40];
+    put32(&mut modify, 0, 0x100);
+    put32(&mut modify, 4, 0xfe);
+    put64(&mut modify, 16, 4096);
+    put64(&mut modify, 24, 4096);
+    put64(&mut modify, 32, va);
+    f.ioctl(space, 0xc0284106, &modify, 40).unwrap();
+    assert!(
+        f.ioctl(space, 0xc0084105, &(va + 4096).to_le_bytes(), 8)
+            .is_err()
+    );
+    assert!(f.ioctl(space, 0xc0084105, &va.to_le_bytes(), 7).is_err());
+    assert!(f.nv.spaces[&space].resolve(va + 4096, 4).is_ok());
+    assert_eq!(
+        f.ioctl(space, 0xc0084105, &va.to_le_bytes(), 8).unwrap(),
+        va.to_le_bytes()
+    );
+    for offset in [0, 4096, 8192] {
+        assert!(f.nv.spaces[&space].resolve(va + offset, 4).is_err());
+    }
+    assert!(f.ioctl(space, 0xc0284106, &modify, 40).is_err());
+    assert!(f.ioctl(space, 0xc0084105, &va.to_le_bytes(), 8).is_err());
+    let nvmap = f.nv.channels[&channel].nvmap.unwrap();
+    let mut free = vec![0; 24];
+    put32(&mut free, 0, allocation);
+    f.ioctl(nvmap, 0xc0180105, &free, 24).unwrap();
+}
+
+#[test]
+fn unmap_preserves_reservation_for_fixed_remap() {
+    let mut f = Fixture::new();
+    let (_, space, va) = f.setup();
+    let allocation = f.nv.spaces[&space].mappings[&va].view.allocation;
+    let mut reserve = vec![0; 24];
+    put32(&mut reserve, 0, 4);
+    put32(&mut reserve, 4, 65536);
+    put64(&mut reserve, 16, 65536);
+    let fixed = read_u64(&f.ioctl(space, 0xc0184102, &reserve, 24).unwrap(), 16).unwrap();
+    let mut map = vec![0; 40];
+    put32(&mut map, 0, 1);
+    put32(&mut map, 8, allocation);
+    put32(&mut map, 12, 65536);
+    put64(&mut map, 32, fixed);
+    for _ in 0..2 {
+        f.ioctl(space, 0xc0284106, &map, 40).unwrap();
+        f.ioctl(space, 0xc0084105, &fixed.to_le_bytes(), 8).unwrap();
+        assert!(f.nv.spaces[&space].resolve(fixed, 4).is_err());
+        assert!(f.nv.spaces[&space].resolve(va, 4).is_ok());
+    }
+}

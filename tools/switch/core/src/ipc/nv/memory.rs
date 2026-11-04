@@ -229,6 +229,18 @@ impl AddressSpace {
         self.mappings = updated;
         Ok(())
     }
+    pub fn unmap(&mut self, base: u64) -> Result<(), Error> {
+        let original = self
+            .originals
+            .remove(&base)
+            .ok_or(Error::Malformed("GPU unmap requires mapping base"))?;
+        // Modify may split a mapping into views; retire the whole original range.
+        // Reservations have a separate lifetime and remain available for remapping.
+        let end = base + original.span;
+        self.mappings
+            .retain(|&address, _| address < base || address >= end);
+        Ok(())
+    }
     pub fn resolve(&self, address: u64, size: usize) -> Result<(u64, u32), Error> {
         let size = u64::try_from(size).map_err(|_| Error::Malformed("GPU range size"))?;
         let end = address

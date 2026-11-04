@@ -207,3 +207,12 @@ fn channel<'a>(nv: &'a mut Nv, r: &Request) -> Result<&'a mut Channel, Error> {
         .get_mut(&r.u32(0)?)
         .ok_or(Error::Malformed("GPU channel"))
 }
+
+pub(super) fn unmap(nv: &mut Nv, r: &Request, _: &mut Context<'_>) -> Result<Reply, Error> {
+    let data = args(r);
+    nv.spaces
+        .get_mut(&r.u32(0)?)
+        .ok_or(Error::Malformed("uninitialized GPU address space"))?
+        .unmap(read_u64(data, 0)?)?;
+    Ok(Reply::data(data.to_vec()))
+}

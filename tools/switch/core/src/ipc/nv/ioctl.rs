@@ -37,6 +37,7 @@ const AS: &[CommandSpec<Nv>] = &[
     spec(0x40044101, 4, control::bind_space),
     spec(0xc0184102, 24, control::reserve),
     spec(0xc0284106, 40, control::map),
+    spec(0xc0084105, 8, control::unmap),
 ];
 const GPU: &[CommandSpec<Nv>] = &[
     spec(0x40044801, 4, control::bind_nvmap),
@@ -86,6 +87,7 @@ pub(super) fn dispatch(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<
             | 0xc020481a
             | 0xc0104809
             | 0xc018480c
+            | 0xc0084105
             | 0xc0284106
             | 0xc010480b
             | 0xc0184102
