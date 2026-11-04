@@ -4,7 +4,8 @@ import QuartzCore
 final class XRFrameMetrics {
     private let lock=NSLock()
     private var previous=0.0,start=0.0,intervals=[Double](),cpu=[Double](),gpu=[Double]()
-    private var eyeGPU=[Int:Double]()
+    private var eyeGPU=[Int:[Int:Double]]()
+    var completedStereoSamples:Int {lock.lock();defer{lock.unlock()};return gpu.count}
     private var unitCount=0
     func begin(units:Int) {
         lock.lock();defer{lock.unlock()}
@@ -20,9 +21,10 @@ final class XRFrameMetrics {
     func completed(frame:Int,eye:Int,milliseconds:Double) {
         lock.lock();defer{lock.unlock()}
         guard milliseconds>0,gpu.count<10000 else {return}
-        if eye==0 {eyeGPU[frame]=milliseconds}
-        else if let first=eyeGPU.removeValue(forKey:frame) {gpu.append(first+milliseconds)}
-        if eye==1,gpu.count%90==0,let path=argument("--frame-metrics") {
+        var pair=eyeGPU[frame] ?? [:];pair[eye]=milliseconds
+        guard let first=pair[0],let second=pair[1] else {eyeGPU[frame]=pair;return}
+        eyeGPU.removeValue(forKey:frame);gpu.append(first+second)
+        if gpu.count%90==0,let path=argument("--frame-metrics") {
             func summary(_ raw:[Double])->Obj {
                 let values=Array(raw.dropFirst(min(90,raw.count/2))).sorted()
                 guard !values.isEmpty else {return [:]}
