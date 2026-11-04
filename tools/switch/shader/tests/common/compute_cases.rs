@@ -137,6 +137,10 @@ fn explicit_ftz_preserves_zero_signs_and_records_non_ftz_limit() {
         ("fadd_ftz", alu(0x5c58000000000000, 0, 0, 1) | 1 << 44),
         ("fmul_ftz", alu(0x5c68000000000000, 0, 0, 1) | 1 << 44),
         (
+            "fmnmx_ftz",
+            alu(0x5c60000000000000, 0, 0, 1) | 1 << 44 | 7 << 39,
+        ),
+        (
             "ffma_ftz",
             alu(0x5980000000000000, 0, 0, 1) | 2 << 39 | 1 << 53,
         ),
@@ -179,7 +183,7 @@ fn explicit_ftz_preserves_zero_signs_and_records_non_ftz_limit() {
     let differences = (0..32)
         .filter(|i| actual[i * 8 + 6] != ieee[i * 8 + 6])
         .count();
-    eprintln!("GPU equivalence: 96 explicit FTZ cases; separate denormal probe: {differences}/32 differ from IEEE (documented allowed FTZ)");
+    eprintln!("GPU equivalence: 128 explicit FTZ cases; separate denormal probe: {differences}/32 differ from IEEE (documented allowed FTZ)");
 }
 
 #[test]

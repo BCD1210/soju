@@ -75,14 +75,24 @@ impl Emitter<'_> {
                 };
                 fdst(if ftz { format!("soju_ftz({v})") } else { v })
             }
-            FMNMX => fdst(format!(
-                "({} ? soju_min({}, {}) : soju_max({}, {}))",
-                predicate_operand(x, 3)?,
-                f(1)?,
-                f(2)?,
-                f(1)?,
-                f(2)?
-            )),
+            FMNMX => {
+                let value = |i| -> Result<String> {
+                    let v = f(i)?;
+                    Ok(if x.modified("ftz", None) {
+                        format!("soju_ftz({v})")
+                    } else {
+                        v
+                    })
+                };
+                fdst(format!(
+                    "({} ? soju_min({}, {}) : soju_max({}, {}))",
+                    predicate_operand(x, 3)?,
+                    value(1)?,
+                    value(2)?,
+                    value(1)?,
+                    value(2)?
+                ))
+            }
             IADD => dst(format!("({} + {})", a(1)?, a(2)?)),
             IADD3 => dst(format!("({} + {} + {})", a(1)?, a(2)?, a(3)?)),
             ISCADD => dst(format!("(({} << {}) + {})", a(1)?, a(3)?, a(2)?)),

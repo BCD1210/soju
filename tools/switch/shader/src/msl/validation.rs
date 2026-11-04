@@ -25,7 +25,7 @@ impl Emitter<'_> {
                 "abs" => matches!(x.opcode, FADD | FMNMX | FSET | FSETP | MUFU | F2F | F2I),
                 "inv" => matches!(x.opcode, LOP | POPC | FLO),
                 "sat" => matches!(x.opcode, FADD | FMUL | FFMA | MUFU | F2F | IPA),
-                "ftz" => matches!(x.opcode, FADD),
+                "ftz" => matches!(x.opcode, FADD | FMNMX),
                 "bf" => matches!(x.opcode, FSET | ISET),
                 "w" => matches!(x.opcode, SHL | SHR),
                 "nodep" => matches!(x.opcode, TEX | TEXS | TLD | TLDS | TLD4 | TXQ),
