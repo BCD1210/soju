@@ -59,6 +59,7 @@ pub struct Nv {
     allocations: BTreeMap<u32, Allocation>,
     spaces: BTreeMap<u32, memory::AddressSpace>,
     channels: BTreeMap<u32, Channel>,
+    retired_syncpoints: BTreeMap<u32, (ObjectId, u32, bool)>,
     transfers: BTreeMap<ObjectId, ObjectId>,
     release: Vec<ObjectId>,
     close: Vec<Handle>,
@@ -95,6 +96,7 @@ impl Nv {
             self.remove_fd(fd);
         }
         self.allocations.retain(|_, a| a.owner != object);
+        self.retired_syncpoints.retain(|_, (owner, _, _)| *owner != object);
     }
     pub fn poll(
         &mut self,
@@ -124,12 +126,15 @@ impl Nv {
                 self.close.push(event);
             }
         }
-        self.files.remove(&fd);
+        let owner = self.files.remove(&fd).map(|file| file.owner);
         self.metal.remove(&fd);
-        if let Some(channel) = self.channels.remove(&fd)
-            && let Some(event) = channel.event
-        {
-            self.close.push(event);
+        if let Some(channel) = self.channels.remove(&fd) {
+            if let Some(owner) = owner {
+                self.retired_syncpoints.insert(fd, (owner, channel.completed, channel.faulted));
+            }
+            if let Some(event) = channel.event {
+                self.close.push(event);
+            }
         }
         if !self.channels.values().any(|c| c.space == Some(fd)) {
             self.spaces.remove(&fd);
@@ -137,6 +142,16 @@ impl Nv {
         self.spaces.retain(|id, _| {
             self.files.contains_key(id) || self.channels.values().any(|c| c.space == Some(*id))
         });
+    }
+    fn syncpoint(&self, id: u32, owner: ObjectId) -> Result<(u32, bool), Error> {
+        if let Some(channel) = self.channels.get(&id) {
+            self.file(id, owner)?;
+            return Ok((channel.completed, channel.faulted));
+        }
+        self.retired_syncpoints.get(&id)
+            .filter(|(client, _, _)| *client == owner)
+            .map(|(_, completed, faulted)| (*completed, *faulted))
+            .ok_or(Error::Malformed("NV unknown syncpoint"))
     }
     fn file(&self, fd: u32, owner: ObjectId) -> Result<Device, Error> {
         self.files

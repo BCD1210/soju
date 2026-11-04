@@ -20,13 +20,9 @@ pub(super) fn unregister(nv: &mut Nv, r: &Request, _: &mut Context<'_>) -> Resul
 }
 pub(super) fn read(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error> {
     let syncpoint = r.u32(4)?;
-    nv.file(syncpoint, c.object)?;
-    let channel = nv
-        .channels
-        .get(&syncpoint)
-        .ok_or(Error::Malformed("NV unknown syncpoint"))?;
+    let (completed, _) = nv.syncpoint(syncpoint, c.object)?;
     let mut data = ioctl::args(r).to_vec();
-    put32(&mut data, 4, channel.completed);
+    put32(&mut data, 4, completed);
     Ok(Reply::data(data))
 }
 pub(super) fn wait(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error> {
@@ -37,12 +33,8 @@ pub(super) fn wait(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Repl
     if !nv.fence_events.contains_key(&(fd, index)) {
         return Err(Error::Malformed("NV event not registered"));
     }
-    nv.file(syncpoint, c.object)?;
-    let channel = nv
-        .channels
-        .get(&syncpoint)
-        .ok_or(Error::Malformed("NV unknown syncpoint"))?;
-    if channel.faulted || channel.completed < threshold {
+    let (completed, faulted) = nv.syncpoint(syncpoint, c.object)?;
+    if faulted || completed < threshold {
         return Err(Error::Malformed("NV fence has not completed"));
     }
     Ok(Reply::data(ioctl::args(r).to_vec()))

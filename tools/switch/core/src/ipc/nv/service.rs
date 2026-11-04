@@ -54,6 +54,9 @@ fn open_device(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, E
         b"/dev/nvhost-as-gpu" => Device::AsGpu,
         _ => return Err(Error::Malformed("unsupported NV device")),
     };
+    if device == Device::Gpu && nv.channels.len() + nv.retired_syncpoints.len() >= 4096 {
+        return Err(Error::Malformed("NV syncpoint capacity exhausted"));
+    }
     let fd = nv
         .next_fd
         .checked_add(1)

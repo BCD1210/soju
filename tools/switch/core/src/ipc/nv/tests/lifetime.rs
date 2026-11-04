@@ -61,3 +61,31 @@ fn closed_address_space_keeps_channel_mapping_without_fd_identity_collision() {
         crate::kernel::HEAP
     );
 }
+
+#[test]
+fn closed_channel_keeps_only_owned_terminal_syncpoint_until_session_close() {
+    let mut f = Fixture::new();
+    let (channel, _, _) = f.setup();
+    let owner = f.kernel.object_id(f.session).unwrap();
+    let control = f.open("/dev/nvhost-ctrl");
+    f.ioctl(control, 0xc004001f, &0u32.to_le_bytes(), 4).unwrap();
+    f.nv.channels.get_mut(&channel).unwrap().completed = 7;
+    f.call(&Fixture::request(2, channel.to_le_bytes().to_vec())).unwrap();
+    assert!(!f.nv.channels.contains_key(&channel));
+    assert!(f.nv.file(channel, owner).is_err());
+    assert_eq!(f.nv.syncpoint(channel, owner).unwrap(), (7, false));
+    assert!(f.nv.syncpoint(channel, owner + 1).is_err());
+    assert!(f.nv.syncpoint(u32::MAX, owner).is_err());
+    let mut wait = vec![0; 16];
+    put32(&mut wait, 0, channel);
+    put32(&mut wait, 4, 7);
+    assert_eq!(f.ioctl(control, 0xc010001e, &wait, 16).unwrap(), wait);
+    put32(&mut wait, 4, 8);
+    assert!(f.ioctl(control, 0xc010001e, &wait, 16).is_err());
+    f.nv.retired_syncpoints.get_mut(&channel).unwrap().2 = true;
+    put32(&mut wait, 4, 7);
+    assert!(f.ioctl(control, 0xc010001e, &wait, 16).is_err());
+    f.nv.close_object(owner);
+    assert!(f.nv.retired_syncpoints.is_empty());
+    assert!(f.nv.syncpoint(channel, owner).is_err());
+}

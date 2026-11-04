@@ -289,3 +289,21 @@ caller memory immediately, resizes the window and verifies all three retained
 uploads after GPU completion. It also exercises close/reopen and invalid calls,
 with Metal API validation enabled. Run the ignored presenter integration test
 on a logged-in macOS desktop.
+
+## Terminal syncpoints after channel close
+
+Switchbrew documents control syncpoint read/wait ioctls separately from channel
+file descriptors: https://switchbrew.org/wiki/NV_services
+The public host1x overview likewise distinguishes channels from synchronization
+counters: https://docs.kernel.org/gpu/tegra.html
+The runner's monotonic virtual syncpoint IDs previously reused the channel's
+internal lookup entry, so closing a completed channel destroyed its counter.
+Mesa's later cleanup wait then failed despite the fence already being complete.
+
+The virtual policy now keeps only (session owner, terminal counter, fault flag)
+after channel close. It keeps no executable channel, mapping or GPU resources.
+Unknown IDs, cross-session reads, faulted waits and future thresholds still fail.
+Session close removes the counters, and live plus retired entries are capped at
+4096 before admitting another channel. This is a bounded virtual lifetime policy,
+not a claim about the hardware allocator's ID reuse. A focused lifetime test and
+120-frame es2gears/dynamic_resolution desktop runs pass, including orderly exits.
