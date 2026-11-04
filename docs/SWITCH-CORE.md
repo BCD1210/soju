@@ -21,9 +21,23 @@ bash scripts/soju switch play /path/to/2048.nro
 ```
 
 Use the arrow keys to move tiles, B to start a new board, and Escape to close.
-Click the window first if it is behind another app. The runtime currently
-executes and displays this game through the command line; it is not integrated
-into the Soju graphical library or included as a released app.
+Click the window first if it is behind another app. The local app build includes a Nintendo Switch card in Platforms and imported
+games in Library. Use Setup and Add game file, or the commands below.
+This integration has not been published as a release.
+
+```sh
+bash scripts/soju switch import /path/to/own-game.nro
+bash scripts/soju switch list --json
+bash scripts/soju game switch:<id-from-list>
+bash scripts/soju switch remove switch:<id-from-list>
+```
+
+Imports keep the filename in `~/.battlenet-macos/switch/games/` with mode
+0600 and refuse filename collisions. IDs use the first 16 hex digits of the
+whole file SHA-256. NRO titles use an embedded NACP name when available.
+NSP/XCI files can be imported and listed, but cannot be played. Removing an
+ID removes its imported copies, never the source or saves. `SOJU_BASE` can
+override the library root for synthetic tests.
 
 ## Validation
 
@@ -94,3 +108,90 @@ NRO layout references:
 [homebrew loader](https://github.com/switchbrew/nx-hbloader/blob/master/source/main.c),
 [Homebrew ABI](https://switchbrew.org/wiki/Homebrew_ABI), and
 [libnx](https://github.com/switchbrew/libnx).
+
+## Rust core: M0
+
+`tools/switch/core/` is a dependency-free Cargo workspace with a library and
+`soju-switch-core` validation-only binary. `nro.rs` ports the existing Python
+loader's bounded NRO header/segment checks and initial homebrew ABI mappings
+(image/BSS, stack, TLS, loader config, exception context and return stub).
+Appended assets are excluded from mapped image memory. The ABI is the existing
+Soju diagnostic profile, not a complete Horizon process implementation.
+
+```sh
+cargo test --offline --manifest-path tools/switch/core/Cargo.toml
+```
+
+Four synthetic unit tests cover image loading, malformed/truncated inputs,
+segment bounds and ABI bytes/zeroed memory. CI runs only pure Rust tests with
+no default features. The launcher still uses the Python runner.
+
+## Apple Hypervisor CPU: bring-up
+
+The optional `hv` feature uses Apple's installed Hypervisor.framework SDK,
+without external crates. It creates one VM, a 16 KiB aligned host arena and one
+thread-affine vCPU. AArch64 programs run at EL0 with 4 KiB stage-1
+translation enabled. Synchronous exceptions enter the EL1 vector; its HVC
+returns to the host, which reads ESR_EL1 and the preserved guest registers.
+Handled timer reads resume through ERET. CNTKCTL_EL1 disables direct EL0 timer
+access: CNTFRQ returns 19,200,000 Hz and CNTVCT is host monotonic elapsed time
+scaled to that frequency, starting at VM creation. This is not cycle-accurate.
+
+On this Apple Silicon Mac, the following signed synthetic tests passed:
+
+```sh
+cargo test --offline --manifest-path tools/switch/core/Cargo.toml --features hv
+bash scripts/test-switch-hv.sh
+```
+
+The first command runs seven pure tests, leaving five hardware integration
+tests ignored. The script builds just the integration test executable, signs
+it ad-hoc with `com.apple.security.hypervisor`, verifies its signature and runs
+all five tests serially (the local NRO case requires the environment variable
+below). It does not install or launch Soju, download anything,
+or change services. CI does not run hardware tests.
+
+Observed results:
+
+- `mov x0,#7; svc #0x26` at EL0 produces SVC 0x26 and x0=7 at the host;
+  resuming executes a second SVC with x0=9.
+- Three timer accesses trap: CNTFRQ returns 19,200,000 and successive CNTVCT
+  reads are monotonic. A pure test verifies nanoseconds-to-ticks scaling.
+- A looping guest is canceled by the two-second host watchdog. An undefined
+  instruction stops with an unsupported guest exception.
+
+### Guest-memory milestone (step 1 of the Rust runner)
+
+`Nro::protected_homebrew` connects the loader to `Cpu::from_homebrew`.
+The three-level stage-1 tables use a 39-bit virtual address space and 4 KiB
+pages backed by a compact host arena. Text is RX, rodata R, and data/BSS,
+stack, TLS and loader config RW. User mappings are privileged-execute-never;
+the EL1 HVC/ERET bridge is inaccessible to EL0 and table pages have no user
+mapping. Stage 2 permits RWX; stage 1 enforces guest permissions. NROs with
+segments sharing a page are rejected instead of merging incompatible permissions.
+The homebrew config retains the Python runner's main-thread handle, argv,
+applet type and end marker.
+
+Signed synthetic tests execute from NRO text, read config/TLS, write and read
+zero-initialized BSS, and verify actual permission faults for text/rodata
+writes and execution of rodata, data, BSS, TLS and private EL1/table addresses.
+The existing SVC-resume, virtual-timer and watchdog tests still pass.
+
+```sh
+SOJU_SWITCH_TEST_NRO="$HOME/.local/share/soju/switch/demo/2048-1.1.0.nro" \
+  bash scripts/test-switch-hv.sh
+```
+
+With the local 2048 1.1.0 NRO this reaches its first SVC, `0x2`
+(`SetMemoryPermission`), at PC `0x100006fcc`. This is a boot smoke test,
+**not** a frame-change or gameplay test. No instructions/second comparison
+has been measured. There is no Rust HLE kernel, guest-thread scheduler, IPC
+service implementation, window/input path or save persistence yet; M1 is
+not complete. The binary remains validation-only and the launcher still
+uses the Python runner. No retail support has been established.
+
+Validation on 2026-11-03: the full Python suite ran 320 tests with 21 skips
+and only the known `test_only_attributed_commits_fail` failure. The Switch
+venv suite ran 92 tests with three optional tests skipped and no failures.
+`bash scripts/build-app.sh` built and signature-verified the native app; it
+was not installed or launched. All new game fixtures were synthetic.

@@ -15,3 +15,6 @@ drive_c/
 dist/
 __pycache__/
 *.pyc
+
+# Rust build products
+tools/switch/core/target/

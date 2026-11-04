@@ -1,8 +1,9 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 enum Launcher: String, CaseIterable, Identifiable {
-    case battlenet, steam, epic, gog, xbox
+    case battlenet, steam, epic, gog, xbox, `switch`
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -10,24 +11,27 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .steam: return "Steam"
         case .epic: return "Epic Games"
         case .gog: return "GOG GALAXY"
+        case .switch: return "Nintendo Switch"
         case .xbox: return "Xbox PC"
         }
     }
     var detail: String {
         switch self {
         case .steam: return "Windows library · D3D11 with DXMT"
+        case .switch: return "Homebrew · experimental; retail not supported"
         case .xbox: return "Microsoft Store library · experimental"
         default: return "Windows library · Apple D3DMetal"
         }
     }
     /// Xbox PC has no Windows client to open; sign-in and downloads run in Soju.
-    var opensAWindow: Bool { self != .xbox }
+    var opensAWindow: Bool { self != .xbox && self != .switch }
     var accountName: String {
         switch self {
         case .steam: return "Steam account"
         case .gog: return "GOG account"
         case .epic: return "Epic account"
         case .battlenet: return "Blizzard account"
+        case .switch: return "Your own game files"
         case .xbox: return "Microsoft account"
         }
     }
@@ -46,6 +50,7 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .steam: return "gamecontroller.fill"
         case .epic: return "shield.lefthalf.filled"
         case .gog: return "square.grid.2x2.fill"
+        case .switch: return "gamecontroller"
         case .xbox: return "xbox.logo"
         }
     }
@@ -55,6 +60,7 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .steam: return "steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe"
         case .epic: return "epic-bottle/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe"
         case .gog: return "gog-bottle/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe"
+        case .switch: return "switch/games"
         case .xbox: return "xbox-bottle/drive_c/ProgramData/Soju/xbox.json"
         }
     }
@@ -101,7 +107,10 @@ enum Launcher: String, CaseIterable, Identifiable {
 
     func refresh() {
         installed = Set(Launcher.allCases.filter {
-            FileManager.default.fileExists(atPath: base.appendingPathComponent($0.executable).path)
+            if $0 == .switch {
+                return FileManager.default.isExecutableFile(atPath: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/soju/switch/venv/bin/python").path)
+            }
+            return FileManager.default.fileExists(atPath: base.appendingPathComponent($0.executable).path)
         })
     }
 
@@ -172,7 +181,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     }
 
     func installSelection() {
-        let selected = Launcher.allCases.filter { selection.contains($0) }.map(\.rawValue)
+        let selected = Launcher.allCases.filter { selection.contains($0) && $0 != .switch }.map(\.rawValue)
         guard !selected.isEmpty else { return }
         run(["install", selected.joined(separator: ",")], title: "Installing selected launchers…")
     }
@@ -203,6 +212,16 @@ enum Launcher: String, CaseIterable, Identifiable {
         }
     }
 
+    func addSwitchGame() {
+        let panel = NSOpenPanel()
+        panel.title = "Add your own Switch game file"
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = ["nro", "nsp", "xci"].compactMap { UTType(filenameExtension: $0) }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        run(["switch", "import", url.path], title: "Importing Switch game…")
+    }
+
     func addGPTK() {
         let panel = NSOpenPanel()
         panel.title = "Choose the mounted Game Porting Toolkit volume or payload"
@@ -223,7 +242,7 @@ struct PlatformsView: View {
     @EnvironmentObject var model: SojuModel
     @Environment(\.colorScheme) private var scheme
     private var green: Color { scheme == .dark ? Color(red: 0.42, green: 0.83, blue: 0.67) : Color(red: 0.12, green: 0.34, blue: 0.28) }
-    // Three columns keep five platforms in two rows, so the log stays on screen.
+    // Three columns keep six platforms in two rows, so the log stays on screen.
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 14, alignment: .top), count: 3)
 
     var body: some View {
@@ -237,7 +256,7 @@ struct PlatformsView: View {
                             .padding(.horizontal, 9).padding(.vertical, 5)
                             .background(green.opacity(0.09), in: Capsule()).foregroundStyle(green)
                     }
-                    Text("Install and manage your official Windows launchers and Xbox PC downloads.").foregroundStyle(.secondary)
+                    Text("Manage Windows launchers, Xbox PC downloads and Switch homebrew.").foregroundStyle(.secondary)
                 }
                 Spacer()
                 Menu {
@@ -305,18 +324,23 @@ struct PlatformsView: View {
                         .foregroundStyle(installed ? green : Color.secondary)
                 }
                 Spacer()
-                Toggle("Select " + launcher.title, isOn: Binding(
-                    get: { model.selection.contains(launcher) },
-                    set: { if $0 { model.selection.insert(launcher) } else { model.selection.remove(launcher) } }
-                )).labelsHidden().toggleStyle(.checkbox).disabled(model.busy)
-                    .accessibilityLabel("Select " + launcher.title)
+                if launcher != .switch {
+                    Toggle("Select " + launcher.title, isOn: Binding(
+                        get: { model.selection.contains(launcher) },
+                        set: { if $0 { model.selection.insert(launcher) } else { model.selection.remove(launcher) } }
+                    )).labelsHidden().toggleStyle(.checkbox).disabled(model.busy)
+                        .accessibilityLabel("Select " + launcher.title)
+                }
             }
             Text(launcher.detail).font(.system(size: 11)).foregroundStyle(.secondary)
             HStack {
                 Text(launcher.accountName)
                     .font(.system(size: 10)).foregroundStyle(.tertiary)
                 Spacer()
-                if installed && !launcher.opensAWindow {
+                if launcher == .switch {
+                    Button("Setup") { model.run(["switch", "setup"], title: "Setting up Switch homebrew…") }.disabled(model.busy)
+                    Button("Add game file", action: model.addSwitchGame).disabled(model.busy)
+                } else if installed && !launcher.opensAWindow {
                     Button(model.accountSummaries.contains { $0.platform == launcher } ? "Manage…" : "Sign In…") { model.requestedPage = "accounts" }
                         .accessibilityLabel("Open Accounts for " + launcher.title)
                 } else if installed {

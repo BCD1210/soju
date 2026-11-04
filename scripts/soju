@@ -27,7 +27,7 @@ Usage:
   soju d2r            Launch Diablo II: Resurrected directly
   soju kill           Stop everything in the Battle.net bottle
   soju controllers    Game Controllers panel of the Battle.net bottle (is my pad seen?)
-  soju switch setup|play <2048.nro>  Experimental Switch homebrew (2048 only)
+  soju switch setup|import|list|remove|play  Experimental Switch homebrew
   soju vr setup       D2R in VR (offline): copy the Battle.net bottle and install D2R VR Unleashed
   soju vr play        Play D2R in VR (OXRSys client on the headset; offline characters)
   soju vr play --flat Open the VR copy without VR to create offline characters with the mouse

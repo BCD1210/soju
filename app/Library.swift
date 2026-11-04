@@ -111,6 +111,7 @@ extension SojuModel {
         if !FileManager.default.fileExists(atPath: game.installPath) {
             return "This game folder is unavailable. Reconnect its drive and refresh."
         }
+        if game.platform == .switch { return nil }
         if game.platform == .steam {
             let local = base.appendingPathComponent("steam-runtime/bin/wine").path
             let upstream = base.appendingPathComponent("steam-wine/bin/wine").path
@@ -150,6 +151,8 @@ extension SojuModel {
                         self.issueTitle = "Couldn't start " + game.title
                         self.libraryIssue = reason ?? (game.platform.opensAWindow
                             ? "Use Diagnose or open " + game.platform.title + " to check its installation and login."
+                            : game.platform == .switch
+                            ? "Check Switch setup in Platforms and the homebrew runner log."
                             : "Use Diagnose to check the game and your Xbox sign-in.")
                         if !self.busy {
                             self.failed = true; self.activity = game.title + " needs attention."
@@ -162,9 +165,9 @@ extension SojuModel {
             failed = false
             preferences.opened[game.id] = Date(); savePreferences()
             activity = "Opening " + game.title + " through " + game.platform.title + "…"
-            // An Xbox game runs inside this process, so it counts as running until it exits.
+            // Xbox and Switch games run inside this process until they exit.
             // Other clients may stay alive for hours: there it is only a launch request.
-            if game.platform != .xbox { DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
+            if game.platform != .xbox && game.platform != .switch { DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
                 guard let self, let p, self.gameLaunches[game.id] === p else { return }
                 self.launchingGames.remove(game.id)
             } }
@@ -224,6 +227,7 @@ private extension Launcher {
         case .steam: return Color(red: 0.36, green: 0.67, blue: 0.77)
         case .epic: return Color(red: 0.82, green: 0.64, blue: 0.40)
         case .gog: return Color(red: 0.70, green: 0.47, blue: 0.87)
+        case .switch: return Color(red: 0.85, green: 0.20, blue: 0.25)
         case .xbox: return Color(red: 0.24, green: 0.66, blue: 0.33)
         }
     }
@@ -446,7 +450,7 @@ struct LibraryView: View {
                             if !game.isInstalled { model.installOwnedGame(game) }
                             else if issue == nil { model.play(game) } else { selected = game }
                         } label: {
-                            Label(!game.isInstalled ? (game.isPartialDownload ? "Resume" : game.platform.ownedActionTitle) : model.launchingGames.contains(game.id) ? (game.platform == .xbox ? "Running" : "Starting…") : issue == nil ? "Play" : "Details", systemImage: !game.isInstalled ? "arrow.down.circle" : issue == nil ? "play.fill" : "exclamationmark.circle")
+                            Label(!game.isInstalled ? (game.isPartialDownload ? "Resume" : game.platform.ownedActionTitle) : model.launchingGames.contains(game.id) ? ([Launcher.xbox, .switch].contains(game.platform) ? "Running" : "Starting…") : issue == nil ? "Play" : "Details", systemImage: !game.isInstalled ? "arrow.down.circle" : issue == nil ? "play.fill" : "exclamationmark.circle")
                         }.buttonStyle(.borderedProminent).tint(green).controlSize(.small)
                             .disabled(model.busy || model.launchingGames.contains(game.id))
                             .accessibilityLabel((!game.isInstalled ? (game.isPartialDownload ? "Resume downloading " : game.platform.ownedActionTitle + " ") : issue == nil ? "Play " : "Check ") + game.title)
@@ -514,7 +518,7 @@ struct LibraryView: View {
                     Text(game.platform.title).font(.system(size: 11, weight: .semibold)).foregroundStyle(game.platform.accent)
                     Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded))
                     Label(installedLabel(game), systemImage: !game.isInstalled ? "cloud" : game.volume.map { $0 != "this Mac" } == true ? "externaldrive" : "internaldrive").font(.system(size: 12)).foregroundStyle(.secondary)
-                    Text(game.platform == .xbox ? "Downloaded from the Microsoft Store. Xbox PC support is experimental: not every game works. The first launch may download about 600 MB of Xbox runtime files and take a few minutes to set up." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
+                    Text(game.platform == .switch ? "Runs homebrew through Soju’s experimental Switch runner. Retail games are not supported." : game.platform == .xbox ? "Downloaded from the Microsoft Store. Xbox PC support is experimental: not every game works. The first launch may download about 600 MB of Xbox runtime files and take a few minutes to set up." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                     if game.downloadBlocked, let issue = game.issue {
                         Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
