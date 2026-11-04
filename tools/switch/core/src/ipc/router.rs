@@ -547,6 +547,24 @@ impl crate::runtime::IpcHandler for Hub {
     }
 }
 
+// Appended NRO assets are file data, never executable mappings.
+fn nro_control(bytes: &[u8]) -> Option<Vec<u8>> {
+    let word = |at| Some(u32::from_le_bytes(bytes.get(at..at + 4)?.try_into().ok()?) as usize);
+    let asset = word(0x18)?;
+    if bytes.get(asset..asset.checked_add(4)?)? != b"ASET" {
+        return None;
+    }
+    let wide =
+        |at| usize::try_from(u64::from_le_bytes(bytes.get(at..at + 8)?.try_into().ok()?)).ok();
+    let offset = wide(asset.checked_add(0x18)?)?;
+    let len = wide(asset.checked_add(0x20)?)?;
+    if len != 0x4000 {
+        return None;
+    }
+    let start = asset.checked_add(offset)?;
+    Some(bytes.get(start..start.checked_add(len)?)?.to_vec())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -841,22 +859,4 @@ mod tests {
         assert_eq!(m.bytes, [9; 32]);
         assert_eq!(m.writes, 0);
     }
-}
-
-// Appended NRO assets are file data, never executable mappings.
-fn nro_control(bytes: &[u8]) -> Option<Vec<u8>> {
-    let word = |at| Some(u32::from_le_bytes(bytes.get(at..at + 4)?.try_into().ok()?) as usize);
-    let asset = word(0x18)?;
-    if bytes.get(asset..asset.checked_add(4)?)? != b"ASET" {
-        return None;
-    }
-    let wide =
-        |at| usize::try_from(u64::from_le_bytes(bytes.get(at..at + 8)?.try_into().ok()?)).ok();
-    let offset = wide(asset.checked_add(0x18)?)?;
-    let len = wide(asset.checked_add(0x20)?)?;
-    if len != 0x4000 {
-        return None;
-    }
-    let start = asset.checked_add(offset)?;
-    Some(bytes.get(start..start.checked_add(len)?)?.to_vec())
 }
