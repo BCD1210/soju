@@ -18,14 +18,15 @@ final class CaptureFrames {
         next=now+interval
         let result=sequence;sequence+=1;return result
     }
-    func save(_ image:CGImage,index:Int,metadata:Obj,suffix:String="") {
-        guard let folder=folder else {return}
+    @discardableResult func save(_ image:CGImage,index:Int,metadata:Obj,suffix:String="")->Bool {
+        guard let folder=folder else {return false}
         do {
             let name=String(format:"frame-%05d",index)+suffix,file=folder.appendingPathComponent(name+".png")
             guard !FileManager.default.fileExists(atPath:file.path) else {throw SceneError.invalid("Capture already exists: \(file.path)")}
             guard let png=NSBitmapImageRep(cgImage:image).representation(using:.png,properties:[:]) else {throw SceneError.invalid("PNG encoding failed")}
             try png.write(to:file,options:.atomic)
             try JSONSerialization.data(withJSONObject:metadata,options:.prettyPrinted).write(to:folder.appendingPathComponent(name+".json"),options:.atomic)
-        } catch {fputs("Capture failed: \(error)\n",stderr)}
+            return true
+        } catch {fputs("Capture failed: \(error)\n",stderr);return false}
     }
 }
