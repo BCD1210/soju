@@ -274,6 +274,33 @@ impl MemoryImage {
         #[cfg(not(target_os = "macos"))]
         let _ = physical;
     }
+    /// Cache maintenance is bounded to one advertised 64-byte guest line. No
+    /// inaccessible mapping (including EL1 bridge/tables) can name host backing.
+    #[cfg(all(feature = "hv", target_os = "macos", target_arch = "aarch64"))]
+    pub(crate) fn cache_line(&mut self, address: u64, instruction: bool) -> Result<(), Error> {
+        let address = address & !63;
+        self.access(address, 64, 1)?;
+        let physical = self.pages[&(address & !4095)].physical;
+        let offset = (physical - PHYSICAL_BASE + (address & 4095)) as usize;
+        unsafe extern "C" {
+            fn sys_icache_invalidate(start: *mut std::ffi::c_void, len: usize);
+            fn sys_dcache_flush(start: *mut std::ffi::c_void, len: usize);
+        }
+        // SAFETY: range is validated above and 64-byte alignment cannot cross a
+        // 4 KiB mapping. ProcessGuard excludes concurrent guest/host memory use.
+        unsafe {
+            let pointer = self.arena.as_ptr().add(offset).cast();
+            if instruction {
+                sys_icache_invalidate(pointer, 64);
+            } else {
+                sys_dcache_flush(pointer, 64);
+            }
+        }
+        if instruction {
+            self.generation += 1;
+        }
+        Ok(())
+    }
     pub(crate) fn publish(&mut self) {
         for (at, value) in std::mem::take(&mut self.pending) {
             if value != 0 && value & (1 << 54) == 0 {

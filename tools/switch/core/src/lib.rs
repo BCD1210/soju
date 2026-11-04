@@ -1,4 +1,5 @@
 //! Soju's experimental, clean-room Switch homebrew core.
+pub mod ipc;
 pub mod kernel;
 pub mod memory;
 pub mod nro;

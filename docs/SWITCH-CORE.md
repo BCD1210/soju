@@ -219,3 +219,37 @@ and only the known `test_only_attributed_commits_fail` failure. The Switch
 venv suite ran 92 tests with three optional tests skipped and no failures.
 `bash scripts/build-app.sh` built and signature-verified the native app; it
 was not installed or launched. All new game fixtures were synthetic.
+
+### IPC milestone (step 3)
+
+The Rust core now has a shared bounded HIPC/CMIF/TIPC codec and typed command
+registries. Services cover the Python runner's implemented settings, applet,
+HID, time, filesystem, VI/Binder, NV, audio, account, power and font interfaces.
+Both appletAE and appletOE roots are recognized. Unknown interfaces and commands
+fail explicitly; this is a limited compatibility profile, not full Horizon IPC.
+Inline HIPC receive-list mode 1 is not implemented.
+
+Session aliases share stable kernel object identities. Domain children retain
+those identities until their owning domain closes. Reply handles are published
+with checked descriptor and TLS writes. GPU submissions stage their memory effects
+and only advance fences after the reply transaction commits; failed writes roll
+back in reverse order. The CPU-only GPU command subset remains bounded and does
+not implement a general Maxwell renderer.
+
+Filesystem snapshots retain the Python account-save JSON format, with strict
+validation, no-follow path traversal, an exclusive lock, and atomic replacement.
+The Rust virtual SD remains in memory during execution and additionally persists
+a separate per-NRO `sd-state.json` at explicit flush or graceful shutdown. This
+allows homebrew which saves on SD to restore after restart. Account saves still
+require their own explicit filesystem commit. The selected NRO is exposed
+read-only, including appended assets, for the guest's RomFS reader.
+
+The audio service has a bounded timed silent sink and a host PCM queue. Audible
+game audio has not been established. Shared fonts use installed host fallbacks.
+
+The local 2048 1.1.0 NRO produced a nonuniform 1280×720 framebuffer through
+this Rust IPC path in 0.555 seconds in one debug hardware run. This is a
+first-frame smoke result, not an instructions/second measurement or interactive
+acceptance. libnx's cache maintenance uses a deterministic 64-byte CTR profile
+and checked cache operations; the host's cache geometry is not exposed through
+CTR. Input, restart restoration and the window path require separate acceptance.

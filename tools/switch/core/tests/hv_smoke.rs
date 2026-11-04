@@ -604,3 +604,204 @@ fn host_instruction_patches_invalidate_without_mapping_changes() {
         assert_eq!(cpu.run_until_svc().unwrap().immediate, 0x23);
     }
 }
+
+#[test]
+#[ignore = "requires local homebrew and entitlement; use scripts/test-switch-hv.sh"]
+fn optional_homebrew_ipc_presents_frame() {
+    use soju_switch_core::ipc::router::Hub;
+    use soju_switch_core::runtime::{Runtime, Stop};
+    use std::time::{Duration, Instant};
+    let Some(path) = std::env::var_os("SOJU_SWITCH_TEST_NRO") else {
+        return;
+    };
+    let path = std::path::Path::new(&path);
+    let nro = Nro::read(&mut std::fs::File::open(path).unwrap()).unwrap();
+    let mut runtime = Runtime::new(&nro.protected_homebrew().unwrap()).unwrap();
+    let home = std::env::temp_dir().join(format!("soju-ipc-frame-{}", std::process::id()));
+    std::fs::create_dir_all(&home).unwrap();
+    let home = home.canonicalize().unwrap();
+    let mut hub = Hub::new(path, &home).unwrap();
+    runtime.kernel_mut().program_id = hub.program_id();
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let stop = runtime
+            .run(&mut hub, Duration::from_millis(50), 100_000)
+            .unwrap();
+        if let Some(frame) = hub.take_frame() {
+            assert!(frame.width > 0 && frame.height > 0);
+            assert_eq!(
+                frame.pixels.len(),
+                frame.width as usize * frame.height as usize * 4
+            );
+            assert!(
+                frame
+                    .pixels
+                    .chunks_exact(4)
+                    .any(|pixel| pixel != &frame.pixels[..4])
+            );
+            println!(
+                "Rust IPC presented {}x{} in {:.3}s",
+                frame.width,
+                frame.height,
+                30.0 - deadline
+                    .saturating_duration_since(Instant::now())
+                    .as_secs_f64()
+            );
+            hub.finish().unwrap();
+            break;
+        }
+        assert_eq!(stop, Stop::BudgetExpired);
+        assert!(
+            Instant::now() < deadline,
+            "no guest frame within 30 seconds"
+        );
+    }
+    drop(hub);
+    std::fs::remove_dir_all(home).unwrap();
+}
+
+#[test]
+#[ignore = "requires ad-hoc hypervisor entitlement; use scripts/test-switch-hv.sh"]
+fn virtual_cache_profile_and_checked_maintenance() {
+    use soju_switch_core::hv::CACHE_TYPE;
+    let mut boot = image(&[
+        0xd53b0022, 0xd53b00e3, 0xd50b7a20, 0xd50b7b20, 0xd50b7e20, 0xd50b7520, 0xd50b7421,
+        0xd4000401,
+    ])
+    .protected_homebrew()
+    .unwrap();
+    boot.x0 = BASE + 0x2001;
+    boot.x1 = BASE + 0x2043;
+    let mut cpu = Cpu::from_homebrew(&boot).unwrap();
+    let p = cpu.process();
+    p.lock()
+        .unwrap()
+        .write(BASE + 0x2000, &[0xa5; 192])
+        .unwrap();
+    let exit = cpu.run_until_svc().unwrap();
+    assert_eq!(exit.immediate, 0x20);
+    assert_eq!(exit.registers[2], CACHE_TYPE);
+    assert_ne!(exit.registers[3] & 0x10, 0);
+    assert_eq!(exit.timer_reads, 0);
+    let mut bytes = [0; 192];
+    p.lock().unwrap().read(BASE + 0x2000, &mut bytes).unwrap();
+    assert_eq!(&bytes[..64], &[0xa5; 64]);
+    assert_eq!(&bytes[64..128], &[0; 64]);
+    assert_eq!(&bytes[128..], &[0xa5; 64]);
+}
+
+#[test]
+#[ignore = "requires ad-hoc hypervisor entitlement; use scripts/test-switch-hv.sh"]
+fn guest_cache_operands_cannot_access_private_unmapped_or_readonly_storage() {
+    use soju_switch_core::memory;
+    for (instruction, address, readonly) in [
+        (0xd50b7a20, 0x10000, false),
+        (0xd50b7520, 0x11000, false),
+        (0xd50b7e20, 0x500000000, false),
+        (0xd50b7420, BASE, false),
+        (0xd50b7420, BASE + 0x2000, true),
+    ] {
+        let mut boot = image(&[instruction, 0xd4000401])
+            .protected_homebrew()
+            .unwrap();
+        boot.x0 = address;
+        let mut cpu = Cpu::from_homebrew(&boot).unwrap();
+        if readonly {
+            cpu.process()
+                .lock()
+                .unwrap()
+                .protect(address, 0x1000, 1)
+                .unwrap();
+        }
+        assert!(matches!(
+            cpu.run_until_svc(),
+            Err(Error::Memory(
+                memory::Error::Unmapped | memory::Error::Access
+            ))
+        ));
+    }
+    let mut cpu = Cpu::new(&[0xd5380002, 0xd4000401]).unwrap();
+    assert!(matches!(
+        cpu.run_until_svc(),
+        Err(Error::UnexpectedGuestException(_))
+    ));
+}
+
+#[test]
+#[ignore = "requires ad-hoc hypervisor entitlement; use scripts/test-switch-hv.sh"]
+fn guest_cache_maintenance_publishes_guest_written_instructions() {
+    use soju_switch_core::hv::{Process, ThreadState};
+    let mut program = vec![0xd503201f; 34];
+    program[..10].copy_from_slice(&[
+        0xd63f0000, 0xd4000401, 0xb9000041, 0xd50b7b22, 0xd5033b9f, 0xd50b7520, 0xd5033b9f,
+        0xd5033fdf, 0xd63f0000, 0xd4000421,
+    ]);
+    program[32] = 0xd28000e5;
+    program[33] = 0xd65f03c0;
+    let boot = image(&program).protected_homebrew().unwrap();
+    let p = Process::new(&boot).unwrap();
+    p.lock()
+        .unwrap()
+        .alias(BASE + 0x10000, BASE, 0x1000, 3)
+        .unwrap();
+    let mut state = ThreadState::from_homebrew(&boot);
+    state.registers[0] = BASE + 0x100;
+    state.registers[1] = 0xd2800125;
+    state.registers[2] = BASE + 0x10100;
+    let mut cpu = Cpu::attach(p, state).unwrap();
+    assert_eq!(cpu.run_until_svc().unwrap().registers[5], 7);
+    let exit = cpu.run_until_svc().unwrap();
+    assert_eq!(exit.immediate, 0x21);
+    assert_eq!(exit.registers[5], 9);
+}
+
+#[test]
+#[ignore = "requires ad-hoc hypervisor entitlement; use scripts/test-switch-hv.sh"]
+fn guest_cache_maintenance_reaches_other_vcpu() {
+    use soju_switch_core::hv::{Process, ThreadState};
+    use std::sync::{Arc, mpsc};
+    let mut program = vec![0xd503201f; 34];
+    program[..10].copy_from_slice(&[
+        0xd63f0000, 0xd4000401, 0xb9000041, 0xd50b7b22, 0xd5033b9f, 0xd50b7520, 0xd5033b9f,
+        0xd5033fdf, 0xd63f0000, 0xd4000421,
+    ]);
+    program[16..20].copy_from_slice(&[0xd63f0000, 0xd4000401, 0xd63f0000, 0xd4000421]);
+    program[32] = 0xd28000e5;
+    program[33] = 0xd65f03c0;
+    let boot = image(&program).protected_homebrew().unwrap();
+    let p = Process::new(&boot).unwrap();
+    p.lock()
+        .unwrap()
+        .alias(BASE + 0x10000, BASE, 0x1000, 3)
+        .unwrap();
+    let mut workers = Vec::new();
+    for offset in [0x80, 0xc0] {
+        let mut state = ThreadState::from_homebrew(&boot);
+        state.pc = BASE + offset;
+        state.registers[0] = BASE + 0x100;
+        state.registers[1] = 0xd2800125;
+        state.registers[2] = BASE + 0x10100;
+        let process = Arc::clone(&p);
+        let (send, receive) = mpsc::channel();
+        let (reply, result) = mpsc::channel();
+        let join = std::thread::spawn(move || {
+            let mut cpu = Cpu::attach(process, state).unwrap();
+            while receive.recv().unwrap_or(false) {
+                reply.send(cpu.run_until_svc().unwrap()).unwrap();
+            }
+        });
+        workers.push((send, result, join));
+    }
+    for (send, result, _) in &workers {
+        send.send(true).unwrap();
+        assert_eq!(result.recv().unwrap().registers[5], 7);
+    }
+    // Writer executes DC/IC maintenance first. The reader's cached old function
+    // must be invalidated by its own generation pass before it re-enters EL0.
+    for (send, result, join) in workers {
+        send.send(true).unwrap();
+        assert_eq!(result.recv().unwrap().registers[5], 9);
+        send.send(false).unwrap();
+        join.join().unwrap();
+    }
+}

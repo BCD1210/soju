@@ -442,6 +442,16 @@ impl Kernel {
         self.poll_objects();
         Ok(())
     }
+    pub fn clear_event(&mut self, handle: Handle) -> Result<(), u64> {
+        let id = *self.handles.get(&handle).ok_or(INVALID_HANDLE)?;
+        match &mut self.objects.get_mut(&id).ok_or(INVALID_HANDLE)?.object {
+            Object::Event(signaled) => {
+                *signaled = false;
+                Ok(())
+            }
+            _ => Err(INVALID_HANDLE),
+        }
+    }
     fn runnable(&mut self, id: ThreadId, result: Vec<u64>) {
         let thread = self.threads.get_mut(&id).expect("existing thread");
         thread.status = ThreadStatus::Runnable;

@@ -12,6 +12,13 @@ use std::sync::{Arc, Mutex, MutexGuard, mpsc};
 use std::time::{Duration, Instant};
 
 pub const TIMER_HZ: u64 = 19_200_000;
+/// Deterministic 64-byte I/D lines, 64-byte reservation/writeback granules,
+/// PIPT instruction cache. IDC/DIC remain clear: software must maintain caches.
+pub const CACHE_TYPE: u64 = 0x8444_c004;
+// DZE stays clear: an architectural DCZID read advertises DZP (prohibited).
+// A DC ZVA instruction nevertheless traps and is handled as a bounded 64-byte
+// checked write, without exposing host zero-block sizing to the write path.
+const CACHE_ZERO_ID: u64 = 0x14;
 const GUEST: u64 = 0x10000;
 const VECTOR_SYNC: u64 = GUEST + 0x400;
 static VM_LOCK: Mutex<bool> = Mutex::new(false);
@@ -413,7 +420,7 @@ impl Cpu {
             if started.elapsed() >= duration {
                 return Ok(RunOutcome::Yield(YieldReason::Deadline));
             }
-            self.run_exits(budget.max_exits)
+            self.run_exits(guard, budget.max_exits, started + duration)
         })();
         let _ = done.send(());
         watchdog.join().map_err(|_| Error::Lock)??;
@@ -435,9 +442,17 @@ impl Cpu {
             RunOutcome::Yield(YieldReason::ExitBudget) => Err(Error::ExitBudget),
         }
     }
-    fn run_exits(&mut self, max_exits: u32) -> Result<RunOutcome, Error> {
+    fn run_exits(
+        &mut self,
+        guard: &mut ProcessGuard<'_>,
+        max_exits: u32,
+        deadline: Instant,
+    ) -> Result<RunOutcome, Error> {
         let mut timer_reads = 0;
         for _ in 0..max_exits {
+            if Instant::now() >= deadline {
+                return Ok(RunOutcome::Yield(YieldReason::Deadline));
+            }
             // SAFETY: same owning thread; mapping remains live until Drop.
             check("hv_vcpu_run", unsafe { ffi::hv_vcpu_run(self.id()) })?;
             // SAFETY: framework-provided exit storage lives until vCPU destruction.
@@ -485,22 +500,50 @@ impl Cpu {
                     let crn = (iss >> 10) & 15;
                     let rt = ((iss >> 5) & 31) as u32;
                     let crm = (iss >> 1) & 15;
-                    if (op0, op1, crn, crm, iss & 1) != (3, 3, 14, 0, 1)
-                        || ![0, 1, 2].contains(&op2)
-                    {
-                        return Err(Error::UnexpectedGuestException(syndrome));
+                    match (op0, op1, crn, crm, op2, iss & 1) {
+                        (3, 3, 14, 0, 0..=2, 1) => {
+                            let value = if op2 == 0 {
+                                TIMER_HZ
+                            } else {
+                                self.process.ticks()
+                            };
+                            if rt != 31 {
+                                self.set_reg(rt, value)?;
+                            }
+                            timer_reads += 1;
+                        }
+                        (3, 3, 0, 0, 1, 1) | (3, 3, 0, 0, 7, 1) => {
+                            if rt != 31 {
+                                self.set_reg(
+                                    rt,
+                                    if op2 == 1 { CACHE_TYPE } else { CACHE_ZERO_ID },
+                                )?;
+                            }
+                        }
+                        // DC CVAC/CVAU/CIVAC and IC IVAU. The virtual operand is
+                        // translated through checked metadata, never a host pointer.
+                        (1, 3, 7, 10 | 11 | 14 | 5, 1, 0) => {
+                            let address = if rt == 31 { 0 } else { self.reg(rt)? };
+                            guard
+                                .memory
+                                .cache_line(address, crm == 5)
+                                .map_err(Error::Memory)?;
+                        }
+                        (1, 3, 7, 4, 1, 0) => {
+                            let address = if rt == 31 { 0 } else { self.reg(rt)? };
+                            guard
+                                .memory
+                                .write(address & !63, &[0; 64])
+                                .map_err(Error::Memory)?;
+                        }
+                        _ => return Err(Error::UnexpectedGuestException(syndrome)),
                     }
-                    let value = if op2 == 0 {
-                        TIMER_HZ
-                    } else {
-                        self.process.ticks()
-                    };
-                    if rt != 31 {
-                        self.set_reg(rt, value)?;
-                    }
-                    timer_reads += 1;
                     self.set_sys(ffi::ELR_EL1, elr + 4)?;
                     self.set_reg(ffi::PC, VECTOR_SYNC + 4)?;
+                    if self.generation != guard.memory.generation() {
+                        self.invalidate()?;
+                        self.generation = guard.memory.generation();
+                    }
                 }
                 _ => return Err(Error::UnexpectedGuestException(syndrome)),
             }
