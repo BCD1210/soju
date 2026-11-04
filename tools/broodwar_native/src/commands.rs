@@ -50,11 +50,24 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
     let player = vars[2];
     let op = req["op"].as_str().ok_or("missing op")?;
     if op == "buttonsets" { return super::buttonsets::snapshot(); }
+    if op == "evaluated_buttons" {
+        let ids = req["units"].as_array().ok_or("missing selection")?;
+        if ids.is_empty() || ids.len() > 12 { return Err("select 1 to 12 units"); }
+        let mut selected = Vec::new();
+        for id in ids {
+            let id = id.as_str().ok_or("invalid unit handle")?;
+            let unit = all.iter().copied().find(|&u| handle(u) == id).ok_or("stale unit")?;
+            if (*unit).player as usize != player || (*unit).flingy.hitpoints <= 0 { return Err("selection must be alive and owned"); }
+            if selected.contains(&unit) { return Err("duplicate selection"); }
+            selected.push(unit);
+        }
+        return super::buttonsets::evaluate(r, &selected, player, req["menu"].as_u64());
+    }
     if op == "state" || op == "scene" { return Ok(world::snapshot(r, game, &all, player, op == "scene", req["since"].as_u64())); }
     if op == "unit_types" {
         let types: Vec<_> = (0..228).map(|id| {
             let kind = UnitId(id);
-            json!({"id":id,"mineralCost":kind.mineral_cost(),"gasCost":kind.gas_cost(),
+            json!({"id":id,"baseFlags":kind.flags(),"groupFlags":kind.group_flags(),"mineralCost":kind.mineral_cost(),"gasCost":kind.gas_cost(),
                 "supplyCost":kind.supply_cost(),"buildTime":kind.build_time(),
                 "footprintWidth":kind.placement().width,"footprintHeight":kind.placement().height,
                 "building":kind.is_building(),"worker":kind.is_worker(),
@@ -124,8 +137,10 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         return Ok(json!({"ok":true,"frame":game.frame_count,"queued":true}));
     }
     if let Some(command) = production::packet(req, UnitId((*selected[0]).unit_id).is_building())? {
-        if selected.len() != 1 {return Err("select one producer or ability user");}
-        send_one(r,selected[0],&command)?;
+        let shared = matches!(op, "ability" | "return_cargo" | "unload") ||
+            (op == "morph" && selected.iter().all(|u| !UnitId((**u).unit_id).is_building()));
+        if !shared && selected.len() != 1 {return Err("select one producer");}
+        send_selected(r,&selected,&command)?;
         r.sequence.store(seq,Ordering::Relaxed);
         return Ok(json!({"ok":true,"seq":seq,"frame":game.frame_count,"queued":true}));
     }

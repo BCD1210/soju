@@ -11,11 +11,15 @@ extension Commander {
         guard let unit=selected.first.flatMap({units[$0]}) else {return}
         let choice=wrists.card.choices(unit).first{wrists.card.choiceKey($0.payload)==wrists.card.choiceKey(choice.payload)} ?? choice
         if let reason=choice.unavailable(state,unit) {notice=reason;return}
+        if choice.payload["op"] as? String == "cancel_infestation" {return}
+        if choice.payload["op"] as? String == "submenu" {
+            wrists.card.nativeMenu=Int(number(choice.payload,"type"));wrists.card.nativeResponse=[:];wrists.pending=nil;return
+        }
         if choice.payload["op"] as? String == "select_larvae" {
             selected=Array(owned(35).filter{$0["parent"] as? String == unit["id"] as? String}.compactMap{$0["id"] as? String}.sorted().prefix(12));return
         }
         var payload=choice.payload
-        payload["units"]=["move","attack_move","stop","hold","patrol","gather","repair"].contains(payload["op"] as? String ?? "") ? selected:Array(selected.prefix(1))
+        payload["units"]=["move","attack_move","stop","hold","patrol","gather","repair","ability","morph","return_cargo","unload","train_ammunition","merge_archon","merge_dark_archon"].contains(payload["op"] as? String ?? "") ? selected:Array(selected.prefix(1))
         if payload["op"] as? String == "addon" {
             payload["tileX"]=Int((number(unit,"x")-number(unit,"footprintWidth")/2)/32)+4
             payload["tileY"]=Int((number(unit,"y")-number(unit,"footprintHeight")/2)/32)+1
@@ -28,7 +32,7 @@ extension Commander {
             guard let hit=hit else {return}
             let point=Terrain3D.mapPosition(hit.worldCoordinates)
             if choice.target == .rally,let id=hit.unitID {payload["target"]=id}
-            else if ["build","addon","land"].contains(payload["op"] as? String ?? "") {
+            else if ["build","addon","land","nydus_exit"].contains(payload["op"] as? String ?? "") {
                 let kind=Int(number(payload,"type")),dat=wrists.card.costs[kind] ?? [:]
                 payload["tileX"]=max(0,Int(floor(Double(point.x)-number(dat,"footprintWidth")/64)))
                 payload["tileY"]=max(0,Int(floor(Double(point.z)-number(dat,"footprintHeight")/64)))
@@ -46,21 +50,22 @@ extension Commander {
         let heading=NSTextField(labelWithString:wrists.card.names[String(Int(number(unit,"type")))] ?? "Commands")
         heading.textColor = .white;heading.frame=NSRect(x:0,y:280,width:400,height:25);desktopCard.addSubview(heading)
         for i in 0..<9 where wrists.page*9+i<wrists.choices.count {
-            let index=wrists.page*9+i,choice=wrists.choices[index]
+            let index=wrists.page*9+i,choice=wrists.choices[index],slot=(choice.originalPosition ?? (i+1))-1
             let button=NSButton(title:choice.label,target:self,action:#selector(desktopCardClick(_:)))
             button.bezelStyle = .regularSquare;button.font=NSFont.systemFont(ofSize:12);button.cell?.wraps=true;button.cell?.isScrollable=false
             button.tag=index;button.isEnabled=choice.unavailable(state,unit)==nil
             button.toolTip=choice.unavailable(state,unit) ?? choice.label
-            button.frame=NSRect(x:(i%3)*135,y:200-(i/3)*75,width:130,height:70)
+            button.frame=NSRect(x:(slot%3)*135,y:200-(slot/3)*75,width:130,height:70)
             desktopCard.addSubview(button)
         }
         let pages=max(1,(wrists.choices.count+8)/9)
-        for (i,title) in ["Page \(wrists.page+1)/\(pages)","Cancel target"].enumerated() {
+        for (i,title) in [wrists.card.nativeMode ? "Back":"Page \(wrists.page+1)/\(pages)","Cancel target"].enumerated() {
             let button=NSButton(title:title,target:self,action:#selector(desktopCardClick(_:)))
             button.tag = -i-1;button.frame=NSRect(x:i*200,y:0,width:195,height:35);desktopCard.addSubview(button)
         }
     }
     @objc func desktopCardClick(_ sender:NSButton) {
+        if sender.tag == -1 && wrists.card.nativeMode {wrists.card.nativeMenu=228;wrists.card.nativeResponse=[:];return}
         if sender.tag == -1 {wrists.page=(wrists.page+1)%max(1,(wrists.choices.count+8)/9);return}
         if sender.tag == -2 {wrists.pending=nil;return}
         guard wrists.choices.indices.contains(sender.tag) else {return}
@@ -97,6 +102,7 @@ extension Commander {
             return
         }
         if key=="\u{1b}" {
+            if wrists.card.nativeMode && wrists.card.nativeMenu != 228 {wrists.card.nativeMenu=228;wrists.card.nativeResponse=[:];wrists.pending=nil;return}
             if wrists.pending != nil {wrists.pending=nil;return}
             if let unit=selected.first.flatMap({units[$0]}),let cancel=wrists.card.choices(unit).first(where:{$0.payload["op"] as? String=="cancel"}) {cardCommand(cancel,hit:nil)}
             return

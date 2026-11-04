@@ -10,6 +10,8 @@ LAB=pathlib.Path.home()/"Projects/soju-vr-lab/oxrsys-winebridge/oxrsys-src/build
 
 def build(xr=False,sdk=None,loader=None):
     RUNTIME.mkdir(parents=True,exist_ok=True)
+    from button_strings import prepare as prepare_button_strings
+    prepare_button_strings()
     output=RUNTIME/("soju-bw-xr" if xr else "soju-bw-scene")
     temporary=output.with_suffix(".new")
     developer=pathlib.Path(subprocess.check_output(["xcode-select","-p"],text=True).strip())
@@ -33,7 +35,7 @@ def build(xr=False,sdk=None,loader=None):
     main.parent.mkdir(exist_ok=True)
     main.write_text((HERE/"NativeScene.swift").read_text())
     sources=[]
-    for name in ("SceneSupport.swift","CommanderWorld.swift","CommanderCommands.swift","CommanderXR.swift","CommanderXRControls.swift","CommandCard.swift","CommandAudit.swift","WristPanels.swift","WorldSprites.swift","SpriteRelief.swift","XRFrameMetrics.swift","ResidentCache.swift","MetalBatches.swift","ScenePacket.swift","NativeSceneWorker.swift","CommanderScenePacket.swift","MetalXRLoop.swift","XRInputQueue.swift","GPUCompletionPool.swift","FrameCapturePool.swift","DesktopMetal.swift","FrameStream.swift","CaptureFrames.swift","Models3D.swift","ModelCatalog.swift","AssetChecks.swift","ModelFidelity.swift","Terrain3D.swift","TerrainWorker.swift","CombatEffects.swift","UnitPresentation.swift","EffectSprites.swift","CommanderSelection.swift","RuntimeChecks.swift","ScenePacketChecks.swift","FrameResourceChecks.swift"):
+    for name in ("SceneSupport.swift","CommanderWorld.swift","CommanderCommands.swift","CommanderXR.swift","CommanderXRControls.swift","CommandCard.swift","OriginalCommandCard.swift","CommandAudit.swift","WristPanels.swift","WorldSprites.swift","SpriteRelief.swift","XRFrameMetrics.swift","ResidentCache.swift","MetalBatches.swift","ScenePacket.swift","NativeSceneWorker.swift","CommanderScenePacket.swift","MetalXRLoop.swift","XRInputQueue.swift","GPUCompletionPool.swift","FrameCapturePool.swift","DesktopMetal.swift","FrameStream.swift","CaptureFrames.swift","Models3D.swift","ModelCatalog.swift","AssetChecks.swift","ModelFidelity.swift","Terrain3D.swift","TerrainWorker.swift","CombatEffects.swift","UnitPresentation.swift","EffectSprites.swift","CommanderSelection.swift","RuntimeChecks.swift","ScenePacketChecks.swift","FrameResourceChecks.swift"):
         staged=main.parent/name;staged.write_text((HERE/name).read_text());sources.append(str(staged))
     command += [str(main),*sources,"-F",str(framework),"-framework","GLTFKit2",
         "-Xlinker","-rpath","-Xlinker",str(framework),"-o",str(temporary),"-framework","Cocoa","-framework","SceneKit","-framework","Metal"]

@@ -31,3 +31,52 @@ func commandAudit()throws {
     if !failures.isEmpty {throw SceneError.invalid("Command audit: \(failures)")}
     print("Command audit passed: \(types.count) types, \(rows.count) states")
 }
+
+func originalCommandAudit() throws {
+    let bridge=Bridge(),card=CommandCard()
+    card.accept(try bridge.request(["op":"unit_types"]))
+    let snapshot=try bridge.request(["op":"state"])
+    let units=(snapshot["units"] as? [Obj] ?? []).filter{number($0,"owner")==number(snapshot,"player")}
+    var cases=[Obj]()
+    func record(_ selection:[Obj],menu:Int,response:Obj) {
+        let ids=selection.compactMap{$0["id"] as? String}
+        card.nativeMenu=menu;card.acceptOriginal(response,selection:ids,menu:menu)
+        let choices=card.choices(selection[0])
+        cases.append(["units":selection,"menu":menu,"native":response,"renderedCard":choices.map {choice -> Obj in
+            ["position":choice.originalPosition ?? 0,"hotkey":choice.hotkey,"title":choice.title,
+             "enabled":choice.unavailable(snapshot,selection[0])==nil,"payload":choice.payload,
+             "recordIndex":choice.originalRecord?["recordIndex"] ?? -1,
+             "icon":choice.originalRecord?["icon"] ?? -1,
+             "enabledString":choice.originalRecord?["enabledString"] ?? -1,
+             "disabledString":choice.originalRecord?["disabledString"] ?? -1]
+        }])
+    }
+    func sample(_ selection:[Obj],menu:Int=228) throws {
+        let ids=selection.compactMap{$0["id"] as? String}
+        let response=try bridge.request(["op":"evaluated_buttons","units":ids,"menu":menu])
+        record(selection,menu:menu,response:response)
+        if menu==228 {
+            for row in response["buttons"] as? [Obj] ?? [] where row["family"] as? String == "submenu" && number(row,"conditionState") != 0 {
+                let child=Int(number(row,"actionParameter"))
+                if child != 228 {try sample(selection,menu:child)}
+            }
+        }
+    }
+    if let input=argument("--original-card-input") {
+        let saved=try loadObject(URL(fileURLWithPath:input))
+        for entry in saved["cases"] as? [Obj] ?? [] {
+            guard let selection=entry["units"] as? [Obj],!selection.isEmpty,let response=entry["native"] as? Obj else {throw SceneError.invalid("Invalid original card sample")}
+            record(selection,menu:Int(number(entry,"menu")),response:response)
+        }
+    } else {
+        for unit in units {try sample([unit])}
+        let mobile=units.filter{$0["building"] as? Bool != true && number($0,"type")<176}
+        for i in mobile.indices {
+            for j in mobile.indices where j>i {try sample([mobile[i],mobile[j]])}
+        }
+    }
+    let report:Obj=["snapshot":snapshot,"cases":cases,"source":"live-native-conditions-and-command-card"]
+    guard let path=argument("--original-card-audit") else {throw SceneError.invalid("Missing card audit output")}
+    try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:URL(fileURLWithPath:path))
+    print("Original card samples: \(cases.count)")
+}

@@ -77,7 +77,9 @@ extension Commander {
         if input.rightPressed != 0,case .card(let index)=hit.target {
             wrists.cardClicks+=1
             switch index {
-            case -1:wrists.page=(wrists.page+1)%max(1,(wrists.choices.count+8)/9)
+            case -1:
+                if wrists.card.nativeMode {wrists.card.nativeMenu=228;wrists.card.nativeResponse=[:]}
+                else {wrists.page=(wrists.page+1)%max(1,(wrists.choices.count+8)/9)}
             case -2:toggleTabletop()
             case -3:wrists.pending=nil
             default:

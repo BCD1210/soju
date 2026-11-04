@@ -24,8 +24,8 @@ pub(super) unsafe fn execute(r: &Runtime, selected: &[*mut Unit], request: &Valu
             merge_packet(&types, op == "merge_dark_archon")?.to_vec()
         }
         "train_ammunition" => {
-            if selected.len() != 1 || UnitId((*selected[0]).unit_id).fighter_id().is_none() {
-                return Err("select one carrier or reaver");
+            if selected.iter().any(|unit| UnitId((**unit).unit_id).fighter_id().is_none()) {
+                return Err("select carriers or reavers");
             }
             vec![0x27]
         }

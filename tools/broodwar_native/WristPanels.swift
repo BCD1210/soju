@@ -23,10 +23,10 @@ final class WristPanels {
         geometry.materials=[material];return geometry
     }
     func update(_ commander:Commander) {
-        if selection != commander.selected {pending=nil;dragStart=nil;selection=commander.selected;page=0}
+        if selection != commander.selected {pending=nil;dragStart=nil;selection=commander.selected;page=0;card.nativeMenu=228}
         let selected=commander.selected.first.flatMap{commander.units[$0]}
-        let next=selected.map{card.choices($0)} ?? []
-        let key="\(commander.selected):\(next.map{$0.label}):\(next.map{$0.unavailable(commander.state,selected ?? [:]) ?? ""}):\(page):\(commander.tabletop)"
+        let next=card.nativeMode && card.nativeSelection != commander.selected ? []:selected.map{card.choices($0)} ?? []
+        let key="\(commander.selected):\(next.map{$0.originalPosition ?? 0}):\(next.map{card.choiceKey($0.payload)}):\(card.nativeMenu):\(next.map{$0.label}):\(next.map{$0.unavailable(commander.state,selected ?? [:]) ?? ""}):\(page):\(commander.tabletop)"
         if signature != key {
             signature=key;choices=next
             let pages=max(1,(choices.count+8)/9);page=min(page,pages-1)
@@ -35,11 +35,12 @@ final class WristPanels {
             let header=SCNNode(geometry:panel(title,size:CGSize(width:0.42,height:0.055)))
             header.categoryBitMask=2;header.position.y=0.18;commands.addChildNode(header)
             for i in 0..<9 where page*9+i<choices.count {
-                let entry=choices[page*9+i],node=SCNNode(geometry:panel(entry.label,size:CGSize(width:0.135,height:0.075),enabled:entry.unavailable(commander.state,selected ?? [:])==nil))
-                node.name="card-\(page*9+i)";node.position=SCNVector3(Double(i%3-1)*0.14,0.10-Double(i/3)*0.08,0)
+                let entry=choices[page*9+i],slot=(entry.originalPosition ?? (i+1))-1
+                let node=SCNNode(geometry:panel(entry.label,size:CGSize(width:0.135,height:0.075),enabled:entry.unavailable(commander.state,selected ?? [:])==nil))
+                node.name="card-\(page*9+i)";node.position=SCNVector3(Double(slot%3-1)*0.14,0.10-Double(slot/3)*0.08,0)
                 commands.addChildNode(node)
             }
-            for (i,title) in ["Page \(page+1)/\(pages)",commander.tabletop ? "Unit scale":"Tabletop","Cancel target"].enumerated() {
+            for (i,title) in [card.nativeMode ? "Back":"Page \(page+1)/\(pages)",commander.tabletop ? "Unit scale":"Tabletop","Cancel target"].enumerated() {
                 let node=SCNNode(geometry:panel(title,size:CGSize(width:0.135,height:0.055)))
                 node.name="card-\(-i-1)";node.position=SCNVector3(Double(i-1)*0.14,-0.14,0);commands.addChildNode(node)
             }

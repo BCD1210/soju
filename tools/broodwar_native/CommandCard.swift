@@ -6,11 +6,13 @@ struct CommandChoice {
     var hotkey="",mineralCost=0.0,gasCost=0.0,energyCost=0.0,supplyCost=0.0,race=0
     var requirementReason:String?
     var priced=true
+    var originalPosition:Int?,originalState:Int?,originalRecord:Obj?
     var label:String {
         let cost=["research","upgrade"].contains(payload["op"] as? String ?? "") && priced ? " \(Int(mineralCost))/\(Int(gasCost))":""
         return (hotkey.isEmpty ? title : "[\(hotkey)] \(title)")+cost
     }
     func unavailable(_ state:Obj,_ unit:Obj)->String? {
+        if let state=originalState {return state == 1 ? nil:"Unavailable in original command card"}
         if let reason=requirementReason {return reason}
         if !priced {return "Loading costs"}
         if number(state,"minerals")<mineralCost {return "Not enough minerals"}
@@ -27,6 +29,10 @@ struct CommandChoice {
 // Producer relationships are commander rules; unit costs come from native units.dat.
 // The original command handler remains authoritative for prerequisites and availability.
 final class CommandCard {
+    var nativeMode=false,nativeMenu=228
+    var nativeRoot:Int?
+    var nativeResponse:Obj=[:],nativeSelection=[String]()
+    var originalStrings:Obj=[:]
     var costs=[Int:Obj]()
     var availability:Obj=[:]
     func acceptAvailability(_ response:Obj) {availability=response}
@@ -34,6 +40,7 @@ final class CommandCard {
     var spells=[Obj](),technologies=[Int:Obj]()
     let names: [String:String]
     init() {
+        originalStrings=(try? loadObject(runtime.appendingPathComponent("button-strings.json"))) ?? [:]
         names=((try? loadObject(runtime.appendingPathComponent("unit-names.json")))?["types"] as? [String:String]) ?? [:]
     }
     func accept(_ response:Obj) {
@@ -42,6 +49,7 @@ final class CommandCard {
         spells=response["spells"] as? [Obj] ?? []
     }
     func choices(_ unit:Obj)->[CommandChoice] {
+        if nativeMode {return originalChoices(unit)}
         let kind=Int(number(unit,"type")),building=unit["building"] as? Bool == true
         if kind>=176 || [4,6,18,24,26,31,33,73,85,89,90,93,94,95,96].contains(kind) {return []}
         var result=[CommandChoice]()

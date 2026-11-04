@@ -290,6 +290,20 @@ func runtimeChecks()throws {
     try require(larva.contains{$0.payload["op"] as? String == "morph" && number($0.payload,"type")==47} && !larva.contains{number($0.payload,"type")==50},"larva produces Scourge rather than Infested Terrans")
     let evolution=card.choices(["type":139,"building":true]),pool=card.choices(["type":142,"building":true])
     try require(evolution.contains{$0.payload["op"] as? String == "upgrade" && number($0.payload,"type")==10} && !pool.contains{$0.title=="Melee attacks"},"Zerg weapon upgrades belong to Evolution Chamber")
+    let originalCard=CommandCard()
+    originalCard.originalStrings=["1":["label":"Synthetic command","hotkey":"Z"]]
+    originalCard.acceptOriginal(["evaluated":true,"buttons":[
+        ["position":2,"conditionState":0,"family":"stop","enabledString":1],
+        ["position":7,"conditionState": -1,"family":"train","actionParameter":65000,"enabledString":1],
+        ["position":9,"conditionState":1,"family":"submenu","actionParameter":228,"enabledString":1]
+    ]],selection:["test"],menu:228)
+    let originals=originalCard.choices(["id":"test"])
+    try require(originals.map{$0.originalPosition!} == [7,9],"native cards preserve holes and omit hidden conditions")
+    try require(originals[0].unavailable(["minerals":99999],[:]) != nil && originals[1].unavailable(["minerals":0],[:]) == nil,"native condition states remain authoritative regardless of local resource guesses")
+    try require(originalCard.choices(["id":"different"]).isEmpty,"native cards reject a stale selected unit")
+    originalCard.nativeMenu=239
+    originalCard.acceptOriginal(["evaluated":false],selection:["stale"],menu:228)
+    try require(originalCard.nativeSelection == ["test"],"late root replies cannot replace a newer submenu")
     commander.wrists.pending=CommandChoice("Old repair",["op":"repair"],.unit);commander.selected=["new-selection"]
     commander.wrists.update(commander)
     try require(commander.wrists.pending==nil,"selection changes cancel stale targeting")
