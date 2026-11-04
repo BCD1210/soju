@@ -15,6 +15,8 @@ fn metal_clear_stages_native_pixels_without_publishing_guest_memory() {
         (0x814, 0),
         (0x818, 1),
         (0x121c, 1),
+        (0x1538, 1),
+        (0xfe8, 0x16), // Bound but unused depth must not block a color-only clear.
         (0xd7c, 1),
         (0xd80, 1f32.to_bits()),
         (0xd84, 0),
@@ -321,6 +323,18 @@ fn metal_retained_setup_rejects_reserved_fields_and_unclassified_method() {
         memory: &f.memory,
     };
     for (method, value) in [
+        (0x11e0, 0),
+        (0x19bc, 1),
+        (0x179c, 1),
+        (0xc18, 1),
+        (0xc1c, 0),
+        (0xe10, 2),
+        (0xe14, 0x40000001),
+        (0x2608, 32),
+        (0x1688, 1),
+        (0x1118, 1),
+        (0xf90, 2),
+        (0xde8, 2),
         (0x1684, 2),
         (0x19cc, 2),
         (0x19e0, 2),
@@ -453,7 +467,7 @@ fn graphics_inline_upload_flush_profiles_stage_without_early_publication() {
         memory: &f.memory,
     };
     for class in [0xb197, 0xa140] {
-        for flags in [1, 0x11, 0x41, 0x51] {
+        for flags in [1, 0x11, 0x41, 0x51, 0x1001] {
             let stream = methods(&[
                 (0, class),
                 (0x180, 4),

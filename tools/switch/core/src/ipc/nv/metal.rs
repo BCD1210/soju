@@ -237,7 +237,7 @@ impl Renderer {
                 )
             {
                 let upload_value = if method == 0x1b0 {
-                    if value & !0x50 != 1 {
+                    if value & !0x1050 != 1 {
                         return Err(Error::Malformed("B197 inline launch flags"));
                     }
                     1
@@ -250,7 +250,7 @@ impl Renderer {
                 trace.accepted = true;
                 continue;
             }
-            if class == 0xa140 && method == 0x1b0 && value & !0x50 == 1 {
+            if class == 0xa140 && method == 0x1b0 && value & !0x1050 == 1 {
                 value = 1;
             }
             if class == 0xb0b5 {
@@ -271,7 +271,7 @@ impl Renderer {
                     0x180 | 0x184 | 0x188 | 0x18c | 0x190 | 0x1b0 | 0x1b4
                 ) {
                     let value = if method == 0x1b0 {
-                        if value & !0x50 != 1 {
+                        if value & !0x1050 != 1 {
                             return Err(Error::Malformed("Metal compute inline launch flags"));
                         }
                         1
@@ -419,8 +419,11 @@ impl Renderer {
                         "Metal enabled window clipping unsupported",
                     ));
                 }
-                if let soju_switch_gpu::engine::Action::Clear(_) = snapshot.action {
+                if let soju_switch_gpu::engine::Action::Clear(mask) = snapshot.action {
                     let r = &mut snapshot.registers;
+                    if mask & 3 == 0 {
+                        r.0.insert(0x1538, 0);
+                    }
                     let control = r.get(0x10f8);
                     if control & !0x101 != 0 {
                         return Err(Error::Malformed(
@@ -444,23 +447,42 @@ impl Renderer {
                     snapshot.action,
                     soju_switch_gpu::engine::Action::Draw { .. }
                 ) {
-                    let r = &snapshot.registers;
+                    let r = &mut snapshot.registers;
+                    if matches!(
+                        snapshot.action,
+                        soju_switch_gpu::engine::Action::Draw { indexed: false, .. }
+                    ) && r.get(0xde8) != 0
+                        && r.get(0x1644) != 0
+                    {
+                        return Err(Error::Malformed("nonindexed primitive restart unsupported"));
+                    }
+                    if r.get(0xf90) != 0 && r.get(0x1a00) != 0x1111 {
+                        return Err(Error::Malformed(
+                            "partial shared color write mask unsupported",
+                        ));
+                    }
                     for (clip, scissor) in [(0xc00, 0xe04), (0xc04, 0xe08)] {
                         let lo = r.get(clip) & 0xffff;
                         let hi = lo + (r.get(clip) >> 16);
-                        if r.get(0xe00) == 0
-                            || r.get(scissor) & 0xffff < lo
-                            || r.get(scissor) >> 16 > hi
-                        {
-                            return Err(Error::Malformed(
-                                "viewport clip outside scissor unsupported",
-                            ));
+                        if hi > 65535 {
+                            return Err(Error::Malformed("viewport clip overflow"));
                         }
+                        let (lo, hi) = if r.get(0xe00) == 0 {
+                            (lo, hi)
+                        } else {
+                            let start = lo.max(r.get(scissor) & 0xffff);
+                            (start, hi.min(r.get(scissor) >> 16).max(start))
+                        };
+                        r.0.insert(scissor, lo | (hi << 16));
                     }
+                    r.0.insert(0xe00, 1);
                     if r.get(0xc08) != 0 || r.get(0xc0c) != 1f32.to_bits() {
                         return Err(Error::Malformed(
                             "non-default viewport depth clip unsupported",
                         ));
+                    }
+                    if snapshot.registers.get(0x12cc) == 0 && snapshot.registers.get(0x1380) == 0 {
+                        snapshot.registers.0.insert(0x1538, 0);
                     }
                     programs::register(&snapshot, &memory, &original, &mut backend)?;
                     // Hardware Y is scale * NDC + offset; Metal's viewport reverses NDC Y.

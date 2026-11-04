@@ -398,3 +398,81 @@ fn decode_bc1(bytes: &[u8]) -> Vec<[u8; 4]> {
     }
     image
 }
+
+#[test]
+#[ignore = "requires a signed runner and local devkitPro examples"]
+fn opengl_simple_triangle_matches_source() {
+    let runner = std::env::var_os("SOJU_SWITCH_GPU_TEST_RUNNER").expect("signed runner path");
+    let nro =
+        std::env::var_os("SOJU_SWITCH_GPU_TEST_GL_NRO").expect("local OpenGL simple_triangle NRO");
+    let output =
+        PathBuf::from(std::env::var_os("SOJU_SWITCH_GPU_TEST_OUTPUT").expect("capture directory"));
+    fs::create_dir_all(&output).unwrap();
+    let home = output.join(format!("gl-triangle-home-{}", std::process::id()));
+    fs::create_dir(&home).unwrap();
+    let capture = output.join("opengl-simple_triangle.png");
+    let result = Command::new(runner)
+        .env("SOJU_SWITCH_HOME", &home)
+        .env("SOJU_SWITCH_GPU", "metal")
+        .env("SOJU_SWITCH_TRACE_GPU", "1")
+        .env("SOJU_GPU_ASYNC_PIPELINES", "0")
+        .arg("--headless")
+        .arg(nro)
+        .args(["--frames", "1", "--warmup-ms", "1000", "--capture"])
+        .arg(&capture)
+        .output()
+        .unwrap();
+    fs::write(
+        output.join("opengl-simple_triangle.log"),
+        [&result.stdout[..], &result.stderr[..]].concat(),
+    )
+    .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&result.stderr)
+            .contains("gpu-status|0xb197|0x0d78|0x00000003|handled")
+    );
+    let mut reader = png::Decoder::new(BufReader::new(fs::File::open(capture).unwrap()))
+        .read_info()
+        .unwrap();
+    let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut pixels).unwrap();
+    assert_eq!(
+        (info.width, info.height, info.color_type),
+        (1280, 720, png::ColorType::Rgba)
+    );
+    let mut checked = 0;
+    for (i, p) in pixels[..info.buffer_size()].chunks_exact(4).enumerate() {
+        let (x, y) = (i % 1280, i / 1280);
+        // Original source vertices: (-.5,-.5) red, (+.5,-.5) green, (0,+.5) blue.
+        let blue = (540. - (y as f64 + 0.5)) / 360.;
+        let green = ((x as f64 + 0.5 - 320.) / 640.) - blue * 0.5;
+        let red = 1. - blue - green;
+        let edge = red.min(green).min(blue);
+        if edge.abs() < 0.002 {
+            continue;
+        }
+        let expected = if edge > 0. {
+            [
+                (red * 255.).round() as u8,
+                (green * 255.).round() as u8,
+                (blue * 255.).round() as u8,
+                255,
+            ]
+        } else {
+            [51, 76, 76, 255]
+        };
+        assert!(
+            p.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 2),
+            "pixel ({x},{y}) {p:?} != {expected:?}"
+        );
+        checked += 1;
+    }
+    assert!(checked > 910_000);
+    eprintln!("OpenGL simple_triangle: {checked} source-derived pixel checks");
+    fs::remove_dir_all(home).unwrap();
+}

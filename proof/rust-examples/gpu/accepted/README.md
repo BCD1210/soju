@@ -92,3 +92,27 @@ B197/B1C0/A140 pitched inline uploads accept flush-only and sysmembar-disable
 flags because the bridge publishes in order. Semaphore-release modes still stop.
 
 - Capture SHA-256: `f74115efb0e22f5b6c01fdb7f9ce4c8fb28920dd61f912663ad1d517adb2a563`
+
+## OpenGL simple_triangle
+
+`opengl-simple_triangle.png` captures the original local devkitPro example,
+using the same translated vertex/fragment path as deko. The test checks 918,400
+pixels against the source triangle at (-.5,-.5), (+.5,-.5), (0,+.5), RGB vertex
+colors and (.2,.3,.3,1) background. A narrow edge band is excluded; channel
+tolerance is two. It requires a completed three-vertex draw and successful exit.
+
+A140 uploads accept `0x1001`: synchronous launch with semaphore structure-size
+selection but no semaphore release. Release modes remain rejected. The bridge
+intersects viewport clip and scissor, validates unused higher-viewport defaults
+(shader viewport-index output remains unsupported), and omits unused depth
+attachments for color clears and draws with depth/stencil tests disabled.
+Enabled depth bounds, nonzero depth layers and unsupported raster modes stop.
+
+Run all five scenes with `bash scripts/test-switch-gpu-accepted.sh`.
+Native scenes run serially: concurrent compilation stalls can advance the
+animated cubes beyond the initial-pose oracle's tolerances. These tests remain
+initial-pose checks; they do not establish animation timing correctness.
+
+- Capture SHA-256: `ed71b59d80bec48168cc97ca8abb3d270799b6e94b4ae6a5b7e1ef08d72c8033`
+- Original NRO SHA-256: `b693640bd253745ca224e406d71328213339bee8a968dcdff752df32e6f61745`
+- Original `main.cpp` SHA-256: `7220ec259c1710d753567b861135c4d630087bfee9a79af575744b8cf98be885`

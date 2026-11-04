@@ -55,3 +55,10 @@ These identify tiled-cache setup, shadow passthrough/replay around clears and
 surface decompression, and the native swapchain format. B197's public header
 supplies release-semaphore size/payload/order fields. Release writes are staged
 transactionally after synchronous completion, never treated as no-ops.
+
+The original local devkitPro `graphics/opengl/simple_triangle/source/main.cpp`
+supplies the triangle/color oracle; no graphics-driver implementation is used.
+NVIDIA clb197.h identifies the default line/stipple, viewport/scissor, depth-layer
+and depth-bounds methods. libnx `nv/types.h` identifies compressed kinds 53/E0/E9.
+A140 launch structure-size bit 12 has no effect with completion type FLUSH_ONLY;
+nonzero semaphore-release completion remains unsupported by inline uploads.

@@ -52,7 +52,21 @@ pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
         0x16b4 => value <= 3,
         0x1134 => value <= 1,
         0x1a2c => true,
-        0xde0 | 0xdd0 | 0xde8 | 0x1534 | 0x2608 => value == 0,
+        0x166c | 0x168c | 0x1924 | 0x179c | 0x19bc => value == 0,
+        0x1700..=0x177c if method.is_multiple_of(4) => value == u32::MAX,
+        0xa18 => value == 0x6420,
+        // Higher viewport defaults are inert: shader translation rejects viewport-index output.
+        0xe10..=0xef8 if method.is_multiple_of(16) => value == 1,
+        0xe10..=0xef8 if matches!(method % 16, 4 | 8) => value == 0x40000000,
+        0xc18..=0xcfc if method % 16 == 8 => value == 0,
+        0xc18..=0xcfc if method % 16 == 12 => value == 1f32.to_bits(),
+        0x324..=0x338 if method.is_multiple_of(4) => value == 1f32.to_bits(),
+        0x13a8 | 0x2600 | 0x1118 | 0x1688 | 0xde0 | 0xdd0 | 0x1534 => value == 0,
+        0x11e0..=0x11ec if method.is_multiple_of(4) => value == 0x88888888,
+        0x13b0 | 0x13b4 => value == 1f32.to_bits(),
+        0x2608 => value <= 31,
+        0xf90 => value <= 1,
+        0xde8 => value <= 1,
         0xfdc | 0x192c => value == 1,
         0x1140 => value == 0x10,
         0x19c0 => value == 1,
@@ -77,7 +91,7 @@ pub(super) fn compute_field(method: u32, value: u32) -> Result<bool, Error> {
         0x157c => 0x3fffff,
         0x1564 => 0xfffff,
         0x1698 => 0x1011,
-        0x110 => 0,
+        0x110 | 0x1528 => 0,
         _ => return Ok(false),
     };
     if value & !mask != 0 {
@@ -91,7 +105,11 @@ pub(super) fn accepted_noop(class: u32, method: u32) -> bool {
     class == 0xb197
         && (matches!(
             method,
-            0xf78
+            0x21c
+                | 0x1330
+                | 0x1334
+                | 0xf60
+                | 0xf78
                 | 0x2e8
                 | 0x2f8
                 | 0x2fc

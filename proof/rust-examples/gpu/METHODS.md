@@ -115,3 +115,18 @@ deko3d public header `dkMakeImageHandle`/`dkMakeSamplerHandle` (20-bit image
 index and upper sampler index), and pinned envytools `tabd200_2` split TEXS
 component masks. Native tests check distinct RGBA components; copied texture
 bytes are validated separately with origins, padding and overlapping ranges.
+
+## OpenGL triangle and later-scene boundaries
+
+A140 `01b0=1001` uses the synchronous inline profile; bit 12 selects semaphore
+structure size but has no write without a semaphore completion mode. The same
+validation is shared by B197/B1C0 inline uploads. Release profiles still reject.
+B197 shader/TIC/TSC cache invalidations (`021c`, `1330`, `1334`) and tiled-cache
+enable (`0f60`) are logged no-ops under synchronous execution.
+
+Default-only validation covers line width, disabled stipple/two-sided lighting,
+identity coordinate swizzle, default higher-viewport depth/scissor initialization,
+zero base vertex/depth layer and disabled depth bounds. Enabled unsupported
+modes stop. Viewport clip intersects the active scissor before drawing.
+Compressed kinds `53`, `e0`, `e9` retain their original values and ordinary backing;
+this does not enable multisample rendering.
