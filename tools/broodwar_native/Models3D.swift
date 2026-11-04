@@ -17,7 +17,7 @@ final class ModelInstance {
     var rest=[(SCNNode,simd_float4x4)]()
     var allNodes=[SCNNode]()
     var clips=[String:[(SCNNode,CAAnimationGroup)]]()
-    let selection=SCNNode()
+    let selection=SCNNode(),bars=UnitBars()
     static let aliases:[String:[String]]=[
         "idle":["idle","stand","Stand_full","Stand A_full","Cover_full"],
         "walk":["walk","run","Walk_full","Fly Walk_full"],
@@ -101,6 +101,8 @@ final class ModelInstance {
         let material=SCNMaterial();material.lightingModel = .constant;material.diffuse.contents=NSColor.green
         ring.materials=[material];selection.geometry=ring;selection.position.y=0.035;selection.isHidden=true
         selection.name="selection";selection.categoryBitMask=2;root.addChildNode(selection)
+        bars.root.position.y=CGFloat(height*scale)+0.2;root.addChildNode(bars.root)
+        bars.root.isHidden=true
         playAction("idle")
     }
     // GLTFKit2 uses absolute /Bone.property paths. Those become ambiguous once
@@ -218,6 +220,7 @@ final class ModelInstance {
     }
     func apply(_ unit:Obj,height:Double,frame:Double,now:Double=CACurrentMediaTime()) {
         guard !dying else {return}
+        bars.apply(unit)
         let x=number(unit,"x")/32,z=number(unit,"y")/32,position=SIMD2<Double>(x,z)
         let moving=lastPosition.map{simd_length(position-$0)>0.006} ?? false
         if frame != lastFrame {
@@ -244,6 +247,7 @@ final class ModelInstance {
         root.simdPosition += (targetPosition-root.simdPosition)*amount
         let current=Float(root.eulerAngles.y),delta=atan2(sin(targetYaw-current),cos(targetYaw-current))
         root.eulerAngles.y=CGFloat(current+delta*amount);selection.isHidden = !selected || dying
+        bars.root.isHidden = !selected || dying
         for player in activePlayers { player.speed=now-lastFrameAt>0.4 ? 0:1 }
     }
 }

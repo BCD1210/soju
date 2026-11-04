@@ -25,7 +25,8 @@ def frame(info, atlas, index):
     x, y = f['ox'], f['oy']
     x0, y0 = max(0, x), max(0, y)
     x1, y1 = min(info['width'], x + f['w']), min(info['height'], y + f['h'])
-    result[y0:y1, x0:x1] = crop[y0-y:y1-y, x0-x:x1-x]
+    if x1 > x0 and y1 > y0:
+        result[y0:y1, x0:x1] = crop[y0-y:y1-y, x0-x:x1-x]
     return result
 
 

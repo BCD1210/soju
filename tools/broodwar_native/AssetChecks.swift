@@ -144,6 +144,7 @@ func liveModelProof()throws {
         seen.insert(model.kind)
         let box=model.root.boundingBox,size=max(1,max(box.max.x-box.min.x,max(box.max.y-box.min.y,box.max.z-box.min.z)))
         let center=SCNVector3(model.root.position.x,model.root.position.y+(box.max.y+box.min.y)/2,model.root.position.z)
+        model.advance(dt:0,now:CACurrentMediaTime(),selected:true)
         commander.camera.position=SCNVector3(center.x+size*1.3,center.y+size*0.8,center.z+size*1.3)
         commander.camera.look(at:center);Models3D.followLight(commander.world,position:center);commander.updateTerrain()
         SCNTransaction.flush()

@@ -6,6 +6,7 @@ import simd
 // simulate damage, choose targets or invent a projectile for a hitscan weapon.
 final class CombatEffects {
     let root=SCNNode(),library:Models3D
+    let sprites=EffectSprites()
     var projectiles=[String:SCNNode](),meshes=[String:ModelInstance]()
     var transients=[(SCNNode,Double,Double)]()
     var counts=[String:Int]()
@@ -49,6 +50,7 @@ final class CombatEffects {
                 model.selection.isHidden=true;projectiles[id]=model.root;meshes[id]=model;root.addChildNode(model.root)
             }
             if projectiles[id]==nil {let node=glow(.yellow,radius:0.065);projectiles[id]=node;root.addChildNode(node)}
+            if meshes[id]==nil,let node=projectiles[id] {_ = sprites.apply(b,to:node)}
             projectiles[id]?.position=position
             projectiles[id]?.eulerAngles.y=CGFloat(-number(b,"facing")*2*Double.pi/256)
         }
