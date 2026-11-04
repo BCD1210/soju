@@ -74,6 +74,7 @@ final class Worker {
     let device: MTLDevice
     let queue: MTLCommandQueue
     var targets = [String: MTLTexture](), generations = [String: Int](), depths = [String: MTLTexture](), depthGenerations = [String: Int]()
+    var clearPipelines = [UInt: MTLRenderPipelineState]()
     var occlusion: UInt64 = 0
     var queryValues = [String: UInt32]()
     var targetBytes = [String: Int]()
@@ -104,7 +105,6 @@ final class Worker {
     let encoding = NativeSpan("native_run")
     defer { encoding.end() }
     let parseStarted=ProcessInfo.processInfo.systemUptime
-    var clearPipelines = [UInt: MTLRenderPipelineState]()
     var pipelineHits = 0, textureHits = 0, draws = 0, clears = 0, encoderCount = 0, bufferCount = 0, depthHits = 0
     let started=ProcessInfo.processInfo.systemUptime
     var cb: MTLCommandBuffer? = nil
@@ -287,6 +287,8 @@ final class Worker {
         let color = targets[key]!
         if newTarget || generations[key] != Int(target.generation) {
             if generations[key] != nil {try flush()}
+            let textureUpload = NativeSpan("texture_upload")
+            defer { textureUpload.end() }
             let initial = try restore(key, Int(target.generation), ".rgba") { try file(text(target.file)) };try need(initial.count == w*h*Int(target.bytes),"target initial bytes")
             initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*Int(target.bytes)) }
             generations[key] = Int(target.generation)
@@ -319,6 +321,8 @@ final class Worker {
                 invalidatePasses()
             }
             if depths[dk] == nil {
+                let textureUpload = NativeSpan("texture_upload")
+                defer { textureUpload.end() }
                 let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:depthFormat,width:w,height:h,mipmapped:false)
                 descriptor.storageMode = .private;descriptor.usage = .renderTarget
                 guard let t = device.makeTexture(descriptor:descriptor) else { throw Failure("depth allocation") };depths[dk] = t; depthGenerations[dk] = Int(depth.generation)
@@ -575,6 +579,8 @@ final class Worker {
                         let tk=text(item.key)
                         touch("t", tk)
                         if textureCache[tk]==nil {
+                            let textureUpload = NativeSpan("texture_upload")
+                            defer { textureUpload.end() }
                             let tw=Int(item.width),th=Int(item.height)
                             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(Int(item.metal)))!,width:tw,height:th,mipmapped:false)
                             d.storageMode = .shared;d.usage = [.shaderRead,.pixelFormatView]

@@ -39,6 +39,7 @@ pub struct Backend {
     files: Vec<crate::upload::Upload>,
     constant_upload: Vec<u8>,
     uniform_offsets: std::collections::HashMap<(u64, u64, u32), (u64, usize)>,
+    output_generations: std::collections::HashMap<String, (u64, u64)>,
     targets: BTreeMap<String, Target>,
     depth_targets: BTreeMap<String, Target>,
     worker: Option<crate::worker::Worker>,
@@ -140,6 +141,7 @@ struct Target {
     block_height: u32,
     pitch: bool,
     generation: u64,
+    native_generation: u64,
     memory_identity: u64,
     format: soju_switch_texture::format::Format,
     // Rotate guest packed depth into the canonical Z24S8 order on import.
@@ -542,6 +544,7 @@ impl Backend {
                 block_height: (layout >> 4) & 7,
                 pitch,
                 generation: 0,
+                native_generation: 0,
                 memory_identity: memory.identity,
                 format,
                 depth_rotation: 0,
@@ -569,6 +572,11 @@ impl Backend {
             }
             let generation = memory.generation(target.address, target.size())?;
             target.generation = generation;
+            target.native_generation = self
+                .output_generations
+                .get(&key)
+                .filter(|(memory_generation, _)| *memory_generation == generation)
+                .map_or(generation, |(_, native)| *native);
             let upload_key = (key.clone(), generation);
             let file = if let Some((file, _)) = self.attachment_files.get(&upload_key) {
                 file.clone()
@@ -600,7 +608,7 @@ impl Backend {
                 key: key.clone().into(),
                 width: width as _,
                 height: height as _,
-                generation: generation as _,
+                generation: target.native_generation as _,
                 metal: metal as _,
                 bytes: bytes_per_pixel as _,
                 file: file.into(),
@@ -643,6 +651,7 @@ impl Backend {
                 block_height: (r.get(0xfec) >> 4) & 7,
                 pitch: false,
                 generation: 0,
+                native_generation: 0,
                 memory_identity: memory.identity,
                 format,
                 depth_rotation: if r.get(0xfe8) == 0x16 { 8 } else { 0 },
@@ -668,6 +677,11 @@ impl Backend {
                     "overlapping attachment views require readback",
                 )?;
             }
+            t.native_generation = self
+                .output_generations
+                .get(&key)
+                .filter(|(memory_generation, _)| *memory_generation == t.generation)
+                .map_or(t.generation, |(_, native)| *native);
             // Record the dependency even when the packed attachment is already captured.
             let initial_bytes = capture(memory, &mut dependencies, t.address, t.size())?;
             let upload_key = (key.clone(), t.generation);
@@ -706,7 +720,7 @@ impl Backend {
                 } else {
                     r.get(0xfe8) as _
                 },
-                generation: t.generation as _,
+                generation: t.native_generation as _,
                 zfile: zfile.into(),
                 sfile: sfile.into(),
             };
@@ -1243,6 +1257,7 @@ impl Backend {
                         .next_power_of_two()
                         .min(available)
                         .min(limit.min(usize::MAX as u64) as usize);
+                    require(captured >= length as usize, "unmapped vertex stream range")?;
                     let file = self.resource_file(memory, &mut dependencies, address, captured)?;
                     buffers.push(BufferCommand {
                         slot: i64::from(stream_slots[&stream]),
@@ -1492,7 +1507,12 @@ impl Backend {
     pub fn readback(&mut self, directory: &Path, memory: &mut Memory) -> Result<Report> {
         self.readback_inner(directory, memory, true)
     }
-    fn readback_inner(&mut self, directory: &Path, memory: &mut Memory, capture_images: bool) -> Result<Report> {
+    fn readback_inner(
+        &mut self,
+        directory: &Path,
+        memory: &mut Memory,
+        capture_images: bool,
+    ) -> Result<Report> {
         let _span = crate::profile::span(crate::profile::Stage::Readback);
         require(
             self.commands.is_empty(),
@@ -1619,6 +1639,20 @@ impl Backend {
         }
         for (address, data) in writes {
             memory.write(address, &data)?;
+        }
+        if self.queries.is_empty() && self.compute_targets.is_empty() {
+            if self.output_generations.len() > 1024 {
+                self.output_generations.clear();
+            }
+            for (key, t) in self.targets.iter().chain(self.depth_targets.iter()) {
+                self.output_generations.insert(
+                    key.clone(),
+                    (memory.generation(t.address, t.size())?, t.native_generation),
+                );
+            }
+        } else {
+            // Query/compute outputs may alias a color or depth target's backing.
+            self.output_generations.clear();
         }
         self.prepared = None;
         self.commands.clear();

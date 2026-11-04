@@ -23,8 +23,9 @@ pub enum Stage {
     Present,
     ShaderTranslation,
     DrawReference,
+    NvIoctl,
 }
-const NAMES: [&std::ffi::CStr; 15] = [
+const NAMES: [&std::ffi::CStr; 16] = [
     c"guest",
     c"rendezvous",
     c"svc",
@@ -40,9 +41,10 @@ const NAMES: [&std::ffi::CStr; 15] = [
     c"present",
     c"shader_translation",
     c"draw_reference",
+    c"nv_ioctl",
 ];
-static NS: [AtomicU64; 15] = [const { AtomicU64::new(0) }; 15];
-static CALLS: [AtomicU64; 15] = [const { AtomicU64::new(0) }; 15];
+static NS: [AtomicU64; 16] = [const { AtomicU64::new(0) }; 16];
+static CALLS: [AtomicU64; 16] = [const { AtomicU64::new(0) }; 16];
 pub fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| std::env::var_os("SOJU_PROFILE").is_some())

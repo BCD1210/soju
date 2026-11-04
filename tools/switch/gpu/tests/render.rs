@@ -3052,4 +3052,9 @@ fn draw_range_references_keep_first_vertex_count_and_bounds() {
     h.methods(&mut e, &[(0xd74, 12), (0x1618, 4)]);
     let invalid = e.method(B197, 0xd78, 1, &mut h.memory).unwrap().unwrap();
     assert!(h.backend.prepare(&invalid, &h.memory).is_err());
+    // A declared limit cannot authorize bytes outside the actual mapped backing.
+    e.registers.0.insert(0x1f04, e.registers.get(0x1f04) + 48);
+    e.registers.0.insert(0xd74, 0);
+    let invalid = e.method(B197, 0xd78, 13, &mut h.memory).unwrap().unwrap();
+    assert!(h.backend.prepare(&invalid, &h.memory).is_err());
 }

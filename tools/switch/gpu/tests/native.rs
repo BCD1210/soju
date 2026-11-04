@@ -8,6 +8,8 @@ fn native_cache_corruption_pressure_and_async_saturation() {
     }
     std::fs::create_dir_all(&root).unwrap();
     let source = concat!(
+        include_str!("../native/profile.swift"),
+        "\n",
         include_str!("../native/protocol.swift"),
         "\n",
         include_str!("../native/worker.swift"),

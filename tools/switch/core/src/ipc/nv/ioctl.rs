@@ -47,6 +47,7 @@ const GPU: &[CommandSpec<Nv>] = &[
     spec(0xc010480b, 16, control::zcull),
 ];
 pub(super) fn dispatch(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error> {
+    let _span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::NvIoctl);
     if (
         r.count(BufferKind::Pointer),
         r.count(BufferKind::Send),

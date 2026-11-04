@@ -20,6 +20,7 @@ struct Input {
 }
 
 pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
+    let launch_start = Instant::now();
     let path = args.first().ok_or("missing NRO path")?;
     let mut frames = None;
     let mut capture = None;
@@ -99,6 +100,7 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
     runtime.yield_on_frame = true;
     let start = Instant::now();
     let mut input = inputs.iter().peekable();
+    let mut first_present = true;
     let mut count = 0;
     let mut previous_frame = start;
     let mut intervals_ms = Vec::new();
@@ -141,6 +143,14 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         while hub.take_audio().is_some() {}
         if let Some(frame) = hub.take_frame() {
             let presented = Instant::now();
+            if first_present {
+                first_present = false;
+                println!(
+                    "timing|load_ms={:.3}|first_present_ms={:.3}",
+                    start.duration_since(launch_start).as_secs_f64() * 1000.0,
+                    presented.duration_since(launch_start).as_secs_f64() * 1000.0
+                );
+            }
             if frame_times.is_some() {
                 intervals_ms.push(presented.duration_since(previous_frame).as_secs_f64() * 1000.0);
             }

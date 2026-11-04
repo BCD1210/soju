@@ -61,6 +61,7 @@ final class RenderCompiler {
             pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
             archive = try? device.makeBinaryArchive(descriptor: MTLBinaryArchiveDescriptor())
         }
+        creation.end()
         if let archive {
             do {
                 try archive.addRenderPipelineFunctions(descriptor: descriptor)

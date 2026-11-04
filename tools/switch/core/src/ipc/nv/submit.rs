@@ -24,6 +24,7 @@ const COMMANDS: &[CommandSpec<Nv>] = &[CommandSpec {
     handler: submit,
 }];
 pub(super) fn dispatch(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error> {
+    let _span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::NvIoctl);
     let mut inner = r.clone();
     inner.command_id = r.u32(4)?;
     dispatch_table(nv, COMMANDS, &inner, c)
