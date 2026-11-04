@@ -41,6 +41,11 @@ extension Commander {
             if CommandLine.arguments.contains("--tabletop") {tabletop=true;pitch = -1}
             if let value=argument("--yaw"),let angle=Double(value) {yaw=CGFloat(angle)}
             if let value=argument("--select-type"),let kind=Int(value),let unit=list.first(where:{number($0,"type")==Double(kind) && number($0,"owner")==number(s,"player")}),let id=unit["id"] as? String {selected=[id]}
+            if !CommandLine.arguments.contains("--top-down") {
+                let x=Double(camera.position.x),z=Double(camera.position.z)
+                camera.position=Terrain3D.worldPosition(x,ground.elevation(x,z),z)
+                camera.position.y += CGFloat(commanderHeight)
+            }
             initialized=true
         }
         let x=Int(number(f,"x")),y=Int(number(f,"y")),w=Int(number(f,"width"))
@@ -116,9 +121,9 @@ extension Commander {
            let x=Double(values[0]),let z=Double(values[1]) {return SCNVector3(x,0,z)}
         if tabletop {return SCNVector3(camera.position.x-sin(yaw)*CGFloat(wrists.zoom),0,camera.position.z-cos(yaw)*CGFloat(wrists.zoom))}
         #if SOJU_OPENXR
-        if xrRequested,let h=headCenter { return SCNVector3(h.x,h.y,h.z) }
+        if xrRequested,let h=headCenter { return Terrain3D.mapPosition(SCNVector3(Double(h.x),Double(h.y)-commanderHeight,Double(h.z))) }
         #endif
-        return camera.position
+        return Terrain3D.mapPosition(SCNVector3(camera.position.x,camera.position.y-CGFloat(commanderHeight),camera.position.z))
     }
     func updateTerrain() {
         let tiles=art.manifest["tiles"] as? [String:Obj] ?? [:]
@@ -170,7 +175,7 @@ extension Commander {
             let material=interior ? worldSprites.creepMaterial(tileset:tileset,index:(x*7+y*13)%16):worldSprites.creepEdgeMaterial(tileset:tileset,frame:edge)
             if let material=material {
                 let node=SCNNode(geometry:ground.geometry(tileX:x,tileY:y,material:material))
-                node.position=SCNVector3(Double(x),0.015,Double(y));node.name=signature;node.castsShadow=false
+                node.position=SCNVector3(Double(x),0,Double(y));node.name=signature;node.castsShadow=false
                 node.renderingOrder=1
                 world.rootNode.addChildNode(node);creepNodes[index]=node
             }
@@ -196,10 +201,14 @@ extension Commander {
         if view.keys.contains(13) { forward+=1 };if view.keys.contains(1) { forward-=1 }
         if view.keys.contains(0) { side-=1 };if view.keys.contains(2) { side+=1 }
         let speed:CGFloat=4
+        if !CommandLine.arguments.contains("--top-down") {
+        camera.position=Terrain3D.mapPosition(SCNVector3(camera.position.x,camera.position.y-CGFloat(commanderHeight),camera.position.z))
         walk((-sin(yaw)*forward+cos(yaw)*side)*speed*dt,(-cos(yaw)*forward-sin(yaw)*side)*speed*dt)
         camera.position.x=max(0.1,min(CGFloat(mapWidth)-0.1,camera.position.x))
         camera.position.z=max(0.1,min(CGFloat(mapHeight)-0.1,camera.position.z))
-        camera.position.y=CGFloat(ground.elevation(Double(camera.position.x),Double(camera.position.z))+commanderHeight)
+        camera.position=Terrain3D.worldPosition(Double(camera.position.x),ground.elevation(Double(camera.position.x),Double(camera.position.z)),Double(camera.position.z))
+        camera.position.y += CGFloat(commanderHeight)
+        }
         camera.eulerAngles=SCNVector3(pitch,yaw,0)
         if CommandLine.arguments.contains("--top-down") {
             let elevation=(Double(argument("--elevation") ?? "90") ?? 90)*Double.pi/180
@@ -212,7 +221,7 @@ extension Commander {
             let tiff=view.snapshot().tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let image=bitmap.cgImage {
             captureFrames.save(image,index:index,metadata:["frame":number(state,"frame"),
                 "camera":[camera.position.x,camera.position.y,camera.position.z],
-                "state":state,"fog":Dictionary(uniqueKeysWithValues:fog.map{(String($0.key),Int($0.value))}),"creepTiles":Array(creepTiles).sorted(),"elevationDegrees":Double(argument("--elevation") ?? "90") ?? 90,"viewHeight":camera.camera?.orthographicScale ?? 0,
+                "snapshotSource":argument("--snapshot") ?? "live", "terrainProjection":"HD oblique relief at 32 degrees", "state":state,"fog":Dictionary(uniqueKeysWithValues:fog.map{(String($0.key),Int($0.value))}),"creepTiles":Array(creepTiles).sorted(),"elevationDegrees":Double(argument("--elevation") ?? "90") ?? 90,"viewHeight":camera.camera?.orthographicScale ?? 0,
                 "map":state["map"] ?? [:],"terrainTiles":terrain.count,"topDown":camera.camera?.usesOrthographicProjection ?? false])
         }
         if now-lastSceneDiagnostic>1 {

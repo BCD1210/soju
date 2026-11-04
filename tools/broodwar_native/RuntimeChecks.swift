@@ -139,6 +139,18 @@ func runtimeChecks()throws {
         try require(Terrain3D.exposedEdge(top,bottom)==expected,"cliff edge clips exposed interval \(top)")
     }
     try require(Terrain3D.exposedEdge([0,0],[2,2])==nil,"lower cliff neighbor emits no duplicate wall")
+    for height in [0.0,1.0,2.0,4.0] {
+        let placed=Terrain3D.worldPosition(7,height,11),native=Terrain3D.mapPosition(placed)
+        try require(abs(native.x-7)<0.00001 && abs(native.z-11)<0.00001,"relief hit returns native map coordinates at height \(height)")
+        let screenY=Double(placed.z)*sin(Terrain3D.canonicalElevation)-Double(placed.y)*cos(Terrain3D.canonicalElevation)
+        try require(abs(screenY-11*sin(Terrain3D.canonicalElevation))<0.00001,"relief preserves native projected ground anchor at height \(height)")
+    }
+    var continuous=true
+    for y in 0..<commander.ground.height-1 {for x in 0..<commander.ground.width-1 {
+        let a=commander.ground.surface(x,y),right=commander.ground.surface(x+1,y),below=commander.ground.surface(x,y+1)
+        continuous = continuous && a[3]==right[0] && a[2]==right[1] && a[1]==below[0] && a[2]==below[3]
+    }}
+    try require(continuous,"all loaded cliff and ramp edges share both height endpoints")
     let red=commander.worldSprites.texture(239,frame:0,color:[255,0,0])!
     let blue=commander.worldSprites.texture(239,frame:0,color:[0,0,255])!
     let redPixels=NSBitmapImageRep(data:red.tiffRepresentation!)!,bluePixels=NSBitmapImageRep(data:blue.tiffRepresentation!)!
