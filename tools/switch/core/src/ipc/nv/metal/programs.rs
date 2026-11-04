@@ -87,22 +87,31 @@ pub(super) fn register(
                 texture_type: soju_switch_shader::texture::TextureType::D2,
             });
         }
-        backend
-            .program(
-                address,
-                size,
-                Options {
-                    constant_buffer_bytes: snapshot
-                        .constants
-                        .get(registers.get(group_register) as usize)
-                        .map(|group| group.map(|binding| binding.map_or(0, |b| b.size)))
-                        .ok_or(Error::Malformed("constant group"))?,
-                    texture_count: 16,
-                    texture_bindings,
-                    ..Options::default()
-                },
-            )
-            .map_err(gpu_error)?;
+        let options = Options {
+            constant_buffer_bytes: snapshot
+                .constants
+                .get(registers.get(group_register) as usize)
+                .map(|group| group.map(|binding| binding.map_or(0, |b| b.size)))
+                .ok_or(Error::Malformed("constant group"))?,
+            texture_count: 16,
+            texture_bindings,
+            ..Options::default()
+        };
+        if std::env::var_os("SOJU_SWITCH_AUDIT_SHADERS").is_some() {
+            use sha2::{Digest, Sha256};
+            let hash = Sha256::digest(&bytes[..size]);
+            let decoded = soju_switch_shader::decoder::decode(&bytes[80..size])
+                .map_err(|e| Error::Message(e.to_string()))?;
+            let outcome = match soju_switch_shader::translate(&bytes[..size], &options) {
+                Ok(_) => "translated".to_owned(),
+                Err(error) => error.to_string(),
+            };
+            eprintln!(
+                "shader-audit|{hash:x}|stage={stage:#x}|instructions={}|{outcome}",
+                decoded.len()
+            );
+        }
+        backend.program(address, size, options).map_err(gpu_error)?;
     }
     Ok(())
 }
