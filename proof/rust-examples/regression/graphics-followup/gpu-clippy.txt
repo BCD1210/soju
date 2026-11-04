@@ -1,0 +1,4 @@
+    Checking soju-switch-texture v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/texture)
+    Checking soju-switch-shader v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/shader)
+    Checking soju-switch-gpu v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/gpu)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.89s

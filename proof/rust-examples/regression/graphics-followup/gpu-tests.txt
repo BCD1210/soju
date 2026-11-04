@@ -1,0 +1,79 @@
+   Compiling soju-switch-gpu v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/gpu)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.40s
+     Running unittests src/lib.rs (tools/switch/gpu/target/debug/deps/soju_switch_gpu-8cc5e04bd804e26c)
+
+running 1 test
+test lru::tests::recent_entries_survive_and_oversize_entries_do_not_grow_cache ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/compute.rs (tools/switch/gpu/target/debug/deps/compute-b1b208a9d5c083c8)
+
+running 2 tests
+test launch_fields_and_unsupported_modes_are_checked ... ok
+test qmd_shared_kernel_writes_image_and_preserves_order ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.45s
+
+     Running tests/native.rs (tools/switch/gpu/target/debug/deps/native-a5d8b269afefe59f)
+
+running 1 test
+test native_cache_corruption_pressure_and_async_saturation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.48s
+
+     Running tests/render.rs (tools/switch/gpu/target/debug/deps/render-8bb49eaafa11b3ec)
+
+running 29 tests
+test first_seen_shader_frames ... ignored, explicit first-seen shader latency measurement
+test malformed_draw_resources_fail_before_native_execution ... ok
+test microbenchmark_cached_draws ... ignored, explicit throughput measurement
+test independent_uniform_slots_keep_unchanged_offsets ... ok
+test explicit_fragment_interpolation_multiplier_uses_reciprocal_w ... ok
+test nonindexed_quad_expands_to_two_triangles ... ok
+test pending_pipeline_skips_frame_then_renders ... ignored, run with SOJU_GPU_ASYNC_PIPELINES=1
+test independent_target_passes_coalesce_without_reordering_blends ... ok
+test bgra_views_and_srgb_sampling ... ok
+test resource_churn_soak ... ignored, explicit 30-minute resource churn soak
+test eight_targets_route_outputs_and_blend_independently ... ok
+test depth16_and_depth24_stencil_render_on_metal ... ok
+test prepared_variants_revalidate_vertex_writes_and_public_register_changes ... ok
+test parallel_color_passes_preserve_per_target_blend_order ... ok
+test asynchronous_batches_preserve_depth_stencil_without_cpu_readback ... ok
+test throughput_state_mixes ... ignored, explicit mixed throughput measurement
+test borrowed_repeated_draws_preserve_blending_and_constant_uploads ... ok
+test queued_batches_keep_captured_constants_alive_across_ring_wraps ... ok
+test scissored_color_clear_preserves_outside_and_accepts_single_layer_stride ... ok
+test split_texs_exports_four_distinct_components ... ok
+test unsigned_integer_texture_preserves_bits_through_sampling ... ok
+test shared_depth_prevents_target_pass_reordering ... ok
+test shared_depth_mrt_slot_permutations_keep_outputs_and_depth_order ... ok
+test vertex_streams_and_constants_have_independent_binding_spaces ... ok
+test method_streams_render_expected_images_on_metal ... ok
+test raster_extras_and_occlusion_results_match_images ... ok
+test depth_import_writeback_and_cpu_invalidation ... ok
+test color_formats_clear_draw_and_write_back_raw_storage ... ok
+test texture_formats_and_tic_swizzles_sample_on_metal ... ok
+
+test result: ok. 24 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 9.05s
+
+     Running tests/state.rs (tools/switch/gpu/target/debug/deps/state-e6cccc3e29131d81)
+
+running 8 tests
+test transform_feedback_methods_reject_without_mutating_state ... ok
+test host_semaphore_acquires_and_unsupported_release_modes ... ok
+test range_generations_split_restore_and_ignore_empty_writes ... ok
+test tic_tsc_validation_and_cache_invalidation ... ok
+test inline_upload_and_dirty_overlap ... ok
+test unimplemented_launches_are_not_silently_stored ... ok
+test ordered_draws_and_constant_bindings ... ok
+test pitched_copy_rect ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests soju_switch_gpu
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
