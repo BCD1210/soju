@@ -17,6 +17,11 @@ typedef struct {
 } SojuXRInput;
 typedef void (*SojuXRDraw)(void*,void*,void*,const SojuXREye*);
 typedef void (*SojuXRControls)(void*,const SojuXRInput*);
+typedef struct {
+    double waitMs, acquireMs, renderMs, endMs, afterWaitMs, periodMs;
+    int rendered;
+} SojuXRFrameTiming;
+int soju_xr_frame_timing(SojuXRFrameTiming*);
 int soju_xr_init(void);
 int soju_xr_probe(void);
 void* soju_xr_device(void);

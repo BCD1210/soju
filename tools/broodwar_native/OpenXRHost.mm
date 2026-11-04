@@ -1,4 +1,5 @@
 #include <os/signpost.h>
+#include <chrono>
 // OpenXR frame lifecycle and Metal swapchains. No game simulation runs here.
 #define XR_USE_GRAPHICS_API_METAL
 #import <Metal/Metal.h>
@@ -28,6 +29,11 @@ bool running=false,exiting=false,probeOnly=false;
 char statusText[256]="OpenXR not started";
 uint64_t frames=0;
 SojuXREye currentEyes[2]{};
+SojuXRFrameTiming frameTiming{};
+using TimingClock=std::chrono::steady_clock;
+double elapsedMs(TimingClock::time_point start) {
+    return std::chrono::duration<double,std::milli>(TimingClock::now()-start).count();
+}
 struct Eye {
     XrSwapchain chain=XR_NULL_HANDLE;
     uint32_t width=0,height=0;
@@ -204,7 +210,12 @@ extern "C" int soju_xr_step(void* context,SojuXRDraw draw,SojuXRControls control
     XrFrameWaitInfo wait{XR_TYPE_FRAME_WAIT_INFO};XrFrameState state{XR_TYPE_FRAME_STATE};
     static os_log_t frameLog=os_log_create("soju.broodwar","PointsOfInterest");
     os_signpost_interval_begin(frameLog,OS_SIGNPOST_ID_EXCLUSIVE,"Runtime wait");
+    frameTiming={};
+    const auto waitStart=TimingClock::now();
     XrResult waited=xrWaitFrame(session,&wait,&state);
+    const auto waitReturned=TimingClock::now();
+    frameTiming.waitMs=elapsedMs(waitStart);
+    frameTiming.periodMs=double(state.predictedDisplayPeriod)/1e6;
     os_signpost_interval_end(frameLog,OS_SIGNPOST_ID_EXCLUSIVE,"Runtime wait");
     CHECK(waited);XrFrameBeginInfo begin{XR_TYPE_FRAME_BEGIN_INFO};CHECK(xrBeginFrame(session,&begin));
     // Balance a begun frame even when image acquisition/render submission fails.
@@ -232,10 +243,14 @@ extern "C" int soju_xr_step(void* context,SojuXRDraw draw,SojuXRControls control
         }
         for(size_t i=0;i<2;i++) {
             Eye& e=eyes[i];uint32_t index=0;XrSwapchainImageAcquireInfo acquire{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
+            const auto acquireStart=TimingClock::now();
             CHECK(xrAcquireSwapchainImage(e.chain,&acquire,&index));
             XrSwapchainImageWaitInfo waitImage{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};waitImage.timeout=XR_INFINITE_DURATION;
             CHECK(xrWaitSwapchainImage(e.chain,&waitImage));
+            frameTiming.acquireMs+=elapsedMs(acquireStart);
+            const auto renderStart=TimingClock::now();
             draw(context,e.images[index].texture,(__bridge void*)queue,&currentEyes[i]);
+            frameTiming.renderMs+=elapsedMs(renderStart);
             XrSwapchainImageReleaseInfo release{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};CHECK(xrReleaseSwapchainImage(e.chain,&release));
             projection[i].pose=views[i].pose;projection[i].fov=views[i].fov;
             projection[i].subImage.swapchain=e.chain;projection[i].subImage.imageRect.extent={int32_t(e.width),int32_t(e.height)};
@@ -244,10 +259,21 @@ extern "C" int soju_xr_step(void* context,SojuXRDraw draw,SojuXRControls control
     XrCompositionLayerProjection layer{XR_TYPE_COMPOSITION_LAYER_PROJECTION};layer.space=localSpace;layer.viewCount=2;layer.views=projection.data();
     const XrCompositionLayerBaseHeader* layers[]={reinterpret_cast<const XrCompositionLayerBaseHeader*>(&layer)};
     XrFrameEndInfo end{XR_TYPE_FRAME_END_INFO};end.displayTime=state.predictedDisplayTime;end.environmentBlendMode=XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
-    end.layerCount=valid?1:0;end.layers=valid?layers:nullptr;frameGuard.ended=true;CHECK(xrEndFrame(session,&end));
+    end.layerCount=valid?1:0;end.layers=valid?layers:nullptr;frameGuard.ended=true;
+    const auto endStart=TimingClock::now();
+    os_signpost_interval_begin(frameLog,OS_SIGNPOST_ID_EXCLUSIVE,"Runtime submit");
+    const XrResult ended=xrEndFrame(session,&end);
+    os_signpost_interval_end(frameLog,OS_SIGNPOST_ID_EXCLUSIVE,"Runtime submit");
+    frameTiming.endMs=elapsedMs(endStart);frameTiming.afterWaitMs=elapsedMs(waitReturned);
+    frameTiming.rendered=valid?1:0;
+    CHECK(ended);
     frames++;std::snprintf(statusText,sizeof(statusText),"OpenXR frames %llu · poses %s",static_cast<unsigned long long>(frames),valid?"valid":"unavailable");
     if(frames==1||frames%300==0)std::fprintf(stderr,"%s\n",statusText);
     return 1;
+}
+extern "C" int soju_xr_frame_timing(SojuXRFrameTiming* output) {
+    if(!output)return 0;
+    *output=frameTiming;return frameTiming.rendered;
 }
 extern "C" void soju_xr_close() {
     for(auto& e:eyes)if(e.chain){xrDestroySwapchain(e.chain);e.chain=XR_NULL_HANDLE;}
