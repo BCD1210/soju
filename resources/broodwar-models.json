@@ -84,6 +84,7 @@
     },
     "188": {
       "file": "geyser.glb",
+      "nativeImages": true,
       "scale": 1,
       "yawDegrees": 0,
       "faceHeading": false,
