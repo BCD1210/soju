@@ -26,6 +26,13 @@ func runtimeChecks()throws {
     timing.completed(frame:2,eye:0,milliseconds:4)
     timing.completed(frame:2,eye:1,milliseconds:5)
     try require(timing.completedStereoSamples==2,"GPU timing pairs either completion callback order")
+    let cache=ResidentCache<Int>(limit:4)
+    cache.insert(1,key:"first",bytes:2);cache.insert(2,key:"second",bytes:2)
+    _=cache.get("first");cache.insert(3,key:"third",bytes:2)
+    try require(cache.get("first")==1 && cache.get("second")==nil && cache.get("third")==3,"resident cache evicts least recently used resource")
+    cache.insert(4,key:"oversized",bytes:5)
+    try require(cache.bytes==4 && cache.get("oversized")==nil,"resident cache respects byte budget")
+
     commander.apply(state(1,[unit("a"),unit("b")]),[:])
     try require(commander.models.count==2,"two independent live models")
     let aMaterials=Set(commander.models["a"]!.source.materials.map{ObjectIdentifier($0)})

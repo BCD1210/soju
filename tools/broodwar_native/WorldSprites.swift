@@ -146,7 +146,9 @@ final class WorldSprites {
     let root=SCNNode(),folder=runtime.appendingPathComponent("world-sprites")
     let images:[String:Obj],creep:[String:Obj]
     let colorContext=CIContext()
-    var nodes=[String:SCNNode](),frames=[String:NSImage](),atlases=[String:NSImage]()
+    var nodes=[String:SCNNode]()
+    let frames=ResidentCache<NSImage>(limit:512*1024*1024)
+    let atlases=ResidentCache<NSImage>(limit:256*1024*1024)
     var missing=Set<Int>(),deathFrames=0,loneFrames=0
     var creepMaterials=[String:SCNMaterial]()
     init() {
@@ -163,12 +165,13 @@ final class WorldSprites {
         nodes.removeAll();deathFrames=0;loneFrames=0;missing.removeAll()
     }
     func texture(_ id:Int,frame:Int,color:[Int]=[255,255,255],layer:String="diffuse")->NSImage? {
-        let key="\(id)/\(frame)/\(color)/\(layer)"
-        if let image=frames[key] {return image}
+        let tint=(layer=="diffuse" || layer=="bright") ? color:[]
+        let key="\(id)/\(frame)/\(tint)/\(layer)"
+        if let image=frames.get(key) {return image}
         guard let entry=images[String(id)],let records=entry["frames"] as? [Obj],records.indices.contains(frame),let file=(layer=="diffuse" ? entry["file"] as? String:((entry["relief"] as? Obj)?["files"] as? [String:String])?[layer]) else {if layer=="diffuse" {missing.insert(id)};return nil}
         let atlas:NSImage
-        if let cached=atlases[file] {atlas=cached}
-        else {guard let loaded=NSImage(contentsOf:folder.appendingPathComponent(file)) else {return nil};atlas=loaded;if atlases.count>32 {atlases.removeAll()};atlases[file]=loaded}
+        if let cached=atlases.get(file) {atlas=cached}
+        else {guard let loaded=NSImage(contentsOf:folder.appendingPathComponent(file)) else {return nil};atlas=loaded;atlases.insert(loaded,key:file,bytes:Int(loaded.size.width*loaded.size.height)*4)}
         let f=records[frame],width=number(entry,"grpWidth")*number(entry,"scale"),height=number(entry,"grpHeight")*number(entry,"scale")
         let image=NSImage(size:NSSize(width:width,height:height));image.lockFocus()
         atlas.draw(in:NSRect(x:number(f,"ox"),y:height-number(f,"oy")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),
@@ -188,11 +191,11 @@ final class WorldSprites {
                 let mixed=tinted.applyingFilter("CIBlendWithMask",parameters:[kCIInputBackgroundImageKey:base,kCIInputMaskImageKey:weights])
                 if let cg=colorContext.createCGImage(mixed,from:base.extent) {
                     let result=NSImage(cgImage:cg,size:image.size)
-                    if frames.count>512 {frames.removeAll()};frames[key]=result;return result
+                    frames.insert(result,key:key,bytes:Int(width*height)*4);return result
                 }
             }
         }
-        if frames.count>512 {frames.removeAll()};frames[key]=image;return image
+        frames.insert(image,key:key,bytes:Int(width*height)*4);return image
     }
     func apply(_ state:Obj,ground:Terrain3D,authored:Set<String>) {
         var live=Set<String>()

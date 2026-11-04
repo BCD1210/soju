@@ -6,7 +6,8 @@ import simd
 // Source depth is an artistic relief, not recovered hidden-side geometry.
 final class SpriteRelief {
     let device=MTLCreateSystemDefaultDevice()!
-    var dataTextures=[String:MTLTexture]()
+    let dataTextures=ResidentCache<MTLTexture>(limit:256*1024*1024)
+    let materials=ResidentCache<SCNMaterial>(limit:2048)
     var meshes=[String:SCNGeometry](),depthAtlases=[String:NSBitmapImageRep]()
     static let sun=SIMD3<Float>(-0.22033581,0.89032002,0.39847509)
     static let reference=SIMD3<Float>(-0.22033581,0.54387457,0.80972377)
@@ -50,7 +51,7 @@ final class SpriteRelief {
     }
     func dataTexture(_ id:Int,frame:Int,layer:String,art:WorldSprites)->MTLTexture? {
         let key="\(id)/\(frame)/\(layer)"
-        if let cached=dataTextures[key] {return cached}
+        if let cached=dataTextures.get(key) {return cached}
         guard let image=art.texture(id,frame:frame,layer:layer),let data=image.tiffRepresentation,
             let bitmap=NSBitmapImageRep(data:data) else {return nil}
         let w=bitmap.pixelsWide,h=bitmap.pixelsHigh
@@ -63,10 +64,12 @@ final class SpriteRelief {
         descriptor.storageMode = .shared;descriptor.usage = .shaderRead
         guard let texture=device.makeTexture(descriptor:descriptor) else {return nil}
         bytes.withUnsafeBytes{texture.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:w*4)}
-        if dataTextures.count>256 {dataTextures.removeAll()};dataTextures[key]=texture
+        dataTextures.insert(texture,key:key,bytes:w*h*4)
         return texture
     }
     func material(_ id:Int,frame:Int,color:[Int],art:WorldSprites)->SCNMaterial {
+        let key="\(id)/\(frame)/\(color)"
+        if let cached=materials.get(key) {return cached.copy() as! SCNMaterial}
         let m=SCNMaterial();m.lightingModel = .constant;m.isDoubleSided=true
         m.diffuse.contents=art.texture(id,frame:frame,color:color)
         m.readsFromDepthBuffer=true;m.writesToDepthBuffer=true
@@ -109,6 +112,7 @@ final class SpriteRelief {
         """]
         m.setValue(NSValue(scnVector3:SCNVector3(Self.reference)),forKey:"reliefLight")
         m.setValue(NSValue(scnVector3:SCNVector3(0,0,1)),forKey:"reliefEye")
-        return m
+        materials.insert(m,key:key,bytes:1)
+        return m.copy() as! SCNMaterial
     }
 }
