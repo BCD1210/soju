@@ -19,3 +19,14 @@ values are facts transcribed from the following allowed references.
   this older family description does not establish every GM20B extension.
 - https://raw.githubusercontent.com/envytools/envytools/master/docs/hw/graph/fermi/cuda/shader-header.rst
   Attempted documentation URL; unavailable, no information taken from it.
+- https://docs.nvidia.com/cuda/parallel-thread-execution/index.html
+  NVIDIA public PTX reference: integer wraparound, predicates, floating-point
+  comparisons, saturation and conversion semantics. PTX is not a GM20B encoding
+  specification; it does not establish bit-exact SASS special-function behavior.
+- https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf
+  Apple public MSL specification URL (web fetch exceeded size limit). MSL syntax
+  is validated with the locally installed Metal compiler.
+
+The decoder's declarative encoding facts are extracted from the pinned MIT
+source with `scripts/import_isa.py`. `LICENSE.envytools` retains its notice.
+No external reference is required by the build or tests.

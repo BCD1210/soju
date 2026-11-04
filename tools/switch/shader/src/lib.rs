@@ -15,3 +15,12 @@ impl std::error::Error for Error {}
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub mod ir;
+pub mod msl;
+
+/// Translate a complete 80-byte graphics SPH followed by scheduling/code bundles.
+pub fn translate(binary: &[u8], options: &msl::Options) -> Result<msl::MetalShader> {
+    let header = header::Header::parse(binary)?;
+    let decoded = decoder::decode(&binary[header::HEADER_SIZE..])?;
+    let program = ir::Program::build(&decoded)?;
+    msl::generate(&header, &program, options)
+}
