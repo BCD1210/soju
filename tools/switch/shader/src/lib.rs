@@ -24,3 +24,5 @@ pub fn translate(binary: &[u8], options: &msl::Options) -> Result<msl::MetalShad
     let program = ir::Program::build(&decoded)?;
     msl::generate(&header, &program, options)
 }
+
+pub mod cache;
