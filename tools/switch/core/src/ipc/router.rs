@@ -210,6 +210,9 @@ impl Hub {
         let mut bytes = [0; 256];
         memory.read(ipc.tls, &mut bytes)?;
         let mut req = codec::decode(&bytes, self.domains.contains_key(&ipc.object))?;
+        // HIPC supplies the sender identity; the client-side PID slot is a placeholder.
+        // This runner has one process, matching GetProcessId and ClientId below.
+        req.pid = req.pid.map(|_| 1);
         if req.kind == MessageKind::Close {
             kernel
                 .close_handle(memory, ipc.session)
@@ -711,6 +714,27 @@ mod tests {
         hub.dispatch_ipc(&request, &mut kernel, &mut memory)
             .unwrap();
         assert_eq!(hub.domains[&request.object].objects.len(), 2);
+        drop(hub);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn pid_descriptor_uses_sender_identity_instead_of_client_placeholder() {
+        let (mut hub, mut kernel, mut memory, root) = fixture();
+        let sm = kernel.register_session(0).unwrap();
+        memory.write(TLS, &wire(4, 1, b"irs\0\0\0\0\0", None)).unwrap();
+        hub.dispatch_ipc(&ipc(&kernel, sm), &mut kernel, &mut memory).unwrap();
+        let mut response = [0; 256];
+        memory.read(TLS, &mut response).unwrap();
+        let ir = read_u32(&response, 12).unwrap();
+        for (command, placeholder) in [(302, u64::MAX), (303, 0)] {
+            let mut bytes = wire(4, command, &[0; 8], None);
+            bytes.copy_within(16..40, 32);
+            bytes[4..8].copy_from_slice(&(0x8000000au32).to_le_bytes());
+            bytes[8..12].copy_from_slice(&1u32.to_le_bytes());
+            bytes[12..20].copy_from_slice(&placeholder.to_le_bytes());
+            memory.write(TLS, &bytes).unwrap();
+            hub.dispatch_ipc(&ipc(&kernel, ir), &mut kernel, &mut memory).unwrap();
+        }
         drop(hub);
         std::fs::remove_dir_all(root).unwrap();
     }
