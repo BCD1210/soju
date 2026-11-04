@@ -80,6 +80,10 @@ pub fn texture(code: u32, ty: u32, srgb: bool) -> Result<Format> {
             Bc7RgbaUnorm => Bc7RgbaSrgb,
             Astc4x4Unorm => Astc4x4Srgb,
             Astc8x8Unorm => Astc8x8Srgb,
+            Astc5x5Unorm => Astc5x5Srgb,
+            Astc6x6Unorm => Astc6x6Srgb,
+            Astc10x10Unorm => Astc10x10Srgb,
+            Astc12x12Unorm => Astc12x12Srgb,
             _ => return Err(Error("unsupported sRGB conversion".into())),
         }
     } else {

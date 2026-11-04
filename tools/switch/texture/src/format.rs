@@ -44,11 +44,15 @@ pub enum Format {
     Astc4x4Unorm,
     Astc4x4Srgb,
     Astc5x5Unorm,
+    Astc5x5Srgb,
     Astc6x6Unorm,
+    Astc6x6Srgb,
     Astc8x8Unorm,
     Astc8x8Srgb,
     Astc10x10Unorm,
+    Astc10x10Srgb,
     Astc12x12Unorm,
+    Astc12x12Srgb,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,15 +66,15 @@ pub struct Info {
 }
 
 impl Format {
-    pub const ALL: [Format; 43] = [
+    pub const ALL: [Format; 47] = [
         Format::R8Unorm, Format::Rg8Unorm, Format::Rgba8Unorm, Format::Rgba8Srgb, Format::Bgra8Unorm, Format::Bgra8Srgb,
         Format::Rgb10A2Unorm, Format::Rg11B10Float, Format::R16Float, Format::Rg16Float, Format::Rgba16Float, Format::R32Float,
         Format::Rg32Float, Format::Rgba32Float, Format::R32Uint, Format::B5G6R5Unorm, Format::A1Bgr5Unorm, Format::Depth16Unorm,
         Format::Depth32Float, Format::Depth24UnormStencil8, Format::Depth32FloatStencil8, Format::Bc1RgbaUnorm, Format::Bc1RgbaSrgb,
         Format::Bc2RgbaUnorm, Format::Bc2RgbaSrgb, Format::Bc3RgbaUnorm, Format::Bc3RgbaSrgb, Format::Bc4RUnorm, Format::Bc4RSnorm,
         Format::Bc5RgUnorm, Format::Bc5RgSnorm, Format::Bc6hRgbUfloat, Format::Bc6hRgbFloat, Format::Bc7RgbaUnorm, Format::Bc7RgbaSrgb,
-        Format::Astc4x4Unorm, Format::Astc4x4Srgb, Format::Astc5x5Unorm, Format::Astc6x6Unorm, Format::Astc8x8Unorm,
-        Format::Astc8x8Srgb, Format::Astc10x10Unorm, Format::Astc12x12Unorm,
+        Format::Astc4x4Unorm, Format::Astc4x4Srgb, Format::Astc5x5Unorm, Format::Astc5x5Srgb, Format::Astc6x6Unorm, Format::Astc6x6Srgb, Format::Astc8x8Unorm,
+        Format::Astc8x8Srgb, Format::Astc10x10Unorm, Format::Astc10x10Srgb, Format::Astc12x12Unorm, Format::Astc12x12Srgb,
     ];
 
     pub fn info(&self) -> Info {
@@ -113,12 +117,16 @@ impl Format {
             Bc7RgbaUnorm => (16, 4, 4, 152, "bc7_rgbaUnorm"),
             Bc7RgbaSrgb => (16, 4, 4, 153, "bc7_rgbaUnorm_srgb"),
             Astc4x4Srgb => (16, 4, 4, 186, "astc_4x4_srgb"),
+            Astc5x5Srgb => (16, 5, 5, 188, "astc_5x5_srgb"),
             Astc5x5Unorm => (16, 5, 5, 206, "astc_5x5_ldr"),
+            Astc6x6Srgb => (16, 6, 6, 190, "astc_6x6_srgb"),
             Astc6x6Unorm => (16, 6, 6, 208, "astc_6x6_ldr"),
             Astc8x8Srgb => (16, 8, 8, 194, "astc_8x8_srgb"),
             Astc4x4Unorm => (16, 4, 4, 204, "astc_4x4_ldr"),
             Astc8x8Unorm => (16, 8, 8, 212, "astc_8x8_ldr"),
+            Astc10x10Srgb => (16, 10, 10, 198, "astc_10x10_srgb"),
             Astc10x10Unorm => (16, 10, 10, 216, "astc_10x10_ldr"),
+            Astc12x12Srgb => (16, 12, 12, 200, "astc_12x12_srgb"),
             Astc12x12Unorm => (16, 12, 12, 218, "astc_12x12_ldr"),
         };
         Info { bytes, block_w: bw, block_h: bh, metal, name }

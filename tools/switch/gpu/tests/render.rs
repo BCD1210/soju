@@ -978,11 +978,15 @@ fn texture_formats_and_tic_swizzles_sample_on_metal() {
         (0x40, 2, false),
         (0x40, 2, true),
         (0x41, 2, false),
+        (0x41, 2, true),
         (0x42, 2, false),
+        (0x42, 2, true),
         (0x44, 2, false),
         (0x44, 2, true),
         (0x45, 2, false),
+        (0x45, 2, true),
         (0x46, 2, false),
+        (0x46, 2, true),
     ];
     let mut expected = BTreeMap::new();
     for (code, ty, srgb) in cases {
@@ -990,7 +994,7 @@ fn texture_formats_and_tic_swizzles_sample_on_metal() {
         let info = format.info();
         let size = info.block_w * info.block_h;
         let mut linear = vec![0; size * info.bytes];
-        // Constant black blocks; BC7 mode 6, ASTC LDR void extent with opaque alpha.
+        // BC7 mode 6 and ASTC LDR void extent with mid-gray RGB and opaque alpha.
         if code == 0x17 {
             for b in linear.chunks_exact_mut(16) {
                 b[0] = 0x40;
@@ -999,11 +1003,19 @@ fn texture_formats_and_tic_swizzles_sample_on_metal() {
         if code >= 0x40 {
             for b in linear.chunks_exact_mut(16) {
                 b[..8].copy_from_slice(&[0xfc, 0xfd, 255, 255, 255, 255, 255, 255]);
+                for channel in 0..3 {
+                    b[8 + channel * 2..10 + channel * 2].copy_from_slice(&0x8080u16.to_le_bytes());
+                }
                 b[14] = 255;
                 b[15] = 255;
             }
         }
-        let mut pixel = [0, 0, 255, 0];
+        let mut pixel = if code >= 0x40 {
+            let value = if srgb { 55 } else { 128 };
+            [value, value, 255, 0]
+        } else {
+            [0, 0, 255, 0]
+        };
         match code {
             8 => {
                 linear.fill(128);
@@ -1111,7 +1123,11 @@ fn texture_formats_and_tic_swizzles_sample_on_metal() {
             &image.rgba[..4]
         );
     }
-    eprintln!("40 texture formats and TIC swizzles: checked={}", 40 * 1024);
+    eprintln!(
+        "{} texture formats and TIC swizzles: checked={}",
+        cases.len(),
+        cases.len() * 1024
+    );
 }
 
 #[test]
