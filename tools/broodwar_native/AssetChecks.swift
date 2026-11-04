@@ -110,11 +110,20 @@ extension Models3D {
 func liveModelProof()throws {
     let commander=try Commander(art:Art()),map=try Bridge().request(["op":"scene"])
     let nativeMap=map["map"] as? Obj ?? [:]
-    guard (nativeMap["path"] as? String ?? "").contains("Soju-Coverage-") else {throw SceneError.invalid("Live proof requires private Soju-Coverage map")}
+    let mapPath=nativeMap["path"] as? String ?? ""
+    guard ["Soju-Coverage-","Soju-Combat-Test-","Soju-Commander-Test"].contains(where:{mapPath.contains($0)}) else {throw SceneError.invalid("Live proof requires a private Soju fixture map")}
     let prepared=commander.art.manifest["map"] as! Obj
     commander.mapWidth=Int(number(prepared,"width"));commander.mapHeight=Int(number(prepared,"height"));commander.mapTiles=prepared["tiles"] as! [Int]
-    let fog=try Bridge().request(["op":"terrain","x":0,"y":0,"width":commander.mapWidth,"height":commander.mapHeight])
-    commander.apply(map,fog)
+    commander.apply(map,[:])
+    for y in stride(from:0,to:commander.mapHeight,by:64) {
+        for x in stride(from:0,to:commander.mapWidth,by:64) {
+            let width=min(64,commander.mapWidth-x),height=min(64,commander.mapHeight-y)
+            let region=try Bridge().request(["op":"terrain","x":x,"y":y,"width":width,"height":height])
+            for (i,value) in (region["fog"] as? String ?? "").utf8.enumerated() {
+                commander.fog[(y+i/width)*commander.mapWidth+x+i%width]=value
+            }
+        }
+    }
     Models3D.lights(commander.world,tileset:prepared["tileset"] as? String ?? "badlands")
     commander.world.background.contents=NSColor(calibratedRed:0.1,green:0.13,blue:0.18,alpha:1)
     commander.camera.camera=SCNCamera();commander.camera.camera!.fieldOfView=50;commander.camera.camera!.zFar=180;Models3D.exposure(commander.camera.camera!)
