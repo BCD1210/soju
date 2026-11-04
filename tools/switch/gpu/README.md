@@ -385,3 +385,14 @@ Clears, depth/stencil, queries, compute, shared/partially overlapping attachment
 sets, generation changes and spilled attachments select the ordered path.
 Diagnostics report `parallel_passes`. This conservative mode is opt-in because
 small passes may cost more to partition than they save in encoding time.
+
+## Shared-depth target switches
+
+Compatible consecutive shared-depth draws now use one render pass with the
+union of their colour attachments (up to eight). Guest draw order is unchanged.
+Fragment colour attributes and per-attachment blend/write masks are remapped to
+the union; the remapping and union formats extend the stable pipeline key.
+Clear/query/compute boundaries, depth identity/generation, dimensions, colour
+generation changes and the eight-attachment limit split groups. This also handles
+MRT slot permutations without remapping an output twice. Set
+`SOJU_GPU_MERGE_DEPTH=0` to compare the original separate-pass path.

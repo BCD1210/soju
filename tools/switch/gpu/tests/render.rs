@@ -2170,6 +2170,24 @@ fn shared_depth_prevents_target_pass_reordering() {
     }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/shared-depth-order-checks");
     let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    let merged = std::env::var("SOJU_GPU_MERGE_DEPTH").as_deref() != Ok("0");
+    assert!(
+        report.diagnostics.contains(if merged {
+            "merged_depth_draws=3"
+        } else {
+            "merged_depth_draws=0"
+        }),
+        "{}",
+        report.diagnostics
+    );
+    assert!(
+        report
+            .diagnostics
+            .contains(if merged { "encoders=4 " } else { "encoders=6 " }),
+        "{}",
+        report.diagnostics
+    );
+    eprintln!("shared_depth {}", report.diagnostics);
     for image in report.images {
         let expected = if image.address == a {
             [255, 0, 0, 255]
@@ -2398,5 +2416,80 @@ fn parallel_color_passes_preserve_per_target_blend_order() {
             .iter()
             .zip([15u8, 239, 0, 255])
             .all(|(a, b)| a.abs_diff(b) <= 2)));
+    }
+}
+
+#[test]
+fn shared_depth_mrt_slot_permutations_keep_outputs_and_depth_order() {
+    let mut h = Harness::new();
+    let (mut e, a) = h.engine("depth-mrt", [0., 0., 0., 1.]);
+    let b = h.alloc(vec![0; 4096]);
+    h.methods(
+        &mut e,
+        &[
+            (0x844, b as u32),
+            (0x848, 32),
+            (0x84c, 32),
+            (0x850, 0xd5),
+            (0x858, 1),
+            (0x121c, 2 | 1 << 7),
+        ],
+    );
+    let z = h.alloc(vec![0; 4096]);
+    h.methods(
+        &mut e,
+        &[
+            (0xfe4, z as u32),
+            (0xfe8, 0xa),
+            (0x1228, 32),
+            (0x122c, 32),
+            (0x1230, 1),
+            (0x1538, 1),
+            (0xd90, 1f32.to_bits()),
+            (0x19d0, 1),
+            (0x12cc, 1),
+            (0x12e8, 1),
+            (0x130c, 0x201),
+        ],
+    );
+    let mut header = [0u32; 20];
+    header[0] = 2 | 5 << 10;
+    header[6] = 0xaa;
+    header[18] = 255;
+    let mut code = Vec::new();
+    for slot in 0..2 {
+        for c in 0..4 {
+            code.push(ipa(slot * 4 + c, 0x80 + ((c + slot) % 4) * 4));
+        }
+    }
+    code.push(0xe30000000000000f | PT);
+    let mut bytes: Vec<u8> = header.into_iter().flat_map(u32::to_le_bytes).collect();
+    for chunk in code.chunks(3) {
+        bytes.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for w in chunk {
+            bytes.extend(w.to_le_bytes());
+        }
+    }
+    let fs = h.program(bytes);
+    h.methods(&mut e, &[(0x2144, fs as u32)]);
+    for (select, z, color) in [
+        (2 | 1 << 7, 0.6, [1., 0., 0., 1.]),
+        (2 | 1 << 4, 0.4, [0., 1., 0., 1.]),
+        (2 | 1 << 7, 0.5, [0., 0., 1., 1.]),
+    ] {
+        h.methods(&mut e, &[(0x121c, select)]);
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., z, color), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/shared-depth-mrt");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 2);
+    for image in report.images {
+        let expected = if image.address == a {
+            [255, 0, 255, 0]
+        } else {
+            [0, 255, 0, 255]
+        };
+        assert!(image.rgba.chunks_exact(4).all(|p| p == expected));
     }
 }

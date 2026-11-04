@@ -206,7 +206,9 @@ impl Native {
                         "\n",
                         include_str!("../native/memory_cache.swift"),
                         "\n",
-                        include_str!("../native/parallel.swift")
+                        include_str!("../native/parallel.swift"),
+                        "\n",
+                        include_str!("../native/shared_depth.swift")
                     ),
                 )
                 .map_err(error)?;

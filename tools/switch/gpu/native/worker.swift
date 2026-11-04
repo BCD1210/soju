@@ -187,6 +187,8 @@ final class Worker {
     var registerStates = [Int: [Int: Int]]()
     var resolvedTables = [Int: [Int: ArgumentTable]]()
     let scheduled = try schedulePasses(commands)
+    let depthPlans = sharedDepthPlans(commands, scheduled)
+    var mergedKeys = [Int: String]()
     for inputIndex in scheduled {
         let input = commands[inputIndex]
         let commandIndex = input.kind == 5 ? Int(input.reference) : inputIndex
@@ -224,8 +226,10 @@ final class Worker {
         }
         if command.kind == 2 {try flush();occlusion=0;continue}
         if command.kind == 3 { let key = text(command.key);try flush();queryValues[key]=UInt32(truncatingIfNeeded:occlusion);continue}
-        let attachments = items(command.targets)
-        guard let target = attachments.first else { throw Failure("missing state") }
+        let originalAttachments = items(command.targets)
+        let merged = depthPlans[inputIndex]
+        let passStateIndex = merged == nil ? commandIndex : commands.count + inputIndex
+        guard let target = originalAttachments.first else { throw Failure("missing state") }
         if registerStates[commandIndex] == nil { registerStates[commandIndex] = Dictionary(uniqueKeysWithValues: items(command.registers).map { (Int($0.address), Int($0.value)) }) }
         let raw = registerStates[commandIndex]!
         func r(_ a: Int) -> Int { raw[a] ?? 0 }
@@ -238,10 +242,11 @@ final class Worker {
         var depthFormat = MTLPixelFormat.invalid
         let pass: MTLRenderPassDescriptor
         let passKey: String
-        if let resolved = passStates[commandIndex] {
+        if let resolved = passStates[passStateIndex] {
             pass = resolved.descriptor; passKey = resolved.key; colors = resolved.colors; depthFormat = resolved.depthFormat; passHits += 1
         } else {
 
+        let attachments = merged?.attachments ?? Array(originalAttachments)
         for target in attachments {
             let key = text(target.key)
         touch("c", key); dirtyAttachments.insert(key)
@@ -314,7 +319,7 @@ final class Worker {
         }
         if !isClear && visibility == nil {
             renderPasses[passKey] = pass
-            passStates[commandIndex] = RenderPassState(descriptor: pass, key: passKey, colors: colors, depthFormat: depthFormat)
+            passStates[passStateIndex] = RenderPassState(descriptor: pass, key: passKey, colors: colors, depthFormat: depthFormat)
         }
         }
         if isClear || visibility != nil || activeKey != passKey {endPass()}
@@ -323,16 +328,23 @@ final class Worker {
             try need(r(0xe00)==0,"scissored clear unsupported")
             guard let encoder = current.makeRenderCommandEncoder(descriptor:pass) else { throw Failure("clear encoder") }; encoderCount += 1; encoder.endEncoding();clears += 1
         } else {
-            let pk = text(command.pipeline)
+            let pk: String
+            if let merged {
+                if let cached = mergedKeys[passStateIndex] { pk = cached }
+                else { pk = text(command.pipeline) + merged.suffix(command); mergedKeys[passStateIndex] = pk }
+            } else { pk = text(command.pipeline) }
             if pipelines[pk] == nil {
                 let descriptor = MTLRenderPipelineDescriptor()
                 for slot in colors.indices { descriptor.colorAttachments[slot].pixelFormat = colors[slot].pixelFormat }
                 descriptor.depthAttachmentPixelFormat = depthFormat
                 if depthFormat == .depth32Float_stencil8 { descriptor.stencilAttachmentPixelFormat = depthFormat }
                 try need(r(0x12e4)<=1,"invalid per-target blend enable")
-                for slot in colors.indices {
-                    let physical = (r(0x121c) >> (4 + slot * 3)) & 7
+                let outputSlots = merged?.mapping(command) ?? Array(originalAttachments.indices)
+                for slot in colors.indices { descriptor.colorAttachments[slot].writeMask = [] }
+                for (originalSlot, slot) in outputSlots.enumerated() {
+                    let physical = (r(0x121c) >> (4 + originalSlot * 3)) & 7
                     let blend = descriptor.colorAttachments[slot]!
+                    blend.writeMask = .all
                     try need(r(0x1360 + physical*4)<=1,"invalid blend enable")
                     blend.isBlendingEnabled = r(0x1360 + physical*4)==1
                     if blend.isBlendingEnabled {
@@ -355,7 +367,8 @@ final class Worker {
                 }
                 descriptor.vertexDescriptor = vertex
                 let vertexSource = String(decoding: try file(text(command.vertex)), as: UTF8.self)
-                let fragmentSource = String(decoding: try file(text(command.fragment)), as: UTF8.self)
+                var fragmentSource = String(decoding: try file(text(command.fragment)), as: UTF8.self)
+                if let merged { fragmentSource = merged.fragment(fragmentSource, command) }
                 guard let ready = try compiler.request(pk, descriptor, vertexSource, fragmentSource) else {
                     skippedDraws += max(1, Int(input.repeats)); continue
                 }
@@ -525,7 +538,7 @@ final class Worker {
     }
     try flush()
     let elapsed=ProcessInfo.processInfo.systemUptime-started
-    return "skipped_draws=\(skippedDraws) pass_hits=\(passHits) encoding_seconds=\(elapsed-gpuWait) gpu_wait_seconds=\(gpuWait) state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
+    return "merged_depth_draws=\(depthPlans.count) skipped_draws=\(skippedDraws) pass_hits=\(passHits) encoding_seconds=\(elapsed-gpuWait) gpu_wait_seconds=\(gpuWait) state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)
