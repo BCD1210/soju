@@ -137,13 +137,11 @@ fn ae_oe_graph_and_unknown_interfaces() {
         h.call(settings, req(99, vec![])),
         Err(Error::Unsupported { .. })
     ));
-    for name in ["ns:am2"] {
-        let s = h.open(name);
-        assert!(matches!(
-            h.call(s, req(0, vec![])),
-            Err(Error::Unsupported { .. })
-        ));
-    }
+    let s = h.open("ns:am2");
+    assert!(matches!(
+        h.call(s, req(0, vec![])),
+        Err(Error::Unsupported { .. })
+    ));
 }
 #[test]
 fn storage_bounds_and_player_completion() {
