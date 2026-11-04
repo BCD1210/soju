@@ -92,6 +92,9 @@ func runtimeChecks()throws {
     commander.sceneRevision+=1
     try batchCheck.prepare(commander)
     let firstBuffer=batchCheck.batches.first(where:{!$0.terrain})!.vertices
+    let retainedBatch=batchCheck.batches.first(where:{!$0.terrain})!
+    let bufferBytes=retainedBatch.vertices.length+retainedBatch.indices.length+(retainedBatch.flatVertices?.length ?? 0)+retainedBatch.instances.reduce(0){$0+$1.length}
+    try require(MetalBatches.retainedBytes(retainedBatch)>bufferBytes,"native group cache charges its retained textures as well as buffers")
     commander.sceneRevision+=1
     try batchCheck.prepare(commander)
     try require(batchCheck.batches.first(where:{!$0.terrain})!.vertices === firstBuffer,"unchanged native groups reuse packed vertex buffers")

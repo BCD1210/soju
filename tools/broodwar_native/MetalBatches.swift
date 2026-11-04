@@ -91,6 +91,10 @@ final class MetalBatches {
     static func textureBytes(_ texture:MTLTexture)->Int {
         max(texture.allocatedSize,texture.parent?.allocatedSize ?? 0,texture.width*texture.height*4)
     }
+    static func retainedBytes(_ batch:Batch)->Int {
+        batch.vertices.length+batch.indices.length+(batch.flatVertices?.length ?? 0)+batch.instances.reduce(0){$0+$1.length}
+            + batch.textures.reduce(0){$0+textureBytes($1)}
+    }
     static func colorView(_ texture:MTLTexture)->MTLTexture {
         let format:MTLPixelFormat
         switch texture.pixelFormat {
@@ -222,8 +226,7 @@ final class MetalBatches {
             let batch=Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:flat,instances:(0..<3).map{_ in buffer(instances+instances)},nodes:nodes,textures:maps,terrain:false,shadow:shadow,mode:shadow ? 3:relief ? 1:0,depthDisabled:false,bounds:bounds)
             batches.append(batch)
             if let source=source {
-                let bytes=batch.vertices.length+batch.indices.length+(batch.flatVertices?.length ?? 0)+batch.instances.reduce(0){$0+$1.length}
-                groupCache.insert((source,batch),key:key,bytes:bytes)
+                groupCache.insert((source,batch),key:key,bytes:Self.retainedBytes(batch))
             }
         }
         // Preserve creep edges and independent native sprite chains as overlays.

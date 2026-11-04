@@ -87,13 +87,13 @@ final class Art {
     let device: MTLDevice
     let manifest: Obj
     lazy var tileCatalog=manifest["tiles"] as? [String:Obj] ?? [:]
-    var textures=[String:MTLTexture]()
+    let textures=ResidentCache<MTLTexture>(limit:256*1024*1024)
     init(device preferred:MTLDevice? = nil) throws {
         guard let d=preferred ?? MTLCreateSystemDefaultDevice(),d.supportsBCTextureCompression else { throw SceneError.invalid("Metal BC texture support required") }
         device=d;manifest=try loadObject(assets.appendingPathComponent("manifest.json"))
     }
     func texture(_ name:String) throws -> MTLTexture {
-        if let t=textures[name] { return t }
+        if let t=textures.get(name) { return t }
         let b=[UInt8](try Data(contentsOf:assets.appendingPathComponent(name)))
         guard b.count>=128,Array(b[0..<4])==[68,68,83,32] else { throw SceneError.invalid("Unsupported texture "+name) }
         let w=Int(u32(b,16)),h=Int(u32(b,12)),four=String(bytes:b[84..<88],encoding:.ascii) ?? ""
@@ -138,7 +138,7 @@ final class Art {
         guard let t=TextureResidency.shared.make(device,desc),let queue=device.makeCommandQueue(),let command=queue.makeCommandBuffer(),let blit=command.makeBlitCommandEncoder() else { throw SceneError.invalid("Metal texture allocation") }
         rgba.withUnsafeBytes {t.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:w*4)}
         blit.generateMipmaps(for:t);blit.endEncoding();command.commit();command.waitUntilCompleted()
-        textures[name]=t;return t
+        textures.insert(t,key:name,bytes:MetalBatches.textureBytes(t));return t
     }
     // Filter across the actual map neighbors instead of repeating each tile's
     // edge texel. The gutter participates in mip generation at oblique angles.
@@ -148,7 +148,7 @@ final class Art {
         let center=try texture(files[4]),gutter=8
         let width=center.width,height=center.height,paddedWidth=width+gutter*2,paddedHeight=height+gutter*2
         let padded:MTLTexture
-        if let cached=textures[key] {padded=cached}
+        if let cached=textures.get(key) {padded=cached}
         else {
             var pixels=[UInt8](repeating:0,count:paddedWidth*paddedHeight*4)
             for row in 0..<3 {for column in 0..<3 {
@@ -168,7 +168,7 @@ final class Art {
             guard let image=TextureResidency.shared.make(device,descriptor),let queue=device.makeCommandQueue(),let command=queue.makeCommandBuffer(),let blit=command.makeBlitCommandEncoder() else {throw SceneError.invalid("Terrain gutter allocation")}
             pixels.withUnsafeBytes {image.replace(region:MTLRegionMake2D(0,0,paddedWidth,paddedHeight),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:paddedWidth*4)}
             blit.generateMipmaps(for:image);blit.endEncoding();command.commit();command.waitUntilCompleted()
-            textures[key]=image;padded=image
+            textures.insert(image,key:key,bytes:MetalBatches.textureBytes(image));padded=image
         }
         let material=try self.material(files[4]);material.diffuse.contents=padded
         var transform=SCNMatrix4MakeScale(CGFloat(width)/CGFloat(paddedWidth),-CGFloat(height)/CGFloat(paddedHeight),1)
