@@ -134,6 +134,16 @@ final class NativeSceneWorker {
             for node in terrain.terrain.values {pick(node,.terrain)}
             for node in overlays {if let name=node.name,name.hasPrefix("card-"),let index=Int(name.dropFirst(5)) {pick(node,.card(index))}}
             let diagnostics:Obj=["billboardUnits":billboards.mapValues{$0.evidence},"nativeDeathFrames":sprites.deathFrames,"nativeLoneFrames":sprites.loneFrames,
+                "unitPickBounds":picks.compactMap { mesh -> Obj? in
+                    guard case .unit(let id)=mesh.target else {return nil}
+                    let center=mesh.transform*SIMD4<Float>((mesh.lower+mesh.upper)/2,1)
+                    return ["unit":id,"center":[center.x,center.y,center.z],"lower":[mesh.lower.x,mesh.lower.y,mesh.lower.z],"upper":[mesh.upper.x,mesh.upper.y,mesh.upper.z],"triangles":mesh.indices.count/3]
+                },
+                "cardPickBounds":picks.compactMap { mesh -> Obj? in
+                    guard case .card(let index)=mesh.target else {return nil}
+                    let center=mesh.transform*SIMD4<Float>((mesh.lower+mesh.upper)/2,1)
+                    return ["index":index,"center":[center.x,center.y,center.z],"triangles":mesh.indices.count/3]
+                },
                 "spriteBounds":billboards.mapValues{$0.projectedLayers(camera:view.camera,viewport:view.viewport,art:sprites)},"frame":number(state,"frame"),"nativeFrame":number(state,"frame"),
                 "camera":[column.x,column.y,column.z],"viewHeight":view.camera.orthographic ? 1/view.camera.projection.columns.1.y:0,
                 "state":state,"fog":Dictionary(uniqueKeysWithValues:fog.map{(String($0.key),Int($0.value))}),"creepTilesSnapshot":Array(creep).sorted(),
