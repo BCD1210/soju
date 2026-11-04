@@ -208,3 +208,18 @@ fn indexed_constant_load_requires_bounds_and_checks_alignment_and_overflow() {
     assert!(source.contains("<=92ul"));
     assert!(source.contains(": 0u"));
 }
+
+#[test]
+fn instance_id_is_integer_builtin_without_vertex_buffer() {
+    let mut h = vertex_header();
+    h[6] = 0;
+    h[10] = 1 << 30;
+    let mut a = Assembler::default();
+    a.emit(attr(false, 0x2f8, 0, 1));
+    a.emit(attr(true, 0x70, 0, 1));
+    a.emit(EXIT);
+    let s = compile("instance_id", &a.finish(h));
+    assert!(s.contains("uint soju_instance_id [[instance_id]]"));
+    assert!(s.contains("r[0] = soju_instance_id;"));
+    assert!(!s.contains("[[attribute("));
+}

@@ -947,7 +947,7 @@ impl Backend {
                 let slots = vh
                     .inputs
                     .iter()
-                    .filter(|a| a.address != 0x2fc)
+                    .filter(|a| !matches!(a.address, 0x2f8 | 0x2fc))
                     .map(|a| (a.address / 16 - 8) as u32)
                     .collect::<BTreeSet<_>>();
                 let mut attrs = Vec::new();

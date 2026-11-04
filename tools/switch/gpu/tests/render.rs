@@ -2762,3 +2762,52 @@ fn split_texs_exports_four_distinct_components() {
     }
     std::fs::remove_dir_all(directory).unwrap();
 }
+
+#[test]
+fn instance_builtin_positions_two_separate_draws() {
+    let mut h = Harness::new();
+    let mut header = [0u32; 20];
+    header[0] = 1 | 1 << 10;
+    header[6] = 0xfff;
+    header[10] = 1 << 30;
+    header[13] = (15 << 12) | (15 << 16) | (3 << 20);
+    let code = [
+        attr(false, 0x80, 0, 4),
+        attr(false, 0x90, 4, 4),
+        attr(false, 0xa0, 8, 4),
+        attr(false, 0x2f8, 12, 1),
+        0x5cb8000000000000 | PT | 12 | 12 << 20 | 0xa00,
+        0x010000000000f000 | PT | 13 | u64::from((-0.5f32).to_bits()) << 20,
+        0x5c58000000000000 | PT | 12 | 12 << 8 | 13 << 20,
+        0x5c58000000000000 | PT | 12 << 20,
+        attr(true, 0x70, 0, 4),
+        attr(true, 0x80, 4, 4),
+        attr(true, 0x90, 8, 2),
+        0xe30000000000000f | PT,
+    ];
+    let mut bytes: Vec<_> = header.into_iter().flat_map(u32::to_le_bytes).collect();
+    for chunk in code.chunks(3) {
+        bytes.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for word in chunk {
+            bytes.extend(word.to_le_bytes());
+        }
+    }
+    let vertex = h.program(bytes);
+    let (mut e, a) = h.engine("instance-builtin", [0., 0., 0., 1.]);
+    h.methods(&mut e, &[(0x2044, vertex as u32)]);
+    h.vertices(
+        &mut e,
+        &quad(-0.25, -0.5, 0.25, 0.5, 0.5, [1., 1., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.draw(&mut e, 6, false, true);
+    h.rect_expected(a, 4, 8, 12, 24, [255, 255, 0, 255]);
+    h.rect_expected(a, 20, 8, 28, 24, [255, 255, 0, 255]);
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/instance-builtin");
+    let report = h.backend.execute(&dir, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 1);
+    for (pixel, expected) in report.images[0].rgba.chunks_exact(4).zip(&h.expected[&a].1) {
+        assert_eq!(pixel, expected.unwrap());
+    }
+}

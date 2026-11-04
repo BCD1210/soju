@@ -92,7 +92,7 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
         let slots: BTreeSet<_> = header
             .inputs
             .iter()
-            .filter(|a| a.address != 0x2fc)
+            .filter(|a| !matches!(a.address, 0x2f8 | 0x2fc))
             .map(|a| a.address / 16)
             .collect();
         for slot in slots {
@@ -194,6 +194,9 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
     .unwrap();
     if vertex && header.inputs.iter().any(|a| a.address == 0x2fc) {
         s.push_str(", uint soju_vertex_id [[vertex_id]]");
+    }
+    if vertex && header.inputs.iter().any(|a| a.address == 0x2f8) {
+        s.push_str(", uint soju_instance_id [[instance_id]]");
     }
     for slot in &cb {
         write!(s, ", constant uint* cb{slot} [[buffer({slot})]]").unwrap();
