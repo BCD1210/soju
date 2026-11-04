@@ -309,6 +309,14 @@ func runtimeChecks()throws {
         let screenY=Double(placed.z)*sin(Terrain3D.canonicalElevation)-Double(placed.y)*cos(Terrain3D.canonicalElevation)
         try require(abs(screenY-11*sin(Terrain3D.canonicalElevation))<0.00001,"relief preserves native projected ground anchor at height \(height)")
     }
+    let footprintURL=runtime.appendingPathComponent("runtime-footprint-terrain.json")
+    let footprintData:Obj=["width":16,"height":16,"flags":[Int](repeating:1,count:256),"heights":(0..<256).map{$0%16>=10 ? 2.0:0.0}]
+    try JSONSerialization.data(withJSONObject:footprintData).write(to:footprintURL)
+    let footprintGround=try Terrain3D(url:footprintURL)
+    let footprintUnit:Obj=["x":64,"y":64,"building":true,"footprintWidth":64,"footprintHeight":64]
+    try require(footprintGround.elevation(2,2)==0 && footprintGround.buildingElevation(footprintUnit)==2,"building support includes elevated footprint corners beyond its center")
+    var flyingFootprint=footprintUnit;flyingFootprint["airborne"]=true
+    try require(footprintGround.buildingElevation(flyingFootprint)==0,"lifted buildings do not inherit landed footprint support")
     var continuous=true
     for y in 0..<commander.ground.height-1 {for x in 0..<commander.ground.width-1 {
         let a=commander.ground.surface(x,y),right=commander.ground.surface(x+1,y),below=commander.ground.surface(x,y+1)
