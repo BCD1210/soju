@@ -18,10 +18,10 @@ final class CaptureFrames {
         next=now+interval
         let result=sequence;sequence+=1;return result
     }
-    func save(_ image:CGImage,index:Int,metadata:Obj) {
+    func save(_ image:CGImage,index:Int,metadata:Obj,suffix:String="") {
         guard let folder=folder else {return}
         do {
-            let name=String(format:"frame-%05d",index),file=folder.appendingPathComponent(name+".png")
+            let name=String(format:"frame-%05d",index)+suffix,file=folder.appendingPathComponent(name+".png")
             guard !FileManager.default.fileExists(atPath:file.path) else {throw SceneError.invalid("Capture already exists: \(file.path)")}
             guard let png=NSBitmapImageRep(cgImage:image).representation(using:.png,properties:[:]) else {throw SceneError.invalid("PNG encoding failed")}
             try png.write(to:file,options:.atomic)

@@ -19,7 +19,7 @@ func xrControls(_ context:UnsafeMutableRawPointer?,_ packet:UnsafePointer<SojuXR
 extension Commander {
     func renderEye(_ texture:MTLTexture,_ queue:MTLCommandQueue,_ eye:SojuXREye) {
         guard let renderer=xrRenderer,let buffer=queue.makeCommandBuffer() else { return }
-        if eye.eye==0 { xrFrameTime=CACurrentMediaTime() }
+        if eye.eye==0 { xrFrameTime=CACurrentMediaTime();frameMetrics.begin(units:nodes.count) }
         if xrOrigin==nil && eye.tracked != 0 {
             xrOrigin=SIMD3<Float>(eye.headX,eye.headY,eye.headZ)
             let forward=simd_quatf(ix:eye.qx,iy:eye.qy,iz:eye.qz,r:eye.qw).act(SIMD3<Float>(0,0,-1))
@@ -93,26 +93,33 @@ extension Commander {
             if let data=try? JSONSerialization.data(withJSONObject:diagnostic,options:.prettyPrinted) { try? data.write(to:runtime.appendingPathComponent("xr-view-diagnostics.json"),options:.atomic) }
         }
         renderer.render(atTime:xrFrameTime,viewport:CGRect(x:0,y:0,width:texture.width,height:texture.height),commandBuffer:buffer,passDescriptor:pass)
-        let captureIndex=eye.eye==0 && initialized ? captureFrames.reserve():nil
-        let captureMetadata:Obj=["nativeFrame":number(state,"frame"),"time":Date().timeIntervalSince1970,"xrFrame":xrDrawCount,"eye":0,
+        if eye.eye==0 {xrStereoCaptureIndex=initialized ? captureFrames.reserve():nil}
+        let captureIndex=(eye.eye==0 || CommandLine.arguments.contains("--record-stereo")) ? xrStereoCaptureIndex:nil
+        let captureSuffix=eye.eye==0 ? "":"-right"
+        let captureMetadata:Obj=captureIndex != nil ? ["nativeFrame":number(state,"frame"),"time":Date().timeIntervalSince1970,"xrFrame":xrDrawCount,"eye":Int(eye.eye),
             "worldUnitsPerMeter":worldUnitsPerMeter,"selected":selected,"combatEvents":effects.counts,"deathFrames":worldSprites.deathFrames,
             "loneFrames":worldSprites.loneFrames,"creepTiles":creepNodes.count,"source":"OpenXR Metal swapchain eye", "snapshotSource":argument("--snapshot") ?? "live",
             "camera":[position.x,position.y,position.z],"orientation":[xrCamera.simdOrientation.imag.x,xrCamera.simdOrientation.imag.y,xrCamera.simdOrientation.imag.z,xrCamera.simdOrientation.real],
-            "billboards":billboards.mapValues{["position":[$0.root.position.x,$0.root.position.y,$0.root.position.z],"layers":$0.evidence] as Obj}]
-        if eye.eye==0 && (xrDrawCount%10==0 || captureIndex != nil),let context=mirrorContext {
+            "billboards":billboards.mapValues{["position":[$0.root.position.x,$0.root.position.y,$0.root.position.z],"layers":$0.evidence] as Obj}]:[:]
+        if (eye.eye==0 && xrDrawCount%10==0 || captureIndex != nil),let context=mirrorContext {
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:texture.pixelFormat,width:texture.width,height:texture.height,mipmapped:false)
             desc.usage = .shaderRead;desc.storageMode = .private
             if let copy=art.device.makeTexture(descriptor:desc),let blit=buffer.makeBlitCommandEncoder() {
                 blit.copy(from:texture,to:copy);blit.endEncoding()
                 buffer.addCompletedHandler { [weak self] command in
                     guard command.status == .completed,let ci=CIImage(mtlTexture:copy,options:nil),let cg=context.createCGImage(ci.transformed(by:CGAffineTransform(translationX:0,y:CGFloat(copy.height)).scaledBy(x:1,y:-1)),from:ci.extent) else { return }
-                    DispatchQueue.main.async { self?.mirror?.image=NSImage(cgImage:cg,size:NSSize(width:copy.width,height:copy.height)) }
-                    if let index=captureIndex {self?.captureFrames.save(cg,index:index,metadata:captureMetadata)}
+                    if eye.eye==0 {DispatchQueue.main.async { self?.mirror?.image=NSImage(cgImage:cg,size:NSSize(width:copy.width,height:copy.height)) }}
+                    if let index=captureIndex {self?.captureFrames.save(cg,index:index,metadata:captureMetadata,suffix:captureSuffix)}
                 }
             }
         }
         buffer.addCompletedHandler { command in if let error=command.error { fputs("XR GPU: \(error)\n",stderr) } }
+        let measuredFrame=xrDrawCount,measuredEye=Int(eye.eye)
+        buffer.addCompletedHandler { [weak self] command in
+            self?.frameMetrics.completed(frame:measuredFrame,eye:measuredEye,milliseconds:(command.gpuEndTime-command.gpuStartTime)*1000)
+        }
         buffer.commit()
+        if eye.eye==1 {frameMetrics.submitted()}
     }
 }
 #endif
