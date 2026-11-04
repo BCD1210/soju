@@ -38,6 +38,11 @@ pub(super) struct Renderer {
     memory: Memory,
     mappings: Vec<(u64, u64, usize, u32, u64, u32)>,
     programs: programs::Cache,
+    normalized_draw: Option<(
+        soju_switch_gpu::engine::Registers,
+        soju_switch_gpu::engine::Registers,
+        bool,
+    )>,
     copy: copy::CopyEngine,
     shadow_mode: u32,
     shadow: BTreeMap<u32, u32>,
@@ -55,6 +60,14 @@ pub(super) struct Renderer {
 }
 fn gpu_error(e: soju_switch_gpu::Error) -> Error {
     Error::Message(format!("Metal submission: {e}"))
+}
+// These registers launch actions or select uploads already represented by Action/constants.
+fn draw_bookkeeping(offset: u32) -> bool {
+    matches!(
+        offset,
+        0xd74 | 0xd78 | 0x1614 | 0x1618 | 0x19d0 | 0x2380
+            ..=0x23cc | 0x2410 | 0x2430 | 0x2450 | 0x2470 | 0x2490
+    )
 }
 impl Drop for Renderer {
     fn drop(&mut self) {
@@ -545,52 +558,10 @@ impl Renderer {
                     snapshot.action,
                     soju_switch_gpu::engine::Action::Draw { .. }
                 ) {
-                    let r = &mut snapshot.registers;
-                    if matches!(
+                    let indexed = matches!(
                         snapshot.action,
-                        soju_switch_gpu::engine::Action::Draw { indexed: false, .. }
-                    ) && r.get(0xde8) != 0
-                        && r.get(0x1644) != 0
-                    {
-                        return Err(Error::Malformed("nonindexed primitive restart unsupported"));
-                    }
-                    if r.get(0xf90) != 0 && r.get(0x1a00) != 0x1111 {
-                        return Err(Error::Malformed(
-                            "partial shared color write mask unsupported",
-                        ));
-                    }
-                    for index in 0..16 {
-                        let clip_base = 0xc00 + index * 16;
-                        let scissor_base = 0xe00 + index * 16;
-                        for axis in [0, 4] {
-                            let clip = clip_base + axis;
-                            let scissor = scissor_base + 4 + axis;
-                            let lo = r.get(clip) & 0xffff;
-                            let hi = lo + (r.get(clip) >> 16);
-                            if hi > 65535 {
-                                return Err(Error::Malformed("viewport clip overflow"));
-                            }
-                            let (lo, hi) = if r.get(scissor_base) == 0 {
-                                (lo, hi)
-                            } else {
-                                let start = lo.max(r.get(scissor) & 0xffff);
-                                (start, hi.min(r.get(scissor) >> 16).max(start))
-                            };
-                            r.0.insert(scissor, lo | (hi << 16));
-                        }
-                        r.0.insert(scissor_base, 1);
-                        if r.get(clip_base + 8) != 0
-                            || (r.0.contains_key(&(clip_base + 12))
-                                && r.get(clip_base + 12) != 1f32.to_bits())
-                        {
-                            return Err(Error::Malformed(
-                                "non-default viewport depth clip unsupported",
-                            ));
-                        }
-                    }
-                    if snapshot.registers.get(0x12cc) == 0 && snapshot.registers.get(0x1380) == 0 {
-                        snapshot.registers.0.insert(0x1538, 0);
-                    }
+                        soju_switch_gpu::engine::Action::Draw { indexed: true, .. }
+                    );
                     if pending && backend.reads_pending(&snapshot) {
                         backend
                             .execute_memory(&self.directory()?, &mut memory)
@@ -605,21 +576,94 @@ impl Renderer {
                         &mut backend,
                         &mut self.programs,
                     )?;
-                    // Hardware Y is scale * NDC + offset; Metal's viewport reverses NDC Y.
-                    for index in 0..16 {
-                        let offset = 0xa04 + index * 32;
-                        if let Some(value) = snapshot.registers.0.get_mut(&offset) {
-                            *value = (-f32::from_bits(*value)).to_bits();
+                    let cached = self
+                        .normalized_draw
+                        .as_ref()
+                        .filter(|(source, _, old_indexed)| {
+                            *old_indexed == indexed
+                                && source.0.iter().eq(snapshot
+                                    .registers
+                                    .0
+                                    .iter()
+                                    .filter(|(offset, _)| !draw_bookkeeping(**offset)))
+                        })
+                        .map(|(_, normalized, _)| normalized.clone());
+                    if let Some(normalized) = cached {
+                        snapshot.registers = normalized;
+                    } else {
+                        let mut source = snapshot.registers.clone();
+                        source.0.retain(|offset, _| !draw_bookkeeping(*offset));
+                        let r = &mut snapshot.registers;
+                        if matches!(
+                            snapshot.action,
+                            soju_switch_gpu::engine::Action::Draw { indexed: false, .. }
+                        ) && r.get(0xde8) != 0
+                            && r.get(0x1644) != 0
+                        {
+                            return Err(Error::Malformed(
+                                "nonindexed primitive restart unsupported",
+                            ));
                         }
-                    }
-                    snapshot.registers.0.retain(|&offset, value| {
-                        ((0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20
-                            || (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8
-                            || !setup::retain(offset, *value).unwrap_or(false))
-                            && !matches!(offset, 0x15b4 | 0x1234 | 0x15d0 | 0x153c
+                        if r.get(0xf90) != 0 && r.get(0x1a00) != 0x1111 {
+                            return Err(Error::Malformed(
+                                "partial shared color write mask unsupported",
+                            ));
+                        }
+                        for index in 0..16 {
+                            let clip_base = 0xc00 + index * 16;
+                            let scissor_base = 0xe00 + index * 16;
+                            for axis in [0, 4] {
+                                let clip = clip_base + axis;
+                                let scissor = scissor_base + 4 + axis;
+                                let lo = r.get(clip) & 0xffff;
+                                let hi = lo + (r.get(clip) >> 16);
+                                if hi > 65535 {
+                                    return Err(Error::Malformed("viewport clip overflow"));
+                                }
+                                let (lo, hi) = if r.get(scissor_base) == 0 {
+                                    (lo, hi)
+                                } else {
+                                    let start = lo.max(r.get(scissor) & 0xffff);
+                                    (start, hi.min(r.get(scissor) >> 16).max(start))
+                                };
+                                r.0.insert(scissor, lo | (hi << 16));
+                            }
+                            r.0.insert(scissor_base, 1);
+                            if r.get(clip_base + 8) != 0
+                                || (r.0.contains_key(&(clip_base + 12))
+                                    && r.get(clip_base + 12) != 1f32.to_bits())
+                            {
+                                return Err(Error::Malformed(
+                                    "non-default viewport depth clip unsupported",
+                                ));
+                            }
+                        }
+                        if snapshot.registers.get(0x12cc) == 0
+                            && snapshot.registers.get(0x1380) == 0
+                        {
+                            snapshot.registers.0.insert(0x1538, 0);
+                        }
+                        // Hardware Y is scale * NDC + offset; Metal's viewport reverses NDC Y.
+                        for index in 0..16 {
+                            let offset = 0xa04 + index * 32;
+                            if let Some(value) = snapshot.registers.0.get_mut(&offset) {
+                                *value = (-f32::from_bits(*value)).to_bits();
+                            }
+                        }
+                        snapshot.registers.0.retain(|&offset, value| {
+                            ((0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20
+                                || (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8
+                                || !setup::retain(offset, *value).unwrap_or(false))
+                                && !matches!(offset, 0x15b4 | 0x1234 | 0x15d0 | 0x153c
                                 | 0x165c | 0xde4 | 0xd00..=0xd3c | 0x194c | 0x1950
                                 | 0x74c | 0x16a8 | 0x1794 | 0xc00..=0xc0c)
-                    });
+                        });
+                        snapshot
+                            .registers
+                            .0
+                            .retain(|offset, _| !draw_bookkeeping(*offset));
+                        self.normalized_draw = Some((source, snapshot.registers.clone(), indexed));
+                    }
                 }
                 let r = &snapshot.registers;
                 let targets: Vec<_> = (0x800..=0x9e0)
