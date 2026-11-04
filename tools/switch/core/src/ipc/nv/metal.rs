@@ -4,6 +4,27 @@ use soju_switch_gpu::{backend::Backend, engine::Engine, memory::Memory};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+struct MethodTrace {
+    enabled: bool,
+    class: u32,
+    method: u32,
+    value: u32,
+    accepted: bool,
+}
+impl Drop for MethodTrace {
+    fn drop(&mut self) {
+        if self.enabled {
+            eprintln!(
+                "gpu-status|{:#06x}|{:#06x}|{:#010x}|{}",
+                self.class,
+                self.method,
+                self.value,
+                if self.accepted { "handled" } else { "rejected" }
+            );
+        }
+    }
+}
+
 static NEXT: AtomicU64 = AtomicU64::new(0);
 #[derive(Default)]
 pub(super) struct Renderer {
@@ -88,6 +109,17 @@ impl Renderer {
                 value,
                 ..
             } = command;
+            let mut trace = MethodTrace {
+                enabled: std::env::var_os("SOJU_SWITCH_TRACE_GPU").is_some(),
+                class: if method == 0 {
+                    value
+                } else {
+                    self.bindings.get(&subchannel).copied().unwrap_or(0)
+                },
+                method,
+                value,
+                accepted: false,
+            };
             if method == 0 {
                 if !matches!(value, 0xb197 | 0xa140 | 0x902d | 0xb0b5 | 0xb1c0) {
                     return Err(Error::Message(format!(
@@ -95,6 +127,7 @@ impl Renderer {
                     )));
                 }
                 self.bindings.insert(subchannel, value);
+                trace.accepted = true;
                 continue;
             }
             let class = *self
@@ -103,6 +136,7 @@ impl Renderer {
                 .ok_or(Error::Malformed("Metal unbound subchannel"))?;
             if class == 0xb197 && matches!(method, 0x114 | 0x118 | 0x11c | 0x120) {
                 self.macros.write(method, value)?;
+                trace.accepted = true;
                 continue;
             }
             if class == 0xb197 && (0x3800..=0x3ff8).contains(&method) && method % 8 == 0 {
@@ -134,6 +168,7 @@ impl Renderer {
                         ..command
                     });
                 }
+                trace.accepted = true;
                 continue;
             }
             if class == 0xb197 && method == 0x2c8 {
@@ -145,6 +180,7 @@ impl Renderer {
                 increments = increments
                     .checked_add(1)
                     .ok_or(Error::Malformed("Metal syncpoint overflow"))?;
+                trace.accepted = true;
                 continue;
             }
             if class == 0xb197 && matches!(method, 0x15b4 | 0x1234 | 0x15d0 | 0x153c) {
@@ -154,6 +190,17 @@ impl Renderer {
                     ));
                 }
                 self.engine.registers.0.insert(method, value);
+                trace.accepted = true;
+                continue;
+            }
+            if class == 0xb197 && matches!(method, 0x165c | 0xde4) {
+                // clb197: POINT_CENTER_MODE (OGL/D3D), SM_TIMEOUT_INTERVAL.COUNTER_BIT.
+                // The host scheduler owns execution timeouts; retain the guest setting.
+                if (method == 0x165c && value > 1) || (method == 0xde4 && value > 63) {
+                    return Err(Error::Malformed("Metal point center or SM timeout field"));
+                }
+                self.engine.registers.0.insert(method, value);
+                trace.accepted = true;
                 continue;
             }
             if class == 0xb197
@@ -164,6 +211,7 @@ impl Renderer {
                     return Err(Error::Malformed("Metal window clip control"));
                 }
                 self.engine.registers.0.insert(method, value);
+                trace.accepted = true;
                 continue;
             }
             if class == 0xb197 && matches!(method, 0x74c | 0x16a8 | 0x1794) {
@@ -179,6 +227,7 @@ impl Renderer {
                     ));
                 }
                 self.engine.registers.0.insert(method, value);
+                trace.accepted = true;
                 continue;
             }
             if class == 0x902d {
@@ -199,6 +248,7 @@ impl Renderer {
                         return Err(Error::Malformed("Metal 902D initialization field"));
                     }
                     self.twod.insert(method, value);
+                    trace.accepted = true;
                     continue;
                 }
                 if method == 0x8dc
@@ -222,6 +272,14 @@ impl Renderer {
                     ))
                 })?;
             if let Some(snapshot) = snapshot {
+                if matches!(
+                    snapshot.action,
+                    soju_switch_gpu::engine::Action::Draw { topology: 0, .. }
+                ) {
+                    return Err(Error::Malformed(
+                        "Metal point center rasterization unverified",
+                    ));
+                }
                 if snapshot.registers.get(0x194c) != 0 {
                     return Err(Error::Malformed(
                         "Metal enabled window clipping unsupported",
@@ -232,6 +290,7 @@ impl Renderer {
                 let dir = self.directory()?;
                 backend.execute(&dir, &mut memory).map_err(gpu_error)?;
             }
+            trace.accepted = true;
         }
         if expected_increments.is_some_and(|n| n != increments) {
             return Err(Error::Malformed(

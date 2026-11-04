@@ -110,6 +110,40 @@ fn methods(values: &[(u32, u32)]) -> Vec<gpu::Method> {
 }
 
 #[test]
+fn metal_point_center_and_watchdog_validate_fields_without_completion() {
+    let mut f = Fixture::new();
+    let (fd, space, _) = f.setup();
+    let access = submit::Access {
+        space: &f.nv.spaces[&space],
+        memory: &f.memory,
+    };
+    for (offset, valid, invalid) in [(0x165c, 1, 2), (0xde4, 63, 64)] {
+        let (writes, count) = Renderer::default()
+            .submit(
+                &methods(&[(0, 0xb197), (offset, valid)]),
+                fd,
+                None,
+                &access,
+                &[],
+            )
+            .unwrap();
+        assert!(writes.is_empty());
+        assert_eq!(count, 0);
+        assert!(
+            Renderer::default()
+                .submit(
+                    &methods(&[(0, 0xb197), (offset, invalid)]),
+                    fd,
+                    None,
+                    &access,
+                    &[]
+                )
+                .is_err()
+        );
+    }
+}
+
+#[test]
 fn metal_initialization_has_no_invented_fence_and_checks_declared_increments() {
     let mut f = Fixture::new();
     let (fd, space, _) = f.setup();
