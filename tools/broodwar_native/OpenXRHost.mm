@@ -1,3 +1,4 @@
+#include <os/signpost.h>
 // OpenXR frame lifecycle and Metal swapchains. No game simulation runs here.
 #define XR_USE_GRAPHICS_API_METAL
 #import <Metal/Metal.h>
@@ -201,7 +202,11 @@ extern "C" int soju_xr_step(void* context,SojuXRDraw draw,SojuXRControls control
     }
     if(!running||exiting)return 2;
     XrFrameWaitInfo wait{XR_TYPE_FRAME_WAIT_INFO};XrFrameState state{XR_TYPE_FRAME_STATE};
-    CHECK(xrWaitFrame(session,&wait,&state));XrFrameBeginInfo begin{XR_TYPE_FRAME_BEGIN_INFO};CHECK(xrBeginFrame(session,&begin));
+    static os_log_t frameLog=os_log_create("soju.broodwar","PointsOfInterest");
+    os_signpost_interval_begin(frameLog,OS_SIGNPOST_ID_EXCLUSIVE,"Runtime wait");
+    XrResult waited=xrWaitFrame(session,&wait,&state);
+    os_signpost_interval_end(frameLog,OS_SIGNPOST_ID_EXCLUSIVE,"Runtime wait");
+    CHECK(waited);XrFrameBeginInfo begin{XR_TYPE_FRAME_BEGIN_INFO};CHECK(xrBeginFrame(session,&begin));
     // Balance a begun frame even when image acquisition/render submission fails.
     struct FrameGuard { XrTime time;bool ended=false;~FrameGuard(){if(!ended){XrFrameEndInfo info{XR_TYPE_FRAME_END_INFO};info.displayTime=time;info.environmentBlendMode=XR_ENVIRONMENT_BLEND_MODE_OPAQUE;xrEndFrame(session,&info);}} } frameGuard{state.predictedDisplayTime};
     std::array<XrView,2> views{{{XR_TYPE_VIEW},{XR_TYPE_VIEW}}};

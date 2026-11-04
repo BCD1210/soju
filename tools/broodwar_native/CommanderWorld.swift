@@ -1,3 +1,4 @@
+import os.signpost
 import Cocoa
 import SceneKit
 import Metal
@@ -7,6 +8,8 @@ import Darwin
 import simd
 extension Commander {
     func apply(_ s:Obj,_ f:Obj) {
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"State apply")
+        defer {os_signpost(.end,log:XRFrameMetrics.log,name:"State apply")}
         let liveMap=s["map"] as? Obj ?? [:]
         guard Int(number(liveMap,"width"))==mapWidth*32,Int(number(liveMap,"height"))==mapHeight*32 else {
             restartForMap();return
@@ -212,6 +215,8 @@ extension Commander {
                 "map":state["map"] ?? [:],"terrainTiles":terrain.count,"topDown":camera.camera?.usesOrthographicProjection ?? false]
     }
     func step() {
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"World tick")
+        defer {os_signpost(.end,log:XRFrameMetrics.log,name:"World tick")}
         let now=CACurrentMediaTime(),dt=CGFloat(min(0.1,now-lastTick));lastTick=now
         SCNTransaction.begin();SCNTransaction.disableActions=true
         for (id,model) in models { model.advance(dt:Double(dt),now:now,selected:selected.contains(id)) }

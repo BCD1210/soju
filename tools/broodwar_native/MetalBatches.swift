@@ -1,3 +1,4 @@
+import os.signpost
 import Cocoa
 import SceneKit
 import Metal
@@ -137,6 +138,8 @@ final class MetalBatches {
     }
     func buffer<T>(_ values:[T])->MTLBuffer {values.withUnsafeBytes{device.makeBuffer(bytes:$0.baseAddress!,length:$0.count,options:.storageModeShared)!}}
     func prepare(_ commander:Commander)throws {
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"Batch prepare")
+        defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Batch prepare")}
         if ready,sourceRevision==commander.sceneRevision,revisions.count==commander.billboards.count,revisions.allSatisfy({$0.0.geometryRevision==$0.1}) {return}
         if terrainRevision != commander.terrainRevision {ready=false;batches.removeAll()}
         else if ready {batches.removeAll{!$0.terrain}}
@@ -283,7 +286,10 @@ final class MetalBatches {
         stereoPass.stencilAttachment.texture=stereoDepth
         stereoPass.stencilAttachment.loadAction = .clear;stereoPass.stencilAttachment.storeAction = .store
         guard ready else {return}
-        available.wait();let slot=ring;ring=(ring+1)%3
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"GPU ring wait")
+        available.wait()
+        os_signpost(.end,log:XRFrameMetrics.log,name:"GPU ring wait")
+        let slot=ring;ring=(ring+1)%3
         let query=visibilityBuffers[slot];memset(query.contents(),0,query.length)
         stereoPass.visibilityResultBuffer=query
         guard let encoder=command.makeRenderCommandEncoder(descriptor:stereoPass) else {available.signal();return}
