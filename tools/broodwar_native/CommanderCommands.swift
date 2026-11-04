@@ -21,7 +21,7 @@ extension Commander {
             guard let hit=hit,let id=unitID(hit.node) else {notice="Aim at a visible unit";return};payload["target"]=id
         case .ground,.rally:
             guard let hit=hit else {return}
-            let point=hit.worldCoordinates
+            let point=Terrain3D.mapPosition(hit.worldCoordinates)
             if choice.target == .rally,let id=unitID(hit.node) {payload["target"]=id}
             else if ["build","addon","land"].contains(payload["op"] as? String ?? "") {
                 payload["tileX"]=max(0,Int(point.x)-1);payload["tileY"]=max(0,Int(point.z)-1)
@@ -147,7 +147,8 @@ extension Commander {
         }
         return false
     }
-    func groundCommand(_ point:SCNVector3) {
+    func groundCommand(_ worldPoint:SCNVector3) {
+        let point=Terrain3D.mapPosition(worldPoint)
         if placingDepot {
             guard let worker=selected.compactMap({units[$0]}).first(where:{$0["worker"] as? Bool == true || [7,41,64].contains(Int(number($0,"type")))}),let id=worker["id"] as? String else { notice="Select a worker first";return }
             command(["op":"build","units":[id],"type":number(worker,"type")==64 ? 156:number(worker,"type")==41 ? 131:109,"tileX":Int(point.x)-1,"tileY":Int(point.z)-1])

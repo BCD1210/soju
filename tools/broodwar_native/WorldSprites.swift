@@ -10,7 +10,7 @@ final class UnitBillboard {
     init(id:String) {root.name=id}
     func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites,color:[Int]=[255,255,255]) {
         let x=number(unit,"x")/32,z=number(unit,"y")/32
-        root.position=SCNVector3(x,ground.elevation(x,z)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
+        root.position=Terrain3D.worldPosition(x,ground.elevation(x,z)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
         root.isHidden=unit["renderHidden"] as? Bool == true || unit["transported"] as? Bool == true
         root.opacity=unit["cloaked"] as? Bool == true ? 0.45:1
         let main=unit["image"] as? Obj ?? [:]
@@ -122,7 +122,8 @@ final class WorldSprites {
                     node.geometry?.firstMaterial?.diffuse.contents=image
                     let x=number(sprite,"x")/32,z=number(sprite,"y")/32
                     let shadow=Int(number(native,"drawfunc"))==10
-                    node.position=SCNVector3(x+number(native,"offsetX")/32,ground.elevation(x,z)+(shadow ? 0.025:-number(native,"offsetY")/32),z)
+                    node.position=Terrain3D.worldPosition(x+number(native,"offsetX")/32,ground.elevation(x,z),z)
+                    node.position.y += CGFloat(shadow ? 0.025:-number(native,"offsetY")/32)
                     node.scale.x=Int(number(native,"flags"))&2 != 0 ? -1:1
                     if prefix=="death" {deathFrames+=1}else {loneFrames+=1}
                 }

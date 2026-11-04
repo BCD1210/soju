@@ -229,7 +229,8 @@ final class ModelInstance {
             playAction(Self.stateAction(unit,moving:moving,attacking:frame<attackUntilFrame))
         }
         let flight=unit["airborne"] as? Bool == true ? definition.flightHeight:0
-        targetPosition=SIMD3<Float>(Float(x),Float(height+definition.elevation+flight),Float(z))
+        let placed=Terrain3D.worldPosition(x,height+definition.elevation+flight,z)
+        targetPosition=SIMD3<Float>(Float(placed.x),Float(placed.y),Float(placed.z))
         targetYaw=definition.faceHeading ? Float(-number(unit,"facing")*2*Double.pi/256):0
         if !positioned || simd_distance(root.simdPosition,targetPosition)>12 {
             root.simdPosition=targetPosition;root.eulerAngles.y=CGFloat(targetYaw);positioned=true

@@ -42,7 +42,7 @@ final class CombatEffects {
             let source=units[b["source"] as? String ?? ""] ?? [:]
             let flight=source["airborne"] as? Bool == true ? 1.5:0.35
             let x=number(b,"x")/32,z=number(b,"y")/32
-            let position=SCNVector3(x,ground.elevation(x,z)+flight,z)
+            let position=Terrain3D.worldPosition(x,ground.elevation(x,z)+flight,z)
             if let old=meshes[id],old.kind != kind || old.revision != library.catalog.signatures[kind] {
                 projectiles.removeValue(forKey:id)?.removeFromParentNode();meshes.removeValue(forKey:id)
             }
@@ -63,9 +63,9 @@ final class CombatEffects {
             let kind=e["kind"] as? String ?? "";counts[kind,default:0]+=1
             let x=number(e,"x")/32,z=number(e,"y")/32
             let y=ground.elevation(x,z)+(e["airborne"] as? Bool == true ? 1.5:0.35)
-            if kind=="damage" {pulse(position:SCNVector3(x,y,z),shield:number(e,"shieldLoss")>0,frame:frame)}
+            if kind=="damage" {pulse(position:Terrain3D.worldPosition(x,y,z),shield:number(e,"shieldLoss")>0,frame:frame)}
             if kind=="attack" {
-                let n=glow(.yellow,radius:0.08);n.position=SCNVector3(x,y,z);root.addChildNode(n)
+                let n=glow(.yellow,radius:0.08);n.position=Terrain3D.worldPosition(x,y,z);root.addChildNode(n)
                 transients.append((n,frame,2))
             }
         }
