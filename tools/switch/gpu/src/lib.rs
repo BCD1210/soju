@@ -22,5 +22,6 @@ pub(crate) fn require(ok: bool, message: &str) -> Result<()> {
 }
 pub mod backend;
 
+pub mod format;
 pub mod sync;
 pub mod worker;

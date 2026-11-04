@@ -37,6 +37,7 @@ struct Target {
     pitch: bool,
     generation: u64,
     memory_identity: u64,
+    format: soju_switch_texture::format::Format,
 }
 #[derive(Debug)]
 pub struct Readback {
@@ -67,14 +68,14 @@ impl Target {
             width: self.width as usize,
             height: self.height as usize,
             depth: 1,
-            bytes_per_block: 4,
+            bytes_per_block: self.format.info().bytes,
             block_height_log2: self.block_height,
             block_depth_log2: 0,
         }
     }
     fn size(&self) -> usize {
         if self.pitch {
-            self.width as usize * self.height as usize * 4
+            self.width as usize * self.height as usize * self.format.info().bytes
         } else {
             self.surface().size()
         }
@@ -146,10 +147,8 @@ impl Backend {
             let index = (r.get(0x121c) >> (4 + slot * 3)) & 7;
             require(selected.insert(index), "duplicate CT_SELECT target")?;
             let base = 0x800 + index * 64;
-            require(
-                r.get(base + 0x10) == 0xd5,
-                "render target requires A8B8G8R8 UNORM",
-            )?;
+            let format = crate::format::color(r.get(base + 0x10))?;
+            let bytes_per_pixel = format.info().bytes as u32;
             require(
                 r.get(base + 0x18) == 1 && r.get(base + 0x20) == 0 && r.get(base + 0x1c) == 0,
                 "layered render target unsupported",
@@ -162,10 +161,10 @@ impl Backend {
             let pitch = layout & 0x1000 != 0;
             let width = if pitch {
                 require(
-                    r.get(base + 0x08).is_multiple_of(4),
+                    r.get(base + 0x08).is_multiple_of(bytes_per_pixel),
                     "RGBA target pitch alignment",
                 )?;
-                r.get(base + 0x08) / 4
+                r.get(base + 0x08) / bytes_per_pixel
             } else {
                 r.get(base + 0x08)
             };
@@ -182,10 +181,13 @@ impl Backend {
                 pitch,
                 generation: 0,
                 memory_identity: memory.identity,
+                format,
             };
             let key = format!(
-                "{}-{:x}-d5-{width}-{height}-{layout}",
-                memory.identity, target.address
+                "{}-{:x}-{}-{width}-{height}-{layout}",
+                memory.identity,
+                target.address,
+                format.info().metal
             );
             let initial = memory.read(target.address, target.size())?;
             for (other_key, other) in self.targets.iter().chain(batch_targets.iter()) {
@@ -201,10 +203,23 @@ impl Backend {
             } else {
                 target.surface().deswizzle(initial).map_err(io)?
             };
+            let initial = if format == soju_switch_texture::format::Format::A1Bgr5Unorm {
+                initial
+                    .chunks_exact(2)
+                    .flat_map(|p| {
+                        u16::from_le_bytes([p[0], p[1]])
+                            .rotate_left(1)
+                            .to_le_bytes()
+                    })
+                    .collect()
+            } else {
+                initial
+            };
             let file = self.file(initial);
             let generation = memory.generation(target.address, target.size())?;
             target.generation = generation;
-            let target_json=format!("{{\"key\":{},\"width\":{width},\"height\":{height},\"generation\":{generation},\"file\":{file}}}",quote(&key));
+            let metal = format.info().metal;
+            let target_json=format!("{{\"key\":{},\"width\":{width},\"height\":{height},\"generation\":{generation},\"metal\":{metal},\"bytes\":{bytes_per_pixel},\"file\":{file}}}",quote(&key));
             target_jsons.push(target_json);
             batch_targets.insert(key, target);
         }
@@ -218,7 +233,7 @@ impl Backend {
         )?;
         let depth = if r.get(0x1538) != 0 {
             require(
-                r.get(0x1538) == 1 && matches!(r.get(0xfe8), 0x0a | 0x19),
+                r.get(0x1538) == 1 && matches!(r.get(0xfe8), 0x0a | 0x19 | 0x13 | 0x14),
                 "unsupported depth format",
             )?;
             require(
@@ -240,7 +255,13 @@ impl Backend {
                 r.get(0xfe8),
                 memory.generation(
                     r.address(0xfe0),
-                    width as usize * height as usize * if r.get(0xfe8) == 0x19 { 8 } else { 4 }
+                    width as usize
+                        * height as usize
+                        * match r.get(0xfe8) {
+                            0x19 => 8,
+                            0x13 => 2,
+                            _ => 4,
+                        }
                 )?
             )
         } else {
@@ -273,7 +294,7 @@ impl Backend {
                     "zeta clear without target",
                 )?;
                 require(
-                    mask & 2 == 0 || r.get(0xfe8) == 0x19,
+                    mask & 2 == 0 || matches!(r.get(0xfe8), 0x19 | 0x14),
                     "stencil clear needs stencil target",
                 )?;
                 write!(command, ",\"clear\":{mask}").unwrap();
@@ -308,7 +329,7 @@ impl Backend {
                     .checked_add(u64::from(r.get(0x2144)))
                     .ok_or_else(|| Error("shader address overflow".into()))?;
                 let (vs, vh, vkey) = self.shader(va, memory, Stage::Vertex)?;
-                let (fs, fh, fkey) = self.shader(fa, memory, Stage::Fragment)?;
+                let (mut fs, fh, fkey) = self.shader(fa, memory, Stage::Fragment)?;
                 require(
                     fh.color_masks[..attachment_count as usize]
                         .iter()
@@ -318,6 +339,25 @@ impl Backend {
                             .all(|x| *x == 0),
                     "fragment output target mismatch",
                 )?;
+                for slot in 0..attachment_count {
+                    let physical = (r.get(0x121c) >> (4 + slot * 3)) & 7;
+                    if r.get(0x810 + physical * 64) == 0xe4 {
+                        require(
+                            r.get(0x1360 + physical * 4) == 0,
+                            "integer attachment blending unsupported",
+                        )?;
+                        fs.source = fs.source.replace(
+                            &format!("float4 color{slot}"),
+                            &format!("uint4 color{slot}"),
+                        );
+                        for c in 0..4 {
+                            fs.source = fs.source.replace(
+                                &format!("out.color{slot}[{c}] = as_type<float>"),
+                                &format!("out.color{slot}[{c}] = as_type<uint>"),
+                            );
+                        }
+                    }
+                }
                 let vfile = self.file(vs.source.as_bytes().to_vec());
                 let ffile = self.file(fs.source.as_bytes().to_vec());
                 let mut cache_state = Vec::new();
@@ -538,7 +578,58 @@ impl Backend {
                                 "render-to-texture feedback requires execute before prepare",
                             )?;
                         }
-                        let data = self.textures.upload(&tic, memory)?;
+                        let mut data = self.textures.upload(&tic, memory)?;
+                        let info = tic.format().info();
+                        let mut metal = info.metal;
+                        let mut row = tic.surface().width * info.bytes;
+                        use soju_switch_texture::format::Format;
+                        if matches!(
+                            tic.format(),
+                            Format::Depth16Unorm
+                                | Format::Depth32Float
+                                | Format::Depth24UnormStencil8
+                                | Format::Depth32FloatStencil8
+                        ) {
+                            data = data
+                                .chunks_exact(info.bytes)
+                                .flat_map(|p| {
+                                    let z = match tic.format() {
+                                        Format::Depth16Unorm => {
+                                            u16::from_le_bytes([p[0], p[1]]) as f32 / 65535.
+                                        }
+                                        Format::Depth24UnormStencil8 => {
+                                            (u32::from_le_bytes(p[..4].try_into().unwrap()) >> 8)
+                                                as f32
+                                                / 16777215.
+                                        }
+                                        _ => f32::from_le_bytes(p[..4].try_into().unwrap()),
+                                    };
+                                    z.to_le_bytes()
+                                })
+                                .collect();
+                            metal = 55;
+                            row = tic.width as usize * 4;
+                        }
+                        let mut swizzle = tic.swizzle();
+                        if matches!(tic.format(), Format::B5G6R5Unorm | Format::A1Bgr5Unorm) {
+                            for c in &mut swizzle {
+                                *c = match *c {
+                                    2 => 4,
+                                    4 => 2,
+                                    v => v,
+                                };
+                            }
+                            if tic.format() == Format::A1Bgr5Unorm {
+                                data = data
+                                    .chunks_exact(2)
+                                    .flat_map(|p| {
+                                        u16::from_le_bytes([p[0], p[1]])
+                                            .rotate_left(1)
+                                            .to_le_bytes()
+                                    })
+                                    .collect();
+                            }
+                        }
                         let key = Key::new(Inputs {
                             program: &data,
                             header: &tic
@@ -550,7 +641,11 @@ impl Backend {
                         });
                         let key = key.0.iter().map(|v| format!("{v:02x}")).collect::<String>();
                         let file = self.file(data);
-                        textures.push(format!("{{\"stage\":{stage},\"count\":{count},\"image\":{index},\"key\":{},\"width\":{},\"height\":{},\"bc1\":{},\"file\":{file}}}",quote(&key),tic.width,tic.height,tic.bc1));
+                        require(
+                            tic.format() != soju_switch_texture::format::Format::R32Uint,
+                            "integer texture ABI not implemented",
+                        )?;
+                        textures.push(format!("{{\"stage\":{stage},\"count\":{count},\"image\":{index},\"key\":{},\"width\":{},\"height\":{},\"metal\":{},\"row\":{},\"rows\":{},\"swizzle\":{:?},\"file\":{file}}}",quote(&key),tic.width,tic.height,metal,row,tic.surface().height,swizzle));
                     }
                     for index in samplers {
                         require(index <= r.get(0x1564), "TSC pool index out of bounds")?;
@@ -628,8 +723,20 @@ impl Backend {
         let mut writes = Vec::new();
         for (key, t) in &self.targets {
             let bytes = std::fs::read(directory.join(format!("{key}.rgba"))).map_err(io)?;
+            let bytes = if t.format == soju_switch_texture::format::Format::A1Bgr5Unorm {
+                bytes
+                    .chunks_exact(2)
+                    .flat_map(|p| {
+                        u16::from_le_bytes([p[0], p[1]])
+                            .rotate_right(1)
+                            .to_le_bytes()
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                bytes
+            };
             require(
-                bytes.len() == t.width as usize * t.height as usize * 4,
+                bytes.len() == t.width as usize * t.height as usize * t.format.info().bytes,
                 "invalid readback length",
             )?;
             let data = if t.pitch {
@@ -643,7 +750,7 @@ impl Backend {
                 address: t.address,
                 width: t.width,
                 height: t.height,
-                rgba: bytes,
+                rgba: crate::format::rgba(t.format, &bytes),
             });
         }
         for (address, data) in writes {

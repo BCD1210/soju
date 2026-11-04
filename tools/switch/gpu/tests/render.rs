@@ -582,7 +582,7 @@ fn malformed_draw_resources_fail_before_native_execution() {
         (0x1f04, 0, "vertex stream limit"),
         (0xd7c, 0, "clip depth"),
         (0x121c, 2, "CT_SELECT"),
-        (0x810, 0xcf, "render target requires"),
+        (0x810, 0xc1, "render target requires"),
         (0x2080, 0x21, "unsupported enabled shader stage"),
         (0x1160, 0, "vertex format"),
         (0x2144, 0, "shader extent"),
@@ -797,4 +797,319 @@ fn asynchronous_batches_preserve_depth_stencil_without_cpu_readback() {
         "persistent depth/stencil and deferred CPU readback: checked=2048; {}",
         report.diagnostics
     );
+}
+
+#[test]
+fn color_formats_clear_draw_and_write_back_raw_storage() {
+    use soju_switch_texture::format::Format;
+    let mut h = Harness::new();
+    let codes = [
+        0xc0, 0xca, 0xcb, 0xcf, 0xd0, 0xd1, 0xd5, 0xd6, 0xde, 0xe0, 0xe4, 0xe5, 0xe8, 0xe9, 0xea,
+        0xf2, 0xf3,
+    ];
+    let mut formats = BTreeMap::new();
+    for code in codes {
+        let format = soju_switch_gpu::format::color(code).unwrap();
+        let (mut e, _) = h.engine("format", [0.; 4]);
+        let info = format.info();
+        let surface = Surface {
+            width: 32,
+            height: 32,
+            depth: 1,
+            bytes_per_block: info.bytes,
+            block_height_log2: 0,
+            block_depth_log2: 0,
+        };
+        let a = h.alloc(vec![0; surface.size()]);
+        h.methods(
+            &mut e,
+            &[
+                (0x804, a as u32),
+                (0x810, code),
+                (0xd80, 0.25f32.to_bits()),
+                (0xd84, 0.5f32.to_bits()),
+                (0xd88, 0.75f32.to_bits()),
+                (0xd8c, 1f32.to_bits()),
+                (0x19d0, 60),
+            ],
+        );
+        // Integer attachment outputs preserve guest GPR bits, not float conversion.
+        let color = if format == Format::R32Uint {
+            [1., 0., 0., 1.]
+        } else {
+            [0.5, 0.25, 1., 1.]
+        };
+        h.vertices(&mut e, &quad(-1., -1., 0., 1., 0.5, color), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+        formats.insert(a, (format, surface));
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/format-target-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    let mut checked = 0;
+    for image in report.images {
+        let Some((format, surface)) = formats.get(&image.address) else {
+            continue;
+        };
+        let raw = surface
+            .deswizzle(h.memory.read(image.address, surface.size()).unwrap())
+            .unwrap();
+        assert_eq!(image.rgba, soju_switch_gpu::format::rgba(*format, &raw));
+        for (i, p) in image.rgba.chunks_exact(4).enumerate() {
+            let drawn = i % 32 < 16;
+            let mut expected = if drawn {
+                [128u8, 64, 255, 255]
+            } else {
+                [64, 128, 191, 255]
+            };
+            match format {
+                Format::R8Unorm | Format::R16Float | Format::R32Float => {
+                    expected[1] = 0;
+                    expected[2] = 0;
+                }
+                Format::Rg8Unorm | Format::Rg16Float | Format::Rg32Float => expected[2] = 0,
+                Format::R32Uint => expected = [if drawn { 255 } else { 0 }, 0, 0, 255],
+                Format::Rgba8Srgb | Format::Bgra8Srgb => {
+                    expected = if drawn {
+                        [188, 137, 255, 255]
+                    } else {
+                        [137, 188, 225, 255]
+                    };
+                }
+                _ => {}
+            }
+            let tolerance = if matches!(format, Format::B5G6R5Unorm | Format::A1Bgr5Unorm) {
+                5
+            } else {
+                2
+            };
+            assert!(
+                p.iter()
+                    .zip(expected)
+                    .all(|(a, b)| a.abs_diff(b) <= tolerance),
+                "{format:?} pixel {i}: {p:?} expected {expected:?}"
+            );
+            checked += 1;
+        }
+    }
+    assert_eq!(checked, 17 * 1024);
+    eprintln!("17 color formats: checked={checked}");
+}
+
+#[test]
+fn texture_formats_and_tic_swizzles_sample_on_metal() {
+    let mut h = Harness::new();
+    let cases = [
+        (0x3a, 2, false),
+        (0x2f, 7, false),
+        (0x29, 2, false),
+        (0x30, 7, false),
+        (1, 7, false),
+        (3, 7, false),
+        (4, 7, false),
+        (8, 2, false),
+        (8, 2, true),
+        (9, 2, false),
+        (0xc, 7, false),
+        (0xf, 7, false),
+        (0x14, 2, false),
+        (0x15, 2, false),
+        (0x18, 2, false),
+        (0x1b, 7, false),
+        (0x1d, 2, false),
+        (0x21, 7, false),
+        (0x24, 2, false),
+        (0x24, 2, true),
+        (0x25, 2, false),
+        (0x25, 2, true),
+        (0x26, 2, false),
+        (0x26, 2, true),
+        (0x27, 2, false),
+        (0x27, 1, false),
+        (0x28, 2, false),
+        (0x28, 1, false),
+        (0x10, 7, false),
+        (0x11, 7, false),
+        (0x17, 2, false),
+        (0x17, 2, true),
+        (0x40, 2, false),
+        (0x40, 2, true),
+        (0x41, 2, false),
+        (0x42, 2, false),
+        (0x44, 2, false),
+        (0x44, 2, true),
+        (0x45, 2, false),
+        (0x46, 2, false),
+    ];
+    let mut expected = BTreeMap::new();
+    for (code, ty, srgb) in cases {
+        let format = soju_switch_gpu::format::texture(code, ty, srgb).unwrap();
+        let info = format.info();
+        let size = info.block_w * info.block_h;
+        let mut linear = vec![0; size * info.bytes];
+        // Constant black blocks; BC7 mode 6, ASTC LDR void extent with opaque alpha.
+        if code == 0x17 {
+            for b in linear.chunks_exact_mut(16) {
+                b[0] = 0x40;
+            }
+        }
+        if code >= 0x40 {
+            for b in linear.chunks_exact_mut(16) {
+                b[..8].copy_from_slice(&[0xfc, 0xfd, 255, 255, 255, 255, 255, 255]);
+                b[14] = 255;
+                b[15] = 255;
+            }
+        }
+        let mut pixel = [0, 0, 255, 0];
+        match code {
+            8 => {
+                linear.fill(128);
+                pixel = [
+                    if srgb { 55 } else { 128 },
+                    if srgb { 55 } else { 128 },
+                    255,
+                    0,
+                ];
+            }
+            0x14 | 0x15 => {
+                for p in linear.chunks_exact_mut(2) {
+                    p.copy_from_slice(
+                        &(if code == 0x14 { 0xfc00u16 } else { 0xf800u16 }).to_le_bytes(),
+                    );
+                }
+                pixel = [255, 0, 255, 0];
+            }
+            0x3a => {
+                linear.copy_from_slice(&16384u16.to_le_bytes());
+                pixel[1] = 64;
+            }
+            0x29 => {
+                linear.copy_from_slice(&0x400000abu32.to_le_bytes());
+                pixel[1] = 64;
+            }
+            0x2f | 0x30 => {
+                linear[..4].copy_from_slice(&0.25f32.to_le_bytes());
+                pixel[1] = 64;
+            }
+            _ => {}
+        }
+        let w = info.block_w * info.block_w;
+        let height = info.block_h * info.block_h;
+        let surface = Surface {
+            width: info.block_w,
+            height: info.block_h,
+            depth: 1,
+            bytes_per_block: info.bytes,
+            block_height_log2: 0,
+            block_depth_log2: 0,
+        };
+        let tex = h.alloc(surface.swizzle(&linear).unwrap());
+        // B, R, constant-one, constant-zero exercises actual Metal texture views.
+        let words = [
+            code | (ty << 7)
+                | (ty << 10)
+                | (ty << 13)
+                | (ty << 16)
+                | (4 << 19)
+                | (2 << 22)
+                | (7 << 25),
+            tex as u32,
+            3 << 21,
+            0,
+            (1 << 23) | ((srgb as u32) << 22) | (w as u32 - 1),
+            (1 << 31) | (height as u32 - 1),
+            0,
+            0,
+        ];
+        let tic = h.alloc(words.into_iter().flat_map(u32::to_le_bytes).collect());
+        let tsc = h.alloc(
+            [
+                2u32 | 2 << 3 | 2 << 6,
+                1 | 1 << 4 | 1 << 6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect(),
+        );
+        let (mut e, a) = h.engine("sample-format", [1.; 4]);
+        h.methods(
+            &mut e,
+            &[
+                (0x2144, h.tex_fs as u32),
+                (0xf10, 1),
+                (0x1574, 0),
+                (0x1578, tic as u32),
+                (0x157c, 0),
+                (0x155c, 0),
+                (0x1560, tsc as u32),
+                (0x1564, 0),
+            ],
+        );
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+        expected.insert(a, (format, pixel));
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/format-texture-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    for image in report.images {
+        assert!(
+            image.rgba.chunks_exact(4).all(|p| p
+                .iter()
+                .zip(expected[&image.address].1)
+                .all(|(a, b)| a.abs_diff(b) <= 1)),
+            "{:?}: {:?}",
+            expected[&image.address],
+            &image.rgba[..4]
+        );
+    }
+    eprintln!("40 texture formats and TIC swizzles: checked={}", 40 * 1024);
+}
+
+#[test]
+fn depth16_and_depth24_stencil_render_on_metal() {
+    let mut h = Harness::new();
+    for format in [0x13, 0x14] {
+        let (mut e, _) = h.engine("depth-format", [0., 0., 0., 1.]);
+        let z = h.alloc(vec![0; 4096]);
+        h.methods(
+            &mut e,
+            &[
+                (0xfe4, z as u32),
+                (0xfe8, format),
+                (0x1228, 32),
+                (0x122c, 32),
+                (0x1230, 1),
+                (0x1538, 1),
+                (0xd90, 0.5f32.to_bits()),
+                (0x19d0, if format == 0x14 { 3 } else { 1 }),
+                (0x12cc, 1),
+                (0x12e8, 1),
+                (0x130c, 0x201),
+            ],
+        );
+        h.vertices(
+            &mut e,
+            &quad(-1., -1., 1., 1., 0.75, [1., 0., 0., 1.]),
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 6, false, false);
+        h.vertices(
+            &mut e,
+            &quad(-1., -1., 1., 1., 0.25, [0., 1., 0., 1.]),
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 6, false, false);
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/depth-format-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 2);
+    for image in report.images {
+        assert!(image.rgba.chunks_exact(4).all(|p| p == [0, 255, 0, 255]));
+    }
+    eprintln!("depth16 and promoted depth24/stencil: checked=2048");
 }

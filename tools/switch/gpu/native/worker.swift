@@ -24,6 +24,7 @@ final class Worker {
     let device: MTLDevice
     let queue: MTLCommandQueue
     var targets = [String: MTLTexture](), generations = [String: Int](), depths = [String: MTLTexture](), depthGenerations = [String: Int]()
+    var targetBytes = [String: Int]()
     var pipelines = [String: MTLRenderPipelineState](), depthStates = [String: MTLDepthStencilState]()
     var functions = [String: MTLFunction](), textureCache = [String: MTLTexture]()
     init() throws {
@@ -56,14 +57,14 @@ final class Worker {
         for target in attachments {
             let key = try string(target,"key")
         if targets[key] == nil {
-            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:w,height:h,mipmapped:false)
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(number(target,"metal")))!,width:w,height:h,mipmapped:false)
             descriptor.storageMode = .shared; descriptor.usage = [.renderTarget,.shaderRead]
-            guard let texture = device.makeTexture(descriptor:descriptor) else { throw Failure("color allocation") }; targets[key] = texture
+            guard let texture = device.makeTexture(descriptor:descriptor) else { throw Failure("color allocation") }; targets[key] = texture; targetBytes[key] = number(target,"bytes")
         }
         let color = targets[key]!
         if generations[key] != number(target,"generation") {
-            let initial = try file(string(target,"file"));try need(initial.count == w*h*4,"target initial bytes")
-            initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*4) }
+            let initial = try file(string(target,"file"));try need(initial.count == w*h*number(target,"bytes"),"target initial bytes")
+            initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*number(target,"bytes")) }
             generations[key] = number(target,"generation")
         }
             colors.append(color)
@@ -79,7 +80,7 @@ final class Worker {
         var depthFormat = MTLPixelFormat.invalid
         if let depth = command["depth"] as? Object {
             let dk = try string(depth,"key")
-            depthFormat = number(depth,"format") == 0x19 ? .depth32Float_stencil8 : .depth32Float
+            depthFormat = [0x19,0x14].contains(number(depth,"format")) ? .depth32Float_stencil8 : (number(depth,"format")==0x13 ? .depth16Unorm : .depth32Float)
             if depthGenerations[dk] != number(depth,"generation") {
                 depths.removeValue(forKey:dk)
             }
@@ -105,7 +106,7 @@ final class Worker {
             let vs = try function(string(command,"vertex"),"soju_vertex"), fs = try function(string(command,"fragment"),"soju_fragment")
             if pipelines[pk] == nil {
                 let descriptor = MTLRenderPipelineDescriptor();descriptor.vertexFunction = vs;descriptor.fragmentFunction = fs
-                for slot in colors.indices { descriptor.colorAttachments[slot].pixelFormat = .rgba8Unorm }
+                for slot in colors.indices { descriptor.colorAttachments[slot].pixelFormat = colors[slot].pixelFormat }
                 descriptor.depthAttachmentPixelFormat = depthFormat
                 if depthFormat == .depth32Float_stencil8 { descriptor.stencilAttachmentPixelFormat = depthFormat }
                 try need(r(0x12e4)<=1,"invalid per-target blend enable")
@@ -181,14 +182,17 @@ final class Worker {
                     if item["image"] != nil {
                         let tk=try string(item,"key")
                         if textureCache[tk]==nil {
-                            let tw=number(item,"width"),th=number(item,"height"),bc1=(item["bc1"] as? Bool)==true
-                            let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:bc1 ? .bc1_rgba : .rgba8Unorm,width:tw,height:th,mipmapped:false)
-                            d.storageMode = .shared;d.usage = .shaderRead
+                            let tw=number(item,"width"),th=number(item,"height")
+                            let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(number(item,"metal")))!,width:tw,height:th,mipmapped:false)
+                            d.storageMode = .shared;d.usage = [.shaderRead,.pixelFormatView]
                             guard let t=device.makeTexture(descriptor:d) else {throw Failure("sample texture allocation (BC1 device support required)")}
-                            let bytes=try file(string(item,"file"));let row=bc1 ? ((tw+3)/4)*8 : tw*4
-                            try need(bytes.count == row*(bc1 ? (th+3)/4 : th),"sample texture size")
+                            let bytes=try file(string(item,"file"));let row=number(item,"row")
+                            try need(bytes.count == row*number(item,"rows"),"sample texture size")
                             bytes.withUnsafeBytes{p in t.replace(region:MTLRegionMake2D(0,0,tw,th),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:row)}
-                            textureCache[tk]=t
+                            let components = (item["swizzle"] as! [NSNumber]).map { MTLTextureSwizzle(rawValue:$0.uint8Value)! }
+                            let swizzle = MTLTextureSwizzleChannels(red:components[0],green:components[1],blue:components[2],alpha:components[3])
+                            guard let view=t.makeTextureView(pixelFormat:t.pixelFormat,textureType:.type2D,levels:0..<1,slices:0..<1,swizzle:swizzle) else {throw Failure("texture view")}
+                            textureCache[tk]=view
                         }else{textureHits += 1}
                         let t=textureCache[tk]!;argument.setTexture(t,index:number(item,"image"));encoder.useResource(t,usage:.read,stages:stage==0 ? .vertex : .fragment)
                     }else{
@@ -214,8 +218,8 @@ final class Worker {
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)
     for (key,t) in targets {
-        var bytes=[UInt8](repeating:0,count:t.width*t.height*4)
-        t.getBytes(&bytes,bytesPerRow:t.width*4,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
+        var bytes=[UInt8](repeating:0,count:t.width*t.height*targetBytes[key]!)
+        t.getBytes(&bytes,bytesPerRow:t.width*targetBytes[key]!,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
         try Data(bytes).write(to:root.appendingPathComponent("\(key).rgba"))
     }
         return "readback_targets=\(targets.count)"

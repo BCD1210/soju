@@ -54,14 +54,14 @@ shader enables, vertex formats, viewport and clip convention explicitly.
 | Area | Implemented execution |
 | --- | --- |
 | Register file | Public method catalogue for B197, A140 and 902D; named byte offsets and bounded arrays in `REGISTERS.md`; unknown methods rejected |
-| Color target | CT_SELECT routes up to eight targets; A8B8G8R8/RGBA8 UNORM; block-linear or tightly pitched, single layer; upload, load/store, readback and guest-memory writeback |
-| Zeta | ZF32 and ZF32_X24S8 Metal attachments; size validation; full clear required on first use; depth/stencil preserved between draws in the same batch |
+| Color target | CT_SELECT routes up to eight targets; 17 normalized, float, sRGB and integer colour formats; block-linear or tightly pitched, single layer; upload, load/store, readback and guest-memory writeback |
+| Zeta | Z16, Z24S8 (promoted), ZF32 and ZF32_X24S8 Metal attachments; size validation; full clear required on first use; depth/stencil preserved between draws in the same batch |
 | Viewport | Viewport 0, positive XY scales, top-left Metal coordinates; explicitly selected zero-to-positive-W clip depth; Z offset/scale maps to Metal near/far |
 | Scissor | Enabled viewport-0 scissor within target bounds |
 | Vertex fetch | Float1/2/3/4 and normalized RGBA8; stream stride, address, inclusive limit; per-instance stream divisors; used stream indices 0–29 |
 | Shaders | Standalone Vertex B and fragment from program-region address plus stage offset; SPH stage checked; other enabled stages rejected |
 | Constants | Five binding groups, 32 register slots; selector size/address, bind/unbind, sequential inline constant loading; actual shader use restricted to Metal-valid slots; vertex cbuf/stream collisions rejected |
-| Textures | Maxwell 32-byte block-linear TIC; RGBA8 and BC1 UNORM identity components; normalized 2D, one level/layer, block-height log2 0–5; guest range validation and texture-crate deswizzling |
+| Textures | Maxwell 32-byte block-linear TIC; normalized, float, BCn, ASTC and depth formats with component swizzles; normalized 2D, one level/layer, block-height log2 0–5; guest range validation and texture-crate deswizzling |
 | Samplers | 32-byte TSC; point/linear min/mag, repeat/mirror-repeat/clamp-to-edge, no mip filtering; argument buffers with explicit residency |
 | Handles | Existing shader normalized bindings select TIC and TSC pool indices independently, checked against pool limits; up to 16 resources per table; default paired-index ABI also supported |
 | Draws | BEGIN/END, array first/count, indexed first/count, 8/16/32-bit indices (8-bit widened), signed indexed base vertex, instance first/subsequent/unchanged, global base instance |
@@ -153,9 +153,8 @@ The existing shader and texture offline suites were also run unchanged.
   written back to guest memory, first use
   requires a clear. This prevents using depth as a texture or preserving it across
   batches. Color padding is reinitialized on block-linear writeback.
-- No MSAA, layered/cube/3D/mipped or sRGB textures, texture swizzles beyond
-  identity, depth sampling, anisotropy, custom borders, LOD bias or compressed
-  formats beyond BC1. Pitched render-target width is treated as its full byte
+- No MSAA, layered/cube/3D/mipped textures, integer texture sampling,
+  anisotropy, custom borders or LOD bias. Pitched render-target width is treated as its full byte
   pitch divided by four; independent logical-width/padding is not implemented.
 - No native packed bindless-handle decoding. The runner must supply the shader
   crate's explicit normalized handle mappings. No guest packing is guessed.
@@ -201,3 +200,22 @@ GPU fence before writing their payload. Sixteen-byte/timestamp and non-WFI relea
 syncpoint-ID routing remains the runner's responsibility. Neither operation reads back images.
 Cross-batch depth rejection and stencil preservation check 2,048 pixels, including a third
 batch after color writeback; the same test checks release payload and syncpoint completion.
+
+## Format expansion
+
+Colour targets now map all 17 colour entries in the texture table, including sRGB,
+16/32-bit floats, packed formats and R32Uint. Readback images remain RGBA8 previews;
+guest writeback preserves native precision and integer bits. NVIDIA A1R5G5B5 storage
+is explicitly repacked for Metal A1BGR5. Integer targets reject blending and use
+unsigned shader exports. The format test checks 17,408 pixels across clear and draw.
+
+TIC uploads now support BC1–BC7, the table's ASTC block sizes, sRGB conversion,
+normalized/float/packed formats and depth sampling. Four component selections become
+Metal swizzled texture views. Depth uploads are converted to scalar R32Float sampling
+textures; stencil sampling is not implemented. BGRA sampling is expressed through the
+TIC's B/G/R component mapping. R32Uint sampling remains rejected: the current shader
+texture argument ABI is floating point. View mip/layer reinterpretation remains absent.
+Forty format/view cases check 40,960 pixels, including nonzero sRGB/depth/packed samples.
+
+Z16 uses Metal depth16; Z24S8 uses depth32/stencil8 promotion. Two additional depth
+rejection images check 2,048 pixels. Promotion does not reproduce D24 quantization.
