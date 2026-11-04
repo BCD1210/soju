@@ -1,0 +1,14 @@
+[
+  {
+    "run": "application-cold-1",
+    "timing": "timing|load_ms=533.503|first_present_ms=1155.651"
+  },
+  {
+    "run": "application-cold-2",
+    "timing": "timing|load_ms=320.713|first_present_ms=848.423"
+  },
+  {
+    "run": "application-cold-3",
+    "timing": "timing|load_ms=237.984|first_present_ms=721.075"
+  }
+]

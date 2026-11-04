@@ -1,0 +1,26 @@
+[
+  {
+    "run": "normalized-steady1",
+    "frames": 600,
+    "load_ms": 362.552,
+    "first_present_ms": 806.502,
+    "steady_mean_ms": 15.344097662771285,
+    "steady_fps": 65.17163941326159,
+    "p95_ms": 19.795666999999998,
+    "p99_ms": 30.892208,
+    "max_ms": 60.663041,
+    "over_60hz_budget": 78
+  },
+  {
+    "run": "normalized-steady2",
+    "frames": 600,
+    "load_ms": 287.522,
+    "first_present_ms": 601.215,
+    "steady_mean_ms": 14.566741026711185,
+    "steady_fps": 68.64953514079022,
+    "p95_ms": 16.928625,
+    "p99_ms": 22.735875,
+    "max_ms": 35.786584000000005,
+    "over_60hz_budget": 32
+  }
+]

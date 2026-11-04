@@ -1,0 +1,21 @@
+   Compiling soju-switch-core v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/core)
+    Finished `release` profile [optimized] target(s) in 6.77s
+/Users/mikekim/Projects/soju-switch-core/tools/switch/core/target/release/deps/homebrew-390e03783bca42cb: replacing existing signature
+
+running 1 test
+test three_moves_save_restart_and_exit ... Rust first frame: 0.648353s, 1280x720
+Profile before: ExitProfile { canceled: 0, svc: 119, system: 25, cache: 15, maintenance: 18, lock_wait_ns: 45758, max_parallel: 1, timer_preemptions: 2 }
+Rust steady: 60 frames in 0.078137s (767.880 frames/s)
+Profile after: ExitProfile { canceled: 0, svc: 360, system: 1225, cache: 915, maintenance: 18, lock_wait_ns: 85556, max_parallel: 1, timer_preemptions: 2 }; timing: RuntimeProfile { worker: 37.524461ms, svc: 164.971332ms, ipc: 54.117707ms, poll: 330.257µs, sleep: 0ns, parallel_waves: 0, single_waves: 362 }
+
+thread 'three_moves_save_restart_and_exit' (63440768) panicked at tests/homebrew.rs:99:9:
+input 123 did not change board
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    three_moves_save_restart_and_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.21s

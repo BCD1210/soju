@@ -1,0 +1,1 @@
+PASS: corrupted worker cache restored to the exact original binary; three frames presented

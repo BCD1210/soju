@@ -1,0 +1,9 @@
+Baseline Time Profiler: time-before.trace, normal exit, 23.187 s
+Baseline Metal System Trace: metal-before.trace, attribution only
+Post-optimization Time Profiler: time-attach.trace, 5 s attached recording
+Soju signpost events: 567727 (subsystem org.soju.switch)
+Final Metal System Trace: metal-final.trace, 3 s requested attached recording, completed and saved
+Final Metal application intervals, filtered to normalized-runner: Encoding count=1247 total_ms=565.513
+All raw traces and XML exports: ignored dist/frame-profile/
+Final Time Profiler: time-final.trace, 5 s attached recording, completed and saved
+Final CPU samples: total_ms=5282 memmove_ms=1228 memcmp_ms=886 target_writeback_ms=223 register_address_ms=128

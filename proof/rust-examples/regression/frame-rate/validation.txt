@@ -1,0 +1,35 @@
+normalized-accepted:
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.86s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.96s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.19s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.73s
+
+normalized-nv-tests:
+test result: ok. 51 passed; 0 failed; 0 ignored; 0 measured; 71 filtered out; finished in 16.37s
+
+hv-final:
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.17s
+
+homebrew-final-verified:
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.03s
+
+gpu-last-tests:
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.60s
+test result: ok. 29 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.30s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+retained-evict-tests:
+test result: ok. 29 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+depth-last-tests:
+test result: ok. 29 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+retained-unit-tests:
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+gpu-final-clippy: Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.56s
+
+core-final-clippy: Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.97s

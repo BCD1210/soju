@@ -1,5 +1,7 @@
 # Runner frame-rate investigation
 
+Latest results and remaining gaps: [final report](FINAL.md).
+
 Baseline: `304f2b3`, es2gears, three presentations with opt-in host instrumentation.
 First presentation: 7470.121 ms. Subsequent intervals: 6853.324 / 6628.972 ms.
 These measurements start at the guest loop, excluding launch/load.

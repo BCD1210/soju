@@ -1,0 +1,20 @@
+profile-native|buffer_upload_calls=2281 buffer_upload_ms=21.186158759519458 gpu_completion_calls=122 gpu_completion_ms=102.9409586917609 native_readback_calls=122 native_readback_ms=237.37975023686886 native_run_calls=122 native_run_ms=275.0445429701358 pipeline_creation_calls=1 pipeline_creation_ms=0.25999988429248333 shader_compile_calls=1 shader_compile_ms=1.2999165337532759 texture_upload_calls=4 texture_upload_ms=3.200375009328127
+timing|load_ms=212.625|first_present_ms=527.928
+profile|guest|calls=1803|ms=22.681571
+profile|rendezvous|calls=4850|ms=0.169107
+profile|svc|calls=832|ms=170.736240
+profile|ipc|calls=535|ms=1892.511120
+profile|decode|calls=122|ms=2.337121
+profile|snapshot|calls=122|ms=309.470583
+profile|macro|calls=5|ms=0.008583
+profile|shader_discovery|calls=33600|ms=22.687904
+profile|prepare|calls=33720|ms=116.148625
+profile|submit|calls=122|ms=322.891456
+profile|readback|calls=122|ms=595.432126
+profile|commit|calls=122|ms=135.048375
+profile|present|calls=120|ms=100.436876
+profile|shader_translation|calls=2|ms=0.132917
+profile|draw_reference|calls=31319|ms=6.756169
+profile|nv_ioctl|calls=206|ms=1771.544210
+profile|native_startup|calls=1|ms=22.947834
+frames|120|seconds=2.125978

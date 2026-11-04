@@ -1,0 +1,14 @@
+e881300 Measure runner GPU stages and record per-draw readback bottleneck
+eaf727a Batch runner draws with ordered visibility and persistent Metal caches
+a9afdee Preserve GPU range generations and cache shader discovery
+2cb16ae Return Metal readbacks in process instead of through frame files
+b0dc105 Reuse checked vertex captures with shared no-copy Metal buffers
+843f047 Reuse validated draw state across bounded non-indexed vertex ranges
+7bd8e54 Separate compiler and native GPU phase measurements
+2712db4 Avoid constructing discarded display images at GPU visibility boundaries
+b805abb Handle registered waits for committed GPU fences during sustained runs
+623b981 Adapt worker overlap to useful guest quanta and verify contention parity
+9993f56 Retain native attachment generations and measure launch and upload costs
+4f0ae9f Reuse bounded attachment captures and avoid redundant depth unpacking
+6e47895 Reuse the exact embedded Metal worker library across launches
+78d4dc7 Cache validated draw normalization independently of upload bookkeeping
