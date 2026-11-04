@@ -20,6 +20,13 @@ func runtimeChecks()throws {
     }
     var passed=[String]()
     func require(_ ok:Bool,_ message:String)throws {if !ok {throw SceneError.invalid("Runtime check: "+message)};passed.append(message)}
+    let longRun=FrameDistribution()
+    for _ in 0..<54000 {longRun.add(1000.0/90)}
+    longRun.add(2000)
+    let longSummary=longRun.summary()
+    try require(longRun.count==54001,"timing retains all samples beyond ten minutes at 90 Hz")
+    try require(abs(number(longSummary,"p95Ms")-11.12)<0.0001 && number(longSummary,"maxMs")==2000,"timing quantiles retain overflow stalls")
+    try require(number(longSummary,"estimatedMissedRefreshSlots")==179,"missed refresh estimate distinguishes a long stall")
     let timing=XRFrameMetrics()
     timing.completed(frame:1,eye:1,milliseconds:2)
     timing.completed(frame:1,eye:0,milliseconds:3)
