@@ -105,6 +105,8 @@ class CommitCheckTests(unittest.TestCase):
             git = lambda *a: subprocess.run(["git", "-C", tmp, *a], env=env, check=True,
                                             capture_output=True, text=True).stdout.strip()
             git("init", "-q")
+            # A machine-wide commit-msg hook that strips attribution would hide the case under test.
+            git("config", "core.hooksPath", os.devnull)
             git("commit", "-q", "--allow-empty", "-m", "base")
             base = git("rev-parse", "HEAD")
             git("commit", "-q", "--allow-empty", "-m", "clean change")
