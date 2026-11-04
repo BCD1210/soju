@@ -25,8 +25,12 @@ def report():
     samples_path = folder/"live-state-samples.json"
     samples = json.loads(samples_path.read_text()) if samples_path.exists() else []
     advancing = len(samples)>1 and all(b["frame"]>a["frame"] for a,b in zip(samples,samples[1:]))
-    complete = live is not None and live["seconds"]>=600 and advancing and samples[-1]["seconds"]>=600
+    populated = bool(samples) and all(row.get("ownedUnits",row["units"])>0 for row in samples)
+    opponent_observed = any(row.get("enemyTypes") for row in samples)
+    complete = live is not None and live["seconds"]>=600 and advancing and populated and opponent_observed and samples[-1]["seconds"]>=600
     result = {"timings": rows, "tenMinuteLiveMeasurement": complete,
+              "populatedThroughout": populated,
+              "opponentObserved": opponent_observed,
               "cadencePass": bool(complete and live["cadenceP95Ms"]<=11.1),
               "missedSlotsPass": bool(complete and live["missedSlots"]<live["seconds"]/10),
               "zeroFrameAllocationsVerified": False, "completeGroundingVerified": False,
