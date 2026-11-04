@@ -32,10 +32,18 @@ final class Terrain3D {
     func walkable(_ x:Double,_ z:Double)->Bool {
         x>=0 && z>=0 && x<Double(width)/4 && z<Double(height)/4 && flags[index(Int(x*4),Int(z*4))]&1 != 0
     }
+    static func exposedEdge(_ top:[Double],_ bottom:[Double])->ClosedRange<Double>? {
+        let first=top[0]-bottom[0],last=top[1]-bottom[1]
+        if first<=0 && last<=0 {return nil}
+        if first>=0 && last>=0 {return 0...1}
+        let crossing=first/(first-last)
+        return first>0 ? 0...crossing:crossing...1
+    }
     func geometry(tileX:Int,tileY:Int,material:SCNMaterial)->SCNGeometry {
         var vertices=[SCNVector3](),normals=[SCNVector3](),uv=[CGPoint](),indices=[Int32]()
         func quad(_ p:[SIMD3<Float>],_ t:[CGPoint]) {
-            let base=Int32(vertices.count),normal=simd_normalize(simd_cross(p[1]-p[0],p[2]-p[0]))
+            let base=Int32(vertices.count),first=simd_cross(p[1]-p[0],p[2]-p[0]),second=simd_cross(p[2]-p[0],p[3]-p[0])
+            let normal=simd_normalize(simd_length_squared(first)>simd_length_squared(second) ? first:second)
             for i in 0..<4 { vertices.append(SCNVector3(p[i].x,p[i].y,p[i].z));normals.append(SCNVector3(normal.x,normal.y,normal.z));uv.append(t[i]) }
             indices += [base,base+1,base+2,base,base+2,base+3]
         }
@@ -48,9 +56,19 @@ final class Terrain3D {
             // Separate vertices form actual vertical cliff faces, with no smoothing across levels.
             for (a,c,dx,dy,na,nc) in [(0,1,-1,0,3,2),(1,2,0,1,0,3),(2,3,1,0,1,0),(3,0,0,-1,2,1)] {
                 let other=surface(mx+dx,my+dy)
-                if v[a]+v[c] <= other[na]+other[nc]+0.001 { continue }
-                var lowA=points[a],lowC=points[c];lowA.y=Float(other[na]);lowC.y=Float(other[nc])
-                quad([points[c],points[a],lowA,lowC],[CGPoint(x:w,y:t),CGPoint(x:u,y:t),CGPoint(x:u,y:b),CGPoint(x:w,y:b)])
+                guard let exposed=Self.exposedEdge([v[a],v[c]],[other[na],other[nc]]) else {continue}
+                let start=Float(exposed.lowerBound),end=Float(exposed.upperBound)
+                let highA=points[a]+(points[c]-points[a])*start,highC=points[a]+(points[c]-points[a])*end
+                var lowA=highA,lowC=highC
+                lowA.y=Float(other[na])+(Float(other[nc])-Float(other[na]))*start
+                lowC.y=Float(other[na])+(Float(other[nc])-Float(other[na]))*end
+                // Crossed ramp edges expose a triangle on each side. Clipping
+                // at their intersection closes the hole without overlapping faces.
+                let edgeUV=[CGPoint(x:u,y:t),CGPoint(x:u,y:b),CGPoint(x:w,y:b),CGPoint(x:w,y:t)]
+                let ta=edgeUV[a],tc=edgeUV[c]
+                let ua=CGPoint(x:ta.x+(tc.x-ta.x)*CGFloat(start),y:ta.y+(tc.y-ta.y)*CGFloat(start))
+                let uc=CGPoint(x:ta.x+(tc.x-ta.x)*CGFloat(end),y:ta.y+(tc.y-ta.y)*CGFloat(end))
+                quad([highC,highA,lowA,lowC],[uc,ua,ua,uc])
             }
         }}
         let geometry=SCNGeometry(sources:[SCNGeometrySource(vertices:vertices),SCNGeometrySource(normals:normals),SCNGeometrySource(textureCoordinates:uv)],
