@@ -16,11 +16,56 @@ func blendFactor(_ v: Int) throws -> MTLBlendFactor {
 func stencilOp(_ v: Int) throws -> MTLStencilOperation {
     switch v {case 1,0x1e00:return .keep;case 2,0:return .zero;case 3,0x1e01:return .replace;case 4,0x1e02:return .incrementClamp;case 5,0x1e03:return .decrementClamp;case 6,0x150a:return .invert;case 7,0x8507:return .incrementWrap;case 8,0x8508:return .decrementWrap;default:throw Failure("stencil op \(v)")}
 }
+struct StateTransition: Hashable { let previous: Int; let current: Int }
 struct ArgumentTable {
     let buffer: MTLBuffer
     let offset: Int
     let textures: [MTLTexture]
     let samplers: [MTLSamplerState]
+}
+// Graphics shaders have no writable storage. Within a span without clear/query/depth
+// operations, disjoint color sets commute; preserve order within every color set.
+func schedulePasses(_ commands: UnsafeBufferPointer<Command>) throws -> [Int] {
+    var order = [Int](), groups = [[Int]](), groupIDs = [String: Int]()
+    var owners = [String: (String, Int64)]()
+    var descriptors = [Int: (String, [(String, Int64)])]()
+    func drain() {
+        for group in groups { order.append(contentsOf: group) }
+        groups.removeAll(keepingCapacity: true);groupIDs.removeAll(keepingCapacity: true);owners.removeAll(keepingCapacity: true)
+    }
+    for (index, input) in commands.enumerated() {
+        let source = input.kind == 5 ? Int(input.reference) : index
+        try need(source >= 0 && source <= index, "invalid scheduling reference")
+        let command = commands[source]
+        if command.kind != 0 || command.depth.length != 0 || items(command.registers).contains(where: { $0.address == 0x1514 && $0.value != 0 }) {
+            drain();order.append(index);continue
+        }
+        let descriptor: (String, [(String, Int64)])
+        if let cached = descriptors[source] { descriptor = cached } else {
+            let targets = items(command.targets).map { (text($0.key), $0.generation) }
+            descriptor = (targets.map { $0.0 }.joined(separator: "|"), targets)
+            descriptors[source] = descriptor
+        }
+        let (key, targets) = descriptor
+        if targets.contains(where: { target in
+            if let owner = owners[target.0] { return owner.0 != key || owner.1 != target.1 }
+            return false
+        }) { drain() }
+        let group: Int
+        if let existing = groupIDs[key] { group = existing } else {
+            group = groups.count;groupIDs[key] = group;groups.append([])
+        }
+        for target in targets { owners[target.0] = (key, target.1) }
+        groups[group].append(index)
+    }
+    drain()
+    return order
+}
+struct RenderPassState {
+    let descriptor: MTLRenderPassDescriptor
+    let key: String
+    let colors: [MTLTexture]
+    let depthFormat: MTLPixelFormat
 }
 final class Worker {
     let device: MTLDevice
@@ -36,6 +81,7 @@ final class Worker {
     var uploadRing: [MTLBuffer?] = [nil, nil, nil]
     var uploadSlot = 0
     var argumentTables = [String: ArgumentTable]()
+    var renderPasses = [String: MTLRenderPassDescriptor]()
     var argumentHeaps = [String: (MTLBuffer, Int)]()
     init() throws {
         guard let d = MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue() else { throw Failure("no default Metal device/queue") }
@@ -61,11 +107,16 @@ final class Worker {
     }
     var boundPipeline = ""
     var boundRegisters = [Int: Int]()
+    var boundCommand = -1
+    var groupChanges = [StateTransition: UInt8]()
+    let registerGroups = [[0xa00,0xa04,0xa08,0xa0c,0xa10,0xa14,0xd7c], [0xdac,0xdc0,0xdc4,0xdc8,0x1110,0x15bc,0x156c,0x187c], [0xe00,0xe04,0xe08], [0x1918,0x1920,0x191c,0xdac,0xdb0], [0x131c,0x1320,0x1324,0x1328], [0x1394,0x1594,0xf54]]
     var boundBuffers = [Int: (ObjectIdentifier, Int)]()
     var resident = Set<ObjectIdentifier>()
-    var stateBinds = 0, offsetWrites = 0
+    var stateBinds = 0, offsetWrites = 0, passHits = 0
+    var gpuWait = 0.0
     func endPass() {
         activeEncoder?.endEncoding();activeEncoder=nil;activeKey=""
+        boundCommand = -1
         boundPipeline="";boundRegisters.removeAll(keepingCapacity:true);boundBuffers.removeAll(keepingCapacity:true);resident.removeAll(keepingCapacity:true)
     }
     func bind(_ encoder: MTLRenderCommandEncoder, _ stage: Int, _ buffer: MTLBuffer, _ offset: Int, _ slot: Int) {
@@ -89,7 +140,9 @@ final class Worker {
     func flush() throws {
         endPass()
         if let pending=cb {
+            let waitStarted = ProcessInfo.processInfo.systemUptime
             pending.commit();pending.waitUntilCompleted()
+            gpuWait += ProcessInfo.processInfo.systemUptime - waitStarted
             try need(pending.status == .completed,"GPU command failed: \(String(describing:pending.error))")
             cb=nil;retainedSamplers.removeAll()
         }
@@ -118,9 +171,13 @@ final class Worker {
         guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[source] = f; fileFunctions[path] = f; return f
     }
     var dispatches=0
+    var vertexBindings = [Int: [(Int, MTLBuffer, Int)]]()
+    var passStates = [Int: RenderPassState]()
     var registerStates = [Int: [Int: Int]]()
     var resolvedTables = [Int: [Int: ArgumentTable]]()
-    for (inputIndex, input) in commands.enumerated() {
+    let scheduled = try schedulePasses(commands)
+    for inputIndex in scheduled {
+        let input = commands[inputIndex]
         let commandIndex = input.kind == 5 ? Int(input.reference) : inputIndex
         try need(commandIndex >= 0 && commandIndex <= inputIndex, "invalid command reference")
         let command = commands[commandIndex]
@@ -163,7 +220,17 @@ final class Worker {
         func r(_ a: Int) -> Int { raw[a] ?? 0 }
         func f(_ a: Int) -> Double { Double(Float(bitPattern:UInt32(r(a)))) }
         let w = Int(target.width), h = Int(target.height)
+        let mask = Int(command.clear), isClear = command.kind == 1
+        try need(r(0x1514)<=1,"invalid occlusion enable")
+        let visibility = r(0x1514)==1 && !isClear ? device.makeBuffer(length:8,options:.storageModeShared) : nil
         var colors = [MTLTexture]()
+        var depthFormat = MTLPixelFormat.invalid
+        let pass: MTLRenderPassDescriptor
+        let passKey: String
+        if let resolved = passStates[commandIndex] {
+            pass = resolved.descriptor; passKey = resolved.key; colors = resolved.colors; depthFormat = resolved.depthFormat; passHits += 1
+        } else {
+
         for target in attachments {
             let key = text(target.key)
         if targets[key] == nil {
@@ -180,8 +247,12 @@ final class Worker {
         }
             colors.append(color)
         }
-        let mask = Int(command.clear), isClear = command.kind == 1
-        let pass = MTLRenderPassDescriptor()
+        let depthKey = items(command.depth).first.map { text($0.key) + ":" + String($0.generation) } ?? "none"
+        passKey = attachments.map{ text($0.key) }.joined(separator:"|")+"|"+depthKey
+        let cachedPass = !isClear && visibility == nil ? renderPasses[passKey] : nil
+        pass = cachedPass ?? MTLRenderPassDescriptor()
+        if cachedPass != nil { passHits += 1 }
+        if cachedPass == nil {
         for (slot, color) in colors.enumerated() {
             let a = pass.colorAttachments[slot]!
             a.texture = color; a.loadAction = isClear && mask & 60 != 0 && (mask >> 6) == slot ? .clear : .load; a.storeAction = .store
@@ -189,10 +260,9 @@ final class Worker {
                 ? MTLClearColor(red:Double(r(0xd80)),green:Double(r(0xd84)),blue:Double(r(0xd88)),alpha:Double(r(0xd8c)))
                 : MTLClearColor(red:f(0xd80),green:f(0xd84),blue:f(0xd88),alpha:f(0xd8c))
         }
-        try need(r(0x1514)<=1,"invalid occlusion enable")
-        let visibility = r(0x1514)==1 && !isClear ? device.makeBuffer(length:8,options:.storageModeShared) : nil
+        }
         if let visibility {visibility.contents().storeBytes(of:UInt64(0),as:UInt64.self);pass.visibilityResultBuffer=visibility}
-        var depthFormat = MTLPixelFormat.invalid
+
         if let depth = items(command.depth).first {
             let dk = text(depth.key)
             depthFormat = [0x19,0x14].contains(Int(depth.format)) ? .depth32Float_stencil8 : (Int(depth.format)==0x13 ? .depth16Unorm : .depth32Float)
@@ -218,15 +288,20 @@ final class Worker {
                 if depthFormat == .depth32Float_stencil8 {try plane("sfile",1,.stencilFromDepthStencil)}
                 blit.endEncoding()
             }
+            if cachedPass == nil {
             pass.depthAttachment.texture = depths[dk];pass.depthAttachment.loadAction = isClear && mask & 1 != 0 ? .clear : .load;pass.depthAttachment.storeAction = .store
             pass.depthAttachment.clearDepth = f(0xd90)
             if depthFormat == .depth32Float_stencil8 {
                 pass.stencilAttachment.texture = depths[dk];pass.stencilAttachment.loadAction = isClear && mask & 2 != 0 ? .clear : .load;pass.stencilAttachment.storeAction = .store
                 pass.stencilAttachment.clearStencil = UInt32(r(0xda0))
             }
+            }
         }
-        let depthKey=items(command.depth).first.map { text($0.key) } ?? "none"
-        let passKey=attachments.map{text($0.key)}.joined(separator:"|")+"|"+depthKey
+        if !isClear && visibility == nil {
+            renderPasses[passKey] = pass
+            passStates[commandIndex] = RenderPassState(descriptor: pass, key: passKey, colors: colors, depthFormat: depthFormat)
+        }
+        }
         if isClear || visibility != nil || activeKey != passKey {endPass()}
         let current=try commandBuffer()
         if isClear {
@@ -290,14 +365,24 @@ final class Worker {
             if boundPipeline != pk {
                 encoder.setRenderPipelineState(pipelines[pk]!);encoder.setDepthStencilState(depthStates[pk]!);boundPipeline=pk;stateBinds += 2
             }
-            func changed(_ offsets: [Int]) -> Bool { offsets.contains { boundRegisters[$0] != r($0) } }
-            if changed([0xa00,0xa04,0xa08,0xa0c,0xa10,0xa14,0xd7c]) {
+            let transition = StateTransition(previous: boundCommand, current: commandIndex)
+            let changedGroups: UInt8
+            if boundCommand < 0 { changedGroups = 63 }
+            else if let cached = groupChanges[transition] { changedGroups = cached }
+            else {
+                var mask: UInt8 = 0
+                for (group, offsets) in registerGroups.enumerated() {
+                    if offsets.contains(where: { boundRegisters[$0] != r($0) }) { mask |= 1 << group }
+                }
+                groupChanges[transition] = mask;changedGroups = mask
+            }
+            if changedGroups & 1 != 0 {
             let sx=f(0xa00),sy=f(0xa04),sz=f(0xa08),ox=f(0xa0c),oy=f(0xa10),oz=f(0xa14)
             let near = r(0xd7c)==0 ? oz-sz : oz, far=oz+sz
             try need([sx,sy,sz,ox,oy,oz].allSatisfy{$0.isFinite} && sx != 0 && sy != 0 && near>=0 && near<=1 && far>=0 && far<=1,"invalid viewport/depth range")
             encoder.setViewport(MTLViewport(originX:ox-abs(sx),originY:oy-abs(sy),width:2*abs(sx),height:2*abs(sy),znear:near,zfar:far))
             }
-            if changed([0xdac,0xdc0,0xdc4,0xdc8,0x1110,0x15bc,0x156c,0x187c]) {
+            if changedGroups & 2 != 0 {
             let offset = r(0xdac)==0x1b01 ? r(0xdc4) : r(0xdc8)
             try need([r(0xdc0),r(0xdc4),r(0xdc8)].allSatisfy{$0<=1},"invalid polygon offset enable")
             if offset != 0 {
@@ -305,14 +390,14 @@ final class Worker {
                 encoder.setDepthBias(Float(f(0x15bc)),slopeScale:Float(f(0x156c)),clamp:Float(f(0x187c)))
             } else {encoder.setDepthBias(0,slopeScale:0,clamp:0)}
             }
-            if changed([0xe00,0xe04,0xe08]) {
+            if changedGroups & 4 != 0 {
             if r(0xe00) != 0 {
                 let x=r(0xe04)&65535,y=r(0xe08)&65535,endX=r(0xe04)>>16,endY=r(0xe08)>>16
                 try need(x<endX && y<endY && endX<=w && endY<=h,"invalid scissor")
                 encoder.setScissorRect(MTLScissorRect(x:x,y:y,width:endX-x,height:endY-y))
             } else {encoder.setScissorRect(MTLScissorRect(x:0,y:0,width:w,height:h))}
             }
-            if changed([0x1918,0x1920,0x191c,0xdac,0xdb0]) {
+            if changedGroups & 8 != 0 {
             if r(0x1918) != 0 {
                 switch r(0x1920) {case 0x404:encoder.setCullMode(.front);case 0x405:encoder.setCullMode(.back);default:throw Failure("cull face unsupported")}
             } else {encoder.setCullMode(.none)}
@@ -320,19 +405,22 @@ final class Worker {
             try need(r(0xdac)==r(0xdb0) && [0,0x1b01,0x1b02].contains(r(0xdac)),"polygon mode unsupported")
             encoder.setTriangleFillMode(r(0xdac)==0x1b01 ? .lines : .fill)
             }
-            if changed([0x131c,0x1320,0x1324,0x1328]) {
+            if changedGroups & 16 != 0 {
             encoder.setBlendColor(red:Float(f(0x131c)),green:Float(f(0x1320)),blue:Float(f(0x1324)),alpha:Float(f(0x1328)))
             }
-            if changed([0x1394,0x1594,0xf54]) {
+            if changedGroups & 32 != 0 {
             encoder.setStencilReferenceValues(front:UInt32(r(0x1394)),back:UInt32(r(r(0x1594)==1 ? 0xf54 : 0x1394)))
             }
-            boundRegisters = raw
-            for b in items(command.buffers) {
-                let slot=Int(b.slot)
-                let a=items(command.attributes).first{Int($0.stream)==slot}!
-                let offset=Int(a.instanced)==1 ? (Int(command.instance)/Int(a.rate))*Int(a.stride) : 0
-                bind(encoder, 0, try buffer(text(b.file)), offset, slot)
+            boundRegisters = raw;boundCommand = commandIndex
+            if vertexBindings[commandIndex] == nil {
+                vertexBindings[commandIndex] = try items(command.buffers).map { b in
+                    let slot = Int(b.slot)
+                    let a = items(command.attributes).first { Int($0.stream) == slot }!
+                    let offset = a.instanced == 1 ? (Int(command.instance) / Int(a.rate)) * Int(a.stride) : 0
+                    return (slot, try buffer(text(b.file)), offset)
+                }
             }
+            for (slot, resource, offset) in vertexBindings[commandIndex]! { bind(encoder, 0, resource, offset, slot) }
             for c in items(command.constants) {
                 guard let b=uploadRing[uploadSlot] else {throw Failure("missing constant upload")}
                 let offset = input.kind == 5 ? uniformOffset(input, Int(c.stage), Int(c.slot)) : Int(c.offset)
@@ -413,7 +501,7 @@ final class Worker {
     }
     try flush()
     let elapsed=ProcessInfo.processInfo.systemUptime-started
-    return "state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
+    return "pass_hits=\(passHits) encoding_seconds=\(elapsed-gpuWait) gpu_wait_seconds=\(gpuWait) state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)
