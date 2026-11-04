@@ -294,3 +294,9 @@ three loader), 22 signed Hypervisor tests, 97 Python tests (95 passed, two optio
 cases skipped), Clippy with warnings denied and the app build passed. The signed
 2048 input/save/restart acceptance passed after the performance changes. GPU crate:
 nine tests passed, including four Metal tests. No changes were pushed.
+
+Final post-loader regression: the signed 2048 test passed again at 338.58
+headless fps (60 frames / 0.177209 s; 1,443 exits, 8,143 exits/s), against
+Unicorn's 25.15 fps. Together with the earlier 630.08 fps sample, this shows
+substantial host-load variation while retaining ample headroom for 60 Hz. The
+signed AudioUnit test consumed all 47,920 expected nonzero samples again.
