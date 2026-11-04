@@ -104,7 +104,16 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
             }
         }
         Kind::Clock => const { &[c(0, 0, Platform::clock_read)] },
-        Kind::Timezone => const { &[c(101, 8, time::calendar)] },
+        Kind::Timezone => {
+            const {
+                &[
+                    c(0, 0, time::location),
+                    c(4, 36, time::load_rule),
+                    c(100, 8, time::calendar),
+                    c(101, 8, time::calendar),
+                ]
+            }
+        }
         Kind::Account => account::COMMANDS,
         Kind::Profile => account::PROFILE,
         Kind::Apm => const { &[c(0, 0, |s, _, x| s.child(Kind::Empty, x)), c(1, 0, zero)] },

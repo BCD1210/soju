@@ -83,6 +83,7 @@ pub struct Platform {
     font_handle: Option<Handle>,
     fonts: Option<fonts::Fonts>,
     clock: time::Clock,
+    timezone: time::Timezone,
 }
 impl Platform {
     pub fn new(home: &Path) -> Result<Self, Error> {
@@ -103,6 +104,7 @@ impl Platform {
             font_handle: None,
             fonts: fonts::Fonts::load(home)?,
             clock: time::Clock::Host,
+            timezone: time::Timezone::host()?,
         })
     }
     /// Select a reproducible wall-clock origin; `now_ns` remains the caller's monotonic clock.

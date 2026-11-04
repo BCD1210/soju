@@ -30,8 +30,10 @@ impl Harness {
             x30: LOADER_RETURN,
             tpidrro_el0: TLS,
         };
+        let mut p = Platform::new(Path::new("/nonexistent-platform-test-fonts")).unwrap();
+        p.timezone = time::Timezone::utc_fixture();
         Self {
-            p: Platform::new(Path::new("/nonexistent-platform-test-fonts")).unwrap(),
+            p,
             k: Kernel::new(&boot),
             m: MemoryImage::new(&boot).unwrap(),
         }
