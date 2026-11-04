@@ -121,12 +121,17 @@ impl Tsc {
 }
 #[derive(Default)]
 pub struct TextureCache {
+    memory_identity: Option<u64>,
     entries: BTreeMap<[u32; 8], (u64, Vec<u8>)>,
     pub uploads: u64,
     pub hits: u64,
 }
 impl TextureCache {
     pub fn upload(&mut self, tic: &Tic, memory: &Memory) -> Result<Vec<u8>> {
+        if self.memory_identity != Some(memory.identity) {
+            self.entries.clear();
+            self.memory_identity = Some(memory.identity);
+        }
         let surface = tic.surface();
         let generation = memory.generation(tic.address, surface.size())?;
         if let Some((old, bytes)) = self.entries.get(&tic.raw) {

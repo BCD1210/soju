@@ -1,11 +1,25 @@
 //! Checked guest-address space. All writers advance range generations.
 use crate::{Error, Result};
-use std::ops::Range;
-#[derive(Default)]
+use std::{
+    ops::Range,
+    sync::atomic::{AtomicU64, Ordering},
+};
+static NEXT_SPACE: AtomicU64 = AtomicU64::new(1);
 pub struct Memory {
+    pub(crate) identity: u64,
     regions: Vec<(u64, Vec<u8>)>,
     writes: Vec<(u64, Range<u64>)>,
     generation: u64,
+}
+impl Default for Memory {
+    fn default() -> Self {
+        Self {
+            identity: NEXT_SPACE.fetch_add(1, Ordering::Relaxed),
+            regions: Vec::new(),
+            writes: Vec::new(),
+            generation: 0,
+        }
+    }
 }
 impl Memory {
     pub fn map(&mut self, address: u64, bytes: Vec<u8>) -> Result<()> {

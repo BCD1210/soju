@@ -75,6 +75,8 @@ fn pitched_copy_rect() {
         (0x204, 1),
         (0x234, 1),
         (0x2ac, 3),
+        (0x20c, 1),
+        (0x23c, 1),
         (0x214, 16),
         (0x244, 16),
         (0x218, 4),
@@ -132,6 +134,9 @@ fn tic_tsc_validation_and_cache_invalidation() {
     m.write(0x1000, &[17]).unwrap();
     assert_eq!(c.upload(&t, &m).unwrap()[0], 17);
     assert_eq!(c.uploads, 2);
+    let mut other = Memory::default();
+    other.map(0x1000, vec![99; 1024]).unwrap();
+    assert_eq!(c.upload(&t, &other).unwrap()[0], 99);
     assert!(Tic::parse(&[0; 32]).is_err());
     let mut s = [0u32; 8];
     s[0] = 2 | 2 << 3 | 2 << 6;

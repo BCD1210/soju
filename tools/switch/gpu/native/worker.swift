@@ -35,11 +35,11 @@ func run(_ directory: String) throws {
         guard !bytes.isEmpty, let b = bytes.withUnsafeBytes({ p in device.makeBuffer(bytes:p.baseAddress!,length:p.count,options:.storageModeShared) }) else { throw Failure("buffer allocation") }; return b
     }
     func function(_ path: String, _ entry: String) throws -> MTLFunction {
-        if let f = functions[path] { return f }
-        let options = MTLCompileOptions(); options.mathMode = .safe
         let source = try String(contentsOf: root.appendingPathComponent(path), encoding:.utf8)
+        if let f = functions[source] { return f }
+        let options = MTLCompileOptions(); options.mathMode = .safe
         let library = try device.makeLibrary(source:source, options:options)
-        guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[path] = f; return f
+        guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[source] = f; return f
     }
     for command in commands {
         guard let raw = command["registers"] as? Object, let target = command["target"] as? Object else { throw Failure("missing state") }

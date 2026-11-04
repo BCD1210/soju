@@ -216,6 +216,14 @@ impl Engine {
                 && r.get(0x8d8) == 0,
             "902D scaling/fractional origins unsupported",
         )?;
+        require(
+            r.get(0x208) == 0
+                && r.get(0x238) == 0
+                && r.get(0x20c) == 1
+                && r.get(0x23c) == 1
+                && r.get(0x210) == 0,
+            "902D requires nonlayered 2D surfaces",
+        )?;
         let (dx, dy, w, h, sx, sy) = (
             r.get(0x8b0),
             r.get(0x8b4),

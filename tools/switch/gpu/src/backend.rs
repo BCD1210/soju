@@ -171,6 +171,7 @@ impl Backend {
             pitch,
         };
         let key = format!("{:x}-{width}-{height}-{layout}", target.address);
+        let initial = memory.read(target.address, target.size())?;
         for (other_key, other) in &self.targets {
             require(
                 other_key == &key
@@ -179,7 +180,6 @@ impl Backend {
                 "overlapping target views require a batch flush",
             )?;
         }
-        let initial = memory.read(target.address, target.size())?;
         let initial = if pitch {
             initial.to_vec()
         } else {
@@ -247,6 +247,10 @@ impl Backend {
                 indexed,
                 instance,
             } => {
+                require(
+                    r.get(0xd7c) == 1,
+                    "only zero-to-positive-W clip depth is implemented",
+                )?;
                 require(count > 0 && count <= 1_000_000, "invalid draw count")?;
                 for stage in [0, 2, 3, 4] {
                     require(
@@ -409,7 +413,7 @@ impl Backend {
                         "invalid vertex stream stride/enable",
                     )?;
                     require(
-                        !vs.constant_buffers.contains(&(stream as u8)) && stream != 30,
+                        !vs.constant_buffers.contains(&(stream as u8)) && stream < 30,
                         "vertex stream/cbuf/texture buffer collision",
                     )?;
                     let instanced = r.get(0x1880 + stream * 4);
@@ -480,6 +484,17 @@ impl Backend {
                             .checked_add(u64::from(index) * 32)
                             .ok_or_else(|| Error("TIC address overflow".into()))?;
                         let tic = Tic::parse(memory.read(addr, 32)?)?;
+                        let texture_end = tic
+                            .address
+                            .checked_add(tic.surface().size() as u64)
+                            .ok_or_else(|| Error("texture range overflow".into()))?;
+                        for rendered in self.targets.values().chain(std::iter::once(&target)) {
+                            require(
+                                tic.address >= rendered.address + rendered.size() as u64
+                                    || rendered.address >= texture_end,
+                                "render-to-texture feedback requires execute before prepare",
+                            )?;
+                        }
                         let data = self.textures.upload(&tic, memory)?;
                         let key = Key::new(Inputs {
                             program: &data,
