@@ -1,7 +1,6 @@
 //! Maxwell block-linear TIC and TSC fields: NVIDIA clb197tex.h (see SOURCES.md).
 use crate::{memory::Memory, require, Error, Result};
 use soju_switch_texture::Surface;
-use std::collections::BTreeMap;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tic {
     pub raw: [u32; 8],
@@ -135,7 +134,7 @@ impl Tsc {
 #[derive(Default)]
 pub struct TextureCache {
     memory_identity: Option<u64>,
-    entries: BTreeMap<[u32; 8], (u64, Vec<u8>)>,
+    entries: crate::lru::Lru<[u32; 8], (u64, Vec<u8>)>,
     pub uploads: u64,
     pub hits: u64,
 }
@@ -156,7 +155,8 @@ impl TextureCache {
         let data = surface
             .deswizzle(memory.read(tic.address, surface.size())?)
             .map_err(|e| Error(e.to_string()))?;
-        self.entries.insert(tic.raw, (generation, data.clone()));
+        self.entries
+            .insert(tic.raw, (generation, data.clone()), data.len() + 64);
         self.uploads += 1;
         Ok(data)
     }

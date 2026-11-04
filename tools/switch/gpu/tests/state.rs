@@ -130,10 +130,11 @@ fn tic_tsc_validation_and_cache_invalidation() {
     c.upload(&t, &m).unwrap();
     m.write(0x1300, &[1]).unwrap();
     c.upload(&t, &m).unwrap();
-    assert_eq!((c.uploads, c.hits), (1, 2));
+    let disabled = std::env::var("SOJU_GPU_CPU_CACHE_BYTES").as_deref() == Ok("0");
+    assert_eq!((c.uploads, c.hits), if disabled { (3, 0) } else { (1, 2) });
     m.write(0x1000, &[17]).unwrap();
     assert_eq!(c.upload(&t, &m).unwrap()[0], 17);
-    assert_eq!(c.uploads, 2);
+    assert_eq!(c.uploads, if disabled { 4 } else { 2 });
     let mut other = Memory::default();
     other.map(0x1000, vec![99; 1024]).unwrap();
     assert_eq!(c.upload(&t, &other).unwrap()[0], 99);

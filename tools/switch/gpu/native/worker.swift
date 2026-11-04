@@ -74,6 +74,14 @@ final class Worker {
     var occlusion: UInt64 = 0
     var queryValues = [String: UInt32]()
     var targetBytes = [String: Int]()
+    let pressure = MemoryPressure()
+    var cacheClock: UInt64 = 0
+    var lastUse = [String: UInt64]()
+    let cacheBudget = max(0, Int(ProcessInfo.processInfo.environment["SOJU_GPU_CACHE_BYTES"] ?? "") ?? 268435456)
+    let spillRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath + "/target/soju-spill-" + UUID().uuidString, isDirectory: true)
+    var dirtyAttachments = Set<String>()
+    var spilledColors = [String: Int](), spilledDepths = [String: Int]()
+    deinit { try? FileManager.default.removeItem(at: spillRoot) }
     let compiler: RenderCompiler
     var renderFunctions = [String: (MTLFunction, MTLFunction)]()
     var pipelines = [String: MTLRenderPipelineState](), depthStates = [String: MTLDepthStencilState]()
@@ -236,15 +244,17 @@ final class Worker {
 
         for target in attachments {
             let key = text(target.key)
-        if targets[key] == nil {
+        touch("c", key); dirtyAttachments.insert(key)
+        let newTarget = targets[key] == nil
+        if newTarget {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(Int(target.metal)))!,width:w,height:h,mipmapped:false)
             descriptor.storageMode = .shared; descriptor.usage = [.renderTarget,.shaderRead]
             guard let texture = device.makeTexture(descriptor:descriptor) else { throw Failure("color allocation") }; targets[key] = texture; targetBytes[key] = Int(target.bytes)
         }
         let color = targets[key]!
-        if generations[key] != Int(target.generation) {
+        if newTarget || generations[key] != Int(target.generation) {
             if generations[key] != nil {try flush()}
-            let initial = try file(text(target.file));try need(initial.count == w*h*Int(target.bytes),"target initial bytes")
+            let initial = try restore(key, Int(target.generation), ".rgba") { try file(text(target.file)) };try need(initial.count == w*h*Int(target.bytes),"target initial bytes")
             initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*Int(target.bytes)) }
             generations[key] = Int(target.generation)
         }
@@ -268,10 +278,12 @@ final class Worker {
 
         if let depth = items(command.depth).first {
             let dk = text(depth.key)
+            touch("d", dk); dirtyAttachments.insert(dk)
             depthFormat = [0x19,0x14].contains(Int(depth.format)) ? .depth32Float_stencil8 : (Int(depth.format)==0x13 ? .depth16Unorm : .depth32Float)
             if depthGenerations[dk] != Int(depth.generation) {
                 if depthGenerations[dk] != nil {try flush()}
                 depths.removeValue(forKey:dk)
+                renderPasses.removeAll()
             }
             if depths[dk] == nil {
                 let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:depthFormat,width:w,height:h,mipmapped:false)
@@ -281,7 +293,7 @@ final class Worker {
                 let upload=try commandBuffer()
                 guard let blit=upload.makeBlitCommandEncoder() else {throw Failure("depth upload encoder")}
                 func plane(_ name:String,_ bytesPerPixel:Int,_ options:MTLBlitOption) throws {
-                    let bytes=try file((name == "zfile" ? text(depth.zfile) : text(depth.sfile))), row=((w*bytesPerPixel+255)/256)*256
+                    let bytes=try restore(dk, Int(depth.generation), name == "zfile" ? ".depth" : ".stencil") { try file((name == "zfile" ? text(depth.zfile) : text(depth.sfile))) }, row=((w*bytesPerPixel+255)/256)*256
                     try need(bytes.count==w*h*bytesPerPixel,"depth initial bytes")
                     guard let staging=device.makeBuffer(length:row*h,options:.storageModeShared) else {throw Failure("depth staging")}
                     bytes.withUnsafeBytes {p in for y in 0..<h {memcpy(staging.contents().advanced(by:y*row),p.baseAddress!.advanced(by:y*w*bytesPerPixel),w*bytesPerPixel)} }
@@ -350,6 +362,7 @@ final class Worker {
                 pipelines[pk] = ready.pipeline
                 renderFunctions[pk] = (ready.vertex, ready.fragment)
             } else {pipelineHits += 1}
+            touch("p", pk)
             let (vs, fs) = renderFunctions[pk]!
             if depthStates[pk] == nil {
                 let d = MTLDepthStencilDescriptor()
@@ -445,6 +458,7 @@ final class Worker {
                 let tableKey = pk + ":" + String(stage) + ":" + stageItems.map { item in
                     "\(text(item.key)):\(item.image):\(item.sampler):\(item.count):\(item.u):\(item.v):\(item.min):\(item.mag)"
                 }.joined(separator: "|")
+                touch("a", tableKey)
                 if let resolved = argumentTables[tableKey] {
                     resolvedTables[commandIndex, default: [:]][stage] = resolved
                     bindTable(encoder, stage, resolved); textureHits += resolved.textures.count
@@ -466,6 +480,7 @@ final class Worker {
                 for item in stageItems {
                     if item.image >= 0 {
                         let tk=text(item.key)
+                        touch("t", tk)
                         if textureCache[tk]==nil {
                             let tw=Int(item.width),th=Int(item.height)
                             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(Int(item.metal)))!,width:tw,height:th,mipmapped:false)
@@ -514,6 +529,16 @@ final class Worker {
 }
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)
+        if root != spillRoot {
+            for key in spilledColors.keys where targets[key] == nil {
+                try Data(contentsOf: spillRoot.appendingPathComponent(key + ".rgba")).write(to: root.appendingPathComponent(key + ".rgba"))
+            }
+            for key in spilledDepths.keys where depths[key] == nil {
+                for suffix in [".depth", ".stencil"] {
+                    try Data(contentsOf: spillRoot.appendingPathComponent(key + suffix)).write(to: root.appendingPathComponent(key + suffix))
+                }
+            }
+        }
     for (key,t) in targets {
         var bytes=[UInt8](repeating:0,count:t.width*t.height*targetBytes[key]!)
         t.getBytes(&bytes,bytesPerRow:t.width*targetBytes[key]!,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
@@ -559,14 +584,23 @@ public func sojuDestroy(_ pointer: UnsafeMutableRawPointer) { Unmanaged<Worker>.
 @_cdecl("soju_run")
 public func sojuRun(_ pointer: UnsafeMutableRawPointer, _ commands: UnsafePointer<Command>?, _ count: Int, _ resources: UnsafePointer<SpanByte>?, _ resourceCount: Int, _ constants: UnsafePointer<SpanByte>) -> UnsafeMutablePointer<CChar>? {
     autoreleasepool {
-        do { return strdup("OK " + (try Unmanaged<Worker>.fromOpaque(pointer).takeUnretainedValue().run(UnsafeBufferPointer(start: commands, count: count), UnsafeBufferPointer(start: resources, count: resourceCount), constants.pointee))) }
+        do {
+            let worker = Unmanaged<Worker>.fromOpaque(pointer).takeUnretainedValue()
+            let result = try autoreleasepool { try worker.run(UnsafeBufferPointer(start: commands, count: count), UnsafeBufferPointer(start: resources, count: resourceCount), constants.pointee) }
+            return strdup("OK " + result + " " + (try worker.trimCaches()))
+        }
         catch { return strdup("ERROR \(error)") }
     }
 }
 @_cdecl("soju_readback")
 public func sojuReadback(_ pointer: UnsafeMutableRawPointer, _ directory: UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>? {
     autoreleasepool {
-        do { return strdup("OK " + (try Unmanaged<Worker>.fromOpaque(pointer).takeUnretainedValue().readback(String(cString: directory)))) }
+        do {
+            let worker = Unmanaged<Worker>.fromOpaque(pointer).takeUnretainedValue()
+            let result = try autoreleasepool { try worker.readback(String(cString: directory)) }
+            worker.finishReadback()
+            return strdup("OK " + result + " " + (try worker.trimCaches()))
+        }
         catch { return strdup("ERROR \(error)") }
     }
 }

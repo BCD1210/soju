@@ -15,3 +15,6 @@ drive_c/
 dist/
 __pycache__/
 *.pyc
+
+# Local GPU cache, spill and verification artifacts
+/target/

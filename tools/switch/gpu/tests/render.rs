@@ -567,7 +567,11 @@ fn method_streams_render_expected_images_on_metal() {
     }
     assert_eq!(
         (h.backend.textures.uploads, h.backend.textures.hits),
-        (2, 2)
+        if std::env::var("SOJU_GPU_CPU_CACHE_BYTES").as_deref() == Ok("0") {
+            (4, 0)
+        } else {
+            (2, 2)
+        }
     );
 }
 
@@ -811,7 +815,12 @@ fn asynchronous_batches_preserve_depth_stencil_without_cpu_readback() {
             }
         );
     }
-    assert!(report.diagnostics.contains("pipeline_hits=1"));
+    let hits = if std::env::var("SOJU_GPU_CACHE_BYTES").as_deref() == Ok("0") {
+        "pipeline_hits=0"
+    } else {
+        "pipeline_hits=1"
+    };
+    assert!(report.diagnostics.contains(hits));
     eprintln!(
         "persistent depth/stencil and deferred CPU readback: checked=2048; {}",
         report.diagnostics
@@ -2213,4 +2222,133 @@ fn first_seen_shader_frames() {
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
     panic!("background pipeline failed to become ready");
+}
+
+#[test]
+#[ignore = "explicit 30-minute resource churn soak"]
+fn resource_churn_soak() {
+    let seconds: u64 = std::env::var("SOJU_GPU_SOAK_SECONDS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1800);
+    let label = std::env::var("SOJU_GPU_SOAK_LABEL").unwrap_or_else(|_| "bounded".into());
+    assert!(label
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b == b'-'));
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("target/soak-{label}"));
+    let mut h = Harness::new();
+    let (mut e, first) = h.engine("soak", [0., 0., 0., 1.]);
+    let mut targets = vec![first];
+    for _ in 0..63 {
+        targets.push(h.alloc(vec![0; 4096]));
+    }
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    let surface = Surface {
+        width: 8,
+        height: 8,
+        depth: 1,
+        bytes_per_block: 4,
+        block_height_log2: 1,
+        block_depth_log2: 0,
+    };
+    let address = h.alloc(surface.swizzle(&[255u8; 256]).unwrap());
+    let words = [
+        8 | 2 << 7 | 2 << 10 | 2 << 13 | 2 << 16 | 2 << 19 | 3 << 22 | 4 << 25 | 5 << 28,
+        address as u32,
+        3 << 21,
+        1 << 3,
+        1 << 23 | 7,
+        1 << 31 | 7,
+        0,
+        0,
+    ];
+    let tic = h.alloc(words.into_iter().flat_map(u32::to_le_bytes).collect());
+    let tsc = h.alloc(
+        [
+            2u32 | 2 << 3 | 2 << 6,
+            1 | 1 << 4 | 1 << 6,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect(),
+    );
+    h.methods(
+        &mut e,
+        &[
+            (0x2144, h.tex_fs as u32),
+            (0xf10, 1),
+            (0x1574, 0),
+            (0x1578, tic as u32),
+            (0x157c, 0),
+            (0x155c, 0),
+            (0x1560, tsc as u32),
+            (0x1564, 0),
+        ],
+    );
+    h.backend.submit(&root).unwrap().wait().unwrap();
+    h.backend.readback(&root, &mut h.memory).unwrap();
+    let start = std::time::Instant::now();
+    let mut frame = 0;
+    let mut next_sample = 0;
+    while start.elapsed().as_secs() < seconds {
+        let pixel = [(frame & 255) as u8, ((frame >> 8) & 255) as u8, 127, 255];
+        h.memory
+            .write(address, &surface.swizzle(&pixel.repeat(64)).unwrap())
+            .unwrap();
+        h.methods(&mut e, &[(0x804, targets[frame % targets.len()] as u32)]);
+        // Vary validated blend descriptors while preserving the full opaque image.
+        h.methods(
+            &mut e,
+            &[
+                (0x1360, 1),
+                (0x1340, 1),
+                (0x1344, 2),
+                (0x1348, 1),
+                (0x1394, (frame % 256) as u32),
+            ],
+        );
+        h.draw(&mut e, 6, false, false);
+        let stats = h.backend.submit(&root).unwrap().wait().unwrap();
+        if let Some(bytes) = stats
+            .split_whitespace()
+            .find_map(|s| s.strip_prefix("cache_bytes="))
+            .and_then(|s| s.parse::<usize>().ok())
+        {
+            let budget = stats
+                .split_whitespace()
+                .find_map(|s| s.strip_prefix("cache_budget="))
+                .unwrap()
+                .parse::<usize>()
+                .unwrap();
+            assert!(bytes <= budget, "{stats}");
+        }
+        let report = h.backend.readback(&root, &mut h.memory).unwrap();
+        assert_eq!(report.images.len(), 1);
+        assert!(report.images[0].rgba.chunks_exact(4).all(|p| p == pixel));
+        if start.elapsed().as_secs() >= next_sample {
+            let rss = std::process::Command::new("ps")
+                .args(["-o", "rss=", "-p", &std::process::id().to_string()])
+                .output()
+                .unwrap();
+            eprintln!(
+                "soak label={label} seconds={} frame={frame} rss_kib={} {stats}",
+                start.elapsed().as_secs(),
+                String::from_utf8_lossy(&rss.stdout).trim()
+            );
+            next_sample += 60;
+        }
+        frame += 1;
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    eprintln!(
+        "soak_complete label={label} seconds={} frames={frame} checked_pixels={}",
+        start.elapsed().as_secs(),
+        frame * 1024
+    );
 }

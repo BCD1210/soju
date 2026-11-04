@@ -111,7 +111,7 @@ color target sets are grouped within dependency-safe spans. Clears and actual
 attachment changes end passes. CPU upload invalidation and query boundaries flush
 GPU work. Disabled scissor restores full-target bounds. Diagnostics report pipeline,
 depth-state and texture cache hits, encoder/command-buffer counts, worker seconds
-and draws/second. Caches currently have no eviction policy. Range generations use split intervals,
+and draws/second. Reusable graphics caches have completion-boundary LRU eviction (see Resource budgets). Range generations use split intervals,
 so repeated writes to the same cbuf do not grow a write journal.
 
 ## Original foundation verification on Apple M4 Pro
@@ -162,8 +162,7 @@ or GPU-only throughput. Re-run the command to measure the current machine/load.
 
 - Memory-backed conditional rendering, other report types/sizes/timestamps,
   automatic FIFO/channel scheduling and guest syncpoint-ID integration.
-- Runner-owned readback interception remains mandatory. No cache eviction, IOMMU
-  or automatic transfer barriers; readback still uses output files.
+- Runner-owned readback interception remains mandatory. No IOMMU or automatic transfer barriers; readback still uses output files.
 - Mixed integer/float texture tables, mixed TIC component types, stencil sampling,
   mip/layer/cube/3D views, MSAA, anisotropy, custom borders and LOD bias.
 - Shader-selected point-size slots, cull distances, viewport arrays, depth bounds/
@@ -337,3 +336,39 @@ persistence. SHA-256 envelopes reject corrupt payloads before Metal reads them;
 atomic replacement prevents partial publication. Cache failures fall back to
 compilation. Oldest files are removed after publication to enforce the disk
 budget. MSL still goes through Metal's library compiler on a disk-cache hit.
+
+## Resource budgets
+
+`SOJU_GPU_CACHE_BYTES` sets the per-Backend native graphics cache budget (default
+256 MiB). LRU eviction runs after GPU completion and release of per-batch
+bindings. Textures, render targets, depth targets, argument tables/heaps and
+render pipelines participate. Argument-table dependencies are released with
+textures; cached render passes are invalidated with attachments. Dirty colour
+and depth/stencil contents spill to an exclusive `target/soju-spill-*` directory
+and restore only for the matching guest generation. Readback and worker teardown
+remove the spill files. Spills are authoritative pending guest output, not a
+reconstructible disk cache, so their disk size is not capped.
+
+Memory-pressure warning/critical notifications halve the effective budget until
+normal pressure returns. This is enforced at submission/readback boundaries,
+not during a frame. Diagnostics expose `cache_bytes`, `cache_budget`,
+`cache_evictions` and Metal `metal_bytes`. Pipeline/function storage is charged
+64 KiB per render variant because Metal has no per-pipeline allocation-size API.
+The budget bounds accounted reusable graphics resources, **not process RSS or
+Metal driver allocations**, active submission working sets, compiler jobs or
+compute buffers. A single frame may temporarily exceed it.
+
+CPU translated-shader, pipeline-state and deswizzled-texture caches each use a
+byte-accounted LRU with `SOJU_GPU_CPU_CACHE_BYTES` (default 16 MiB per cache).
+Captured commands own their resource copies. These settings do not change the
+public API; set them before creating Backends. Zero budgets exercise full
+reconstruction. Run the explicit soak with:
+
+```sh
+SOJU_GPU_CACHE_BYTES=524288 cargo test --offline --release --test render resource_churn_soak -- --ignored --nocapture
+```
+
+It runs 1,800 seconds, churns textures across 64 render targets, checks every
+pixel, and logs process RSS plus Metal allocation size every minute. Set
+`SOJU_GPU_SOAK_SECONDS` for a shorter smoke check and `SOJU_GPU_SOAK_LABEL` to
+separate output directories.

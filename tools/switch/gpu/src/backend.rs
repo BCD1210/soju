@@ -32,8 +32,8 @@ pub struct Backend {
     variants: Vec<PreparedVariant>,
     prepared: Option<(Snapshot, (u64, u64), usize)>,
     file_cache: std::collections::HashMap<Vec<u8>, String>,
-    pipeline_states: std::collections::HashMap<Vec<u8>, (MetalShader, MetalShader, String)>,
-    shader_cache: BTreeMap<(u64, u64, u64), (MetalShader, Header, Key)>,
+    pipeline_states: crate::lru::Lru<Vec<u8>, (MetalShader, MetalShader, String)>,
+    shader_cache: crate::lru::Lru<(u64, u64, u64), (MetalShader, Header, Key)>,
     files: Vec<Vec<u8>>,
     constant_upload: Vec<u8>,
     uniform_offsets: std::collections::HashMap<(u64, u64, u32), (u64, usize)>,
@@ -215,8 +215,11 @@ impl Backend {
             header: &[],
             render_state: shader.source.as_bytes(),
         });
-        self.shader_cache
-            .insert(identity, (shader.clone(), header.clone(), key));
+        self.shader_cache.insert(
+            identity,
+            (shader.clone(), header.clone(), key),
+            shader.source.len() + 512,
+        );
         Ok((shader, header, key))
     }
     /// Resolve immediately at each action, before later CPU/transfer writes.
@@ -778,8 +781,12 @@ impl Backend {
                         .iter()
                         .map(|b| format!("{b:02x}"))
                         .collect::<String>();
-                    self.pipeline_states
-                        .insert(signature, (vs.clone(), fs.clone(), pipeline.clone()));
+                    let weight = signature.len() + vs.source.len() + fs.source.len() + 1024;
+                    self.pipeline_states.insert(
+                        signature,
+                        (vs.clone(), fs.clone(), pipeline.clone()),
+                        weight,
+                    );
                     (vs, fs, pipeline)
                 };
                 let vfile = self.file(vs.source.as_bytes().to_vec());
