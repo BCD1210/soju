@@ -125,7 +125,8 @@ fn command_inventory_and_simple_services() {
         }
     }
     let account = h.open("acc:u1");
-    h.call(account, req(50, vec![])).unwrap();
+    assert!(h.call(account, req(50, vec![])).is_err());
+    assert_eq!(h.call(account, req(50, vec![0; 8])).unwrap().data[0], 1);
     let apm = h.open("apm:p");
     h.call(apm, req(1, vec![])).unwrap();
     let session = h.child(apm, 0);

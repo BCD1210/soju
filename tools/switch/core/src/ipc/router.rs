@@ -34,6 +34,7 @@ const SERVICES: &[(&str, Family)] = &[
     ("hid", Family::Platform),
     ("time:u", Family::Platform),
     ("time:s", Family::Platform),
+    ("acc:u0", Family::Platform),
     ("acc:u1", Family::Platform),
     ("apm:p", Family::Platform),
     ("pl:u", Family::Platform),

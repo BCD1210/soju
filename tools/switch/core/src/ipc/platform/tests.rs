@@ -126,7 +126,16 @@ fn ae_oe_graph_and_unknown_interfaces() {
             Err(Error::Unsupported { .. })
         ));
     }
-    for name in ["set", "ns:am2", "psm"] {
+    let settings = h.open("set");
+    assert_eq!(
+        h.call(settings, req(0, vec![])).unwrap().data,
+        b"en-US\0\0\0"
+    );
+    assert!(matches!(
+        h.call(settings, req(99, vec![])),
+        Err(Error::Unsupported { .. })
+    ));
+    for name in ["ns:am2", "psm"] {
         let s = h.open(name);
         assert!(matches!(
             h.call(s, req(0, vec![])),

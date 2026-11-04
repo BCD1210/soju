@@ -1,4 +1,5 @@
 //! Platform services backed by kernel objects and bounded host resources.
+mod account;
 mod applet;
 #[cfg(test)]
 mod error_tests;
@@ -47,6 +48,7 @@ enum Kind {
     Clock,
     Timezone,
     Account,
+    Profile,
     Apm,
     Fonts,
     Bsd,
@@ -112,7 +114,7 @@ impl Platform {
             "appletOE" => Kind::Oe,
             "hid" => Kind::Hid,
             "time:u" | "time:s" => Kind::Time,
-            "acc:u1" => Kind::Account,
+            "acc:u0" | "acc:u1" => Kind::Account,
             "apm:p" => Kind::Apm,
             "pl:u" => Kind::Fonts,
             "bsd:s" | "bsd:u" => Kind::Bsd,
