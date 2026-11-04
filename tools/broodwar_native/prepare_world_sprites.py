@@ -67,6 +67,9 @@ def prepare() -> None:
                     info['teamFile'] = team_file
                 sources[source] = info
             entry = dict(sources[source])
+            old = previous.get('images',{}).get(str(image),{})
+            if old.get('sourceSha256') == entry['sourceSha256'] and 'relief' in old:
+                entry['relief'] = old['relief']
             name_index = struct.unpack_from('<I',image_dat,image*4)[0]
             name_offset = struct.unpack_from('<H',image_names,name_index*2)[0]
             name = image_names[name_offset:].split(b'\0',1)[0].decode('ascii')

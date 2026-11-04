@@ -92,8 +92,17 @@ func runtimeChecks()throws {
         try require(fallback.evidence.first?["frame"] as? Int == frame && fallback.evidence.first?["mirrored"] as? Bool == mirror,
             "observer angle \(angle) selects the native animation group and mirrored direction")
         let facing=fallback.layers[0]!.simdOrientation.act(SIMD3<Float>(0,0,1))
-        try require(abs(facing.x-Float(sin(angle)))<0.0001 && abs(facing.z-Float(cos(angle)))<0.0001,"billboard front faces observer at \(angle)")
+        try require(abs(facing.x-Float(sin(angle)*cos(Terrain3D.canonicalElevation)))<0.0001 && abs(facing.z-Float(cos(angle)*cos(Terrain3D.canonicalElevation)))<0.0001,"relief preserves source elevation and faces observer azimuth at \(angle)")
     }
+    try require(WorldSprites.playerColor([[0,0,0,0]],owner:0)==Models3D.playerColors[0],"zero initialization colors use player palette")
+    if let mesh=commander.worldSprites.relief.geometry(239,frame:68,art:commander.worldSprites) {
+        try require(!(mesh is SCNPlane) && mesh.sources(for:.vertex).first!.vectorCount>100,"HD depth produces tessellated geometry")
+        let box=mesh.boundingBox
+        try require(box.max.z-box.min.z>0.01,"relief has nonzero physical depth")
+        let material=commander.worldSprites.relief.material(239,frame:68,color:[244,4,4],art:commander.worldSprites)
+        try require(material.readsFromDepthBuffer && material.writesToDepthBuffer,"relief participates in scene occlusion")
+        try require(material.shaderModifiers?[.surface]?.contains("relief_specular")==true,"relief shader binds material layers")
+    } else {try require(false,"prepared Marine relief required")}
     let fixed=UnitBillboard.viewFrame(["frame":3,"frameset":0,"flags":0],azimuth:.pi,count:50)
     try require(fixed.0==3 && !fixed.1,"non-directional building animation does not become a directional frame")
     let short=UnitBillboard.viewFrame(["frame":0,"frameset":0,"flags":8],azimuth:.pi,count:1)

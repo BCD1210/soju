@@ -67,6 +67,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     let effects:CombatEffects;var retiring=[String:ModelInstance]()
     let wrists=WristPanels()
     let captureFrames=CaptureFrames()
+    let frameMetrics=XRFrameMetrics()
     let worldSprites=WorldSprites();var creepTiles=Set<Int>(),creepNodes=[Int:SCNNode]()
     var eventSequence:Double=0,session="",lostEvents=0,deathCount=0
     var targetingOrder="move"
@@ -76,6 +77,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     var state:Obj=[:];var busy=false;var initialized=false;var notice="Connecting to original client"
     var lastTick=CACurrentMediaTime();var lastSceneDiagnostic=0.0;var tick:Timer?;var poll:Timer?;var placingDepot=false
     #if SOJU_OPENXR
+    var xrStereoCaptureIndex:Int?
     var xrTimer:Timer?;var xrRenderer:SCNRenderer?;var xrCamera=SCNNode()
     var xrColor=[Int:MTLTexture]();var xrDepth=[Int:MTLTexture]();var lastXRInput=CACurrentMediaTime();var turnHeld=false
     var eyePositions=[SIMD3<Float>](repeating:.zero,count:2);var headCenter:SIMD3<Float>?

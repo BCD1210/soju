@@ -9,8 +9,10 @@ final class UnitBillboard {
     var layers=[Int:SCNNode](),evidence=[Obj]()
     var nativeLayers=[Int:Obj](),unit:Obj=[:],team=[255,255,255]
     var shown=[Int:Int]()
+    var lastEye:SIMD3<Float>?,lastRotation:SIMD4<Float>?,lastPerspective:Bool?
     init(id:String) {root.name=id}
     func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites,color:[Int]=[255,255,255]) {
+        lastEye=nil
         self.unit=unit;team=color;nativeLayers.removeAll();shown.removeAll()
         let x=number(unit,"x")/32,z=number(unit,"y")/32
         root.position=Terrain3D.worldPosition(x,ground.elevation(x,z)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
@@ -32,6 +34,9 @@ final class UnitBillboard {
             let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
             material.diffuse.contents=image;material.diffuse.wrapS = .clamp;material.diffuse.wrapT = .clamp
             material.readsFromDepthBuffer=false;material.writesToDepthBuffer=false;plane.materials=[material];node.geometry=plane
+            if !shadow,let mesh=art.relief.geometry(id,frame:frame,art:art) {
+                mesh.materials=[art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
+            }
             node.castsShadow=false;node.renderingOrder=1000+Int(number(unit,"y"))*32+chain.count-index
             if shadow {
                 node.constraints=nil;node.eulerAngles.x = -.pi/2;material.multiply.contents=NSColor.black;node.opacity=0.5
@@ -58,8 +63,10 @@ final class UnitBillboard {
         return (0..<count).contains(frame) ? (frame,mirrored):(original,flags&2 != 0)
     }
     func updateView(eye:SIMD3<Float>,orientation:simd_quatf,perspective:Bool,art:WorldSprites) {
+        if lastEye==eye && lastRotation==orientation.vector && lastPerspective==perspective {return}
+        lastEye=eye;lastRotation=orientation.vector;lastPerspective=perspective
         let delta=eye-root.simdWorldPosition,azimuth=atan2(Double(delta.x),Double(delta.z))
-        let rotation=perspective ? simd_quatf(angle:Float(azimuth),axis:SIMD3<Float>(0,1,0)):orientation
+        let rotation=perspective ? simd_quatf(angle:Float(azimuth),axis:SIMD3<Float>(0,1,0))*simd_quatf(angle:-Float(Terrain3D.canonicalElevation),axis:SIMD3<Float>(1,0,0)):orientation
         var contact=0.0
         let main=unit["image"] as? Obj ?? [:]
         if perspective,let entry=art.images[String(Int(number(main,"id")))],let records=entry["frames"] as? [Obj] {
@@ -71,11 +78,14 @@ final class UnitBillboard {
         evidence=[]
         for (index,native) in nativeLayers.sorted(by:{$0.key<$1.key}) {
             guard let node=layers[index],let entry=art.images[String(Int(number(native,"id")))],
-                let records=entry["frames"] as? [Obj],let plane=node.geometry as? SCNPlane else {continue}
+                let records=entry["frames"] as? [Obj] else {continue}
             let shadow=Int(number(native,"drawfunc"))==10
             let (frame,mirrored)=perspective && !shadow ? Self.viewFrame(native,azimuth:azimuth,count:records.count):(Int(number(native,"frame")),Int(number(native,"flags"))&2 != 0)
             if shown[index] != frame {
-                node.geometry?.firstMaterial?.diffuse.contents=art.texture(Int(number(native,"id")),frame:frame,color:team)
+                let id=Int(number(native,"id"))
+                if !shadow,let mesh=art.relief.geometry(id,frame:frame,art:art) {
+                    mesh.materials=[art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh
+                } else {node.geometry?.firstMaterial?.diffuse.contents=art.texture(id,frame:frame,color:team)}
                 shown[index]=frame
             }
             let ox=(number(native,"offsetX")+Double(Int(number(entry,"grpWidth"))%2)/2)/32
@@ -85,7 +95,7 @@ final class UnitBillboard {
             if shadow {
                 // Owned shadow-image alpha retains the original soft coverage.
                 // Undo the source projection before laying that layer on ground.
-                plane.height=number(entry,"grpHeight")/32/sin(Terrain3D.canonicalElevation)
+                (node.geometry as? SCNPlane)?.height=number(entry,"grpHeight")/32/sin(Terrain3D.canonicalElevation)
                 node.eulerAngles=SCNVector3(-Double.pi/2,0,0)
                 let flight=unit["airborne"] as? Bool == true ? 1.5:0
                 node.position=SCNVector3(ox,0.002-flight,oy/sin(Terrain3D.canonicalElevation)-flight*Terrain3D.reliefDepth)
@@ -93,17 +103,25 @@ final class UnitBillboard {
             } else {
                 node.simdOrientation=rotation
                 let offset=rotation.act(SIMD3<Float>(Float(ox),Float(-oy),0))
-                node.simdPosition=offset+SIMD3<Float>(0,Float(contact),0)
+                node.simdPosition=offset+SIMD3<Float>(0,node.geometry is SCNPlane ? Float(contact):0,0)
             }
             node.scale.x=mirrored ? -1:1
+            if !(node.geometry is SCNPlane),let material=node.geometry?.firstMaterial {
+                var light=rotation.inverse.act(SpriteRelief.sun)
+                var view=rotation.inverse.act(simd_normalize(delta))
+                if mirrored {light.x = -light.x;view.x = -view.x}
+                if !perspective {light=SpriteRelief.reference;view=SIMD3<Float>(0,0,1)}
+                material.setValue(NSValue(scnVector3:SCNVector3(light)),forKey:"reliefLight")
+                material.setValue(NSValue(scnVector3:SCNVector3(view)),forKey:"reliefEye")
+            }
             evidence.append(["image":number(native,"id"),"frame":frame,"nativeFrame":number(native,"frame"),
                 "frameset":number(native,"frameset"),"mirrored":mirrored,"observerAzimuth":azimuth,
-                "shadow":shadow,"contactLift":contact,"position":[node.position.x,node.position.y,node.position.z]])
+                "shadow":shadow,"relief":!(node.geometry is SCNPlane),"contactLift":contact,"position":[node.position.x,node.position.y,node.position.z]])
         }
     }
     func projectedLayers(view:SCNView,art:WorldSprites)->[Obj] {
         nativeLayers.sorted(by:{$0.key<$1.key}).compactMap { index,native in
-            guard let node=layers[index],let plane=node.geometry as? SCNPlane,
+            guard let node=layers[index],
                 let entry=art.images[String(Int(number(native,"id")))],let records=entry["frames"] as? [Obj],
                 let frame=shown[index],records.indices.contains(frame) else {return nil}
             let record=records[frame],scale=number(entry,"scale")
@@ -112,7 +130,7 @@ final class UnitBillboard {
             let right=left+number(record,"w")/(number(entry,"grpWidth")*scale)
             let bottom=top-number(record,"h")/(number(entry,"grpHeight")*scale)
             let points=[(left,top),(right,top),(right,bottom),(left,bottom)].map { x,y in
-                view.projectPoint(node.convertPosition(SCNVector3(x*Double(plane.width),y*Double(plane.height),0),to:nil))
+                view.projectPoint(node.convertPosition(SCNVector3(x*number(entry,"grpWidth")/32,y*number(entry,"grpHeight")/32,0),to:nil))
             }
             return ["image":number(native,"id"),"frame":frame,"shadow":number(native,"drawfunc")==10,
                 "left":points.map{$0.x}.min()!,"top":view.bounds.height-points.map{$0.y}.max()!,
@@ -124,6 +142,7 @@ final class UnitBillboard {
 
 // Native image chains drive both independent map sprites and fallback death frames.
 final class WorldSprites {
+    let relief=SpriteRelief()
     let root=SCNNode(),folder=runtime.appendingPathComponent("world-sprites")
     let images:[String:Obj],creep:[String:Obj]
     let colorContext=CIContext()
@@ -143,10 +162,10 @@ final class WorldSprites {
         for node in nodes.values {node.removeFromParentNode()}
         nodes.removeAll();deathFrames=0;loneFrames=0;missing.removeAll()
     }
-    func texture(_ id:Int,frame:Int,color:[Int]=[255,255,255])->NSImage? {
-        let key="\(id)/\(frame)/\(color)"
+    func texture(_ id:Int,frame:Int,color:[Int]=[255,255,255],layer:String="diffuse")->NSImage? {
+        let key="\(id)/\(frame)/\(color)/\(layer)"
         if let image=frames[key] {return image}
-        guard let entry=images[String(id)],let records=entry["frames"] as? [Obj],records.indices.contains(frame),let file=entry["file"] as? String else {missing.insert(id);return nil}
+        guard let entry=images[String(id)],let records=entry["frames"] as? [Obj],records.indices.contains(frame),let file=(layer=="diffuse" ? entry["file"] as? String:((entry["relief"] as? Obj)?["files"] as? [String:String])?[layer]) else {if layer=="diffuse" {missing.insert(id)};return nil}
         let atlas:NSImage
         if let cached=atlases[file] {atlas=cached}
         else {guard let loaded=NSImage(contentsOf:folder.appendingPathComponent(file)) else {return nil};atlas=loaded;if atlases.count>32 {atlases.removeAll()};atlases[file]=loaded}
@@ -155,7 +174,7 @@ final class WorldSprites {
         atlas.draw(in:NSRect(x:number(f,"ox"),y:height-number(f,"oy")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),
                    from:NSRect(x:number(f,"x"),y:number(entry,"atlasHeight")-number(f,"y")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),operation:.copy,fraction:1)
         image.unlockFocus()
-        if let teamFile=entry["teamFile"] as? String,let maskAtlas=NSImage(contentsOf:folder.appendingPathComponent(teamFile)),color.count>=3 {
+        if (layer=="diffuse" || layer=="bright"),let teamFile=entry["teamFile"] as? String,let maskAtlas=NSImage(contentsOf:folder.appendingPathComponent(teamFile)),color.count>=3 {
             let mask=NSImage(size:image.size);mask.lockFocus()
             maskAtlas.draw(in:NSRect(x:number(f,"ox"),y:height-number(f,"oy")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),
                 from:NSRect(x:number(f,"x"),y:number(entry,"atlasHeight")-number(f,"y")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),operation:.copy,fraction:1)
