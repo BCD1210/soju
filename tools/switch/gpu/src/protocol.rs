@@ -71,6 +71,7 @@ pub(crate) struct Reg {
 pub(crate) struct TargetCommand {
     pub width: i64,
     pub height: i64,
+    pub samples: i64,
     pub generation: i64,
     pub metal: i64,
     pub bytes: i64,

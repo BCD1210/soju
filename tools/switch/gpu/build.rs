@@ -31,6 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "memory_cache.swift",
         "parallel.swift",
         "shared_depth.swift",
+        "multisample.swift",
     ] {
         let path = format!("native/{name}");
         println!("cargo:rerun-if-changed={path}");

@@ -16,10 +16,10 @@ for cl, folder, ident in specs:
   name, arr, val = m.groups()
   if ident == 0xb197:
    words = ['COLOR_TARGET','ZT_','VIEWPORT','SCISSOR','VERTEX_ATTRIBUTE','VERTEX_STREAM','INDEX_BUFFER','BLEND','DEPTH','STENCIL','CULL','FRONT_FACE','POLYGON_MODE','PIPELINE_','PROGRAM_REGION','CONSTANT_BUFFER','TEX_HEADER_POOL','TEX_SAMPLER_POOL','CLEAR','CT_SELECT','Z_WRITE','BINDLESS_TEXTURE','GLOBAL_BASE_','COLOR_MASK','PRIMITIVE_RESTART','POLY_OFFSET','POINT_SIZE','USER_CLIP','RENDER_ENABLE','ZPASS_PIXEL','REPORT_SEMAPHORE','FILL_VIA_TRIANGLE','ALPHA_TEST','ALPHA_FUNC','ALPHA_REF','PROVOKING_VERTEX']
-   if not any(w in name for w in words) and name not in ['BEGIN','END','SET_VERTEX_ARRAY_START','DRAW_VERTEX_ARRAY','SET_SELECT_MAXWELL_TEXTURE_HEADERS']: continue
+   if not any(w in name for w in words) and name not in ['SET_ANTI_ALIAS','SET_ANTI_ALIAS_ENABLE','SET_ANTI_ALIAS_SAMPLE_POSITIONS','BEGIN','END','SET_VERTEX_ARRAY_START','DRAW_VERTEX_ARRAY','SET_SELECT_MAXWELL_TEXTURE_HEADERS']: continue
   off = int(re.search(r'0x[0-9a-f]+',val)[0],16)
   stride = int(re.search(r'\*(\d+)',val)[1]) if arr else 0
-  count = (8 if ('COLOR_TARGET' in name or 'PER_TARGET' in name or 'COLOR_MASK' in name or name=='SET_BLEND') else 6 if 'PIPELINE_' in name else 5 if 'BIND_GROUP' in name else 4 if name=='SET_COLOR_CLEAR_VALUE' else 16) if arr else 1
+  count = (8 if ('COLOR_TARGET' in name or 'PER_TARGET' in name or 'COLOR_MASK' in name or name=='SET_BLEND') else 6 if 'PIPELINE_' in name else 5 if 'BIND_GROUP' in name else 4 if name in ('SET_COLOR_CLEAR_VALUE','SET_ANTI_ALIAS_SAMPLE_POSITIONS') else 16) if arr else 1
   rust.append(f'    Method {{ class: 0x{ident:x}, offset: 0x{off:04x}, count: {count}, stride: {stride}, name: "{name}" }},')
   url=f'https://github.com/NVIDIA/open-gpu-doc/blob/{revision}/classes/{folder}/cl{cl}.h'
   doc.append(f'| {cl.upper()} | `0x{off:04x}` | {count} / {stride} | [`{name}`]({url}) |')

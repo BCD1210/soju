@@ -86,6 +86,11 @@ final class Worker {
     var dirtyAttachments = Set<String>()
     var spilledColors = [String: Int](), spilledDepths = [String: Int]()
     deinit { try? FileManager.default.removeItem(at: spillRoot) }
+    var sampleTransfer: MultisampleTransfer?
+    func transfer() throws -> MultisampleTransfer {
+        if let sampleTransfer { return sampleTransfer }
+        let value = try MultisampleTransfer(device); sampleTransfer = value; return value
+    }
     let compiler: RenderCompiler
     var renderFunctions = [String: (MTLFunction, MTLFunction)]()
     var pipelines = [String: MTLRenderPipelineState](), depthStates = [String: MTLDepthStencilState]()
@@ -262,7 +267,7 @@ final class Worker {
         let raw = registerStates[commandIndex]!
         func r(_ a: Int) -> Int { raw[a] ?? 0 }
         func f(_ a: Int) -> Double { Double(Float(bitPattern:UInt32(r(a)))) }
-        let w = Int(target.width), h = Int(target.height)
+        let w = Int(target.width), h = Int(target.height), samples = max(1, Int(target.samples))
         let mask = Int(command.clear), isClear = command.kind == 1
         try need(r(0x1514)<=1,"invalid occlusion enable")
         let visibility = r(0x1514)==1 && !isClear ? device.makeBuffer(length:8,options:.storageModeShared) : nil
@@ -282,7 +287,8 @@ final class Worker {
         let newTarget = targets[key] == nil
         if newTarget {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(Int(target.metal)))!,width:w,height:h,mipmapped:false)
-            descriptor.storageMode = .shared; descriptor.usage = [.renderTarget,.shaderRead]
+            descriptor.storageMode = samples > 1 ? .private : .shared; descriptor.usage = [.renderTarget,.shaderRead]
+            if samples > 1 { descriptor.textureType = .type2DMultisample; descriptor.sampleCount = samples }
             guard let texture = device.makeTexture(descriptor:descriptor) else { throw Failure("color allocation") }; targets[key] = texture; targetBytes[key] = Int(target.bytes)
         }
         let color = targets[key]!
@@ -290,18 +296,27 @@ final class Worker {
             if generations[key] != nil {try flush()}
             let textureUpload = NativeSpan("texture_upload")
             defer { textureUpload.end() }
-            let initial = try restore(key, Int(target.generation), ".rgba") { try file(text(target.file)) };try need(initial.count == w*h*Int(target.bytes),"target initial bytes")
-            initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*Int(target.bytes)) }
+            let initial = try restore(key, Int(target.generation), ".rgba") { try file(text(target.file)) };try need(initial.count == w*h*Int(target.bytes)*samples,"target initial bytes")
+            if samples > 1 { try flush(); try transfer().upload(color, bytes: initial) }
+            else { initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*Int(target.bytes)) } }
             generations[key] = Int(target.generation)
         }
             colors.append(color)
         }
         let depthKey = items(command.depth).first.map { text($0.key) + ":" + String($0.generation) } ?? "none"
-        passKey = attachments.map{ text($0.key) }.joined(separator:"|")+"|"+depthKey
+        let sampleKey = samples > 1 ? ":samples:\(r(0x1534)):\(r(0x11e0))" : ""
+        passKey = attachments.map{ text($0.key) }.joined(separator:"|")+"|"+depthKey+sampleKey
         let cachedPass = !isClear && visibility == nil ? renderPasses[passKey] : nil
         pass = cachedPass ?? MTLRenderPassDescriptor()
         if cachedPass != nil { passHits += 1 }
         if cachedPass == nil {
+        if samples > 1 {
+            let positions = (0..<samples).map { index -> MTLSamplePosition in
+                let word = r(0x11e0 + index/4*4), shift = (index%4)*8
+                return r(0x1534) == 0 ? MTLSamplePosition(x: 0.5, y: 0.5) : MTLSamplePosition(x: Float((word >> shift)&15)/16, y: Float((word >> (shift+4))&15)/16)
+            }
+            pass.setSamplePositions(positions)
+        }
         for (slot, color) in colors.enumerated() {
             let a = pass.colorAttachments[slot]!
             a.texture = color; a.loadAction = isClear && mask & 60 != 0 && (mask >> 6) == slot ? .clear : .load; a.storeAction = .store
@@ -325,9 +340,16 @@ final class Worker {
                 let textureUpload = NativeSpan("texture_upload")
                 defer { textureUpload.end() }
                 let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:depthFormat,width:w,height:h,mipmapped:false)
-                descriptor.storageMode = .private;descriptor.usage = .renderTarget
+                descriptor.storageMode = .private;descriptor.usage = samples > 1 ? [.renderTarget,.shaderRead,.pixelFormatView] : .renderTarget
+                if samples > 1 { descriptor.textureType = .type2DMultisample; descriptor.sampleCount = samples }
                 guard let t = device.makeTexture(descriptor:descriptor) else { throw Failure("depth allocation") };depths[dk] = t; depthGenerations[dk] = Int(depth.generation)
                 endPass()
+                if samples > 1 {
+                    try flush()
+                    let z = try restore(dk, Int(depth.generation), ".depth") { try file(text(depth.zfile)) }
+                    let stencil = depthFormat == .depth32Float_stencil8 ? try restore(dk, Int(depth.generation), ".stencil") { try file(text(depth.sfile)) } : Data()
+                    try transfer().upload(t, bytes: z, stencil: stencil)
+                } else {
                 let upload=try commandBuffer()
                 guard let blit=upload.makeBlitCommandEncoder() else {throw Failure("depth upload encoder")}
                 func plane(_ name:String,_ bytesPerPixel:Int,_ options:MTLBlitOption) throws {
@@ -340,6 +362,7 @@ final class Worker {
                 try plane("zfile",depthFormat == .depth16Unorm ? 2 : 4,depthFormat == .depth32Float_stencil8 ? .depthFromDepthStencil : [])
                 if depthFormat == .depth32Float_stencil8 {try plane("sfile",1,.stencilFromDepthStencil)}
                 blit.endEncoding()
+                }
             }
             if cachedPass == nil {
             pass.depthAttachment.texture = depths[dk];pass.depthAttachment.loadAction = isClear && mask & 1 != 0 ? .clear : .load;pass.depthAttachment.storeAction = .store
@@ -368,7 +391,7 @@ final class Worker {
                 let x = r(0xe04) & 65535, y = r(0xe08) & 65535
                 let endX = min(r(0xe04) >> 16, w), endY = min(r(0xe08) >> 16, h)
                 if endX > x && endY > y {
-                    let key = color.pixelFormat.rawValue
+                    let key = color.pixelFormat.rawValue | (UInt(samples) << 16)
                     if clearPipelines[key] == nil {
                         let source = """
                         #include <metal_stdlib>
@@ -384,6 +407,7 @@ final class Worker {
                         d.vertexFunction = lib.makeFunction(name: "clear_vertex")
                         d.fragmentFunction = lib.makeFunction(name: "clear_fragment")
                         d.colorAttachments[0].pixelFormat = color.pixelFormat
+                        d.rasterSampleCount = samples
                         clearPipelines[key] = try device.makeRenderPipelineState(descriptor: d)
                     }
                     pass.colorAttachments[0].loadAction = .load
@@ -409,6 +433,7 @@ final class Worker {
             } else { pk = text(command.pipeline) }
             if pipelines[pk] == nil {
                 let descriptor = MTLRenderPipelineDescriptor()
+                descriptor.rasterSampleCount = samples
                 for slot in colors.indices { descriptor.colorAttachments[slot].pixelFormat = colors[slot].pixelFormat }
                 descriptor.depthAttachmentPixelFormat = depthFormat
                 if depthFormat == .depth32Float_stencil8 { descriptor.stencilAttachmentPixelFormat = depthFormat }
@@ -672,16 +697,21 @@ final class Worker {
             }
         }
     for (key,t) in targets where dirtyAttachments.contains(key) {
+        if t.sampleCount > 1 { try output(key + ".rgba", transfer().download(t)); continue }
         var bytes=Data(count:t.width*t.height*targetBytes[key]!)
         bytes.withUnsafeMutableBytes { storage in
             t.getBytes(storage.baseAddress!,bytesPerRow:t.width*targetBytes[key]!,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
         }
         try output(key + ".rgba", bytes)
     }
-        if depths.keys.contains(where: { dirtyAttachments.contains($0) }) {
+        for (key,t) in depths where dirtyAttachments.contains(key) && t.sampleCount > 1 {
+            try output(key + ".depth", transfer().download(t))
+            try output(key + ".stencil", t.pixelFormat == .depth32Float_stencil8 ? transfer().download(t, stencil: true) : Data())
+        }
+        if depths.contains(where: { dirtyAttachments.contains($0.key) && $0.value.sampleCount == 1 }) {
             guard let cb=queue.makeCommandBuffer(),let blit=cb.makeBlitCommandEncoder() else {throw Failure("depth readback encoder")}
             var planes=[(String,MTLBuffer,Int,Int,Int)]()
-            for (key,t) in depths where dirtyAttachments.contains(key) {
+            for (key,t) in depths where dirtyAttachments.contains(key) && t.sampleCount == 1 {
                 for stencil in [false,true] {
                     if stencil && t.pixelFormat != .depth32Float_stencil8 {try output(key + ".stencil", Data());continue}
                     let bpp=stencil ? 1 : (t.pixelFormat == .depth16Unorm ? 2 : 4), row=((t.width*bpp+255)/256)*256

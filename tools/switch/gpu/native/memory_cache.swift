@@ -26,14 +26,14 @@ extension Worker {
         // Metal does not expose pipeline/function allocation sizes. Bound their
         // count with a conservative accounting charge, reported separately from
         // device.currentAllocatedSize (which includes driver allocations).
-        bytes += (pipelines.count + computePipelines.count) * 65536
+        bytes += (pipelines.count + computePipelines.count + (sampleTransfer?.imports.count ?? 0) + (sampleTransfer?.exports.count ?? 0)) * 65536
         bytes += renderPasses.count * 1024
         return bytes
     }
     func trimCaches() throws -> String {
         let limit = pressure.budget(cacheBudget)
         var evicted = 0
-        if cacheBytes() > limit { readbackBuffers.removeAll() }
+        if cacheBytes() > limit { readbackBuffers.removeAll(); sampleTransfer = nil }
         if cacheBytes() > limit {
             let candidates = lastUse.sorted { $0.value.tick < $1.value.tick }
             var spilled = false

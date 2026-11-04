@@ -505,7 +505,7 @@ impl Backend {
                 !crate::engine::stream_output_method(offset),
                 "transform feedback (stream output) is not implemented",
             )?;
-            let supported = matches!(offset,0x1684|0x113c|0x12ec|0x1310|0x1314|0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
+            let supported = matches!(offset,0x15d0|0x1534|0x11e0..=0x11ec|0x1684|0x113c|0x12ec|0x1310|0x1314|0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
             let viewport_array = (0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20;
             let scissor_array = (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8;
             if !supported && !viewport_array && !scissor_array {
@@ -523,6 +523,13 @@ impl Backend {
                 return Ok(());
             }
         }
+        let samples = match r.get(0x15d0) {
+            0 => 1,
+            2 => 4,
+            _ => return Err(Error("unsupported multisample storage mode".into())),
+        };
+        require(r.get(0x1534) <= 1, "invalid multisample enable")?;
+        let scale = if samples == 4 { 2 } else { 1 };
         let attachment_count = r.get(0x121c) & 15;
         require(
             (1..=8).contains(&attachment_count) && r.get(0x121c) >> 28 == 0,
@@ -561,6 +568,11 @@ impl Backend {
                 width > 0 && height > 0 && width <= 16384 && height <= 16384,
                 "invalid render target size",
             )?;
+            require(width.is_multiple_of(scale) && height.is_multiple_of(scale), "multisample storage dimensions")?;
+            if samples == 4 {
+                require(u64::from(width) * u64::from(height) <= 16 * 1024 * 1024, "multisample storage budget")?;
+                require(!pitch && matches!(format, soju_switch_texture::format::Format::Rgba8Unorm | soju_switch_texture::format::Format::Bgra8Unorm), "multisample color format/layout")?;
+            }
             let mut target = Target {
                 address: r.address(base),
                 width,
@@ -574,7 +586,7 @@ impl Backend {
                 depth_rotation: 0,
             };
             let key = format!(
-                "{}-{:x}-{}-{width}-{height}-{layout}",
+                "{}-{:x}-{}-{width}-{height}-{layout}-s{samples}",
                 memory.identity,
                 target.address,
                 format.info().metal
@@ -635,8 +647,9 @@ impl Backend {
             let metal = format.info().metal;
             target_commands.push(TargetCommand {
                 key: key.clone().into(),
-                width: width as _,
-                height: height as _,
+                width: (width / scale) as _,
+                height: (height / scale) as _,
+                samples: samples as _,
                 generation: target.native_generation as _,
                 metal: metal as _,
                 bytes: bytes_per_pixel as _,
@@ -673,6 +686,7 @@ impl Backend {
                 0x19 => Format::Depth32FloatStencil8,
                 _ => Format::Depth32Float,
             };
+            require(samples == 1 || format != Format::Depth16Unorm, "multisample depth16 transfer unsupported")?;
             let mut t = Target {
                 address: r.address(0xfe0),
                 width,
@@ -687,7 +701,7 @@ impl Backend {
             };
             t.generation = memory.generation(t.address, t.size())?;
             let key = format!(
-                "{}-{:x}-{width}-{height}-{}-{}",
+                "{}-{:x}-{width}-{height}-{}-{}-s{samples}",
                 memory.identity,
                 t.address,
                 r.get(0xfe8),
@@ -933,6 +947,7 @@ impl Backend {
                 signature.extend(fkey.0);
                 for value in [
                     topology,
+                    r.get(0x15d0),
                     r.get(0x113c),
                     r.get(0x1684),
                     r.get(0x12ec),

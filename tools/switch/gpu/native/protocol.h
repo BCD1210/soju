@@ -9,6 +9,7 @@ typedef struct { const Reg *pointer; size_t length, capacity; } SpanReg;
 typedef struct {
     int64_t width;
     int64_t height;
+    int64_t samples;
     int64_t generation;
     int64_t metal;
     int64_t bytes;

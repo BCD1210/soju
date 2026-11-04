@@ -157,3 +157,20 @@ The native test runs with Metal API validation, round-trips 560 independently
 initialized samples across all four formats, verifies nonuniform stencil,
 rejects short uploads without mutation, and compares two native color resolves
 against the four-sample average while checking source sample preservation.
+
+## B197 four-sample attachments
+
+NVB197_SET_ANTI_ALIAS MODE_2X2 selects four-sample storage. The guest color/depth
+extents are the expanded sample grid; Metal attachments use half those extents
+in each dimension. Sample count participates in attachment and pipeline keys.
+The packed SET_ANTI_ALIAS_SAMPLE_POSITIONS nibbles configure Metal sample
+locations. Clears, loads, stores, guest writeback, eviction and re-import retain
+individual samples. Unsupported sample modes/formats and mixed raster/storage
+counts fail explicitly. Alpha-to-coverage remains unsupported; its inactive
+dither footprint is retained without changing rendering.
+
+A Metal validation test checks mixed edge coverage, sample-correlated depth,
+stencil preservation, and re-import followed by depth-only clear. The full GPU
+run passes 34 active render tests (five existing ignored), native cache checks,
+13 state tests and two copy tests. Example06 advances from the MSAA setup stop
+to the separate 902D compression/resolve path; scene acceptance is still pending.

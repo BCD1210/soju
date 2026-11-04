@@ -10,6 +10,27 @@ pub struct Method {
 pub const METHODS: &[Method] = &[
     Method {
         class: 0xb197,
+        offset: 0x15d0,
+        count: 1,
+        stride: 0,
+        name: "SET_ANTI_ALIAS",
+    },
+    Method {
+        class: 0xb197,
+        offset: 0x1534,
+        count: 1,
+        stride: 0,
+        name: "SET_ANTI_ALIAS_ENABLE",
+    },
+    Method {
+        class: 0xb197,
+        offset: 0x11e0,
+        count: 4,
+        stride: 4,
+        name: "SET_ANTI_ALIAS_SAMPLE_POSITIONS",
+    },
+    Method {
+        class: 0xb197,
         offset: 0x1684,
         count: 1,
         stride: 0,

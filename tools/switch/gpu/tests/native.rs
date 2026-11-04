@@ -22,6 +22,8 @@ fn native_cache_corruption_pressure_and_async_saturation() {
         "\n",
         include_str!("../native/shared_depth.swift"),
         "\n",
+        include_str!("../native/multisample.swift"),
+        "\n",
         include_str!("native_checks.swift")
     );
     let swift = root.join("checks.swift");

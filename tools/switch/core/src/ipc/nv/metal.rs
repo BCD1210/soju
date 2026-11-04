@@ -429,9 +429,9 @@ impl Renderer {
                 continue;
             }
             if class == 0xb197 && matches!(method, 0x15b4 | 0x1234 | 0x15d0 | 0x153c) {
-                if value != 0 {
+                if value != 0 && !(method == 0x15d0 && value == 2) {
                     return Err(Error::Malformed(
-                        "Metal CSAA, MSAA or linked TSC unsupported",
+                        "Metal CSAA, multisample mode or linked TSC unsupported",
                     ));
                 }
                 self.engine.registers.0.insert(method, value);
@@ -541,9 +541,10 @@ impl Renderer {
                             "core clear rectangle/viewport control unsupported",
                         ));
                     }
+                    let sample_scale = if r.get(0x15d0) == 2 { 2 } else { 1 };
                     if control & 0x100 == 0
-                        || (r.get(0xe04) == r.get(0x808) << 16
-                            && r.get(0xe08) == r.get(0x80c) << 16)
+                        || (r.get(0xe04) == (r.get(0x808) / sample_scale) << 16
+                            && r.get(0xe08) == (r.get(0x80c) / sample_scale) << 16)
                     {
                         r.0.insert(0xe00, 0);
                     }
@@ -551,7 +552,7 @@ impl Renderer {
                     r.0.retain(|offset, _| {
                         matches!(*offset,
                         0x800..=0x9e0 | 0xd80..=0xd90 | 0xda0 | 0xe00..=0xe08 | 0x121c
-                            | 0xfe0..=0xff0 | 0x1228..=0x1230 | 0x1538)
+                            | 0xfe0..=0xff0 | 0x1228..=0x1230 | 0x1538 | 0x15d0 | 0x1534 | 0x11e0..=0x11ec)
                     });
                 }
                 if matches!(
@@ -594,6 +595,9 @@ impl Renderer {
                         let mut source = snapshot.registers.clone();
                         source.0.retain(|offset, _| !draw_bookkeeping(*offset));
                         let r = &mut snapshot.registers;
+                        if r.get(0x1534) == 1 && r.0.contains_key(&0xfb8) && r.get(0xfb8) != r.get(0x15d0) {
+                            return Err(Error::Malformed("mixed raster/storage sample counts unsupported"));
+                        }
                         if matches!(
                             snapshot.action,
                             soju_switch_gpu::engine::Action::Draw { indexed: false, .. }
@@ -651,11 +655,11 @@ impl Renderer {
                             }
                         }
                         snapshot.registers.0.retain(|&offset, value| {
-                            (matches!(offset, 0x1684 | 0x113c | 0x12ec | 0x1310 | 0x1314)
+                            (matches!(offset, 0x1684 | 0x113c | 0x12ec | 0x1310 | 0x1314 | 0x15d0 | 0x1534 | 0x11e0..=0x11ec)
                                 || (0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20
                                 || (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8
                                 || !setup::retain(offset, *value).unwrap_or(false))
-                                && !matches!(offset, 0x15b4 | 0x1234 | 0x15d0 | 0x153c
+                                && !matches!(offset, 0x15b4 | 0x1234 | 0x153c
                                 | 0x165c | 0xde4 | 0xd00..=0xd3c | 0x194c | 0x1950
                                 | 0x74c | 0x16a8 | 0x1794 | 0xc00..=0xc0c)
                         });
@@ -670,7 +674,7 @@ impl Renderer {
                 let targets: Vec<_> = (0x800..=0x9e0)
                     .step_by(4)
                     .chain([
-                        0x121c, 0xfe0, 0xfe4, 0xfe8, 0xfec, 0x1538, 0x1228, 0x122c, 0x1230,
+                        0x121c, 0xfe0, 0xfe4, 0xfe8, 0xfec, 0x1538, 0x1228, 0x122c, 0x1230, 0x15d0,
                     ])
                     .map(|offset| r.get(offset))
                     .collect();
