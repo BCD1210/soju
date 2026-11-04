@@ -139,20 +139,39 @@ def vertex_normals(vertices, triangles):
     return result/np.maximum(np.linalg.norm(result,axis=1,keepdims=True),1e-12)
 
 
-def fit(folder, iterations=100, regularization=2., label='fit', normal_weight=.85):
+def arap_step(original, current, targets, edges, solve, weight):
+    """Local/global as-rigid-as-possible edge regularization with reflection rejection."""
+    i,j=edges.T
+    rest=original[i]-original[j];deformed=current[i]-current[j]
+    covariance=np.zeros((len(original),3,3))
+    products=rest[:,:,None]*deformed[:,None,:]
+    np.add.at(covariance,i,products);np.add.at(covariance,j,products)
+    u,_,vt=np.linalg.svd(covariance)
+    rotation=vt.transpose(0,2,1)@u.transpose(0,2,1)
+    reflected=np.linalg.det(rotation)<0
+    vt[reflected,-1]*=-1
+    rotation=vt.transpose(0,2,1)@u.transpose(0,2,1)
+    desired=np.einsum('nij,nj->ni',(rotation[i]+rotation[j])*.5,rest)
+    rhs=targets.copy()
+    np.add.at(rhs,i,weight*desired);np.add.at(rhs,j,-weight*desired)
+    return np.column_stack([solve(rhs[:,axis]) for axis in range(3)])
+
+
+def fit(folder, iterations=100, regularization=2., label='fit', normal_weight=.85, initial=None, arap=0.):
     data=np.load(folder/'source.npz');original,triangles=data['vertices'],data['triangles']
     camera=json.loads((folder/'camera.json').read_text())['camera']
     masks=np.array([np.array(Image.open(folder/'references'/f'{d:02}-diffuse.png'))[...,3]>127 for d in range(17)])
     # Weld positional duplicates for optimization, then expand to the original UV/skin indices.
     _,indices,inverse=np.unique(np.round(original,6),axis=0,return_index=True,return_inverse=True)
     start=original[indices];triangles=inverse[triangles]
-    vertices=start.copy()
+    vertices=start.copy() if initial is None else np.load(folder/initial)["vertices"][indices].copy()
     edges=np.unique(np.sort(np.concatenate([triangles[:,[0,1]],triangles[:,[1,2]],triangles[:,[2,0]]]),axis=1),axis=0)
     edges=edges[edges[:,0]!=edges[:,1]]
     adjacency=sparse.coo_matrix((np.ones(len(edges)*2),(edges.ravel(),edges[:,::-1].ravel())),shape=(len(start),len(start))).tocsr()
     degree=np.asarray(adjacency.sum(1)).ravel()
     lap=sparse.diags(degree)-adjacency
     solve=factorized((sparse.eye(len(start))+regularization*lap).tocsc())
+    arap_solve=factorized((sparse.eye(len(start))+arap*lap).tocsc()) if arap else None
     target_sdf=np.array([ndimage.distance_transform_edt(~m)-ndimage.distance_transform_edt(m) for m in masks])
     gradients=np.array([np.stack(np.gradient(s),-1) for s in target_sdf])
     history=[];best_score=-1;best=vertices.copy()
@@ -202,12 +221,13 @@ def fit(folder, iterations=100, regularization=2., label='fit', normal_weight=.8
         delta=np.column_stack([solve(forces[:,i]) for i in range(3)])
         displacement=vertices-start
         delta-=.015*np.column_stack([solve(lap@displacement[:,i]) for i in range(3)])
-        vertices+=delta*.7
+        proposed=vertices+delta*.7
+        vertices=arap_step(start,vertices,proposed,edges,arap_solve,arap) if arap else proposed
     np.savez_compressed(folder/f'{label}.npz',vertices=best[inverse],triangles=data['triangles'])
     report={'label':label,'iterations':iterations,'regularization':regularization,'bestIteration':best_iteration,
             'best':history[best_iteration],'history':history,'maxDisplacementUnits':float(np.linalg.norm(best-start,axis=1).max()),
             'skinWeights':'unchanged; rest displacements require inverse idle skin matrices',
-            'normalWeight':normal_weight,
+            'normalWeight':normal_weight,'arapWeight':arap,'initial':initial,
             'method':'raster contour SDF forces, normal/tangential mix, welded Laplacian displacement regularization'}
     (folder/f'{label}.json').write_text(json.dumps(report,indent=2)+'\n')
 
@@ -216,11 +236,13 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('stage',choices=['camera','fit']);p.add_argument('--types',default='0,7')
     p.add_argument('--iterations',type=int,default=100);p.add_argument('--regularization',type=float,default=2)
+    p.add_argument('--arap',type=float,default=0)
+    p.add_argument('--initial')
     p.add_argument('--elevation',type=float);p.add_argument('--normal-weight',type=float,default=.85)
     p.add_argument('--label',default='fit');p.add_argument('--variant',default='rigged');a=p.parse_args()
     for kind in map(int,a.types.split(',')):
         folder=RUNTIME/'models-remastered'/str(kind)/a.variant
         if a.stage=='camera':calibrate(folder,kind,a.elevation)
-        else:fit(folder,a.iterations,a.regularization,a.label,a.normal_weight)
+        else:fit(folder,a.iterations,a.regularization,a.label,a.normal_weight,a.initial,a.arap)
 
 if __name__=='__main__':main()

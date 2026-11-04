@@ -12,7 +12,7 @@ import bpy
 import numpy as np
 from mathutils import Matrix
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parent))
-from remastered_rig_blender import ROOT, idle
+from remastered_rig_blender import ROOT, idle, posed
 
 
 def retarget(kind,variant):
@@ -22,7 +22,15 @@ def retarget(kind,variant):
     source=ROOT/'models-source'/f'{name}--death.glb'
     bpy.ops.wm.open_mainfile(filepath=str(folder/'source.blend'))
     rig=next(o for o in bpy.context.scene.objects if o.type=='ARMATURE')
+    for track in list(rig.animation_data.nla_tracks):
+        if track.name=='Death_Retarget_full':rig.animation_data.nla_tracks.remove(track)
+    rig.animation_data.action=None
+    old=bpy.data.actions.get('Death_Retarget_full')
+    if old is not None:bpy.data.actions.remove(old)
+    metadata['clips']=[n for n in metadata['clips'] if n!='Death_Retarget_full']
     idle(rig,metadata.get('idleClip','Stand_full'))
+    mesh=next(o for o in bpy.context.scene.objects if o.type=='MESH' and o.find_armature()==rig)
+    initial_vertices=posed(mesh)
     start={b.name:b.matrix.copy() for b in rig.pose.bones}
     basis={b.name:b.matrix_basis.copy() for b in rig.pose.bones}
     before=set(bpy.context.scene.objects)
@@ -59,11 +67,15 @@ def retarget(kind,variant):
     track=rig.animation_data.nla_tracks.new();track.name='Death_Retarget_full'
     strip=track.strips.new('Death_Retarget_full',0,result);strip.action_slot=result.slots[0];track.mute=True
     rig.animation_data.action=None
+    idle(rig,'Death_Retarget_full')
+    alignment_error=float(np.max(np.abs(posed(mesh)-initial_vertices)))
+    if alignment_error>1e-4:raise ValueError(f'Death initial-pose alignment failed: {alignment_error}')
     idle(rig,metadata.get('idleClip','Stand_full'))
     bpy.ops.wm.save_as_mainfile(filepath=str(folder/'source.blend'))
     metadata['clips']=[a.name for a in bpy.data.actions if a.name in metadata['clips'] or a==result]
     (folder/'source.json').write_text(json.dumps(metadata,indent=2)+'\n')
     report={'source':str(source),'sourceSha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'initialPoseMaximumError':alignment_error,
             'sourceClip':clip,'targetClip':result.name,'frames':end+1,'fps':bpy.context.scene.render.fps,
             'matchedBones':sorted(common),'matchedCount':len(common),'targetBones':len(start),
             'unmatchedBones':sorted(set(start)-common),

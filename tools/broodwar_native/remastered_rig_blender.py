@@ -82,16 +82,37 @@ def extract(kind, pose="Stand_full", subdivisions=0, variant="rigged"):
     print(json.dumps(report), flush=True)
 
 
+def seed_from_coarse(kind,variant):
+    from mathutils.bvhtree import BVHTree
+    parent=ROOT/'models-remastered'/str(kind)
+    coarse=np.load(parent/'rigged/source.npz')
+    fitted=np.load(parent/'rigged/fit.npz')['vertices']
+    dense=np.load(parent/variant/'source.npz')['vertices']
+    tree=BVHTree.FromPolygons(coarse['vertices'],coarse['triangles'],all_triangles=True)
+    result=dense.copy();maximum=0.
+    for i,point in enumerate(dense):
+        nearest,_,face,distance=tree.find_nearest(Vector(point))
+        ids=coarse['triangles'][face];tri=coarse['vertices'][ids]
+        matrix=np.column_stack((tri[1]-tri[0],tri[2]-tri[0]))
+        uv=np.linalg.lstsq(matrix,np.array(nearest)-tri[0],rcond=None)[0]
+        weights=np.array([1-uv.sum(),*uv])
+        result[i]+=weights@(fitted[ids]-tri)
+        maximum=max(maximum,distance)
+    np.savez_compressed(parent/variant/'seed.npz',vertices=result)
+    print('Coarse seed maximum surface distance',maximum,flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('stage', choices=['extract'])
+    parser.add_argument('stage', choices=['extract','seed'])
     parser.add_argument('--types', default='0,7')
     parser.add_argument('--variant', default='rigged')
     parser.add_argument('--pose', default='Stand_full')
     parser.add_argument('--subdivisions', type=int, default=0)
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:])
     for kind in map(int,args.types.split(',')):
-        extract(kind, args.pose, args.subdivisions, args.variant)
+        if args.stage=='extract':extract(kind, args.pose, args.subdivisions, args.variant)
+        else:seed_from_coarse(kind,args.variant)
 
 if __name__ == '__main__':
     main()
