@@ -50,6 +50,7 @@ const SERVICES: &[(&str, Family)] = &[
     ("nvdrv:a", Family::Nv),
     ("vi:m", Family::Media),
     ("audout:u", Family::Media),
+    ("audren:u", Family::Media),
 ];
 const SM: &[CommandSpec<Hub>] = &[
     CommandSpec {

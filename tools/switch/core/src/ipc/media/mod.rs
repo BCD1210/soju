@@ -2,6 +2,7 @@
 mod audio;
 mod display;
 mod frame;
+mod renderer;
 #[cfg(test)]
 mod tests;
 
@@ -18,12 +19,15 @@ enum Interface {
     Child,
     Audio,
     Output,
+    RendererManager,
+    Renderer,
 }
 #[derive(Default)]
 pub struct Media {
     objects: BTreeMap<ObjectId, Interface>,
     displays: BTreeMap<ObjectId, display::Display>,
     audio: BTreeMap<ObjectId, audio::Output>,
+    renderers: BTreeMap<ObjectId, renderer::Renderer>,
     retired_events: Vec<Handle>,
     frame: Option<Frame>,
     pub frame_conversion_time: std::time::Duration,
@@ -33,6 +37,7 @@ impl Media {
         let interface = match name {
             "vi:m" => Interface::Vi,
             "audout:u" => Interface::Audio,
+            "audren:u" => Interface::RendererManager,
             _ => return Err(Error::Malformed("unknown media service")),
         };
         self.session(interface, ctx)
@@ -54,11 +59,17 @@ impl Media {
             Interface::Child => &[],
             Interface::Audio => audio::SERVICE,
             Interface::Output => audio::OUTPUT,
+            Interface::RendererManager => renderer::SERVICE,
+            Interface::Renderer => renderer::RENDERER,
         };
         dispatch_table(self, table, request, ctx)
     }
     pub fn close_object(&mut self, id: ObjectId) {
         self.objects.remove(&id);
+        if let Some(renderer) = self.renderers.remove(&id) {
+            self.retired_events.push(renderer.event);
+            self.retired_events.push(renderer.work_handle);
+        }
         if let Some(output) = self.audio.remove(&id) {
             self.retired_events.push(output.event);
         }
@@ -89,6 +100,9 @@ impl Media {
         for display in self.displays.values_mut() {
             display.poll(kernel, now_ns)?;
         }
+        for renderer in self.renderers.values_mut() {
+            renderer.poll(kernel, now_ns)?;
+        }
         for output in self.audio.values_mut() {
             output.poll(kernel, now_ns)?;
         }
@@ -105,12 +119,20 @@ impl Media {
         self.audio
             .iter_mut()
             .find_map(|(&object, output)| output.take_pcm().map(|pcm| AudioPacket { object, pcm }))
+            .or_else(|| {
+                self.renderers.iter_mut().find_map(|(&object, renderer)| {
+                    renderer.take_pcm().map(|pcm| AudioPacket { object, pcm })
+                })
+            })
     }
     pub fn audio_state(&self, object: ObjectId) -> Option<bool> {
-        self.audio.get(&object).map(|output| output.running)
+        self.audio
+            .get(&object)
+            .map(|output| output.running)
+            .or_else(|| self.renderers.get(&object).map(|r| r.running))
     }
     pub fn audio_running(&self, object: ObjectId) -> bool {
-        self.audio.get(&object).is_some_and(|output| output.running)
+        self.audio_state(object) == Some(true)
     }
 }
 pub struct AudioPacket {

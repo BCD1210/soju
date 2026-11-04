@@ -162,3 +162,69 @@ fn synthetic_tone_nro_reaches_audiounit_callback() {
     drop(runtime);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+#[ignore = "requires local audren example, signed desktop build and CoreAudio output"]
+fn corpus_audren_pcm_reaches_audiounit_callback() {
+    let path = std::env::var_os("SOJU_SWITCH_AUDREN_NRO")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::path::PathBuf::from(std::env::var_os("HOME").unwrap())
+                .join(".local/share/soju/switch/examples/audio__audren-simple.nro")
+        });
+    let root = std::env::temp_dir().join(format!("soju-audren-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let root = root.canonicalize().unwrap();
+    let nro = Nro::read(&mut std::fs::File::open(&path).unwrap()).unwrap();
+    let mut runtime = Runtime::new(&nro.protected_homebrew().unwrap()).unwrap();
+    runtime.yield_on_frame = true;
+    let mut hub = Hub::new(&path, &root).unwrap();
+    let mut audio = Audio::default();
+    let start = Instant::now();
+    let mut frames = 0;
+    while audio.nonzero_samples() < 2000 {
+        assert!(
+            start.elapsed() < Duration::from_secs(30),
+            "audren did not produce sound; frames={frames}"
+        );
+        assert_eq!(
+            runtime
+                .run(&mut hub, Duration::from_millis(5), 10000)
+                .unwrap(),
+            Stop::BudgetExpired
+        );
+        audio.pump(&mut hub).unwrap();
+        if hub.take_frame().is_some() {
+            frames += 1;
+            hub.set_input(soju_switch_input::NpadState {
+                buttons: if frames == 1 { 1 } else { 0 },
+                ..Default::default()
+            });
+        }
+    }
+    println!(
+        "Corpus audren: {frames} frames; {} nonzero PCM samples consumed by CoreAudio",
+        audio.nonzero_samples()
+    );
+    hub.set_buttons(1 << 10);
+    loop {
+        assert!(
+            start.elapsed() < Duration::from_secs(30),
+            "audren did not exit cleanly"
+        );
+        let stop = runtime
+            .run(&mut hub, Duration::from_millis(5), 10000)
+            .unwrap();
+        audio.pump(&mut hub).unwrap();
+        hub.take_frame();
+        if matches!(stop, Stop::ProcessExited(0) | Stop::AllThreadsExited) {
+            break;
+        }
+        assert_eq!(stop, Stop::BudgetExpired);
+    }
+    hub.finish().unwrap();
+    drop(audio);
+    drop(hub);
+    drop(runtime);
+    std::fs::remove_dir_all(root).unwrap();
+}

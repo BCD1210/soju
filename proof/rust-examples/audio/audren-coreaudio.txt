@@ -1,0 +1,13 @@
+   Compiling soju-switch-gpu v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/gpu)
+   Compiling soju-switch-core v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/core)
+    Finished `release` profile [optimized] target(s) in 12.25s
+/Users/mikekim/Projects/soju-switch-core/tools/switch/core/target/release/deps/audio_host-c02bf05a5ab7f598: replacing existing signature
+
+running 2 tests
+test corpus_audren_pcm_reaches_audiounit_callback ... Corpus audren: 14 frames; 2592 nonzero PCM samples consumed by CoreAudio
+ok
+test synthetic_tone_nro_reaches_audiounit_callback ... Synthetic 440 Hz NRO: 47920 nonzero PCM samples consumed by CoreAudio
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.31s
+
