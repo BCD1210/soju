@@ -181,7 +181,12 @@ def play(map_path, detach=False, startup_timeout=120, restart=False):
     if map_path is not None:
         command.extend(["--map",windows(map_path)])
     command.append(windows(RUNTIME/"mod"))
-    process = subprocess.Popen(command,env=env,cwd=RUNTIME)
+    if detach:
+        with (RUNTIME / "game-launch.log").open("ab") as output:
+            process = subprocess.Popen(command,env=env,cwd=RUNTIME,start_new_session=True,
+                                       stdin=subprocess.DEVNULL,stdout=output,stderr=subprocess.STDOUT)
+    else:
+        process = subprocess.Popen(command,env=env,cwd=RUNTIME)
     if map_path is not None:
         deadline = time.monotonic() + startup_timeout
         first_frame = None
