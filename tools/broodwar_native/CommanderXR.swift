@@ -126,7 +126,7 @@ extension Commander {
                 "batchDraws":metalBatches?.draws ?? 0,"batchVisible":metalBatches?.visible ?? 0,"batchCulled":metalBatches?.culled ?? 0,"batchLOD":metalBatches?.lodCount ?? 0,"batchOcclusionSkipped":metalBatches?.occlusionSkipped ?? 0,
                 "worldUnitsPerMeter":worldUnitsPerMeter,"wristCardClicks":wrists.cardClicks,"boxSelections":wrists.boxSelections,"doubleTaps":wrists.doubleTaps,"grabs":wrists.grabs,
                 "orientation":[xrCamera.simdOrientation.imag.x,xrCamera.simdOrientation.imag.y,xrCamera.simdOrientation.imag.z,xrCamera.simdOrientation.real]]
-            if let data=try? JSONSerialization.data(withJSONObject:diagnostic,options:.prettyPrinted) { try? data.write(to:runtime.appendingPathComponent("xr-view-diagnostics.json"),options:.atomic) }
+            record("xr-view-diagnostics.json",diagnostic)
         }
         let renderStart=CACurrentMediaTime()
         frameMetrics.stage("eyeSetup",milliseconds:(renderStart-eyeStart)*1000)

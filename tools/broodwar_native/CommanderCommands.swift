@@ -159,7 +159,9 @@ extension Commander {
         } else { command(["op":targetingOrder,"units":selected,"x":Int(point.x*32),"y":Int(point.z*32)]);targetingOrder="move" }
     }
     func record(_ file:String,_ object:Obj) {
-        if let data=try? JSONSerialization.data(withJSONObject:object,options:.prettyPrinted) { try? data.write(to:runtime.appendingPathComponent(file),options:.atomic) }
+        diagnosticQueue.async {
+            if let data=try? JSONSerialization.data(withJSONObject:object,options:.prettyPrinted) { try? data.write(to:runtime.appendingPathComponent(file),options:.atomic) }
+        }
     }
     func command(_ c:Obj) {
         guard argument("--snapshot")==nil else {notice="Recorded snapshot is read-only";return}

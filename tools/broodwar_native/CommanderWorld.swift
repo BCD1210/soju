@@ -269,6 +269,6 @@ extension Commander {
             record("3d-scene-diagnostics.json",diagnostics)
             record(xrRequested ? "3d-xr-diagnostics.json":"3d-desktop-diagnostics.json",diagnostics)
         }
-        label.stringValue="LIVE BROOD WAR · RIGGED 3D · \(xrRequested ? "OpenXR commander" : "Desktop commander")\nWASD walk · Drag select · Option-drag look · Ctrl+0–9 groups · V scale · F12 capture · G mine · F follow · T train worker · B structure · Q attack · H hold · X stop · R recenter · Right-click command\nFrame \(Int(number(state,"frame")))  Minerals \(Int(number(state,"minerals")))  Selected \(selected.count)  |  \(notice)"
+        if devOverlay {label.stringValue="LIVE BROOD WAR · RIGGED 3D · \(xrRequested ? "OpenXR commander" : "Desktop commander")\nWASD walk · Drag select · Option-drag look · Ctrl+0–9 groups · V scale · F12 capture · G mine · F follow · T train worker · B structure · Q attack · H hold · X stop · R recenter · Right-click command\nFrame \(Int(number(state,"frame")))  Minerals \(Int(number(state,"minerals")))  Selected \(selected.count)  |  \(notice)"}
     }
 }

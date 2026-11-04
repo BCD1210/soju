@@ -194,6 +194,7 @@ final class WorldSprites {
     let relief=SpriteRelief()
     let root=SCNNode(),folder=runtime.appendingPathComponent("world-sprites")
     let images:[String:Obj],creep:[String:Obj]
+    let creepEdges:[String:[Int]]
     let colorContext=CIContext()
     var nodes=[String:SCNNode]()
     let frames=ResidentCache<NSImage>(limit:512*1024*1024)
@@ -204,6 +205,7 @@ final class WorldSprites {
         stream=(streaming ?? (useMetalBatches && !CommandLine.arguments.contains("--runtime-check"))) ? FrameStream():nil
         let catalog=(try? loadObject(folder.appendingPathComponent("catalog.json"))) ?? [:]
         images=catalog["images"] as? [String:Obj] ?? [:];creep=catalog["creep"] as? [String:Obj] ?? [:]
+        creepEdges=creep.mapValues{$0["edgeLookup"] as? [Int] ?? []}
         root.name="native-world-sprites"
     }
     static func playerColor(_ colors:[[Int]],owner:Int)->[Int] {
@@ -289,7 +291,7 @@ final class WorldSprites {
         return creepImage(file)
     }
     func creepEdgeFrame(tileset:String,neighbors:Int)->Int {
-        guard let lookup=creep[tileset]?["edgeLookup"] as? [Int],lookup.indices.contains(neighbors) else {return 0}
+        guard let lookup=creepEdges[tileset],lookup.indices.contains(neighbors) else {return 0}
         return lookup[neighbors]
     }
     func creepEdgeMaterial(tileset:String,frame:Int)->SCNMaterial? {

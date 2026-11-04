@@ -77,12 +77,14 @@ final class Commander: NSObject, NSApplicationDelegate {
     var mapWidth=0,mapHeight=0,mapTiles=[Int]()
     var sceneRevision=0,terrainRevision=0
     var state:Obj=[:];var busy=false;var initialized=false;var notice="Connecting to original client"
+    let diagnosticQueue=DispatchQueue(label:"soju.bw.diagnostics",qos:.utility)
     var lastTick=CACurrentMediaTime();var lastSceneDiagnostic=0.0;var tick:Timer?;var poll:Timer?;var placingDepot=false
     var metalBatches:MetalBatches?
     var desktopMetal:DesktopMetal?
     #if SOJU_OPENXR
     var xrStereoCaptureIndex:Int?
     var lastMirrorTime=0.0
+    var xrActivity:NSObjectProtocol?
     var xrPumpActive=false
     var xrRenderer:SCNRenderer?;var xrCamera=SCNNode()
     let xrScenePass=MTLRenderPassDescriptor()
@@ -148,6 +150,8 @@ final class Commander: NSObject, NSApplicationDelegate {
             reticle.categoryBitMask=2;reticle.geometry?.materials=[marker];reticle.isHidden=true;reticle.name="aim-marker"
             world.rootNode.addChildNode(reticle)
             for node in [wrists.commands,wrists.resources,wrists.ray,wrists.box] {world.rootNode.addChildNode(node)}
+            xrActivity=ProcessInfo.processInfo.beginActivity(options:[.userInitiated,.latencyCritical],reason:"Interactive stereo rendering")
+            pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE,0)
             xrPumpActive=true
             pumpXR()
         }
@@ -156,6 +160,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification:Notification) {
         #if SOJU_OPENXR
         if xrRequested { xrPumpActive=false;soju_xr_close() }
+        if let activity=xrActivity {ProcessInfo.processInfo.endActivity(activity);xrActivity=nil}
         #endif
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender:NSApplication)->Bool { true }

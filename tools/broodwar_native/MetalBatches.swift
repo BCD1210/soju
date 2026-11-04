@@ -108,22 +108,25 @@ final class MetalBatches {
         let t=Self.colorView(try loader.newTexture(cgImage:Self.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:topLeft ? MTKTextureLoader.Origin.topLeft:MTKTextureLoader.Origin.bottomLeft]))
         textures.insert((image,t),key:key,bytes:Self.textureBytes(t));return t
     }
-    func components(_ source:SCNGeometrySource,_ i:Int)->[Float] {
-        source.data.withUnsafeBytes { bytes in
-            (0..<source.componentsPerVector).map { c in
-                let offset=source.dataOffset+i*source.dataStride+c*source.bytesPerComponent
-                return source.bytesPerComponent==8 ? Float(bytes.loadUnaligned(fromByteOffset:offset,as:Double.self)):bytes.loadUnaligned(fromByteOffset:offset,as:Float.self)
-            }
-        }
-    }
     func mesh(_ geometry:SCNGeometry,transform:simd_float4x4=matrix_identity_float4x4,slice:Float=0,uvTransform:SCNMatrix4=SCNMatrix4Identity)->([Vertex],[UInt32]) {
         guard let positions=geometry.sources(for:.vertex).first,let coords=geometry.sources(for:.texcoord).first else {return ([],[])}
         var vertices=[Vertex](),indices=[UInt32]()
         vertices.reserveCapacity(positions.vectorCount)
-        for i in 0..<positions.vectorCount {
-            let p=components(positions,i),uv=components(coords,i)
-            let u=uv[0]*Float(uvTransform.m11)+Float(uvTransform.m41),v=uv[1]*Float(uvTransform.m22)+Float(uvTransform.m42)
-            vertices.append(Vertex(position:transform*SIMD4<Float>(p[0],p[1],p[2],1),uv:SIMD4<Float>(u,v,slice,0)))
+        let pOffset=positions.dataOffset,pStride=positions.dataStride,pBytes=positions.bytesPerComponent
+        let tOffset=coords.dataOffset,tStride=coords.dataStride,tBytes=coords.bytesPerComponent
+        positions.data.withUnsafeBytes { (p:UnsafeRawBufferPointer) in
+            coords.data.withUnsafeBytes { (t:UnsafeRawBufferPointer) in
+                func value(_ data:UnsafeRawBufferPointer,_ offset:Int,_ bytes:Int)->Float {
+                    bytes==8 ? Float(data.loadUnaligned(fromByteOffset:offset,as:Double.self)):data.loadUnaligned(fromByteOffset:offset,as:Float.self)
+                }
+                for i in 0..<positions.vectorCount {
+                    let pi=pOffset+i*pStride,ti=tOffset+i*tStride
+                    let position=SIMD4<Float>(value(p,pi,pBytes),value(p,pi+pBytes,pBytes),value(p,pi+2*pBytes,pBytes),1)
+                    let u=value(t,ti,tBytes)*Float(uvTransform.m11)+Float(uvTransform.m41)
+                    let v=value(t,ti+tBytes,tBytes)*Float(uvTransform.m22)+Float(uvTransform.m42)
+                    vertices.append(Vertex(position:transform*position,uv:SIMD4<Float>(u,v,slice,0)))
+                }
+            }
         }
         for element in geometry.elements where element.primitiveType == .triangles {
             element.data.withUnsafeBytes { bytes in
