@@ -11,6 +11,9 @@ from remastered_layers import normals
 
 def bake(folder, size=2048):
     config = json.loads((folder/'reconstruction.json').read_text())
+    fitted_camera = config.get('camera')
+    if fitted_camera:
+        from remastered_rig_fit import project as rig_project, axes
     mesh = np.load(folder/'uv-mesh.npz')
     vertices, triangles, uv, vnormals = (mesh[k] for k in ('vertices','triangles','uv','normals'))
     xyz = np.zeros((size, size, 3), np.float32)
@@ -52,14 +55,25 @@ def bake(folder, size=2048):
     accum = {k:np.zeros((len(points),3),np.float32) for k in names}
     accum['normal'] = np.zeros((len(points),3),np.float32)
     total = np.zeros(len(points),np.float32)
+    diffuse_second = np.zeros((len(points),3),np.float32)
+    contributors = np.zeros(len(points),np.int16)
     for d in range(config.get('viewCount',17)):
-        x,y,z = project(points,d,config['elevation'],config['width'],config['height'])
+        if fitted_camera:
+            x,y,z = rig_project(points, fitted_camera, d).T
+            x=x-.5;y=y-.5
+        else:
+            x,y,z = project(points,d,config['elevation'],config['width'],config['height'])
         images = {k:np.asarray(Image.open(folder/'references'/f'{d:02}-{k}.png')).astype(np.float32)/255 for k in names}
         alpha = map_coordinates(images['diffuse'][...,3],[y,x],order=1,mode='constant')
         front = map_coordinates(zbuffers[d],[y,x],order=1,mode='constant',cval=-1e6)
-        right,up,toward = basis(d,config['elevation'])
-        weight = np.maximum(ns@toward,0)**4 * (alpha>.5) * (abs(front-z)<config['voxelSizePixels']*4)
+        if fitted_camera:
+            right, down, toward = axes(fitted_camera['yaws'][d], fitted_camera['elevation'])
+            up = -down
+        else:
+            right,up,toward = basis(d,config['elevation'])
+        weight = np.maximum(ns@toward,0)**4 * (alpha>.5) * (abs(front-z)<config.get('visibilityTolerancePixels',config.get('voxelSizePixels',1)*4))
         total += weight
+        contributors += weight>1e-5
         for k, pixels in images.items():
             if k=='normal':
                 camera = normals((pixels*255).astype(np.uint8))
@@ -69,7 +83,10 @@ def bake(folder, size=2048):
             else:
                 value = np.column_stack([map_coordinates(pixels[...,c],[y,x],order=1,mode='constant') for c in range(3)])
             accum[k] += value*weight[:,None]
+            if k=='diffuse':diffuse_second += value*value*weight[:,None]
     known = total>1e-6
+    if not known.any():
+        raise ValueError('No observed UV surface; camera or visibility is invalid')
     coverage = np.zeros((size,size),bool);coverage[rows[known],cols[known]]=True
     _, indices = distance_transform_edt(~coverage,return_indices=True)
     outputs = {}
@@ -86,7 +103,12 @@ def bake(folder, size=2048):
             Image.fromarray(np.uint8(roughness*255)).save(folder/'roughness.png')
         Image.fromarray(np.uint8(np.clip(atlas,0,1)*255)).save(folder/f'{k}.png')
         outputs[k]=f'{k}.png'
-    report={'size':size,'coveredTexels':int(known.sum()),'surfaceTexels':len(points),
+    variance=np.maximum(0,diffuse_second/np.maximum(total[:,None],1e-8)-accum['diffuse']**2)
+    multi=known & (contributors>=2)
+    report={'size':size, 'multiViewTexels':int(multi.sum()),
+            'weightedDiffuseDisagreementByteRMS':float(np.sqrt(variance[multi].mean())*255) if multi.any() else None,
+            'meanContributingViews':float(contributors[known].mean()),
+            'seamProtocol':'Non-overlapping UV islands; shared world-space projection at seams, nearest padding. No view-dependent texture switching.', 'coveredTexels':int(known.sum()),'surfaceTexels':len(points),
             'observedFraction':float(known.mean()),'textures':outputs,
             'roughness':'sqrt(1 - mean specular RGB), approximation',
             'unobservedTexels':'nearest observed texel fill; not recovered surface evidence'}

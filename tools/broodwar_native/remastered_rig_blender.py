@@ -18,9 +18,12 @@ def idle(rig, name="Stand_full"):
     animation.action = None
     for track in animation.nla_tracks:
         track.mute = True
+    for bone in rig.pose.bones:
+        bone.matrix_basis.identity()
     action = bpy.data.actions[name]
     animation.action = action
     animation.action_slot = action.slots[0]
+    bpy.context.scene.frame_set(-1)
     bpy.context.scene.frame_set(0)
     bpy.context.view_layer.update()
 
@@ -33,10 +36,10 @@ def posed(obj):
     return vertices
 
 
-def extract(kind, pose="Stand_full", subdivisions=0):
+def extract(kind, pose="Stand_full", subdivisions=0, variant="rigged"):
     name = {0:'marine', 7:'scv'}[kind]
     source = ROOT/'models-3d'/f'{name}.glb'
-    folder = ROOT/'models-remastered'/str(kind)/'rigged'
+    folder = ROOT/'models-remastered'/str(kind)/variant
     folder.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(source))
@@ -83,11 +86,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('stage', choices=['extract'])
     parser.add_argument('--types', default='0,7')
+    parser.add_argument('--variant', default='rigged')
     parser.add_argument('--pose', default='Stand_full')
     parser.add_argument('--subdivisions', type=int, default=0)
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:])
     for kind in map(int,args.types.split(',')):
-        extract(kind, args.pose, args.subdivisions)
+        extract(kind, args.pose, args.subdivisions, args.variant)
 
 if __name__ == '__main__':
     main()
