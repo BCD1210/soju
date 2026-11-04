@@ -22,7 +22,13 @@ extension Commander {
         guard xrPumpActive else {return}
         os_signpost(.begin,log:XRFrameMetrics.log,name:"Frame loop")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Frame loop")}
+        frameMetrics.beginFrameAllocationSample()
         let result=soju_xr_step(Unmanaged.passUnretained(self).toOpaque(),xrDraw,xrControls)
+        frameMetrics.endFrameAllocationSample()
+        var timing=SojuXRFrameTiming()
+        if result==1,soju_xr_frame_timing(&timing) != 0 {
+            frameMetrics.lifecycle(wait:timing.waitMs,acquire:timing.acquireMs,end:timing.endMs,afterWait:timing.afterWaitMs,period:timing.periodMs)
+        }
         guard result != 0 else {xrPumpActive=false;notice=String(cString:soju_xr_status());soju_xr_close();return}
         // xrWaitFrame sets the deadline. Yield to input/state work between frames,
         // without imposing a second periodic timer on an active session.

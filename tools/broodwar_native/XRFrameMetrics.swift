@@ -39,6 +39,11 @@ final class XRFrameMetrics {
     private let intervals=FrameDistribution(),cpu=FrameDistribution(),gpu=FrameDistribution()
     private let stages: [String:FrameDistribution]=Dictionary(uniqueKeysWithValues:
         ["billboardUpdate","eyeSetup","renderEncodeEye","eyePostRender"].map{($0,FrameDistribution())})
+    private let waitTiming=FrameDistribution(),acquireTiming=FrameDistribution(),endTiming=FrameDistribution(),afterWaitTiming=FrameDistribution()
+    private var periodMs=0.0,lateSubmissions:UInt64=0,lifecycleSamples:UInt64=0
+    private var allocationBefore=malloc_statistics_t()
+    private var allocationFrames:UInt64=0,allocationPositive:UInt64=0,allocationZero:UInt64=0
+    private var allocationMax:Int64=0,allocationMin:Int64=0,allocationTotal:Int64=0
     private var previous=0.0,start=0.0,first=0.0
     private struct Pair {var frame = -1;var left=0.0;var right=0.0}
     private var eyeGPU=[Pair](repeating:Pair(),count:512)
@@ -54,6 +59,25 @@ final class XRFrameMetrics {
     }
     deinit {reporter?.cancel()}
     var completedStereoSamples:Int {lock.lock();defer{lock.unlock()};return Int(gpu.count)}
+    func beginFrameAllocationSample() {
+        malloc_zone_statistics(nil,&allocationBefore)
+    }
+    func endFrameAllocationSample() {
+        var after=malloc_statistics_t();malloc_zone_statistics(nil,&after)
+        let delta=Int64(after.blocks_in_use)-Int64(allocationBefore.blocks_in_use)
+        lock.lock();defer{lock.unlock()}
+        guard enabled else {return}
+        allocationFrames+=1;allocationTotal+=delta
+        allocationMin=min(allocationMin,delta);allocationMax=max(allocationMax,delta)
+        if delta>0 {allocationPositive+=1};if delta==0 {allocationZero+=1}
+    }
+    func lifecycle(wait:Double,acquire:Double,end:Double,afterWait:Double,period:Double) {
+        lock.lock();defer{lock.unlock()}
+        guard enabled,period>0 else {return}
+        waitTiming.add(wait);acquireTiming.add(acquire);endTiming.add(end);afterWaitTiming.add(afterWait)
+        periodMs=period;lifecycleSamples+=1
+        if afterWait>period {lateSubmissions+=1}
+    }
     func stage(_ name:String,milliseconds:Double) {
         lock.lock();defer{lock.unlock()}
         if enabled {stages[name]?.add(milliseconds)}
@@ -92,6 +116,12 @@ final class XRFrameMetrics {
             "snapshotSource":argument("--snapshot") ?? "live","frameIntervals":intervals.summary(),
             "stereoCPUEncode":cpu.summary(),"stereoGPU":gpu.summary(),"stagesCPU":stages.mapValues{$0.summary()},
             "textureResidency":TextureResidency.shared.report(),
+            "frameAllocationDelta":["samples":allocationFrames,"positiveFrames":allocationPositive,"zeroNetFrames":allocationZero,
+                "minNetBlocks":allocationMin,"maxNetBlocks":allocationMax,"totalNetBlocks":allocationTotal,
+                "method":"All-zone blocks-in-use delta across each frame loop. Includes concurrent worker activity; frees can cancel allocations. Not a transient allocation count or proof of zero allocations."],
+            "runtimePacing":["samples":lifecycleSamples,"periodMs":periodMs,"afterWaitOverPeriod":lateSubmissions,
+                "wait":waitTiming.summary(),"acquire":acquireTiming.summary(),"endFrame":endTiming.summary(),"afterWait":afterWaitTiming.summary(),
+                "method":"Host monotonic durations. After-wait budget uses predictedDisplayPeriod, not a converted display timestamp; xrEndFrame is submission, not physical presentation."],
             "mallocZoneStatistics":["blocksInUse":allocation.blocks_in_use,"bytesInUse":allocation.size_in_use,
                 "bytesAllocated":allocation.size_allocated,"peakBytesInUse":allocation.max_size_in_use,
                 "method":"All malloc zones sampled on the metrics queue; retained allocation counts, not transient allocation traffic or a zero-allocation proof"],
