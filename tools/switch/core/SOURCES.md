@@ -43,3 +43,15 @@ reads after emissions to other methods still fail explicitly.
   and value, and inline DMA layout/completion/barrier fields. Setup is isolated
   from the 3D engine; pitch/no-semaphore inline data uses the existing bounded
   upload engine. Scheduling/compute dispatch remains explicitly unsupported here.
+
+Scene acceptance continuation uses public deko3d driver source at commit
+`373bfd43d8b2d805fa2eb7d406dbb823032df958` (not emulator source):
+- https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/maxwell/engine_3d.def
+- https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/maxwell/gpu_3d_base.cpp
+- https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/dk_swapchain.cpp
+- https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/maxwell/clear_buffers.mme
+
+These identify tiled-cache setup, shadow passthrough/replay around clears and
+surface decompression, and the native swapchain format. B197's public header
+supplies release-semaphore size/payload/order fields. Release writes are staged
+transactionally after synchronous completion, never treated as no-ops.

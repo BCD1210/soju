@@ -353,3 +353,21 @@ semaphore writes. Native scene captures remain required separately.
 
 Shader branch through `57f7a5c` was merged at `857f834`. Its throughput figures
 measure the backend benchmark, not the synchronous runner's scene performance.
+
+### First accepted Metal scene
+
+Deko3d Example01 (Simple Setup) now passes `scripts/test-switch-gpu-accepted.sh`:
+all 921,600 captured pixels match the source's background, centered 400×400 box,
+and green tile rectangles within one channel unit. See the
+[capture and source hashes](../proof/rust-examples/gpu/accepted/README.md) and
+[method table](../proof/rust-examples/gpu/METHODS.md).
+Example02 is the triangle; Example01 contains no guest shader draws.
+The runner remains synchronous and opt-in. This acceptance does not establish
+triangle, texture, depth, or general game compatibility.
+
+The merge at `857f834` includes shader tip `6d2b86d` as well as `57f7a5c`.
+The small native scissored-clear integration fix is isolated at `09a196d`.
+The bridge tracks a bounded subset of MME shadow state, restores it on replay,
+and stages actual release-semaphore writes. Unsupported replay and memory-writing
+methods still fail. Tiled-cache setup offsets identified by public deko3d use
+logged no-ops. Compressed Z24S8 kind `0x51` is retained alongside `0x17`.

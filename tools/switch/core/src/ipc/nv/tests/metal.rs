@@ -327,7 +327,7 @@ fn metal_retained_setup_rejects_reserved_fields_and_unclassified_method() {
         (0x1000, 0x30),
         (0x1528, 1),
         (0x135c, 1),
-        (0x124, 3),
+        (0x124, 4),
         (0x23fc, 0x418800),
     ] {
         assert!(
@@ -388,6 +388,38 @@ fn accepted_firmware_noops_count_without_memory_or_fence_effects() {
                 &access,
                 &[]
             )
+            .is_err()
+    );
+}
+
+#[test]
+fn release_semaphore_stages_payload_after_counted_completion() {
+    let mut f = Fixture::new();
+    let (fd, space, va) = f.setup();
+    let access = submit::Access {
+        space: &f.nv.spaces[&space],
+        memory: &f.memory,
+    };
+    let stream = methods(&[
+        (0, 0xb197),
+        (0x1b00, (va >> 32) as u32),
+        (0x1b04, va as u32),
+        (0x1b08, 0x12345678),
+        (0x1b0c, 0x1000f010),
+        (0x2c8, (1 << 20) | fd),
+        (0x2c8, (1 << 20) | fd),
+    ]);
+    let (writes, increments) = Renderer::default()
+        .submit(&stream, fd, Some(2), &access, &[])
+        .unwrap();
+    assert_eq!(increments, 2);
+    assert_eq!(&writes[0].bytes[..4], &0x12345678u32.to_le_bytes());
+    let mut before = [0; 4];
+    f.memory.read(crate::kernel::HEAP, &mut before).unwrap();
+    assert_eq!(before, [0; 4]);
+    assert!(
+        Renderer::default()
+            .submit(&stream, fd, Some(1), &access, &[])
             .is_err()
     );
 }

@@ -21,7 +21,10 @@ impl GraphicBuffer {
             || self.block > 5
             || !matches!(self.format, 1 | 2 | 4 | 5)
         {
-            return Err(Error::Malformed("display geometry or format"));
+            return Err(Error::Message(format!(
+                "display geometry or format: {}x{} pitch={} block={} format={:#x}",
+                self.width, self.height, self.pitch, self.block, self.format
+            )));
         }
         let rows = 8u64 << self.block;
         let size = u64::from(self.pitch) * u64::from(self.height).div_ceil(rows) * rows;

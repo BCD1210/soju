@@ -152,7 +152,11 @@ fn preallocate(media: &mut Media, req: &Request, ctx: &mut Context<'_>) -> Resul
         pitch: read_u32(&raw, magic + 112)?,
         plane: read_u32(&raw, magic + 120)?,
         block: read_u32(&raw, magic + 128)?,
-        format: read_u32(&raw, magic + 16)?,
+        format: if read_u32(&raw, magic + 16)? == 0 && read_u32(&raw, magic + 52)? == 0xdaffcaff {
+            read_u32(&raw, magic + 68)?
+        } else {
+            read_u32(&raw, magic + 16)?
+        },
     };
     buffer.size()?;
     buffer.fresh(ctx)?;

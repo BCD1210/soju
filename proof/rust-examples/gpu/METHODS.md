@@ -37,3 +37,29 @@ provoking-vertex and compression setup passing is not flat-shading or compressed
 surface acceptance. Scissored clears and shader-extent registration also remain
 necessary before the target scenes can pass. There are no acceptance commits,
 accepted captures, or headless scene pixel tests.
+
+## Accepted Example01 continuation
+
+Earlier rejection entries above describe the previous checkpoint. The observation
+policy now supersedes the Falcon and compressed-kind stops.
+
+| Method / field | Implementation and acceptance evidence |
+| --- | --- |
+| B197 2300–237c, 0140/0144/1114, 260c/33dc | Explicit firmware/performance/trap no-op allowlist; per-method counters and unconditional `gpu-noop` logging. No memory writes or invented fences. |
+| B197 0100 | Public NO_OPERATION; counted/logged. |
+| B197 0f64/0f68/0f6c/0f70/1108 | Public deko3d identifies tiled-cache setup; host Metal cache policy, accepted/logged no-ops. |
+| B197 0124 | Track/pass/replay for explicit target, surface-clip, window-origin and multisample fields. Uninitialized or unclassified replay stops. |
+| B197 0fbc–0fc8 | All samples enabled (`ffff`); other masks stop. |
+| B197 0d9c / 0f40 | Disabled color reduction/constant-color rendering only. |
+| B197 0ff4/0ff8 | Retained surface clip; full target in accepted scene. |
+| B197 19d0, 0e00/0e04/0e08 | Native Metal scissored color clear; full-image source oracle passes. |
+| B197 081c | Array pitch is irrelevant for one layer; native test verifies nonzero pitch. |
+| B197 02e0 / 0f80 | Surface decompression/cache flush value zero completes synchronously under uncompressed-storage policy. |
+| B197 1b0c=1000f010 | Real four-byte release payload, staged after preceding work; unknown write forms still stop. |
+| A06F 002c=80000000/70000000 | L2 flush/invalidate satisfied by synchronous snapshot/readback. |
+| Map kind 17 / 51 / db | Retained compressed S8Z24 / Z24S8 / C32 kinds; ordinary surface storage. |
+| MME register ADD/SUB/XOR/ANDN/NAND | Public ISA operations; independent wraparound/emission tests. Carry operations remain unsupported. |
+
+Example01 is accepted; see [capture and reproduction](accepted/README.md).
+Its ordered method outcomes are saved alongside the capture. Passing setup alone
+continues to mean only successful dispatch, not acceptance of other scenes.

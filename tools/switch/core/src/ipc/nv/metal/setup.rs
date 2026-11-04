@@ -3,10 +3,12 @@ use super::*;
 
 pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
     let valid = match method {
+        0xf40 => value == 0,
+        0xd9c => value == 0,
         0xfbc | 0xfc0 | 0xfc4 | 0xfc8 => value == 0xffff,
         0x2ec => value & !0xff1 == 0,
         0x110 | 0x1144 => value == 0,
-        0x124 => value <= 2,
+        0xff4 | 0xff8 => true,
         0x37c | 0xfac => value <= 1,
         0xdcc => (1..=32).contains(&value),
         0x1424 | 0x1428 | 0x1288 => value == 0,
@@ -38,7 +40,7 @@ pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
         0x374 | 0x1968 | 0x196c => value & !0x11 == 0,
         0x15cc => value & !0x1ffff == 0,
         0x1220 => value <= 12,
-        0x13ac => value == 0,
+        0x13ac => matches!(value, 0 | 0x10),
         0x1604 => value & !0x1fff == 0 && value & 3 <= 2,
         0x16b4 => value <= 3,
         0x1134 => value <= 1,
@@ -75,6 +77,23 @@ pub(super) fn compute_field(method: u32, value: u32) -> Result<bool, Error> {
 // Explicit policy allowlist: never turn an unclassified memory writer into a no-op.
 pub(super) fn accepted_noop(class: u32, method: u32) -> bool {
     class == 0xb197
-        && (matches!(method, 0x100 | 0x140 | 0x144 | 0x1114 | 0x260c | 0x33dc)
-            || ((0x2300..=0x237c).contains(&method) && method.is_multiple_of(4)))
+        && (matches!(
+            method,
+            0xf64
+                | 0xf68
+                | 0xf6c
+                | 0xf70
+                | 0x1108
+                | 0x100
+                | 0x140
+                | 0x144
+                | 0x1114
+                | 0x260c
+                | 0x33dc
+        ) || ((0x2300..=0x237c).contains(&method) && method.is_multiple_of(4)))
+}
+
+pub(super) fn shadowed(method: u32) -> bool {
+    (0x800..=0x9fc).contains(&method) && method.is_multiple_of(4)
+        || matches!(method, 0xfb4 | 0x15d0 | 0xff4 | 0xff8 | 0x13ac)
 }

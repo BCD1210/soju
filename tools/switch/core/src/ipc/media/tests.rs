@@ -391,3 +391,25 @@ fn vi_layer_parcel_and_close_order_preserve_display_lifecycle() {
 
 #[path = "rgb565_tests.rs"]
 mod rgb565_tests;
+
+#[test]
+fn native_graphic_buffer_format_supplies_unspecified_outer_format() {
+    let mut f = Fixture::new();
+    let binder = f.binder();
+    let mut body = vec![0; 148];
+    body[16..20].copy_from_slice(b"RFBG");
+    for (offset, value) in [
+        (60, 7),
+        (68, 0xdaffcaff),
+        (84, 1),
+        (108, 16),
+        (112, 2),
+        (128, 64),
+    ] {
+        put(&mut body, offset, value);
+    }
+    f.transaction(binder, 14, &body).unwrap();
+    put(&mut body, 0, 1);
+    put(&mut body, 68, 0);
+    assert!(f.transaction(binder, 14, &body).is_err());
+}

@@ -28,6 +28,7 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
     let mut frames = None;
     let mut capture = None;
     let mut capture_frame = 1;
+    let mut warmup_ms = 0u64;
     let mut inputs = Vec::<Input>::new();
     let mut seen = std::collections::BTreeSet::new();
     let mut options = args[1..].chunks_exact(2);
@@ -51,6 +52,7 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
                     .parse::<std::num::NonZeroU64>()?
                     .get();
             }
+            "--warmup-ms" => warmup_ms = pair[1].to_str().ok_or("invalid warmup")?.parse()?,
             "--capture" => capture = Some(PathBuf::from(&pair[1])),
             "--inputs" => inputs = serde_json::from_reader(std::fs::File::open(&pair[1])?)?,
             _ => return Err("unknown headless option".into()),
@@ -113,7 +115,9 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         let stop = runtime.run(&mut hub, Duration::from_millis(8), 10_000)?;
         // Consume audio packets without opening an output device in the headless harness.
         while hub.take_audio().is_some() {}
-        if let Some(frame) = hub.take_frame() {
+        if let Some(frame) = hub.take_frame()
+            && start.elapsed().as_millis() >= u128::from(warmup_ms)
+        {
             count += 1;
             if count == capture_frame {
                 let mut encoder = png::Encoder::new(

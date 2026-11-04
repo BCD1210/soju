@@ -78,7 +78,9 @@ fn submit(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error>
     if count == 0
         || count > capacity.min(4096)
         || u64::from(count) * 8 != entries.len
-        || !(flags == 0x104 && read_u32(&args, 16)? == 0 && read_u32(&args, 20)? == 1
+        || !(flags == 0x104
+            && read_u32(&args, 16)? == 0
+            && (read_u32(&args, 20)? == 1 || metal && (1..=16).contains(&read_u32(&args, 20)?))
             || metal && flags == 4 && read_u32(&args, 16)? == 0 && read_u32(&args, 20)? == 0)
     {
         return Err(Error::Message(format!(
@@ -132,7 +134,7 @@ fn submit(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error>
         let (writes, increments) = renderer.submit(
             &methods,
             fd,
-            (flags == 0x104).then_some(1),
+            (flags == 0x104).then_some(read_u32(&args, 20)?),
             &access,
             &protected,
         )?;

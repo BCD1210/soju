@@ -31,6 +31,8 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 #[derive(Default)]
 pub(super) struct Renderer {
     engine: Engine,
+    shadow_mode: u32,
+    shadow: BTreeMap<u32, u32>,
     macros: gpu::mme::MacroUpload,
     bindings: BTreeMap<u32, u32>,
     twod: BTreeMap<u32, u32>,
@@ -112,7 +114,7 @@ impl Renderer {
             let gpu::Method {
                 subchannel,
                 method,
-                value,
+                mut value,
                 ..
             } = command;
             let mut trace = MethodTrace {
@@ -145,6 +147,32 @@ impl Renderer {
                 .bindings
                 .get(&subchannel)
                 .ok_or(Error::Malformed("Metal unbound subchannel"))?;
+            if class == 0xb197 && method == 0x124 {
+                if value > 3 {
+                    return Err(Error::Malformed("MME shadow mode"));
+                }
+                self.shadow_mode = value;
+                trace.accepted = true;
+                continue;
+            }
+            if class == 0xb197 && setup::shadowed(method) {
+                match self.shadow_mode {
+                    0 | 1 => {
+                        self.shadow.insert(method, value);
+                    }
+                    3 => {
+                        value = *self
+                            .shadow
+                            .get(&method)
+                            .ok_or(Error::Malformed("uninitialized MME shadow register"))?
+                    }
+                    _ => {}
+                }
+            } else if class == 0xb197 && self.shadow_mode == 3 {
+                return Err(Error::Message(format!(
+                    "unsupported MME shadow replay method {method:#x}"
+                )));
+            }
             if class == 0xb197 && matches!(method, 0x114 | 0x118 | 0x11c | 0x120) {
                 self.macros.write(method, value)?;
                 trace.accepted = true;
@@ -222,6 +250,22 @@ impl Renderer {
                         "Metal compute method {method:#x}={value:#x} unsupported"
                     )));
                 }
+                trace.accepted = true;
+                continue;
+            }
+            if class == 0xb197 && method == 0x1b0c && value == 0x1000f010 {
+                let address = self.engine.registers.address(0x1b00);
+                if address & 3 != 0 {
+                    return Err(Error::Malformed("Metal release semaphore alignment"));
+                }
+                memory
+                    .write(address, &self.engine.registers.get(0x1b08).to_le_bytes())
+                    .map_err(gpu_error)?;
+                trace.accepted = true;
+                continue;
+            }
+            // Compression is not represented in guest storage; all preceding work is complete.
+            if class == 0xb197 && matches!(method, 0x2e0 | 0xf80) && value == 0 {
                 trace.accepted = true;
                 continue;
             }
@@ -325,7 +369,7 @@ impl Renderer {
                         "Metal method {class:#x}:{method:#x}={value:#x}: {e}"
                     ))
                 })?;
-            if let Some(snapshot) = snapshot {
+            if let Some(mut snapshot) = snapshot {
                 if matches!(
                     snapshot.action,
                     soju_switch_gpu::engine::Action::Draw { topology: 0, .. }
@@ -338,6 +382,26 @@ impl Renderer {
                     return Err(Error::Malformed(
                         "Metal enabled window clipping unsupported",
                     ));
+                }
+                if let soju_switch_gpu::engine::Action::Clear(mask) = snapshot.action {
+                    if mask & 3 != 0 {
+                        return Err(Error::Malformed("core depth clear integration unverified"));
+                    }
+                    let r = &mut snapshot.registers;
+                    let control = r.get(0x10f8);
+                    if control & !0x101 != 0 {
+                        return Err(Error::Malformed(
+                            "core clear rectangle/viewport control unsupported",
+                        ));
+                    }
+                    if control & 0x100 == 0 {
+                        r.0.insert(0xe00, 0);
+                    }
+                    // A clear does not consume shader, blend, vertex or raster setup.
+                    r.0.retain(|offset, _| {
+                        matches!(*offset,
+                        0x800..=0x9e0 | 0xd80..=0xd90 | 0xda0 | 0xe00..=0xe08 | 0x121c)
+                    });
                 }
                 backend.prepare(&snapshot, &memory).map_err(gpu_error)?;
                 // Read back before any later transfer, upload, or texture read.
