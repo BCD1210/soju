@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SWITCH_HOME="${SOJU_SWITCH_HOME:-$HOME/.local/share/soju/switch}"
 PYTHON="$SWITCH_HOME/venv/bin/python"
 case "${1:-help}" in
-  import|list|remove)
+  import|import-keys|list|remove)
     exec python3 "$ROOT/scripts/switch_library.py" "$@"
     ;;
   setup)
@@ -15,6 +15,12 @@ case "${1:-help}" in
     "$PYTHON" "$ROOT/tools/switch/prepare_fonts.py" "$SWITCH_HOME"
     if command -v cc >/dev/null 2>&1; then
       cc -O3 -dynamiclib "$ROOT/tools/switch/frame_convert.c" -o "$SWITCH_HOME/libsoju-switch-frame.dylib"
+    fi
+    if command -v cargo >/dev/null 2>&1; then
+      cargo build --quiet --release --manifest-path "$ROOT/tools/switch/fs/Cargo.toml"
+      install -m 755 "$ROOT/tools/switch/fs/target/release/soju-switch-fs" "$SWITCH_HOME/soju-switch-fs"
+    else
+      echo "Rust is not installed: game names for .nsp/.xci files will not be shown (brew install rust)."
     fi
     echo "Switch CPU dependency installed. SDL2 must also be installed (brew install sdl2)."
     ;;
@@ -27,7 +33,8 @@ case "${1:-help}" in
     exec "$PYTHON" "$ROOT/tools/switch/trace_nro.py" "$1" --play --max-steps 10000000
     ;;
   help|-h|--help)
-    echo "Experimental Switch homebrew: soju switch setup | import <file> | list [--json] | remove <id> | play <file.nro>"
+    echo "Experimental Switch homebrew: soju switch setup | import <file> | import-keys <prod.keys> [title.keys] | list [--json] | remove <id> | play <file.nro>"
+    echo "Keys and games must be dumped from your own Switch. Soju never downloads them."
     echo "Two 2048 homebrew games have been checked. Account saves are experimental; SD files do not persist."
     echo "Controls: arrow keys, B to reset, Escape to close."
     ;;

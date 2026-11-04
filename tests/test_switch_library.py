@@ -73,7 +73,7 @@ class SwitchLibraryTests(unittest.TestCase):
                 library.Library(self.base).command(result.stdout.strip())
             self.assertNotEqual(self.cli('play', source).returncode, 0)
         rows = json.loads(self.cli('list', '--json').stdout)
-        self.assertTrue(all(g['issue'] == library.switch_library.RETAIL_ISSUE for g in rows))
+        self.assertTrue(all(g['issue'].startswith(library.switch_library.RETAIL_ISSUE) for g in rows))
 
     def test_refusals_and_no_overwrite(self):
         source = self.fixture()
