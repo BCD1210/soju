@@ -56,6 +56,14 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
                     c(5, 0, operation_mode),
                     c(6, 0, operation_mode),
                     c(9, 0, one),
+                    c(50, 0, |s, _, _| Ok(Reply::data(vec![u8::from(s.vr_mode)]))),
+                    c(51, 1, |s, r, _| {
+                        if r.data[0] > 1 { return Err(Error::Malformed("VR mode flag")); }
+                        s.vr_mode = r.data[0] != 0;
+                        Ok(Reply::success())
+                    }),
+                    c(53, 0, |s, _, _| { s.vr_mode = true; Ok(Reply::success()) }),
+                    c(54, 0, |s, _, _| { s.vr_mode = false; Ok(Reply::success()) }),
                 ]
             }
         }
@@ -345,6 +353,14 @@ const HID: &[CommandSpec<Platform>] = &[
     c(204, 1, success),
     c(205, 0, zero),
     c(206, 8, success),
+    c(303, 8, seven_axis::command),
+    c(304, 8, seven_axis::command),
+    c(305, 8, seven_axis::command),
+    c(306, 24, seven_axis::command),
+    c(307, 8, seven_axis::command),
+    c(308, 16, seven_axis::command),
+    c(309, 8, seven_axis::command),
+    c(310, 8, seven_axis::command),
 ];
 
 fn operation_mode(s: &mut Platform, _: &Request, _: &mut Context<'_>) -> Result<Reply, Error> {

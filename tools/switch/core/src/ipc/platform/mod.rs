@@ -14,6 +14,7 @@ mod network;
 mod ns;
 mod play_history;
 mod settings;
+mod seven_axis;
 mod shared;
 #[cfg(test)]
 mod shared_tests;
@@ -114,9 +115,11 @@ pub struct Platform {
     npad_styles: u32,
     handheld_mode: u64,
     six_axis: std::collections::BTreeSet<u32>,
+    seven_axis: BTreeMap<ObjectId, seven_axis::Sensor>,
     performance: [u32; 2],
     launch_popped: bool,
     operation_mode: u32,
+    vr_mode: bool,
     control: Option<Vec<u8>>,
     pub(super) program_id: u64,
     hid: Option<Handle>,
@@ -147,6 +150,7 @@ impl Platform {
             npad_styles: 0,
             handheld_mode: 0,
             six_axis: Default::default(),
+            seven_axis: BTreeMap::new(),
             performance: [0x20000, 0x10000],
             launch_popped: false,
             operation_mode: match std::env::var("SOJU_SWITCH_DOCKED").as_deref() {
@@ -154,6 +158,7 @@ impl Platform {
                 Ok("0") | Err(_) => 0,
                 _ => return Err(Error::Malformed("SOJU_SWITCH_DOCKED must be 0 or 1")),
             },
+            vr_mode: false,
             control: None,
             program_id: 0,
             hid: None,
@@ -232,6 +237,9 @@ impl Platform {
     pub fn close_object(&mut self, id: ObjectId) {
         self.objects.remove(&id);
         self.usb.remove(&id);
+        if let Some(sensor) = self.seven_axis.remove(&id) {
+            self.retired_events.extend(sensor.handles);
+        }
         if let Some(session) = self.infrared.remove(&id) {
             self.retired_events.extend(session.shared);
         }
@@ -259,6 +267,9 @@ impl Platform {
     ) -> Result<(), Error> {
         for handle in self.retired_events.drain(..) {
             kernel.close_handle(memory, handle).map_err(Error::Kernel)?;
+        }
+        for sensor in self.seven_axis.values_mut() {
+            sensor.poll(memory, now_ns)?;
         }
         self.update_shared(kernel, memory, now_ns)
     }

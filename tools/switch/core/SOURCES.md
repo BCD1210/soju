@@ -193,3 +193,15 @@ and IrsensorNotReady (0xf0cd). The desktop has no IR camera: sample rings stay
 empty and image/MCU queries fail without output writes. PID/resource ownership,
 camera handles, output bounds and image-transfer memory handles are validated.
 Other processor configurations remain explicit unsupported commands.
+
+Seven-six-axis fusion follows the [HID service transfer-memory/ring ABI](https://switchbrew.org/wiki/HID_services#InitializeSevenSixAxisSensor).
+The stationary desktop source retains both transfer handles, publishes +Z
+acceleration and an identity quaternion, wraps a 33-entry ring, and freezes it
+when stopped. Timestamp reset changes the timestamp origin, not sampling order.
+Fusion strength is stored per session. Finalize/session close releases the pins.
+The virtual console reports at-rest. AM VR begin/end/query retain the requested
+mode per [CommonStateGetter](https://switchbrew.org/wiki/Applet_Manager_services#ICommonStateGetter);
+there is no physical panel/backlight transition on the desktop.
+HIPC's PID descriptor is supplied by the sender process at the service boundary,
+independent of the client placeholder bytes ([HIPC](https://switchbrew.org/wiki/HIPC)).
+The runner uses process 1 consistently with its GetProcessId SVC.

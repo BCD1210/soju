@@ -7,6 +7,7 @@ impl Platform {
     ) -> Result<Reply, Error> {
         if self.hid.is_none() {
             let mut bytes = vec![0; 0x40000];
+            bytes[0x3c208] = 1; // The virtual console motion source is stationary.
             bytes[0x9a00] = 1;
             bytes[0x9a30] = 17;
             bytes[0x9a40] = 1;
