@@ -1,6 +1,7 @@
 import Cocoa
 import SceneKit
-import Metal
+import MetalKit
+import os.signpost
 
 // ANIM frames are selected by the native bullet, including its impact phase.
 // No weapon damage or projectile lifetime is simulated by the renderer.
@@ -8,6 +9,35 @@ final class EffectSprites {
     let folder=runtime.appendingPathComponent("effect-sprites")
     let images:[String:Obj],weapons:[String:Int]
     var textures=[String:NSImage]()
+    private let queue=DispatchQueue(label:"soju.bw.effect-stream",qos:.userInitiated)
+    private let lock=NSLock()
+    private let resident=ResidentCache<MTLTexture>(limit:64*1024*1024)
+    private var pending=Set<String>(),failed=Set<String>()
+    private lazy var loader=MTKTextureLoader(device:MTLCreateSystemDefaultDevice()!)
+    private let streaming=useMetalBatches && !CommandLine.arguments.contains("--runtime-check") && !CommandLine.arguments.contains("--effect-proof")
+    private func streamed(_ key:String)->MTLTexture? {
+        lock.lock()
+        if let texture=resident.get(key) {lock.unlock();return texture}
+        guard !pending.contains(key),!failed.contains(key),pending.count<64 else {lock.unlock();return nil}
+        pending.insert(key);lock.unlock()
+        queue.async { [self] in
+            autoreleasepool {
+                os_signpost(.begin,log:XRFrameMetrics.log,name:"Effect decode")
+                defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Effect decode")}
+                var result:MTLTexture?
+                do {
+                    guard let image=NSImage(contentsOf:folder.appendingPathComponent(key)),
+                        let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {throw SceneError.invalid("Missing effect frame")}
+                    result=try TextureResidency.shared.load(loader,MetalBatches.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.bottomLeft])
+                } catch {fputs("Effect stream \(key): \(error)\n",stderr)}
+                lock.lock();pending.remove(key)
+                if let texture=result {resident.insert(texture,key:key,bytes:MetalBatches.textureBytes(texture))}
+                else {failed.insert(key)}
+                lock.unlock()
+            }
+        }
+        return nil
+    }
     var renderedFrames=0,missing=Set<Int>()
     init() {
         let catalog=(try? loadObject(folder.appendingPathComponent("catalog.json"))) ?? [:]
@@ -21,8 +51,15 @@ final class EffectSprites {
         let frame=Int(number(native,"frame"))
         guard frame>=0,frame<Int(number(entry,"frames")) else {return false}
         let key="\(id)/\(frame).png"
-        let texture:NSImage
-        if let existing=textures[key] {texture=existing}
+        let texture:Any
+        if streaming {
+            guard let prepared=streamed(key) else {
+                if node.name?.hasPrefix("sprite-") != true {node.isHidden=true}
+                return true
+            }
+            texture=prepared
+        }
+        else if let existing=textures[key] {texture=existing}
         else {
             guard let loaded=NSImage(contentsOf:folder.appendingPathComponent(key)) else {return false}
             texture=loaded
@@ -40,9 +77,11 @@ final class EffectSprites {
             node.constraints=[billboard];node.castsShadow=false;node.categoryBitMask=2
             node.name="sprite-\(id)"
         }
-        node.geometry?.firstMaterial?.diffuse.contents=texture
-        node.geometry?.firstMaterial?.emission.contents=texture
-        node.geometry?.firstMaterial?.emission.intensity=0.35
+        if (node.geometry?.firstMaterial?.diffuse.contents as AnyObject?) !== (texture as AnyObject) {
+            node.geometry?.firstMaterial?.diffuse.contents=texture
+            node.geometry?.firstMaterial?.emission.contents=texture
+            node.geometry?.firstMaterial?.emission.intensity=0.35
+        }
         node.isHidden=Int(number(native,"flags"))&0x40 != 0
         renderedFrames+=1
         return true
