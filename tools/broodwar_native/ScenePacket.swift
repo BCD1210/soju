@@ -87,6 +87,10 @@ struct SceneView {
 // UI construction nodes are read only by the main owner. Their immutable scalar
 // geometry and image snapshots are rebuilt into private nodes by the worker.
 struct SceneOverlay {
+    static func tint(_ contents:Any?)->SIMD4<Float> {
+        guard let color=(contents as? NSColor)?.usingColorSpace(.sRGB) else {return SIMD4<Float>(repeating:1)}
+        return SIMD4<Float>(Float(color.redComponent),Float(color.greenComponent),Float(color.blueComponent),Float(color.alphaComponent))
+    }
     let transform:simd_float4x4,vertices:[SCNVector3],uv:[CGPoint],indices:[Int32]
     let image:CGImage?,color:SIMD4<Float>,opacity:Float,depth:Bool,order:Int,line:Bool,name:String?
     func node()->SCNNode {

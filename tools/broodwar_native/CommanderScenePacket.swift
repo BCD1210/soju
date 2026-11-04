@@ -56,10 +56,9 @@ extension Commander {
                 let (vertices,indices)=batches.mesh(geometry,uvTransform:material.diffuse.contentsTransform)
                 if !indices.isEmpty {
                     let image=(material.diffuse.contents as? NSImage)?.cgImage(forProposedRect:nil,context:nil,hints:nil)
-                    let color=(material.diffuse.contents as? NSColor)?.usingColorSpace(.sRGB) ?? .white
                     overlays.append(SceneOverlay(transform:node.simdWorldTransform,vertices:vertices.map{SCNVector3($0.position.x,$0.position.y,$0.position.z)},
                         uv:vertices.map{CGPoint(x:Double($0.uv.x),y:Double($0.uv.y))},indices:indices.map{Int32($0)},image:image,
-                        color:SIMD4<Float>(Float(color.redComponent),Float(color.greenComponent),Float(color.blueComponent),Float(color.alphaComponent)),opacity:alpha,
+                        color:SceneOverlay.tint(material.diffuse.contents),opacity:alpha,
                         depth:material.readsFromDepthBuffer,order:node.renderingOrder,line:geometry.elements.first?.primitiveType == .line,name:node.name))
                 }
             }
