@@ -1,0 +1,9 @@
+[package]
+name = "soju-switch-input"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Soju's own Switch controller state: Npad buttons and sticks, keyboard and gamepad mappings, dead zones."
+publish = false
+
+[dependencies]
