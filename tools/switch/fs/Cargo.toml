@@ -1,0 +1,18 @@
+[package]
+name = "soju-switch-fs"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Soju's own reader for Nintendo Switch container formats (keys, PFS0/NSP, HFS0/XCI, NCA). Clean-room, from public switchbrew documentation."
+publish = false
+
+[dependencies]
+aes = "0.8"
+sha2 = "0.10"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "soju-switch-fs"
+path = "src/main.rs"
