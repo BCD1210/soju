@@ -61,7 +61,7 @@ extension Commander {
         guard input.aimValid != 0 else {reticle.isHidden=true;wrists.ray.isHidden=true;wrists.dragStart=nil;wrists.box.geometry=nil;return}
         let from=handPosition(raw),direction=(xrBody*simd_quatf(ix:input.qx,iy:input.qy,iz:input.qz,r:input.qw)).act(SIMD3<Float>(0,0,-1))
         let end=from+direction*100
-        let hits=world.rootNode.hitTestWithSegment(from:SCNVector3(from.x,from.y,from.z),to:SCNVector3(end.x,end.y,end.z),options:[SCNHitTestOption.searchMode.rawValue:SCNHitTestSearchMode.closest.rawValue,SCNHitTestOption.categoryBitMask.rawValue:1])
+        let hits=world.rootNode.hitTestWithSegment(from:SCNVector3(from.x,from.y,from.z),to:SCNVector3(end.x,end.y,end.z),options:[SCNHitTestOption.searchMode.rawValue:SCNHitTestSearchMode.closest.rawValue,SCNHitTestOption.categoryBitMask.rawValue:5])
         let hit=hits.first(where:{$0.node.name?.hasPrefix("card-")==true || $0.node.name=="terrain" || unitID($0.node) != nil})
         wrists.ray.isHidden=false
         wrists.line(from:SCNVector3(from.x,from.y,from.z),to:hit?.worldCoordinates ?? SCNVector3(end.x,end.y,end.z),color:wrists.pending==nil ? .cyan:.orange)

@@ -25,6 +25,7 @@ extension Commander {
             nodes.removeAll();models.removeAll();billboards.removeAll();retiring.removeAll();effects.clear();worldSprites.clear();selected=[];controlGroups.removeAll()
             for node in creepNodes.values {node.removeFromParentNode()};creepNodes.removeAll();creepTiles.removeAll()
             for node in terrain.values {node.removeFromParentNode()}
+            terrainRevision &+= 1
             terrain.removeAll();fog.removeAll();fogPresentation.cache.removeAll()
             wrists.pending=nil;wrists.dragStart=nil;wrists.grab=nil;wrists.grabDistance=nil;wrists.lastUnit="";wrists.lastTap=0
             initialized=false;session=newSession;eventSequence=0;deathCount=0;lostEvents=0
@@ -32,6 +33,7 @@ extension Commander {
         let events=changed ? []:(s["events"] as? [Obj] ?? []).filter{number($0,"seq")>eventSequence}
         eventSequence=number(s,"eventSeq")
         if s["eventsLost"] as? Bool == true {lostEvents+=1}
+        sceneRevision &+= 1
         state=s
         let list=s["units"] as? [Obj] ?? []
         units=Dictionary(uniqueKeysWithValues:list.compactMap { u in (u["id"] as? String).map { ($0,u) } })
@@ -134,7 +136,11 @@ extension Commander {
                 let index=y*mapWidth+x
                 guard let visibility=fog[index],visibility != 48 else { continue }
                 keep.insert(index)
-                if let n=terrain[index] { n.geometry?.firstMaterial?.multiply.contents=fogPresentation.texture(x:x,y:y,width:mapWidth,fog:fog);continue }
+                if let n=terrain[index] {
+                    let mask=fogPresentation.texture(x:x,y:y,width:mapWidth,fog:fog)
+                    if (n.geometry?.firstMaterial?.multiply.contents as? NSImage) !== mask {terrainRevision &+= 1;n.geometry?.firstMaterial?.multiply.contents=mask}
+                    continue
+                }
                 guard let a=tiles[String(mapTiles[index])],let file=a["file"] as? String else { continue }
                 do {
                     // HD megatiles already contain the original terrain lighting.
@@ -150,11 +156,11 @@ extension Commander {
                     n.castsShadow=false
                     n.position=SCNVector3(CGFloat(x),0,CGFloat(y))
                     p.firstMaterial?.multiply.contents=fogPresentation.texture(x:x,y:y,width:mapWidth,fog:fog)
-                    world.rootNode.addChildNode(n);terrain[index]=n
+                    world.rootNode.addChildNode(n);terrain[index]=n;terrainRevision &+= 1
                 } catch { notice="Terrain: \(error)" }
             }
         }
-        for (i,n) in terrain where !keep.contains(i) { n.removeFromParentNode();terrain.removeValue(forKey:i) }
+        for (i,n) in terrain where !keep.contains(i) { n.removeFromParentNode();terrain.removeValue(forKey:i);terrainRevision &+= 1 }
         let tileset=(art.manifest["map"] as? Obj)?["tileset"] as? String ?? "badlands"
         let visibleCreep=creepTiles.filter{fog[$0]==50}
         var creepKeep=Set<Int>()
@@ -198,6 +204,13 @@ extension Commander {
         camera.position.y += CGFloat(commanderHeight);placedEyeHeight=commanderHeight
     }
     var commanderHeight:Double {tabletop ? Double(wrists.zoom)*0.9:1.65}
+    func desktopCaptureMetadata()->Obj {
+        return ["frame":number(state,"frame"),
+                "spriteBounds":billboards.mapValues{$0.projectedLayers(view:view,art:worldSprites)},
+                "camera":[camera.position.x,camera.position.y,camera.position.z],
+                "snapshotSource":argument("--snapshot") ?? "live", "terrainProjection":"HD oblique relief at 32 degrees", "state":state,"fog":Dictionary(uniqueKeysWithValues:fog.map{(String($0.key),Int($0.value))}),"creepTiles":Array(creepTiles).sorted(),"elevationDegrees":Double(argument("--elevation") ?? "90") ?? 90,"viewHeight":camera.camera?.orthographicScale ?? 0,
+                "map":state["map"] ?? [:],"terrainTiles":terrain.count,"topDown":camera.camera?.usesOrthographicProjection ?? false]
+    }
     func step() {
         let now=CACurrentMediaTime(),dt=CGFloat(min(0.1,now-lastTick));lastTick=now
         SCNTransaction.begin();SCNTransaction.disableActions=true
@@ -218,17 +231,13 @@ extension Commander {
             if let center=argument("--camera")?.split(separator:",").last,let z=Double(center) {camera.position.z=CGFloat(z+40/tan(elevation))}
         }
         if !xrRequested {
-            for billboard in billboards.values {billboard.updateView(eye:camera.simdWorldPosition,orientation:camera.simdOrientation,perspective:camera.camera?.usesOrthographicProjection != true,art:worldSprites)}
+            for billboard in billboards.values {billboard.updateView(eye:camera.simdWorldPosition,orientation:camera.simdOrientation,perspective:camera.camera?.usesOrthographicProjection != true,art:worldSprites,recordEvidence:captureFrames.folder != nil || now-lastSceneDiagnostic>1)}
             updateDesktopCard()
         }
         Models3D.followLight(world,position:camera.position)
-        if !xrRequested,initialized,let index=captureFrames.reserve(),
+        if !xrRequested,!useMetalBatches,initialized,let index=captureFrames.reserve(),
             let tiff=view.snapshot().tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let image=bitmap.cgImage {
-            captureFrames.save(image,index:index,metadata:["frame":number(state,"frame"),
-                "spriteBounds":billboards.mapValues{$0.projectedLayers(view:view,art:worldSprites)},
-                "camera":[camera.position.x,camera.position.y,camera.position.z],
-                "snapshotSource":argument("--snapshot") ?? "live", "terrainProjection":"HD oblique relief at 32 degrees", "state":state,"fog":Dictionary(uniqueKeysWithValues:fog.map{(String($0.key),Int($0.value))}),"creepTiles":Array(creepTiles).sorted(),"elevationDegrees":Double(argument("--elevation") ?? "90") ?? 90,"viewHeight":camera.camera?.orthographicScale ?? 0,
-                "map":state["map"] ?? [:],"terrainTiles":terrain.count,"topDown":camera.camera?.usesOrthographicProjection ?? false])
+            captureFrames.save(image,index:index,metadata:desktopCaptureMetadata())
         }
         if now-lastSceneDiagnostic>1 {
             lastSceneDiagnostic=now

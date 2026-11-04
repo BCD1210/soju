@@ -35,11 +35,26 @@ func runtimeChecks()throws {
     try require(timing.completedStereoSamples==2,"GPU timing pairs either completion callback order")
     let batchCheck = try MetalBatches(device:commander.art.device)
     try require(true,"instanced stereo Metal pipelines compile on this device")
+    let opacityParent=SCNNode(),opacityChild=SCNNode()
+    opacityParent.opacity=0.45;opacityChild.opacity=0.5;opacityParent.addChildNode(opacityChild)
+    try require(abs(batchCheck.inheritedOpacity(opacityChild)-0.225)<0.00001,"batched sprites preserve inherited cloak opacity")
+    let pickGeometry=SCNGeometry(sources:[SCNGeometrySource(vertices:[SCNVector3(-1,-1,0),SCNVector3(1,-1,0),SCNVector3(0,1,0)])],elements:[SCNGeometryElement(indices:[Int32(0),1,2],primitiveType:.triangles)])
+    let pickScene=SCNScene(),pickNode=SCNNode(geometry:pickGeometry)
+    let pickRoot=pickScene.rootNode
+    pickNode.categoryBitMask=4;pickRoot.addChildNode(pickNode)
+    let pickRenderer=SCNRenderer(device:commander.art.device,options:nil)
+    pickRenderer.scene=pickScene
+    let pickCamera=SCNNode();pickCamera.camera=SCNCamera();pickCamera.position=SCNVector3(0,0,2)
+    pickRoot.addChildNode(pickCamera);pickRenderer.pointOfView=pickCamera
+    _=pickRenderer.snapshot(atTime:0,with:CGSize(width:8,height:8),antialiasingMode:.none)
+    let picks=pickRoot.hitTestWithSegment(from:SCNVector3(0,0,2),to:SCNVector3(0,0,-2),options:[SCNHitTestOption.categoryBitMask.rawValue:5])
+    try require(!picks.isEmpty,"selection mask includes batched geometry")
     let bitmap=NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:2,pixelsHigh:2,bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:8,bitsPerPixel:32)!
     for y in 0..<2 {for x in 0..<2 {var pixel=[y==0 ? 255:0,y==0 ? 255:0,y==0 ? 255:0,255];bitmap.setPixel(&pixel,atX:x,y:y)}}
     let image=NSImage(size:NSSize(width:2,height:2));image.addRepresentation(bitmap)
     for topLeft in [true,false] {
         let texture=try batchCheck.texture(image,fallback:batchCheck.white,topLeft:topLeft)
+        try require(texture.pixelFormat == .rgba8Unorm_srgb || texture.pixelFormat == .bgra8Unorm_srgb,"color textures decode sRGB even when the loader returns unorm")
         let readback=commander.art.device.makeBuffer(length:512,options:.storageModeShared)!
         let command=batchCheck.queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
         blit.copy(from:texture,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:2,height:2,depth:1),to:readback,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:512)
@@ -50,6 +65,29 @@ func runtimeChecks()throws {
     let (planeVertices,_)=batchCheck.mesh(SCNPlane(width:1,height:1))
     let planeTop=planeVertices.max(by:{$0.position.y<$1.position.y})!
     try require(planeTop.uv.y==0,"SceneKit plane UVs also start at the image top")
+    let streaming=FrameStream()
+    streaming.request(239,frame:68,color:[244,4,4])
+    let streamDeadline=Date().addingTimeInterval(30)
+    while streaming.get(239,frame:68,color:[244,4,4])==nil && Date()<streamDeadline {Thread.sleep(forTimeInterval:0.01)}
+    let prepared=streaming.get(239,frame:68,color:[244,4,4])
+    try require(prepared?.geometry != nil,"background stream publishes a complete relief frame")
+    try require(prepared?.image.pixelFormat == .rgba8Unorm_srgb || prepared?.image.pixelFormat == .bgra8Unorm_srgb,"streamed color is explicitly sRGB")
+    let streamedArt=WorldSprites(streaming:true),streamedBillboard=UnitBillboard(id:"stream-transition")
+    let streamedUnit:Obj=["x":100,"y":100,"image":["id":239,"frame":68,"flags":0]]
+    let streamRed=[244,4,4],streamBlue=[4,4,244]
+    func waitForColor(_ color:[Int]) {
+        let deadline=Date().addingTimeInterval(30)
+        while streamedBillboard.shownColors[0] != color && Date()<deadline {
+            streamedBillboard.updateView(eye:SIMD3<Float>(3,4,5),orientation:simd_quatf(),perspective:false,art:streamedArt)
+            Thread.sleep(forTimeInterval:0.01)
+        }
+    }
+    streamedBillboard.apply(streamedUnit,ground:commander.ground,art:streamedArt,color:streamRed);waitForColor(streamRed)
+    try require(streamedBillboard.shownImages[0]==239 && streamedBillboard.shownColors[0]==streamRed,"initial streamed placeholder becomes visible")
+    streamedBillboard.apply(streamedUnit,ground:commander.ground,art:streamedArt,color:streamBlue)
+    try require(streamedBillboard.shownColors[0]==streamRed,"pending owner change retains the displayed texture identity")
+    waitForColor(streamBlue)
+    try require(streamedBillboard.shownColors[0]==streamBlue,"same-frame owner change publishes its replacement texture")
     let cache=ResidentCache<Int>(limit:4)
     cache.insert(1,key:"first",bytes:2);cache.insert(2,key:"second",bytes:2)
     _=cache.get("first");cache.insert(3,key:"third",bytes:2)

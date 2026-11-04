@@ -8,37 +8,55 @@ final class UnitBillboard {
     let root=SCNNode()
     var layers=[Int:SCNNode](),evidence=[Obj]()
     var nativeLayers=[Int:Obj](),unit:Obj=[:],team=[255,255,255]
-    var shown=[Int:Int]()
+    var shown=[Int:Int](),shownImages=[Int:Int]()
+    var shownColors=[Int:[Int]](),contacts=[Int:Float]()
+    var layerOrder=[Int]()
+    var lastNativeChain=[Obj]()
     var geometryRevision=0
     var lastEye:SIMD3<Float>?,lastRotation:SIMD4<Float>?,lastPerspective:Bool?
     init(id:String) {root.name=id}
     func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites,color:[Int]=[255,255,255]) {
-        lastEye=nil;geometryRevision &+= 1
-        self.unit=unit;team=color;nativeLayers.removeAll();shown.removeAll()
+        lastEye=nil
+        let sameTeam=team==color
+        self.unit=unit;team=color
         let x=number(unit,"x")/32,z=number(unit,"y")/32
         root.position=Terrain3D.worldPosition(x,ground.elevation(x,z)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
         root.isHidden=unit["renderHidden"] as? Bool == true || unit["transported"] as? Bool == true
         root.opacity=unit["cloaked"] as? Bool == true ? 0.45:1
         let main=unit["image"] as? Obj ?? [:]
         let chain=(unit["visual"] as? Obj)?["images"] as? [Obj] ?? [main]
+        if sameTeam,!layers.isEmpty,NSArray(array:chain).isEqual(to:lastNativeChain) {return}
+        lastNativeChain=chain;geometryRevision &+= 1
         var keep=Set<Int>();evidence=[]
         for (index,native) in chain.enumerated() {
             guard Int(number(native,"flags"))&0x40==0,let id=native["id"] as? Int,
                 let entry=art.images[String(id)],let records=entry["frames"] as? [Obj] else {continue}
             let frame=Int(number(native,"frame"))
-            guard records.indices.contains(frame),let image=art.texture(id,frame:frame,color:color) else {continue}
+            guard records.indices.contains(frame) else {continue}
+            let prepared=art.stream?.get(id,frame:frame,color:color)
+            if let stream=art.stream,prepared==nil {
+                stream.request(id,frame:frame,color:color);keep.insert(index);nativeLayers[index]=native
+                if layers[index]==nil {
+                    let node=SCNNode(geometry:SCNPlane(width:number(entry,"grpWidth")/32,height:number(entry,"grpHeight")/32))
+                    let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
+                    node.geometry?.materials=[material];node.isHidden=true;layers[index]=node;root.addChildNode(node)
+                }
+                continue
+            }
+            guard let image:Any=prepared?.image ?? art.texture(id,frame:frame,color:color) as Any? else {continue}
             let scale=number(entry,"scale")*32
             guard scale>0 else {continue}
-            keep.insert(index);nativeLayers[index]=native;shown[index]=frame
+            keep.insert(index);nativeLayers[index]=native;shown[index]=frame;shownImages[index]=id;shownColors[index]=color
+            if let prepared=prepared {contacts[index]=prepared.contact}
             let shadow=Int(number(native,"drawfunc"))==10,node=layers[index] ?? SCNNode()
             let plane=SCNPlane(width:number(entry,"grpWidth")/32,height:number(entry,"grpHeight")/32)
             let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
             material.diffuse.contents=image;material.diffuse.wrapS = .clamp;material.diffuse.wrapT = .clamp
             material.readsFromDepthBuffer=false;material.writesToDepthBuffer=false;plane.materials=[material];node.geometry=plane
-            if !shadow,let mesh=art.relief.geometry(id,frame:frame,art:art) {
-                mesh.materials=[art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
+            if !shadow,let mesh=(prepared?.geometry?.copy() as? SCNGeometry) ?? (art.stream==nil ? art.relief.geometry(id,frame:frame,art:art):nil) {
+                mesh.materials=[(prepared?.material.copy() as? SCNMaterial) ?? art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
             }
-            node.castsShadow=false;node.renderingOrder=node.geometry is SCNPlane ? 1000+Int(number(unit,"y"))*32+chain.count-index:0
+            node.isHidden=false;node.castsShadow=false;node.renderingOrder=node.geometry is SCNPlane ? 1000+Int(number(unit,"y"))*32+chain.count-index:0
             if shadow {
                 node.constraints=nil;node.eulerAngles.x = -.pi/2;material.multiply.contents=NSColor.black;material.readsFromDepthBuffer=true;node.opacity=0.5
             } else {
@@ -51,6 +69,9 @@ final class UnitBillboard {
             evidence.append(["image":id,"frame":frame,"frameset":number(native,"frameset"),
                 "direction":number(native,"direction"),"mirrored":node.scale.x<0])
         }
+        nativeLayers=nativeLayers.filter{keep.contains($0.key)};shown=shown.filter{keep.contains($0.key)}
+        shownImages=shownImages.filter{keep.contains($0.key)};shownColors=shownColors.filter{keep.contains($0.key)};contacts=contacts.filter{keep.contains($0.key)}
+        layerOrder=nativeLayers.keys.sorted()
         for (index,node) in layers where !keep.contains(index) {node.removeFromParentNode();layers.removeValue(forKey:index)}
     }
     static func viewFrame(_ native:Obj,azimuth:Double,count:Int)->(Int,Bool) {
@@ -63,7 +84,7 @@ final class UnitBillboard {
         let frame=Int(number(native,"frameset"))+(mirrored ? 32-wrapped:wrapped)
         return (0..<count).contains(frame) ? (frame,mirrored):(original,flags&2 != 0)
     }
-    func updateView(eye:SIMD3<Float>,orientation:simd_quatf,perspective:Bool,art:WorldSprites) {
+    func updateView(eye:SIMD3<Float>,orientation:simd_quatf,perspective:Bool,art:WorldSprites,recordEvidence:Bool=true) {
         if lastEye==eye && lastRotation==orientation.vector && lastPerspective==perspective {return}
         lastEye=eye;lastRotation=orientation.vector;lastPerspective=perspective
         let delta=eye-root.simdWorldPosition,azimuth=atan2(Double(delta.x),Double(delta.z))
@@ -82,28 +103,41 @@ final class UnitBillboard {
             let (frame,_)=Self.viewFrame(main,azimuth:azimuth,count:records.count)
             let id=Int(number(main,"id"))
             let key="\(id)/\(frame)"
-            if art.relief.contactHeights[key]==nil {_ = art.relief.geometry(id,frame:frame,art:art)}
-            if let minimum=art.relief.contactHeights[key] {
+            if art.stream==nil && art.relief.contactHeights[key]==nil {_ = art.relief.geometry(id,frame:frame,art:art)}
+            if let minimum=art.stream?.get(id,frame:frame,color:team)?.contact ?? (shownImages[0]==id && shown[0]==frame ? contacts[0]:nil) ?? art.relief.contactHeights[key] {
                 let oy=(number(main,"offsetY")+Double(Int(number(entry,"grpHeight"))%2)/2)/32
                 buildingLift = -minimum+Float(oy*cos(Terrain3D.canonicalElevation))
             }
         }
-        evidence=[]
-        for (index,native) in nativeLayers.sorted(by:{$0.key<$1.key}) {
+        if recordEvidence {evidence.removeAll(keepingCapacity:true)}
+        for index in layerOrder {
+            guard let native=nativeLayers[index] else {continue}
             guard let node=layers[index],let entry=art.images[String(Int(number(native,"id")))],
                 let records=entry["frames"] as? [Obj] else {continue}
             let shadow=Int(number(native,"drawfunc"))==10
             let (frame,mirrored)=perspective && !shadow ? Self.viewFrame(native,azimuth:azimuth,count:records.count):(Int(number(native,"frame")),Int(number(native,"flags"))&2 != 0)
-            if shown[index] != frame {
+            let id=Int(number(native,"id"))
+            if shown[index] != frame || shownImages[index] != id || shownColors[index] != team {
+                let prepared=art.stream?.get(id,frame:frame,color:team)
+                if let stream=art.stream,prepared==nil {
+                    stream.request(id,frame:frame,color:team);lastEye=nil;continue
+                }
                 geometryRevision &+= 1
-                let id=Int(number(native,"id"))
-                if !shadow,let mesh=art.relief.geometry(id,frame:frame,art:art) {
-                    mesh.materials=[art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh;node.renderingOrder=0
-                } else {node.geometry?.firstMaterial?.diffuse.contents=art.texture(id,frame:frame,color:team)}
-                shown[index]=frame
+                if !shadow,let mesh=(prepared?.geometry?.copy() as? SCNGeometry) ?? (art.stream==nil ? art.relief.geometry(id,frame:frame,art:art):nil) {
+                    mesh.materials=[(prepared?.material.copy() as? SCNMaterial) ?? art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh;node.renderingOrder=0
+                } else {node.geometry?.firstMaterial?.diffuse.contents=prepared?.image ?? art.texture(id,frame:frame,color:team) as Any?}
+                shown[index]=frame;shownImages[index]=id;shownColors[index]=team;node.isHidden=false
+                if let prepared=prepared {contacts[index]=prepared.contact}
             }
             let ox=(number(native,"offsetX")+Double(Int(number(entry,"grpWidth"))%2)/2)/32
             let oy=(number(native,"offsetY")+Double(Int(number(entry,"grpHeight"))%2)/2)/32
+            if let stream=art.stream,Int(number(native,"flags"))&8 != 0,!shadow {
+                let base=Int(number(native,"frameset")),id=Int(number(native,"id"))
+                for neighbor in [frame-1,frame+1] where neighbor>=base && neighbor<=base+16 && records.indices.contains(neighbor) {
+                    stream.request(id,frame:neighbor,color:team)
+                }
+            }
+            node.opacity=shadow ? 0.5:1
             node.constraints=nil
             node.scale=SCNVector3(1,1,1)
             if shadow {
@@ -120,7 +154,7 @@ final class UnitBillboard {
                 node.simdPosition=offset+SIMD3<Float>(0,node.geometry is SCNPlane ? Float(contact):buildingLift,0)
             }
             node.scale.x=mirrored ? -1:1
-            if !(node.geometry is SCNPlane),let material=node.geometry?.firstMaterial {
+            if !useMetalBatches,!(node.geometry is SCNPlane),let material=node.geometry?.firstMaterial {
                 var light=rotation.inverse.act(SpriteRelief.sun)
                 var view=rotation.inverse.act(simd_normalize(delta))
                 if mirrored {light.x = -light.x;view.x = -view.x}
@@ -128,9 +162,9 @@ final class UnitBillboard {
                 material.setValue(NSValue(scnVector3:SCNVector3(light)),forKey:"reliefLight")
                 material.setValue(NSValue(scnVector3:SCNVector3(view)),forKey:"reliefEye")
             }
-            evidence.append(["image":number(native,"id"),"frame":frame,"nativeFrame":number(native,"frame"),
+            if recordEvidence {evidence.append(["image":number(native,"id"),"frame":frame,"nativeFrame":number(native,"frame"),
                 "frameset":number(native,"frameset"),"mirrored":mirrored,"observerAzimuth":azimuth,
-                "shadow":shadow,"relief":!(node.geometry is SCNPlane),"contactLift":contact,"buildingLift":buildingLift,"position":[node.position.x,node.position.y,node.position.z]])
+                "shadow":shadow,"relief":!(node.geometry is SCNPlane),"contactLift":contact,"buildingLift":buildingLift,"position":[node.position.x,node.position.y,node.position.z]])}
         }
     }
     func projectedLayers(view:SCNView,art:WorldSprites)->[Obj] {
@@ -156,6 +190,7 @@ final class UnitBillboard {
 
 // Native image chains drive both independent map sprites and fallback death frames.
 final class WorldSprites {
+    let stream:FrameStream?
     let relief=SpriteRelief()
     let root=SCNNode(),folder=runtime.appendingPathComponent("world-sprites")
     let images:[String:Obj],creep:[String:Obj]
@@ -165,7 +200,8 @@ final class WorldSprites {
     let atlases=ResidentCache<NSImage>(limit:256*1024*1024)
     var missing=Set<Int>(),deathFrames=0,loneFrames=0
     var creepMaterials=[String:SCNMaterial]()
-    init() {
+    init(streaming:Bool?=nil) {
+        stream=(streaming ?? (useMetalBatches && !CommandLine.arguments.contains("--runtime-check"))) ? FrameStream():nil
         let catalog=(try? loadObject(folder.appendingPathComponent("catalog.json"))) ?? [:]
         images=catalog["images"] as? [String:Obj] ?? [:];creep=catalog["creep"] as? [String:Obj] ?? [:]
         root.name="native-world-sprites"

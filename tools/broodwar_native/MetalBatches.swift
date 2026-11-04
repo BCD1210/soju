@@ -4,8 +4,7 @@ import Metal
 import MetalKit
 import simd
 
-// Explicit draw batches for the frozen-scene performance experiment. The normal
-// SceneKit path remains available for gameplay and canonical comparisons.
+// Shared desktop/stereo terrain and sprite batches; other geometry uses a depth-preserving overlay.
 final class MetalBatches {
     struct Vertex {var position:SIMD4<Float>;var uv:SIMD4<Float>}
     struct Instance {var model:simd_float4x4;var parameters:SIMD4<Float>}
@@ -17,10 +16,16 @@ final class MetalBatches {
     }
     let device:MTLDevice,loader:MTKTextureLoader,queue:MTLCommandQueue
     let pipelines:[MTLRenderPipelineState]
+    let compositePipeline:MTLRenderPipelineState
+    var overlayColor:MTLTexture?,overlayResolved:MTLTexture?
+    private var depthViews=[MTLTexture]()
+    private let overlayPass=MTLRenderPassDescriptor(),compositePass=MTLRenderPassDescriptor()
+    let samples:Int
     let depth:MTLDepthStencilState,shadowDepth:MTLDepthStencilState,overlayDepth:MTLDepthStencilState
     var batches=[Batch]()
     let textures=ResidentCache<(NSImage,MTLTexture)>(limit:512*1024*1024)
     var ready=false,draws=0,visible=0,culled=0,lodCount=0
+    var sourceRevision = -1,terrainRevision = -1
     var revisions=[(UnitBillboard,Int)]()
     lazy var flatIndices=buffer([UInt32(0),1,2,2,1,3])
     var stereoColor:MTLTexture?,stereoDepth:MTLTexture?,stereoResolved:MTLTexture?
@@ -36,6 +41,7 @@ final class MetalBatches {
     private var planes=[SIMD4<Float>](repeating:.zero,count:6)
     init(device:MTLDevice)throws {
         guard device.supportsVertexAmplificationCount(2) else {throw SceneError.invalid("Two-view vertex amplification unavailable")}
+        let samples=xrRequested ? 1:4;self.samples=samples
         self.device=device;loader=MTKTextureLoader(device:device);queue=device.makeCommandQueue()!
         func solid(_ rgba:[UInt8])->MTLTexture {
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
@@ -52,17 +58,45 @@ final class MetalBatches {
             d.vertexFunction=library.makeFunction(name:"batchVertex");let constants=MTLFunctionConstantValues();var value=mode
             constants.setConstantValue(&value,type:.uint,index:0)
             d.fragmentFunction=try library.makeFunction(name:"batchFragment",constantValues:constants)
-            d.colorAttachments[0].pixelFormat = .bgra8Unorm_srgb;d.depthAttachmentPixelFormat = .depth32Float
-            d.rasterSampleCount=1;d.maxVertexAmplificationCount=2
-            d.colorAttachments[0].isBlendingEnabled=shadow
+            d.colorAttachments[0].pixelFormat = .bgra8Unorm_srgb;d.depthAttachmentPixelFormat = .depth32Float_stencil8;d.stencilAttachmentPixelFormat = .depth32Float_stencil8
+            d.rasterSampleCount=samples;d.maxVertexAmplificationCount=2
+            d.colorAttachments[0].isBlendingEnabled=true
             d.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha;d.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
             d.colorAttachments[0].sourceAlphaBlendFactor = .one;d.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
             return try device.makeRenderPipelineState(descriptor:d)
         }
         pipelines=try (UInt32(0)..<4).map{try makePipeline($0)}
+        let composite=MTLRenderPipelineDescriptor()
+        composite.vertexFunction=library.makeFunction(name:"compositeVertex")
+        composite.fragmentFunction=library.makeFunction(name:"compositeFragment")
+        composite.colorAttachments[0].pixelFormat = .bgra8Unorm_srgb
+        composite.colorAttachments[0].isBlendingEnabled=true
+        composite.colorAttachments[0].sourceRGBBlendFactor = .one
+        composite.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        composite.colorAttachments[0].sourceAlphaBlendFactor = .one
+        composite.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        compositePipeline=try device.makeRenderPipelineState(descriptor:composite)
         let d=MTLDepthStencilDescriptor();d.depthCompareFunction = .lessEqual;d.isDepthWriteEnabled=true;depth=device.makeDepthStencilState(descriptor:d)!
         d.isDepthWriteEnabled=false;shadowDepth=device.makeDepthStencilState(descriptor:d)!
         d.depthCompareFunction = .always;overlayDepth=device.makeDepthStencilState(descriptor:d)!
+    }
+    static func colorImage(_ image:CGImage)->CGImage {
+        guard let space=CGColorSpace(name:CGColorSpace.sRGB),
+            let context=CGContext(data:nil,width:image.width,height:image.height,bitsPerComponent:8,bytesPerRow:image.width*4,space:space,bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue) else {return image}
+        context.draw(image,in:CGRect(x:0,y:0,width:image.width,height:image.height))
+        return context.makeImage() ?? image
+    }
+    static func textureBytes(_ texture:MTLTexture)->Int {
+        max(texture.allocatedSize,texture.parent?.allocatedSize ?? 0,texture.width*texture.height*4)
+    }
+    static func colorView(_ texture:MTLTexture)->MTLTexture {
+        let format:MTLPixelFormat
+        switch texture.pixelFormat {
+        case .rgba8Unorm:format = .rgba8Unorm_srgb
+        case .bgra8Unorm:format = .bgra8Unorm_srgb
+        default:return texture
+        }
+        return texture.makeTextureView(pixelFormat:format) ?? texture
     }
     func texture(_ value:Any?,fallback:MTLTexture,topLeft:Bool=true)throws->MTLTexture {
         if let t=value as? MTLTexture {return t}
@@ -70,8 +104,8 @@ final class MetalBatches {
         let key=String(describing:ObjectIdentifier(image))+"/\(topLeft)"
         if let cached=textures.get(key) {return cached.1}
         guard let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {return fallback}
-        let t=try loader.newTexture(cgImage:cg,options:[.SRGB:true,.generateMipmaps:true,.origin:topLeft ? MTKTextureLoader.Origin.topLeft:MTKTextureLoader.Origin.bottomLeft])
-        textures.insert((image,t),key:key,bytes:t.allocatedSize);return t
+        let t=Self.colorView(try loader.newTexture(cgImage:Self.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:topLeft ? MTKTextureLoader.Origin.topLeft:MTKTextureLoader.Origin.bottomLeft]))
+        textures.insert((image,t),key:key,bytes:Self.textureBytes(t));return t
     }
     func components(_ source:SCNGeometrySource,_ i:Int)->[Float] {
         source.data.withUnsafeBytes { bytes in
@@ -103,9 +137,10 @@ final class MetalBatches {
     }
     func buffer<T>(_ values:[T])->MTLBuffer {values.withUnsafeBytes{device.makeBuffer(bytes:$0.baseAddress!,length:$0.count,options:.storageModeShared)!}}
     func prepare(_ commander:Commander)throws {
-        guard commander.models.isEmpty else {throw SceneError.invalid("Metal batch replay requires sprite-backed units")}
-        if ready,revisions.allSatisfy({$0.0.geometryRevision==$0.1}) {return}
-        if ready {batches.removeAll{!$0.terrain}}
+        if ready,sourceRevision==commander.sceneRevision,revisions.count==commander.billboards.count,revisions.allSatisfy({$0.0.geometryRevision==$0.1}) {return}
+        if terrainRevision != commander.terrainRevision {ready=false;batches.removeAll()}
+        else if ready {batches.removeAll{!$0.terrain}}
+        sourceRevision=commander.sceneRevision;terrainRevision=commander.terrainRevision
         revisions=commander.billboards.values.map{($0,$0.geometryRevision)}
         // Array pages retain each tile's own gutter and mip chain. No cross-tile
         // filtering can bleed unrelated tiles into one another.
@@ -129,6 +164,7 @@ final class MetalBatches {
                 }
                 let mask=try texture(material.multiply.contents,fallback:white)
                 if mask.width==fog.width && mask.height==fog.height {blit.copy(from:mask,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:mask.width,height:mask.height,depth:1),to:fog,destinationSlice:slice,destinationLevel:0,destinationOrigin:MTLOrigin())}
+                node.categoryBitMask=4
                 let (v,ind)=mesh(geometry,transform:node.simdWorldTransform,slice:Float(slice),uvTransform:material.diffuse.contentsTransform)
                 let base=UInt32(vertices.count);vertices+=v;indices+=ind.map{$0+base}
             }
@@ -141,8 +177,9 @@ final class MetalBatches {
         for billboard in commander.billboards.values where !billboard.root.isHidden {
             for (index,native) in billboard.nativeLayers {
                 guard let node=billboard.layers[index],let frame=billboard.shown[index] else {continue}
+                node.categoryBitMask=4
                 let shadow=Int(number(native,"drawfunc"))==10
-                let key="\(Int(number(native,"id")))/\(frame)/\(billboard.team)/\(shadow)"
+                let key="\(billboard.shownImages[index] ?? Int(number(native,"id")))/\(frame)/\(billboard.shownColors[index] ?? billboard.team)/\(shadow)"
                 groups[key,default:[]].append(node)
             }
         }
@@ -176,6 +213,7 @@ final class MetalBatches {
         // Preserve creep edges and independent native sprite chains as overlays.
         for node in Array(commander.creepNodes.values)+Array(commander.worldSprites.nodes.values) {
             guard let geometry=node.geometry,let material=geometry.firstMaterial else {continue}
+            node.categoryBitMask=4
             let (vertices,indices)=mesh(geometry,uvTransform:material.diffuse.contentsTransform)
             guard !vertices.isEmpty && !indices.isEmpty else {continue}
             let diffuse=try texture(material.diffuse.contents,fallback:white)
@@ -193,23 +231,57 @@ final class MetalBatches {
         ready=true
         fputs("Metal batches ready: \(batches.count) draws, \(commander.nodes.count) objects\n",stderr)
     }
+    func renderOverlay(renderer:SCNRenderer,command:MTLCommandBuffer,output:MTLTexture,camera:SCNNode,eye:Int,time:Double) {
+        guard depthViews.indices.contains(eye) else {return}
+        let depth=depthViews[eye]
+        camera.camera?.categoryBitMask=3
+        if overlayColor?.width != output.width || overlayColor?.height != output.height {
+            let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm_srgb,width:output.width,height:output.height,mipmapped:false)
+            descriptor.usage=[.renderTarget,.shaderRead];descriptor.storageMode = .private
+            overlayResolved=device.makeTexture(descriptor:descriptor)
+            if samples>1 {descriptor.textureType = .type2DMultisample;descriptor.sampleCount=samples;descriptor.usage = .renderTarget;overlayColor=device.makeTexture(descriptor:descriptor)}
+            else {overlayColor=overlayResolved}
+        }
+        let pass=overlayPass
+        pass.colorAttachments[0].texture=overlayColor;pass.colorAttachments[0].clearColor=MTLClearColorMake(0,0,0,0);pass.colorAttachments[0].loadAction = .clear;pass.colorAttachments[0].storeAction = samples>1 ? .multisampleResolve:.store
+        pass.colorAttachments[0].resolveTexture=samples>1 ? overlayResolved:nil
+        pass.depthAttachment.texture=depth;pass.depthAttachment.loadAction = .load;pass.depthAttachment.storeAction = .store
+        pass.stencilAttachment.texture=depth;pass.stencilAttachment.loadAction = .load;pass.stencilAttachment.storeAction = .store
+        renderer.render(atTime:time,viewport:CGRect(x:0,y:0,width:output.width,height:output.height),commandBuffer:command,passDescriptor:pass)
+        let composite=compositePass;composite.colorAttachments[0].texture=output
+        composite.colorAttachments[0].loadAction = .load;composite.colorAttachments[0].storeAction = .store
+        if let encoder=command.makeRenderCommandEncoder(descriptor:composite) {
+            encoder.setRenderPipelineState(compositePipeline);encoder.setFragmentTexture(overlayResolved,index:0)
+            encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:3);encoder.endEncoding()
+        }
+    }
     func copyEye(command:MTLCommandBuffer,to output:MTLTexture,eye:Int) {
         guard let source=stereoResolved,let blit=command.makeBlitCommandEncoder() else {return}
         blit.copy(from:source,sourceSlice:eye,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:output.width,height:output.height,depth:1),to:output,destinationSlice:0,destinationLevel:0,destinationOrigin:MTLOrigin());blit.endEncoding()
+    }
+    func inheritedOpacity(_ node:SCNNode)->Float {
+        var value=Float(node.opacity),parent=node.parent
+        while let current=parent {value*=Float(current.opacity);parent=current.parent}
+        return value
     }
     func render(command:MTLCommandBuffer,output:MTLTexture,camera:SCNNode,eye:SIMD3<Float>,rightTransform:simd_float4x4,rightProjection:simd_float4x4) {
         if stereoResolved?.width != output.width || stereoResolved?.height != output.height {
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm_srgb,width:output.width,height:output.height,mipmapped:false)
             d.textureType = .type2DArray;d.arrayLength=2;d.storageMode = .private;d.usage = [.renderTarget,.shaderRead]
             stereoResolved=device.makeTexture(descriptor:d)
-            stereoColor=stereoResolved;d.usage = .renderTarget
-            d.pixelFormat = .depth32Float;stereoDepth=device.makeTexture(descriptor:d)
+            d.usage = .renderTarget
+            if samples>1 {d.textureType = .type2DMultisampleArray;d.sampleCount=samples;stereoColor=device.makeTexture(descriptor:d)}
+            else {stereoColor=stereoResolved}
+            d.pixelFormat = .depth32Float_stencil8;stereoDepth=device.makeTexture(descriptor:d)
+            depthViews=(0..<2).compactMap {eye in stereoDepth?.makeTextureView(pixelFormat:.depth32Float_stencil8,textureType:samples>1 ? .type2DMultisample:.type2D,levels:0..<1,slices:eye..<(eye+1))}
             stereoPass.renderTargetArrayLength=2
-            stereoPass.colorAttachments[0].texture=stereoColor;stereoPass.colorAttachments[0].resolveTexture=nil
-            stereoPass.colorAttachments[0].loadAction = .clear;stereoPass.colorAttachments[0].storeAction = .store
+            stereoPass.colorAttachments[0].texture=stereoColor;stereoPass.colorAttachments[0].resolveTexture=samples>1 ? stereoResolved:nil
+            stereoPass.colorAttachments[0].loadAction = .clear;stereoPass.colorAttachments[0].storeAction = samples>1 ? .multisampleResolve:.store
             stereoPass.colorAttachments[0].clearColor=MTLClearColorMake(0.0019349845,0.0027089783,0.0039359395,1)
-            stereoPass.depthAttachment.texture=stereoDepth;stereoPass.depthAttachment.loadAction = .clear;stereoPass.depthAttachment.storeAction = .dontCare;stereoPass.depthAttachment.clearDepth=1
+            stereoPass.depthAttachment.texture=stereoDepth;stereoPass.depthAttachment.loadAction = .clear;stereoPass.depthAttachment.storeAction = .store;stereoPass.depthAttachment.clearDepth=1
         }
+        stereoPass.stencilAttachment.texture=stereoDepth
+        stereoPass.stencilAttachment.loadAction = .clear;stereoPass.stencilAttachment.storeAction = .store
         guard ready else {return}
         available.wait();let slot=ring;ring=(ring+1)%3
         let query=visibilityBuffers[slot];memset(query.contents(),0,query.length)
@@ -235,7 +307,7 @@ final class MetalBatches {
             for i in self.visibleLast.indices {self.visibleLast[i]=result[i]>0}
             self.visibleVP=vp;self.visibleRightVP=rightVP;self.lastVisibilityFrame=submittedFrame
         }
-        var uniforms=Uniforms(left:vp,right:rightVP,leftEye:SIMD4<Float>(eye,1),rightEye:rightTransform.columns.3)
+        var uniforms=Uniforms(left:vp,right:rightVP,leftEye:SIMD4<Float>(eye,camera.camera!.usesOrthographicProjection ? 0:1),rightEye:rightTransform.columns.3)
         encoder.setVertexBytes(&uniforms,length:MemoryLayout<Uniforms>.stride,index:2)
         encoder.setFragmentBytes(&uniforms,length:MemoryLayout<Uniforms>.stride,index:2)
         encoder.setVertexAmplificationCount(2,viewMappings:nil)
@@ -259,6 +331,7 @@ final class MetalBatches {
                     count=0
                     let data=batch.instances[slot].contents().bindMemory(to:Instance.self,capacity:batch.nodes.count*2)
                     for (index,node) in batch.nodes.enumerated() {
+                        if node.isHidden {continue}
                         var model=node.simdWorldTransform
                         if node.constraints?.contains(where:{$0 is SCNBillboardConstraint}) == true {
                             let translation=model.columns.3
@@ -270,7 +343,7 @@ final class MetalBatches {
                         // Conservative sphere support against all six homogeneous planes.
                         let outside=planes.contains { plane in simd_dot(plane,center) < -radius*simd_length(SIMD3<Float>(plane.x,plane.y,plane.z)) }
                         if outside || p.w<=0 {culled+=1;continue}
-                        let instance=Instance(model:model,parameters:SIMD4<Float>(batch.mode,Float(node.opacity),0,0))
+                        let instance=Instance(model:model,parameters:SIMD4<Float>(batch.mode,inheritedOpacity(node),0,0))
                         let pixels=batch.bounds[index].1*Float(camera.camera!.projectionTransform.m22)*Float(output.height)/max(p.w,0.001)
                         if batch.flatVertices != nil && pixels<48 {
                             data[batch.nodes.count+farCount]=instance;farCount+=1
@@ -295,6 +368,14 @@ final class MetalBatches {
     static let shader="""
     #include <metal_stdlib>
     using namespace metal;
+    struct CompositeRaster {float4 position [[position]];float2 uv;};
+    vertex CompositeRaster compositeVertex(uint id [[vertex_id]]) {
+        float2 p=float2((id<<1)&2,id&2);
+        return {float4(p*float2(2,-2)+float2(-1,1),0,1),p};
+    }
+    fragment float4 compositeFragment(CompositeRaster r [[stage_in]],texture2d<float> overlay [[texture(0)]]) {
+        constexpr sampler s(filter::nearest);return overlay.sample(s,r.uv);
+    }
     constant uint batchMode [[function_constant(0)]];
     struct Vertex {float4 position;float4 uv;};
     struct Instance {float4x4 model;float4 parameters;};
@@ -304,11 +385,11 @@ final class MetalBatches {
         Vertex a=vertices[v];Instance b=instances[i];Raster r;
         float4 world=b.model*a.position;r.position=u.vp[eye]*world;r.slice=eye;r.uv=a.uv.xyz;r.parameters=b.parameters;
         float3x3 rotation=float3x3(b.model[0].xyz,b.model[1].xyz,b.model[2].xyz);
-        r.light=transpose(rotation)*float3(-0.22033581,0.89032002,0.39847509);
-        r.view=transpose(rotation)*(u.eye[eye].xyz-world.xyz);return r;
+        r.light=u.eye[0].w==0 ? float3(-0.22033581,0.54387457,0.80972377):transpose(rotation)*float3(-0.22033581,0.89032002,0.39847509);
+        r.view=u.eye[0].w==0 ? float3(0,0,1):transpose(rotation)*(u.eye[eye].xyz-world.xyz);return r;
     }
     fragment float4 batchFragment(Raster r [[stage_in]],texture2d<float> diffuse [[texture(0)]],texture2d<float> normal [[texture(1)]],texture2d<float> bright [[texture(2)]],texture2d<float> specular [[texture(3)]],texture2d<float> emissive [[texture(4)]],texture2d<float> ao [[texture(5)]],texture2d_array<float> terrain [[texture(6)]],texture2d_array<float> fog [[texture(7)]]) {
-        constexpr sampler s(coord::normalized,address::clamp_to_edge,filter::linear,mip_filter::linear);
+        constexpr sampler s(coord::normalized,address::clamp_to_edge,filter::linear,mip_filter::none);
         constexpr sampler terrainSampler(coord::normalized,address::clamp_to_edge,filter::linear,mip_filter::linear,max_anisotropy(16));
         if(batchMode==2) {
             float2 size=r.parameters.zw;float2 original=(r.uv.xy*size-8.0)/(size-16.0);

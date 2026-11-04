@@ -84,7 +84,7 @@ final class XRFrameMetrics {
     func writeReport() {
         guard let path=argument("--frame-metrics") else {return}
         lock.lock()
-        let data:Obj=["renderer":CommandLine.arguments.contains("--metal-batches") ? "Metal instanced amplified stereo":"SceneKit per eye",
+        let data:Obj=["renderer":useMetalBatches ? "Metal instanced amplified stereo":"SceneKit per eye",
             "targetHz":90,"budgetMs":1000.0/90,"unitCount":unitCount,"elapsedSeconds":first>0 ? previous-first:0,
             "snapshotSource":argument("--snapshot") ?? "live","frameIntervals":intervals.summary(),
             "stereoCPUEncode":cpu.summary(),"stereoGPU":gpu.summary(),"stagesCPU":stages.mapValues{$0.summary()},

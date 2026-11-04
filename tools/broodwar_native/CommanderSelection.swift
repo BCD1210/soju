@@ -38,6 +38,7 @@ extension Commander {
     }
     func captureDesktop() {
         let folder=argument("--proof-dir").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("3d-proof/m4/desktop")
+        if let desktop=desktopMetal {desktop.requestedCapture=folder;return}
         do {
             try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
             let image=view.snapshot()

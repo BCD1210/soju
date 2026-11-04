@@ -199,7 +199,7 @@ extern "C" int soju_xr_step(void* context,SojuXRDraw draw,SojuXRControls control
         } else if(event.type==XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING)exiting=true;
         event={XR_TYPE_EVENT_DATA_BUFFER};
     }
-    if(!running||exiting)return 1;
+    if(!running||exiting)return 2;
     XrFrameWaitInfo wait{XR_TYPE_FRAME_WAIT_INFO};XrFrameState state{XR_TYPE_FRAME_STATE};
     CHECK(xrWaitFrame(session,&wait,&state));XrFrameBeginInfo begin{XR_TYPE_FRAME_BEGIN_INFO};CHECK(xrBeginFrame(session,&begin));
     // Balance a begun frame even when image acquisition/render submission fails.
