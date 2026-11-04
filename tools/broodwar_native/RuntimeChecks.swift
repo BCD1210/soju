@@ -91,6 +91,7 @@ func runtimeChecks()throws {
         fallback.updateView(eye:origin+SIMD3<Float>(Float(sin(angle)*4),2,Float(cos(angle)*4)),orientation:simd_quatf(),perspective:true,art:commander.worldSprites)
         try require(fallback.evidence.first?["frame"] as? Int == frame && fallback.evidence.first?["mirrored"] as? Bool == mirror,
             "observer angle \(angle) selects the native animation group and mirrored direction")
+        try require(fallback.layers[0]!.renderingOrder==0,"relief uses depth ordering rather than the 2D sprite bucket")
         let facing=fallback.layers[0]!.simdOrientation.act(SIMD3<Float>(0,0,1))
         try require(abs(facing.x-Float(sin(angle)*cos(Terrain3D.canonicalElevation)))<0.0001 && abs(facing.z-Float(cos(angle)*cos(Terrain3D.canonicalElevation)))<0.0001,"relief preserves source elevation and faces observer azimuth at \(angle)")
     }

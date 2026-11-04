@@ -37,9 +37,9 @@ final class UnitBillboard {
             if !shadow,let mesh=art.relief.geometry(id,frame:frame,art:art) {
                 mesh.materials=[art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
             }
-            node.castsShadow=false;node.renderingOrder=1000+Int(number(unit,"y"))*32+chain.count-index
+            node.castsShadow=false;node.renderingOrder=node.geometry is SCNPlane ? 1000+Int(number(unit,"y"))*32+chain.count-index:0
             if shadow {
-                node.constraints=nil;node.eulerAngles.x = -.pi/2;material.multiply.contents=NSColor.black;node.opacity=0.5
+                node.constraints=nil;node.eulerAngles.x = -.pi/2;material.multiply.contents=NSColor.black;material.readsFromDepthBuffer=true;node.opacity=0.5
             } else {
                 node.eulerAngles = SCNVector3Zero;node.opacity=1
                 let constraint=SCNBillboardConstraint();constraint.freeAxes = .all;node.constraints=[constraint]
@@ -84,7 +84,7 @@ final class UnitBillboard {
             if shown[index] != frame {
                 let id=Int(number(native,"id"))
                 if !shadow,let mesh=art.relief.geometry(id,frame:frame,art:art) {
-                    mesh.materials=[art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh
+                    mesh.materials=[art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh;node.renderingOrder=0
                 } else {node.geometry?.firstMaterial?.diffuse.contents=art.texture(id,frame:frame,color:team)}
                 shown[index]=frame
             }
@@ -99,7 +99,7 @@ final class UnitBillboard {
                 node.eulerAngles=SCNVector3(-Double.pi/2,0,0)
                 let flight=unit["airborne"] as? Bool == true ? 1.5:0
                 node.position=SCNVector3(ox,0.002-flight,oy/sin(Terrain3D.canonicalElevation)-flight*Terrain3D.reliefDepth)
-                node.renderingOrder=900
+                node.renderingOrder=1
             } else {
                 node.simdOrientation=rotation
                 let offset=rotation.act(SIMD3<Float>(Float(ox),Float(-oy),0))
