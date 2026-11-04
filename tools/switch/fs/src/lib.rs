@@ -4,6 +4,7 @@
 //! existing emulator or dumping tool is used. Keys are never bundled: callers pass
 //! the player's own `prod.keys` / `title.keys`, and key material is never printed.
 
+pub mod bktr;
 pub mod cnmt;
 pub mod crypto;
 pub mod error;
