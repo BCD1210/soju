@@ -22,6 +22,7 @@ final class FrameCapturePool {
     private let context:CIContext,captures:CaptureFrames,metrics:XRFrameMetrics,mirror:(CGImage)->Void
     private let snapshotSource=argument("--snapshot") ?? "live"
     private var textureCreations=0,exhausted=0,completed=0,failed=0,saveFailed=0,lastMirrorFrame = -1
+    private var prewarmed=false
     init(device:MTLDevice,captures:CaptureFrames,metrics:XRFrameMetrics,mirror:@escaping(CGImage)->Void) {
         context=CIContext(mtlDevice:device);self.captures=captures;self.metrics=metrics;self.mirror=mirror
         signal=DispatchSource.makeUserDataAddSource(queue:queue)
@@ -41,22 +42,34 @@ final class FrameCapturePool {
         return Statistics(textureCreations:textureCreations,exhausted:exhausted,completed:completed,failed:failed,saveFailed:saveFailed,mirrorFrame:lastMirrorFrame)
     }
     @discardableResult func enqueue(_ command:MTLCommandBuffer,source:MTLTexture,request:Request)->Bool {
+        if !prewarmed {
+            // No slot can be in flight until the complete startup pool exists.
+            for slot in slots where !prepare(slot,source:source) {
+                lock.lock();failed+=1;lock.unlock();return false
+            }
+            prewarmed=true
+        }
         for slot in slots {
             guard slot.available.wait(timeout:.now()) == .success else {continue}
-            if slot.texture?.width != source.width || slot.texture?.height != source.height || slot.texture?.pixelFormat != source.pixelFormat {
-                slot.descriptor.width=source.width;slot.descriptor.height=source.height;slot.descriptor.pixelFormat=source.pixelFormat
-                metrics.created(.captureTexture)
-                slot.texture=TextureResidency.shared.make(source.device,slot.descriptor)
-                if slot.texture != nil {lock.lock();textureCreations+=1;lock.unlock()}
+            guard prepare(slot,source:source),let texture=slot.texture else {
+                lock.lock();failed+=1;lock.unlock();slot.available.signal();return false
             }
             metrics.created(.blitEncoder)
-            guard let texture=slot.texture,let blit=command.makeBlitCommandEncoder() else {
+            guard let blit=command.makeBlitCommandEncoder() else {
                 lock.lock();failed+=1;lock.unlock();slot.available.signal();return false
             }
             slot.request=request
             blit.copy(from:source,to:texture);blit.endEncoding();command.addCompletedHandler(slot.handler);return true
         }
         lock.lock();exhausted+=1;lock.unlock();return false
+    }
+    private func prepare(_ slot:Slot,source:MTLTexture)->Bool {
+        if slot.texture?.width==source.width && slot.texture?.height==source.height && slot.texture?.pixelFormat==source.pixelFormat {return true}
+        slot.descriptor.width=source.width;slot.descriptor.height=source.height;slot.descriptor.pixelFormat=source.pixelFormat
+        metrics.created(.captureTexture)
+        slot.texture=TextureResidency.shared.make(source.device,slot.descriptor)
+        guard slot.texture != nil else {return false}
+        lock.lock();textureCreations+=1;lock.unlock();return true
     }
     private func drain() {
         for slot in slots {
