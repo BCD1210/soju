@@ -713,28 +713,30 @@ impl Renderer {
         let _commit_span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Commit);
         let mut writes = Vec::new();
         for (address, guest, size) in original {
-            for offset in (0..size).step_by(4096) {
-                let n = (size - offset).min(4096);
-                let source = address + offset as u64;
-                if memory.generation(source, n).map_err(gpu_error)? <= captured_revision {
-                    continue;
-                }
-                let after = memory.read(source, n).map_err(gpu_error)?;
-                let destination = guest + offset as u64;
-                let mut scratch = [0; 4096];
-                let before = if let Some(bytes) = access.memory.contiguous(destination, n)? {
-                    bytes
-                } else {
-                    access.memory.read(destination, &mut scratch[..n])?;
-                    &scratch[..n]
-                };
-                if before != after {
-                    access.memory.check_access(destination, n, 3)?;
-                    super::commit::validate_target(destination, n, protected)?;
-                    writes.push(MemoryWrite {
-                        address: destination,
-                        bytes: after.to_vec(),
-                    });
+            for range in memory
+                .changed_ranges(address, size, captured_revision)
+                .map_err(gpu_error)?
+            {
+                for source in (range.start..range.end).step_by(4096) {
+                    let n = usize::try_from((range.end - source).min(4096))
+                        .map_err(|_| Error::Malformed("Metal dirty range size"))?;
+                    let after = memory.read(source, n).map_err(gpu_error)?;
+                    let destination = guest + (source - address);
+                    let mut scratch = [0; 4096];
+                    let before = if let Some(bytes) = access.memory.contiguous(destination, n)? {
+                        bytes
+                    } else {
+                        access.memory.read(destination, &mut scratch[..n])?;
+                        &scratch[..n]
+                    };
+                    if before != after {
+                        access.memory.check_access(destination, n, 3)?;
+                        super::commit::validate_target(destination, n, protected)?;
+                        writes.push(MemoryWrite {
+                            address: destination,
+                            bytes: after.to_vec(),
+                        });
+                    }
                 }
             }
         }

@@ -106,6 +106,43 @@ impl Memory {
     pub fn revision(&self) -> u64 {
         self.generation
     }
+    /// Mapped byte intervals written after a captured revision. Adjacent writes
+    /// are coalesced; unchanged gaps and mapping boundaries are preserved.
+    pub fn changed_ranges(
+        &self,
+        address: u64,
+        size: usize,
+        revision: u64,
+    ) -> Result<Vec<Range<u64>>> {
+        self.read(address, size)?;
+        let end = address + size as u64;
+        let mut ranges: Vec<Range<u64>> = Vec::new();
+        let mut start = address;
+        let mut generation = self
+            .writes
+            .range(..=address)
+            .next_back()
+            .map_or(0, |(_, g)| *g);
+        for (&boundary, &next) in self
+            .writes
+            .range((
+                std::ops::Bound::Excluded(address),
+                std::ops::Bound::Included(end),
+            ))
+            .chain(std::iter::once((&end, &0)))
+        {
+            if start < boundary && generation > revision {
+                if let Some(previous) = ranges.last_mut().filter(|r| r.end == start) {
+                    previous.end = boundary;
+                } else {
+                    ranges.push(start..boundary);
+                }
+            }
+            start = boundary;
+            generation = next;
+        }
+        Ok(ranges)
+    }
     pub fn generation(&self, address: u64, size: usize) -> Result<u64> {
         self.read(address, size)?;
         if size == 0 {
@@ -127,6 +164,36 @@ impl Memory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn changed_ranges_preserve_gaps_overlaps_and_mapping_edges() {
+        let mut memory = Memory::default();
+        memory.map(0x1000, vec![0; 8192]).unwrap();
+        let revision = memory.revision();
+        memory.write(0x1001, &[1; 4]).unwrap();
+        memory.write(0x1003, &[2; 4]).unwrap();
+        memory.write(0x2000, &[3; 4]).unwrap();
+        assert_eq!(
+            memory.changed_ranges(0x1000, 8192, revision).unwrap(),
+            [0x1001..0x1007, 0x2000..0x2004]
+        );
+        assert_eq!(
+            memory.changed_ranges(0x1004, 2, revision).unwrap(),
+            [0x1004..0x1006]
+        );
+        assert!(
+            memory
+                .changed_ranges(0x1007, 1, revision)
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            memory
+                .changed_ranges(0x1000, 8192, memory.revision())
+                .unwrap()
+                .is_empty()
+        );
+        assert!(memory.changed_ranges(0x2fff, 2, revision).is_err());
+    }
     #[test]
     fn synchronization_preserves_unchanged_ranges_and_marks_changed_pages() {
         let mut memory = Memory::default();
