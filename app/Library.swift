@@ -111,6 +111,7 @@ extension SojuModel {
         if !FileManager.default.fileExists(atPath: game.installPath) {
             return "This game folder is unavailable. Reconnect its drive and refresh."
         }
+        if game.platform == .switch { return nil }
         if game.platform == .steam {
             let local = base.appendingPathComponent("steam-runtime/bin/wine").path
             let upstream = base.appendingPathComponent("steam-wine/bin/wine").path
@@ -224,6 +225,7 @@ private extension Launcher {
         case .steam: return Color(red: 0.36, green: 0.67, blue: 0.77)
         case .epic: return Color(red: 0.82, green: 0.64, blue: 0.40)
         case .gog: return Color(red: 0.70, green: 0.47, blue: 0.87)
+        case .switch: return Color(red: 0.85, green: 0.20, blue: 0.25)
         case .xbox: return Color(red: 0.24, green: 0.66, blue: 0.33)
         }
     }

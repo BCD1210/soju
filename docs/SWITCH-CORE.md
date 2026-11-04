@@ -21,9 +21,23 @@ bash scripts/soju switch play /path/to/2048.nro
 ```
 
 Use the arrow keys to move tiles, B to start a new board, and Escape to close.
-Click the window first if it is behind another app. The runtime currently
-executes and displays this game through the command line; it is not integrated
-into the Soju graphical library or included as a released app.
+Click the window first if it is behind another app. The local app build includes a Nintendo Switch card in Platforms and imported
+games in Library. Use Setup and Add game file, or the commands below.
+This integration has not been published as a release.
+
+```sh
+bash scripts/soju switch import /path/to/own-game.nro
+bash scripts/soju switch list --json
+bash scripts/soju game switch:<id-from-list>
+bash scripts/soju switch remove switch:<id-from-list>
+```
+
+Imports keep the filename in `~/.battlenet-macos/switch/games/` with mode
+0600 and refuse filename collisions. IDs use the first 16 hex digits of the
+whole file SHA-256. NRO titles use an embedded NACP name when available.
+NSP/XCI files can be imported and listed, but cannot be played. Removing an
+ID removes its imported copies, never the source or saves. `SOJU_BASE` can
+override the library root for synthetic tests.
 
 ## Validation
 

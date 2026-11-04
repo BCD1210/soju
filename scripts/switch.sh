@@ -5,6 +5,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SWITCH_HOME="${SOJU_SWITCH_HOME:-$HOME/.local/share/soju/switch}"
 PYTHON="$SWITCH_HOME/venv/bin/python"
 case "${1:-help}" in
+  import|list|remove)
+    exec python3 "$ROOT/scripts/switch_library.py" "$@"
+    ;;
   setup)
     mkdir -p "$SWITCH_HOME"
     if [ ! -x "$PYTHON" ]; then python3 -m venv "$SWITCH_HOME/venv"; fi
@@ -18,12 +21,13 @@ case "${1:-help}" in
   play)
     shift
     if [ "$#" -ne 1 ]; then echo "Usage: soju switch play /path/to/2048.nro" >&2; exit 64; fi
+    case "$1" in *.[nN][rR][oO]) ;; *) echo "Only .nro homebrew can be played." >&2; exit 64 ;; esac
     if [ ! -x "$PYTHON" ]; then echo "Run 'soju switch setup' first." >&2; exit 1; fi
     if [ ! -f "$1" ]; then echo "NRO file not found: $1" >&2; exit 1; fi
     exec "$PYTHON" "$ROOT/tools/switch/trace_nro.py" "$1" --play --max-steps 10000000
     ;;
   help|-h|--help)
-    echo "Experimental Switch homebrew: soju switch setup | soju switch play /path/to/2048.nro"
+    echo "Experimental Switch homebrew: soju switch setup | import <file> | list [--json] | remove <id> | play <file.nro>"
     echo "Two 2048 homebrew games have been checked. Account saves are experimental; SD files do not persist."
     echo "Controls: arrow keys, B to reset, Escape to close."
     ;;
