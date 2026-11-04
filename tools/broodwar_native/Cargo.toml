@@ -1,0 +1,17 @@
+[package]
+name = "soju-broodwar-native"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "soju_bw"
+crate-type = ["cdylib"]
+
+[dependencies]
+serde_json = "1"
+samase_plugin = { git = "https://github.com/neivv/samase_plugin", rev = "c01a88f00b1aaf6286f96940b0f04498cea6c7b7" }
+bw_dat = { git = "https://github.com/neivv/aise", rev = "da4fed681dc09bda7a21c0051f60cdad98cc7226", features = ["scr-only"] }
+
+[profile.release]
+panic = "abort"
