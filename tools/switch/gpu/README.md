@@ -398,3 +398,6 @@ Clear/query/compute boundaries, depth identity/generation, dimensions, colour
 generation changes and the eight-attachment limit split groups. This also handles
 MRT slot permutations without remapping an output twice. Set
 `SOJU_GPU_MERGE_DEPTH=0` to compare the original separate-pass path.
+
+See [STABILITY.md](STABILITY.md) for first-seen timing, the 30-minute before/after
+soak, ordering checks, configuration limits and recorded memory samples.
