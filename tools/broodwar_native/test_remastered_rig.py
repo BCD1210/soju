@@ -1,7 +1,9 @@
 """Small synthetic checks independent of private artwork."""
 import unittest
 import numpy as np
-from remastered_rig_fit import axes, project, raster, vertex_normals
+from remastered_rig_fit import axes, project, raster, vertex_normals, arap_step
+from scipy import sparse
+from scipy.sparse.linalg import factorized
 
 
 class RigFitTests(unittest.TestCase):
@@ -28,5 +30,16 @@ class RigFitTests(unittest.TestCase):
         b=raster(points,np.array([[2,1,0],[0,0,0]],np.int32),5,5)[1]>=0
         np.testing.assert_array_equal(a,b)
         np.testing.assert_allclose(vertex_normals(points,np.array([[0,1,2]])),[[0,0,1]]*3)
+
+    def test_arap_preserves_a_rigid_transform(self):
+        original=np.array([[0.,0.,0.],[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]])
+        edges=np.array([[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]])
+        rotation=np.array([[0.,-1,0],[1.,0,0],[0.,0,1]])
+        current=original@rotation.T+[2,3,4]
+        lap=np.eye(4)*4-np.ones((4,4))
+        solve=factorized(sparse.csc_matrix(np.eye(4)+2*lap))
+        result=arap_step(original,current,current,edges,solve,2)
+        np.testing.assert_allclose(result,current,atol=1e-12)
+
 
 if __name__=='__main__':unittest.main()

@@ -74,11 +74,23 @@ def build(kind,label,variant="rigged"):
     bm=bmesh.new();bm.from_mesh(obj.data)
     bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=1e-6)
     nonmanifold=sum(not e.is_manifold for e in bm.edges);bm.free()
-    animations=['idle','walk','attack']+(['work'] if 'Work_full' in source['clips'] else [])
+    rest_tri=data['vertices'][data['triangles']];fitted_tri=fitted[data['triangles']]
+    before_normal=np.cross(rest_tri[:,1]-rest_tri[:,0],rest_tri[:,2]-rest_tri[:,0])
+    after_normal=np.cross(fitted_tri[:,1]-fitted_tri[:,0],fitted_tri[:,2]-fitted_tri[:,0])
+    reversed_normals=int(np.sum(np.sum(before_normal*after_normal,axis=1)<0))
+    edge_ids=np.unique(np.sort(np.concatenate([triangles[:,[0,1]],triangles[:,[1,2]],triangles[:,[2,0]]]),axis=1),axis=0)
+    before_length=np.linalg.norm(data['vertices'][edge_ids[:,0]]-data['vertices'][edge_ids[:,1]],axis=1)
+    after_length=np.linalg.norm(fitted[edge_ids[:,0]]-fitted[edge_ids[:,1]],axis=1)
+    ratios=after_length[before_length>1e-6]/before_length[before_length>1e-6]
+    deformation={'normalReversalsRelativeToSource':reversed_normals,
+                 'edgeStretchMedian':float(np.median(ratios)),'edgeStretchP95':float(np.percentile(ratios,95)),
+                 'edgeStretchMaximum':float(ratios.max()),
+                 'note':'Normal reversal is a distortion diagnostic, not an exact self-intersection count.'}
+    animations=['idle' ,'walk','attack']+(['work'] if 'Work_full' in source['clips'] else [])
     if 'Death_Retarget_full' in bpy.data.actions:animations.append('death')
     (folder/'geometry.json').write_text(json.dumps({'triangles':len(triangles),'vertices':len(vertices),'bones':source['bones'],
         'nonManifoldEdges':nonmanifold,'watertight':nonmanifold==0,'triangleBudgetPassed':15000<=len(triangles)<=40000,
-        'animations':animations,'clips':[a.name for a in bpy.data.actions], 'inverseSkinMaximumError':error,
+        'animations':animations,'clips':[a.name for a in bpy.data.actions], 'inverseSkinMaximumError':error,'deformation':deformation,
         'skinWeights':'preserved from source; subdivided weights interpolated if configured'},indent=2)+'\n')
     scene=bpy.context.scene;scene.render.engine='CYCLES';scene.cycles.samples=8
     scene.render.resolution_x=camera['width'];scene.render.resolution_y=camera['height'];scene.render.resolution_percentage=100
