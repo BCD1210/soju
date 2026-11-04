@@ -7,6 +7,7 @@ use bw_dat::structs::{Game, Unit};
 mod world;
 mod production;
 mod requirements;
+mod buttonsets;
 mod spells;
 mod commands;
 mod terrain;
