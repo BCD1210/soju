@@ -50,6 +50,11 @@ class ReconstructionTests(unittest.TestCase):
             (candidate/'validation.json').write_text(json.dumps({'passed':True,'modelSha256':'old hash','minimumIoU':1,'minimumSSIM':1,'missingAnimations':[]}))
             self.assertEqual(write_catalog(root)['models'],{})
 
+    def test_frame_outside_canvas_is_transparent(self):
+        info={'width':8,'height':8,'frames':[{'x':0,'y':0,'ox':20,'oy':20,'w':2,'h':2}]}
+        atlas=np.full((2,2,4),255,np.uint8)
+        self.assertFalse(frame(info,atlas,0).any())
+
     def test_normal_alpha_is_component(self):
         p=np.array([[[128,0,0,128],[128,0,0,255]]],np.uint8)
         n=normals(p)

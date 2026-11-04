@@ -169,7 +169,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     let art:Art;let bridge=Bridge();let world=SCNScene();let camera=SCNNode()
     var yaw:CGFloat = -0.54,pitch:CGFloat = -0.14
     var units=[String:Obj](),nodes=[String:SCNNode](),selected=[String]()
-    var terrain=[Int:SCNNode]();var fog=[Int:UInt8]()
+    var terrain=[Int:SCNNode]();var fog=[Int:UInt8]();let fogPresentation=FogPresentation()
     let modelLibrary:Models3D;var models=[String:ModelInstance]();let ground:Terrain3D
     let effects:CombatEffects;var retiring=[String:ModelInstance]()
     var eventSequence:Double=0,session="",lostEvents=0,deathCount=0
@@ -365,14 +365,14 @@ final class Commander: NSObject, NSApplicationDelegate {
                 let index=y*mapWidth+x
                 guard let visibility=fog[index],visibility != 48 else { continue }
                 keep.insert(index)
-                if let n=terrain[index] { n.geometry?.firstMaterial?.multiply.contents=NSColor(white:visibility==50 ? 1:0.35,alpha:1);continue }
+                if let n=terrain[index] { n.geometry?.firstMaterial?.multiply.contents=fogPresentation.texture(x:x,y:y,width:mapWidth,fog:fog);continue }
                 guard let a=tiles[String(mapTiles[index])],let file=a["file"] as? String else { continue }
                 do {
                     let material=try art.material(file);material.lightingModel = .lambert
                     let p=ground.geometry(tileX:x,tileY:y,material:material)
                     let n=SCNNode(geometry:p);n.name="terrain"
                     n.position=SCNVector3(CGFloat(x),0,CGFloat(y))
-                    p.firstMaterial?.multiply.contents=NSColor(white:visibility==50 ? 1:0.35,alpha:1)
+                    p.firstMaterial?.multiply.contents=fogPresentation.texture(x:x,y:y,width:mapWidth,fog:fog)
                     world.rootNode.addChildNode(n);terrain[index]=n
                 } catch { notice="Terrain: \(error)" }
             }
@@ -415,7 +415,7 @@ final class Commander: NSObject, NSApplicationDelegate {
             let diagnostics:Obj=["time":Date().timeIntervalSince1970,"frame":number(state,"frame"),
                 "units":rendered,"camera":[camera.position.x,camera.position.y,camera.position.z],"xr":xrRequested,
                 "protocol":number(state,"protocol"),"eventSequence":eventSequence,"eventsLost":lostEvents,
-                "combatEvents":effects.counts,"deathAnimations":deathCount,"retiringModels":retiring.count,"projectiles":effects.projectiles.count,
+                "spriteFrames":effects.sprites.renderedFrames,"missingEffectImages":effects.sprites.missing.sorted(),"combatEvents":effects.counts,"deathAnimations":deathCount,"retiringModels":retiring.count,"projectiles":effects.projectiles.count,
                 "effectErrors":Dictionary(uniqueKeysWithValues:effects.library.errors.map{(String($0.key),$0.value)}),
                 "catalogError":modelLibrary.catalog.lastError,"assetErrors":Dictionary(uniqueKeysWithValues:modelLibrary.errors.map{(String($0.key),$0.value)}),
                 "missingTypes":Array(Set(units.values.compactMap { u -> Int? in let id=u["id"] as? String ?? "";return models[id]==nil ? Int(number(u,"type")):nil })).sorted()]
