@@ -68,3 +68,10 @@ Long-session work (2026-11-04), Apple public APIs:
 - https://developer.apple.com/documentation/metal/mtldevice/currentallocatedsize
 - Installed macOS SDK Metal headers: MTLBinaryArchive.h, MTLDevice.h,
   MTLCommandBuffer.h, MTLRenderCommandEncoder.h.
+
+MME variable extraction/shift fields are described by the pinned envytools
+`envydis/macro.c` rows 3 and 4 (REG2 supplies the source or destination bit
+position). Soju rejects shifts and bitfields outside 32 bits and tests both
+forms with independent expected emitted values. The public libnx
+`include/switch/nvidia/types.h` names mapping kinds 1/2 as Z16/Z16_2C; they use
+the existing canonical uncompressed D16 storage path in this runner.

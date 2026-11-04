@@ -243,3 +243,29 @@ fn macro_register_arithmetic_and_boolean_ops_emit_exact_values() {
         );
     }
 }
+
+#[test]
+fn variable_bitfield_extract_shifts_use_register_positions() {
+    for op in [3, 4] {
+        let mut mme = MacroUpload::default();
+        // r1 is the shift argument; r2 consumes the data parameter.
+        let word = op
+            | 1 << 4
+            | 3 << 8
+            | 1 << 11
+            | 2 << 14
+            | 4 << 22
+            | if op == 3 { 8 << 27 } else { 8 << 17 };
+        upload(
+            &mut mme,
+            0,
+            0,
+            &[0x201, word, 0x21 | 0x100 << 14, 0xc1 | 3 << 11, 0x11],
+        );
+        assert_eq!(
+            mme.run(0, 4, &[0xabcde], |_| Ok(0)).unwrap(),
+            vec![(0x400, if op == 3 { 0xd00 } else { 0xc0 })]
+        );
+        assert!(mme.run(0, 32, &[0xabcde], |_| Ok(0)).is_err());
+    }
+}

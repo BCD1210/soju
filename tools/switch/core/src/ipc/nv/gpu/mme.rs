@@ -112,6 +112,27 @@ impl MacroUpload {
                         let mask = ((1_u32 << count) - 1) << destination;
                         (registers[a] & !mask) | (((registers[b] >> source) << destination) & mask)
                     }
+                    3 | 4 => {
+                        let source = if op == 3 {
+                            registers[a]
+                        } else {
+                            (word >> 17) & 31
+                        };
+                        let count = (word >> 22) & 31;
+                        let destination = if op == 4 {
+                            registers[a]
+                        } else {
+                            (word >> 27) & 31
+                        };
+                        if source >= 32
+                            || destination >= 32
+                            || source + count > 32
+                            || destination + count > 32
+                        {
+                            return Err(invalid("MME shifted bitfield bounds"));
+                        }
+                        ((registers[b] >> source) & ((1u32 << count) - 1)) << destination
+                    }
                     0 => match (word >> 17) & 31 {
                         0 => registers[a].wrapping_add(registers[b]),
                         2 => registers[a].wrapping_sub(registers[b]),
@@ -126,7 +147,11 @@ impl MacroUpload {
                             )));
                         }
                     },
-                    _ => return Err(invalid("unsupported MME opcode")),
+                    _ => {
+                        return Err(Error::Message(format!(
+                            "unsupported MME opcode={op} pc={pc} word={word:#x}"
+                        )));
+                    }
                 };
                 if matches!(assignment, 2 | 5 | 6 | 7) {
                     method = Some((result & 0xfff) * 4);
