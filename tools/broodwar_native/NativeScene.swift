@@ -188,7 +188,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     let hud=SCNNode(geometry:SCNPlane(width:1.05,height:0.16));var hudText=""
     var mirror:MirrorView?;var mirrorContext:CIContext?
     #endif
-    init(art:Art)throws { self.art=art;ground=try Terrain3D(url:assets.appendingPathComponent("terrain3d.json"));modelLibrary=try Models3D();effects=try CombatEffects();super.init() }
+    init(art:Art)throws { self.art=art;ground=try Terrain3D(url:assets.appendingPathComponent("terrain3d.json"));modelLibrary=try Models3D(folder:argument("--model-dir").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("models-3d"),catalogURL:argument("--catalog").map{URL(fileURLWithPath:$0)});effects=try CombatEffects();super.init() }
     func applicationDidFinishLaunching(_ notification:Notification) {
         let map=art.manifest["map"] as! Obj
         mapWidth=Int(number(map,"width"));mapHeight=Int(number(map,"height"));mapTiles=map["tiles"] as! [Int]
