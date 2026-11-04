@@ -29,3 +29,7 @@ desktop = ["hv"]
 [[example]]
 name = "test_title"
 required-features = ["hv"]
+
+[[example]]
+name = "dynamic_title"
+required-features = ["hv"]
