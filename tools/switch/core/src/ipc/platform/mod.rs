@@ -3,6 +3,8 @@ mod account;
 mod applet;
 #[cfg(test)]
 mod error_tests;
+#[cfg(test)]
+mod exit_tests;
 mod fonts;
 mod settings;
 mod shared;
@@ -73,6 +75,7 @@ pub struct Platform {
     owned_events: BTreeMap<ObjectId, Vec<Handle>>,
     retired_events: Vec<Handle>,
     exit_requested: bool,
+    exit_locked: bool,
     input: soju_switch_input::NpadState,
     sample: u64,
     hid: Option<Handle>,
@@ -92,6 +95,7 @@ impl Platform {
             owned_events: BTreeMap::new(),
             retired_events: Vec::new(),
             exit_requested: false,
+            exit_locked: false,
             input: Default::default(),
             sample: 1,
             hid: None,
@@ -174,6 +178,9 @@ impl Platform {
             kernel.close_handle(memory, handle).map_err(Error::Kernel)?;
         }
         self.update_shared(kernel, memory, now_ns)
+    }
+    pub fn exit_grace(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(if self.exit_locked { 15 } else { 5 })
     }
     pub fn request_exit(&mut self, kernel: &mut Kernel) -> Result<bool, Error> {
         if !self.exit_requested {

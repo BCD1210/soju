@@ -40,6 +40,14 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
         Kind::SelfController => {
             const {
                 &[
+                    c(1, 0, |s, _, _| {
+                        s.exit_locked = true;
+                        Ok(Reply::success())
+                    }),
+                    c(2, 0, |s, _, _| {
+                        s.exit_locked = false;
+                        Ok(Reply::success())
+                    }),
                     c(9, 0, Platform::signaled_event),
                     c(11, 1, success),
                     c(12, 1, success),

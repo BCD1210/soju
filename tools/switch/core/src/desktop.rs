@@ -159,8 +159,8 @@ pub fn play(path: &Path, home: &Path) -> Result<(), String> {
                 next_frame = now;
             }
         }
-        if closing.is_some_and(|start| start.elapsed() > Duration::from_secs(5)) {
-            return Err("guest did not respond to exit request within five seconds".into());
+        if closing.is_some_and(|start| start.elapsed() > hub.exit_grace()) {
+            return Err("guest did not respond within the applet exit grace period".into());
         }
     }
     if benchmark.is_some() {

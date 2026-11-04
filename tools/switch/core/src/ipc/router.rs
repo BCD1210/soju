@@ -89,6 +89,9 @@ impl Hub {
     pub fn set_input(&mut self, input: soju_switch_input::NpadState) {
         self.platform.set_input(input);
     }
+    pub fn exit_grace(&self) -> std::time::Duration {
+        self.platform.exit_grace()
+    }
     pub fn request_exit(&mut self, kernel: &mut Kernel) -> Result<bool, Error> {
         self.platform.request_exit(kernel)
     }
