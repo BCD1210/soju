@@ -606,29 +606,33 @@ final class Worker {
     let elapsed=ProcessInfo.processInfo.systemUptime-started
     return "merged_depth_draws=\(depthPlans.count) skipped_draws=\(skippedDraws) pass_hits=\(passHits) encoding_seconds=\(elapsed-gpuWait) gpu_wait_seconds=\(gpuWait) state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
-    func readback(_ directory: String) throws -> String {
+    func readback(_ directory: String, receive: ((String, Data) -> Void)? = nil) throws -> String {
         let root = URL(fileURLWithPath:directory)
+        func output(_ name: String, _ bytes: Data) throws {
+            if let receive { receive(name, bytes) }
+            else { try bytes.write(to: root.appendingPathComponent(name)) }
+        }
         if root != spillRoot {
             for key in spilledColors.keys where targets[key] == nil {
-                try Data(contentsOf: spillRoot.appendingPathComponent(key + ".rgba")).write(to: root.appendingPathComponent(key + ".rgba"))
+                try output(key + ".rgba", Data(contentsOf: spillRoot.appendingPathComponent(key + ".rgba")))
             }
             for key in spilledDepths.keys where depths[key] == nil {
                 for suffix in [".depth", ".stencil"] {
-                    try Data(contentsOf: spillRoot.appendingPathComponent(key + suffix)).write(to: root.appendingPathComponent(key + suffix))
+                    try output(key + suffix, Data(contentsOf: spillRoot.appendingPathComponent(key + suffix)))
                 }
             }
         }
     for (key,t) in targets where dirtyAttachments.contains(key) {
         var bytes=[UInt8](repeating:0,count:t.width*t.height*targetBytes[key]!)
         t.getBytes(&bytes,bytesPerRow:t.width*targetBytes[key]!,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
-        try Data(bytes).write(to:root.appendingPathComponent("\(key).rgba"))
+        try output(key + ".rgba", Data(bytes))
     }
         if depths.keys.contains(where: { dirtyAttachments.contains($0) }) {
             guard let cb=queue.makeCommandBuffer(),let blit=cb.makeBlitCommandEncoder() else {throw Failure("depth readback encoder")}
             var planes=[(String,MTLBuffer,Int,Int,Int)]()
             for (key,t) in depths where dirtyAttachments.contains(key) {
                 for stencil in [false,true] {
-                    if stencil && t.pixelFormat != .depth32Float_stencil8 {try Data().write(to:root.appendingPathComponent("\(key).stencil"));continue}
+                    if stencil && t.pixelFormat != .depth32Float_stencil8 {try output(key + ".stencil", Data());continue}
                     let bpp=stencil ? 1 : (t.pixelFormat == .depth16Unorm ? 2 : 4), row=((t.width*bpp+255)/256)*256
                     guard let buffer=device.makeBuffer(length:row*t.height,options:.storageModeShared) else {throw Failure("depth readback buffer")}
                     let options:MTLBlitOption=t.pixelFormat == .depth32Float_stencil8 ? (stencil ? .stencilFromDepthStencil : .depthFromDepthStencil) : []
@@ -640,15 +644,15 @@ final class Worker {
             for (name,buffer,row,width,height) in planes {
                 var bytes=Data()
                 for y in 0..<height {bytes.append(buffer.contents().advanced(by:y*row).assumingMemoryBound(to:UInt8.self),count:width)}
-                try bytes.write(to:root.appendingPathComponent(name))
+                try output(name, bytes)
             }
         }
         for (key,value) in queryValues {
             var little=value.littleEndian
-            try withUnsafeBytes(of:&little) {try Data($0).write(to:root.appendingPathComponent("\(key).query"))}
+            try withUnsafeBytes(of:&little) {try output(key + ".query", Data($0))}
         }
         for (key,buffer) in computeBuffers {
-            try Data(bytes:buffer.contents(),count:buffer.length).write(to:root.appendingPathComponent("\(key).buffer"))
+            try output(key + ".buffer", Data(bytes:buffer.contents(),count:buffer.length))
         }
         return "readback_targets=\(targets.count)"
     }
@@ -672,11 +676,19 @@ public func sojuRun(_ pointer: UnsafeMutableRawPointer, _ commands: UnsafePointe
     }
 }
 @_cdecl("soju_readback")
-public func sojuReadback(_ pointer: UnsafeMutableRawPointer, _ directory: UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>? {
+public func sojuReadback(_ pointer: UnsafeMutableRawPointer, _ directory: UnsafePointer<CChar>, _ context: UnsafeMutableRawPointer, _ receive: @convention(c) (UnsafeMutableRawPointer, UnsafePointer<CChar>, UnsafePointer<UInt8>?, Int) -> Void) -> UnsafeMutablePointer<CChar>? {
     autoreleasepool {
         do {
             let worker = Unmanaged<Worker>.fromOpaque(pointer).takeUnretainedValue()
-            let result = try autoreleasepool { try worker.readback(String(cString: directory)) }
+            let result = try autoreleasepool {
+                try worker.readback(String(cString: directory)) { name, data in
+                    name.withCString { key in
+                        data.withUnsafeBytes { bytes in
+                            receive(context, key, bytes.baseAddress?.assumingMemoryBound(to: UInt8.self), bytes.count)
+                        }
+                    }
+                }
+            }
             worker.finishReadback()
             return strdup("OK " + result + " " + (try worker.trimCaches()))
         }

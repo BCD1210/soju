@@ -75,3 +75,16 @@ The run includes cold initialization, so submit/wait is not a steady-state value
 Core library: 120 checks passed before adding the borrowing test; the new
 contiguous/fragmented/permission boundary test also passed. GPU memory generation
 checks passed. There is no claim that these changes alone satisfy throughput.
+
+## In-process readback
+
+Normal readback now returns owned byte spans through a synchronous native callback,
+with every callback allocation scoped to the request. Spill files remain only for
+cache-pressure eviction. Public fence waits still return diagnostics; the backend
+consumes typed readback results. No normal frame readback files are written/read.
+
+120-frame exploratory run: 6.304 seconds; readback total 1235.596 ms versus
+2239.847 ms in the preceding run. Validation compiled alongside this exploratory
+measurement; final timing must use an otherwise idle test session. All 28 GPU
+render tests passed with Metal validation. This removes file I/O, not the remaining
+attachment copies or the synchronous guest visibility boundary.

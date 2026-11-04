@@ -1409,16 +1409,23 @@ impl Backend {
             !directory.to_string_lossy().contains(['\n', '\t']),
             "invalid worker directory",
         )?;
-        let diagnostics = self
+        let reply = self
             .worker
             .as_mut()
             .ok_or_else(|| Error("no submitted work".into()))?
             .request("readback", directory.clone())?
-            .wait()?;
+            .readback()?;
+        let diagnostics = reply.diagnostics;
+        let mut readbacks = reply.readbacks;
+        let mut take = |name: String| {
+            readbacks
+                .remove(&name)
+                .ok_or_else(|| Error(format!("missing native readback {name}")))
+        };
         let mut images = Vec::new();
         let mut writes = Vec::new();
         for (key, t) in &self.targets {
-            let bytes = std::fs::read(directory.join(format!("{key}.rgba"))).map_err(io)?;
+            let bytes = take(format!("{key}.rgba"))?;
             let bytes = if t.format == soju_switch_texture::format::Format::A1Bgr5Unorm {
                 bytes
                     .chunks_exact(2)
@@ -1447,8 +1454,8 @@ impl Backend {
         }
         for (key, t) in &self.depth_targets {
             use soju_switch_texture::format::Format;
-            let z = std::fs::read(directory.join(format!("{key}.depth"))).map_err(io)?;
-            let stencil = std::fs::read(directory.join(format!("{key}.stencil"))).map_err(io)?;
+            let z = take(format!("{key}.depth"))?;
+            let stencil = take(format!("{key}.stencil"))?;
             let pixels = t.width as usize * t.height as usize;
             let depth_bytes = if t.format == Format::Depth16Unorm {
                 2
@@ -1484,12 +1491,12 @@ impl Backend {
             writes.push((t.address, t.writeback(&raw, memory)?));
         }
         for (key, &(address, _, _)) in &self.queries {
-            let data = std::fs::read(directory.join(format!("{key}.query"))).map_err(io)?;
+            let data = take(format!("{key}.query"))?;
             require(data.len() == 4, "invalid query result")?;
             writes.push((address, data));
         }
         for (key, t) in &self.compute_targets {
-            let bytes = std::fs::read(directory.join(format!("{key}.buffer"))).map_err(io)?;
+            let bytes = take(format!("{key}.buffer"))?;
             require(bytes.len() == t.size, "invalid compute readback size")?;
             writes.push((t.address, bytes));
         }

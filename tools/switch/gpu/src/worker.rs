@@ -13,9 +13,16 @@ use std::{
     thread,
 };
 
-pub struct Fence(Receiver<Result<String>>);
+pub(crate) struct Reply {
+    pub diagnostics: String,
+    pub readbacks: std::collections::BTreeMap<String, Vec<u8>>,
+}
+pub struct Fence(Receiver<Result<Reply>>);
 impl Fence {
     pub fn wait(self) -> Result<String> {
+        Ok(self.0.recv().map_err(error)??.diagnostics)
+    }
+    pub(crate) fn readback(self) -> Result<Reply> {
         self.0.recv().map_err(error)?
     }
 }
@@ -23,7 +30,7 @@ type Batch = (Vec<DrawCommand>, Vec<Vec<u8>>, Vec<u8>);
 struct Job {
     directory: PathBuf,
     batch: Option<Batch>,
-    reply: mpsc::Sender<Result<String>>,
+    reply: mpsc::Sender<Result<Reply>>,
 }
 const CAPACITY: usize = 8;
 struct Ring {
@@ -174,8 +181,34 @@ type Run = unsafe extern "C" fn(
     *const Array<u8>,
 ) -> *mut std::ffi::c_char;
 #[cfg(target_os = "macos")]
-type Readback =
-    unsafe extern "C" fn(*mut std::ffi::c_void, *const std::ffi::c_char) -> *mut std::ffi::c_char;
+type ReceiveReadback =
+    unsafe extern "C" fn(*mut std::ffi::c_void, *const std::ffi::c_char, *const u8, usize);
+#[cfg(target_os = "macos")]
+type Readback = unsafe extern "C" fn(
+    *mut std::ffi::c_void,
+    *const std::ffi::c_char,
+    *mut std::ffi::c_void,
+    ReceiveReadback,
+) -> *mut std::ffi::c_char;
+#[cfg(target_os = "macos")]
+unsafe extern "C" fn receive_readback(
+    context: *mut std::ffi::c_void,
+    key: *const std::ffi::c_char,
+    bytes: *const u8,
+    size: usize,
+) {
+    // SAFETY: the synchronous native call borrows this map, key, and byte span until return.
+    unsafe {
+        let output = &mut *context.cast::<std::collections::BTreeMap<String, Vec<u8>>>();
+        let key = std::ffi::CStr::from_ptr(key).to_string_lossy().into_owned();
+        let bytes = if size == 0 {
+            Vec::new()
+        } else {
+            std::slice::from_raw_parts(bytes, size).to_vec()
+        };
+        output.insert(key, bytes);
+    }
+}
 #[cfg(target_os = "macos")]
 type Destroy = unsafe extern "C" fn(*mut std::ffi::c_void);
 #[cfg(target_os = "macos")]
@@ -257,7 +290,8 @@ impl Native {
             })
         }
     }
-    fn request(&mut self, job: &Job) -> Result<String> {
+    fn request(&mut self, job: &Job) -> Result<Reply> {
+        let mut readbacks = std::collections::BTreeMap::<String, Vec<u8>>::new();
         // The native call is synchronous through GPU completion. Every borrowed allocation
         // and command stays owned by this job until the call returns.
         let pointer = unsafe {
@@ -275,7 +309,12 @@ impl Native {
             } else {
                 let path = std::ffi::CString::new(job.directory.as_os_str().as_encoded_bytes())
                     .map_err(error)?;
-                (self.readback)(self.instance, path.as_ptr())
+                (self.readback)(
+                    self.instance,
+                    path.as_ptr(),
+                    (&mut readbacks as *mut std::collections::BTreeMap<String, Vec<u8>>).cast(),
+                    receive_readback,
+                )
             }
         };
         if pointer.is_null() {
@@ -290,7 +329,10 @@ impl Native {
             s
         };
         match message.strip_prefix("OK ") {
-            Some(value) => Ok(value.into()),
+            Some(value) => Ok(Reply {
+                diagnostics: value.into(),
+                readbacks,
+            }),
             None => Err(Error(message)),
         }
     }
@@ -310,7 +352,7 @@ impl Native {
     fn start(_: &std::path::Path) -> Result<Self> {
         Err(Error("Metal requires macOS".into()))
     }
-    fn request(&mut self, _: &Job) -> Result<String> {
+    fn request(&mut self, _: &Job) -> Result<Reply> {
         unreachable!()
     }
 }
