@@ -19,7 +19,7 @@ final class WristPanels {
         (title as NSString).draw(in:NSRect(x:16,y:12,width:570,height:156),withAttributes:[.font:NSFont.systemFont(ofSize:38,weight:.medium),.foregroundColor:enabled ? NSColor.white:NSColor.gray])
         image.unlockFocus()
         let geometry=SCNPlane(width:size.width,height:size.height),material=SCNMaterial()
-        material.lightingModel = .constant;material.diffuse.contents=image;material.isDoubleSided=true
+        material.lightingModel = .constant;material.diffuse.contents=image;material.isDoubleSided=true;material.readsFromDepthBuffer=false;material.writesToDepthBuffer=false
         geometry.materials=[material];return geometry
     }
     func update(_ commander:Commander) {
@@ -44,6 +44,7 @@ final class WristPanels {
                 node.name="card-\(-i-1)";node.position=SCNVector3(Double(i-1)*0.14,-0.14,0);commands.addChildNode(node)
             }
         }
+        for node in commands.childNodes+[resources] {node.renderingOrder=1_000_000}
         guard CACurrentMediaTime()-lastMap>0.25 else {return};lastMap=CACurrentMediaTime()
         let image=NSImage(size:NSSize(width:512,height:600));image.lockFocus()
         NSColor(calibratedWhite:0.025,alpha:0.96).setFill();NSRect(x:0,y:0,width:512,height:600).fill()
