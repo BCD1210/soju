@@ -92,6 +92,8 @@ impl Renderer {
                 eprintln!("gpu-method|{}|{:#x}|{:#x}", m.subchannel, m.method, m.value);
             }
         }
+        let snapshot_span =
+            soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Snapshot);
         let mut memory = Memory::default();
         let mut original = Vec::new();
         let mut total = 0u64;
@@ -108,6 +110,7 @@ impl Renderer {
             memory.map(address, bytes.clone()).map_err(gpu_error)?;
             original.push((address, guest, bytes));
         }
+        drop(snapshot_span);
         let mut backend = Backend::default();
         let mut increments = 0u32;
         let mut queue: std::collections::VecDeque<_> = methods.iter().copied().collect();
@@ -199,11 +202,14 @@ impl Renderer {
                         return Err(Error::Malformed("Metal macro parameter limit"));
                     }
                 }
+                let macro_span =
+                    soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Macro);
                 let generated = self
                     .macros
                     .run((method - 0x3800) / 8, value, &params, |reg| {
                         Ok(self.engine.registers.get(reg))
                     })?;
+                drop(macro_span);
                 if generated
                     .iter()
                     .any(|(reg, _)| (0x3800..=0x3ffc).contains(reg))
@@ -537,6 +543,7 @@ impl Renderer {
                 "Metal submission increment count mismatch",
             ));
         }
+        let _commit_span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Commit);
         let mut writes = Vec::new();
         for (address, guest, bytes) in original {
             let current = memory.read(address, bytes.len()).map_err(gpu_error)?;

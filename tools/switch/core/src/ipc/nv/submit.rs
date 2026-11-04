@@ -103,6 +103,7 @@ fn submit(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error>
     if overlaps((output.address, output.len), (c.tls, 256)) {
         return Err(Error::Malformed("GPU reply overlaps IPC state"));
     }
+    let decode_span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Decode);
     let mut methods = Vec::new();
     let mut total_words = 0usize;
     for entry in entries_data.chunks_exact(8) {
@@ -130,6 +131,7 @@ fn submit(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error>
             ));
         }
     }
+    drop(decode_span);
     let access = Access {
         space,
         memory: c.memory,

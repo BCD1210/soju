@@ -35,6 +35,7 @@ impl Execution {
         &self,
         process: &'a Process,
     ) -> Result<MutexGuard<'a, MemoryImage>, Error> {
+        let _span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Rendezvous);
         let mut state = self.state.lock().map_err(|_| Error::Lock)?;
         state.waiters += 1;
         // One exit request per rendezvous. Repeating it after an exited core
@@ -108,7 +109,9 @@ impl ProcessGuard<'_> {
                 check("preemption timer", unsafe {
                     soju_preemption_timer(id, duration.as_nanos().min(u64::MAX as u128) as u64)
                 })?;
+                let span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Guest);
                 let result = check("hv_vcpu_run", unsafe { ffi::hv_vcpu_run(id) });
+                drop(span);
                 check("disable timer", unsafe {
                     ffi::hv_vcpu_set_sys_reg(id, 0xdf19, 0)
                 })?;

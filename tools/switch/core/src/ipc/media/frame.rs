@@ -57,6 +57,7 @@ impl GraphicBuffer {
         Ok(())
     }
     pub fn pixels(&self, ctx: &Context<'_>) -> Result<Frame, Error> {
+        let _span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Present);
         self.fresh(ctx)?;
         let size = self.size()?;
         let address = self

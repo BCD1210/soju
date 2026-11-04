@@ -5,6 +5,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     let out = PathBuf::from(env::var("OUT_DIR")?);
+    println!("cargo:rerun-if-changed=native/profile.c");
+    if !Command::new("clang")
+        .args(["-O2", "-c", "native/profile.c", "-o"])
+        .arg(out.join("profile.o"))
+        .status()?
+        .success()
+        || !Command::new("ar")
+            .arg("crs")
+            .arg(out.join("libsoju_profile.a"))
+            .arg(out.join("profile.o"))
+            .status()?
+            .success()
+    {
+        return Err("profile compilation failed".into());
+    }
+    println!("cargo:rustc-link-search=native={}", out.display());
+    println!("cargo:rustc-link-lib=static=soju_profile");
     let mut source = String::new();
     for name in [
         "protocol.swift",

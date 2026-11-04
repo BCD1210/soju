@@ -11,6 +11,7 @@ pub(super) fn register(
     mappings: &[(u64, u64, Vec<u8>)],
     backend: &mut Backend,
 ) -> Result<(), Error> {
+    let _span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::ShaderDiscovery);
     let registers = &snapshot.registers;
     for (stage, group_register) in [(0x2044, 0x2050), (0x2144, 0x2150)] {
         let address = registers

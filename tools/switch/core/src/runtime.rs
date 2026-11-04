@@ -194,9 +194,11 @@ impl Runtime {
     ) -> Result<Option<Stop>, Error> {
         let mut guard = self.process.lock()?;
         let started = Instant::now();
+        let ipc_span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Ipc);
         let reply = handler
             .dispatch(&request, &mut self.kernel, guard.memory())
             .map_err(Error::Ipc)?;
+        drop(ipc_span);
         self.profile.ipc += started.elapsed();
         match reply {
             IpcReply::Complete(results) => {
@@ -335,6 +337,8 @@ impl Runtime {
                     RunOutcome::Svc(exit) => {
                         let now = self.now();
                         let started = Instant::now();
+                        let svc_span =
+                            soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Svc);
                         let dispatch = {
                             let mut guard = self.process.lock()?;
                             self.kernel.dispatch(
@@ -346,6 +350,7 @@ impl Runtime {
                                 now,
                             )
                         };
+                        drop(svc_span);
                         self.profile.svc += started.elapsed();
                         match dispatch {
                             Dispatch::Return(mut results) => {

@@ -1,10 +1,10 @@
 //! Resource resolution and a dependency-free protocol to the native Metal worker.
 use crate::{
-    Error, Result,
     engine::{Action, ConstantBuffer, Registers, Snapshot},
     memory::Memory,
     require,
     texture::{TextureCache, Tic, Tsc},
+    Error, Result,
 };
 use soju_switch_shader::{
     cache::{Inputs, Key},
@@ -233,6 +233,7 @@ impl Backend {
     }
     /// Resolve immediately at each action, before later CPU/transfer writes.
     pub fn prepare(&mut self, s: &Snapshot, memory: &Memory) -> Result<()> {
+        let _span = crate::profile::span(crate::profile::Stage::Prepare);
         self.prepare_state(&s.registers, &s.constants, &s.action, memory)
     }
     pub(crate) fn prepare_state(
@@ -1308,6 +1309,7 @@ impl Backend {
     /// Explicit CPU visibility boundary. Waits for queued work and writes pending
     /// color/depth targets and query results to guest memory. Fence waits alone never copy image bytes.
     pub fn readback(&mut self, directory: &Path, memory: &mut Memory) -> Result<Report> {
+        let _span = crate::profile::span(crate::profile::Stage::Readback);
         require(
             self.commands.is_empty(),
             "submit prepared commands before readback",
@@ -1443,7 +1445,9 @@ impl Backend {
     }
     /// Compatibility wrapper: submit, wait, then make color targets CPU-visible.
     pub fn execute(&mut self, directory: &Path, memory: &mut Memory) -> Result<Report> {
+        let span = crate::profile::span(crate::profile::Stage::Submit);
         let diagnostics = self.submit(directory)?.wait()?;
+        drop(span);
         let mut report = self.readback(directory, memory)?;
         report.diagnostics = diagnostics;
         Ok(report)

@@ -173,6 +173,7 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         match stop {
             Stop::ProcessExited(0) | Stop::AllThreadsExited => {
                 hub.finish()?;
+                soju_switch_gpu::profile::report();
                 if let Some(path) = &frame_times {
                     std::fs::write(path, serde_json::to_vec(&intervals_ms)?)?;
                 }
@@ -184,6 +185,7 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         }
         if count >= frames {
             hub.finish()?;
+            soju_switch_gpu::profile::report();
             if let Some(path) = &frame_times {
                 std::fs::write(path, serde_json::to_vec(&intervals_ms)?)?;
             }
