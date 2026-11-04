@@ -134,6 +134,10 @@ final class Art {
     }
     func material(_ file:String) throws -> SCNMaterial {
         let m=SCNMaterial();m.lightingModel = .constant;m.diffuse.contents=try texture(file)
+        // DDS rows start at the top; direct Metal textures do not receive the
+        // NSImage orientation conversion. Flip only diffuse, not the fog mask.
+        var orientation=SCNMatrix4MakeScale(1,-1,1);orientation.m42=1
+        m.diffuse.contentsTransform=orientation
         m.diffuse.mipFilter = .linear;m.diffuse.maxAnisotropy=8;m.diffuse.minificationFilter = .linear;m.diffuse.magnificationFilter = .linear
         m.diffuse.wrapS = .clamp;m.diffuse.wrapT = .clamp;m.isDoubleSided=true
         return m
