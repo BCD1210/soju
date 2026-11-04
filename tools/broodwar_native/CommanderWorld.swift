@@ -193,6 +193,7 @@ extension Commander {
         if CommandLine.arguments.contains("--top-down") {
             camera.position.y=40;camera.eulerAngles=SCNVector3(-Double.pi/2,0,0)
         }
+        if !xrRequested {updateDesktopCard()}
         Models3D.followLight(world,position:camera.position)
         if !xrRequested,initialized,let index=captureFrames.reserve(),
             let tiff=view.snapshot().tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let image=bitmap.cgImage {

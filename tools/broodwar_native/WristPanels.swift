@@ -11,11 +11,11 @@ final class WristPanels {
     var grab:SIMD3<Float>?,grabDistance:Float?,zoom:Float=20
     var cardClicks=0,boxSelections=0,doubleTaps=0,grabs=0
     init() {commands.name="wrist-commands";resources.name="wrist-resources";ray.name="target-ray";box.name="selection-box"}
-    func panel(_ title:String,size:CGSize)->SCNGeometry {
+    func panel(_ title:String,size:CGSize,enabled:Bool=true)->SCNGeometry {
         let image=NSImage(size:NSSize(width:600,height:180))
         image.lockFocus();NSColor(calibratedRed:0.025,green:0.045,blue:0.065,alpha:0.96).setFill()
         NSRect(x:0,y:0,width:600,height:180).fill()
-        (title as NSString).draw(in:NSRect(x:16,y:12,width:570,height:156),withAttributes:[.font:NSFont.systemFont(ofSize:38,weight:.medium),.foregroundColor:NSColor.white])
+        (title as NSString).draw(in:NSRect(x:16,y:12,width:570,height:156),withAttributes:[.font:NSFont.systemFont(ofSize:38,weight:.medium),.foregroundColor:enabled ? NSColor.white:NSColor.gray])
         image.unlockFocus()
         let geometry=SCNPlane(width:size.width,height:size.height),material=SCNMaterial()
         material.lightingModel = .constant;material.diffuse.contents=image;material.isDoubleSided=true
@@ -25,7 +25,7 @@ final class WristPanels {
         if selection != commander.selected {pending=nil;dragStart=nil;selection=commander.selected;page=0}
         let selected=commander.selected.first.flatMap{commander.units[$0]}
         let next=selected.map{card.choices($0)} ?? []
-        let key="\(commander.selected):\(next.map{$0.title}):\(page):\(commander.tabletop)"
+        let key="\(commander.selected):\(next.map{$0.label}):\(next.map{$0.unavailable(commander.state,selected ?? [:]) ?? ""}):\(page):\(commander.tabletop)"
         if signature != key {
             signature=key;choices=next
             let pages=max(1,(choices.count+8)/9);page=min(page,pages-1)
@@ -34,7 +34,7 @@ final class WristPanels {
             let header=SCNNode(geometry:panel(title,size:CGSize(width:0.42,height:0.055)))
             header.position.y=0.18;commands.addChildNode(header)
             for i in 0..<9 where page*9+i<choices.count {
-                let entry=choices[page*9+i],node=SCNNode(geometry:panel(entry.title,size:CGSize(width:0.135,height:0.075)))
+                let entry=choices[page*9+i],node=SCNNode(geometry:panel(entry.label,size:CGSize(width:0.135,height:0.075),enabled:entry.unavailable(commander.state,selected ?? [:])==nil))
                 node.name="card-\(page*9+i)";node.position=SCNVector3(Double(i%3-1)*0.14,0.10-Double(i/3)*0.08,0)
                 commands.addChildNode(node)
             }

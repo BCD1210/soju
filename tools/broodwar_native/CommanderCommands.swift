@@ -8,8 +8,13 @@ import simd
 extension Commander {
     func cardCommand(_ choice:CommandChoice,hit:SCNHitTestResult?) {
         guard !selected.isEmpty else {return}
+        guard let unit=selected.first.flatMap({units[$0]}) else {return}
+        if let reason=choice.unavailable(state,unit) {notice=reason;return}
+        if choice.payload["op"] as? String == "select_larvae" {
+            selected=Array(owned(35).filter{dist($0,unit)<128*128}.compactMap{$0["id"] as? String}.sorted().prefix(12));return
+        }
         var payload=choice.payload
-        payload["units"]=["move","attack_move","stop","hold","gather","repair"].contains(payload["op"] as? String ?? "") ? selected:Array(selected.prefix(1))
+        payload["units"]=["move","attack_move","stop","hold","patrol","gather","repair"].contains(payload["op"] as? String ?? "") ? selected:Array(selected.prefix(1))
         switch choice.target {
         case .none:break
         case .unit:
@@ -18,11 +23,43 @@ extension Commander {
             guard let hit=hit else {return}
             let point=hit.worldCoordinates
             if choice.target == .rally,let id=unitID(hit.node) {payload["target"]=id}
-            else if ["build","addon"].contains(payload["op"] as? String ?? "") {
+            else if ["build","addon","land"].contains(payload["op"] as? String ?? "") {
                 payload["tileX"]=max(0,Int(point.x)-1);payload["tileY"]=max(0,Int(point.z)-1)
             } else {payload["x"]=max(0,Int(point.x*32));payload["y"]=max(0,Int(point.z*32))}
         }
         command(payload);wrists.pending=nil
+    }
+
+    func updateDesktopCard() {
+        wrists.update(self)
+        guard desktopCardSignature != wrists.signature else {return}
+        desktopCardSignature=wrists.signature
+        for child in desktopCard.subviews {child.removeFromSuperview()}
+        guard let unit=selected.first.flatMap({units[$0]}) else {return}
+        let heading=NSTextField(labelWithString:wrists.card.names[String(Int(number(unit,"type")))] ?? "Commands")
+        heading.textColor = .white;heading.frame=NSRect(x:0,y:280,width:400,height:25);desktopCard.addSubview(heading)
+        for i in 0..<9 where wrists.page*9+i<wrists.choices.count {
+            let index=wrists.page*9+i,choice=wrists.choices[index]
+            let button=NSButton(title:choice.label,target:self,action:#selector(desktopCardClick(_:)))
+            button.bezelStyle = .regularSquare;button.font=NSFont.systemFont(ofSize:12);button.cell?.wraps=true;button.cell?.isScrollable=false
+            button.tag=index;button.isEnabled=choice.unavailable(state,unit)==nil
+            button.toolTip=choice.unavailable(state,unit) ?? choice.label
+            button.frame=NSRect(x:(i%3)*135,y:200-(i/3)*75,width:130,height:70)
+            desktopCard.addSubview(button)
+        }
+        let pages=max(1,(wrists.choices.count+8)/9)
+        for (i,title) in ["Page \(wrists.page+1)/\(pages)","Cancel target"].enumerated() {
+            let button=NSButton(title:title,target:self,action:#selector(desktopCardClick(_:)))
+            button.tag = -i-1;button.frame=NSRect(x:i*200,y:0,width:195,height:35);desktopCard.addSubview(button)
+        }
+    }
+    @objc func desktopCardClick(_ sender:NSButton) {
+        if sender.tag == -1 {wrists.page=(wrists.page+1)%max(1,(wrists.choices.count+8)/9);return}
+        if sender.tag == -2 {wrists.pending=nil;return}
+        guard wrists.choices.indices.contains(sender.tag) else {return}
+        let choice=wrists.choices[sender.tag]
+        if choice.target == .none {cardCommand(choice,hit:nil)}
+        else {wrists.pending=choice;notice="Right-click target: \(choice.title)"}
     }
 
     func owned(_ kind:Int)->[Obj] { units.values.filter { Int(number($0,"type"))==kind && number($0,"owner")==number(state,"player") } }
@@ -36,6 +73,14 @@ extension Commander {
     }
     func key(_ key:String) {
         if key=="`" {devOverlay.toggle();label?.isHidden = !devOverlay;return}
+        if let unit=selected.first.flatMap({units[$0]}) {
+            let choices=wrists.card.choices(unit),start=min(wrists.page*9,choices.count),end=min(start+9,choices.count)
+            if let choice=choices[start..<end].first(where:{!$0.hotkey.isEmpty && $0.hotkey.lowercased()==key && $0.hotkey != "Esc"}) {
+                if let reason=choice.unavailable(state,unit) {notice=reason;return}
+                if choice.target == .none {cardCommand(choice,hit:nil)} else {wrists.pending=choice;notice="Aim target: \(choice.title)"}
+                return
+            }
+        }
         if key=="c",let id=selected.first,let unit=units[id] {
             let spells=wrists.card.choices(unit).filter{$0.payload["op"] as? String == "spell"}
             if !spells.isEmpty {

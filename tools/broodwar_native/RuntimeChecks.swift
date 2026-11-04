@@ -98,6 +98,12 @@ func runtimeChecks()throws {
     let card=CommandCard();card.accept(["types":[["id":7,"mineralCost":75,"gasCost":9]]])
     let production=card.choices(["type":106,"building":true])
     try require(production.contains{$0.payload["op"] as? String == "train" && $0.title.hasSuffix("75/9")},"command card uses native DAT prices")
+    let scvChoice=production.first{$0.payload["op"] as? String == "train"}!
+    try require(scvChoice.unavailable(["minerals":74,"gas":9],[:])=="Not enough minerals","native price disables an unaffordable command")
+    try require(scvChoice.unavailable(["minerals":75,"gas":8],[:])=="Not enough gas","gas shortages disable commands")
+    try require(scvChoice.unavailable(["minerals":75,"gas":9],[:])==nil,"exact resources enable commands")
+    try require(scvChoice.hotkey=="S","SCV training displays its command hotkey")
+    try require(card.choices(["type":0]).contains{$0.payload["op"] as? String == "patrol"},"Marine card includes patrol")
     let repair=card.choices(["type":7,"worker":true]).first{$0.payload["op"] as? String == "repair"}
     try require(repair?.target == .unit,"repair requires a unit target")
     card.accept(["spells":[["action":"storm","title":"Psionic storm","casters":[67],"target":"ground","energy":75]]])

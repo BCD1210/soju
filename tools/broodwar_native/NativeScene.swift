@@ -55,6 +55,7 @@ final class WalkView: SCNView {
 }
 final class Commander: NSObject, NSApplicationDelegate {
     var window:NSWindow!;var view:WalkView!;var label:NSTextField!
+    var desktopCard=NSView(),desktopCardSignature=""
     let art:Art;let bridge=Bridge();let world=SCNScene();let camera=SCNNode()
     var yaw:CGFloat = -0.54,pitch:CGFloat = -0.14
     var units=[String:Obj](),nodes=[String:SCNNode](),selected=[String]()
@@ -109,7 +110,9 @@ final class Commander: NSObject, NSApplicationDelegate {
         label.font=NSFont.monospacedSystemFont(ofSize:13,weight:.medium)
         label.isHidden = !devOverlay
         label.frame=NSRect(x:16,y:16,width:1370,height:64);label.autoresizingMask=[.width]
-        window.contentView=view;view.addSubview(label);window.center();window.makeKeyAndOrderFront(nil)
+        window.contentView=view;view.addSubview(label);
+        if !xrRequested {desktopCard.frame=NSRect(x:1010,y:100,width:410,height:320);desktopCard.autoresizingMask=[.minXMargin,.maxYMargin];view.addSubview(desktopCard)}
+        window.center();window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(view);NSApp.activate(ignoringOtherApps:true)
         tick=Timer.scheduledTimer(withTimeInterval:1/60,repeats:true) { [weak self] _ in self?.step() }
         poll=Timer.scheduledTimer(withTimeInterval:0.1,repeats:true) { [weak self] _ in self?.refresh() }

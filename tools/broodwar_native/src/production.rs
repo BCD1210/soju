@@ -35,6 +35,14 @@ pub fn packet(request: &Value, building: bool) -> Result<Option<Vec<u8>>, &'stat
             "cloak" => vec![0x21,0], "decloak" => vec![0x22,0],
             _ => return Err("unsupported ability; targeted spells need native targeting validation"),
         },
+        "lift" => {
+            if !building {return Err("lift requires a building");}
+            vec![0x2f,0,0,0,0]
+        },
+        "return_cargo" => {
+            if building {return Err("return cargo requires a worker");}
+            vec![0x1e,0]
+        },
         "unload" => vec![0x28,0],
         _ => return Ok(None),
     };
@@ -82,6 +90,12 @@ mod tests {
     fn cancellation_rejects_bad_slot_without_truncation() {
         assert!(packet(&json!({"op":"cancel","action":"train","slot":256}),true).is_err());
         assert_eq!(packet(&json!({"op":"cancel","action":"train","slot":3}),true).unwrap(),Some(vec![0x20,3,0]));
+    }
+    #[test]
+    fn lift_and_return_cargo_use_original_packets() {
+        assert_eq!(packet(&json!({"op":"lift"}),true).unwrap(),Some(vec![0x2f,0,0,0,0]));
+        assert!(packet(&json!({"op":"lift"}),false).is_err());
+        assert_eq!(packet(&json!({"op":"return_cargo"}),false).unwrap(),Some(vec![0x1e,0]));
     }
     #[test]
     fn unsupported_ability_never_becomes_raw_order() {
