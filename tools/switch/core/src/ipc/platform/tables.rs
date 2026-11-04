@@ -49,14 +49,18 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
                         Ok(Reply::success())
                     }),
                     c(9, 0, Platform::signaled_event),
+                    c(10, 4, success),
                     c(11, 1, success),
                     c(12, 1, success),
+                    c(13, 3, success),
+                    c(14, 1, success),
+                    c(16, 1, success),
                     c(40, 0, one),
                     c(91, 0, Platform::event),
                 ]
             }
         }
-        Kind::Window => const { &[c(1, 0, one)] },
+        Kind::Window => const { &[c(1, 0, one), c(10, 0, success)] },
         Kind::Winding => const { &[c(0, 0, zero)] },
         Kind::LibrarySelf => const { &[c(11, 0, zero)] },
         Kind::Creator => {
@@ -116,7 +120,55 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
         }
         Kind::Account => account::COMMANDS,
         Kind::Profile => account::PROFILE,
-        Kind::Apm => const { &[c(0, 0, |s, _, x| s.child(Kind::Empty, x)), c(1, 0, zero)] },
+        Kind::Apm => {
+            const {
+                &[
+                    c(0, 0, |s, _, x| s.child(Kind::ApmSession, x)),
+                    c(1, 0, zero),
+                ]
+            }
+        }
+        Kind::ApmSession => {
+            const {
+                &[
+                    c(0, 8, |s, r, _| {
+                        let mode = r.u32(0)? as usize;
+                        let config = r.u32(4)?;
+                        *s.performance
+                            .get_mut(mode)
+                            .ok_or(Error::Malformed("performance mode"))? = config;
+                        Ok(Reply::success())
+                    }),
+                    c(1, 4, |s, r, _| {
+                        let config = s
+                            .performance
+                            .get(r.u32(0)? as usize)
+                            .ok_or(Error::Malformed("performance mode"))?;
+                        Ok(Reply::data(config.to_le_bytes().to_vec()))
+                    }),
+                ]
+            }
+        }
+        Kind::ApplicationFunctions => {
+            const {
+                &[
+                    c(1, 4, Platform::pop_launch),
+                    c(21, 0, |_, _, _| Ok(Reply::data(b"en-US\0\0\0".to_vec()))),
+                    c(40, 0, one),
+                ]
+            }
+        }
+        Kind::Friends => const { &[c(0, 0, |s, _, x| s.child(Kind::FriendService, x))] },
+        Kind::FriendService => const { &[c(0, 0, Platform::event)] },
+        Kind::ParentalFactory => {
+            const {
+                &[
+                    c(0, 8, |s, _, x| s.child(Kind::Parental, x)),
+                    c(1, 8, |s, _, x| s.child(Kind::Parental, x)),
+                ]
+            }
+        }
+        Kind::Parental => const { &[c(1, 0, success), c(1031, 0, zero)] },
         Kind::Fonts => {
             const {
                 &[
@@ -145,6 +197,7 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
                 &[
                     c(5, 0, network::unavailable),
                     c(12, 0, network::unavailable),
+                    c(17, 0, zero),
                     c(18, 0, zero),
                     c(21, 0, zero),
                     c(22, 0, zero),
@@ -180,7 +233,7 @@ const APPLICATION_PROXY: &[CommandSpec<Platform>] = &[
     c(4, 0, |s, _, x| s.child(Kind::Empty, x)),
     c(10, 0, |s, _, x| s.child(Kind::Winding, x)),
     c(11, 0, |s, _, x| s.child(Kind::Creator, x)),
-    c(20, 0, |s, _, x| s.child(Kind::Empty, x)),
+    c(20, 0, |s, _, x| s.child(Kind::ApplicationFunctions, x)),
     c(1000, 0, |s, _, x| s.child(Kind::Empty, x)),
 ];
 const HID: &[CommandSpec<Platform>] = &[
@@ -188,7 +241,26 @@ const HID: &[CommandSpec<Platform>] = &[
     c(11, 8, success),
     c(21, 8, success),
     c(31, 8, success),
-    c(100, 16, success),
+    c(66, 16, |s, r, _| {
+        let handle = r.u32(0)?;
+        if !s.six_axis.contains(&handle) && s.six_axis.len() >= 64 {
+            return Err(Error::Malformed("six-axis handle limit"));
+        }
+        s.six_axis.insert(handle);
+        Ok(Reply::success())
+    }),
+    c(67, 16, |s, r, _| {
+        s.six_axis.remove(&r.u32(0)?);
+        Ok(Reply::success())
+    }),
+    c(82, 16, one),
+    c(100, 16, |s, r, _| {
+        s.npad_styles = r.u32(0)?;
+        Ok(Reply::success())
+    }),
+    c(101, 8, |s, _, _| {
+        Ok(Reply::data(s.npad_styles.to_le_bytes().to_vec()))
+    }),
     c(102, 8, success),
     c(103, 8, success),
     c(109, 16, success),
@@ -204,6 +276,17 @@ const HID: &[CommandSpec<Platform>] = &[
         Ok(Reply::data(s.joy_hold_type.to_le_bytes().to_vec()))
     }),
     c(124, 8, success),
+    c(128, 16, |s, r, _| {
+        let mode = r.u64(8)?;
+        if mode > 2 {
+            return Err(Error::Malformed("handheld activation mode"));
+        }
+        s.handheld_mode = mode;
+        Ok(Reply::success())
+    }),
+    c(129, 8, |s, _, _| {
+        Ok(Reply::data(s.handheld_mode.to_le_bytes().to_vec()))
+    }),
     c(201, 24, success),
     c(203, 0, |s, _, x| s.child(Kind::Vibration, x)),
     c(204, 1, success),

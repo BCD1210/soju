@@ -2,6 +2,8 @@
 mod account;
 mod applet;
 #[cfg(test)]
+mod boot_tests;
+#[cfg(test)]
 mod error_tests;
 #[cfg(test)]
 mod exit_tests;
@@ -53,6 +55,12 @@ enum Kind {
     Account,
     Profile,
     Apm,
+    ApmSession,
+    ApplicationFunctions,
+    Friends,
+    FriendService,
+    ParentalFactory,
+    Parental,
     Fonts,
     Bsd,
     Ssl,
@@ -85,6 +93,11 @@ pub struct Platform {
     input: soju_switch_input::NpadState,
     sample: u64,
     joy_hold_type: u64,
+    npad_styles: u32,
+    handheld_mode: u64,
+    six_axis: std::collections::BTreeSet<u32>,
+    performance: [u32; 2],
+    launch_popped: bool,
     hid: Option<Handle>,
     time: Option<Handle>,
     font_handle: Option<Handle>,
@@ -107,6 +120,11 @@ impl Platform {
             input: Default::default(),
             sample: 1,
             joy_hold_type: 0,
+            npad_styles: 0,
+            handheld_mode: 0,
+            six_axis: Default::default(),
+            performance: [0x20000, 0x10000],
+            launch_popped: false,
             hid: None,
             time: None,
             font_handle: None,
@@ -129,7 +147,9 @@ impl Platform {
             "hid" => Kind::Hid,
             "time:u" | "time:s" => Kind::Time,
             "acc:u0" | "acc:u1" => Kind::Account,
-            "apm:p" => Kind::Apm,
+            "apm:p" | "apm" => Kind::Apm,
+            "friend:u" => Kind::Friends,
+            "pctl" | "pctl:a" => Kind::ParentalFactory,
             "pl:u" => Kind::Fonts,
             "bsd:s" | "bsd:u" => Kind::Bsd,
             "ssl" => Kind::Ssl,

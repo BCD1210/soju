@@ -181,3 +181,22 @@ impl Platform {
         Ok(reply)
     }
 }
+
+impl Platform {
+    pub(super) fn pop_launch(
+        &mut self,
+        req: &Request,
+        ctx: &mut Context<'_>,
+    ) -> Result<Reply, Error> {
+        if req.u32(0)? != 2 || self.launch_popped {
+            return Ok(Reply::result(0x680));
+        }
+        let mut bytes = vec![0; 0x88];
+        bytes[..4].copy_from_slice(&0xc79497cau32.to_le_bytes());
+        bytes[4] = 1;
+        bytes[8] = 1;
+        let reply = self.storage_object(bytes, ctx)?;
+        self.launch_popped = true;
+        Ok(reply)
+    }
+}

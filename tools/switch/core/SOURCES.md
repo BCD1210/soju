@@ -76,3 +76,23 @@ unsupported.
 - https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/maxwell/utils.mme
 - https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/maxwell/pgraph.mme
 - https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/maxwell/program.mme
+
+## Application boot probes
+
+The self-built libnx titles in `../testtitles` exercise application proxy selection,
+launch storage, offline account profiles, settings, clocks, fonts and HID calls.
+Service command/layout references (consulted 2026-11-04):
+
+- https://switchbrew.org/wiki/AM_services
+- https://switchbrew.org/wiki/Account_services
+- https://switchbrew.org/wiki/APM_services
+- https://switchbrew.org/wiki/HID_services
+- https://switchbrew.org/wiki/Settings_services
+- https://switchbrew.org/wiki/Network_Interface_services
+- https://switchbrew.org/wiki/Friend_services
+- https://switchbrew.org/wiki/Parental_Control_services
+
+The local profile has one user, no network connection and no parental restrictions.
+Six-axis start/stop and stationary status are covered; motion samples are not yet
+published. Unsupported commands still stop explicitly. A successful boot probe
+is not evidence that an untested application boots.

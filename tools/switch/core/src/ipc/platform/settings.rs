@@ -6,6 +6,7 @@ pub(super) const COMMANDS: &[CommandSpec<Platform>] = &[
     tables::c(1, 0, languages),
     tables::c(2, 4, language),
     tables::c(3, 0, count),
+    tables::c(4, 0, one),
     tables::c(5, 0, languages),
     tables::c(6, 0, count),
 ];
