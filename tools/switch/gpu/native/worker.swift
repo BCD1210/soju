@@ -42,10 +42,13 @@ func run(_ directory: String) throws {
         guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[source] = f; return f
     }
     for command in commands {
-        guard let raw = command["registers"] as? Object, let target = command["target"] as? Object else { throw Failure("missing state") }
+        guard let raw = command["registers"] as? Object, let attachments = command["targets"] as? [Object], let target = attachments.first else { throw Failure("missing state") }
         func r(_ a: Int) -> Int { number(raw,String(a)) }
         func f(_ a: Int) -> Double { Double(Float(bitPattern:UInt32(r(a)))) }
-        let key = try string(target,"key"), w = number(target,"width"), h = number(target,"height")
+        let w = number(target,"width"), h = number(target,"height")
+        var colors = [MTLTexture]()
+        for target in attachments {
+            let key = try string(target,"key")
         if targets[key] == nil {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:w,height:h,mipmapped:false)
             descriptor.storageMode = .shared; descriptor.usage = [.renderTarget,.shaderRead]
@@ -57,11 +60,16 @@ func run(_ directory: String) throws {
             initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*4) }
             generations[key] = number(target,"generation")
         }
+            colors.append(color)
+        }
         var retainedSamplers = [MTLSamplerState]()
         let mask = number(command,"clear"), isClear = command["clear"] != nil
         let pass = MTLRenderPassDescriptor()
-        pass.colorAttachments[0].texture = color;pass.colorAttachments[0].loadAction = isClear && mask & 60 != 0 ? .clear : .load;pass.colorAttachments[0].storeAction = .store
-        pass.colorAttachments[0].clearColor = MTLClearColor(red:f(0xd80),green:f(0xd84),blue:f(0xd88),alpha:f(0xd8c))
+        for (slot, color) in colors.enumerated() {
+            let a = pass.colorAttachments[slot]!
+            a.texture = color; a.loadAction = isClear && mask & 60 != 0 && (mask >> 6) == slot ? .clear : .load; a.storeAction = .store
+            a.clearColor = MTLClearColor(red:f(0xd80),green:f(0xd84),blue:f(0xd88),alpha:f(0xd8c))
+        }
         var depthFormat = MTLPixelFormat.invalid
         if let depth = command["depth"] as? Object {
             let dk = try string(depth,"key")
@@ -88,15 +96,25 @@ func run(_ directory: String) throws {
             let vs = try function(string(command,"vertex"),"soju_vertex"), fs = try function(string(command,"fragment"),"soju_fragment")
             if pipelines[pk] == nil {
                 let descriptor = MTLRenderPipelineDescriptor();descriptor.vertexFunction = vs;descriptor.fragmentFunction = fs
-                descriptor.colorAttachments[0].pixelFormat = .rgba8Unorm
+                for slot in colors.indices { descriptor.colorAttachments[slot].pixelFormat = .rgba8Unorm }
                 descriptor.depthAttachmentPixelFormat = depthFormat
                 if depthFormat == .depth32Float_stencil8 { descriptor.stencilAttachmentPixelFormat = depthFormat }
-                try need(r(0x12e4)==0,"per-target blend not implemented")
-                let blend = descriptor.colorAttachments[0]!
-                try need(r(0x1360)<=1,"invalid blend enable");blend.isBlendingEnabled = r(0x1360)==1
-                if blend.isBlendingEnabled {
-                    blend.rgbBlendOperation = try blendOp(r(0x1340));blend.sourceRGBBlendFactor = try blendFactor(r(0x1344));blend.destinationRGBBlendFactor = try blendFactor(r(0x1348))
-                    blend.alphaBlendOperation = try blendOp(r(r(0x133c)==0 ? 0x1340 : 0x134c));blend.sourceAlphaBlendFactor = try blendFactor(r(r(0x133c)==0 ? 0x1344 : 0x1350));blend.destinationAlphaBlendFactor = try blendFactor(r(r(0x133c)==0 ? 0x1348 : 0x1358))
+                try need(r(0x12e4)<=1,"invalid per-target blend enable")
+                for slot in colors.indices {
+                    let physical = (r(0x121c) >> (4 + slot * 3)) & 7
+                    let blend = descriptor.colorAttachments[slot]!
+                    try need(r(0x1360 + physical*4)<=1,"invalid blend enable")
+                    blend.isBlendingEnabled = r(0x1360 + physical*4)==1
+                    if blend.isBlendingEnabled {
+                        let per = r(0x12e4)==1, base = 0x1e00 + physical*32
+                        let separate = r(per ? base : 0x133c) != 0
+                        blend.rgbBlendOperation = try blendOp(r(per ? base+4 : 0x1340))
+                        blend.sourceRGBBlendFactor = try blendFactor(r(per ? base+8 : 0x1344))
+                        blend.destinationRGBBlendFactor = try blendFactor(r(per ? base+12 : 0x1348))
+                        blend.alphaBlendOperation = try blendOp(r(per ? base+(separate ? 16 : 4) : (separate ? 0x134c : 0x1340)))
+                        blend.sourceAlphaBlendFactor = try blendFactor(r(per ? base+(separate ? 20 : 8) : (separate ? 0x1350 : 0x1344)))
+                        blend.destinationAlphaBlendFactor = try blendFactor(r(per ? base+(separate ? 24 : 12) : (separate ? 0x1358 : 0x1348)))
+                    }
                 }
                 let vertex = MTLVertexDescriptor()
                 for a in array(command,"attributes") {

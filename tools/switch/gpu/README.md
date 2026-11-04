@@ -54,7 +54,7 @@ shader enables, vertex formats, viewport and clip convention explicitly.
 | Area | Implemented execution |
 | --- | --- |
 | Register file | Public method catalogue for B197, A140 and 902D; named byte offsets and bounded arrays in `REGISTERS.md`; unknown methods rejected |
-| Color target | CT_SELECT target 0 only; A8B8G8R8/RGBA8 UNORM; block-linear or tightly pitched, single layer; upload, load/store, readback and guest-memory writeback |
+| Color target | CT_SELECT routes up to eight targets; A8B8G8R8/RGBA8 UNORM; block-linear or tightly pitched, single layer; upload, load/store, readback and guest-memory writeback |
 | Zeta | ZF32 and ZF32_X24S8 Metal attachments; size validation; full clear required on first use; depth/stencil preserved between draws in the same batch |
 | Viewport | Viewport 0, positive XY scales, top-left Metal coordinates; explicitly selected zero-to-positive-W clip depth; Z offset/scale maps to Metal near/far |
 | Scissor | Enabled viewport-0 scissor within target bounds |
@@ -66,10 +66,10 @@ shader enables, vertex formats, viewport and clip convention explicitly.
 | Handles | Existing shader normalized bindings select TIC and TSC pool indices independently, checked against pool limits; up to 16 resources per table; default paired-index ABI also supported |
 | Draws | BEGIN/END, array first/count, indexed first/count, 8/16/32-bit indices (8-bit widened), signed indexed base vertex, instance first/subsequent/unchanged, global base instance |
 | Topology | Points, lines, line strip, triangles and triangle strip; no restart or split primitives |
-| Blend | Target-0 RGB/alpha operations and factors, separate alpha, constant blend color; dual-source factors rejected |
+| Blend | Per-target RGB/alpha operations and factors, separate alpha, constant blend color; dual-source factors rejected |
 | Depth/stencil | OGL/D3D compares, depth writes, front/back stencil ops, masks and refs |
 | Raster | Front winding, front/back culling, matching front/back fill or wireframe polygon modes |
-| Clears | Full target color channels together; depth/stencil independently; no MRT/layer/partial-channel/scissored clears |
+| Clears | Full target color channels together; depth/stencil independently; MRT_SELECT routes individual clears; no layer/partial-channel/scissored clears |
 | A140 inline upload | One pitched line, checked destination and tail bytes; no semaphore/interrupt effects |
 | 902D copy | Pitched nonlayered RGBA8 SRCCOPY rectangles, unity derivatives, integer origins; bounds checked before writes; source captured before destination writes for overlap |
 
@@ -155,7 +155,7 @@ The existing shader and texture offline suites were also run unchanged.
   written back to guest memory, nor preserved across `execute` calls; first use
   requires a clear. This prevents using depth as a texture or preserving it across
   batches. Color padding is reinitialized on block-linear writeback.
-- No MRT, MSAA, layered/cube/3D/mipped or sRGB textures, texture swizzles beyond
+- No MSAA, layered/cube/3D/mipped or sRGB textures, texture swizzles beyond
   identity, depth sampling, anisotropy, custom borders, LOD bias or compressed
   formats beyond BC1. Pitched render-target width is treated as its full byte
   pitch divided by four; independent logical-width/padding is not implemented.
@@ -177,3 +177,5 @@ The existing shader and texture offline suites were also run unchanged.
 Public references and fingerprints are in `SOURCES.md`; every catalogued method
 has its public header link in `REGISTERS.md`. The pinned NVIDIA extraction script
 is a development tool only; tests and builds never fetch sources.
+
+Eight-target routing and independent blending: 8,192 additional pixels checked on Metal.

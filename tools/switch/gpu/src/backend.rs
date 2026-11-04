@@ -125,69 +125,91 @@ impl Backend {
     pub fn prepare(&mut self, s: &Snapshot, memory: &Memory) -> Result<()> {
         let r = &s.registers;
         for &offset in r.0.keys() {
-            let supported = matches!(offset,0x800..=0x820|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1538|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1dff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
+            let supported = matches!(offset,0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1538|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
             require(
                 supported,
                 &format!("Metal state method {offset:#x} is not implemented"),
             )?;
         }
+        let attachment_count = r.get(0x121c) & 15;
         require(
-            r.get(0x121c) == 1,
-            "Metal currently requires CT_SELECT target0 only",
+            (1..=8).contains(&attachment_count) && r.get(0x121c) >> 28 == 0,
+            "invalid CT_SELECT count",
         )?;
-        require(
-            r.get(0x810) == 0xd5,
-            "render target requires A8B8G8R8 UNORM",
-        )?;
-        require(
-            r.get(0x818) == 1 && r.get(0x820) == 0 && r.get(0x81c) == 0,
-            "layered render target unsupported",
-        )?;
-        let layout = r.get(0x814);
-        require(
-            layout & !0x1070 == 0 && (layout >> 4) & 7 <= 5,
-            "unsupported target memory layout",
-        )?;
-        let pitch = layout & 0x1000 != 0;
-        let width = if pitch {
+        let mut selected = BTreeSet::new();
+        let mut batch_targets = BTreeMap::<String, Target>::new();
+        let mut target_jsons = Vec::new();
+        for slot in 0..attachment_count {
+            let index = (r.get(0x121c) >> (4 + slot * 3)) & 7;
+            require(selected.insert(index), "duplicate CT_SELECT target")?;
+            let base = 0x800 + index * 64;
             require(
-                r.get(0x808).is_multiple_of(4),
-                "RGBA target pitch alignment",
+                r.get(base + 0x10) == 0xd5,
+                "render target requires A8B8G8R8 UNORM",
             )?;
-            r.get(0x808) / 4
-        } else {
-            r.get(0x808)
-        };
-        let height = r.get(0x80c);
-        require(
-            width > 0 && height > 0 && width <= 16384 && height <= 16384,
-            "invalid render target size",
-        )?;
-        let target = Target {
-            address: r.address(0x800),
-            width,
-            height,
-            block_height: (layout >> 4) & 7,
-            pitch,
-        };
-        let key = format!("{:x}-{width}-{height}-{layout}", target.address);
-        let initial = memory.read(target.address, target.size())?;
-        for (other_key, other) in &self.targets {
             require(
-                other_key == &key
-                    || target.address >= other.address + other.size() as u64
-                    || other.address >= target.address + target.size() as u64,
-                "overlapping target views require a batch flush",
+                r.get(base + 0x18) == 1 && r.get(base + 0x20) == 0 && r.get(base + 0x1c) == 0,
+                "layered render target unsupported",
             )?;
+            let layout = r.get(base + 0x14);
+            require(
+                layout & !0x1070 == 0 && (layout >> 4) & 7 <= 5,
+                "unsupported target memory layout",
+            )?;
+            let pitch = layout & 0x1000 != 0;
+            let width = if pitch {
+                require(
+                    r.get(base + 0x08).is_multiple_of(4),
+                    "RGBA target pitch alignment",
+                )?;
+                r.get(base + 0x08) / 4
+            } else {
+                r.get(base + 0x08)
+            };
+            let height = r.get(base + 0x0c);
+            require(
+                width > 0 && height > 0 && width <= 16384 && height <= 16384,
+                "invalid render target size",
+            )?;
+            let target = Target {
+                address: r.address(base),
+                width,
+                height,
+                block_height: (layout >> 4) & 7,
+                pitch,
+            };
+            let key = format!(
+                "{}-{:x}-d5-{width}-{height}-{layout}",
+                memory.identity, target.address
+            );
+            let initial = memory.read(target.address, target.size())?;
+            for (other_key, other) in self.targets.iter().chain(batch_targets.iter()) {
+                require(
+                    other_key == &key
+                        || target.address >= other.address + other.size() as u64
+                        || other.address >= target.address + target.size() as u64,
+                    "overlapping target views require a batch flush",
+                )?;
+            }
+            let initial = if pitch {
+                initial.to_vec()
+            } else {
+                target.surface().deswizzle(initial).map_err(io)?
+            };
+            let file = self.file(initial);
+            let generation = memory.generation(target.address, target.size())?;
+            let target_json=format!("{{\"key\":{},\"width\":{width},\"height\":{height},\"generation\":{generation},\"file\":{file}}}",quote(&key));
+            target_jsons.push(target_json);
+            batch_targets.insert(key, target);
         }
-        let initial = if pitch {
-            initial.to_vec()
-        } else {
-            target.surface().deswizzle(initial).map_err(io)?
-        };
-        let file = self.file(initial);
-        let generation = memory.generation(target.address, target.size())?;
-        let target_json=format!("{{\"key\":{},\"width\":{width},\"height\":{height},\"generation\":{generation},\"file\":{file}}}",quote(&key));
+        let target = batch_targets.values().next().unwrap();
+        let (width, height) = (target.width, target.height);
+        require(
+            batch_targets
+                .values()
+                .all(|t| t.width == width && t.height == height),
+            "MRT size mismatch",
+        )?;
         let depth = if r.get(0x1538) != 0 {
             require(
                 r.get(0x1538) == 1 && matches!(r.get(0xfe8), 0x0a | 0x19),
@@ -222,13 +244,18 @@ impl Backend {
                 .map(|(a, b)| format!("\"{a}\":{b}"))
                 .collect::<Vec<_>>()
                 .join(",");
-        let mut command =
-            format!("{{\"registers\":{{{registers}}},\"target\":{target_json},\"depth\":{depth}");
+        let mut command = format!(
+            "{{\"registers\":{{{registers}}},\"targets\":[{}],\"depth\":{depth}",
+            target_jsons.join(",")
+        );
         match s.action {
             Action::Clear(mask) => {
                 require(
-                    mask != 0 && mask & !63 == 0 && matches!(mask & 60, 0 | 60),
-                    "partial-channel/layer/MRT clear unsupported",
+                    mask != 0
+                        && mask & !0x3ff == 0
+                        && (mask >> 6) < attachment_count
+                        && matches!(mask & 60, 0 | 60),
+                    "partial-channel/layer clear unsupported",
                 )?;
                 require(
                     mask & 3 == 0 || depth != "null",
@@ -272,7 +299,12 @@ impl Backend {
                 let (vs, vh, vkey) = self.shader(va, memory, Stage::Vertex)?;
                 let (fs, fh, fkey) = self.shader(fa, memory, Stage::Fragment)?;
                 require(
-                    fh.color_masks[0] != 0 && fh.color_masks[1..].iter().all(|x| *x == 0),
+                    fh.color_masks[..attachment_count as usize]
+                        .iter()
+                        .any(|x| *x != 0)
+                        && fh.color_masks[attachment_count as usize..]
+                            .iter()
+                            .all(|x| *x == 0),
                     "fragment output target mismatch",
                 )?;
                 let vfile = self.file(vs.source.as_bytes().to_vec());
@@ -281,7 +313,7 @@ impl Backend {
                 // Canonical descriptor state: absent registers and explicit zero agree.
                 // Addresses, draw arguments, viewports and clears are dynamic state.
                 for a in (0..=0x2000).step_by(4) {
-                    let descriptor = matches!(a, 0x810 | 0xfe8 | 0x1538 | 0xf54..=0xf5c | 0x1160..=0x11dc | 0x12cc | 0x12e4 | 0x12e8 | 0x130c | 0x133c..=0x139c | 0x1594..=0x15a4 | 0x1880..=0x18fc)
+                    let descriptor = matches!(a, 0x810 | 0x850 | 0x890 | 0x8d0 | 0x910 | 0x950 | 0x990 | 0x9d0 | 0x121c | 0x1e00..=0x1eff | 0xfe8 | 0x1538 | 0xf54..=0xf5c | 0x1160..=0x11dc | 0x12cc | 0x12e4 | 0x12e8 | 0x130c | 0x133c..=0x139c | 0x1594..=0x15a4 | 0x1880..=0x18fc)
                         || ((0x1c00..=0x1dff).contains(&a) && matches!(a % 16, 0 | 12));
                     if descriptor {
                         cache_state.extend((a as u32).to_le_bytes());
@@ -488,7 +520,7 @@ impl Backend {
                             .address
                             .checked_add(tic.surface().size() as u64)
                             .ok_or_else(|| Error("texture range overflow".into()))?;
-                        for rendered in self.targets.values().chain(std::iter::once(&target)) {
+                        for rendered in self.targets.values().chain(batch_targets.values()) {
                             require(
                                 tic.address >= rendered.address + rendered.size() as u64
                                     || rendered.address >= texture_end,
@@ -524,7 +556,7 @@ impl Backend {
         }
         command.push('}');
         self.commands.push(command);
-        self.targets.insert(key, target);
+        self.targets.extend(batch_targets);
         Ok(())
     }
     /// Compile the small worker with the installed SDK, execute all queued actions,

@@ -607,3 +607,92 @@ fn malformed_draw_resources_fail_before_native_execution() {
         .0
         .contains("index buffer limit"));
 }
+
+#[test]
+fn eight_targets_route_outputs_and_blend_independently() {
+    let mut h = Harness::new();
+    let (mut e, first) = h.engine("mrt", [0.; 4]);
+    let mut addresses = vec![first];
+    let mut select = 8;
+    for slot in 0..8 {
+        select |= (7 - slot) << (4 + slot * 3);
+        if slot != 0 {
+            let a = h.alloc(vec![0; 4096]);
+            addresses.push(a);
+            let b = 0x800 + slot * 64;
+            h.methods(
+                &mut e,
+                &[
+                    (b + 4, a as u32),
+                    (b + 8, 32),
+                    (b + 12, 32),
+                    (b + 16, 0xd5),
+                    (b + 24, 1),
+                ],
+            );
+        }
+    }
+    h.methods(&mut e, &[(0x121c, select), (0x12e4, 1)]);
+    for slot in 0..8 {
+        let b = 0x1e00 + slot * 32;
+        h.methods(
+            &mut e,
+            &[
+                (0x1360 + slot * 4, 1),
+                (b, 1),
+                (b + 4, 1),
+                (b + 8, if slot % 2 == 0 { 5 } else { 2 }),
+                (b + 12, 2),
+                (b + 16, 1),
+                (b + 20, 2),
+                (b + 24, 1),
+                (0x19d0, 60 | slot << 6),
+            ],
+        );
+    }
+    let mut header = [0u32; 20];
+    header[0] = 2 | 5 << 10;
+    header[6] = 0xaa;
+    header[18] = u32::MAX;
+    let mut code = Vec::new();
+    for slot in 0..8 {
+        for c in 0..4 {
+            code.push(ipa(slot * 4 + c, 0x80 + ((c + slot) % 4) * 4));
+        }
+    }
+    code.push(0xe30000000000000f | PT);
+    let mut bytes: Vec<u8> = header.into_iter().flat_map(u32::to_le_bytes).collect();
+    for chunk in code.chunks(3) {
+        bytes.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for w in chunk {
+            bytes.extend(w.to_le_bytes());
+        }
+    }
+    let fs = h.program(bytes);
+    h.methods(&mut e, &[(0x2144, fs as u32)]);
+    let color = [1., 0.5, 0.25, 0.5];
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, color), &[[0.; 4]]);
+    h.draw(&mut e, 6, false, false);
+    let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/mrt-checks");
+    let report = h.backend.execute(&directory, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 8);
+    for image in report.images {
+        let physical = addresses.iter().position(|a| *a == image.address).unwrap();
+        let slot = 7 - physical;
+        let mut expected = std::array::from_fn::<_, 4, _>(|c| color[(c + slot) % 4]);
+        if physical % 2 == 0 {
+            for c in 0..3 {
+                expected[c] *= expected[3];
+            }
+        }
+        let expected = expected.map(|v| (v * 255.).round() as u8);
+        assert!(
+            image
+                .rgba
+                .chunks_exact(4)
+                .all(|p| p.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 2)),
+            "target {physical}"
+        );
+    }
+    eprintln!("MRT: checked=8192, eight routed targets, independent blending");
+}
