@@ -80,3 +80,82 @@ int soju_host_poll(unsigned char *keys, float *pad) {
         return quit;
     }
 }
+
+#import <AudioToolbox/AudioToolbox.h>
+#include <stdatomic.h>
+#define AUDIO_CAPACITY 96000
+// Single producer (runtime) and single consumer (AudioUnit render callback).
+typedef struct {
+    AudioUnit unit;
+    int16_t samples[AUDIO_CAPACITY];
+    _Atomic uint64_t read;
+    _Atomic uint64_t write;
+    _Atomic uint64_t nonzero;
+} SojuAudio;
+static OSStatus audio_render(void *context, AudioUnitRenderActionFlags *flags,
+    const AudioTimeStamp *time, UInt32 bus, UInt32 frames, AudioBufferList *data) {
+    (void)flags; (void)time; (void)bus;
+    SojuAudio *audio = context;
+    for (UInt32 i = 0; i < data->mNumberBuffers; ++i) {
+        if (data->mBuffers[i].mData) memset(data->mBuffers[i].mData, 0, data->mBuffers[i].mDataByteSize);
+    }
+    if (data->mNumberBuffers != 1 || !data->mBuffers[0].mData) return noErr;
+    uint64_t read = atomic_load_explicit(&audio->read, memory_order_relaxed);
+    uint64_t write = atomic_load_explicit(&audio->write, memory_order_acquire);
+    size_t available = MIN((uint64_t)data->mBuffers[0].mDataByteSize / 2, (uint64_t)frames * 2);
+    size_t n = MIN(available, write - read);
+    int16_t *out = data->mBuffers[0].mData;
+    uint64_t nonzero = 0;
+    for (size_t i = 0; i < n; ++i) {
+        out[i] = audio->samples[(read+i) % AUDIO_CAPACITY];
+        nonzero += out[i] != 0;
+    }
+    atomic_store_explicit(&audio->read, read + n, memory_order_release);
+    atomic_fetch_add_explicit(&audio->nonzero, nonzero, memory_order_relaxed);
+    return noErr;
+}
+void soju_audio_close(SojuAudio *audio) {
+    if (!audio) return;
+    if (audio->unit) {
+        AudioOutputUnitStop(audio->unit);
+        AudioUnitUninitialize(audio->unit);
+        AudioComponentInstanceDispose(audio->unit);
+    }
+    free(audio);
+}
+SojuAudio *soju_audio_open(int32_t *error) {
+    SojuAudio *audio = calloc(1, sizeof(SojuAudio));
+    if (!audio) { *error = -108; return NULL; }
+    atomic_init(&audio->read, 0); atomic_init(&audio->write, 0); atomic_init(&audio->nonzero, 0);
+    AudioComponentDescription description = { kAudioUnitType_Output, kAudioUnitSubType_DefaultOutput, kAudioUnitManufacturer_Apple, 0, 0 };
+    AudioComponent component = AudioComponentFindNext(NULL, &description);
+    if (!component) { *error = -1; soju_audio_close(audio); return NULL; }
+    *error = AudioComponentInstanceNew(component, &audio->unit);
+    if (*error) { soju_audio_close(audio); return NULL; }
+    AudioStreamBasicDescription format = { .mSampleRate=48000, .mFormatID=kAudioFormatLinearPCM,
+        .mFormatFlags=kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
+        .mBytesPerPacket=4, .mFramesPerPacket=1, .mBytesPerFrame=4, .mChannelsPerFrame=2, .mBitsPerChannel=16 };
+    *error = AudioUnitSetProperty(audio->unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &format, sizeof(format));
+    if (*error) { soju_audio_close(audio); return NULL; }
+    AURenderCallbackStruct callback = { audio_render, audio };
+    *error = AudioUnitSetProperty(audio->unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &callback, sizeof(callback));
+    if (*error) { soju_audio_close(audio); return NULL; }
+    *error = AudioUnitInitialize(audio->unit);
+    if (*error) { soju_audio_close(audio); return NULL; }
+    *error = AudioOutputUnitStart(audio->unit);
+    if (*error) { soju_audio_close(audio); return NULL; }
+    return audio;
+}
+uint64_t soju_audio_queued(SojuAudio *audio) {
+    uint64_t read = atomic_load_explicit(&audio->read, memory_order_acquire);
+    return atomic_load_explicit(&audio->write, memory_order_relaxed) - read;
+}
+int soju_audio_write(SojuAudio *audio, const int16_t *samples, size_t count) {
+    uint64_t write = atomic_load_explicit(&audio->write, memory_order_relaxed);
+    uint64_t read = atomic_load_explicit(&audio->read, memory_order_acquire);
+    if (count > AUDIO_CAPACITY - (write-read)) return -1;
+    for (size_t i = 0; i < count; ++i) audio->samples[(write+i) % AUDIO_CAPACITY] = samples[i];
+    atomic_store_explicit(&audio->write, write + count, memory_order_release);
+    return 0;
+}
+uint64_t soju_audio_nonzero(SojuAudio *audio) { return atomic_load_explicit(&audio->nonzero, memory_order_relaxed); }

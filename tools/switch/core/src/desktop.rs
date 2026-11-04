@@ -113,6 +113,7 @@ pub fn play(path: &Path, home: &Path) -> Result<(), String> {
     let mut hub = Hub::new(path, home).map_err(|e| e.to_string())?;
     runtime.kernel_mut().program_id = hub.program_id();
     let window = Window::new()?;
+    let mut audio = crate::host_audio::Audio::default();
     let mut closing = None;
     loop {
         let (quit, input) = window.poll();
@@ -134,6 +135,7 @@ pub fn play(path: &Path, home: &Path) -> Result<(), String> {
             Stop::ProcessExited(0) | Stop::AllThreadsExited => break,
             stop => return Err(format!("guest stopped: {stop:?}")),
         }
+        audio.pump(&mut hub)?;
         if let Some(frame) = hub.take_frame() {
             window.present(&frame)?;
         }

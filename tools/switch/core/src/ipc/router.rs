@@ -87,6 +87,9 @@ impl Hub {
     pub fn take_audio(&mut self) -> Option<AudioPacket> {
         self.media.take_audio()
     }
+    pub fn audio_state(&self, object: ObjectId) -> Option<bool> {
+        self.media.audio_state(object)
+    }
     pub fn audio_running(&self, object: ObjectId) -> bool {
         self.media.audio_running(object)
     }

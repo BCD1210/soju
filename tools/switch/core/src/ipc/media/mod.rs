@@ -102,6 +102,9 @@ impl Media {
             .iter_mut()
             .find_map(|(&object, output)| output.take_pcm().map(|pcm| AudioPacket { object, pcm }))
     }
+    pub fn audio_state(&self, object: ObjectId) -> Option<bool> {
+        self.audio.get(&object).map(|output| output.running)
+    }
     pub fn audio_running(&self, object: ObjectId) -> bool {
         self.audio.get(&object).is_some_and(|output| output.running)
     }

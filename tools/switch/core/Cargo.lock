@@ -153,6 +153,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "soju-switch-audio"
+version = "0.1.0"
+
+[[package]]
 name = "soju-switch-core"
 version = "0.1.0"
 dependencies = [
@@ -161,6 +165,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "soju-switch-audio",
  "soju-switch-input",
 ]
 

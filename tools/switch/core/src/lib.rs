@@ -12,3 +12,6 @@ pub mod runtime;
 
 #[cfg(all(feature = "desktop", target_os = "macos", target_arch = "aarch64"))]
 pub mod desktop;
+
+#[cfg(all(feature = "desktop", target_os = "macos", target_arch = "aarch64"))]
+pub mod host_audio;
