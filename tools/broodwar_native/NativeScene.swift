@@ -76,6 +76,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     var billboards=[String:UnitBillboard]()
     var mapWidth=0,mapHeight=0,mapTiles=[Int]()
     var sceneRevision=0,terrainRevision=0
+    var lastTerrainUpdate:TerrainUpdateKey?
     var state:Obj=[:];var busy=false;var initialized=false;var notice="Connecting to original client"
     let diagnosticQueue=DispatchQueue(label:"soju.bw.diagnostics",qos:.utility)
     var lastTick=CACurrentMediaTime();var lastSceneDiagnostic=0.0;var tick:Timer?;var poll:Timer?;var placingDepot=false

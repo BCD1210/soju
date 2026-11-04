@@ -306,6 +306,15 @@ func runtimeChecks()throws {
     try require(retainedView != nil && number(textureBudget.report(),"residentBytes")>0,"a retained view keeps its texture residency lease")
     retainedView=nil
     try require(number(textureBudget.report(),"residentBytes")==0,"final texture owner releases the residency lease")
+    commander.fog.removeAll();commander.creepTiles.removeAll();commander.lastTerrainUpdate=nil
+    let visiblePacket:Obj=["x":0,"y":0,"width":1,"height":1,"fog":"2","creep":"0"]
+    commander.apply(state(2000,[]),visiblePacket)
+    try require(commander.terrain[0] != nil,"visible terrain packet creates its tile")
+    let stableTerrainRevision=commander.terrainRevision
+    commander.apply(state(2001,[]),visiblePacket)
+    try require(commander.terrainRevision==stableTerrainRevision,"unchanged terrain packet preserves geometry across native frames")
+    commander.apply(state(2002,[]),["x":0,"y":0,"width":1,"height":1,"fog":"0","creep":"0"])
+    try require(commander.terrain[0]==nil && commander.fog[0]==48,"changed fog packet removes hidden terrain without stale visibility")
     let report:Obj=["passed":true,"checks":passed,"source":"deterministic renderer inputs; not live-game acceptance"]
     let path=argument("--runtime-report").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("runtime-checks.json")
     try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:path,options:.atomic)
