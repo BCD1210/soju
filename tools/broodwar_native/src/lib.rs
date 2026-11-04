@@ -22,6 +22,9 @@ const VARS: [u16; 3] = [VarId::IsMultiplayer as u16, VarId::IsReplay as u16, Var
 struct Runtime {
     requirements: Option<unsafe extern "C" fn(u32,u32)->*const u16>,
     game: Getter, units: Getter, hidden: Getter, bullets: Getter, issue: Order,
+    client_selection: Option<Getter>,
+    button_error_writable: bool,
+    write: unsafe extern "C" fn(*const u16, *const usize, usize),
     lone_sprites: Option<Getter>,
     sprite_position: Option<visuals::SpritePosition>,
     history: Mutex<world::History>, session: String,
@@ -186,7 +189,12 @@ pub unsafe extern "C" fn samase_plugin_init(api: *const PluginApi) {
     let Ok(socket) = UdpSocket::bind("127.0.0.1:8795") else { log("bridge port unavailable"); return; };
     if socket.set_nonblocking(true).is_err() { log("nonblocking socket unavailable"); return; }
     let Some(tiles) = ((*api).map_tile_flags)() else { log("terrain flags unavailable"); return; };
+    let error_id = VarId::DatRequirementError as u16;
+    let mut error_support = 0u8;
+    ((*api).load_vars)(&error_id, &mut error_support, 1);
     let runtime = Runtime {requirements:((*api).dat_requirements)(),game,units,hidden,bullets,issue,tiles,send,array,
+        button_error_writable: error_support == 3,
+        client_selection: ((*api).client_selection)(), write: (*api).write_vars,
         lone_sprites: ((*api).first_lone_sprite)(),
         sprite_position: ((*api).get_sprite_position)(),
         history:Mutex::new(world::History::default()),

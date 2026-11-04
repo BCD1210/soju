@@ -1,6 +1,6 @@
 # Brood War M17 checkpoint
 
-M17 is **partial; the three-race simulator controller gate has passed**. Started from
+M17 is **partial; controller and native action-card gates have passed**. Started from
 `6b7b387` on `feat/broodwar-3d`. Evidence lives outside the repository at
 `~/.local/share/soju/broodwar-native/3d-proof/m17/`. No push was performed.
 
@@ -64,12 +64,51 @@ The scripts also retain failed targeting attempts, a driver collision, and a
 movement-wait threshold failure. They are not counted as passes. The accepted
 cases were rerun serially; the replay driver now locks its single input file.
 
+## Native evaluated action cards
+
+The live desktop and wrist cards now consume `evaluated_buttons`. The bridge
+locates the loaded original table, installs the requested live selection only
+while calling the original condition functions on the game thread, and restores
+the client selection/count and requirement-error state. Callback addresses must
+belong to executable code; the selection count is resolved from a validated
+original condition and checked against the selection getter. The card uses the
+returned hidden/disabled/enabled state, original position, and original hotkey
+and label from the owned string table. String data stays in the private runtime.
+
+Worker build buttons open the original basic and advanced submenus. Empty slots
+remain empty. Returning from a submenu and changing native button sets reset the
+menu. Shared selections follow the original linked/shared-set rules; production
+and ability group packets retain the whole applicable selection.
+
+The reference for shared-set rules and condition states is
+[the interface button implementation](https://github.com/BoomerangAide/GPTP/blob/ce321f0fa83174aee741b91f1b2eaec30300773e/GPTP/hooks/interface/buttonsets.cpp),
+with [the DAT property definitions](https://github.com/BoomerangAide/GPTP/blob/ce321f0fa83174aee741b91f1b2eaec30300773e/GPTP/SCBW/enumerations.h).
+The live mixed-Drone/Hydralisk test caught a capability/status flag mix-up before
+acceptance; the corrected card uses shared burrow set 247 and the original group
+handler burrows both units (`shared-burrow-fixed.json`).
+
+`button-parity.json` compares presentation rows against raw game-evaluated
+records and the original string table, and separately checks shared-set choice.
+It covers all 76 M16 fixture types with zero structural mismatches across 1,815
+samples, including 1,618 mixed/two-unit selections and all six build submenus. Produced
+Archon, Interceptor, Scarab, Nuclear Missile, and Infested Command Center states
+are included. Negative tests reject omitted/displaced buttons, incorrect
+hotkeys, enabled disabled-buttons, and unrestored selection context. This is a
+structural gate; it does not substitute for rendered visual acceptance.
+
+Simulator input also exercised the new Zerg submenu through a completed
+Spawning Pool (`native-ui-zerg-build-menu.json`,
+`native-ui-zerg-built-pool.json`) and Hatchery → select larvae → morph Drone
+(`native-ui-zerg-train-complete.json`). One follow-up attempt lost tracking while
+builds ran concurrently; after reconnecting the private stream, the training
+retry passed. Those failed attempts are retained and are not passes.
+
 ## Validation
 
-- Python: **282 passed, 60 subtests passed**, `tests-python.log`.
-- Rust: **17 passed**, `tests-rust.log`.
-- Runtime: **178 desktop / 183 XR / 183 fallback**, corresponding
-  `runtime-*.json` and `runtime-*.log`; all report passed.
+- Python: **286 passed, 60 subtests passed**, `tests-python-buttons.log`.
+- Rust: **17 passed**, `tests-rust-buttons.log`.
+- Runtime: **182 desktop / 187 XR / 187 fallback**, corresponding
+  `runtime-*-buttons.json` and `runtime-*-buttons.log`; all report passed.
 - Both desktop and XR viewer builds succeeded. The live simulator connection
   survived the formerly crashing wrist-panel path.
 
@@ -79,10 +118,10 @@ No new final stress result is claimed.
 ## Ordered work still open
 
 1. Controller gate complete: all three races passed the five command chains.
-2. Drive cards from native evaluated button sets; reach zero structural
-   mismatches over every fixture type and verify shared multi-selection commands.
+2. Native action-card gate complete: 0 structural mismatches across 76 fixture
+   types, six build submenus, and shared-selection checks.
 3. Fix and pass rendered cliff/footprint rejection gates.
 4. Rerun the 125-unit stress after the preceding gates pass.
 
-Steps 2–4 remain pending at this controller checkpoint. No game assets or
+Steps 3–4 remain pending at this action-card checkpoint. No game assets or
 `tools/broodwar_native/target/` were staged. `asset-upgrades/` was not modified.
