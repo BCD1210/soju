@@ -3,20 +3,20 @@
 This is an experimental reconstruction inventory, not completed Remastered-quality art.
 0 / 228 types pass the complete gate. SCEvo stays the temporary fallback.
 
-Private results: `runtime/models-remastered/{0,7}/validation.json`, `comparisons/{00..16}.png`.
+Private pilot results: `runtime/models-remastered/0/rigged-e32/fit/` and `runtime/models-remastered/7/rigged-dense/seeded/`; each has `validation.json` and `comparisons/{00..16}.png`.
 IoU/SSIM below are the minimum over all 17 directions; — means not measured.
 Full source inventory and limitations: `runtime/3d-proof/remastered-coverage.json`.
 
 | Type | Name | Frames | Status | Min IoU | Min SSIM | Reason |
 | --- | --- | ---: | --- | ---: | ---: | --- |
-| 0 | Marine | 229 | failed-gate | 0.6803 | 0.1713 | Missing animations: idle,walk,attack,death; Below per-direction fidelity thresholds |
+| 0 | Marine | 229 | failed-gate | 0.7900 | 0.3254 | Rigged fit below per-direction thresholds; clips retained plus partial death retarget; live checks separate |
 | 1 | Ghost | 229 | not-reconstructed | — | — | Directional/action layout not yet verified; pilot fidelity gate has not passed |
 | 2 | Vulture | 17 | not-reconstructed | — | — | Directional/action layout not yet verified; pilot fidelity gate has not passed |
 | 3 | Goliath | 170 | not-reconstructed | — | — | Directional/action layout not yet verified; pilot fidelity gate has not passed |
 | 4 | Goliath Turret | 187 | not-reconstructed | — | — | Directional/action layout not yet verified; pilot fidelity gate has not passed |
 | 5 | Siege Tank Tank | 51 | not-reconstructed | — | — | Directional/action layout not yet verified; pilot fidelity gate has not passed |
 | 6 | Siege Tank Turret | 17 | not-reconstructed | — | — | Directional/action layout not yet verified; pilot fidelity gate has not passed |
-| 7 | Scv | 51 | failed-gate | 0.5407 | 0.1258 | Missing animations: idle,walk,attack,death,work; Below per-direction fidelity thresholds |
+| 7 | Scv | 51 | failed-gate | 0.7937 | 0.2777 | Rigged fit below per-direction thresholds; clips retained plus partial death retarget; live checks separate |
 | 8 | Wraith | 17 | not-reconstructed | — | — | Directional/action layout not yet verified; pilot fidelity gate has not passed |
 | 9 | Science Vessel | 1 | insufficient-multiview | — | — | Non-directional image or fewer than 17 frames; no measured 17-direction static pose |
 | 10 | Gui Montag | 170 | not-reconstructed | — | — | Directional/action layout not yet verified; pilot fidelity gate has not passed |

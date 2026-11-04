@@ -1,5 +1,10 @@
 # Remastered reconstruction experiment
 
+The current rigged-mesh follow-up is documented in
+[BROODWAR-RIGGED-FITTING.md](BROODWAR-RIGGED-FITTING.md). Its selected Marine/SCV
+minimum IoU/SSIM are 0.7900/0.3254 and 0.7937/0.2777; neither passes.
+The hull experiment below is preserved as historical evidence.
+
 The requested Remastered-quality replacement is **not achieved**. These tools
 produce and measure candidates; passing compilation or producing a GLB does not
 approve their art. SCEvo remains the temporary fallback. No game assets are in git.
