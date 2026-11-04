@@ -174,7 +174,7 @@ final class Art {
         // NSImage orientation conversion. Flip only diffuse, not the fog mask.
         var orientation=SCNMatrix4MakeScale(1,-1,1);orientation.m42=1
         m.diffuse.contentsTransform=orientation
-        m.diffuse.mipFilter = .linear;m.diffuse.maxAnisotropy=8;m.diffuse.minificationFilter = .linear;m.diffuse.magnificationFilter = .linear
+        m.diffuse.mipFilter = .linear;m.diffuse.maxAnisotropy=16;m.diffuse.minificationFilter = .linear;m.diffuse.magnificationFilter = .linear
         m.diffuse.wrapS = .clamp;m.diffuse.wrapT = .clamp;m.isDoubleSided=true
         return m
     }
