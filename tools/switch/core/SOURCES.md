@@ -171,3 +171,12 @@ records without writes. Availability/removal events stay unsignaled; filters and
 event ownership are retained per session, duplicates are rejected, and destroy or
 close releases the owned handles while guest duplicates survive. Acquiring any
 interface fails with ResultInterfaceInvalid. Unimplemented commands still stop.
+
+## Physical controller enumeration
+
+https://switchbrew.org/wiki/HID_services#GetUniquePadsFromNpad and
+https://switchbrew.org/wiki/HID_services#GetUniquePadIds specify the receive-list
+array of u64 UniquePadIds and signed 64-bit output count. The runner's synthetic
+Npad is not a physical controller, so both queries enumerate zero physical pads.
+The documented 0x58aca result rejects invalid Npad IDs. No LED is fabricated;
+direct LED writes remain unsupported.

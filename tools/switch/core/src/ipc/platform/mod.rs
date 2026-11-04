@@ -8,6 +8,7 @@ mod error_tests;
 #[cfg(test)]
 mod exit_tests;
 mod fonts;
+mod hid_system;
 mod network;
 mod ns;
 mod play_history;
@@ -52,6 +53,7 @@ enum Kind {
     Player,
     Hid,
     HidResource,
+    HidSystem,
     Vibration,
     Time,
     Clock,
@@ -178,6 +180,7 @@ impl Platform {
             "appletAE" => Kind::Ae,
             "appletOE" => Kind::Oe,
             "hid" => Kind::Hid,
+            "hid:sys" => Kind::HidSystem,
             "time:u" | "time:s" => Kind::Time,
             "acc:u0" | "acc:u1" => Kind::Account,
             "apm:p" | "apm" => Kind::Apm,
