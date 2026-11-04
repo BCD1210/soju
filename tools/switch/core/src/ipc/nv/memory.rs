@@ -68,7 +68,7 @@ impl AddressSpace {
         let offset = u64at(data, 16)?;
         let requested = u64at(data, 24)?;
         if u32at(data, 0)? & !4 != 0
-            || !matches!(kind, 0 | 0x11 | 0xfe)
+            || !matches!(kind, 0 | 0x11 | 0xdb | 0xfe)
             || !matches!(page, 4096 | 65536 | 131072)
             || u64at(data, 32)? != 0
             || view.guest_address == 0
