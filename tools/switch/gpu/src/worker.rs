@@ -219,18 +219,52 @@ unsafe extern "C" {
     fn free(pointer: *mut std::ffi::c_void);
 }
 #[cfg(target_os = "macos")]
+fn worker_binary(directory: &std::path::Path) -> Result<PathBuf> {
+    use std::hash::{Hash, Hasher};
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+    const BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/metal-worker.dylib"));
+    let cached = || -> std::io::Result<PathBuf> {
+        let home = std::env::var_os("HOME").ok_or(std::io::ErrorKind::NotFound)?;
+        let root = PathBuf::from(home).join("Library/Caches/Soju/Metal/workers");
+        std::fs::create_dir_all(&root)?;
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        BYTES.hash(&mut hash);
+        let path = root.join(format!("{:016x}.dylib", hash.finish()));
+        // The hash names the file; exact bytes establish whether it is reusable.
+        if std::fs::metadata(&path).is_ok_and(|m| m.len() == BYTES.len() as u64)
+            && std::fs::read(&path).is_ok_and(|bytes| bytes == BYTES)
+        {
+            return Ok(path);
+        }
+        let temporary = directory.join("worker-cache.tmp");
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o700)
+            .open(&temporary)?;
+        file.write_all(BYTES)?;
+        drop(file);
+        std::fs::rename(&temporary, &path)?;
+        Ok(path)
+    };
+    cached()
+        .or_else(|_| {
+            let binary = directory.join("metal-worker.dylib");
+            std::fs::write(&binary, BYTES)?;
+            Ok(binary)
+        })
+        .map_err(|e: std::io::Error| error(e))
+}
+#[cfg(target_os = "macos")]
 impl Native {
     fn start(directory: &std::path::Path) -> Result<Self> {
+        let _span = crate::profile::span(crate::profile::Stage::NativeStartup);
         use std::ffi::CString;
         static LIBRARY: std::sync::OnceLock<Result<usize>> = std::sync::OnceLock::new();
         let library = *LIBRARY
             .get_or_init(|| {
-                let binary = directory.join("metal-worker.dylib");
-                std::fs::write(
-                    &binary,
-                    include_bytes!(concat!(env!("OUT_DIR"), "/metal-worker.dylib")),
-                )
-                .map_err(error)?;
+                let binary = worker_binary(directory)?;
                 let path = CString::new(binary.as_os_str().as_encoded_bytes()).map_err(error)?;
                 // Swift runtime metadata remains registered for the process lifetime.
                 let library = unsafe { dlopen(path.as_ptr(), 2) };
