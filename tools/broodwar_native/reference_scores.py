@@ -29,7 +29,8 @@ def compare(capture: Path) -> Path:
     center_y = (camera[2]-camera[1]/math.tan(math.radians(elevation)))*32
     region = Region(camera[0]*32-view_width/2,center_y-view_height/sine/2,
                     view_width,view_height/sine,height/view_height,elevation)
-    reference_path = ReferenceRenderer().render(capture,region)
+    compositor = ReferenceRenderer()
+    reference_path = compositor.render(capture,region)
     with Image.open(reference_path) as source:
         reference = np.asarray(source.convert('RGB'))/255.
     if reference.shape != rendered.shape:
@@ -55,7 +56,28 @@ def compare(capture: Path) -> Path:
                          'SSIM':float(structural_similarity(a,b,channel_axis=2,data_range=1.)),
                          'referenceBrightness':float((a@weights).mean()),'viewerBrightness':float((b@weights).mean()),
                          'referenceContrast':float((a@weights).std()),'viewerContrast':float((b@weights).std())})
+    alignment = []
+    for unit in metadata['state']['units']:
+        native = unit.get('image')
+        if not native:
+            continue
+        bounds = next((item for item in metadata.get('spriteBounds',{}).get(unit['id'],[])
+                       if item['image']==native['id']),None)
+        if bounds is None or bounds['left']<0 or bounds['top']<0 or bounds['right']>width or bounds['bottom']>height:
+            continue
+        entry = compositor.catalog['images'][str(native['id'])]
+        frame = entry['frames'][native['frame']]
+        ox = entry['grpWidth']*entry['scale']-frame['ox']-frame['w'] if native['flags']&2 else frame['ox']
+        left = round((unit['x']-entry['grpWidth']//2+native['offsetX']+ox/entry['scale']-region.x)*region.scale)
+        top = round(((unit['y']-region.y)*sine-entry['grpHeight']//2+native['offsetY']+frame['oy']/entry['scale'])*region.scale)
+        error = max(abs(left-bounds['left']),abs(top-bounds['top']))
+        alignment.append({'unit':unit['id'],'type':unit['type'],'reference':[left,top],
+                          'viewer':[bounds['left'],bounds['top']],'maximumPixelError':error})
     report = {'frame':metadata['frame'],'capture':str(capture.with_suffix('.png')),'reference':str(reference_path),
+              'regionalSSIMPassed':all(row['SSIM']>=.85 for row in rows),
+              'spriteAlignment':{'units':alignment,'passed':bool(alignment) and all(row['maximumPixelError']<=1 for row in alignment),
+                                 'method':'Projected HD crop corners versus independently rounded native compositor placement; fully visible main images only.',
+                                 'maximumPixelError':max((row['maximumPixelError'] for row in alignment),default=None)},
               'registration':'Recorded camera projection and native snapshot; no image alignment or crop optimization.',
               'regions':rows,'fit':{'gain':float(gain),'offset':float(offset),'heldOutRSquared':r_squared,
                                    'passed':r_squared is not None and r_squared>.8,'applied':False,

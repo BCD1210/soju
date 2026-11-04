@@ -58,6 +58,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     var desktopCard=NSView(),desktopCardSignature=""
     var requireFidelity=true
     let art:Art;let bridge=Bridge();let world=SCNScene();let camera=SCNNode()
+    var placedEyeHeight=1.65
     var yaw:CGFloat = -0.54,pitch:CGFloat = -0.14
     var units=[String:Obj](),nodes=[String:SCNNode](),selected=[String]()
     var controlGroups=[Int:[String]]();var tabletop=false

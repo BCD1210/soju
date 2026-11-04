@@ -32,6 +32,7 @@ extension Commander {
             hud.isHidden = !devOverlay
             let center=base+body.act((SIMD3<Float>(eye.headX,eye.headY,eye.headZ)-(xrOrigin ?? .zero))*worldUnitsPerMeter)
             let headRotation=body*simd_quatf(ix:eye.qx,iy:eye.qy,iz:eye.qz,r:eye.qw)
+            for billboard in billboards.values {billboard.updateView(eye:center,orientation:headRotation,perspective:true,art:worldSprites)}
             hud.simdPosition=center+headRotation.act(SIMD3<Float>(0,0.45,-1.5)*worldUnitsPerMeter);hud.simdOrientation=headRotation;hud.simdScale=SIMD3<Float>(repeating:worldUnitsPerMeter)
             let text="Selected: \(selected.count)   Minerals: \(Int(number(state,"minerals")))   Action: \(actionNames[actionMode])\nLeft trigger: select / drag   Right trigger: command   Left grip: scale\n\(notice)"
             if devOverlay && text != hudText {
@@ -95,7 +96,9 @@ extension Commander {
         let captureIndex=eye.eye==0 && initialized ? captureFrames.reserve():nil
         let captureMetadata:Obj=["nativeFrame":number(state,"frame"),"time":Date().timeIntervalSince1970,"xrFrame":xrDrawCount,"eye":0,
             "worldUnitsPerMeter":worldUnitsPerMeter,"selected":selected,"combatEvents":effects.counts,"deathFrames":worldSprites.deathFrames,
-            "loneFrames":worldSprites.loneFrames,"creepTiles":creepNodes.count,"source":"OpenXR Metal swapchain eye; original live simulation"]
+            "loneFrames":worldSprites.loneFrames,"creepTiles":creepNodes.count,"source":"OpenXR Metal swapchain eye", "snapshotSource":argument("--snapshot") ?? "live",
+            "camera":[position.x,position.y,position.z],"orientation":[xrCamera.simdOrientation.imag.x,xrCamera.simdOrientation.imag.y,xrCamera.simdOrientation.imag.z,xrCamera.simdOrientation.real],
+            "billboards":billboards.mapValues{["position":[$0.root.position.x,$0.root.position.y,$0.root.position.z],"layers":$0.evidence] as Obj}]
         if eye.eye==0 && (xrDrawCount%10==0 || captureIndex != nil),let context=mirrorContext {
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:texture.pixelFormat,width:texture.width,height:texture.height,mipmapped:false)
             desc.usage = .shaderRead;desc.storageMode = .private

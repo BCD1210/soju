@@ -84,6 +84,20 @@ func runtimeChecks()throws {
     fallback.apply(sprite,ground:commander.ground,art:commander.worldSprites)
     try require(fallback.layers.count==1 && fallback.evidence.first?["frame"] as? Int == 77 && fallback.layers[0]?.scale.x == -1,
         "fallback preserves native directional frame and mirror flag")
+    sprite["image"]=["id":239,"frame":68,"frameset":68,"direction":0,"flags":8]
+    fallback.apply(sprite,ground:commander.ground,art:commander.worldSprites)
+    for (angle,frame,mirror) in [(0.0,68,false),(Double.pi/2,76,false),(Double.pi,84,false),(-Double.pi/2,76,true)] {
+        let origin=fallback.root.simdWorldPosition
+        fallback.updateView(eye:origin+SIMD3<Float>(Float(sin(angle)*4),2,Float(cos(angle)*4)),orientation:simd_quatf(),perspective:true,art:commander.worldSprites)
+        try require(fallback.evidence.first?["frame"] as? Int == frame && fallback.evidence.first?["mirrored"] as? Bool == mirror,
+            "observer angle \(angle) selects the native animation group and mirrored direction")
+        let facing=fallback.layers[0]!.simdOrientation.act(SIMD3<Float>(0,0,1))
+        try require(abs(facing.x-Float(sin(angle)))<0.0001 && abs(facing.z-Float(cos(angle)))<0.0001,"billboard front faces observer at \(angle)")
+    }
+    let fixed=UnitBillboard.viewFrame(["frame":3,"frameset":0,"flags":0],azimuth:.pi,count:50)
+    try require(fixed.0==3 && !fixed.1,"non-directional building animation does not become a directional frame")
+    let short=UnitBillboard.viewFrame(["frame":0,"frameset":0,"flags":8],azimuth:.pi,count:1)
+    try require(short.0==0,"incomplete directional group keeps the valid native frame")
     sprite["renderHidden"]=true;fallback.apply(sprite,ground:commander.ground,art:commander.worldSprites)
     try require(fallback.root.isHidden,"hidden native unit cannot leak through fallback")
     sprite["image"]=["id":239,"frame":999999,"flags":0]
@@ -135,6 +149,12 @@ func runtimeChecks()throws {
     try require(commander.wrists.pending==nil,"selection changes cancel stale targeting")
     commander.tabletop=true;commander.wrists.zoom=10;let closeHeight=commander.commanderHeight;commander.wrists.zoom=20
     try require(closeHeight==9 && commander.commanderHeight==18,"tabletop zoom changes world viewing distance at a centered head pose")
+    commander.tabletop=false;commander.placedEyeHeight=1.65
+    commander.camera.position=Terrain3D.worldPosition(7,commander.ground.elevation(7,11),11)
+    commander.camera.position.y += 1.65
+    commander.toggleTabletop();commander.walk(0,0)
+    try require(abs(commander.cameraMapPosition.x-7)<0.00001 && abs(commander.cameraMapPosition.z-11)<0.00001,
+        "changing commander scale keeps native ground location fixed")
     for (top,bottom,expected) in [([2.0,0.0],[0.0,2.0],0.0...0.5),([0.0,2.0],[2.0,0.0],0.5...1.0),([2.0,2.0],[0.0,0.0],0.0...1.0)] {
         try require(Terrain3D.exposedEdge(top,bottom)==expected,"cliff edge clips exposed interval \(top)")
     }
