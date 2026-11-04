@@ -29,6 +29,7 @@ pub struct Backend {
     pub textures: TextureCache,
     commands: Vec<Command>,
     profile: Option<[std::time::Duration; 3]>,
+    variants: Vec<PreparedVariant>,
     prepared: Option<(Snapshot, (u64, u64), usize)>,
     file_cache: std::collections::HashMap<Vec<u8>, String>,
     pipeline_states: std::collections::HashMap<Vec<u8>, (MetalShader, MetalShader, String)>,
@@ -40,6 +41,23 @@ pub struct Backend {
     worker: Option<crate::worker::Worker>,
     serial: u64,
     queries: BTreeMap<String, (u64, u64, u64)>,
+}
+struct PreparedVariant {
+    state: Snapshot,
+    index: usize,
+    epoch: (u64, u64),
+    dependencies: Vec<(u64, usize, u64)>,
+    constants: Vec<ConstantBuffer>,
+    views: (usize, usize),
+}
+fn capture<'a>(
+    memory: &'a Memory,
+    dependencies: &mut Vec<(u64, usize, u64)>,
+    address: u64,
+    size: usize,
+) -> Result<&'a [u8]> {
+    dependencies.push((address, size, memory.generation(address, size)?));
+    memory.read(address, size)
 }
 #[derive(Clone)]
 struct Target {
@@ -133,6 +151,7 @@ impl Backend {
                 && options.global_memory.is_none(),
             "unsupported resource ABI",
         )?;
+        self.variants.clear();
         self.shader_cache.clear();
         self.prepared = None;
         self.programs.insert(address, (size, options));
@@ -201,6 +220,42 @@ impl Backend {
                 return Ok(());
             }
         }
+        if let Some(variant) = self.variants.iter_mut().find(|v| {
+            v.epoch.0 == memory.identity
+                && v.state.registers == *r
+                && v.state.constants == *bindings
+                && v.state.action == *action
+                && v.views == (self.targets.len(), self.depth_targets.len())
+                && (v.epoch == memory.epoch()
+                    || v.dependencies
+                        .iter()
+                        .all(|&(a, n, g)| memory.generation(a, n) == Ok(g)))
+        }) {
+            let template = &self.commands[variant.index];
+            let first = self.constant_upload.len().div_ceil(256) * 256;
+            for cb in &variant.constants {
+                let bytes = memory.read(cb.address, cb.size as usize)?;
+                let offset = self.constant_upload.len().div_ceil(256) * 256;
+                self.constant_upload.resize(offset, 0);
+                self.constant_upload.extend_from_slice(bytes);
+            }
+            let delta = template
+                .constants
+                .first()
+                .map_or(0, |c| first as i64 - c.offset);
+            self.commands.push(Command {
+                kind: 5,
+                reference: variant.index as _,
+                constant_delta: delta,
+                repeats: 1,
+                ..Command::default()
+            });
+            variant.epoch = memory.epoch();
+            self.prepared = None;
+            return Ok(());
+        }
+        let mut dependencies = Vec::new();
+        let mut captured_constants = Vec::new();
         self.prepared = None;
         let mut clock = self.profile.map(|_| std::time::Instant::now());
         match *action {
@@ -301,7 +356,7 @@ impl Backend {
                 format.info().metal
             );
             require(!batch_targets.contains_key(&key), "aliased MRT attachments")?;
-            let initial = memory.read(target.address, target.size())?;
+            let initial = capture(memory, &mut dependencies, target.address, target.size())?;
             for (other_key, other) in self
                 .targets
                 .iter()
@@ -410,7 +465,7 @@ impl Backend {
             }
             let initial = t
                 .surface()
-                .deswizzle(memory.read(t.address, t.size())?)
+                .deswizzle(capture(memory, &mut dependencies, t.address, t.size())?)
                 .map_err(io)?;
             let mut z = Vec::new();
             let mut stencil = Vec::new();
@@ -516,6 +571,11 @@ impl Backend {
                 let fa = base
                     .checked_add(u64::from(r.get(0x2144)))
                     .ok_or_else(|| Error("shader address overflow".into()))?;
+                for address in [va, fa] {
+                    if let Some((size, _)) = self.programs.get(&address) {
+                        dependencies.push((address, *size, memory.generation(address, *size)?));
+                    }
+                }
                 let (mut vs, vh, vkey) = self.shader(va, memory, Stage::Vertex)?;
                 let (mut fs, fh, fkey) = self.shader(fa, memory, Stage::Fragment)?;
                 for shader in [&mut vs, &mut fs] {
@@ -533,7 +593,7 @@ impl Backend {
                             .address(0x1574)
                             .checked_add(u64::from(binding.texture_index) * 32)
                             .ok_or_else(|| Error("TIC address overflow".into()))?;
-                        let tic = Tic::parse(memory.read(tic_address, 32)?)?;
+                        let tic = Tic::parse(capture(memory, &mut dependencies, tic_address, 32)?)?;
                         let integer = tic.format() == soju_switch_texture::format::Format::R32Uint;
                         kinds.insert(integer);
                         if integer {
@@ -541,7 +601,12 @@ impl Backend {
                                 .address(0x155c)
                                 .checked_add(u64::from(binding.sampler_index) * 32)
                                 .ok_or_else(|| Error("TSC address overflow".into()))?;
-                            let sampler = Tsc::parse(memory.read(sampler_address, 32)?)?;
+                            let sampler = Tsc::parse(capture(
+                                memory,
+                                &mut dependencies,
+                                sampler_address,
+                                32,
+                            )?)?;
                             require(
                                 sampler.min_filter == 1 && sampler.mag_filter == 1,
                                 "integer sampling requires nearest filtering",
@@ -705,6 +770,7 @@ impl Backend {
                         self.constant_upload.resize(offset, 0);
                         self.constant_upload
                             .extend_from_slice(memory.read(cb.address, cb.size as usize)?);
+                        captured_constants.push(cb);
                         constants.push(ConstantCommand {
                             stage,
                             slot: *slot as _,
@@ -736,7 +802,12 @@ impl Backend {
                         end > address && end - 1 <= r.address(0x17d0),
                         "index buffer limit exceeded",
                     )?;
-                    let bytes = memory.read(address, (u64::from(count) * size) as usize)?;
+                    let bytes = capture(
+                        memory,
+                        &mut dependencies,
+                        address,
+                        (u64::from(count) * size) as usize,
+                    )?;
                     let indices = bytes
                         .chunks(size as usize)
                         .map(|b| {
@@ -882,7 +953,9 @@ impl Backend {
                         end > address && end - 1 <= r.address(0x1f00 + stream * 8),
                         "vertex stream limit exceeded",
                     )?;
-                    let file = self.file(memory.read(address, length as usize)?.to_vec());
+                    let file = self.file(
+                        capture(memory, &mut dependencies, address, length as usize)?.to_vec(),
+                    );
                     buffers.push(BufferCommand {
                         slot: stream as _,
                         file: file.into(),
@@ -921,7 +994,7 @@ impl Backend {
                             .address(0x1574)
                             .checked_add(u64::from(index) * 32)
                             .ok_or_else(|| Error("TIC address overflow".into()))?;
-                        let tic = Tic::parse(memory.read(addr, 32)?)?;
+                        let tic = Tic::parse(capture(memory, &mut dependencies, addr, 32)?)?;
                         let texture_end = tic
                             .address
                             .checked_add(tic.surface().size() as u64)
@@ -939,6 +1012,11 @@ impl Backend {
                                 "render-to-texture feedback requires execute before prepare",
                             )?;
                         }
+                        dependencies.push((
+                            tic.address,
+                            tic.surface().size(),
+                            memory.generation(tic.address, tic.surface().size())?,
+                        ));
                         let mut data = self.textures.upload(&tic, memory)?;
                         let info = tic.format().info();
                         let mut metal = info.metal;
@@ -1027,7 +1105,7 @@ impl Backend {
                             .address(0x155c)
                             .checked_add(u64::from(index) * 32)
                             .ok_or_else(|| Error("TSC address overflow".into()))?;
-                        let t = Tsc::parse(memory.read(addr, 32)?)?;
+                        let t = Tsc::parse(capture(memory, &mut dependencies, addr, 32)?)?;
                         textures.push(TextureCommand {
                             stage,
                             count: count as _,
@@ -1074,6 +1152,21 @@ impl Backend {
         if let Some((key, t)) = pending_depth {
             self.depth_targets.insert(key, t);
         }
+        if let Some((state, epoch, index)) = &self.prepared {
+            dependencies.sort_unstable();
+            dependencies.dedup();
+            if self.variants.len() == 64 {
+                self.variants.remove(0);
+            }
+            self.variants.push(PreparedVariant {
+                state: state.clone(),
+                epoch: *epoch,
+                index: *index,
+                dependencies,
+                constants: captured_constants,
+                views: (self.targets.len(), self.depth_targets.len()),
+            });
+        }
         Ok(())
     }
     /// Queue a captured batch on the persistent GPU thread. No image readback occurs.
@@ -1096,6 +1189,7 @@ impl Backend {
             .submit(directory, commands, files, constants)?;
         self.prepared = None;
         self.commands.clear();
+        self.variants.clear();
         self.files.clear();
         self.file_cache.clear();
         self.constant_upload.clear();
@@ -1223,6 +1317,7 @@ impl Backend {
         }
         self.prepared = None;
         self.commands.clear();
+        self.variants.clear();
         self.files.clear();
         self.file_cache.clear();
         self.constant_upload.clear();

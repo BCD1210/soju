@@ -16,6 +16,12 @@ func blendFactor(_ v: Int) throws -> MTLBlendFactor {
 func stencilOp(_ v: Int) throws -> MTLStencilOperation {
     switch v {case 1,0x1e00:return .keep;case 2,0:return .zero;case 3,0x1e01:return .replace;case 4,0x1e02:return .incrementClamp;case 5,0x1e03:return .decrementClamp;case 6,0x150a:return .invert;case 7,0x8507:return .incrementWrap;case 8,0x8508:return .decrementWrap;default:throw Failure("stencil op \(v)")}
 }
+struct ArgumentTable {
+    let buffer: MTLBuffer
+    let offset: Int
+    let textures: [MTLTexture]
+    let samplers: [MTLSamplerState]
+}
 final class Worker {
     let device: MTLDevice
     let queue: MTLCommandQueue
@@ -29,7 +35,8 @@ final class Worker {
     var computeBuffers = [String: MTLBuffer](), computeGenerations = [String: Int]()
     var uploadRing: [MTLBuffer?] = [nil, nil, nil]
     var uploadSlot = 0
-    var argumentTables = [String: (MTLBuffer, [MTLTexture], [MTLSamplerState])]()
+    var argumentTables = [String: ArgumentTable]()
+    var argumentHeaps = [String: (MTLBuffer, Int)]()
     init() throws {
         guard let d = MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue() else { throw Failure("no default Metal device/queue") }
         device = d; queue = q
@@ -52,7 +59,33 @@ final class Worker {
         guard let upload = uploadRing[uploadSlot] else { throw Failure("constant ring allocation") }
         upload.contents().copyMemory(from: constants.pointer!, byteCount: constants.length)
     }
-    func endPass() {activeEncoder?.endEncoding();activeEncoder=nil;activeKey=""}
+    var boundPipeline = ""
+    var boundRegisters = [Int: Int]()
+    var boundBuffers = [Int: (ObjectIdentifier, Int)]()
+    var resident = Set<ObjectIdentifier>()
+    var stateBinds = 0, offsetWrites = 0
+    func endPass() {
+        activeEncoder?.endEncoding();activeEncoder=nil;activeKey=""
+        boundPipeline="";boundRegisters.removeAll(keepingCapacity:true);boundBuffers.removeAll(keepingCapacity:true);resident.removeAll(keepingCapacity:true)
+    }
+    func bind(_ encoder: MTLRenderCommandEncoder, _ stage: Int, _ buffer: MTLBuffer, _ offset: Int, _ slot: Int) {
+        let key = stage * 32 + slot, identity = ObjectIdentifier(buffer)
+        if let old = boundBuffers[key], old.0 == identity {
+            if old.1 == offset { return }
+            if stage == 0 { encoder.setVertexBufferOffset(offset, index: slot) } else { encoder.setFragmentBufferOffset(offset, index: slot) }
+            offsetWrites += 1
+        } else {
+            if stage == 0 { encoder.setVertexBuffer(buffer, offset: offset, index: slot) } else { encoder.setFragmentBuffer(buffer, offset: offset, index: slot) }
+            stateBinds += 1
+        }
+        boundBuffers[key] = (identity, offset)
+    }
+    func bindTable(_ encoder: MTLRenderCommandEncoder, _ stage: Int, _ table: ArgumentTable) {
+        for texture in table.textures {
+            if resident.insert(ObjectIdentifier(texture)).inserted { encoder.useResource(texture, usage: .read, stages: [.vertex, .fragment]) }
+        }
+        bind(encoder, stage, table.buffer, table.offset, 30)
+    }
     func flush() throws {
         endPass()
         if let pending=cb {
@@ -85,7 +118,13 @@ final class Worker {
         guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[source] = f; fileFunctions[path] = f; return f
     }
     var dispatches=0
-    for command in commands {
+    var registerStates = [Int: [Int: Int]]()
+    var resolvedTables = [Int: [Int: ArgumentTable]]()
+    for (inputIndex, input) in commands.enumerated() {
+        let commandIndex = input.kind == 5 ? Int(input.reference) : inputIndex
+        try need(commandIndex >= 0 && commandIndex <= inputIndex, "invalid command reference")
+        let command = commands[commandIndex]
+        let constantDelta = input.kind == 5 ? Int(input.constant_delta) : 0
         if command.kind == 4 {
             endPass()
             let key=text(command.key), source=text(command.source)
@@ -120,7 +159,8 @@ final class Worker {
         if command.kind == 3 { let key = text(command.key);try flush();queryValues[key]=UInt32(truncatingIfNeeded:occlusion);continue}
         let attachments = items(command.targets)
         guard let target = attachments.first else { throw Failure("missing state") }
-        let raw = Dictionary(uniqueKeysWithValues: items(command.registers).map { (Int($0.address), Int($0.value)) })
+        if registerStates[commandIndex] == nil { registerStates[commandIndex] = Dictionary(uniqueKeysWithValues: items(command.registers).map { (Int($0.address), Int($0.value)) }) }
+        let raw = registerStates[commandIndex]!
         func r(_ a: Int) -> Int { raw[a] ?? 0 }
         func f(_ a: Int) -> Double { Double(Float(bitPattern:UInt32(r(a)))) }
         let w = Int(target.width), h = Int(target.height)
@@ -248,55 +288,85 @@ final class Worker {
             }
             guard let encoder=activeEncoder else {throw Failure("render encoder")}
             if visibility != nil {encoder.setVisibilityResultMode(.counting,offset:0)}
-            encoder.setRenderPipelineState(pipelines[pk]!);encoder.setDepthStencilState(depthStates[pk]!)
+            if boundPipeline != pk {
+                encoder.setRenderPipelineState(pipelines[pk]!);encoder.setDepthStencilState(depthStates[pk]!);boundPipeline=pk;stateBinds += 2
+            }
+            func changed(_ offsets: [Int]) -> Bool { offsets.contains { boundRegisters[$0] != r($0) } }
+            if changed([0xa00,0xa04,0xa08,0xa0c,0xa10,0xa14,0xd7c]) {
             let sx=f(0xa00),sy=f(0xa04),sz=f(0xa08),ox=f(0xa0c),oy=f(0xa10),oz=f(0xa14)
             let near = r(0xd7c)==0 ? oz-sz : oz, far=oz+sz
             try need([sx,sy,sz,ox,oy,oz].allSatisfy{$0.isFinite} && sx != 0 && sy != 0 && near>=0 && near<=1 && far>=0 && far<=1,"invalid viewport/depth range")
             encoder.setViewport(MTLViewport(originX:ox-abs(sx),originY:oy-abs(sy),width:2*abs(sx),height:2*abs(sy),znear:near,zfar:far))
+            }
+            if changed([0xdac,0xdc0,0xdc4,0xdc8,0x1110,0x15bc,0x156c,0x187c]) {
             let offset = r(0xdac)==0x1b01 ? r(0xdc4) : r(0xdc8)
             try need([r(0xdc0),r(0xdc4),r(0xdc8)].allSatisfy{$0<=1},"invalid polygon offset enable")
             if offset != 0 {
                 try need(r(0x1110)==1,"depth bias requires format-dependent units")
                 encoder.setDepthBias(Float(f(0x15bc)),slopeScale:Float(f(0x156c)),clamp:Float(f(0x187c)))
             } else {encoder.setDepthBias(0,slopeScale:0,clamp:0)}
+            }
+            if changed([0xe00,0xe04,0xe08]) {
             if r(0xe00) != 0 {
                 let x=r(0xe04)&65535,y=r(0xe08)&65535,endX=r(0xe04)>>16,endY=r(0xe08)>>16
                 try need(x<endX && y<endY && endX<=w && endY<=h,"invalid scissor")
                 encoder.setScissorRect(MTLScissorRect(x:x,y:y,width:endX-x,height:endY-y))
             } else {encoder.setScissorRect(MTLScissorRect(x:0,y:0,width:w,height:h))}
+            }
+            if changed([0x1918,0x1920,0x191c,0xdac,0xdb0]) {
             if r(0x1918) != 0 {
                 switch r(0x1920) {case 0x404:encoder.setCullMode(.front);case 0x405:encoder.setCullMode(.back);default:throw Failure("cull face unsupported")}
             } else {encoder.setCullMode(.none)}
             switch r(0x191c) {case 0,0x900:encoder.setFrontFacing(.clockwise);case 0x901:encoder.setFrontFacing(.counterClockwise);default:throw Failure("front winding")}
             try need(r(0xdac)==r(0xdb0) && [0,0x1b01,0x1b02].contains(r(0xdac)),"polygon mode unsupported")
             encoder.setTriangleFillMode(r(0xdac)==0x1b01 ? .lines : .fill)
+            }
+            if changed([0x131c,0x1320,0x1324,0x1328]) {
             encoder.setBlendColor(red:Float(f(0x131c)),green:Float(f(0x1320)),blue:Float(f(0x1324)),alpha:Float(f(0x1328)))
+            }
+            if changed([0x1394,0x1594,0xf54]) {
             encoder.setStencilReferenceValues(front:UInt32(r(0x1394)),back:UInt32(r(r(0x1594)==1 ? 0xf54 : 0x1394)))
+            }
+            boundRegisters = raw
             for b in items(command.buffers) {
                 let slot=Int(b.slot)
                 let a=items(command.attributes).first{Int($0.stream)==slot}!
                 let offset=Int(a.instanced)==1 ? (Int(command.instance)/Int(a.rate))*Int(a.stride) : 0
-                encoder.setVertexBuffer(try buffer(text(b.file)),offset:offset,index:slot)
+                bind(encoder, 0, try buffer(text(b.file)), offset, slot)
             }
             for c in items(command.constants) {
                 guard let b=uploadRing[uploadSlot] else {throw Failure("missing constant upload")}
-                let offset=Int(c.offset)
-                if Int(c.stage)==0 {encoder.setVertexBuffer(b,offset:offset,index:Int(c.slot))}else{encoder.setFragmentBuffer(b,offset:offset,index:Int(c.slot))}
+                let offset=Int(c.offset) + constantDelta
+                bind(encoder, Int(c.stage), b, offset, Int(c.slot))
             }
             for stage in 0...1 {
+                if let table = resolvedTables[commandIndex]?[stage] {
+                    bindTable(encoder, stage, table); textureHits += table.textures.count
+                    continue
+                }
                 let stageItems=items(command.textures).filter{Int($0.stage)==stage}
                 if stageItems.isEmpty {continue}
                 let tableKey = pk + ":" + String(stage) + ":" + stageItems.map { item in
                     "\(text(item.key)):\(item.image):\(item.sampler):\(item.count):\(item.u):\(item.v):\(item.min):\(item.mag)"
                 }.joined(separator: "|")
-                if let (table, resources, _) = argumentTables[tableKey] {
-                    for t in resources {encoder.useResource(t,usage:.read,stages:stage==0 ? .vertex : .fragment);textureHits += 1}
-                    if stage==0 {encoder.setVertexBuffer(table,offset:0,index:30)}else{encoder.setFragmentBuffer(table,offset:0,index:30)}
+                if let resolved = argumentTables[tableKey] {
+                    resolvedTables[commandIndex, default: [:]][stage] = resolved
+                    bindTable(encoder, stage, resolved); textureHits += resolved.textures.count
                     continue
                 }
                 var tableTextures=[MTLTexture](), tableSamplers=[MTLSamplerState]()
                 let argument=(stage==0 ? vs : fs).makeArgumentEncoder(bufferIndex:30)
-                guard let table=device.makeBuffer(length:argument.encodedLength,options:.storageModeShared) else {throw Failure("argument allocation")};argument.setArgumentBuffer(table,offset:0)
+                try need(device.argumentBuffersSupport == .tier2, "persistent argument heaps require tier 2")
+                let heapKey = pk + ":" + String(stage)
+                let stride = ((argument.encodedLength + argument.alignment - 1) / argument.alignment) * argument.alignment
+                var heap = argumentHeaps[heapKey]
+                if heap == nil || heap!.1 + stride > heap!.0.length {
+                    guard let storage = device.makeBuffer(length: max(65536, stride * 64), options: .storageModeShared) else { throw Failure("argument heap allocation") }
+                    heap = (storage, 0)
+                }
+                let table = heap!.0, tableOffset = heap!.1
+                argumentHeaps[heapKey] = (table, tableOffset + stride)
+                argument.setArgumentBuffer(table, offset: tableOffset)
                 for item in stageItems {
                     if item.image >= 0 {
                         let tk=text(item.key)
@@ -313,7 +383,7 @@ final class Worker {
                             guard let view=t.makeTextureView(pixelFormat:t.pixelFormat,textureType:.type2D,levels:0..<1,slices:0..<1,swizzle:swizzle) else {throw Failure("texture view")}
                             textureCache[tk]=view
                         }else{textureHits += 1}
-                        let t=textureCache[tk]!;tableTextures.append(t);argument.setTexture(t,index:Int(item.image));encoder.useResource(t,usage:.read,stages:stage==0 ? .vertex : .fragment)
+                        let t=textureCache[tk]!;tableTextures.append(t);argument.setTexture(t,index:Int(item.image))
                     }else{
                         let d=MTLSamplerDescriptor();let modes:[MTLSamplerAddressMode]=[.repeat,.mirrorRepeat,.clampToEdge]
                         d.sAddressMode=modes[Int(item.u)];d.tAddressMode=modes[Int(item.v)];d.normalizedCoordinates=true
@@ -321,12 +391,14 @@ final class Worker {
                         guard let sampler=device.makeSamplerState(descriptor:d) else {throw Failure("sampler allocation")};tableSamplers.append(sampler);argument.setSamplerState(sampler,index:9*Int(item.count)+Int(item.sampler))
                     }
                 }
-                argumentTables[tableKey] = (table, tableTextures, tableSamplers)
-                if stage==0 {encoder.setVertexBuffer(table,offset:0,index:30)}else{encoder.setFragmentBuffer(table,offset:0,index:30)}
+                let resolved = ArgumentTable(buffer: table, offset: tableOffset, textures: tableTextures, samplers: tableSamplers)
+                argumentTables[tableKey] = resolved
+                resolvedTables[commandIndex, default: [:]][stage] = resolved
+                bindTable(encoder, stage, resolved)
             }
             let topology:MTLPrimitiveType
             switch Int(command.topology) {case 0:topology = .point;case 1:topology = .line;case 3:topology = .lineStrip;case 4:topology = .triangle;case 5:topology = .triangleStrip;default:throw Failure("primitive")}
-            let repeats = max(1, Int(command.repeats))
+            let repeats = max(1, Int(input.repeats))
             for _ in 0..<repeats {
             if command.indices.length > 0 { let indexFile=text(command.indices)
                 let indices=try buffer(indexFile)
@@ -342,7 +414,7 @@ final class Worker {
     }
     try flush()
     let elapsed=ProcessInfo.processInfo.systemUptime-started
-    return "encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
+    return "state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)

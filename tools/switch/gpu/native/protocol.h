@@ -73,6 +73,8 @@ typedef struct {
 } TextureCommand;
 typedef struct { const TextureCommand *pointer; size_t length, capacity; } SpanTextureCommand;
 typedef struct {
+    int64_t reference;
+    int64_t constant_delta;
     int64_t kind;
     int64_t repeats;
     int64_t clear;

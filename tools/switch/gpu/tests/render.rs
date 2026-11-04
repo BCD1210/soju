@@ -1971,3 +1971,36 @@ fn queued_batches_keep_captured_constants_alive_across_ring_wraps() {
         .chunks_exact(4)
         .all(|p| p == [0, 255, 0, 255]));
 }
+
+#[test]
+fn prepared_variants_revalidate_vertex_writes_and_public_register_changes() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("variants", [0., 0., 0., 1.]);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [1., 0., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.methods(&mut e, &[(0xe00, 1), (0xe08, 32 << 16)]);
+    for x in [16 << 16, 16 | (32 << 16), 16 << 16] {
+        e.registers.0.insert(0xe04, x);
+        h.draw(&mut e, 6, false, false);
+    }
+    let vertices = quad(-1., -1., 1., 1., 0.5, [0., 1., 0., 1.]);
+    let bytes = vertices
+        .iter()
+        .flatten()
+        .flat_map(|v| v.to_le_bytes())
+        .collect::<Vec<_>>();
+    h.memory.write(e.registers.address(0x1c04), &bytes).unwrap();
+    for x in [16 | (32 << 16), 16 << 16] {
+        e.registers.0.insert(0xe04, x);
+        h.draw(&mut e, 6, false, false);
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/variants-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    assert!(report.images[0]
+        .rgba
+        .chunks_exact(4)
+        .all(|p| p == [0, 255, 0, 255]));
+}
