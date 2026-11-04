@@ -129,7 +129,7 @@ final class Commander: NSObject, NSApplicationDelegate {
             let panel=SCNMaterial();panel.lightingModel = .constant;panel.isDoubleSided=true;panel.readsFromDepthBuffer=false;panel.writesToDepthBuffer=false
             hud.geometry?.materials=[panel];hud.renderingOrder=100;hud.name="hud";world.rootNode.addChildNode(hud)
             let marker=SCNMaterial();marker.lightingModel = .constant;marker.diffuse.contents=NSColor.green
-            reticle.geometry?.materials=[marker];reticle.isHidden=true;reticle.name="aim-marker"
+            reticle.categoryBitMask=2;reticle.geometry?.materials=[marker];reticle.isHidden=true;reticle.name="aim-marker"
             world.rootNode.addChildNode(reticle)
             for node in [wrists.commands,wrists.resources,wrists.ray,wrists.box] {world.rootNode.addChildNode(node)}
             xrTimer=Timer.scheduledTimer(withTimeInterval:1/90,repeats:true) { [weak self] _ in
