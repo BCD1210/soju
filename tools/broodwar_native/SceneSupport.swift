@@ -7,6 +7,10 @@ import CoreImage
 import Darwin
 import simd
 typealias Obj = [String: Any]
+struct TerrainUpdateKey:Equatable {
+    let region:SIMD4<Int32>,center:SIMD3<Int32>
+    let fog:String,creep:String
+}
 func number(_ o: Obj, _ k: String) -> Double { (o[k] as? NSNumber)?.doubleValue ?? 0 }
 let runtime = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/soju/broodwar-native")
 let assets = runtime.appendingPathComponent("scene-assets")
@@ -82,6 +86,7 @@ final class Bridge {
 final class Art {
     let device: MTLDevice
     let manifest: Obj
+    lazy var tileCatalog=manifest["tiles"] as? [String:Obj] ?? [:]
     var textures=[String:MTLTexture]()
     init(device preferred:MTLDevice? = nil) throws {
         guard let d=preferred ?? MTLCreateSystemDefaultDevice(),d.supportsBCTextureCompression else { throw SceneError.invalid("Metal BC texture support required") }

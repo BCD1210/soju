@@ -23,6 +23,7 @@ extension Commander {
         let newSession=s["session"] as? String ?? "legacy"
         let changed=newSession != session
         if changed {
+            lastTerrainUpdate=nil
             for n in nodes.values {n.removeFromParentNode()}
             for m in retiring.values {m.root.removeFromParentNode()}
             nodes.removeAll();models.removeAll();billboards.removeAll();retiring.removeAll();effects.clear();worldSprites.clear();selected=[];controlGroups.removeAll()
@@ -54,12 +55,18 @@ extension Commander {
             initialized=true
         }
         let x=Int(number(f,"x")),y=Int(number(f,"y")),w=Int(number(f,"width"))
-        for (i,c) in (f["fog"] as? String ?? "").utf8.enumerated() { fog[(y+i/w)*mapWidth+x+i%w]=c }
-        for (i,c) in (f["creep"] as? String ?? "").utf8.enumerated() {
-            let index=(y+i/w)*mapWidth+x+i%w
-            if c==49 {creepTiles.insert(index)}else {creepTiles.remove(index)}
+        let radius=tabletop || camera.camera?.usesOrthographicProjection == true ? 44:20
+        let packet=TerrainUpdateKey(region:SIMD4<Int32>(Int32(x),Int32(y),Int32(w),Int32(number(f,"height"))),
+            center:SIMD3<Int32>(Int32(terrainCenter.x),Int32(terrainCenter.z),Int32(radius)),
+            fog:f["fog"] as? String ?? "",creep:f["creep"] as? String ?? "")
+        if packet != lastTerrainUpdate {
+            for (i,c) in packet.fog.utf8.enumerated() {fog[(y+i/w)*mapWidth+x+i%w]=c}
+            for (i,c) in packet.creep.utf8.enumerated() {
+                let index=(y+i/w)*mapWidth+x+i%w
+                if c==49 {creepTiles.insert(index)}else {creepTiles.remove(index)}
+            }
+            updateTerrain();lastTerrainUpdate=packet
         }
-        updateTerrain()
         selected=selected.filter { units[$0] != nil }
         for e in events where e["kind"] as? String == "death" {
             guard let id=e["unit"] as? String,units[id]==nil,retiring[id]==nil,
@@ -131,7 +138,7 @@ extension Commander {
         return cameraMapPosition
     }
     func updateTerrain() {
-        let tiles=art.manifest["tiles"] as? [String:Obj] ?? [:]
+        let tiles=art.tileCatalog
         let cx=Int(terrainCenter.x),cy=Int(terrainCenter.z),radius=tabletop || camera.camera?.usesOrthographicProjection == true ? 44:20
         var keep=Set<Int>()
         for y in max(0,cy-radius)..<max(0,min(mapHeight,cy+radius+1)) {
