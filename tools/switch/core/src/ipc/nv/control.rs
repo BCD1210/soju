@@ -99,6 +99,14 @@ pub(super) fn reserve(nv: &mut Nv, r: &Request, _: &mut Context<'_>) -> Result<R
 }
 pub(super) fn map(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error> {
     let mut d = args(r).to_vec();
+    if read_u32(&d, 0)? & 0x100 != 0 {
+        let space = nv
+            .spaces
+            .get_mut(&r.u32(0)?)
+            .ok_or(Error::Malformed("uninitialized GPU address space"))?;
+        space.modify(&d)?;
+        return Ok(Reply::data(d));
+    }
     let a = nv.allocation(read_u32(&d, 8)?, c.object)?.view;
     c.memory.check_access(
         a.guest_address,

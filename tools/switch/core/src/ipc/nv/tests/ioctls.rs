@@ -160,3 +160,66 @@ fn color_memory_kind_is_retained_in_the_virtual_mapping() {
         (crate::kernel::HEAP, 0xdb)
     );
 }
+
+#[test]
+fn modify_mapping_kind_uses_existing_backing_without_nvmap_handle() {
+    let mut f = Fixture::new();
+    let (_, space, va) = f.setup();
+    let mut d = vec![0; 40];
+    put32(&mut d, 0, 0x100);
+    put32(&mut d, 4, 0xdb);
+    put64(&mut d, 16, 4096);
+    put64(&mut d, 24, 8192);
+    put64(&mut d, 32, va);
+    f.ioctl(space, 0xc0284106, &d, 40).unwrap();
+    let space_fd = space;
+    let space = &f.nv.spaces[&space];
+    assert_eq!(space.resolve(va, 4096).unwrap(), (crate::kernel::HEAP, 0));
+    assert_eq!(
+        space.resolve(va + 4096, 8192).unwrap(),
+        (crate::kernel::HEAP + 4096, 0xdb)
+    );
+    assert_eq!(
+        space.resolve(va + 12288, 4096).unwrap(),
+        (crate::kernel::HEAP + 12288, 0)
+    );
+    assert!(space.resolve(va + 4095, 2).is_err());
+    put64(&mut d, 16, 12288);
+    put64(&mut d, 24, 4096);
+    f.ioctl(space_fd, 0xc0284106, &d, 40).unwrap();
+    assert_eq!(
+        f.nv.spaces[&space_fd].resolve(va + 12288, 4096).unwrap().1,
+        0xdb
+    );
+    put64(&mut d, 16, 0);
+    put64(&mut d, 24, 16384);
+    put32(&mut d, 4, 0);
+    f.ioctl(space_fd, 0xc0284106, &d, 40).unwrap();
+    assert_eq!(
+        f.nv.spaces[&space_fd].resolve(va, 16384).unwrap(),
+        (crate::kernel::HEAP, 0)
+    );
+}
+
+#[test]
+fn invalid_mapping_modification_preserves_backing() {
+    let mut f = Fixture::new();
+    let (_, space, va) = f.setup();
+    let before = format!("{:?}", f.nv.spaces[&space]);
+    for (offset, size, base) in [
+        (1, 4096, va),
+        (0, 0, va),
+        (0, 0x41000, va),
+        (0, 4096, va + 4096),
+        (u64::MAX - 4095, 8192, va),
+    ] {
+        let mut d = vec![0; 40];
+        put32(&mut d, 0, 0x100);
+        put32(&mut d, 4, 0xdb);
+        put64(&mut d, 16, offset);
+        put64(&mut d, 24, size);
+        put64(&mut d, 32, base);
+        assert!(f.ioctl(space, 0xc0284106, &d, 40).is_err());
+        assert_eq!(format!("{:?}", f.nv.spaces[&space]), before);
+    }
+}

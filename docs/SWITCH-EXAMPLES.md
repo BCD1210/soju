@@ -101,7 +101,7 @@ unverified. Frame observations include error screens explicitly.
 | `fs__romfs` | stop | frame | Both embedded text files printed through EOF, including the Unicode path; content matches the two source RomFS files. |
 | `fs__save` | stop | frame | Local UID is available; mount reports 0x202 for the example’s absent external-title save. Not a save-mount success. |
 | `fs__sdmc` | stop | frame | Expected directory listing includes the virtual soju-current.nro and Done. |
-| `graphics__deko3d__deko_basic` | stop | stop | Triangle unverified: kind 0xdb now maps, then a later MapBufferEx stops at NV allocation ownership. |
+| `graphics__deko3d__deko_basic` | stop | stop | Triangle unverified: Modify and fixed big-page mappings now pass; next stop is kickoff flags 0x4. |
 | `graphics__deko3d__deko_console` | stop | stop | GPU console/colored text unverified: current CPU GPFIFO submission contract rejects its submission. |
 | `graphics__deko3d__deko_examples` | stop | frame | Expected nine-item software console selector. Scripted A selecting Simple Setup stops at CPU GPFIFO submission contract. |
 | `graphics__opengl__dynamic_resolution` | stop | stop | Dynamic-resolution scene unverified: GPU syncpoint operation rejected during submission. |
@@ -304,3 +304,17 @@ screens are still unfinished; a displayed error is not feature acceptance.
 | `03ececa` | Offline network errors, curl cleanup and host randomness |
 | `c9d9d93` | Empty virtual keyboard/mouse activation |
 | `018f103` | Unicode fallback for Standard font and isolated corpus assets |
+
+## M2 mapping follow-up
+
+MapBufferEx Modify (`0x100`) now changes kinds within an existing mapping
+without looking up the deliberately zero nvmap handle. Repeated subrange changes
+retain the original mapping identity and guest backing. Fixed/cacheable mappings
+(`0x5`) must fit a vacant, aligned reservation; big-page padding is inaccessible.
+The signed deko_basic probe reaches kickoff flags `0x4`, fence `0:0`; no GPU
+frame is accepted yet. The corpus rerun remains 33 frame / 1 exit0 / 25 stop.
+NV tests: 23 passed; desktop/all-target Clippy passed with warnings denied.
+
+References: installed libnx `nvidia/ioctl.h` (Modify and FixedOffset flags),
+`nvidia/gpu_channel.h`, and [NV service layouts](https://switchbrew.org/wiki/NV_services).
+Local probe/test evidence: `dist/m2-probe/`.

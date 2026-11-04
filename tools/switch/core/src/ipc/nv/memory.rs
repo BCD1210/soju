@@ -14,6 +14,7 @@ pub(crate) struct Mapping {
 pub(crate) struct AddressSpace {
     pub mappings: BTreeMap<u64, Mapping>,
     reservations: BTreeMap<u64, u64>,
+    originals: BTreeMap<u64, Mapping>,
 }
 impl AddressSpace {
     fn vacant(&self, size: u64, alignment: u64) -> Result<u64, Error> {
@@ -67,10 +68,10 @@ impl AddressSpace {
         let page = u64::from(u32at(data, 12)?);
         let offset = u64at(data, 16)?;
         let requested = u64at(data, 24)?;
-        if u32at(data, 0)? & !4 != 0
+        if u32at(data, 0)? & !5 != 0
             || !matches!(kind, 0 | 0x11 | 0xdb | 0xfe)
             || !matches!(page, 4096 | 65536 | 131072)
-            || u64at(data, 32)? != 0
+            || (u32at(data, 0)? & 1 == 0 && u64at(data, 32)? != 0)
             || view.guest_address == 0
             || !view.guest_address.is_multiple_of(4096)
             || view.size == 0
@@ -102,7 +103,30 @@ impl AddressSpace {
             return Err(Error::Malformed("GPU allocation backing changed"));
         }
         let span = align(size, page)?;
-        let base = self.vacant(span, page)?;
+        let base = if u32at(data, 0)? & 1 != 0 {
+            let base = u64at(data, 32)?;
+            let end = base
+                .checked_add(span)
+                .filter(|&n| n <= LIMIT)
+                .ok_or(Error::Malformed("GPU fixed mapping overflow"))?;
+            if !base.is_multiple_of(page)
+                || !self
+                    .reservations
+                    .iter()
+                    .any(|(&a, &n)| a <= base && end <= a + n)
+                || self
+                    .mappings
+                    .iter()
+                    .any(|(&a, m)| base < a + m.span && a < end)
+            {
+                return Err(Error::Malformed(
+                    "GPU fixed mapping outside reservation or occupied",
+                ));
+            }
+            base
+        } else {
+            self.vacant(span, page)?
+        };
         self.mappings.insert(
             base,
             Mapping {
@@ -113,7 +137,88 @@ impl AddressSpace {
                 span,
             },
         );
+        self.originals.insert(base, self.mappings[&base].clone());
         Ok(base)
+    }
+    pub fn modify(&mut self, data: &[u8]) -> Result<(), Error> {
+        use super::super::types::{read_u32 as u32at, read_u64 as u64at};
+        let kind = u32at(data, 4)?;
+        let base = u64at(data, 32)?;
+        let offset = u64at(data, 16)?;
+        let size = u64at(data, 24)?;
+        if u32at(data, 0)? != 0x100
+            || u32at(data, 8)? != 0
+            || u32at(data, 12)? != 0
+            || !matches!(kind, 0 | 0x11 | 0xdb | 0xfe)
+            || !offset.is_multiple_of(4096)
+            || size == 0
+            || !size.is_multiple_of(4096)
+        {
+            return Err(Error::Malformed("GPU mapping modification parameters"));
+        }
+        let mapping = self
+            .originals
+            .get(&base)
+            .ok_or(Error::Malformed(
+                "GPU modification requires existing mapping",
+            ))?
+            .clone();
+        let end = offset
+            .checked_add(size)
+            .filter(|&n| n <= mapping.size)
+            .ok_or_else(|| Error::Message(format!("GPU modification exceeds mapping: base={base:#x} offset={offset:#x} size={size:#x} mapping={mapping:?}")))?;
+        let start = base + offset;
+        let stop = base + end;
+        let affected: Vec<_> = self
+            .mappings
+            .range(base..base + mapping.size)
+            .filter(|(address, m)| **address < stop && start < **address + m.size)
+            .map(|(&address, m)| (address, m.clone()))
+            .collect();
+        let mut updated = self.mappings.clone();
+        for (address, old) in affected {
+            updated.remove(&address);
+            if address < start {
+                updated.insert(
+                    address,
+                    Mapping {
+                        size: start - address,
+                        span: start - address,
+                        ..old.clone()
+                    },
+                );
+            }
+            if address + old.size > stop {
+                updated.insert(
+                    stop,
+                    Mapping {
+                        size: address + old.size - stop,
+                        offset: old.offset + stop - address,
+                        span: address + old.span - stop,
+                        ..old
+                    },
+                );
+            }
+        }
+        updated.insert(
+            start,
+            Mapping {
+                size,
+                offset: mapping.offset + offset,
+                kind,
+                span: if end == mapping.size {
+                    mapping.span - offset
+                } else {
+                    size
+                },
+                ..mapping
+            },
+        );
+        if updated.len() > 4096 {
+            return Err(Error::Malformed("GPU mapping limit"));
+        }
+        self.mappings = updated;
+        Ok(())
     }
     pub fn resolve(&self, address: u64, size: usize) -> Result<(u64, u32), Error> {
         let size = u64::try_from(size).map_err(|_| Error::Malformed("GPU range size"))?;

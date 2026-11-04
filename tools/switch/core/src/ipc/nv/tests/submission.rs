@@ -195,3 +195,35 @@ fn big_page_mapping_padding_is_inaccessible() {
     assert!(space.resolve(a + 4096, 1).is_err());
     assert_eq!(space.resolve(a, 4096).unwrap().0, crate::kernel::HEAP);
 }
+
+#[test]
+fn fixed_big_page_mapping_requires_vacant_reserved_span() {
+    let mut space = memory::AddressSpace::default();
+    let mut reservation = vec![0; 24];
+    put32(&mut reservation, 0, 4);
+    put32(&mut reservation, 4, 65536);
+    put64(&mut reservation, 16, 65536);
+    let base = space.reserve(&reservation).unwrap();
+    let view = NvBufferView {
+        allocation: 1,
+        generation: 1,
+        guest_address: crate::kernel::HEAP,
+        size: 4096,
+        alignment: 4096,
+        kind: 0,
+    };
+    let mut d = vec![0; 40];
+    put32(&mut d, 0, 5);
+    put32(&mut d, 8, 1);
+    put32(&mut d, 12, 65536);
+    put64(&mut d, 32, base);
+    assert_eq!(space.map(view, &d).unwrap(), base);
+    assert!(space.map(view, &d).is_err());
+    assert!(space.resolve(base + 4096, 1).is_err());
+    for address in [base + 4096, base + 4 * 65536, u64::MAX - 65535] {
+        put64(&mut d, 32, address);
+        assert!(space.map(view, &d).is_err());
+    }
+    put64(&mut d, 32, base + 65536);
+    assert_eq!(space.map(view, &d).unwrap(), base + 65536);
+}
