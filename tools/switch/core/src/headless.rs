@@ -27,6 +27,7 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
     let path = args.first().ok_or("missing NRO path")?;
     let mut frames = None;
     let mut capture = None;
+    let mut capture_frame = 1;
     let mut inputs = Vec::<Input>::new();
     let mut seen = std::collections::BTreeSet::new();
     let mut options = args[1..].chunks_exact(2);
@@ -43,6 +44,13 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
                         .parse::<std::num::NonZeroU64>()?,
                 )
             }
+            "--capture-frame" => {
+                capture_frame = pair[1]
+                    .to_str()
+                    .ok_or("invalid capture frame")?
+                    .parse::<std::num::NonZeroU64>()?
+                    .get();
+            }
             "--capture" => capture = Some(PathBuf::from(&pair[1])),
             "--inputs" => inputs = serde_json::from_reader(std::fs::File::open(&pair[1])?)?,
             _ => return Err("unknown headless option".into()),
@@ -52,6 +60,9 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         return Err("missing option value".into());
     }
     let frames = frames.ok_or("--frames is required")?.get();
+    if capture_frame > frames {
+        return Err("capture frame exceeds frame budget".into());
+    }
     let capture = capture.ok_or("--capture is required")?;
     if inputs.windows(2).any(|p| p[0].at_ms >= p[1].at_ms)
         || inputs.iter().any(|i| {
@@ -104,7 +115,7 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         while hub.take_audio().is_some() {}
         if let Some(frame) = hub.take_frame() {
             count += 1;
-            if count == 1 {
+            if count == capture_frame {
                 let mut encoder = png::Encoder::new(
                     std::io::BufWriter::new(std::fs::File::create(&capture)?),
                     frame.width,
