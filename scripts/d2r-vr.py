@@ -326,6 +326,7 @@ def setup(refresh=False):
     runtime_archive = fetch(m['runtime'], 'soju-vr-runtime.tar.xz', 'the VR runtime')
     python_zip = fetch(m['python'], 'python-embed-amd64.zip', 'Windows Python (python.org)')
     mod_zip = fetch(m['mod'], 'd2r-pcvr-windows.zip', m['mod']['name'])
+    patched_plugin = fetch(m['mod_patch'], 'd2rl-pcvr-soju.dll', 'the VR character creation fix')
     loader_zip = fetch(m['loader'], m['loader']['file'], 'D2RLoader (d2rloader.net)')
     reshade_exe = fetch(m['reshade'], 'ReShade_Setup_Addon.exe', 'ReShade (reshade.me)')
 
@@ -335,6 +336,7 @@ def setup(refresh=False):
     safe_extract_zip(python_zip, VR / 'python')
     safe_extract_zip(mod_zip, VR / 'mod')
     mod = VR / 'mod' / m['mod']['folder']
+    stage_mod_patch(mod, patched_plugin, m['mod_patch'])
     deps = VR / 'deps'
     (deps / 'reshade-6.8').mkdir(parents=True)
     shutil.copy2(loader_zip, deps / m['loader']['file'])
@@ -368,6 +370,7 @@ def setup(refresh=False):
         tail = [line for line in (result.stdout + result.stderr).splitlines() if line.strip()][-3:]
         raise VRError('The mod installer stopped: ' + ' | '.join(tail) + ' (log: ' + str(log) + ')')
 
+    shutil.copytree(mod / 'soju-source', game / 'mods' / m['mod']['mod_name'] / 'soju-source', dirs_exist_ok=True)
     patch_reshade(game / 'mods' / m['mod']['mod_name'] / 'reshade/ReShade64.dll', m['reshade'])
     if (game / 'd3d12.dll').exists():
         (game / 'd3d12.dll').rename(off)
@@ -378,8 +381,8 @@ def setup(refresh=False):
     STATE.write_text(json.dumps({'recipe': recipe(m), 'game_build': game_build(BOTTLE),
                                  'mod': m['mod']['name']}, indent=2) + '\n')
     say('D2R VR is set up. Play with: soju vr play')
-    say('Use an OFFLINE character. Start the OXRSys client on your headset (or the OXRSys Simulator) to see it.')
-    say('No offline character yet? Make one with the mouse first: soju vr play --flat')
+    say('Connect the OXRSys headset/client or Simulator before soju vr play; tracking must be ready before the title screen.')
+    say('Create an OFFLINE character in VR with stick + A. Click the D2R window and type the name with the Mac keyboard.')
     say('If D2R says you have not been online for 30 days: play D2R online once from Battle.net, '
         'then run: soju vr setup --refresh (VR characters are kept).')
     return 0
@@ -403,6 +406,25 @@ def status():
     }
 
 
+def stage_mod_patch(mod, plugin, spec):
+    """Verify before replacing the extracted plugin; the installer backs up installed files."""
+    if plugin.stat().st_size != spec['size'] or digest(plugin) != spec['sha256']:
+        raise VRError('The VR character creation DLL does not match its pin.')
+    source_patch = ROOT / spec['patch']
+    if digest(source_patch) != spec['patch_sha256']:
+        raise VRError('The VR character creation source patch does not match its pin.')
+    shutil.copy2(plugin, mod / 'bin/d2rl-pcvr.dll')
+    notice = mod / 'soju-source'
+    notice.mkdir(exist_ok=True)
+    shutil.copy2(source_patch, notice / source_patch.name)
+    shutil.copy2(source_patch.parent / 'LICENSE', notice / 'LICENSE')
+    (notice / 'SOURCE.txt').write_text(
+        'D2R-PCVR modifications under MPL-2.0.\n'
+        'Source: ' + spec['source_url'] + '\n'
+        'Base commit: ' + spec['base_commit'] + '\n'
+        'Apply the accompanying patch to this base.\n')
+
+
 def play_env(flat):
     env = wine_env(BOTTLE)
     if not flat:
@@ -410,7 +432,7 @@ def play_env(flat):
         env['OXR_BRIDGE_ENV_FILE'] = str(VR / 'bridge.env')
     # flat: the OpenXR runtime cannot load, so the mod leaves VR off and the game
     # uses its normal screen, where the mouse can pick a class on character creation.
-    # In VR those menus are meant for the controller laser.
+    # In VR, stick + A use D2R's native controller character picker.
     return env
 
 
@@ -424,6 +446,9 @@ def play(extra, flat=False):
     env = play_env(flat)
     if flat:
         say('Opening the VR copy without VR. Create or check offline characters, then quit and run: soju vr play')
+    if not flat:
+        say('Connect the OXRSys headset/Simulator before the title screen. Use stick + A for offline character creation.')
+        say('For the name, click the D2R window and type on the Mac keyboard; then return to the simulator/headset.')
     os.chdir(BOTTLE / GAME_REL)
     # -mod keeps D2R offline: no Battle.net game servers.
     os.execve(str(ENGINE / 'bin/wine'), [str(ENGINE / 'bin/wine'), 'D2RLoader.exe', '-mod',
@@ -453,7 +478,7 @@ def main(argv):
     p.add_argument('--refresh', action='store_true', help='copy the Battle.net bottle again (after a game update)')
     p = sub.add_parser('play')
     p.add_argument('--flat', action='store_true',
-                   help='open the VR copy on the Mac screen without VR (to create offline characters)')
+                   help='open the VR copy on the Mac screen without VR (optional desktop mode)')
     p = sub.add_parser('status')
     p.add_argument('--json', action='store_true')
     p = sub.add_parser('remove')
