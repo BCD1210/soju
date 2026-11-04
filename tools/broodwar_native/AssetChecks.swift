@@ -52,17 +52,25 @@ extension Models3D {
                 var animations=[Obj]()
                 let actions=Set(Array(ModelInstance.aliases.keys)+Array(a.definition.animations.keys)).sorted()
                 for action in actions where a.clip(for:action) != nil {
-                    a.playAction(action,force:true,blendDuration:0)
+                    a.playAction(action,force:true,blendDuration:0,loop:action != "death")
                     _=render(0.01);let initial=pose(a),other=pose(b)
                     let duration=a.clips[a.playing]?.first?.1.duration ?? 1
                     var changed:Float=0,leak:Float=0
-                    for fraction in [0.21,0.47,0.73] {
-                        _=render(max(0.02,duration*fraction));changed=max(changed,poseDifference(initial,pose(a)))
+                    var captures=[String]()
+                    for (sample,fraction) in [0.0,0.21,0.47,0.73].enumerated() {
+                        let image=render(max(0.02,duration*fraction))
+                        if CommandLine.arguments.contains("--animation-proof"),
+                           let tiff=image.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),
+                           let png=bitmap.representation(using:.png,properties:[:]) {
+                            let file="\(kind)-\(action)-\(sample).png"
+                            try png.write(to:out.appendingPathComponent(file));captures.append(file)
+                        }
+                        changed=max(changed,poseDifference(initial,pose(a)))
                         leak=max(leak,poseDifference(other,pose(b)))
                     }
                     guard leak<0.00001 else { throw SceneError.invalid("Cross-instance animation leak \(kind)/\(action)") }
-                    if action=="walk" && changed<0.00001 { throw SceneError.invalid("Walk bones did not move: \(kind)") }
-                    animations.append(["action":action,"clip":a.playing,"changed":changed,"otherInstanceChange":leak,"boundNodes":a.activePlayers.count])
+                    if (action=="walk" || (CommandLine.arguments.contains("--animation-proof") && ["attack","death","work"].contains(action))) && changed<0.00001 { throw SceneError.invalid("Action bones did not move: \(kind)/\(action)") }
+                    animations.append(["action":action,"clip":a.playing,"changed":changed,"otherInstanceChange":leak,"boundNodes":a.activePlayers.count,"captures":captures,"loop":action != "death"])
                     clock += max(duration,1)+1
                 }
                 if CommandLine.arguments.contains("--model-proof") {
