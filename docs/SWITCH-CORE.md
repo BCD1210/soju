@@ -1,29 +1,57 @@
 # Experimental Switch homebrew
 
-This is an early Soju-owned Switch compatibility experiment, not a general
-Switch emulator. It runs the published MIT-licensed
-[2048 Switch homebrew v1.1.0](https://github.com/BernardoGiordano/2048/releases/tag/1.1.0)
-on an Apple Silicon Mac. No commercial Switch game, NSP/XCI, online service,
-game controller, or general homebrew compatibility has been established.
-The virtual SD directory and files are **in memory only**. Experimental account
-saves persist when the game commits them, as described below.
-The selected NRO is exposed as a read-only virtual file for embedded assets.
-The experimental runtime is not a security sandbox; run only files you trust.
+Soju's own Rust Hypervisor runner now runs the local 2048 homebrew v1.1.0
+end-to-end on Apple Silicon macOS: a native SDL window, keyboard input,
+persistent saves and normal Escape exit. The launcher selects the built Rust
+runner by default. A synthetic tone NRO reaches a real CoreAudio AudioUnit.
+This completes the bounded M1 implementation and automated acceptance described
+below; it does not establish general Switch or retail-game compatibility.
+
+No commercial Switch game, NSP/XCI execution, online service or physical gamepad
+has been verified. The runtime is experimental and is not a security sandbox;
+run only files you trust. No keys, firmware, games or third-party emulator code
+are included in this implementation.
 
 ## Try it
 
-On Apple Silicon macOS, with Python 3 and SDL2 installed:
+Requirements: Apple Silicon macOS, Xcode command-line tools, Cargo, Python 3 and
+SDL2 headers/library. The desktop build defaults to `/opt/homebrew`; set
+`SOJU_SDL_PREFIX` for another SDL2 installation.
 
 ```sh
-brew install sdl2  # if SDL2 is not already available
+brew install sdl2 rust
 bash scripts/soju switch setup
 bash scripts/soju switch play /path/to/2048.nro
+
+# Explicit fallback, also honored by Library Play:
+SOJU_SWITCH_RUNNER=python bash scripts/soju switch play /path/to/2048.nro
 ```
 
-Use the arrow keys to move tiles, B to start a new board, and Escape to close.
-Click the window first if it is behind another app. The local app build includes a Nintendo Switch card in Platforms and imported
-games in Library. Use Setup and Add game file, or the commands below.
-This integration has not been published as a release.
+Setup builds the release `soju-switch-core` with `desktop` (which enables `hv`),
+installs it in `~/.local/share/soju/switch/`, signs that copy ad-hoc with
+`com.apple.security.hypervisor`, and verifies its signature. It also prepares
+the existing Python/Unicorn fallback and host-font assets. Python 3.9 uses
+fonttools 4.60.2; newer Python uses 4.68.0. Unicorn is pinned to 2.1.4.
+
+`SOJU_SWITCH_RUNNER=auto` is the default: use the installed Rust binary if present,
+otherwise Python. `rust` requires the binary and reports an error if absent.
+`python` forces Unicorn. Runtime failures are reported; a failed Rust session
+is not silently restarted in another runner. `SOJU_SWITCH_HOME` overrides the
+runner/assets/save directory. This local work has not been published or pushed.
+
+Click the window to focus it. Arrows move tiles, B (or Z) resets the board,
+and Escape closes it. Other input-crate mappings include X/Z/C/V for A/B/X/Y,
+WASD and IJKL for sticks, Q/E for shoulders, 1/3 for triggers, Return for Plus,
+and Delete for Minus. Short key presses are latched through two presented frames (at most 500 ms)
+so a press and release between guest input scans is not lost. Focus loss clears input.
+
+GameController.framework supplies the first connected extended gamepad's
+buttons, triggers and sticks. `soju-switch-input` applies positional face-button
+mapping, dead zones and Npad bits; keyboard and pad buttons combine, with an
+active keyboard stick taking priority. No physical pad/hotplug acceptance has
+been performed. There is no multiplayer or controller-selection UI.
+
+The native app's Setup and Library Play use the same shell launcher:
 
 ```sh
 bash scripts/soju switch import /path/to/own-game.nro
@@ -32,268 +60,142 @@ bash scripts/soju game switch:<id-from-list>
 bash scripts/soju switch remove switch:<id-from-list>
 ```
 
-Imports keep the filename in `~/.battlenet-macos/switch/games/` with mode
-0600 and refuse filename collisions. IDs use the first 16 hex digits of the
-whole file SHA-256. NRO titles use an embedded NACP name when available.
-NSP/XCI files can be imported and listed, but cannot be played. Removing an
-ID removes its imported copies, never the source or saves. `SOJU_BASE` can
-override the library root for synthetic tests.
+Imports live under `~/.battlenet-macos/switch/games/` (override with `SOJU_BASE`),
+with mode 0600 and collision checks. IDs use the first 16 SHA-256 hex digits.
+Removal deletes imported copies, not sources or saves. NSP/XCI metadata can be
+listed through the separate filesystem crate, but retail playback is refused.
 
-## Validation
+## M1 acceptance
 
-On 2026-11-03, the upstream 2048 v1.1.0 NRO (SHA-256
-`cd7e7f343830920196590d99c82a9f1ab8a375eeaeb943fa6c671aa68250a20d`)
-was run on an Apple Silicon Mac. A keyboard move changed the board and combined
-tiles; the on-screen score rose to 4. This verifies this homebrew game, not
-compatibility with retail titles. Neither the NRO nor its assets are committed.
-
-To run the optional real-game test along with the synthetic tests:
-
-```sh
-SOJU_SWITCH_TEST_NRO=/path/to/2048.nro \
-  "$HOME/.local/share/soju/switch/venv/bin/python" -m unittest discover -s tests -p 'test_switch*.py' -v
-```
-
-The automated test compares frames before and after three virtual controller
-inputs. The manual check additionally used real macOS keyboard events in the
-SDL window: arrow keys moved and merged tiles, B reset the score and board,
-and Escape exited successfully. A later check covered a looping guest that
-never presents a frame and verified that its window can still close.
-
-Two other publicly distributed homebrew NROs were also tried on 2026-11-03:
-
-- Snakey NX 0.4.0 (SHA-256 `ecacb34c33afbbfa3ab457d33a7ce157e6ac65168122a895fba4eb5aebfdc469`): initializes its legacy services, audio, GPU channel and address space. Its 847-method initialization submission completes on the CPU; its next submission reaches staged tiled color clear and stops on unsupported graphics commands. No frame or play has been verified.
-- TooTallNate's 2048 1.2.0 (SHA-256 `51f6588000d899c58faadc4443f9550f4e4bcc93719fabb3dc0537ec11037ff5`): displayed a game board; real keyboard arrows moved tiles, produced a 4 from two 2 tiles, and increased the score from 0 to 4. A later session reached score 16, committed the save and exited normally; the exact board and score were restored on restart. Full-game completion was not tested.
-
-These two 2048 homebrew games are the only games verified to accept play input. This is
-early research code: timing, memory permissions, IPC,
-filesystem, thread synchronization and graphics handling are incomplete and game-specific. Save
-persistence for other games, game audio and other controllers are not verified.
-
-## Architecture
-
-`tools/switch/soju-switch.c` is a tiny bounded interpreter for a synthetic
-NRO fixture. `tools/switch/trace_nro.py` is a separate experimental
-NRO runtime with experimental cooperative thread scheduling using the third-party Unicorn ARM64 CPU engine,
-Soju's own limited Horizon service and framebuffer implementation, and SDL2
-for the host window. It is not an nxnative wrapper. The setup command installs
-Unicorn into an isolated Soju virtual environment and builds an optional native
-frame converter when a compiler is present; SDL2 is a separate runtime dependency. See the source projects' licenses before redistributing dependencies.
-
-The experimental virtual GPU reports a 4 KiB ZCull context allocation contract;
-this is a Soju profile, not a measured hardware value. A bounded CPU-only command
-subset can commit memory writes and signal completion; unsupported rendering
-submissions stop without being committed. No Maxwell-to-Metal renderer exists yet.
-
-The legacy PCM audio path can queue 48 kHz stereo S16 data to SDL when available;
-it has only been exercised with a dummy SDL device and has not been verified
-with an audible game. Headless runs use a timed silent sink.
-
-Virtual SD card writes are temporary. Experimental account saves persist when the
-game commits them, under a namespace derived from the NRO's SHA-256 hash. One
-2048 homebrew game has been verified to save, exit normally, and restore its
-board and score after restart; other games and interrupted shutdowns are not yet verified. Player selection uses
-a single synthetic offline user and does not access or represent a Nintendo Account.
-BSD registration is emulated but sockets are not implemented.
-The shared-font service uses installed macOS fonts as fallbacks. Setup optionally
-creates a local Basic Multilingual Plane subset of Arial Unicode for CJK coverage;
-if unavailable, it falls back to Latin Arial. Neither fallback is a Nintendo font,
-provides Nintendo-specific icons, or guarantees complete CJK coverage. Read-only access to the selected NRO is
-implemented experimentally and has not yet been validated by a game that uses
-its embedded RomFS. The simulated system clock and several
-service responses are simplified. Unsupported calls stop with a diagnostic.
-
-NRO layout references:
-[switch-tools](https://github.com/switchbrew/switch-tools/blob/master/src/elf2nro.c),
-[homebrew loader](https://github.com/switchbrew/nx-hbloader/blob/master/source/main.c),
-[Homebrew ABI](https://switchbrew.org/wiki/Homebrew_ABI), and
-[libnx](https://github.com/switchbrew/libnx).
-
-## Rust core: M0
-
-`tools/switch/core/` is a dependency-free Cargo workspace with a library and
-`soju-switch-core` validation-only binary. `nro.rs` ports the existing Python
-loader's bounded NRO header/segment checks and initial homebrew ABI mappings
-(image/BSS, stack, TLS, loader config, exception context and return stub).
-Appended assets are excluded from mapped image memory. The ABI is the existing
-Soju diagnostic profile, not a complete Horizon process implementation.
-
-```sh
-cargo test --offline --manifest-path tools/switch/core/Cargo.toml
-```
-
-Four synthetic unit tests cover image loading, malformed/truncated inputs,
-segment bounds and ABI bytes/zeroed memory. CI runs only pure Rust tests with
-no default features. The launcher still uses the Python runner.
-
-## Apple Hypervisor CPU: bring-up
-
-The optional `hv` feature uses Apple's installed Hypervisor.framework SDK,
-without external crates. It creates one VM, a 16 KiB aligned host arena and
-thread-affine vCPUs. AArch64 programs run at EL0 with 4 KiB stage-1
-translation enabled. Synchronous exceptions enter the EL1 vector; its HVC
-returns to the host, which reads ESR_EL1 and the preserved guest registers.
-Handled timer reads resume through ERET. CNTKCTL_EL1 disables direct EL0 timer
-access: CNTFRQ returns 19,200,000 Hz and CNTVCT is host monotonic elapsed time
-scaled to that frequency, starting at VM creation. This is not cycle-accurate.
-
-On this Apple Silicon Mac, the following signed synthetic tests passed:
-
-```sh
-cargo test --offline --manifest-path tools/switch/core/Cargo.toml --features hv
-bash scripts/test-switch-hv.sh
-```
-
-The first command runs seventeen pure tests, leaving fifteen hardware integration
-tests ignored. The script builds just the integration test executable, signs
-it ad-hoc with `com.apple.security.hypervisor`, verifies its signature and runs
-all fifteen tests serially (the local NRO cases require the environment variable
-below). It does not install or launch Soju, download anything,
-or change services. CI does not run hardware tests.
-
-Observed results:
-
-- `mov x0,#7; svc #0x26` at EL0 produces SVC 0x26 and x0=7 at the host;
-  resuming executes a second SVC with x0=9.
-- Three timer accesses trap: CNTFRQ returns 19,200,000 and successive CNTVCT
-  reads are monotonic. A pure test verifies nanoseconds-to-ticks scaling.
-- A looping guest is canceled by the two-second host watchdog. An undefined
-  instruction stops with an unsupported guest exception.
-
-### Guest-memory milestone (step 1 of the Rust runner)
-
-`Nro::protected_homebrew` connects the loader to `Cpu::from_homebrew`.
-The three-level stage-1 tables use a 39-bit virtual address space and 4 KiB
-pages backed by a compact host arena. Text is RX, rodata R, and data/BSS,
-stack, TLS and loader config RW. User mappings are privileged-execute-never;
-the EL1 HVC/ERET bridge is inaccessible to EL0 and table pages have no user
-mapping. Stage 2 permits RWX; stage 1 enforces guest permissions. NROs with
-segments sharing a page are rejected instead of merging incompatible permissions.
-The homebrew config retains the Python runner's main-thread handle, argv,
-applet type and end marker.
-
-Signed synthetic tests execute from NRO text, read config/TLS, write and read
-zero-initialized BSS, and verify actual permission faults for text/rodata
-writes and execution of rodata, data, BSS, TLS and private EL1/table addresses.
-The existing SVC-resume, virtual-timer and watchdog tests still pass.
-
-```sh
-SOJU_SWITCH_TEST_NRO="$HOME/.local/share/soju/switch/demo/2048-1.1.0.nro" \
-  bash scripts/test-switch-hv.sh
-```
-
-With the local 2048 1.1.0 NRO this reaches its first SVC, `0x2`
-(`SetMemoryPermission`), at PC `0x100006fcc`. This is a boot smoke test,
-**not** a frame-change or gameplay test. No instructions/second comparison
-has been measured. IPC service implementation, window/input and save persistence
-are still pending; M1 is not complete. The binary remains validation-only and the launcher still
-uses the Python runner. No retail support has been established.
-
-### Kernel milestone (step 2)
-
-The process now owns a stable, bounded 512 MiB arena shared by permanent
-thread-affine vCPUs. A process guard serializes guest execution and host memory
-access. Live mappings support 4 KiB protection, aliases, unmapping and physical
-page reuse. Mapping generations drive EL1 translation maintenance before guest
-re-entry; executable host writes also invalidate cached code. The runtime uses
-one host thread per guest thread and bounded resumable quanta.
-
-The bounded HLE kernel implements the Python runner's non-IPC SVC families:
-heap and memory operations, threads, events, shared/transfer memory, handles,
-mutexes, condition waits, timing, named ports, GetInfo, Break and exit. It also
-implements address waits/signals, debug output and synchronization cancellation.
-IPC requests cross an explicit handler boundary; missing services stop with
-`IpcRequired` rather than returning success. The local 2048 1.1.0 NRO now passes
-kernel initialization and reaches that boundary for the service manager.
-
-Nine deterministic kernel scenarios cover memory and handle lifetimes,
-blocking/wakeup/timeout behavior, condition-mutex reacquisition, address
-arbitration and diagnostics. Fifteen signed hardware tests additionally cover
-distinct per-vCPU TLS/SIMD state, shared memory, warmed translation revocation,
-instruction replacement, syscall replies, resumable execution, multithreaded
-synchronization and a shared 19.2 MHz epoch for CNTVCT, CNTPCT and GetSystemTick.
-This does not establish complete Horizon kernel compatibility or gameplay.
-
-Validation on 2026-11-03: the full Python suite ran 320 tests with 21 skips
-and only the known `test_only_attributed_commits_fail` failure. The Switch
-venv suite ran 92 tests with three optional tests skipped and no failures.
-`bash scripts/build-app.sh` built and signature-verified the native app; it
-was not installed or launched. All new game fixtures were synthetic.
-
-### IPC milestone (step 3)
-
-The Rust core now has a shared bounded HIPC/CMIF/TIPC codec and typed command
-registries. Services cover the Python runner's implemented settings, applet,
-HID, time, filesystem, VI/Binder, NV, audio, account, power and font interfaces.
-Both appletAE and appletOE roots are recognized. Unknown interfaces and commands
-fail explicitly; this is a limited compatibility profile, not full Horizon IPC.
-Inline HIPC receive-list mode 1 is not implemented.
-
-Session aliases share stable kernel object identities. Domain children retain
-those identities until their owning domain closes. Reply handles are published
-with checked descriptor and TLS writes. GPU submissions stage their memory effects
-and only advance fences after the reply transaction commits; failed writes roll
-back in reverse order. The CPU-only GPU command subset remains bounded and does
-not implement a general Maxwell renderer.
-
-Filesystem snapshots retain the Python account-save JSON format, with strict
-validation, no-follow path traversal, an exclusive lock, and atomic replacement.
-The Rust virtual SD remains in memory during execution and additionally persists
-a separate per-NRO `sd-state.json` at explicit flush or graceful shutdown. This
-allows homebrew which saves on SD to restore after restart. Account saves still
-require their own explicit filesystem commit. The selected NRO is exposed
-read-only, including appended assets, for the guest's RomFS reader.
-
-The audio service has a bounded timed silent sink and a host PCM queue. Audible
-game audio has not been established. Shared fonts use installed host fallbacks.
-
-The local 2048 1.1.0 NRO produced a nonuniform 1280×720 framebuffer through
-this Rust IPC path in 0.555 seconds in one debug hardware run. This is a
-first-frame smoke result, not an instructions/second measurement or interactive
-acceptance. libnx's cache maintenance uses a deterministic 64-byte CTR profile
-and checked cache operations; the host's cache geometry is not exposed through
-CTR. Input, restart restoration and the window path require separate acceptance.
-
-### Rust interactive acceptance and benchmark (2026-11-03)
-
-The `desktop` feature now presents RGBA frames in an SDL macOS window and maps
-keyboard/GameController.framework input through `soju-switch-input`. Both stick
-axes reach HID shared memory. B aliases the input crate's Z button mapping.
-Escape requests applet exit, waits up to five seconds, and reports failure if the
-guest does not exit. Real keyboard input moved/merged 2048 tiles (score 4), and
-Escape returned process status 0 after implementing VI DestroyStrayLayer cleanup
-([public command description](https://switchbrew.org/wiki/VI_services#DestroyStrayLayer)).
-A physical gamepad has not been tested.
-
-`soju switch setup` builds the release desktop core and ad-hoc signs its installed
-copy with the Hypervisor entitlement. CLI and Library Play prefer that binary.
-`SOJU_SWITCH_RUNNER=python` forces the previous Unicorn path; `rust` requires a
-built Rust runner, and `auto` (default) falls back when it is absent.
+Tested on 2026-11-03, M4 Pro, macOS 26.5 (25F71), using the user's local
+2048 v1.1.0 NRO, SHA-256:
+`cd7e7f343830920196590d99c82a9f1ab8a375eeaeb943fa6c671aa68250a20d`.
+The NRO and its assets are not committed.
 
 ```sh
 SOJU_SWITCH_TEST_NRO="$HOME/.local/share/soju/switch/demo/2048-1.1.0.nro" \
   bash scripts/test-switch-homebrew.sh
+bash scripts/test-switch-audio.sh
 ```
 
-This signed release test checks that **each** of left/down/right changes the
-framebuffer, that 2048 writes `/switch/2048/state` into its persisted SD snapshot,
-and that a newly created VM/service/filesystem restores the final framebuffer
-byte-for-byte from disk. Both runtime instances exit normally. Isolated test
-homes live under `dist/`; the user's saves are not changed.
+The signed release homebrew test verifies a 1280×720 frame, that **each** of
+left/down/right changes the board, that 2048 writes `/switch/2048/state` into
+its persisted SD snapshot, and that a newly created VM/service/filesystem
+restores the final framebuffer byte-for-byte from disk. Both runtime instances
+exit normally. Test homes are isolated under `dist/`.
 
-On this M4 Pro / macOS 26.5, two runs measured:
+A native-window check used real macOS keyboard events: tiles moved and merged,
+the score reached 4, and Escape returned process status 0. A fresh desktop
+process restored that exact board and score. Escape signals the
+applet exit event and allows up to five seconds for teardown; a nonresponsive
+guest produces an error. Guests without an applet event can close immediately.
+The missing VI DestroyStrayLayer teardown command was implemented using the
+[Switchbrew description](https://switchbrew.org/wiki/VI_services#DestroyStrayLayer).
 
-| Runner | First converted frame | Next 60 converted frames | Frames/s |
+The audio test generates its own NRO with ARM64 instructions and HIPC/CMIF
+messages. It connects to SM, opens audout, appends 0.5 seconds of 440 Hz stereo
+S16 PCM at 48 kHz, starts playback, sleeps, stops and exits. CoreAudio's render
+callback consumed all **47,920 expected nonzero samples**. No audio capture or
+human listening check was performed; real-homebrew music remains unverified.
+
+## Measured speed
+
+`scripts/test-switch-homebrew.sh` measures first converted frame and the next
+60 headless frames, then runs the same frame count on Unicorn. Two runs:
+
+| Runner | First frame | Next 60 frames | Frames/s |
 | --- | --- | --- | --- |
 | Rust release, run 1 | 0.312 s | 7.876 s | 7.62 |
 | Unicorn 2.1.4, run 1 | 0.456 s | 3.628 s | 16.54 |
 | Rust release, run 2 | 0.186 s | 6.454 s | 9.30 |
 | Unicorn 2.1.4, run 2 | 0.347 s | 2.141 s | 28.03 |
 
-These are headless wall-clock results, including service handling and RGBA
-conversion on every frame, with no PNG encoding or host window. Python uses the
-installed native frame converter. Each run starts with an empty save home and
-holds no buttons during measurement. Rust is **slower in steady state** here
-(0.33–0.46× Unicorn's frame throughput), despite a faster first frame. Host load
-was not controlled; these are observations, not a stable performance guarantee.
-Guest instructions are not counted by the Hypervisor runner.
+Both paths include service handling and RGBA conversion on every measured frame,
+without PNG encoding or a host window. Python uses the installed native frame
+converter. Each starts with an empty save home and no input during measurement.
+Rust is **slower in steady state** here: 0.33–0.46× Unicorn's throughput, despite
+a faster first frame. Host load was not controlled; the spread is substantial.
+These are observations, not a performance guarantee. Hypervisor guest instruction
+counts are not available, so this is a frames/second comparison.
+
+## Architecture and boundaries
+
+`tools/switch/core/` contains the NRO loader, bounded HLE kernel, shared
+HIPC/CMIF/TIPC parser and typed service registries. `hv` enables
+Hypervisor.framework; `desktop` adds SDL, GameController.framework and AudioUnit.
+The imported input/audio crates are dependencies and were not modified.
+The separate fs/texture crates likewise remain owned by their existing developer.
+
+The CPU uses a stable, bounded 512 MiB host arena and permanent thread-affine
+vCPUs, one host thread per guest thread. A process guard serializes guest and
+host memory access. EL0 runs under 4 KiB stage-1 mappings: text RX, rodata R,
+data/BSS/stack/TLS RW. Private EL1 vectors and page tables are inaccessible to
+EL0. Mapping generations maintain translations; executable writes maintain
+instruction caches. Stage 2 permits RWX, with protection enforced at stage 1.
+Overlapping segment pages are rejected. Guest quanta are bounded and resumable.
+
+Timer reads use a shared monotonic 19.2 MHz epoch, not cycle-accurate timing.
+Cache operations use a deterministic 64-byte CTR profile. The kernel implements
+the Python runner's memory, heap, thread, event, handle, wait, mutex, condition,
+address-arbitration, GetInfo, debug, break and exit families. Scheduler/timing and
+several Horizon responses remain simplified.
+
+Service families cover SM, settings, applet, HID, time, FSP, VI/Binder, NV,
+audout, account, power and shared fonts. Sessions and domain children preserve
+kernel object identity. Reply publication is checked; staged GPU memory effects
+commit before fence advancement, with reverse-order rollback on failure.
+Unknown interfaces, commands and unsupported GPU submissions fail explicitly.
+Inline HIPC receive-list mode 1 is not implemented. BSD registration exists,
+but networking is not implemented. Accounts use one synthetic offline user.
+
+The display is a bounded CPU framebuffer/command subset, not a general
+Maxwell-to-Metal renderer. A main-thread SDL window presents RGBA and polls
+input between runtime slices. Slow service work can still delay input/audio;
+this is not a real-time scheduler.
+
+Account saves retain the Python JSON snapshot format and require explicit guest
+filesystem commit. Rust additionally persists virtual SD to per-NRO
+`saves/<sha256>/sd-state.json` on flush or graceful shutdown. Stores use exclusive
+locks, no-follow directory traversal and atomic replacement. The selected NRO,
+including appended RomFS assets, is exposed read-only. Interrupted shutdown and
+general save compatibility have not been established. Python SD remains in memory;
+its account saves share the format, but it does not restore Rust's SD snapshot.
+
+Shared fonts use installed macOS font fallbacks, optionally a local BMP subset
+of Arial Unicode. These are not Nintendo fonts and do not guarantee all glyphs.
+
+Audout supports 48 kHz stereo S16. Host mixing uses `soju-switch-audio` in 240-frame
+blocks, clamps the mixed output, and sends it to the default AudioUnit output.
+Host queues are bounded to 16 voices and 8 MiB PCM, with at most 50 ms submitted
+ahead. The callback uses a single-producer/single-consumer atomic ring, allocates
+nothing, and emits silence on underrun. Pause/close may leave up to 50 ms already
+submitted. Guest buffer release still follows the service's timed model, not
+hardware completion. Device-open failures are explicit. There is no audren
+service, device-selection UI, resampling negotiation or verified real-game audio.
+
+`tools/switch/trace_nro.py` remains the Unicorn fallback. The tiny
+`tools/switch/soju-switch.c` interpreter is only a synthetic fixture runner.
+Earlier Python-only checks covered TooTallNate's 2048 1.2.0 (play/save/restart)
+and Snakey NX 0.4.0 (stopped on unsupported graphics). Those results do not
+establish Rust compatibility for either NRO.
+
+## Validation commands
+
+```sh
+cargo test --offline --manifest-path tools/switch/core/Cargo.toml --features hv
+cargo test --offline --manifest-path tools/switch/core/Cargo.toml --features desktop
+cargo clippy --offline --manifest-path tools/switch/core/Cargo.toml --features desktop --all-targets -- -D warnings
+SOJU_SWITCH_TEST_NRO="$HOME/.local/share/soju/switch/demo/2048-1.1.0.nro" bash scripts/test-switch-hv.sh
+SOJU_SWITCH_TEST_NRO="$HOME/.local/share/soju/switch/demo/2048-1.1.0.nro" bash scripts/test-switch-homebrew.sh
+bash scripts/test-switch-audio.sh
+SOJU_SWITCH_TEST_NRO="$HOME/.local/share/soju/switch/demo/2048-1.1.0.nro" \
+  "$HOME/.local/share/soju/switch/venv/bin/python" -m unittest discover -s tests -p 'test_switch*.py'
+bash scripts/build-app.sh
+```
+
+Final validation: 80 pure Rust tests with `hv`, 82 with `desktop`, 20 signed
+Hypervisor tests, one signed real-NRO acceptance test, one signed AudioUnit tone
+test, and 97 Python Switch tests (95 passed, two optional NRO cases skipped).
+Clippy passed with warnings denied. The app was built and signature-verified,
+not installed or published. Fresh setup and both launcher selections were tested
+in `dist/`; the user's installed runner was not replaced.
