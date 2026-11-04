@@ -38,7 +38,7 @@ extension Models3D {
                 for (node,transform) in b.rest { node.removeAllAnimations();node.simdTransform=transform }
                 world.background.contents=NSColor(calibratedRed:0.1,green:0.13,blue:0.18,alpha:1)
                 Self.lights(world)
-                let camera=SCNNode();camera.camera=SCNCamera();camera.camera!.fieldOfView=45
+                let camera=SCNNode();camera.camera=SCNCamera();camera.camera!.fieldOfView=45;Self.exposure(camera.camera!)
                 world.rootNode.addChildNode(camera)
                 let box=a.root.boundingBox,size=max(box.max.x-box.min.x,max(box.max.y-box.min.y,box.max.z-box.min.z))
                 let center=SCNVector3((box.min.x+box.max.x)/2,(box.min.y+box.max.y)/2,(box.min.z+box.max.z)/2)

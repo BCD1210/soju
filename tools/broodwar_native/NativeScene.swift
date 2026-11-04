@@ -200,7 +200,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         view.antialiasingMode = .multisampling4X
         world.background.contents=NSColor(calibratedRed:0.025,green:0.035,blue:0.05,alpha:1)
         camera.camera=SCNCamera();camera.camera!.fieldOfView=80
-        camera.camera!.zNear=0.03;camera.camera!.zFar=150
+        camera.camera!.zNear=0.03;camera.camera!.zFar=150;Models3D.exposure(camera.camera!)
         world.rootNode.addChildNode(camera);view.pointOfView=camera
         Models3D.lights(world,tileset:(art.manifest["map"] as? Obj)?["tileset"] as? String ?? "badlands");world.rootNode.addChildNode(effects.root)
         label=NSTextField(wrappingLabelWithString:"");label.textColor = .white
@@ -216,7 +216,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         if xrRequested {
             xrRenderer=SCNRenderer(device:art.device,options:nil);xrRenderer!.scene=world
             xrRenderer!.usesReverseZ=false;xrRenderer!.isJitteringEnabled=false;xrRenderer!.isPlaying=true
-            xrCamera.camera=SCNCamera();xrCamera.camera!.zNear=0.03;xrCamera.camera!.zFar=150
+            xrCamera.camera=SCNCamera();xrCamera.camera!.zNear=0.03;xrCamera.camera!.zFar=150;Models3D.exposure(xrCamera.camera!)
             world.rootNode.addChildNode(xrCamera);xrRenderer!.pointOfView=xrCamera
             view.pointOfView=xrCamera;view.isPlaying=false;view.rendersContinuously=false
             let mirror=MirrorView(frame:view.bounds);mirror.autoresizingMask=[.width,.height];mirror.imageScaling = .scaleProportionallyUpOrDown
@@ -556,16 +556,21 @@ extension Commander {
         projection.m43 = -2*far*near/(far-near);projection.m44=0
         xrCamera.camera!.projectionTransform=projection
         SCNTransaction.commit();SCNTransaction.flush()
+        // SceneKit shades in linear light; the runtime consumes display-encoded bytes.
+        // An sRGB view also covers runtimes advertising only BGRA8Unorm.
+        guard let output = texture.pixelFormat == .bgra8Unorm ? texture.makeTextureView(pixelFormat:.bgra8Unorm_srgb) : texture else {
+            fputs("XR sRGB render view unavailable\n",stderr);return
+        }
         let index=Int(eye.eye)
         if xrDepth[index]?.width != texture.width || xrDepth[index]?.height != texture.height {
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float_stencil8,width:texture.width,height:texture.height,mipmapped:false)
             desc.storageMode = .private;desc.usage = .renderTarget
             desc.textureType = .type2DMultisample;desc.sampleCount=4
             xrDepth[index]=art.device.makeTexture(descriptor:desc)
-            desc.pixelFormat=texture.pixelFormat;xrColor[index]=art.device.makeTexture(descriptor:desc)
+            desc.pixelFormat=output.pixelFormat;xrColor[index]=art.device.makeTexture(descriptor:desc)
         }
         let pass=MTLRenderPassDescriptor();pass.colorAttachments[0].texture=xrColor[index]
-        pass.colorAttachments[0].resolveTexture=texture
+        pass.colorAttachments[0].resolveTexture=output
         pass.colorAttachments[0].loadAction = .clear;pass.colorAttachments[0].storeAction = .multisampleResolve
         pass.colorAttachments[0].clearColor=MTLClearColorMake(0.025,0.035,0.05,1)
         pass.depthAttachment.texture=xrDepth[index];pass.depthAttachment.loadAction = .clear
@@ -578,7 +583,9 @@ extension Commander {
                 "presentation":[xrCamera.presentation.simdWorldPosition.x,xrCamera.presentation.simdWorldPosition.y,xrCamera.presentation.simdWorldPosition.z],
                 "desktop":[camera.simdWorldPosition.x,camera.simdWorldPosition.y,camera.simdWorldPosition.z],
                 "fov":[eye.left,eye.right,eye.up,eye.down],"unitCount":nodes.count,"terrainCount":terrain.count,
-                "tracked":eye.tracked,"selected":selected,"frame":number(state,"frame"),"yaw":yaw,
+                "swapchainFormat":texture.pixelFormat.rawValue,"renderFormat":output.pixelFormat.rawValue,
+                "exposureOffset":xrCamera.camera!.exposureOffset,"hdr":xrCamera.camera!.wantsHDR,
+                "iblIntensity":world.lightingEnvironment.intensity,"tracked":eye.tracked,"selected":selected,"frame":number(state,"frame"),"yaw":yaw,
                 "orientation":[xrCamera.simdOrientation.imag.x,xrCamera.simdOrientation.imag.y,xrCamera.simdOrientation.imag.z,xrCamera.simdOrientation.real]]
             if let data=try? JSONSerialization.data(withJSONObject:diagnostic,options:.prettyPrinted) { try? data.write(to:runtime.appendingPathComponent("xr-view-diagnostics.json"),options:.atomic) }
         }
