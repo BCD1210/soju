@@ -7,15 +7,21 @@ static SDL_Renderer *renderer;
 static SDL_Texture *texture;
 static int width, height;
 static Uint64 pressed_until[SDL_NUM_SCANCODES];
+static Uint64 pressed_frame[SDL_NUM_SCANCODES];
+static Uint64 frame_number;
 
 void soju_host_close(void) {
     SDL_DestroyTexture(texture); texture = NULL;
     SDL_DestroyRenderer(renderer); renderer = NULL;
     SDL_DestroyWindow(window); window = NULL;
+    [GCController stopWirelessControllerDiscovery];
     SDL_Quit();
 }
 const char *soju_host_error(void) { return SDL_GetError(); }
 int soju_host_open(void) {
+    memset(pressed_until, 0, sizeof(pressed_until));
+    memset(pressed_frame, 0, sizeof(pressed_frame));
+    frame_number = 0;
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) return -1;
     window = SDL_CreateWindow("Soju — Switch homebrew", SDL_WINDOWPOS_CENTERED,
@@ -37,6 +43,7 @@ int soju_host_present(const unsigned char *pixels, int w, int h) {
     if (SDL_UpdateTexture(texture, NULL, pixels, w * 4)) return -1;
     if (SDL_RenderClear(renderer) || SDL_RenderCopy(renderer, texture, NULL, NULL)) return -1;
     SDL_RenderPresent(renderer);
+    ++frame_number;
     return 0;
 }
 // Flat arrays keep the Objective-C/Rust ABI independent of compiler bool layout.
@@ -45,7 +52,10 @@ int soju_host_poll(unsigned char *keys, float *pad) {
         SDL_Event event;
         int quit = 0;
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_KEYDOWN && !event.key.repeat) pressed_until[event.key.keysym.scancode] = SDL_GetTicks64() + 80;
+            if (event.type == SDL_KEYDOWN && !event.key.repeat) {
+                pressed_until[event.key.keysym.scancode] = SDL_GetTicks64() + 500;
+                pressed_frame[event.key.keysym.scancode] = frame_number + 2;
+            }
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) memset(pressed_until, 0, sizeof(pressed_until));
             if (event.type == SDL_QUIT || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)) quit = 1;
         }
@@ -63,7 +73,12 @@ int soju_host_poll(unsigned char *keys, float *pad) {
             {SDL_SCANCODE_BACKSPACE,0x33},{SDL_SCANCODE_1,0x12},{SDL_SCANCODE_3,0x14},
             {SDL_SCANCODE_LEFT,0x7b},{SDL_SCANCODE_RIGHT,0x7c},{SDL_SCANCODE_DOWN,0x7d},{SDL_SCANCODE_UP,0x7e}
         };
-        for (unsigned i = 0; i < sizeof(pairs)/sizeof(pairs[0]); ++i) keys[pairs[i][1]] |= state[pairs[i][0]] || pressed_until[pairs[i][0]] > SDL_GetTicks64();
+        // Keep quick taps until the guest can scan input, including on a slow frame.
+        for (unsigned i = 0; i < sizeof(pairs)/sizeof(pairs[0]); ++i) {
+            int scancode = pairs[i][0];
+            bool pulse = pressed_until[scancode] > SDL_GetTicks64() && pressed_frame[scancode] > frame_number;
+            keys[pairs[i][1]] |= state[scancode] || pulse;
+        }
         for (GCController *controller in GCController.controllers) {
             GCExtendedGamepad *g = controller.extendedGamepad;
             if (!g) continue;
