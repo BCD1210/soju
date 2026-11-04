@@ -126,3 +126,5 @@ mod tests {
         assert!(decode(&trailing, key).is_err());
     }
 }
+
+mod state;
