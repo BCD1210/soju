@@ -75,7 +75,7 @@ def prepare(folder,kind):
     return info,masks
 
 
-def calibrate(folder,kind):
+def calibrate(folder,kind,elevation=None):
     data=np.load(folder/'source.npz');vertices,triangles=data['vertices'],data['triangles']
     info,masks=prepare(folder,kind)
     center=(vertices.min(0)+vertices.max(0))/2
@@ -87,7 +87,7 @@ def calibrate(folder,kind):
     # Broad absolute-yaw/sign/elevation search followed by all-view refinement.
     grid=[]
     for sign in (-1,1):
-        for elev in (15,25,35,45,55,65):
+        for elev in ([elevation] if elevation is not None else (15,25,35,45,55,65)):
             for yaw in range(0,360,45):
                 c={**camera,'elevation':elev,'yaws':[yaw+sign*d*11.25 for d in range(17)]}
                 vals=score(vertices,triangles,c,masks)
@@ -101,7 +101,7 @@ def calibrate(folder,kind):
     def loss(x):
         return 1-np.mean(score(vertices,triangles,decode(x),masks))
     initial=np.array([best['elevation'],best['yaw'],scale,*center])
-    bounds=[(5,80),(best['yaw']-40,best['yaw']+40),(scale*.5,scale*1.8),
+    bounds=[(elevation-.001,elevation+.001) if elevation is not None else (5,80),(best['yaw']-40,best['yaw']+40),(scale*.5,scale*1.8),
             *[(c-.6,c+.6) for c in center]]
     result=optimize.minimize(loss,initial,method='Powell',bounds=bounds,
                              options={'maxiter':18,'xtol':.0002,'ftol':.00002})
@@ -139,7 +139,7 @@ def vertex_normals(vertices, triangles):
     return result/np.maximum(np.linalg.norm(result,axis=1,keepdims=True),1e-12)
 
 
-def fit(folder, iterations=100, regularization=2., label='fit'):
+def fit(folder, iterations=100, regularization=2., label='fit', normal_weight=.85):
     data=np.load(folder/'source.npz');original,triangles=data['vertices'],data['triangles']
     camera=json.loads((folder/'camera.json').read_text())['camera']
     masks=np.array([np.array(Image.open(folder/'references'/f'{d:02}-diffuse.png'))[...,3]>127 for d in range(17)])
@@ -198,7 +198,7 @@ def fit(folder, iterations=100, regularization=2., label='fit'):
         forces/=np.maximum(counts[:,None],1)
         # Normal displacement plus a small tangential component allows contour sliding.
         normal_part=normals*np.sum(forces*normals,axis=1,keepdims=True)
-        forces=.85*normal_part+.15*forces
+        forces=normal_weight*normal_part+(1-normal_weight)*forces
         delta=np.column_stack([solve(forces[:,i]) for i in range(3)])
         displacement=vertices-start
         delta-=.015*np.column_stack([solve(lap@displacement[:,i]) for i in range(3)])
@@ -207,7 +207,8 @@ def fit(folder, iterations=100, regularization=2., label='fit'):
     report={'label':label,'iterations':iterations,'regularization':regularization,'bestIteration':best_iteration,
             'best':history[best_iteration],'history':history,'maxDisplacementUnits':float(np.linalg.norm(best-start,axis=1).max()),
             'skinWeights':'unchanged; rest displacements require inverse idle skin matrices',
-            'method':'raster contour SDF forces, 85% normal / 15% tangential, welded Laplacian displacement regularization'}
+            'normalWeight':normal_weight,
+            'method':'raster contour SDF forces, normal/tangential mix, welded Laplacian displacement regularization'}
     (folder/f'{label}.json').write_text(json.dumps(report,indent=2)+'\n')
 
 
@@ -215,10 +216,11 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('stage',choices=['camera','fit']);p.add_argument('--types',default='0,7')
     p.add_argument('--iterations',type=int,default=100);p.add_argument('--regularization',type=float,default=2)
-    p.add_argument('--label',default='fit');a=p.parse_args()
+    p.add_argument('--elevation',type=float);p.add_argument('--normal-weight',type=float,default=.85)
+    p.add_argument('--label',default='fit');p.add_argument('--variant',default='rigged');a=p.parse_args()
     for kind in map(int,a.types.split(',')):
-        folder=RUNTIME/'models-remastered'/str(kind)/'rigged'
-        if a.stage=='camera':calibrate(folder,kind)
-        else:fit(folder,a.iterations,a.regularization,a.label)
+        folder=RUNTIME/'models-remastered'/str(kind)/a.variant
+        if a.stage=='camera':calibrate(folder,kind,a.elevation)
+        else:fit(folder,a.iterations,a.regularization,a.label,a.normal_weight)
 
 if __name__=='__main__':main()

@@ -31,10 +31,13 @@ def validate(folder):
         ref=Image.open(folder/'references'/f'{d:02}-diffuse.png').convert('RGBA')
         ours=Image.open(folder/'renders'/f'{d:02}.png').convert('RGBA')
         if ref.size!=ours.size:raise ValueError('Render canvas mismatch; resizing is forbidden')
-        row={'direction':d,'cameraAzimuthDegrees':-d*11.25,**metrics(np.asarray(ref)/255.,np.asarray(ours)/255.)}
-        panel=Image.new('RGB',(ref.width*2,ref.height+40),(20,20,20))
+        row={'direction':d,'cameraAzimuthDegrees':config.get('camera',{}).get('yaws',[-i*11.25 for i in range(17)])[d],**metrics(np.asarray(ref)/255.,np.asarray(ours)/255.)}
+        panel=Image.new('RGB',(ref.width*3,ref.height+40),(20,20,20))
         panel.paste(ref,(0,40),ref);panel.paste(ours,(ref.width,40),ours)
-        ImageDraw.Draw(panel).text((8,8),f"Remastered | ours    IoU {row['silhouetteIoU']:.4f}    SSIM {row['diffuseSSIM']:.4f}",fill='white')
+        ref_rgb=np.asarray(ref).astype(float)/255;ours_rgb=np.asarray(ours).astype(float)/255
+        difference=np.abs(ref_rgb[...,:3]*ref_rgb[...,3,None]-ours_rgb[...,:3]*ours_rgb[...,3,None])
+        panel.paste(Image.fromarray(np.uint8(difference*255)),(ref.width*2,40))
+        ImageDraw.Draw(panel).text((8,8),f"Remastered | ours | difference    IoU {row['silhouetteIoU']:.4f}    SSIM {row['diffuseSSIM']:.4f}",fill='white')
         path=out/f'{d:02}.png';panel.save(path);row['comparison']=str(path);rows.append(row)
     fidelity=all(r['passed'] for r in rows)
     required=['idle','walk','attack','death']+(['work'] if config['type']==7 else [])
