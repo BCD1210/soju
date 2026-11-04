@@ -64,7 +64,7 @@ final class MetalBatches {
         d.isDepthWriteEnabled=false;shadowDepth=device.makeDepthStencilState(descriptor:d)!
         d.depthCompareFunction = .always;overlayDepth=device.makeDepthStencilState(descriptor:d)!
     }
-    func texture(_ value:Any?,fallback:MTLTexture,topLeft:Bool=false)throws->MTLTexture {
+    func texture(_ value:Any?,fallback:MTLTexture,topLeft:Bool=true)throws->MTLTexture {
         if let t=value as? MTLTexture {return t}
         guard let image=value as? NSImage else {return fallback}
         let key=String(describing:ObjectIdentifier(image))+"/\(topLeft)"
@@ -152,9 +152,9 @@ final class MetalBatches {
             let shadow=key.hasSuffix("/true"),relief = !(geometry is SCNPlane)
             let (vertices,indices)=mesh(geometry)
             if vertices.isEmpty || indices.isEmpty {continue}
-            var maps=[try texture(material.diffuse.contents,fallback:white,topLeft:relief)]
+            var maps=[try texture(material.diffuse.contents,fallback:white,topLeft:true)]
             for name in ["normal","bright","specular","emissive","ao_depth"] {
-                maps.append(try texture(relief ? (material.value(forKey:"relief_"+name) as? SCNMaterialProperty)?.contents:nil,fallback:name=="normal" ? normal:name=="ao_depth" ? white:black,topLeft:relief))
+                maps.append(try texture(relief ? (material.value(forKey:"relief_"+name) as? SCNMaterialProperty)?.contents:nil,fallback:name=="normal" ? normal:name=="ao_depth" ? white:black,topLeft:true))
             }
             var flat:MTLBuffer?
             if relief {

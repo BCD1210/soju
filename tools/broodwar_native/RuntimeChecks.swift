@@ -38,8 +38,11 @@ func runtimeChecks()throws {
         blit.copy(from:texture,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:2,height:2,depth:1),to:readback,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:512)
         blit.endEncoding();command.commit();command.waitUntilCompleted()
         let first=readback.contents().load(as:UInt8.self)
-        try require(topLeft ? first>250:first<5,"Metal texture origin matches relief or plane UV convention")
+        try require(topLeft ? first>250:first<5,"Metal texture loader honors requested origin")
     }
+    let (planeVertices,_)=batchCheck.mesh(SCNPlane(width:1,height:1))
+    let planeTop=planeVertices.max(by:{$0.position.y<$1.position.y})!
+    try require(planeTop.uv.y==0,"SceneKit plane UVs also start at the image top")
     let cache=ResidentCache<Int>(limit:4)
     cache.insert(1,key:"first",bytes:2);cache.insert(2,key:"second",bytes:2)
     _=cache.get("first");cache.insert(3,key:"third",bytes:2)
