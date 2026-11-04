@@ -9,6 +9,11 @@ including the portable regression test and macOS cross-build include fix.
 The anchored front end accepts native controller input without desktop focus.
 It does not pull focus from the simulator, and mouse injection still requires
 D2R focus. The existing Native-tagged BodyWalk/XInput path selects classes.
+On OXRSys, a fresh title-screen A/Start posts Enter to the game window only while
+TitleScreenPanel is open. A release gate prevents that press carrying into Play.
+A black projection background makes OXRSys stream quad-only menus. During loading,
+the in-process virtual pad returns neutral controls instead of disconnecting;
+external BodyWalk writers retain their timeout. Regression tests cover all three.
 
 ## Rebuild
 
@@ -32,7 +37,7 @@ built DLL that will be published. No game assets are included.
 
 ## Release gate
 
-No artifact has been uploaded by this change. After separate live qualification:
+No artifact has been uploaded by this change. After simulator qualification (real Quest remains unverified):
 
 1. Publish the staged DLL at the `vr-mod-v1` URL in resources/d2r-vr.json. Confirm
    its size and SHA-256 match `mod_patch`; never replace a published artifact.

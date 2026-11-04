@@ -49,15 +49,19 @@ connect as soon as it appears, before advancing the title screen. Opening the
 simulator window alone is insufficient: press **Connect** so it sends tracked head
 poses. The menu cannot anchor without tracking.
 
-1. Use the **left stick + A** to select offline Play, New, and a class. D2R's own
-   controller UI handles class selection; the injected laser is not used for it.
+1. Press **A** at the title. On OXRSys this sends one Enter directly to the title
+   window, without changing desktop focus. Use offline Play / character selection,
+   then **Start** for New (the first press may only switch to controller layout).
+   Choose a class with the **left stick + A**. D2R's native controller UI handles
+   class selection; the injected laser is not used for it.
 2. Select the name field, click the D2R window to give it keyboard focus, and type
    the name on the Mac keyboard. Release controller keys before switching windows.
 3. Return focus to the simulator (or resume the headset controller), then use
    stick + A to finish creation and enter the game. No `--flat` restart is needed.
 
 For the local lab simulator build: **I/K/J/L** = left stick up/down/left/right;
-**B** = A/confirm; **N** = B/back; **Z/X** = X/Y; **Space/V** = right/left trigger.
+**B** = A/confirm; **N** = B/back; **Escape** = Start/New; **Z/X** = X/Y;
+**Space/V** = right/left trigger.
 Keep the simulator frontmost while using these keys and release each press.
 **Tab** toggles right-hand mouse aim; press it again to reset the hand aim and
 return to mouse head look. The existing backtick toggle aims the left hand.
@@ -65,8 +69,17 @@ These keyboard mappings are lab additions; the stock OXRSys app may differ.
 Stick + A works while the simulator has focus. Laser mouse clicks still require
 D2R focus. On Quest use the physical left thumbstick and A button.
 
-The front-end focus fix is unit-tested and cross-built. Character creation and
-text entry still require live qualification on the simulator and a real Quest.
+The simulator path was live-tested on 2026-11-03: title → offline character
+selection → New → Paladin → keyboard name → creation → stereo gameplay, without
+`--flat`. The OXRSys menu now includes a black projection background so its runtime
+streams the world-space menu quads. The virtual pad stays connected with neutral
+controls while loading pauses XR publication, avoiding the reconnect dialog.
+
+After restarting D2R, disconnect the simulator's old session and Search/Connect
+again; an old frozen image with RECV 0 does not mean it connected to the new game.
+Real Quest testing remains outstanding. A separate existing body-calibration
+font-weight warning appeared in the lab build; this work does not qualify that
+calibration UI or extended gameplay.
 
 ## Patched mod distribution
 
