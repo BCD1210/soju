@@ -253,3 +253,47 @@ first-frame smoke result, not an instructions/second measurement or interactive
 acceptance. libnx's cache maintenance uses a deterministic 64-byte CTR profile
 and checked cache operations; the host's cache geometry is not exposed through
 CTR. Input, restart restoration and the window path require separate acceptance.
+
+### Rust interactive acceptance and benchmark (2026-11-03)
+
+The `desktop` feature now presents RGBA frames in an SDL macOS window and maps
+keyboard/GameController.framework input through `soju-switch-input`. Both stick
+axes reach HID shared memory. B aliases the input crate's Z button mapping.
+Escape requests applet exit, waits up to five seconds, and reports failure if the
+guest does not exit. Real keyboard input moved/merged 2048 tiles (score 4), and
+Escape returned process status 0 after implementing VI DestroyStrayLayer cleanup
+([public command description](https://switchbrew.org/wiki/VI_services#DestroyStrayLayer)).
+A physical gamepad has not been tested.
+
+`soju switch setup` builds the release desktop core and ad-hoc signs its installed
+copy with the Hypervisor entitlement. CLI and Library Play prefer that binary.
+`SOJU_SWITCH_RUNNER=python` forces the previous Unicorn path; `rust` requires a
+built Rust runner, and `auto` (default) falls back when it is absent.
+
+```sh
+SOJU_SWITCH_TEST_NRO="$HOME/.local/share/soju/switch/demo/2048-1.1.0.nro" \
+  bash scripts/test-switch-homebrew.sh
+```
+
+This signed release test checks that **each** of left/down/right changes the
+framebuffer, that 2048 writes `/switch/2048/state` into its persisted SD snapshot,
+and that a newly created VM/service/filesystem restores the final framebuffer
+byte-for-byte from disk. Both runtime instances exit normally. Isolated test
+homes live under `dist/`; the user's saves are not changed.
+
+On this M4 Pro / macOS 26.5, two runs measured:
+
+| Runner | First converted frame | Next 60 converted frames | Frames/s |
+| --- | --- | --- | --- |
+| Rust release, run 1 | 0.312 s | 7.876 s | 7.62 |
+| Unicorn 2.1.4, run 1 | 0.456 s | 3.628 s | 16.54 |
+| Rust release, run 2 | 0.186 s | 6.454 s | 9.30 |
+| Unicorn 2.1.4, run 2 | 0.347 s | 2.141 s | 28.03 |
+
+These are headless wall-clock results, including service handling and RGBA
+conversion on every frame, with no PNG encoding or host window. Python uses the
+installed native frame converter. Each run starts with an empty save home and
+holds no buttons during measurement. Rust is **slower in steady state** here
+(0.33–0.46× Unicorn's frame throughput), despite a faster first frame. Host load
+was not controlled; these are observations, not a stable performance guarantee.
+Guest instructions are not counted by the Hypervisor runner.

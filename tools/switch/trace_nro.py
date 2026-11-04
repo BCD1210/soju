@@ -199,7 +199,9 @@ def save_frame(cpu, buf, allocation, path):
     path.write_bytes(png)
 
 
-def trace(path, max_steps, capture=None, moves=(), capture_first=None, play=False):
+def trace(path, max_steps, capture=None, moves=(), capture_first=None, play=False, benchmark_frames=0):
+    benchmark_start = time.perf_counter()
+    benchmark_first = None
     image, bss = read_image(path)
     digest = hashlib.sha256()
     with path.open('rb') as source:
@@ -353,6 +355,7 @@ def trace(path, max_steps, capture=None, moves=(), capture_first=None, play=Fals
             write_mutex(address, 0)
 
     def on_interrupt(cpu, kind, unused):
+        nonlocal benchmark_first
         nonlocal heap_size, hid_address, frame_count, move_index, pressed, scheduling, committed_saves, saves_loaded, display_queue
         pc = cpu.reg_read(UC_ARM64_REG_PC)
         try:
@@ -1308,9 +1311,24 @@ def trace(path, max_steps, capture=None, moves=(), capture_first=None, play=Fals
                         slot = binder_queue_slot(cpu, request)
                         buf = display_queue.queue(slot)
                         frame_count += 1
+                        if benchmark_frames:
+                            # Convert every submitted frame, matching the Rust headless path.
+                            frame_pixels(cpu, buf, nv_maps[buf[0]])
+                            now = time.perf_counter()
+                            if benchmark_first is None:
+                                benchmark_first = now
+                                print(f'Unicorn first frame: {now - benchmark_start:.6f}s')
+                            elif frame_count == benchmark_frames + 1:
+                                elapsed = now - benchmark_first
+                                print(f'Unicorn steady: {benchmark_frames} frames in {elapsed:.6f}s ({benchmark_frames / elapsed:.3f} frames/s)')
+                                result['reason'] = f'captured frame {frame_count} for benchmark'
+                                cpu.emu_stop()
+                                return
                         if frame_count == 1 and capture_first is not None:
                             save_frame(cpu, buf, nv_maps[buf[0]], capture_first)
-                        if window:
+                        if benchmark_frames:
+                            mask = 0
+                        elif window:
                             quit_requested, mask = window.draw_and_poll(frame_pixels(cpu, buf, nv_maps[buf[0]]), buf[1], buf[2])
                             if quit_requested and not request_guest_exit():
                                 result['reason'] = f'window closed after {frame_count} frames (no applet exit event)'
@@ -2375,14 +2393,17 @@ def main():
     parser.add_argument("--capture-first", type=Path, help="save the first frame as a PNG")
     parser.add_argument("--moves", default='', help="comma-separated test inputs: left,up,right,down,b")
     parser.add_argument("--play", action='store_true', help="open experimental SDL2 window (arrows, B, Escape)")
+    parser.add_argument('--benchmark-frames', type=int, default=0, help='headless throughput after the first converted frame')
     args = parser.parse_args()
+    if not 0 <= args.benchmark_frames <= 10000 or (args.benchmark_frames and (args.play or args.moves)):
+        parser.error('benchmark requires 1..10000 frames and no play/moves')
     moves = tuple(args.moves.split(',')) if args.moves else ()
     if any(move not in ('left', 'up', 'right', 'down', 'b') for move in moves) or len(moves) > 20:
         parser.error('invalid moves; use up to 20 comma-separated left,up,right,down,b inputs')
     if not 1 <= args.max_steps <= 10_000_000_000:
         parser.error("--max-steps must be between 1 and 10000000000")
     try:
-        return trace(args.nro, args.max_steps, args.capture, moves, args.capture_first, args.play)
+        return trace(args.nro, args.max_steps, args.capture, moves, args.capture_first, args.play, args.benchmark_frames)
     except StopIteration:
         print('soju-switch-trace: emulated handle limit reached', file=sys.stderr)
         return 1
