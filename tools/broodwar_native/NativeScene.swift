@@ -147,20 +147,43 @@ final class MirrorView: NSImageView { override func hitTest(_ point:NSPoint)->NS
 final class WalkView: SCNView {
     weak var commander: Commander?
     var keys=Set<UInt16>();var dragStart=NSPoint.zero;var dragged=false
+    let selectionBox=CAShapeLayer()
     override var acceptsFirstResponder:Bool { true }
     override func keyDown(with e:NSEvent) {
         keys.insert(e.keyCode)
-        if !e.isARepeat { commander?.key(e.charactersIgnoringModifiers?.lowercased() ?? "") }
+        if !e.isARepeat {
+            let key=e.charactersIgnoringModifiers?.lowercased() ?? ""
+            if e.keyCode==111 {commander?.captureDesktop();return}
+            if commander?.groupKey(key,modifiers:e.modifierFlags) != true {commander?.key(key)}
+        }
     }
     override func keyUp(with e:NSEvent) { keys.remove(e.keyCode) }
     override func resignFirstResponder()->Bool { keys.removeAll();return super.resignFirstResponder() }
     override func mouseDown(with e:NSEvent) { dragStart=convert(e.locationInWindow,from:nil);dragged=false }
     override func mouseDragged(with e:NSEvent) {
-        dragged=true;commander?.yaw-=CGFloat(e.deltaX)*0.006
-        commander?.pitch=max(-1.25,min(1.1,(commander?.pitch ?? 0)-CGFloat(e.deltaY)*0.006))
+        let point=convert(e.locationInWindow,from:nil)
+        guard hypot(point.x-dragStart.x,point.y-dragStart.y)>4 else {return}
+        dragged=true
+        if e.modifierFlags.contains(.option) {
+            commander?.yaw-=CGFloat(e.deltaX)*0.006
+            commander?.pitch=max(-1.25,min(1.1,(commander?.pitch ?? 0)-CGFloat(e.deltaY)*0.006))
+        } else {
+            wantsLayer=true
+            if selectionBox.superlayer==nil {layer?.addSublayer(selectionBox)}
+            selectionBox.fillColor=NSColor.green.withAlphaComponent(0.08).cgColor
+            selectionBox.strokeColor=NSColor.green.cgColor;selectionBox.lineWidth=1
+            selectionBox.path=CGPath(rect:NSRect(x:min(point.x,dragStart.x),y:min(point.y,dragStart.y),width:abs(point.x-dragStart.x),height:abs(point.y-dragStart.y)),transform:nil)
+        }
     }
     override func mouseUp(with e:NSEvent) {
-        if !dragged { commander?.select(at:convert(e.locationInWindow,from:nil)) }
+        let point=convert(e.locationInWindow,from:nil)
+        selectionBox.removeFromSuperlayer()
+        if dragged && !e.modifierFlags.contains(.option) {
+            commander?.selectBox(NSRect(x:min(point.x,dragStart.x),y:min(point.y,dragStart.y),width:abs(point.x-dragStart.x),height:abs(point.y-dragStart.y)),add:e.modifierFlags.contains(.shift))
+        } else if !dragged {
+            commander?.select(at:point)
+            if e.clickCount==2 {commander?.selectSameType()}
+        }
     }
     override func rightMouseDown(with e:NSEvent) { commander?.move(to:convert(e.locationInWindow,from:nil)) }
 }
@@ -169,6 +192,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     let art:Art;let bridge=Bridge();let world=SCNScene();let camera=SCNNode()
     var yaw:CGFloat = -0.54,pitch:CGFloat = -0.14
     var units=[String:Obj](),nodes=[String:SCNNode](),selected=[String]()
+    var controlGroups=[Int:[String]]();var tabletop=false
     var terrain=[Int:SCNNode]();var fog=[Int:UInt8]();let fogPresentation=FogPresentation()
     let modelLibrary:Models3D;var models=[String:ModelInstance]();let ground:Terrain3D
     let effects:CombatEffects;var retiring=[String:ModelInstance]()
@@ -288,7 +312,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         if changed {
             for n in nodes.values {n.removeFromParentNode()}
             for m in retiring.values {m.root.removeFromParentNode()}
-            nodes.removeAll();models.removeAll();retiring.removeAll();effects.clear();selected=[]
+            nodes.removeAll();models.removeAll();retiring.removeAll();effects.clear();selected=[];controlGroups.removeAll()
             initialized=false;session=newSession;eventSequence=0;deathCount=0;lostEvents=0
         }
         let events=changed ? []:(s["events"] as? [Obj] ?? []).filter{number($0,"seq")>eventSequence}
@@ -400,7 +424,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         walk((-sin(yaw)*forward+cos(yaw)*side)*speed*dt,(-cos(yaw)*forward-sin(yaw)*side)*speed*dt)
         camera.position.x=max(0.1,min(CGFloat(mapWidth)-0.1,camera.position.x))
         camera.position.z=max(0.1,min(CGFloat(mapHeight)-0.1,camera.position.z))
-        camera.position.y=CGFloat(ground.elevation(Double(camera.position.x),Double(camera.position.z))+1.65)
+        camera.position.y=CGFloat(ground.elevation(Double(camera.position.x),Double(camera.position.z))+(tabletop ? 18:1.65))
         camera.eulerAngles=SCNVector3(pitch,yaw,0)
         Models3D.followLight(world,position:camera.position)
         if now-lastSceneDiagnostic>1 {
@@ -422,7 +446,7 @@ final class Commander: NSObject, NSApplicationDelegate {
             record("3d-scene-diagnostics.json",diagnostics)
             record(xrRequested ? "3d-xr-diagnostics.json":"3d-desktop-diagnostics.json",diagnostics)
         }
-        label.stringValue="LIVE BROOD WAR · RIGGED 3D · \(xrRequested ? "OpenXR commander" : "Desktop commander")\nWASD walk · Drag look · 1 workers / 2 army / 3 bases · G mine · F follow · T train worker · B structure · Q attack · H hold · X stop · R recenter · Right-click command\nFrame \(Int(number(state,"frame")))  Minerals \(Int(number(state,"minerals")))  Selected \(selected.count)  |  \(notice)"
+        label.stringValue="LIVE BROOD WAR · RIGGED 3D · \(xrRequested ? "OpenXR commander" : "Desktop commander")\nWASD walk · Drag select · Option-drag look · Ctrl+0–9 groups · V scale · F12 capture · G mine · F follow · T train worker · B structure · Q attack · H hold · X stop · R recenter · Right-click command\nFrame \(Int(number(state,"frame")))  Minerals \(Int(number(state,"minerals")))  Selected \(selected.count)  |  \(notice)"
     }
     func owned(_ kind:Int)->[Obj] { units.values.filter { Int(number($0,"type"))==kind && number($0,"owner")==number(state,"player") } }
     func group(_ name:String)->[Obj] {
@@ -434,6 +458,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         }.sorted {($0["id"] as? String ?? "")<($1["id"] as? String ?? "")}
     }
     func key(_ key:String) {
+        if key=="v" {toggleTabletop();return}
         if key=="q" {targetingOrder="attack_move";notice="Point at enemy or ground to attack"}
         if key=="h",!selected.isEmpty {command(["op":"hold","units":Array(selected.prefix(12))])}
         if key=="p" {targetingOrder="patrol";notice="Point at ground to patrol"}
