@@ -97,6 +97,16 @@ func runtimeChecks()throws {
         "owned HD creep border is loadable")
     try require(commander.wrists.ray.categoryBitMask==2 && commander.wrists.box.categoryBitMask==2,
         "decorative rays and drag outlines cannot intercept command hits")
+    let tileFiles=((commander.art.manifest["tiles"] as? [String:Obj]) ?? [:]).values.compactMap{$0["file"] as? String}.sorted()
+    if tileFiles.count>=2 {
+        let neighbors=[tileFiles[1]]+[String](repeating:tileFiles[0],count:8)
+        let material=try commander.art.terrainMaterial(neighbors)
+        let padded=material.diffuse.contents as! MTLTexture,original=try commander.art.texture(tileFiles[1])
+        var border=[UInt8](repeating:0,count:4),expected=[UInt8](repeating:0,count:4)
+        padded.getBytes(&border,bytesPerRow:4,from:MTLRegionMake2D(0,0,1,1),mipmapLevel:0)
+        original.getBytes(&expected,bytesPerRow:4,from:MTLRegionMake2D(original.width-8,original.height-8,1,1),mipmapLevel:0)
+        try require(padded.width==original.width+16 && border==expected,"terrain mip gutter contains the real diagonal neighbor")
+    }
     let card=CommandCard();card.accept(["types":[["id":7,"mineralCost":75,"gasCost":9]]])
     let production=card.choices(["type":106,"building":true])
     try require(production.contains{$0.payload["op"] as? String == "train" && $0.title.hasSuffix("75/9")},"command card uses native DAT prices")

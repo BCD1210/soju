@@ -132,6 +132,42 @@ final class Art {
         blit.generateMipmaps(for:t);blit.endEncoding();command.commit();command.waitUntilCompleted()
         textures[name]=t;return t
     }
+    // Filter across the actual map neighbors instead of repeating each tile's
+    // edge texel. The gutter participates in mip generation at oblique angles.
+    func terrainMaterial(_ files:[String]) throws -> SCNMaterial {
+        guard files.count==9 else {throw SceneError.invalid("Terrain neighborhood")}
+        let key="neighbors:"+files.joined(separator:"|")
+        let center=try texture(files[4]),gutter=8
+        let width=center.width,height=center.height,paddedWidth=width+gutter*2,paddedHeight=height+gutter*2
+        let padded:MTLTexture
+        if let cached=textures[key] {padded=cached}
+        else {
+            var pixels=[UInt8](repeating:0,count:paddedWidth*paddedHeight*4)
+            for row in 0..<3 {for column in 0..<3 {
+                let tile=try texture(files[row*3+column])
+                guard tile.width==width && tile.height==height else {throw SceneError.invalid("Mixed terrain texture sizes")}
+                let copyWidth=column==1 ? width:gutter,copyHeight=row==1 ? height:gutter
+                let sx=column==0 ? width-gutter:0,sy=row==0 ? height-gutter:0
+                let dx=column==0 ? 0:column==1 ? gutter:gutter+width
+                let dy=row==0 ? 0:row==1 ? gutter:gutter+height
+                pixels.withUnsafeMutableBytes {buffer in
+                    tile.getBytes(buffer.baseAddress!.advanced(by:(dy*paddedWidth+dx)*4),bytesPerRow:paddedWidth*4,
+                        from:MTLRegionMake2D(sx,sy,copyWidth,copyHeight),mipmapLevel:0)
+                }
+            }}
+            let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:paddedWidth,height:paddedHeight,mipmapped:true)
+            descriptor.storageMode = .shared;descriptor.usage = .shaderRead
+            guard let image=device.makeTexture(descriptor:descriptor),let queue=device.makeCommandQueue(),let command=queue.makeCommandBuffer(),let blit=command.makeBlitCommandEncoder() else {throw SceneError.invalid("Terrain gutter allocation")}
+            pixels.withUnsafeBytes {image.replace(region:MTLRegionMake2D(0,0,paddedWidth,paddedHeight),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:paddedWidth*4)}
+            blit.generateMipmaps(for:image);blit.endEncoding();command.commit();command.waitUntilCompleted()
+            textures[key]=image;padded=image
+        }
+        let material=try self.material(files[4]);material.diffuse.contents=padded
+        var transform=SCNMatrix4MakeScale(CGFloat(width)/CGFloat(paddedWidth),-CGFloat(height)/CGFloat(paddedHeight),1)
+        transform.m41=CGFloat(gutter)/CGFloat(paddedWidth);transform.m42=CGFloat(height+gutter)/CGFloat(paddedHeight)
+        material.diffuse.contentsTransform=transform
+        return material
+    }
     func material(_ file:String) throws -> SCNMaterial {
         let m=SCNMaterial();m.lightingModel = .constant;m.diffuse.contents=try texture(file)
         // DDS rows start at the top; direct Metal textures do not receive the

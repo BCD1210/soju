@@ -126,7 +126,11 @@ extension Commander {
                 guard let a=tiles[String(mapTiles[index])],let file=a["file"] as? String else { continue }
                 do {
                     // HD megatiles already contain the original terrain lighting.
-                    let material=try art.material(file)
+                    let neighbors=(-1...1).flatMap { dy in (-1...1).map { dx -> String in
+                        let nx=max(0,min(mapWidth-1,x+dx)),ny=max(0,min(mapHeight-1,y+dy))
+                        return tiles[String(mapTiles[ny*mapWidth+nx])]?["file"] as? String ?? file
+                    }}
+                    let material=try art.terrainMaterial(neighbors)
                     material.multiply.wrapS = .clamp;material.multiply.wrapT = .clamp
                     material.multiply.minificationFilter = .linear;material.multiply.magnificationFilter = .linear
                     let p=ground.geometry(tileX:x,tileY:y,material:material)
