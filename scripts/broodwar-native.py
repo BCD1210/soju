@@ -6,6 +6,7 @@ import json
 import os
 import pathlib
 import secrets
+import signal
 import shutil
 import socket
 import subprocess
@@ -105,8 +106,51 @@ def bridge_listening():
             return True
     return False
 
-def play(map_path):
+def dedicated_processes():
+    result = subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, check=True)
+    game = windows(GAME / "x86_64/StarCraft.exe")
+    loader = str(RUNTIME / "samase64.exe")
+    processes = []
+    for line in result.stdout.splitlines():
+        fields = line.strip().split(None, 1)
+        if len(fields) != 2:
+            continue
+        pid, command = fields
+        if command.startswith(game + " ") or command == game or (
+                command.startswith(str(ENGINE) + "/") and loader in command.split()):
+            processes.append(int(pid))
+    return processes
+
+
+def stop():
     check_prefix()
+    try:
+        subprocess.run([str(ENGINE/"bin/wineserver"), "-k"], env=environment(), timeout=5,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        pass
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        for pid in dedicated_processes():
+            try:
+                os.kill(pid, sig)
+            except ProcessLookupError:
+                pass
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            if not dedicated_processes():
+                return
+            time.sleep(0.1)
+    remaining = dedicated_processes()
+    if remaining:
+        raise RuntimeError(f"Dedicated client did not exit; remaining PIDs: {remaining}. Shared services were left running.")
+
+
+def play(map_path, detach=False, startup_timeout=120, restart=False):
+    check_prefix()
+    if restart:
+        stop()
+    elif dedicated_processes():
+        raise RuntimeError("Dedicated client already exists; use play --restart for scoped recovery.")
     loader = RUNTIME/"samase64.exe"
     if not loader.is_file() or digest(loader) != LOADER_SHA:
         raise RuntimeError("Pinned Samase loader missing; run setup.")
@@ -139,9 +183,11 @@ def play(map_path):
     command.append(windows(RUNTIME/"mod"))
     process = subprocess.Popen(command,env=env,cwd=RUNTIME)
     if map_path is not None:
-        deadline = time.monotonic() + 120
+        deadline = time.monotonic() + startup_timeout
         first_frame = None
         while time.monotonic() < deadline:
+            if process.poll() is not None and process.returncode != 0:
+                raise RuntimeError(f"Game loader exited with status {process.returncode}")
             try:
                 state = request()
             except (OSError, RuntimeError):
@@ -158,6 +204,8 @@ def play(map_path):
             time.sleep(0.5)
         else:
             raise RuntimeError("Map startup timed out without advancing frames; inspect the dedicated client.")
+    if detach:
+        return
     result = process.wait()
     if result:
         raise subprocess.CalledProcessError(result, command)
@@ -217,6 +265,9 @@ def main():
     p.add_argument("--domain",choices=["units","effects"],default="units")
     sub.add_parser("model-check")
     p=sub.add_parser("play")
+    p.add_argument("--detach", action="store_true", help="Return after verified advancing game frames")
+    p.add_argument("--restart", action="store_true", help="Recover only the dedicated client before launch")
+    p.add_argument("--startup-timeout", type=float, default=120)
     mode=p.add_mutually_exclusive_group()
     mode.add_argument("--map",type=pathlib.Path,default=DEFAULT_MAP)
     mode.add_argument("--menu",action="store_true",help="Open the normal menu for Remastered account/HD settings.")
@@ -244,10 +295,11 @@ def main():
         return assets_main([a.action.removeprefix("assets-")]+([str(a.source)] if hasattr(a,"source") else [])+["--domain",a.domain])
     elif a.action=="model-check":
         subprocess.run([str(RUNTIME/"soju-bw-scene"),"--model-check"],check=True)
-    elif a.action=="play": play(None if a.menu else a.map)
-    elif a.action=="stop":
-        check_prefix()
-        subprocess.run([str(ENGINE/"bin/wineserver"),"-k"],env=environment(),check=True)
+    elif a.action=="play":
+        if a.startup_timeout<=0:parser.error("Startup timeout must be positive")
+        if a.menu and a.detach:parser.error("Detached launch requires a map")
+        play(None if a.menu else a.map, a.detach, a.startup_timeout, a.restart)
+    elif a.action=="stop": stop()
     elif a.action=="status":
         try:
             s=request()
