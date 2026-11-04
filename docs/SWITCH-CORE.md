@@ -261,16 +261,27 @@ not verified. References: [NPDM](https://switchbrew.org/wiki/NPDM) and
 
 ## GPU merge status (M2 incomplete)
 
-`feat/switch-shader` was merged at `59db612`, including the persistent Metal
-worker, deferred readback, fences and eight-target support. Neither imported
-crate was edited. Its nine existing GPU tests pass, including four native Metal
-render/resource tests. These test that crate's synthetic method streams only.
-The runner's NV GPFIFO path still uses its existing CPU command subset; it is
-**not connected to this Metal backend**. The current acceptance corpus is 59
-official devkitPro examples; Snakey NX is deferred. The windowless harness captures
-32 first frames versus the supplied Unicorn baseline of two, but no GPU-rendered
-example is verified. See [the per-example report](SWITCH-EXAMPLES.md) for source
-comparisons, exact blockers, local commits and regression evidence.
+The GPU branch was merged again at `809f272` (upstream tip `2b31d37`), and the
+filesystem/TZif branch at `9009007` (tip `a956946`). Imported GPU/shader code was
+not edited. The backend passes 17 tests; the shader crate passes 43.
+
+`SOJU_SWITCH_GPU=metal` now opts into a synchronous runner bridge. It snapshots
+mapped guest buffers, routes engine methods, reads back native Metal actions,
+and stages changed pages through the existing IPC transaction before publishing
+the fence. A synthetic native red clear verifies pixels and delayed publication.
+The default remains the existing CPU subset. Shader extents, full engine/MME
+routing, submission flags, scheduling and persistent resource tracking are not
+finished. Real OpenGL streams stop on unsupported 2D initialization; deko streams
+stop on mapping/submission constraints. **No GPU example is accepted.**
+
+The original corpus now reaches **33/59** first frames versus the supplied
+Unicorn baseline of **2/59**, with 25 stops and one exit without a frame. Curl
+finishes with offline DNS failure and cleanup, then exits on Plus. Host Pacific
+time is verified using `/etc/localtime` and the merged TZif parser. A separately
+built shared-font example renders the source's English and Japanese text using
+the installed host Unicode subset. Audren, audin and hwopus remain unfinished.
+See [the per-example report](SWITCH-EXAMPLES.md) for captures, exact blockers,
+supplemental build results, local commits and regression evidence.
 
 ## Validation commands
 
