@@ -1696,7 +1696,10 @@ fn bgra_views_and_srgb_sampling() {
 #[test]
 #[ignore = "explicit mixed throughput measurement"]
 fn throughput_state_mixes() {
-    const DRAWS: u32 = 2000;
+    let draws: u32 = std::env::var("SOJU_GPU_BENCH_DRAWS")
+        .map(|v| v.parse().expect("SOJU_GPU_BENCH_DRAWS must be an integer"))
+        .unwrap_or(2000);
+    assert!(draws >= 2 && draws.is_multiple_of(2));
     for mix in ["same", "textures", "constants", "targets"] {
         let mut h = Harness::new();
         let (mut e, first_target) = h.engine("mix", [0., 0., 0., 1.]);
@@ -1788,7 +1791,7 @@ fn throughput_state_mixes() {
             let started = std::time::Instant::now();
             let mut decode = std::time::Duration::ZERO;
             let mut prepare = std::time::Duration::ZERO;
-            let count = if phase == 0 { 2 } else { DRAWS };
+            let count = if phase == 0 { 2 } else { draws };
             for i in 0..count {
                 let change = match mix {
                     "textures" => Some((0x1578, pools[i as usize % 2] as u32)),
@@ -1844,7 +1847,7 @@ fn throughput_state_mixes() {
                     "preparation phases (state, shader/key, resources) {:?}",
                     h.backend.preparation_profile().unwrap()
                 );
-                eprintln!("mix={mix} draws={DRAWS} e2e={:.1}/s decode_snapshot={:.6}s prepare={:.6}s submit_io={:.6}s total={elapsed:.6}s; {diagnostic}", DRAWS as f64/elapsed,decode.as_secs_f64(),prepare.as_secs_f64(),submit.as_secs_f64());
+                eprintln!("mix={mix} draws={draws} e2e={:.1}/s decode_snapshot={:.6}s prepare={:.6}s submit_io={:.6}s total={elapsed:.6}s; {diagnostic}", draws as f64/elapsed,decode.as_secs_f64(),prepare.as_secs_f64(),submit.as_secs_f64());
             }
         }
         let report = h.backend.readback(&root, &mut h.memory).unwrap();
@@ -2058,4 +2061,156 @@ fn independent_uniform_slots_keep_unchanged_offsets() {
         .rgba
         .chunks_exact(4)
         .all(|p| p == [0, 255, 255, 255]));
+}
+
+#[test]
+fn independent_target_passes_coalesce_without_reordering_blends() {
+    let mut h = Harness::new();
+    let (mut e, a) = h.engine("pass-order", [0., 0., 0., 1.]);
+    let b = h.alloc(vec![0; 4096]);
+    h.methods(&mut e, &[(0x804, b as u32), (0x19d0, 60)]);
+    let program = h.program(shader_with_tint(false, false, true));
+    let cb = h.alloc(vec![0; 16]);
+    h.methods(
+        &mut e,
+        &[
+            (0x2144, program as u32),
+            (0x2380, 16),
+            (0x2384, 0),
+            (0x2388, cb as u32),
+            (0x2490, 0x21),
+            (0x1360, 1),
+            (0x133c, 1),
+            (0x1340, 0x8006),
+            (0x1344, 0x4302),
+            (0x1348, 0x4303),
+            (0x134c, 0x8006),
+            (0x1350, 0x4001),
+            (0x1358, 0x4303),
+        ],
+    );
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    for i in 0..8 {
+        let tint = [
+            [1f32, 0., 0., 0.5],
+            [0., 0., 1., 0.5],
+            [0., 1., 0., 0.5],
+            [1., 1., 0., 0.5],
+        ][i % 4];
+        h.memory
+            .write(
+                cb,
+                &tint
+                    .into_iter()
+                    .flat_map(f32::to_le_bytes)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
+        h.methods(&mut e, &[(0x804, if i % 2 == 0 { a } else { b } as u32)]);
+        h.draw(&mut e, 6, false, false);
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/pass-order-checks");
+    let diagnostic = h.backend.submit(&root).unwrap().wait().unwrap();
+    assert!(diagnostic.contains("encoders=4 "), "{diagnostic}");
+    let report = h.backend.readback(&root, &mut h.memory).unwrap();
+    for image in report.images {
+        let expected = if image.address == a {
+            [80u8, 159, 0, 255]
+        } else {
+            [159u8, 159, 80, 255]
+        };
+        assert!(image
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 2)));
+    }
+}
+
+#[test]
+fn shared_depth_prevents_target_pass_reordering() {
+    let mut h = Harness::new();
+    let (mut e, a) = h.engine("shared-depth", [0., 0., 0., 1.]);
+    let b = h.alloc(vec![0; 4096]);
+    h.methods(&mut e, &[(0x804, b as u32), (0x19d0, 60)]);
+    let z = h.alloc(vec![0; 4096]);
+    h.methods(
+        &mut e,
+        &[
+            (0xfe0, 0),
+            (0xfe4, z as u32),
+            (0xfe8, 0xa),
+            (0x1228, 32),
+            (0x122c, 32),
+            (0x1230, 1),
+            (0x1538, 1),
+            (0xd90, 1f32.to_bits()),
+            (0x19d0, 1),
+            (0x12cc, 1),
+            (0x12e8, 1),
+            (0x130c, 0x201),
+        ],
+    );
+    for (target, depth, color) in [
+        (a, 0.6, [1., 0., 0., 1.]),
+        (b, 0.4, [0., 1., 0., 1.]),
+        (a, 0.5, [0., 0., 1., 1.]),
+    ] {
+        h.methods(&mut e, &[(0x804, target as u32)]);
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., depth, color), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/shared-depth-order-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    for image in report.images {
+        let expected = if image.address == a {
+            [255, 0, 0, 255]
+        } else {
+            [0, 255, 0, 255]
+        };
+        assert!(image.rgba.chunks_exact(4).all(|p| p == expected));
+    }
+}
+
+#[test]
+#[ignore = "explicit first-seen shader latency measurement"]
+fn first_seen_shader_frames() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("first-seen", [0., 0., 0., 1.]);
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/first-seen");
+    h.backend.submit(&root).unwrap().wait().unwrap();
+    let mut times = Vec::new();
+    let mut skipped = 0;
+    for frame in 0..300 {
+        let start = std::time::Instant::now();
+        h.methods(
+            &mut e,
+            &[
+                (0x1518, (1.0 + (frame / 10) as f32 * 0.125).to_bits()),
+                (0x1618, 0),
+                (0xd78, 1),
+                (0x1614, 0),
+            ],
+        );
+        let diagnostic = h.backend.submit(&root).unwrap().wait().unwrap();
+        if diagnostic.contains("skipped_draws=1 ") {
+            skipped += 1;
+        }
+        times.push(start.elapsed().as_secs_f64() * 1000.);
+        std::thread::sleep(std::time::Duration::from_millis(16));
+    }
+    times.sort_by(f64::total_cmp);
+    eprintln!("first_seen frames=300 new_every=10 p50_ms={:.3} p95_ms={:.3} p99_ms={:.3} max_ms={:.3} skipped={skipped}", times[150],times[285],times[297],times[299]);
+    // A final repeated shader must eventually render even in nonblocking mode.
+    for _ in 0..200 {
+        h.methods(&mut e, &[(0x1618, 0), (0xd78, 1), (0x1614, 0)]);
+        let diagnostic = h.backend.submit(&root).unwrap().wait().unwrap();
+        if !diagnostic.contains("skipped_draws=1 ") {
+            let report = h.backend.readback(&root, &mut h.memory).unwrap();
+            assert!(report.images[0].rgba.chunks_exact(4).any(|p| p == [255; 4]));
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    panic!("background pipeline failed to become ready");
 }

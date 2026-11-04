@@ -51,3 +51,20 @@ including PCAS scheduling, program offset, CTA raster dimensions and cbuf fields
 The installed SDK `MTLComputeCommandEncoder.h` and `MTLComputePipeline.h` define
 dispatch, static threadgroup allocation limits and buffer bindings. No additional
 third-party implementation was consulted.
+
+Persistent argument heaps and offset-only bindings (Apple documentation, accessed
+2026-11-04; Markdown copies retained under ignored `target/gpu4/`):
+
+- https://developer.apple.com/documentation/metal/mtlargumentencoder/setargumentbuffer(_:offset:)
+  Positioning encoded argument tables within a shared buffer allocation.
+- https://developer.apple.com/documentation/metal/mtlrendercommandencoder/setfragmentbufferoffset(_:index:)
+  Updating a bound buffer's offset without binding another resource; the analogous
+  vertex method is declared in the installed `MTLRenderCommandEncoder.h`.
+
+No guest register encodings or shader semantics changed in this throughput work.
+
+Long-session work (2026-11-04), Apple public APIs:
+- https://developer.apple.com/documentation/metal/mtlbinaryarchive
+- https://developer.apple.com/documentation/metal/mtldevice/currentallocatedsize
+- Installed macOS SDK Metal headers: MTLBinaryArchive.h, MTLDevice.h,
+  MTLCommandBuffer.h, MTLRenderCommandEncoder.h.

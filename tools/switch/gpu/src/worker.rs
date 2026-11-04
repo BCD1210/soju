@@ -200,13 +200,15 @@ impl Native {
                     concat!(
                         include_str!("../native/protocol.swift"),
                         "\n",
-                        include_str!("../native/worker.swift")
+                        include_str!("../native/worker.swift"),
+                        "\n",
+                        include_str!("../native/pipeline_cache.swift")
                     ),
                 )
                 .map_err(error)?;
                 std::fs::write(&header, include_str!("../native/protocol.h")).map_err(error)?;
                 let output = Command::new("xcrun")
-                    .args(["swiftc", "-O", "-emit-library", "-import-objc-header"])
+                    .args(["swiftc", "-O", "-g", "-emit-library", "-import-objc-header"])
                     .arg(header)
                     .args(["-framework", "Metal", "-framework", "Foundation"])
                     .arg(source)
@@ -238,10 +240,32 @@ impl Native {
                 c"soju_run",
                 c"soju_readback",
                 c"soju_destroy",
+                c"soju_layout",
             ]
             .map(|name| dlsym(library, name.as_ptr()));
             if symbols.iter().any(|p| p.is_null()) {
                 return Err(Error("Metal worker ABI symbols missing".into()));
+            }
+            let layout: unsafe extern "C" fn(usize) -> usize = std::mem::transmute(symbols[4]);
+            use crate::protocol::*;
+            let sizes = [
+                std::mem::size_of::<DrawCommand>(),
+                std::mem::size_of::<Array<u8>>(),
+                std::mem::size_of::<Reg>(),
+                std::mem::size_of::<TargetCommand>(),
+                std::mem::size_of::<DepthCommand>(),
+                std::mem::size_of::<ConstantCommand>(),
+                std::mem::size_of::<AttributeCommand>(),
+                std::mem::size_of::<BufferCommand>(),
+                std::mem::size_of::<SegmentCommand>(),
+                std::mem::size_of::<TextureCommand>(),
+            ];
+            if sizes
+                .iter()
+                .enumerate()
+                .any(|(index, &size)| layout(index) != size)
+            {
+                return Err(Error("Metal worker ABI layout mismatch".into()));
             }
             let create: unsafe extern "C" fn() -> *mut std::ffi::c_void =
                 std::mem::transmute(symbols[0]);
