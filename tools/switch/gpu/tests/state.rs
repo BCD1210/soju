@@ -143,3 +143,17 @@ fn tic_tsc_validation_and_cache_invalidation() {
     s[1] = 1 | 1 << 4 | 1 << 6;
     assert!(Tsc::parse(&s.into_iter().flat_map(u32::to_le_bytes).collect::<Vec<_>>()).is_ok());
 }
+
+#[test]
+fn catalogued_unimplemented_launches_are_not_silently_stored() {
+    let mut e = Engine::default();
+    let mut m = Memory::default();
+    for offset in [0x1214, 0x1218, 0x17e4, 0x17f0] {
+        assert!(e
+            .method(B197, offset, 3, &mut m)
+            .unwrap_err()
+            .0
+            .contains("unsupported B197 effect"));
+        assert!(!e.registers.0.contains_key(&offset));
+    }
+}

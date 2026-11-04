@@ -141,7 +141,14 @@ impl Engine {
                 self.registers.0.insert(0x238c, pos + 4);
                 None
             }
-            _ => None,
+            _ => {
+                let name = registers::lookup(class, offset).unwrap().name;
+                require(
+                    name.starts_with("SET_") || name.starts_with("OGL_SET_") || offset == 0x238c,
+                    &format!("unsupported B197 effect {name} at {offset:#x}"),
+                )?;
+                None
+            }
         };
         self.registers.0.insert(offset, value);
         Ok(action.map(|action| Snapshot {
