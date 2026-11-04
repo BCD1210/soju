@@ -92,8 +92,6 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
                     c(14, 1, success),
                     c(16, 1, success),
                     c(40, 0, one),
-                    c(150, 0, Platform::event),
-                    c(151, 0, |_, _, _| Ok(Reply::result(0x680))),
                     c(91, 0, Platform::event),
                 ]
             }
