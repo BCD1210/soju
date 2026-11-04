@@ -56,7 +56,7 @@ def audit(source, out):
             values = np.concatenate(samples)
             stats[name] = {'sha256': hashlib.sha256((source.parent / info['textures'][name]['file']).read_bytes()).hexdigest(),
                            'channels': [{'min': int(v.min()), 'max': int(v.max()), 'mean': float(v.mean()), 'std': float(v.std())} for v in values.T]}
-        report['images'][image] = {'frameCount': len(info['frames']), 'canvas': [info['width'], info['height']], 'layers': stats}
+        report['images'][image] = {'frameCount': len(info['frames']), 'sampledFrames': count, 'canvas': [info['width'], info['height']], 'layers': stats}
         if 'normal' in atlases:
             n = normals(frame(info, atlases['normal'], 0))
             rgba = frame(info, atlases['diffuse'], 0)
