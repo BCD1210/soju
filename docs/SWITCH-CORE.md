@@ -371,3 +371,31 @@ The bridge tracks a bounded subset of MME shadow state, restores it on replay,
 and stages actual release-semaphore writes. Unsupported replay and memory-writing
 methods still fail. Tiled-cache setup offsets identified by public deko3d use
 logged no-ops. Compressed Z24S8 kind `0x51` is retained alongside `0x17`.
+
+
+### Triangle, depth, DMA and OpenGL acceptance
+
+The current accepted set is deko Examples01–04 and OpenGL simple_triangle.
+Each has a committed native capture, ordered method/no-op outcomes, and a
+source-derived headless pixel test in `tests/gpu_examples.rs`. Run
+`scripts/test-switch-gpu-accepted.sh`; the five serial tests check 4,516,884 pixels.
+[Scene evidence](../proof/rust-examples/gpu/accepted/README.md) documents tolerances
+and the animated cubes' initial-pose limitations.
+
+The bridge now discovers bounded straight-line shader extents, translates both
+stages, binds vertex attributes/constant buffers/textures, converts viewport Y,
+intersects scissors, and expands complete nonindexed smooth quads. Actual depth
+runs through Metal; ZCULL performance hints are explicit logged no-ops.
+B0B5 uses checked pitch/block-linear copies via soju-switch-texture. A140's
+synchronous 0x1001 inline upload profile is implemented; semaphore release still
+rejects. Unused depth attachments and validated unused viewport defaults do not
+block color-only work. Compressed kinds 53/E0/E9 preserve ordinary storage and
+original kind identity without claiming multisample rendering.
+
+Shader branch merges `3631bb5` and `a62cb55` include async pipeline compilation,
+disk cache, and subsequent fixes through `4481d03`. The core still submits
+synchronously and does not keep a persistent backend across submissions.
+Examples05–09 stop at tessellation, MSAA, multiple viewports, or compute launch
+integration. Unknown observable memory writers still fail with diagnostics.
+See [current results](SWITCH-EXAMPLES.md) and
+[validation](../proof/rust-examples/gpu/accepted/VALIDATION.md).

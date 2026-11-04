@@ -402,24 +402,33 @@ GPU resources are not done.
 
 ## Current GPU acceptance checkpoint
 
-This supersedes the earlier “no accepted scenes” checkpoint above.
+This supersedes earlier acceptance tables above. Shader integration includes
+`feat/switch-shader` through `4481d03` (merges `3631bb5`, `a62cb55`).
 
-| Scene | Result | Current boundary |
+| Scene | Result | Evidence / current boundary |
 | --- | --- | --- |
-| deko Example01 Simple Setup | **Accepted** | Native scissored-clear image; all 921,600 source-derived pixels pass. |
-| deko Example02 Triangle | Not accepted | Draw reached; backend rejects retained setup state (`0110` first). Draw-state adaptation and shader extents remain. |
-| deko Example03 Cube | Not accepted | B197 `12c8=19`, CLEAR_ZCULL_REGION. |
-| deko Example04 Textured Cube | Not accepted | B0B5 `0410=200`, unsupported copy-engine setup. |
-| deko_basic | Not accepted | Same draw-state integration boundary as Example02. |
-| OpenGL simple_triangle / textured_cube / es2gears | Not accepted | A140 `01b0=1001`, inline-upload launch profile unsupported. |
+| deko Example01 Simple Setup | **Accepted** | 921,600 rectangle/color pixel checks. |
+| deko Example02 Triangle | **Accepted**, `c26e9a3` | 912,978 source-derived pixels; translated VS/FS, SPH and vertex state. |
+| deko Example03 Cube | **Accepted**, `9196bd8` | 912,096 initial-pose pixels; uniforms, quads, real depth and logged ZCULL metadata. |
+| deko Example04 Textured Cube | **Accepted**, `935c670` | 851,810 initial-pose pixels; B0B5 DMA, BC1 texture and translated TEXS. |
+| OpenGL simple_triangle | **Accepted**, `20d7007` | 918,400 source-derived pixels; A140 `01b0=1001` uploads. |
+| deko Example05 Tessellation | Not accepted | B197 `0320=0201`: tessellation parameters/stages unsupported. |
+| deko Example06 Multisampling / Example07 MeshLighting | Not accepted | MSAA/CSAA render profile unsupported; compressed mappings now retained. |
+| deko Example08 DeferredShading | Not accepted | B197 viewport 1 scale `0a20`; multiple-viewports not integrated. |
+| deko Example09 SimpleCompute | Not accepted | B1C0 `02b4=02000a20`; core compute launch/window descriptor integration incomplete. |
 
-[Accepted capture, hashes and reproduction](../proof/rust-examples/gpu/accepted/README.md).
+[Captures, hashes and reproduction](../proof/rust-examples/gpu/accepted/README.md).
+[Validation](../proof/rust-examples/gpu/accepted/VALIDATION.md).
 [Method table](../proof/rust-examples/gpu/METHODS.md).
-[Ordered per-scene outcomes](../proof/rust-examples/gpu/scene-progress/summary.txt).
-The method probe uses a large frame budget and does not run pixel acceptance;
-its timeout for Example01 is not a rejection of the separate passing acceptance test.
-No triangle, cube, texture or gears image is being claimed as accepted.
+[Later-scene diagnostics](../proof/rust-examples/gpu/later-scenes/summary.txt).
+Older scene-progress logs are historical. No later deko scene, other OpenGL
+scene, or instancing scene is claimed accepted. Textures and uniforms are
+exercised by accepted Examples03/04; compute and tessellation remain unfinished.
 
-The current default-backend 59-example corpus remains 33 frame / 25 stop /
-1 clean exit; the opt-in Metal scene acceptance is measured separately.
+The final default-backend corpus rerun remains **59: 33 frame / 25 stop /
+1 clean exit**, under `dist/task10-examples-final/`. Metal acceptance is separate.
+The runner remains synchronous; merged async compilation/disk cache support does
+not establish persistent resources or runner throughput. Tests force synchronous
+pipeline compilation. Native scenes run serially because concurrent compilation
+can advance animated cubes beyond the initial-pose oracle. No tolerance was widened.
 All changes are committed locally, with no push and no installed-runner replacement.

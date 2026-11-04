@@ -1,26 +1,38 @@
-# Validation at the first accepted GPU scene
+# Validation: five accepted GPU scenes
 
-Executed on the local Apple Silicon host, 2026-11-04. Logs remain under
-`dist/m2-probe/`; real NROs remain outside the repository.
+Executed on the local Apple Silicon host, 2026-11-04. Detailed logs are under
+`dist/task10-validation/`; NROs and original texture assets remain outside the repository.
 
 | Check | Result |
 | --- | --- |
-| Core `cargo test --offline`, `--features hv` | 107 passed; native opt-in tests ignored here |
-| Core `cargo test --offline`, `--features desktop` | 109 passed; native opt-in tests ignored here |
-| `scripts/test-switch-hv.sh` | 22 signed tests passed |
-| `scripts/test-switch-homebrew.sh` with local 2048 | Input/save/restart passed; 358.209 headless fps observed |
-| `scripts/test-switch-audio.sh` | Passed; 47,920 nonzero samples consumed |
-| GPU crate tests | 28 passed; 3 benchmarks ignored |
-| Shader crate tests | 44 passed |
-| Python `unittest discover -s tests` | 327 run, OK, 2 skipped |
+| Core offline tests, `--features hv` | 113 passed; opt-in native tests ignored here |
+| Core offline tests, `--features desktop` | 115 passed; opt-in native tests ignored here |
+| Signed Hypervisor tests | 22 passed |
+| Signed local 2048 input/save/restart | Passed; 484.864 headless fps observed (not a GPU benchmark) |
+| Signed AudioUnit tone | Passed; 47,920 nonzero samples consumed |
+| GPU crate, Metal debug layer enabled | 35 passed; 5 benchmarks ignored |
+| Shader crate | 44 passed |
+| Texture crate | 7 passed |
+| Python full suite, installed venv and local 2048 | 327 run, OK, 2 skipped |
 | Core desktop/all-target Clippy, warnings denied | Passed |
-| `scripts/build-app.sh` and strict codesign verification | Passed |
+| App build and strict signature verification | Passed; isolated `dist/task10-app/Soju.app` |
 | `scripts/test-switch-examples.sh` | 59: 33 frame, 25 stop, 1 clean exit (unchanged) |
-| `scripts/test-switch-gpu-accepted.sh` | Passed twice; 921,600 Example01 pixels checked each time |
-| GPU scissored-clear native regression | Passed; every pixel inside/outside checked |
+| Serial native GPU acceptance | Five scenes passed twice; 4,516,884 source-derived pixel checks per run |
 
-The signed scene test excludes startup/menu frames using `--warmup-ms 1000`,
-then captures one frame and finishes normally. The checked-in capture was also
-visually inspected against the installed source. Native no-op counters and
-ordered method outcomes accompany it. Image acceptance establishes this scene,
-not general GPU compatibility or the backend's throughput in this runner.
+The native acceptance set is deko Examples01–04 and OpenGL simple_triangle.
+Each checked-in capture was visually inspected; ordered dispatch/no-op outcomes
+accompany it. Startup/menu frames are excluded using `--warmup-ms 1000`.
+Cubes are initial-pose checks; depth storage/comparison, quad coverage, split
+texture destinations, perspective interpolation and bounded DMA have separate
+native/unit regressions.
+
+An initial five-scene concurrent run failed Example04's first-pose tolerance
+because compilation stalls advanced its animation. The script now runs native
+scenes serially; two complete serial runs passed without increasing tolerances.
+This is not an animation-timing or multi-frame acceptance claim. Synchronous
+pipeline compilation is selected for translated scenes. The runner still creates
+a backend per submission, so shader-agent cache/throughput measurements do not
+establish runner performance.
+
+Shader branch merges include `87600c5` and later `4481d03`; there were no further
+commits on `feat/switch-shader` at the final check. All work is local, not pushed.
