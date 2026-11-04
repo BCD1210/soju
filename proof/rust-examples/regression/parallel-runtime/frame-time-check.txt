@@ -1,0 +1,2 @@
+PASS|headless frame-time output|five positive intervals
+[579.140167, 36.541208, 28.56625, 28.003209000000002, 27.7735]

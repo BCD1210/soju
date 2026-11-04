@@ -1,0 +1,280 @@
+run=1|mode=serial
+PASS|eventCreate(&start_event, false)|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+COMPUTE|ticks=17771770|hz=19200000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|cross-core LDXR/STXR|rc=00000000
+PASS|cross-core LSE LDADD|rc=00000000
+TOTAL|checks=23|failures=0
+PROFILE|elapsed_ms=2035.582|max_parallel=1|timer_preemptions=459
+exit0|probe-complete
+run=1|mode=parallel
+PASS|eventCreate(&start_event, false)|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+COMPUTE|ticks=5594097|hz=19200000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|cross-core LDXR/STXR|rc=00000000
+PASS|cross-core LSE LDADD|rc=00000000
+TOTAL|checks=23|failures=0
+PROFILE|elapsed_ms=1394.454|max_parallel=4|timer_preemptions=364
+exit0|probe-complete
+run=2|mode=serial
+PASS|eventCreate(&start_event, false)|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+COMPUTE|ticks=17691809|hz=19200000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|cross-core LDXR/STXR|rc=00000000
+PASS|cross-core LSE LDADD|rc=00000000
+TOTAL|checks=23|failures=0
+PROFILE|elapsed_ms=2023.425|max_parallel=1|timer_preemptions=457
+exit0|probe-complete
+run=2|mode=parallel
+PASS|eventCreate(&start_event, false)|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+COMPUTE|ticks=6552075|hz=19200000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|cross-core LDXR/STXR|rc=00000000
+PASS|cross-core LSE LDADD|rc=00000000
+TOTAL|checks=23|failures=0
+PROFILE|elapsed_ms=1439.423|max_parallel=4|timer_preemptions=384
+exit0|probe-complete
+run=3|mode=serial
+PASS|eventCreate(&start_event, false)|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+COMPUTE|ticks=17722531|hz=19200000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|cross-core LDXR/STXR|rc=00000000
+PASS|cross-core LSE LDADD|rc=00000000
+TOTAL|checks=23|failures=0
+PROFILE|elapsed_ms=2021.715|max_parallel=1|timer_preemptions=457
+exit0|probe-complete
+run=3|mode=parallel
+PASS|eventCreate(&start_event, false)|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+COMPUTE|ticks=6229741|hz=19200000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|cross-core LDXR/STXR|rc=00000000
+PASS|cross-core LSE LDADD|rc=00000000
+TOTAL|checks=23|failures=0
+PROFILE|elapsed_ms=1433.464|max_parallel=4|timer_preemptions=375
+exit0|probe-complete
+run=4|mode=serial
+PASS|eventCreate(&start_event, false)|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+COMPUTE|ticks=17715846|hz=19200000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|cross-core LDXR/STXR|rc=00000000
+PASS|cross-core LSE LDADD|rc=00000000
+TOTAL|checks=23|failures=0
+PROFILE|elapsed_ms=2018.069|max_parallel=1|timer_preemptions=459
+exit0|probe-complete
+run=4|mode=parallel
+PASS|eventCreate(&start_event, false)|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+COMPUTE|ticks=5732765|hz=19200000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|cross-core LDXR/STXR|rc=00000000
+PASS|cross-core LSE LDADD|rc=00000000
+TOTAL|checks=23|failures=0
+PROFILE|elapsed_ms=1395.064|max_parallel=4|timer_preemptions=367
+exit0|probe-complete
+run=5|mode=serial
+PASS|eventCreate(&start_event, false)|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+COMPUTE|ticks=17876930|hz=19200000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|cross-core LDXR/STXR|rc=00000000
+PASS|cross-core LSE LDADD|rc=00000000
+TOTAL|checks=23|failures=0
+PROFILE|elapsed_ms=2030.495|max_parallel=1|timer_preemptions=457
+exit0|probe-complete
+run=5|mode=parallel
+PASS|eventCreate(&start_event, false)|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadCreate(&workers[i], worker, (void *)(uintptr_t)i, NULL, 0x4000, 44, i)|rc=00000000
+PASS|threadStart(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+PASS|threadWaitForExit(&workers[i])|rc=00000000
+COMPUTE|ticks=5833086|hz=19200000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|CPU checksum|rc=00000000
+PASS|threadClose(&workers[i])|rc=00000000
+PASS|cross-core LDXR/STXR|rc=00000000
+PASS|cross-core LSE LDADD|rc=00000000
+TOTAL|checks=23|failures=0
+PROFILE|elapsed_ms=1404.108|max_parallel=4|timer_preemptions=379
+exit0|probe-complete

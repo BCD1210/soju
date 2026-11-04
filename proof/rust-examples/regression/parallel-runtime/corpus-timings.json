@@ -1,0 +1,170 @@
+[
+  {
+    "title": "graphics__opengl__es2gears",
+    "first_presentation_seconds": 8.770531
+  },
+  {
+    "title": "graphics__opengl__dynamic_resolution",
+    "first_presentation_seconds": 5.922012
+  },
+  {
+    "title": "graphics__sdl2__sdl2-simple",
+    "first_presentation_seconds": 1.042338
+  },
+  {
+    "title": "graphics__deko3d__deko_basic",
+    "first_presentation_seconds": 0.994734
+  },
+  {
+    "title": "graphics__opengl__lenny",
+    "first_presentation_seconds": 0.74344
+  },
+  {
+    "title": "graphics__opengl__simple_triangle",
+    "first_presentation_seconds": 0.714382
+  },
+  {
+    "title": "misc__user_events",
+    "first_presentation_seconds": 0.672485
+  },
+  {
+    "title": "jit",
+    "first_presentation_seconds": 0.638274
+  },
+  {
+    "title": "applet__vrmode",
+    "first_presentation_seconds": 0.629427
+  },
+  {
+    "title": "audio__audren-simple",
+    "first_presentation_seconds": 0.619885
+  },
+  {
+    "title": "misc__barrier",
+    "first_presentation_seconds": 0.615961
+  },
+  {
+    "title": "applet__screenshot-overlay",
+    "first_presentation_seconds": 0.61282
+  },
+  {
+    "title": "applet__libapplets__pctlauth",
+    "first_presentation_seconds": 0.579538
+  },
+  {
+    "title": "templates__application",
+    "first_presentation_seconds": 0.565934
+  },
+  {
+    "title": "applet__recording",
+    "first_presentation_seconds": 0.56314
+  },
+  {
+    "title": "exception-handler",
+    "first_presentation_seconds": 0.561858
+  },
+  {
+    "title": "applet__lockexit",
+    "first_presentation_seconds": 0.56102
+  },
+  {
+    "title": "hid__vibration",
+    "first_presentation_seconds": 0.559516
+  },
+  {
+    "title": "graphics__deko3d__deko_examples",
+    "first_presentation_seconds": 0.558311
+  },
+  {
+    "title": "applet__light-sensor",
+    "first_presentation_seconds": 0.557473
+  },
+  {
+    "title": "time",
+    "first_presentation_seconds": 0.553093
+  },
+  {
+    "title": "fs__sdmc",
+    "first_presentation_seconds": 0.55305
+  },
+  {
+    "title": "fs__save",
+    "first_presentation_seconds": 0.54103
+  },
+  {
+    "title": "applet__libapplets__error",
+    "first_presentation_seconds": 0.535946
+  },
+  {
+    "title": "applet__libapplets__web",
+    "first_presentation_seconds": 0.532058
+  },
+  {
+    "title": "audio__playtone",
+    "first_presentation_seconds": 0.531923
+  },
+  {
+    "title": "applet__libapplets__software-keyboard",
+    "first_presentation_seconds": 0.531922
+  },
+  {
+    "title": "fs__romfs",
+    "first_presentation_seconds": 0.518353
+  },
+  {
+    "title": "graphics__printing__vt52-demo",
+    "first_presentation_seconds": 0.4974
+  },
+  {
+    "title": "graphics__printing__hello-world",
+    "first_presentation_seconds": 0.320903
+  },
+  {
+    "title": "hid__touch-screen",
+    "first_presentation_seconds": 0.294165
+  },
+  {
+    "title": "hid__ring-con",
+    "first_presentation_seconds": 0.290514
+  },
+  {
+    "title": "misc__user_timers",
+    "first_presentation_seconds": 0.252581
+  },
+  {
+    "title": "network__nxlink_stdio",
+    "first_presentation_seconds": 0.233674
+  },
+  {
+    "title": "nfc",
+    "first_presentation_seconds": 0.232728
+  },
+  {
+    "title": "network__curl",
+    "first_presentation_seconds": 0.220264
+  },
+  {
+    "title": "hid__sixaxis",
+    "first_presentation_seconds": 0.215879
+  },
+  {
+    "title": "settings__get_system_language",
+    "first_presentation_seconds": 0.215355
+  },
+  {
+    "title": "account",
+    "first_presentation_seconds": 0.214765
+  },
+  {
+    "title": "hid__colors",
+    "first_presentation_seconds": 0.200379
+  },
+  {
+    "title": "hid__read-controls",
+    "first_presentation_seconds": 0.19785
+  },
+  {
+    "title": "graphics__simplegfx",
+    "first_presentation_seconds": 0.197222
+  }
+]

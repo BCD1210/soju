@@ -1,0 +1,33 @@
+{
+  "runs": [
+    {
+      "run": 1,
+      "serial_ms": 925.6130208333333,
+      "parallel_ms": 291.35921875
+    },
+    {
+      "run": 2,
+      "serial_ms": 921.4483854166666,
+      "parallel_ms": 341.25390625
+    },
+    {
+      "run": 3,
+      "serial_ms": 923.0484895833333,
+      "parallel_ms": 324.46567708333333
+    },
+    {
+      "run": 4,
+      "serial_ms": 922.7003125,
+      "parallel_ms": 298.5815104166667
+    },
+    {
+      "run": 5,
+      "serial_ms": 931.0901041666667,
+      "parallel_ms": 303.8065625
+    }
+  ],
+  "serial_median_ms": 923.0484895833333,
+  "parallel_median_ms": 303.8065625,
+  "speedup": 3.038276994373133,
+  "target_met": true
+}

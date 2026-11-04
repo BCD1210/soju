@@ -23,6 +23,7 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
     let path = args.first().ok_or("missing NRO path")?;
     let mut frames = None;
     let mut capture = None;
+    let mut frame_times = None;
     let mut capture_frame = 1;
     let mut warmup_ms = 0u64;
     let mut capture_tick = None;
@@ -61,6 +62,7 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
             }
             "--warmup-ms" => warmup_ms = pair[1].to_str().ok_or("invalid warmup")?.parse()?,
             "--capture" => capture = Some(PathBuf::from(&pair[1])),
+            "--frame-times" => frame_times = Some(PathBuf::from(&pair[1])),
             "--inputs" => inputs = serde_json::from_reader(std::fs::File::open(&pair[1])?)?,
             _ => return Err("unknown headless option".into()),
         }
@@ -98,6 +100,8 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     let mut input = inputs.iter().peekable();
     let mut count = 0;
+    let mut previous_frame = start;
+    let mut intervals_ms = Vec::new();
     let mut input_frame = false;
     let mut next_input_at = inputs.first().map_or(0, |i| u128::from(i.at_ms));
     loop {
@@ -136,6 +140,11 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         // Consume audio packets without opening an output device in the headless harness.
         while hub.take_audio().is_some() {}
         if let Some(frame) = hub.take_frame() {
+            let presented = Instant::now();
+            if frame_times.is_some() {
+                intervals_ms.push(presented.duration_since(previous_frame).as_secs_f64() * 1000.0);
+            }
+            previous_frame = presented;
             input_frame = true;
             if start.elapsed().as_millis() >= u128::from(warmup_ms)
                 && (capture_tick.is_none() || input.peek().is_none())
@@ -164,6 +173,9 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         match stop {
             Stop::ProcessExited(0) | Stop::AllThreadsExited => {
                 hub.finish()?;
+                if let Some(path) = &frame_times {
+                    std::fs::write(path, serde_json::to_vec(&intervals_ms)?)?;
+                }
                 println!("exit0|frames={count}");
                 return Ok(());
             }
@@ -172,6 +184,9 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         }
         if count >= frames {
             hub.finish()?;
+            if let Some(path) = &frame_times {
+                std::fs::write(path, serde_json::to_vec(&intervals_ms)?)?;
+            }
             println!(
                 "frames|{count}|seconds={:.6}",
                 start.elapsed().as_secs_f64()

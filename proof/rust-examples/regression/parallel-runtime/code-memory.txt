@@ -1,0 +1,22 @@
+PASS|code backing allocated|rc=00000000
+PASS|unaligned source rejected|rc=00000000
+PASS|svcCreateCodeMemory(&handle, backing, 4096)|rc=00000000
+PASS|owner RX rejected|rc=00000000
+PASS|svcControlCodeMemory(handle, CodeMapOperation_MapOwner, (void *)owner, 4096, Perm_Rw)|rc=00000000
+PASS|code backing starts FF|rc=00000000
+PASS|svcControlCodeMemory(handle, CodeMapOperation_MapSlave, (void *)slave, 4096, Perm_Rx)|rc=00000000
+PASS|svcQueryMemory(&info, &page, slave)|rc=00000000
+PASS|slave RX and generated-code type|rc=00000000
+PASS|threadCreate(&reader, execute, NULL, NULL, 0x4000, 44, 2)|rc=00000000
+PASS|threadStart(&reader)|rc=00000000
+PASS|threadWaitForExit(&reader)|rc=00000000
+PASS|threadClose(&reader)|rc=00000000
+PASS|cross-core executable alias publication 32 rounds|rc=00000000
+PASS|wrong unmap size rejected|rc=00000000
+PASS|svcControlCodeMemory(handle, CodeMapOperation_UnmapSlave, (void *)slave, 4096, Perm_None)|rc=00000000
+PASS|svcControlCodeMemory(handle, CodeMapOperation_UnmapOwner, (void *)owner, 4096, Perm_None)|rc=00000000
+PASS|svcCloseHandle(handle)|rc=00000000
+PASS|closing object restores backing|rc=00000000
+TOTAL|checks=19|failures=0
+PROFILE|elapsed_ms=205.293|max_parallel=2|timer_preemptions=1
+exit0|probe-complete

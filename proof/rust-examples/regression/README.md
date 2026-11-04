@@ -135,3 +135,11 @@ boundaries. No image or timeout from these probes is presented as acceptance.
 The installed corpus has no separate EGL or instancing NRO. Audio coverage is
 limited to the documented 48 kHz PCM16 final-stereo-mix profile; other renderer
 formats/effects remain unsupported. No input NROs or proprietary runtime material were added to the repository.
+
+
+## Parallel runtime continuation
+
+See [parallel-runtime/README.md](parallel-runtime/README.md) for concurrent vCPU
+execution, per-thread guest-module TLS, code memory, 100-run stress comparisons,
+CPU speedup and corpus/frame timing. The requested new rendering acceptance is
+still incomplete; the report separates measured passes from those gaps.
