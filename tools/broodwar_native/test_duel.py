@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 import struct
 import unittest
+import tempfile
 from unittest.mock import patch
 from types import SimpleNamespace
 
@@ -51,6 +52,26 @@ class DuelTests(unittest.TestCase):
              patch.object(launcher, "dedicated_processes", return_value=[]), patch.object(launcher.os, "kill") as kill:
             launcher.stop()
             kill.assert_not_called()
+
+    def test_detached_launch_separates_session_and_standard_streams(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Path(directory)
+            (runtime/"samase64.exe").touch()
+            (runtime/"mod/samase").mkdir(parents=True)
+            (runtime/"mod/samase/soju_bw.dll").touch()
+            with patch.object(launcher, "RUNTIME", runtime), patch.object(launcher, "check_prefix"), \
+                 patch.object(launcher, "dedicated_processes", return_value=[]), \
+                 patch.object(launcher, "bridge_listening", return_value=False), \
+                 patch.object(launcher, "digest", return_value=launcher.LOADER_SHA), \
+                 patch.object(launcher, "environment", return_value={}), \
+                 patch.object(launcher.subprocess, "Popen") as start:
+                launcher.play(None, detach=True)
+                options = start.call_args.kwargs
+                self.assertTrue(options["start_new_session"])
+                self.assertEqual(options["stdin"], launcher.subprocess.DEVNULL)
+                self.assertEqual(options["stderr"], launcher.subprocess.STDOUT)
+                self.assertEqual(Path(options["stdout"].name), runtime/"game-launch.log")
+                start.return_value.wait.assert_not_called()
 
 
 if __name__ == "__main__":
