@@ -111,7 +111,11 @@ impl Backend {
             self.constant_upload.resize(offset, 0);
             self.constant_upload
                 .extend_from_slice(memory.read(cb.address, cb.size as usize)?);
-            constants.push(format!("{{\"slot\":{slot},\"offset\":{offset}}}"));
+            constants.push(ConstantCommand {
+                stage: 0,
+                slot: slot as _,
+                offset: offset as _,
+            });
         }
         require(
             dispatch.program >= global.base_address + u64::from(global.bytes)
@@ -132,7 +136,22 @@ impl Backend {
         let local = dispatch.launch.local_size;
         let groups = dispatch.groups;
         self.prepared = None;
-        self.commands.push((format!("{{\"compute\":true,\"source\":{source},\"key\":{},\"generation\":{generation},\"file\":{file},\"slot\":{},\"local\":{local:?},\"groups\":{groups:?},\"constants\":[{}]}}",quote(&key),global.buffer,constants.join(",")),1));
+        self.commands.push(Command {
+            kind: 4,
+            source: source.into(),
+            key: key.clone().into(),
+            generation: generation as _,
+            file: file.into(),
+            slot: global.buffer as _,
+            local0: local[0] as _,
+            local1: local[1] as _,
+            local2: local[2] as _,
+            groups0: groups[0] as _,
+            groups1: groups[1] as _,
+            groups2: groups[2] as _,
+            constants: constants.into(),
+            ..Command::default()
+        });
         self.compute_targets.insert(
             key,
             ComputeTarget {

@@ -27,3 +27,5 @@ pub mod sync;
 pub mod worker;
 
 pub mod compute;
+
+mod protocol;
