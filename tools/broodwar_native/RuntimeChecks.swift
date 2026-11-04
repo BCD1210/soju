@@ -344,11 +344,35 @@ func runtimeChecks()throws {
     let afterTerrain=terrainBatches.batches.first(where:{$0.terrain})!
     try require(beforeTerrain.vertices === afterTerrain.vertices && beforeTerrain.textures[0] === afterTerrain.textures[0],"fog changes preserve terrain vertex buffers and diffuse arrays")
     try require(beforeTerrain.textures[1] !== afterTerrain.textures[1],"fog changes publish a new mask array without mutating the previous snapshot")
+    let distantTerrain=SCNNode(geometry:commander.terrain[0]!.geometry!)
+    distantTerrain.position=SCNVector3(16,0,0);commander.terrain[16]=distantTerrain;commander.terrainRevision+=1
+    try terrainBatches.prepare(commander)
+    let unchangedPage=terrainBatches.batches.filter{$0.terrain}.last!
+    commander.terrain.removeValue(forKey:0);commander.terrainRevision+=1
+    try terrainBatches.prepare(commander)
+    let retainedPage=terrainBatches.batches.filter{$0.terrain}.last!
+    try require(unchangedPage.vertices === retainedPage.vertices && unchangedPage.textures[0] === retainedPage.textures[0],"terrain topology changes preserve unrelated spatial page buffers and textures")
     let previous=state(2100,[unit("stable"),unit("changed")])
     var moved=unit("changed");moved["x"]=x+32
     let diff=PreparedState(state(2101,[unit("stable"),moved]),previous:previous)
     try require(diff.dirty==Set(["changed"]),"state diff preserves stationary units while marking movement")
     try require(PreparedState(state(2102,[unit("stable")],session:"next"),previous:previous).dirty==Set(["stable"]),"session changes invalidate otherwise unchanged units")
+    let terrainWorker=try TerrainWorker.Builder()
+    let workerCenter=commander.mapWidth+1
+    var workerFog=[Int:UInt8]()
+    for y in 0..<3 {for x in 0..<3 {workerFog[y*commander.mapWidth+x]=50}}
+    let workerRequest=TerrainWorker.Request(session:"terrain-worker",center:SIMD2<Int>(1,1),radius:20,fog:workerFog,creep:[])
+    let workerFirst=terrainWorker.apply(workerRequest)
+    try require(workerFirst.terrain.count==9,"terrain worker constructs the visible topology")
+    let immutableTile=workerFirst.terrain.first{$0.index==workerCenter}!
+    let immutableMask=immutableTile.geometry.firstMaterial!.multiply.contents as AnyObject
+    workerFog[workerCenter]=49
+    let workerNext=terrainWorker.apply(TerrainWorker.Request(session:"terrain-worker",center:SIMD2<Int>(1,1),radius:20,fog:workerFog,creep:[]))
+    try require(!workerNext.terrain.isEmpty && immutableTile.geometry.firstMaterial!.multiply.contents as AnyObject === immutableMask,"terrain worker mask changes preserve previously published geometry")
+    try require(terrainWorker.apply(TerrainWorker.Request(session:"terrain-worker",center:SIMD2<Int>(1,1),radius:20,fog:workerFog,creep:[])).terrain.isEmpty,"terrain worker unchanged fog produces no geometry publication")
+    workerFog[workerCenter]=48
+    let workerHidden=terrainWorker.apply(TerrainWorker.Request(session:"terrain-worker",center:SIMD2<Int>(1,1),radius:20,fog:workerFog,creep:[]))
+    try require(workerHidden.removedTerrain==[workerCenter],"terrain worker publishes hidden tile removal incrementally")
     let isolatedCamera=SCNNode();isolatedCamera.camera=SCNCamera()
     isolatedCamera.simdPosition=SIMD3<Float>(1,2,3)
     let cameraPacket=MetalBatches.CameraPacket(isolatedCamera)

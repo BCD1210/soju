@@ -26,7 +26,7 @@ final class MetalBatches {
         let transform:simd_float4x4,scale:SIMD3<Float>,opacity:Float,hidden:Bool,billboard:Bool
     }
     struct Input {
-        let sceneRevision:Int,terrainRevision:Int,terrainFogRevision:Int
+        let sceneRevision:Int,terrainRevision:Int,terrainFogRevision:Int,mapWidth:Int
         let terrain:[Int:SCNNode],billboards:[UnitBillboard],overlays:[SCNNode],objectCount:Int
     }
     struct Batch {
@@ -94,7 +94,7 @@ final class MetalBatches {
         }
         for id in capturedSprites.keys where commander.billboards[id]==nil {capturedSprites.removeValue(forKey:id)}
         return Input(sceneRevision:commander.sceneRevision,terrainRevision:commander.terrainRevision,
-            terrainFogRevision:commander.terrainFogRevision,terrain:terrain,
+            terrainFogRevision:commander.terrainFogRevision,mapWidth:commander.mapWidth,terrain:terrain,
             billboards:billboards,overlays:(Array(commander.creepNodes.values)+Array(commander.worldSprites.nodes.values)).map{detached($0)},objectCount:commander.nodes.count)
     }
     func prepareAsync(_ commander:Commander) {
@@ -111,10 +111,18 @@ final class MetalBatches {
                 do {
                     if builder==nil {builder=try MetalBatches(device:device)}
                     try builder!.prepare(snapshot)
-                    let completed=builder!.batches
+                    let completed=builder!.batches.map { source -> Batch in
+                        var packet=source;packet.nodes.removeAll();return packet
+                    }
+                    let visibility=builder!.visibilityBuffers
+                    let last=[Bool](repeating:true,count:completed.count),now=[Bool](repeating:true,count:completed.count)
                     DispatchQueue.main.async { [self] in
                         let retired=batches
-                        batches=completed;resetVisibility();ready=true;preparing=false
+                        visibilityLock.lock()
+                        visibilityEpoch+=1;lastVisibilityFrame = -1
+                        batches=completed;visibilityBuffers=visibility;visibleLast=last;visibleNow=now
+                        visibilityLock.unlock()
+                        ready=true;preparing=false
                         preparationQueue.async {withExtendedLifetime(retired) {}}
                     }
                 } catch {
@@ -128,14 +136,22 @@ final class MetalBatches {
     let textures=ResidentCache<(NSImage,MTLTexture)>(limit:128*1024*1024)
     var ready=false,draws=0,visible=0,culled=0,lodCount=0
     var sourceRevision = -1,terrainRevision = -1,terrainFogRevision = -1
-    private var terrainPages=[([SCNNode],Int)]()
-    private var terrainMasks=[ObjectIdentifier]()
+    private struct TerrainPage {
+        let keys:[Int],sources:[SCNGeometrySource],masks:[AnyObject],batch:Batch
+    }
+    private var terrainPageCache=[Int:TerrainPage]()
     var revisions=[(UnitBillboard,Int)]()
     lazy var flatIndices=buffer([UInt32(0),1,2,2,1,3])
     var stereoColor:MTLTexture?,stereoDepth:MTLTexture?,stereoResolved:MTLTexture?
     var stereoPass=MTLRenderPassDescriptor()
     let white:MTLTexture,black:MTLTexture,normal:MTLTexture
-    private let available=DispatchSemaphore(value:3)
+    private final class CompletionSlot {
+        let available=DispatchSemaphore(value:1)
+        var query:MTLBuffer?,epoch=0,frame=0,count=0
+        var left=matrix_identity_float4x4,right=matrix_identity_float4x4
+        var handler:MTLCommandBufferHandler!
+    }
+    private let completionSlots=(0..<3).map{_ in CompletionSlot()}
     private var ring=0,frame=0,visibilityEpoch=0
     private let visibilityLock=NSLock()
     private var visibilityBuffers=[MTLBuffer](),visibleLast=[Bool](),visibleNow=[Bool]()
@@ -183,6 +199,18 @@ final class MetalBatches {
         let d=MTLDepthStencilDescriptor();d.depthCompareFunction = .lessEqual;d.isDepthWriteEnabled=true;depth=device.makeDepthStencilState(descriptor:d)!
         d.isDepthWriteEnabled=false;shadowDepth=device.makeDepthStencilState(descriptor:d)!
         d.depthCompareFunction = .always;overlayDepth=device.makeDepthStencilState(descriptor:d)!
+        for slot in completionSlots {
+            let available=slot.available
+            slot.handler={ [weak self,weak slot,available] completed in
+                defer {available.signal()}
+                guard completed.status == .completed,let self=self,let slot=slot,let query=slot.query else {return}
+                self.visibilityLock.lock();defer{self.visibilityLock.unlock()}
+                guard slot.epoch==self.visibilityEpoch,slot.frame>self.lastVisibilityFrame else {return}
+                let result=query.contents().bindMemory(to:UInt64.self,capacity:slot.count)
+                for i in self.visibleLast.indices {self.visibleLast[i]=result[i]>0}
+                self.visibleVP=slot.left;self.visibleRightVP=slot.right;self.lastVisibilityFrame=slot.frame
+            }
+        }
     }
     static func colorImage(_ image:CGImage)->CGImage {
         guard let space=CGColorSpace(name:CGColorSpace.sRGB),
@@ -253,82 +281,10 @@ final class MetalBatches {
     private func prepare(_ commander:Input)throws {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"Batch prepare")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Batch prepare")}
-        if terrainRevision != commander.terrainRevision {ready=false;batches.removeAll();terrainPages.removeAll();terrainMasks.removeAll()}
-        else if ready {batches.removeAll{!$0.terrain}}
         sourceRevision=commander.sceneRevision;terrainRevision=commander.terrainRevision
-        revisions=commander.billboards.map{($0,$0.geometryRevision)}
-        // Array pages retain each tile's own gutter and mip chain. No cross-tile
-        // filtering can bleed unrelated tiles into one another.
-        let tiles=commander.terrain.sorted{$0.key<$1.key}.map{$0.value}
-        if !ready {for start in stride(from:0,to:tiles.count,by:128) {
-            let nodes=Array(tiles[start..<min(start+128,tiles.count)])
-            guard let first=nodes.first?.geometry?.firstMaterial?.diffuse.contents as? MTLTexture else {continue}
-            let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:first.pixelFormat,width:first.width,height:first.height,mipmapped:true)
-            d.textureType = .type2DArray;d.arrayLength=nodes.count;d.storageMode = .private;d.usage = .shaderRead
-            guard let array=TextureResidency.shared.make(device,d) else {throw SceneError.invalid("Terrain texture residency limit")}
-            let firstMask=try texture(nodes[0].geometry?.firstMaterial?.multiply.contents,fallback:white)
-            let fd=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:firstMask.width,height:firstMask.height,mipmapped:false)
-            fd.textureType = .type2DArray;fd.arrayLength=nodes.count;fd.storageMode = .private;fd.usage = .shaderRead
-            guard let fog=TextureResidency.shared.make(device,fd) else {throw SceneError.invalid("Fog texture residency limit")}
-            let command=queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
-            var vertices=[Vertex](),indices=[UInt32]()
-            for (slice,node) in nodes.enumerated() {
-                guard let geometry=node.geometry,let material=geometry.firstMaterial,let source=material.diffuse.contents as? MTLTexture else {continue}
-                for level in 0..<source.mipmapLevelCount {
-                    blit.copy(from:source,sourceSlice:0,sourceLevel:level,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:max(1,source.width>>level),height:max(1,source.height>>level),depth:1),to:array,destinationSlice:slice,destinationLevel:level,destinationOrigin:MTLOrigin())
-                }
-                let mask=try texture(material.multiply.contents,fallback:white)
-                if mask.width==fog.width && mask.height==fog.height {blit.copy(from:mask,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:mask.width,height:mask.height,depth:1),to:fog,destinationSlice:slice,destinationLevel:0,destinationOrigin:MTLOrigin())}
-                node.categoryBitMask=4
-                let (v,ind)=mesh(geometry,transform:node.simdWorldTransform,slice:Float(slice),uvTransform:material.diffuse.contentsTransform)
-                let base=UInt32(vertices.count);vertices+=v;indices+=ind.map{$0+base}
-            }
-            blit.endEncoding();command.commit();command.waitUntilCompleted()
-            terrainPages.append((nodes,batches.count))
-            terrainMasks += nodes.map{ObjectIdentifier($0.geometry!.firstMaterial!.multiply.contents as AnyObject)}
-            let instance=Instance(model:matrix_identity_float4x4,parameters:SIMD4<Float>(2,1,Float(first.width),Float(first.height)))
-            batches.append(Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:nil,instances:(0..<3).map{_ in buffer([instance])},nodes:[],textures:[array,fog],terrain:true,shadow:false,mode:2,depthDisabled:false,bounds:[]))
-        }
-        }
-        if ready {
-            var offset=0
-            for i in terrainPages.indices {
-                let count=terrainPages[i].0.count
-                terrainPages[i].0=Array(tiles[offset..<offset+count]);offset+=count
-            }
-        }
-        if ready && terrainFogRevision != commander.terrainFogRevision {
-            os_signpost(.begin,log:XRFrameMetrics.log,name:"Fog slices")
-            let command=queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
-            var offset=0
-            for (nodes,batchIndex) in terrainPages {
-                let previous=batches[batchIndex].textures[1]
-                let changed=nodes.enumerated().contains { slice,node in
-                    ObjectIdentifier(node.geometry?.firstMaterial?.multiply.contents as AnyObject) != terrainMasks[offset+slice]
-                }
-                if !changed {offset+=nodes.count;continue}
-                let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:previous.pixelFormat,width:previous.width,height:previous.height,mipmapped:false)
-                descriptor.textureType = .type2DArray;descriptor.arrayLength=previous.arrayLength;descriptor.storageMode = .private;descriptor.usage = .shaderRead
-                guard let fog=TextureResidency.shared.make(device,descriptor) else {throw SceneError.invalid("Fog texture residency limit")}
-                blit.copy(from:previous,sourceSlice:0,sourceLevel:0,to:fog,destinationSlice:0,destinationLevel:0,sliceCount:previous.arrayLength,levelCount:1)
-                batches[batchIndex].textures[1]=fog
-                for (slice,node) in nodes.enumerated() {
-                    let contents=node.geometry?.firstMaterial?.multiply.contents
-                    let identity=ObjectIdentifier(contents as AnyObject)
-                    if identity != terrainMasks[offset+slice] {
-                        let mask=try texture(contents,fallback:white)
-                        if mask.width==fog.width && mask.height==fog.height {
-                            blit.copy(from:mask,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:mask.width,height:mask.height,depth:1),to:fog,destinationSlice:slice,destinationLevel:0,destinationOrigin:MTLOrigin())
-                        }
-                        terrainMasks[offset+slice]=identity
-                    }
-                }
-                offset+=nodes.count
-            }
-            blit.endEncoding();command.commit();command.waitUntilCompleted()
-            os_signpost(.end,log:XRFrameMetrics.log,name:"Fog slices")
-        }
         terrainFogRevision=commander.terrainFogRevision
+        revisions=commander.billboards.map{($0,$0.geometryRevision)}
+        batches=try prepareTerrain(commander.terrain,width:commander.mapWidth)
         var groups=[String:[SCNNode]]()
         for billboard in commander.billboards where !billboard.root.isHidden {
             for (index,native) in billboard.nativeLayers {
@@ -396,10 +352,71 @@ final class MetalBatches {
         resetVisibility()
         ready=true
     }
+    private func prepareTerrain(_ terrain:[Int:SCNNode],width:Int)throws->[Batch] {
+        // Fixed map-index pages keep a reveal/removal from shifting every later slice.
+        let columns=max(1,(width+15)/16)
+        let pages=Dictionary(grouping:terrain.keys,by:{($0/max(1,width)/8)*columns+($0%max(1,width)/16)})
+        var result=[Batch](),next=[Int:TerrainPage]()
+        for page in pages.keys.sorted() {
+            let keys=pages[page]!.sorted(),nodes=keys.map{terrain[$0]!}
+            let sources=nodes.compactMap{$0.geometry?.sources(for:.vertex).first}
+            let masks=nodes.map{$0.geometry!.firstMaterial!.multiply.contents as AnyObject}
+            guard sources.count==nodes.count,let first=nodes.first?.geometry?.firstMaterial?.diffuse.contents as? MTLTexture else {continue}
+            let previous=terrainPageCache[page]
+            let reuse=previous?.keys==keys && previous!.sources.count==sources.count && zip(previous!.sources,sources).allSatisfy{$0 === $1}
+            if reuse,zip(previous!.masks,masks).allSatisfy({$0 === $1}) {
+                next[page]=previous!;result.append(previous!.batch);continue
+            }
+            os_signpost(.begin,log:XRFrameMetrics.log,name:"Terrain page")
+            defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Terrain page")}
+            let firstMask=try texture(nodes[0].geometry?.firstMaterial?.multiply.contents,fallback:white)
+            let fd=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:firstMask.width,height:firstMask.height,mipmapped:false)
+            fd.textureType = .type2DArray;fd.arrayLength=nodes.count;fd.storageMode = .private;fd.usage = .shaderRead
+            guard let fog=TextureResidency.shared.make(device,fd) else {throw SceneError.invalid("Fog texture residency limit")}
+            let diffuse:MTLTexture
+            if reuse {diffuse=previous!.batch.textures[0]}
+            else {
+                let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:first.pixelFormat,width:first.width,height:first.height,mipmapped:true)
+                d.textureType = .type2DArray;d.arrayLength=nodes.count;d.storageMode = .private;d.usage = .shaderRead
+                guard let array=TextureResidency.shared.make(device,d) else {throw SceneError.invalid("Terrain texture residency limit")}
+                diffuse=array
+            }
+            let command=queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
+            if reuse {blit.copy(from:previous!.batch.textures[1],sourceSlice:0,sourceLevel:0,to:fog,destinationSlice:0,destinationLevel:0,sliceCount:nodes.count,levelCount:1)}
+            var vertices=[Vertex](),indices=[UInt32]()
+            for (slice,node) in nodes.enumerated() {
+                let geometry=node.geometry!,material=geometry.firstMaterial!
+                if !reuse,let source=material.diffuse.contents as? MTLTexture {
+                    for level in 0..<source.mipmapLevelCount {
+                        blit.copy(from:source,sourceSlice:0,sourceLevel:level,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:max(1,source.width>>level),height:max(1,source.height>>level),depth:1),to:diffuse,destinationSlice:slice,destinationLevel:level,destinationOrigin:MTLOrigin())
+                    }
+                    let (v,ind)=mesh(geometry,transform:node.simdWorldTransform,slice:Float(slice),uvTransform:material.diffuse.contentsTransform)
+                    let base=UInt32(vertices.count);vertices+=v;indices+=ind.map{$0+base}
+                }
+                if !reuse || previous!.masks[slice] !== masks[slice] {
+                    let mask=try texture(material.multiply.contents,fallback:white)
+                    if mask.width==fog.width && mask.height==fog.height {
+                        blit.copy(from:mask,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:mask.width,height:mask.height,depth:1),to:fog,destinationSlice:slice,destinationLevel:0,destinationOrigin:MTLOrigin())
+                    }
+                }
+            }
+            blit.endEncoding();command.commit();command.waitUntilCompleted()
+            var batch:Batch
+            if reuse {batch=previous!.batch;batch.textures=[diffuse,fog]}
+            else {
+                let instance=Instance(model:matrix_identity_float4x4,parameters:SIMD4<Float>(2,1,Float(first.width),Float(first.height)))
+                batch=Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:nil,
+                    instances:(0..<3).map{_ in buffer([instance])},nodes:[],textures:[diffuse,fog],terrain:true,shadow:false,mode:2,depthDisabled:false,bounds:[])
+            }
+            next[page]=TerrainPage(keys:keys,sources:sources,masks:masks,batch:batch);result.append(batch)
+        }
+        terrainPageCache=next
+        return result
+    }
     private func resetVisibility() {
         visibilityLock.lock()
         visibilityEpoch+=1;lastVisibilityFrame = -1
-        visibleLast=[Bool](repeating:true,count:batches.count);visibleNow=visibleLast
+        visibleLast=[Bool](repeating:true,count:batches.count);visibleNow=[Bool](repeating:true,count:batches.count)
         visibilityBuffers=(0..<3).map{_ in device.makeBuffer(length:max(8,batches.count*8),options:.storageModeShared)!}
         visibilityLock.unlock()
     }
@@ -464,12 +481,12 @@ final class MetalBatches {
             return
         }
         os_signpost(.begin,log:XRFrameMetrics.log,name:"GPU ring wait")
-        available.wait()
+        completionSlots[ring].available.wait()
         os_signpost(.end,log:XRFrameMetrics.log,name:"GPU ring wait")
         let slot=ring;ring=(ring+1)%3
         let query=visibilityBuffers[slot];memset(query.contents(),0,query.length)
         stereoPass.visibilityResultBuffer=query
-        guard let encoder=command.makeRenderCommandEncoder(descriptor:stereoPass) else {available.signal();return}
+        guard let encoder=command.makeRenderCommandEncoder(descriptor:stereoPass) else {completionSlots[slot].available.signal();return}
         encoder.label="Instanced terrain, relief and shadows"
         // SceneKit projection uses OpenGL's [-1,1] depth. Metal requires [0,1].
         var clip=matrix_identity_float4x4;clip.columns.2.z=0.5;clip.columns.3.z=0.5
@@ -481,15 +498,10 @@ final class MetalBatches {
         for i in visibleNow.indices {visibleNow[i]=visibleLast[i]}
         let epoch=visibilityEpoch,submittedFrame=frame,queryCount=batches.count
         visibilityLock.unlock()
-        command.addCompletedHandler { [weak self,available] completed in
-            defer {available.signal()}
-            guard completed.status == .completed,let self=self else {return}
-            self.visibilityLock.lock();defer{self.visibilityLock.unlock()}
-            guard epoch==self.visibilityEpoch,submittedFrame>self.lastVisibilityFrame else {return}
-            let result=query.contents().bindMemory(to:UInt64.self,capacity:queryCount)
-            for i in self.visibleLast.indices {self.visibleLast[i]=result[i]>0}
-            self.visibleVP=vp;self.visibleRightVP=rightVP;self.lastVisibilityFrame=submittedFrame
-        }
+        let completion=completionSlots[slot]
+        completion.query=query;completion.epoch=epoch;completion.frame=submittedFrame;completion.count=queryCount
+        completion.left=vp;completion.right=rightVP
+        command.addCompletedHandler(completion.handler)
         var uniforms=Uniforms(left:vp,right:rightVP,leftEye:SIMD4<Float>(eye,camera.orthographic ? 0:1),rightEye:rightTransform.columns.3)
         encoder.setVertexBytes(&uniforms,length:MemoryLayout<Uniforms>.stride,index:2)
         encoder.setFragmentBytes(&uniforms,length:MemoryLayout<Uniforms>.stride,index:2)

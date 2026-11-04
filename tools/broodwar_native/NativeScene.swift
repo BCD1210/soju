@@ -80,6 +80,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     var state:Obj=[:];var busy=false;var initialized=false;var notice="Connecting to original client"
     let diagnosticQueue=DispatchQueue(label:"soju.bw.diagnostics",qos:.utility)
     var lastTick=CACurrentMediaTime();var lastSceneDiagnostic=0.0;var tick:Timer?;var poll:Timer?;var placingDepot=false
+    var terrainWorker:TerrainWorker?
     var metalBatches:MetalBatches?
     var desktopMetal:DesktopMetal?
     #if SOJU_OPENXR
@@ -135,6 +136,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         window.makeFirstResponder(view);NSApp.activate(ignoringOtherApps:true)
         tick=Timer.scheduledTimer(withTimeInterval:1/60,repeats:true) { [weak self] _ in self?.step() }
         poll=Timer.scheduledTimer(withTimeInterval:0.1,repeats:true) { [weak self] _ in self?.refresh() }
+        if useMetalBatches {terrainWorker=TerrainWorker()}
         refresh()
         #if SOJU_OPENXR
         if xrRequested {
