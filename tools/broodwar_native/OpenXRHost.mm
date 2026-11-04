@@ -26,6 +26,7 @@ id<MTLCommandQueue> queue=nil;
 bool running=false,exiting=false,probeOnly=false;
 char statusText[256]="OpenXR not started";
 uint64_t frames=0;
+SojuXREye currentEyes[2]{};
 struct Eye {
     XrSwapchain chain=XR_NULL_HANDLE;
     uint32_t width=0,height=0;
@@ -214,21 +215,24 @@ extern "C" int soju_xr_step(void* context,SojuXRDraw draw,SojuXRControls control
     input(state.predictedDisplayTime,context,controls);
     if(valid) {
         for(size_t i=0;i<2;i++) {
-            Eye& e=eyes[i];uint32_t index=0;XrSwapchainImageAcquireInfo acquire{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
-            CHECK(xrAcquireSwapchainImage(e.chain,&acquire,&index));
-            XrSwapchainImageWaitInfo waitImage{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};waitImage.timeout=XR_INFINITE_DURATION;
-            CHECK(xrWaitSwapchainImage(e.chain,&waitImage));
+            Eye& e=eyes[i];
             const XrView& v=views[i];
-            SojuXREye packet{v.pose.position.x,v.pose.position.y,v.pose.position.z,
+            currentEyes[i]=SojuXREye{v.pose.position.x,v.pose.position.y,v.pose.position.z,
                 v.pose.orientation.x,v.pose.orientation.y,v.pose.orientation.z,v.pose.orientation.w,
                 v.fov.angleLeft,v.fov.angleRight,v.fov.angleUp,v.fov.angleDown,
                 (views[0].pose.position.x+views[1].pose.position.x)*0.5f,
                 (views[0].pose.position.y+views[1].pose.position.y)*0.5f,
                 (views[0].pose.position.z+views[1].pose.position.z)*0.5f,
                 e.width,e.height,uint32_t(i),uint32_t((viewState.viewStateFlags&XR_VIEW_STATE_POSITION_TRACKED_BIT)!=0),state.predictedDisplayTime};
-            draw(context,e.images[index].texture,(__bridge void*)queue,&packet);
+        }
+        for(size_t i=0;i<2;i++) {
+            Eye& e=eyes[i];uint32_t index=0;XrSwapchainImageAcquireInfo acquire{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
+            CHECK(xrAcquireSwapchainImage(e.chain,&acquire,&index));
+            XrSwapchainImageWaitInfo waitImage{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};waitImage.timeout=XR_INFINITE_DURATION;
+            CHECK(xrWaitSwapchainImage(e.chain,&waitImage));
+            draw(context,e.images[index].texture,(__bridge void*)queue,&currentEyes[i]);
             XrSwapchainImageReleaseInfo release{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};CHECK(xrReleaseSwapchainImage(e.chain,&release));
-            projection[i].pose=v.pose;projection[i].fov=v.fov;
+            projection[i].pose=views[i].pose;projection[i].fov=views[i].fov;
             projection[i].subImage.swapchain=e.chain;projection[i].subImage.imageRect.extent={int32_t(e.width),int32_t(e.height)};
         }
     }
@@ -249,4 +253,8 @@ extern "C" void soju_xr_close() {
     if(instance){xrDestroyInstance(instance);instance=XR_NULL_HANDLE;}
     queue=nil;device=nil;running=false;exiting=false;frames=0;
     previousSelect[0]=previousSelect[1]=previousGrip[0]=previousGrip[1]=false;
+}
+
+extern "C" int soju_xr_eye(uint32_t index,SojuXREye* packet) {
+    if(index>=2||!packet)return 0;*packet=currentEyes[index];return 1;
 }
