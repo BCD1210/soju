@@ -104,16 +104,27 @@ fn submission_fence_waits_for_memory_commit_and_failed_commit_discards_state() {
     assert_eq!(f.nv.channels[&fd].execution, before);
     assert_eq!(reply.memory_writes.len(), 1);
     assert_eq!(reply.memory_writes[0].address, crate::kernel::HEAP + 4096);
-    assert_eq!(reply.memory_writes[0].bytes, [0x11, 0x22, 0x33, 0x44]);
+    assert_eq!(&reply.memory_writes[0].bytes[..4], [0x11, 0x22, 0x33, 0x44]);
+    assert!(reply.memory_writes[0].bytes[4..].iter().all(|&b| b == 0));
     let mut data = [0; 4];
     f.memory
         .read(crate::kernel::HEAP + 4096, &mut data)
         .unwrap();
     assert_eq!(data, [0; 4]);
     let token = reply.transaction.unwrap();
+    let metal = f.nv.pending[&token].metal;
     f.finish(token, false, false);
     assert_eq!(f.nv.channels[&fd].execution, before);
     assert_eq!(f.nv.channels[&fd].completed, 0);
+    if metal {
+        // Native work cannot be replayed after failed publication.
+        assert!(f.nv.channels[&fd].faulted);
+        assert!(f.call(&r).is_err());
+        f = Fixture::new();
+        let (new_fd, _, new_va) = f.setup();
+        assert_eq!((new_fd, new_va), (fd, va));
+        let _ = f.submission(fd, va, &upload(fd, va + 4096));
+    }
     let reply = f.call(&r).unwrap();
     for write in &reply.memory_writes {
         f.memory.write(write.address, &write.bytes).unwrap();

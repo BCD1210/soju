@@ -74,7 +74,12 @@ fn submit(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error>
     let entries_data = c.read_buffer(entries, 32768)?;
     let count = read_u32(&args, 8)?;
     let flags = read_u32(&args, 12)?;
-    let metal = std::env::var_os("SOJU_SWITCH_GPU").is_some_and(|v| v == "metal");
+    let metal = match std::env::var_os("SOJU_SWITCH_GPU").as_deref() {
+        None => true,
+        Some(value) if value == "metal" => true,
+        Some(value) if value == "off" => false,
+        Some(_) => return Err(Error::Malformed("SOJU_SWITCH_GPU must be metal or off")),
+    };
     if count == 0
         || count > capacity.min(4096)
         || u64::from(count) * 8 != entries.len

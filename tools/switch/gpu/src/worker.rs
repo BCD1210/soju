@@ -188,46 +188,16 @@ unsafe extern "C" {
 #[cfg(target_os = "macos")]
 impl Native {
     fn start(directory: &std::path::Path) -> Result<Self> {
-        use std::{ffi::CString, process::Command};
+        use std::ffi::CString;
         static LIBRARY: std::sync::OnceLock<Result<usize>> = std::sync::OnceLock::new();
         let library = *LIBRARY
             .get_or_init(|| {
-                let source = directory.join("worker.swift");
-                let header = directory.join("protocol.h");
                 let binary = directory.join("metal-worker.dylib");
                 std::fs::write(
-                    &source,
-                    concat!(
-                        include_str!("../native/protocol.swift"),
-                        "\n",
-                        include_str!("../native/worker.swift"),
-                        "\n",
-                        include_str!("../native/pipeline_cache.swift"),
-                        "\n",
-                        include_str!("../native/memory_cache.swift"),
-                        "\n",
-                        include_str!("../native/parallel.swift"),
-                        "\n",
-                        include_str!("../native/shared_depth.swift")
-                    ),
+                    &binary,
+                    include_bytes!(concat!(env!("OUT_DIR"), "/metal-worker.dylib")),
                 )
                 .map_err(error)?;
-                std::fs::write(&header, include_str!("../native/protocol.h")).map_err(error)?;
-                let output = Command::new("xcrun")
-                    .args(["swiftc", "-O", "-g", "-emit-library", "-import-objc-header"])
-                    .arg(header)
-                    .args(["-framework", "Metal", "-framework", "Foundation"])
-                    .arg(source)
-                    .arg("-o")
-                    .arg(&binary)
-                    .output()
-                    .map_err(error)?;
-                if !output.status.success() {
-                    return Err(Error(format!(
-                        "Swift compilation: {}",
-                        String::from_utf8_lossy(&output.stderr)
-                    )));
-                }
                 let path = CString::new(binary.as_os_str().as_encoded_bytes()).map_err(error)?;
                 // Swift runtime metadata remains registered for the process lifetime.
                 let library = unsafe { dlopen(path.as_ptr(), 2) };

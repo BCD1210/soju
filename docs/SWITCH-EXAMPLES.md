@@ -232,8 +232,9 @@ check likewise made the grace-period test fail (5 seconds instead of 15).
 
 ## Remaining work
 
-M2 remains incomplete. The default runner retains the bounded CPU path.
-`SOJU_SWITCH_GPU=metal` selects the new synchronous boundary: map guest-backed
+M2 remains incomplete. The default runner now selects Metal for every title.
+`SOJU_SWITCH_GPU=off` restores the bounded CPU path for comparison.
+`SOJU_SWITCH_GPU=metal` explicitly selects the synchronous boundary: map guest-backed
 allocations, route subchannels to the imported engine, execute/read back Metal
 work, and stage changed guest pages through the existing reply transaction.
 Completion is not published before guest writes commit; a failed Metal operation
@@ -244,7 +245,7 @@ This is a synthetic integration test, not example acceptance.
 The bridge still lacks shader-extent registration, complete engine routing,
 general submission flags, semaphore scheduling and persistent resource tracking.
 It rebuilds backend memory per submission and synchronously reads back each
-action. It must remain opt-in until the remaining gaps and image checks pass.
+action. The following probe describes the historical merge snapshot.
 
 The current Metal probe is in `rust-examples/gpu/m2-followup/summary.txt`.
 Deko basic/console and selected Example01 reach `b197:165c=0`; all six OpenGL

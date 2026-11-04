@@ -37,7 +37,8 @@ views and simultaneous aliased MRT attachments are rejected.
 Use an exclusive caller-owned directory for each Backend. Per-submission
 subdirectories contain native build artifacts; readback still writes output files.
 An eight-slot atomic ownership ring drives an in-process Swift Metal worker. Its
-library is compiled once per process with `xcrun swiftc -O -g`, checked against the
+library is compiled by Cargo with `xcrun swiftc -O -g` and embedded in the runner,
+then materialized once per process, checked against the
 Rust/C struct sizes, and retained for the process lifetime because Swift runtime
 metadata cannot safely be unloaded. Each Backend owns its own device-side caches
 and worker instance. Commands and resource captures cross the ring as owned typed

@@ -265,11 +265,13 @@ The GPU branch was merged again at `809f272` (upstream tip `2b31d37`), and the
 filesystem/TZif branch at `9009007` (tip `a956946`). Imported GPU/shader code was
 not edited. The backend passes 17 tests; the shader crate passes 43.
 
-`SOJU_SWITCH_GPU=metal` now opts into a synchronous runner bridge. It snapshots
+The runner now uses the synchronous Metal bridge by default for every title.
+`SOJU_SWITCH_GPU=off` selects the bounded CPU path; `metal` explicitly selects
+the default. Other values fail with a configuration error. The bridge snapshots
 mapped guest buffers, routes engine methods, reads back native Metal actions,
 and stages changed pages through the existing IPC transaction before publishing
 the fence. A synthetic native red clear verifies pixels and delayed publication.
-The default remains the existing CPU subset. Shader extents, full engine/MME
+The following merge snapshot is historical. Shader extents, full engine/MME
 routing, submission flags, scheduling and persistent resource tracking are not
 finished. Real OpenGL streams stop on unsupported 2D initialization; deko streams
 stop on mapping/submission constraints. **No GPU example is accepted.**
