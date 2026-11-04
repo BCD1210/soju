@@ -74,6 +74,8 @@ final class Worker {
     var occlusion: UInt64 = 0
     var queryValues = [String: UInt32]()
     var targetBytes = [String: Int]()
+    let compiler: RenderCompiler
+    var renderFunctions = [String: (MTLFunction, MTLFunction)]()
     var pipelines = [String: MTLRenderPipelineState](), depthStates = [String: MTLDepthStencilState]()
     var functions = [String: MTLFunction](), textureCache = [String: MTLTexture]()
     var computePipelines = [String: MTLComputePipelineState]()
@@ -85,7 +87,7 @@ final class Worker {
     var argumentHeaps = [String: (MTLBuffer, Int)]()
     init() throws {
         guard let d = MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue() else { throw Failure("no default Metal device/queue") }
-        device = d; queue = q
+        device = d; queue = q; compiler = RenderCompiler(d)
     }
     func run(_ commands: UnsafeBufferPointer<Command>, _ resources: UnsafeBufferPointer<SpanByte>, _ constants: SpanByte) throws -> String {
     let parseStarted=ProcessInfo.processInfo.systemUptime
@@ -114,6 +116,7 @@ final class Worker {
     var resident = Set<ObjectIdentifier>()
     var stateBinds = 0, offsetWrites = 0, passHits = 0
     var gpuWait = 0.0
+    var skippedDraws = 0
     func endPass() {
         activeEncoder?.endEncoding();activeEncoder=nil;activeKey=""
         boundCommand = -1
@@ -309,9 +312,8 @@ final class Worker {
             guard let encoder = current.makeRenderCommandEncoder(descriptor:pass) else { throw Failure("clear encoder") }; encoderCount += 1; encoder.endEncoding();clears += 1
         } else {
             let pk = text(command.pipeline)
-            let vs = try function(text(command.vertex),"soju_vertex"), fs = try function(text(command.fragment),"soju_fragment")
             if pipelines[pk] == nil {
-                let descriptor = MTLRenderPipelineDescriptor();descriptor.vertexFunction = vs;descriptor.fragmentFunction = fs
+                let descriptor = MTLRenderPipelineDescriptor()
                 for slot in colors.indices { descriptor.colorAttachments[slot].pixelFormat = colors[slot].pixelFormat }
                 descriptor.depthAttachmentPixelFormat = depthFormat
                 if depthFormat == .depth32Float_stencil8 { descriptor.stencilAttachmentPixelFormat = depthFormat }
@@ -340,8 +342,15 @@ final class Worker {
                     vertex.layouts[stream].stride = Int(a.stride);vertex.layouts[stream].stepFunction = Int(a.instanced)==1 ? .constant : .perVertex;vertex.layouts[stream].stepRate = Int(a.instanced)==1 ? 0 : 1
                 }
                 descriptor.vertexDescriptor = vertex
-                pipelines[pk] = try device.makeRenderPipelineState(descriptor:descriptor)
+                let vertexSource = String(decoding: try file(text(command.vertex)), as: UTF8.self)
+                let fragmentSource = String(decoding: try file(text(command.fragment)), as: UTF8.self)
+                guard let ready = try compiler.request(pk, descriptor, vertexSource, fragmentSource) else {
+                    skippedDraws += max(1, Int(input.repeats)); continue
+                }
+                pipelines[pk] = ready.pipeline
+                renderFunctions[pk] = (ready.vertex, ready.fragment)
             } else {pipelineHits += 1}
+            let (vs, fs) = renderFunctions[pk]!
             if depthStates[pk] == nil {
                 let d = MTLDepthStencilDescriptor()
                 try need(r(0x12cc)<=1 && r(0x12e8)<=1 && r(0x1380)<=1,"invalid depth/stencil enable")
@@ -501,7 +510,7 @@ final class Worker {
     }
     try flush()
     let elapsed=ProcessInfo.processInfo.systemUptime-started
-    return "pass_hits=\(passHits) encoding_seconds=\(elapsed-gpuWait) gpu_wait_seconds=\(gpuWait) state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
+    return "skipped_draws=\(skippedDraws) pass_hits=\(passHits) encoding_seconds=\(elapsed-gpuWait) gpu_wait_seconds=\(gpuWait) state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)

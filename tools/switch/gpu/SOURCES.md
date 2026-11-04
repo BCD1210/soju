@@ -62,3 +62,9 @@ Persistent argument heaps and offset-only bindings (Apple documentation, accesse
   vertex method is declared in the installed `MTLRenderCommandEncoder.h`.
 
 No guest register encodings or shader semantics changed in this throughput work.
+
+Long-session work (2026-11-04), Apple public APIs:
+- https://developer.apple.com/documentation/metal/mtlbinaryarchive
+- https://developer.apple.com/documentation/metal/mtldevice/currentallocatedsize
+- Installed macOS SDK Metal headers: MTLBinaryArchive.h, MTLDevice.h,
+  MTLCommandBuffer.h, MTLRenderCommandEncoder.h.

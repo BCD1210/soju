@@ -200,7 +200,9 @@ impl Native {
                     concat!(
                         include_str!("../native/protocol.swift"),
                         "\n",
-                        include_str!("../native/worker.swift")
+                        include_str!("../native/worker.swift"),
+                        "\n",
+                        include_str!("../native/pipeline_cache.swift")
                     ),
                 )
                 .map_err(error)?;

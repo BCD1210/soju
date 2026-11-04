@@ -315,3 +315,25 @@ Current follow-up verification: **27 GPU tests** pass with Metal validation (the
 original 22 plus five new image regressions); both ignored benchmarks also pass
 with validation. Shader tests: **44**; texture tests: **7**. All three crates pass
 offline Clippy with warnings denied. The five new regressions check 7,168 pixels.
+
+## First-seen render variants
+
+Set `SOJU_GPU_ASYNC_PIPELINES=1` before creating a Backend to compile MSL and
+render pipelines on a serial utility queue. A missing/pending pipeline **skips
+that draw**, including its depth/stencil/query contribution; clears still execute.
+No incompatible pipeline is substituted and skipped draws are not replayed.
+Fence diagnostics include `skipped_draws`. Ready results publish under a lock;
+compiler jobs own source/descriptor copies, never borrowed command memory.
+There are at most 32 pending jobs and 32 unconsumed results. Compiler errors
+surface when their variant is requested again. Compute remains synchronous.
+The default remains blocking to preserve existing `execute`/readback behavior
+and the runner's first-scene integration. No public signatures or ABI changed.
+
+Render pipelines use versioned, device/OS-scoped Metal binary archives keyed by
+the stable pipeline key, exact MSL and compiler options. Archives live in
+`target/soju-metal-cache-v1` relative to process cwd, overridden with
+`SOJU_GPU_CACHE_DIR`. `SOJU_GPU_DISK_CACHE_BYTES` defaults to 128 MiB; zero disables
+persistence. SHA-256 envelopes reject corrupt payloads before Metal reads them;
+atomic replacement prevents partial publication. Cache failures fall back to
+compilation. Oldest files are removed after publication to enforce the disk
+budget. MSL still goes through Metal's library compiler on a disk-cache hit.

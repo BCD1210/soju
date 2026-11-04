@@ -2170,3 +2170,47 @@ fn shared_depth_prevents_target_pass_reordering() {
         assert!(image.rgba.chunks_exact(4).all(|p| p == expected));
     }
 }
+
+#[test]
+#[ignore = "explicit first-seen shader latency measurement"]
+fn first_seen_shader_frames() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("first-seen", [0., 0., 0., 1.]);
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/first-seen");
+    h.backend.submit(&root).unwrap().wait().unwrap();
+    let mut times = Vec::new();
+    let mut skipped = 0;
+    for frame in 0..300 {
+        let start = std::time::Instant::now();
+        h.methods(
+            &mut e,
+            &[
+                (0x1518, (1.0 + (frame / 10) as f32 * 0.125).to_bits()),
+                (0x1618, 0),
+                (0xd78, 1),
+                (0x1614, 0),
+            ],
+        );
+        let diagnostic = h.backend.submit(&root).unwrap().wait().unwrap();
+        if diagnostic.contains("skipped_draws=1 ") {
+            skipped += 1;
+        }
+        times.push(start.elapsed().as_secs_f64() * 1000.);
+        std::thread::sleep(std::time::Duration::from_millis(16));
+    }
+    times.sort_by(f64::total_cmp);
+    eprintln!("first_seen frames=300 new_every=10 p50_ms={:.3} p95_ms={:.3} p99_ms={:.3} max_ms={:.3} skipped={skipped}", times[150],times[285],times[297],times[299]);
+    // A final repeated shader must eventually render even in nonblocking mode.
+    for _ in 0..200 {
+        h.methods(&mut e, &[(0x1618, 0), (0xd78, 1), (0x1614, 0)]);
+        let diagnostic = h.backend.submit(&root).unwrap().wait().unwrap();
+        if !diagnostic.contains("skipped_draws=1 ") {
+            let report = h.backend.readback(&root, &mut h.memory).unwrap();
+            assert!(report.images[0].rgba.chunks_exact(4).any(|p| p == [255; 4]));
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    panic!("background pipeline failed to become ready");
+}
