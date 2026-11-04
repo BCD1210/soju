@@ -42,6 +42,7 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
     let all = active_units(r);
     let player = vars[2];
     let op = req["op"].as_str().ok_or("missing op")?;
+    if op == "buttonsets" { return super::buttonsets::snapshot(); }
     if op == "state" || op == "scene" { return Ok(world::snapshot(r, game, &all, player, op == "scene", req["since"].as_u64())); }
     if op == "unit_types" {
         let types: Vec<_> = (0..228).map(|id| {
