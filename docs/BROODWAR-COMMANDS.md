@@ -28,13 +28,18 @@ Packet layouts were checked against
 and [GameCommands.cpp](https://github.com/bwapi/bwapi/blob/d727fed68558c506163048ea889131d8cbb33915/bwapi/BWAPI/Source/BWAPI/GameCommands.cpp).
 Extended selection uses the already established SCR 32-bit unit handle path.
 
-Validation: Windows DLL compiles; six Rust tests pass under Miri with strict
-provenance and symbolic alignment. These exercise packet validation and event
-history, not foreign game execution. Live verification of the new endpoints
-remains pending: the restarted original client is listening but not advancing
-its frame hook (menus or paused). Do not infer gameplay success from these tests.
+Validation: 11 Rust tests pass under Miri; desktop/XR viewers and live native
+command transitions are recorded in [BROODWAR-M4-CHECKPOINT.md](BROODWAR-M4-CHECKPOINT.md).
+Rally uses SCR extended targeted-order opcode 0x61, not a queued building order.
+Its layout is pinned by [ShieldBattery commands.rs](https://github.com/ShieldBattery/ShieldBattery/blob/f5eab0dde407c61c4f7d2b0f64c24c960e3ef596/game/src/bw/commands.rs#L341).
 
-Targeted spells, individual-passenger unload, full producer/requirement command
-cards and controller bindings for these extensions are not implemented yet.
-`units.dat` provides unit properties and costs; it does not alone contain the
-complete command-card/producer/technology targeting relationships.
+Read-only additions: `unit_types` returns native units.dat properties/costs;
+`terrain` adds a current-visible creep mask; `state`/`scene` add `dyingUnits` and
+`loneSprites` with native image chains. Owned buildings expose `rally` coordinates
+and a visibility-filtered target handle. The Pylon union is excluded.
+
+Targeted spells and individual-passenger unload remain unsupported. Wrist
+command cards cover common producer relationships and named abilities; their
+full technology/requirement coverage and controller gesture acceptance remain
+open. units.dat supplies unit costs and properties, not the complete command-card
+relationships. See the M4 checkpoint for exact live evidence and remaining gaps.

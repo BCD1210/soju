@@ -2,11 +2,12 @@ import Cocoa
 import QuartzCore
 
 final class CaptureFrames {
-    let folder:URL?,duration:Double
+    let folder:URL?,duration:Double,interval:Double
     var started:Double?,next=0.0,sequence=0
     init() {
         folder=argument("--record-dir").map{URL(fileURLWithPath:$0)}
         duration=Double(argument("--record-seconds") ?? "120") ?? 120
+        interval=1/max(1,min(30,Double(argument("--record-fps") ?? "1") ?? 1))
         if let folder=folder {try? FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)}
     }
     func reserve()->Int? {
@@ -14,7 +15,7 @@ final class CaptureFrames {
         let now=CACurrentMediaTime()
         if started==nil {started=now;next=now}
         guard now>=next,now-(started ?? now)<=duration else {return nil}
-        next=now+1
+        next=now+interval
         let result=sequence;sequence+=1;return result
     }
     func save(_ image:CGImage,index:Int,metadata:Obj) {
