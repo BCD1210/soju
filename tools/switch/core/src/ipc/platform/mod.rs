@@ -12,6 +12,7 @@ mod hid_system;
 mod hid_debug;
 mod infrared;
 mod network;
+mod local_wireless;
 mod ns;
 mod notification;
 mod play_history;
@@ -83,6 +84,11 @@ enum Kind {
     Random,
     Nifm,
     Network,
+    LdnCreator,
+    Ldn,
+    Lp2pCreator,
+    Lp2p,
+    Lp2pMonitor,
     PlayHistory,
     Ns,
     ControlData,
@@ -190,6 +196,8 @@ impl Platform {
     }
     pub fn open(&mut self, name: &str, ctx: &mut Context<'_>) -> Result<Handle, Error> {
         let kind = match name {
+            "ldn:u" => Kind::LdnCreator,
+            "lp2p:app" => Kind::Lp2pCreator,
             "ns:am2" => Kind::Ns,
             "notif:a" => Kind::Notification,
             "psm" => Kind::Power,

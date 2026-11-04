@@ -13,6 +13,11 @@ pub(super) const fn c(
 pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
     match kind {
         Kind::Empty => &[],
+        Kind::LdnCreator => local_wireless::LDN_CREATOR,
+        Kind::Ldn => local_wireless::LDN,
+        Kind::Lp2pCreator => local_wireless::LP2P_CREATOR,
+        Kind::Lp2p => local_wireless::LP2P,
+        Kind::Lp2pMonitor => local_wireless::MONITOR,
         Kind::PlayHistory => play_history::COMMANDS,
         Kind::Ns => const { &[c(7989, 0, |s, _, x| s.child(Kind::ControlData, x))] },
         Kind::ControlData => ns::CONTROL,

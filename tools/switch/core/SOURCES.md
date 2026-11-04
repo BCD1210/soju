@@ -236,3 +236,14 @@ Legacy AbstractedPad commands are unavailable in the advertised modern profile;
 clearing their empty autopilot set does not detach independently owned HDLS devices.
 Both public HID debug examples reached three frames; the state roundtrip and
 shared-memory/transfer-lifetime test passed.
+
+Offline local wireless uses the [LDN/LP2P interface definitions](https://switchbrew.org/wiki/LDN_services).
+LDN cannot initialize a radio and remains State=None. Subsequent operations
+return documented LDN NotInitialized (0x4acb). LP2P has the documented empty
+Initialize/DestroyGroup behavior and remains role=0, link-level=0, with unsignaled
+state/join events. Radio-dependent operations return generic NotSupported
+(0xfe01, [public result table](https://switchbrew.org/wiki/Error_codes)). This is
+an explicit desktop capability policy, not a claim that native hardware returns
+that same result for every radio failure. No peers, addresses or successful
+transmissions are fabricated. Module-specific unavailable-radio error mapping
+remains unverified. Both public networking examples reached three frames.
