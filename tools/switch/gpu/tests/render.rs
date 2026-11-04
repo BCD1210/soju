@@ -2842,3 +2842,55 @@ fn implicit_fragment_group_uses_pixel_constants() {
         assert_eq!(pixel, [64, 128, 191, 255]);
     }
 }
+
+#[test]
+fn repeated_program_registration_observes_changed_shader_bytes() {
+    fn constant_fragment(value: f32) -> Vec<u8> {
+        let mut header = [0u32; 20];
+        header[0] = 2 | (5 << 10);
+        header[18] = 15;
+        let mut words: Vec<u64> = (0..4)
+            .map(|r| 0x010000000000f000 | PT | r | (u64::from(value.to_bits()) << 20))
+            .collect();
+        words.push(0xe30000000000000f | PT);
+        let mut binary: Vec<u8> = header.into_iter().flat_map(u32::to_le_bytes).collect();
+        for chunk in words.chunks(3) {
+            binary.extend(0x001f8000fc0007e0u64.to_le_bytes());
+            for word in chunk {
+                binary.extend(word.to_le_bytes());
+            }
+        }
+        binary
+    }
+    let mut h = Harness::new();
+    let binary = constant_fragment(0.25);
+    let size = binary.len();
+    let fs = h.program(binary);
+    let (mut e, _) = h.engine("registered-program", [0.; 4]);
+    h.methods(&mut e, &[(0x2144, fs as u32)]);
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    let directory = std::env::temp_dir().join(format!("soju-registration-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    for (value, expected) in [(0.25, 64u8), (0.25, 64), (0.75, 191)] {
+        if value == 0.75 {
+            h.memory.write(fs, &constant_fragment(value)).unwrap();
+        }
+        h.backend
+            .program(
+                fs,
+                size,
+                Options {
+                    texture_count: 1,
+                    ..Options::default()
+                },
+            )
+            .unwrap();
+        h.draw(&mut e, 6, false, false);
+        let report = h.backend.execute(&directory, &mut h.memory).unwrap();
+        assert!(report.images[0]
+            .rgba
+            .iter()
+            .all(|channel| channel.abs_diff(expected) <= 1));
+    }
+    std::fs::remove_dir_all(directory).unwrap();
+}

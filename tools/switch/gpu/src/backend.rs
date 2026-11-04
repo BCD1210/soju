@@ -177,6 +177,13 @@ impl Backend {
                 && options.global_memory.is_none(),
             "unsupported resource ABI",
         )?;
+        if self
+            .programs
+            .get(&address)
+            .is_some_and(|(previous_size, previous)| *previous_size == size && *previous == options)
+        {
+            return Ok(());
+        }
         self.variants.clear();
         self.shader_cache.clear();
         self.prepared = None;

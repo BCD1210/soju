@@ -13,7 +13,7 @@ pub struct GlobalMemory {
     pub bytes: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Options {
     /// Bound byte lengths required for checked dynamic constant loads.
     pub constant_buffer_bytes: [u32; 32],
