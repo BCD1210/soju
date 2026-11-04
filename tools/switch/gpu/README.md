@@ -65,7 +65,7 @@ an assertion about hardware reset values; callers must configure their state.
 | Colour targets | Up to eight CT_SELECT outputs, arbitrary routing, independent RGB/alpha blending and separate-alpha factors; per-selected-target full-channel clears |
 | Target storage | Pitched or block-linear colour; block-linear depth/stencil with block-height log2 0–5; one layer; checked extents, upload, load/store and explicit writeback; padding preserved |
 | Colour formats | All 17 colour entries of the texture table, including sRGB, packed normalized, R32Uint and 16/32-bit float; guest writeback preserves precision; RGBA8 reports are previews |
-| Depth/stencil | Z16, ZF32, Z24S8 promoted to float32/stencil8, ZF32_X24S8; imported guest contents, independent clears, compares, writes, front/back stencil operations/masks/references |
+| Depth/stencil | Z16, ZF32, Z24S8 and S8Z24 promoted to float32/stencil8, ZF32_X24S8; imported guest contents, independent clears, compares, writes, front/back stencil operations/masks/references |
 | Persistence | Attachment keys include address space, GPU address, format, dimensions and layout; writes invalidate affected contents; depth/stencil survives batches and supports first use without a clear |
 | Textures | All 43 texture-table entries: normalized/float/packed, BC1–BC7, ASTC block sizes, sRGB, depth and unsigned integer; block-linear 2D, one mip/layer, checked pools |
 | Texture views | TIC component permutations and zero/typed-one constants use Metal texture views; BGRA is expressed by component selection; packed-format channel order is adapted |

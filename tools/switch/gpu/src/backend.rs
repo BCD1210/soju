@@ -70,6 +70,8 @@ struct Target {
     generation: u64,
     memory_identity: u64,
     format: soju_switch_texture::format::Format,
+    // Rotate guest packed depth into the canonical Z24S8 order on import.
+    depth_rotation: u32,
 }
 #[derive(Debug)]
 pub struct Readback {
@@ -378,6 +380,7 @@ impl Backend {
                 generation: 0,
                 memory_identity: memory.identity,
                 format,
+                depth_rotation: 0,
             };
             let key = format!(
                 "{}-{:x}-{}-{width}-{height}-{layout}",
@@ -443,7 +446,7 @@ impl Backend {
         let mut pending_depth = None;
         let depth = if r.get(0x1538) != 0 {
             require(
-                r.get(0x1538) == 1 && matches!(r.get(0xfe8), 0x0a | 0x19 | 0x13 | 0x14),
+                r.get(0x1538) == 1 && matches!(r.get(0xfe8), 0x0a | 0x19 | 0x13 | 0x14 | 0x16),
                 "unsupported depth format",
             )?;
             require(
@@ -457,7 +460,7 @@ impl Backend {
             use soju_switch_texture::format::Format;
             let format = match r.get(0xfe8) {
                 0x13 => Format::Depth16Unorm,
-                0x14 => Format::Depth24UnormStencil8,
+                0x14 | 0x16 => Format::Depth24UnormStencil8,
                 0x19 => Format::Depth32FloatStencil8,
                 _ => Format::Depth32Float,
             };
@@ -470,6 +473,7 @@ impl Backend {
                 generation: 0,
                 memory_identity: memory.identity,
                 format,
+                depth_rotation: if r.get(0xfe8) == 0x16 { 8 } else { 0 },
             };
             t.generation = memory.generation(t.address, t.size())?;
             let key = format!(
@@ -502,11 +506,10 @@ impl Backend {
                 match format {
                     Format::Depth16Unorm => z.extend(&p[..2]),
                     Format::Depth24UnormStencil8 => {
-                        z.extend(
-                            ((u32::from_le_bytes(p.try_into().unwrap()) >> 8) as f32 / 16777215.)
-                                .to_le_bytes(),
-                        );
-                        stencil.push(p[0]);
+                        let packed = u32::from_le_bytes([p[0], p[1], p[2], p[3]])
+                            .rotate_left(t.depth_rotation);
+                        z.extend(((packed >> 8) as f32 / 16777215.).to_le_bytes());
+                        stencil.push(packed.to_le_bytes()[0]);
                     }
                     Format::Depth32FloatStencil8 => {
                         z.extend(&p[..4]);
@@ -519,7 +522,11 @@ impl Backend {
             let sfile = self.file(stencil);
             let command = DepthCommand {
                 key: key.clone().into(),
-                format: r.get(0xfe8) as _,
+                format: if r.get(0xfe8) == 0x16 {
+                    0x14
+                } else {
+                    r.get(0xfe8) as _
+                },
                 generation: t.generation as _,
                 zfile: zfile.into(),
                 sfile: sfile.into(),
@@ -1354,7 +1361,7 @@ impl Backend {
                         let f = f32::from_le_bytes(value.try_into().unwrap());
                         let v = ((f.clamp(0., 1.) * 16777215.).round() as u32) << 8
                             | u32::from(stencil[i]);
-                        p.copy_from_slice(&v.to_le_bytes());
+                        p.copy_from_slice(&v.rotate_right(t.depth_rotation).to_le_bytes());
                     }
                     Format::Depth32FloatStencil8 => {
                         require(stencil.len() == pixels, "missing stencil bytes")?;

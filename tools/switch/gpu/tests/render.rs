@@ -1398,7 +1398,7 @@ fn microbenchmark_cached_draws() {
 fn depth_import_writeback_and_cpu_invalidation() {
     let mut h = Harness::new();
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/depth-io-checks");
-    for code in [0x13, 0x14, 0xa, 0x19] {
+    for code in [0x13, 0x14, 0x16, 0xa, 0x19] {
         let bytes = match code {
             0x13 => 2,
             0x19 => 8,
@@ -1416,6 +1416,9 @@ fn depth_import_writeback_and_cpu_invalidation() {
             match code {
                 0x13 => ((z * 65535.).round() as u16).to_le_bytes().to_vec(),
                 0x14 => ((((z * 16777215.).round() as u32) << 8) | u32::from(stencil))
+                    .to_le_bytes()
+                    .to_vec(),
+                0x16 => (((z * 16777215.).round() as u32) | (u32::from(stencil) << 24))
                     .to_le_bytes()
                     .to_vec(),
                 0x19 => {
@@ -1443,7 +1446,7 @@ fn depth_import_writeback_and_cpu_invalidation() {
                 (0x130c, 0x201),
             ],
         );
-        if matches!(code, 0x14 | 0x19) {
+        if matches!(code, 0x14 | 0x16 | 0x19) {
             h.methods(
                 &mut e,
                 &[
@@ -1491,7 +1494,7 @@ fn depth_import_writeback_and_cpu_invalidation() {
         h.memory
             .write(z, &surface.swizzle(&packed(0.75, 2).repeat(1024)).unwrap())
             .unwrap();
-        if matches!(code, 0x14 | 0x19) {
+        if matches!(code, 0x14 | 0x16 | 0x19) {
             h.methods(&mut e, &[(0x1394, 2)]);
         }
         h.vertices(
@@ -1513,7 +1516,7 @@ fn depth_import_writeback_and_cpu_invalidation() {
             "depth format {code:x}"
         );
     }
-    eprintln!("depth import/writeback/CPU invalidation: checked=8192 color pixels and 8192 raw depth/stencil pixels");
+    eprintln!("depth import/writeback/CPU invalidation: checked=10240 color pixels and 10240 raw depth/stencil pixels");
 }
 
 #[test]
