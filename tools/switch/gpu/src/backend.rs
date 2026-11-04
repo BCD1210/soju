@@ -912,6 +912,15 @@ impl Backend {
                         }
                     }
                 }
+                // Integer vertex fetch must preserve register bits rather than convert to float.
+                for slot in 0..32 {
+                    let ty = (r.get(0x1e00 + slot * 4) >> 27) & 7;
+                    let name = match ty { 3 => "int", 4 => "uint", _ => continue };
+                    vs.source = vs.source.replace(
+                        &format!("float4 a{slot} [[attribute({slot})]];"),
+                        &format!("{name}4 a{slot} [[attribute({slot})]];"),
+                    );
+                }
                 let mut signature = Vec::with_capacity(2048);
                 signature.extend(vkey.0);
                 signature.extend(fkey.0);
@@ -1214,6 +1223,8 @@ impl Backend {
                         (4, 7) => (29, 8),
                         (0x12, 7) => (28, 4),
                         (0xa | 0x2f, 2) => (9, 4),
+                        (0x1b, 4) => (49, 2),
+                        (0x1b, 3) => (50, 2),
                         _ => return Err(Error(format!("vertex format {bits}/{ty} unsupported"))),
                     };
                     let stream_format = r.get(0x1c00 + stream * 16);

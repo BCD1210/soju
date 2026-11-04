@@ -3165,3 +3165,41 @@ fn draw_range_references_keep_first_vertex_count_and_bounds() {
     let invalid = e.method(B197, 0xd78, 13, &mut h.memory).unwrap().unwrap();
     assert!(h.backend.prepare(&invalid, &h.memory).is_err());
 }
+
+#[test]
+fn integer_vertex_fetch_preserves_bits_before_conversion() {
+    for signed in [false, true] {
+        let mut h = Harness::new();
+        let mut header = [0u32; 20];
+        header[0] = 1 | (1 << 10);
+        header[6] = 0x1f;
+        header[13] = (15 << 12) | (15 << 16);
+        let code = [
+            attr(false, 0x80, 0, 4),
+            attr(false, 0x90, 4, 1),
+            0x5cb8000000000a00 | PT | 4 | (4 << 20) | if signed { 1 << 13 } else { 0 },
+            0x010000000000f000 | PT | 5,
+            0x010000000000f000 | PT | 6,
+            0x010000000000f000 | PT | 7 | (u64::from(1f32.to_bits()) << 20),
+            attr(true, 0x70, 0, 4),
+            attr(true, 0x80, 4, 4),
+            0xe30000000000000f | PT,
+        ];
+        let mut binary: Vec<u8> = header.into_iter().flat_map(u32::to_le_bytes).collect();
+        for chunk in code.chunks(3) {
+            binary.extend(0x001f8000fc0007e0u64.to_le_bytes());
+            for word in chunk { binary.extend(word.to_le_bytes()); }
+        }
+        let vs = h.program(binary);
+        let (mut e, _) = h.engine("integer-fetch", [0.; 4]);
+        let mut vertices = quad(-1., -1., 1., 1., 0.5, [0.; 4]);
+        for vertex in &mut vertices { vertex[4] = f32::from_bits(if signed { 0xffff } else { 1 }); }
+        h.vertices(&mut e, &vertices, &[[0.; 4]]);
+        h.methods(&mut e, &[(0x2044, vs as u32), (0x1164, (16 << 7) | (0x1b << 21) | ((if signed { 3 } else { 4 }) << 27))]);
+        h.draw(&mut e, 6, false, false);
+        let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("target/integer-fetch-{signed}"));
+        let report = h.backend.execute(&directory, &mut h.memory).unwrap();
+        let expected = if signed { [0, 0, 0, 255] } else { [255, 0, 0, 255] };
+        assert!(report.images[0].rgba.chunks_exact(4).all(|p| p == expected));
+    }
+}

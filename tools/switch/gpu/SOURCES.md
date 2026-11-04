@@ -96,3 +96,10 @@ DEPTH_MINUS_ONE and normalized coordinates. Each single-mip array layer occupies
 a separate block-linear 2D slice (block depth zero). Metal type2DArray views bind
 at the shader table's array group, not the 2D group. A two-layer pixel oracle
 selects the second distinct-colored layer with a hand-encoded TEXS array instruction.
+
+Integer vertex input uses B197 SET_VERTEX_ATTRIBUTE_A NUM_UINT/NUM_SINT
+and COMPONENT_BIT_WIDTHS_R16, with Apple's installed MTLVertexDescriptor.h
+UShort/Short formats. The StageIn field uses uint4/int4 so ALD receives integer
+register bits before guest conversion. Signed and unsigned scalar-fetch render
+oracles exercise I2F and output clamping; pipeline identity already contains
+the attribute descriptors.
