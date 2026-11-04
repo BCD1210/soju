@@ -207,6 +207,7 @@ final class Worker {
             let pipelineKey=String(data:try file(source),encoding:.utf8)!
             if computePipelines[pipelineKey] == nil {computePipelines[pipelineKey]=try device.makeComputePipelineState(function:f)}
             let pipeline=computePipelines[pipelineKey]!
+            touch("k", pipelineKey)
             if computeGenerations[key] != Int(command.generation) {
                 if computeBuffers[key] != nil {try flush()}
                 let bytes=try file(text(command.file))
@@ -295,7 +296,7 @@ final class Worker {
             if depthGenerations[dk] != Int(depth.generation) {
                 if depthGenerations[dk] != nil {try flush()}
                 depths.removeValue(forKey:dk)
-                renderPasses.removeAll()
+                invalidatePasses()
             }
             if depths[dk] == nil {
                 let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:depthFormat,width:w,height:h,mipmapped:false)
@@ -325,8 +326,9 @@ final class Worker {
             }
         }
         if !isClear && visibility == nil {
+            touch("r", passKey)
             renderPasses[passKey] = pass
-            passStates[passStateIndex] = RenderPassState(descriptor: pass, key: passKey, colors: colors, depthFormat: depthFormat, usage: attachments.map { cacheStamp("c", text($0.key)) } + items(command.depth).map { cacheStamp("d", text($0.key)) })
+            passStates[passStateIndex] = RenderPassState(descriptor: pass, key: passKey, colors: colors, depthFormat: depthFormat, usage: [cacheStamp("r", passKey)] + attachments.map { cacheStamp("c", text($0.key)) } + items(command.depth).map { cacheStamp("d", text($0.key)) })
         }
         }
         if isClear || visibility != nil || activeKey != passKey {endPass()}
