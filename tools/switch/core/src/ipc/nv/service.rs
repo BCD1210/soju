@@ -111,6 +111,19 @@ fn initialize(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Er
 }
 fn event(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error> {
     let fd = r.u32(0)?;
+    if nv.file(fd, c.object)? == Device::Ctrl {
+        let id = r.u32(4)?;
+        if id & !63 != 0x10000000 {
+            return Err(Error::Malformed("NV control event ID"));
+        }
+        let handle = *nv
+            .fence_events
+            .get(&(fd, id & 63))
+            .ok_or(Error::Malformed("NV event not registered"))?;
+        let mut reply = Reply::copy(handle);
+        reply.data = vec![0; 4];
+        return Ok(reply);
+    }
     if nv.file(fd, c.object)? != Device::Gpu || r.u32(4)? != 3 {
         return Err(Error::Malformed("NV channel event"));
     }

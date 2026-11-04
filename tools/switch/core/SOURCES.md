@@ -122,3 +122,11 @@ heap backing, one writable owner alias, one read/read-execute alias, exact-range
 unmaps, and final-handle cleanup. It permits both aliases in the same process;
 modern cross-process ownership restrictions and handle transfer are not modeled.
 This choice is explicit and is not evidence for cross-process JIT behavior.
+
+## Control fence events
+
+The register/unregister IDs and event query bit are described by the public libnx
+API implementation: https://github.com/switchbrew/libnx/blob/master/nx/source/nvidia/ioctl/nvhost-ctrl.c
+and https://github.com/switchbrew/libnx/blob/master/nx/source/nvidia/fence.c .
+The synchronous runner accepts waits only for committed completion values; future
+threshold waits remain unsupported, rather than returning premature success.

@@ -20,6 +20,12 @@ const NVMAP: &[CommandSpec<Nv>] = &[
     spec(0xc0180105, 24, nvmap::free),
     spec(0xc008010e, 8, nvmap::get_id),
 ];
+const SYNC: &[CommandSpec<Nv>] = &[
+    spec(0xc004001f, 4, fences::register),
+    spec(0xc0040020, 4, fences::unregister),
+    spec(0xc0080014, 8, fences::read),
+    spec(0xc010001e, 16, fences::wait),
+];
 const CTRL: &[CommandSpec<Nv>] = &[
     spec(0xc0184706, 24, queries::tpc_masks),
     spec(0xc0b04705, 176, control::characteristics),
@@ -53,7 +59,7 @@ pub(super) fn dispatch(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<
     let command = r.u32(4)?;
     let table = match nv.file(fd, c.object)? {
         Device::Nvmap => NVMAP,
-        Device::Ctrl => &[],
+        Device::Ctrl => SYNC,
         Device::CtrlGpu => CTRL,
         Device::AsGpu => AS,
         Device::Gpu => GPU,

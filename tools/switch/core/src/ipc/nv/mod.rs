@@ -1,6 +1,7 @@
 //! Session-owned NV device service and bounded CPU GPU execution.
 mod commit;
 mod control;
+mod fences;
 mod gpu;
 mod ioctl;
 mod memory;
@@ -50,6 +51,7 @@ struct Channel {
 pub struct Nv {
     pending: BTreeMap<u64, submit::Pending>,
     metal: BTreeMap<u32, metal::Renderer>,
+    fence_events: BTreeMap<(u32, u32), Handle>,
     next_transaction: u64,
     next_fd: u32,
     sessions: BTreeSet<ObjectId>,
@@ -111,6 +113,17 @@ impl Nv {
         Ok(())
     }
     fn remove_fd(&mut self, fd: u32) {
+        let events: Vec<_> = self
+            .fence_events
+            .keys()
+            .filter(|(owner, _)| *owner == fd)
+            .copied()
+            .collect();
+        for key in events {
+            if let Some(event) = self.fence_events.remove(&key) {
+                self.close.push(event);
+            }
+        }
         self.files.remove(&fd);
         self.metal.remove(&fd);
         if let Some(channel) = self.channels.remove(&fd)

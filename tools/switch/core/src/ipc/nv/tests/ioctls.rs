@@ -262,3 +262,40 @@ fn color_and_z16_kinds_are_retained_in_the_virtual_mapping() {
         );
     }
 }
+
+#[test]
+fn control_event_slots_wait_only_for_committed_fences_and_close_cleanly() {
+    let mut f = Fixture::new();
+    let (channel, _, _) = f.setup();
+    let fd = f.open("/dev/nvhost-ctrl");
+    assert!(f.ioctl(fd, 0xc004001f, &64u32.to_le_bytes(), 4).is_err());
+    f.ioctl(fd, 0xc004001f, &0u32.to_le_bytes(), 4).unwrap();
+    assert!(f.ioctl(fd, 0xc004001f, &0u32.to_le_bytes(), 4).is_err());
+    let mut query = fd.to_le_bytes().to_vec();
+    query.extend(0x10000000u32.to_le_bytes());
+    assert_eq!(
+        f.call(&Fixture::request(4, query))
+            .unwrap()
+            .copy_handles
+            .len(),
+        1
+    );
+    let mut wait = vec![0; 16];
+    put32(&mut wait, 0, channel);
+    put32(&mut wait, 4, 2);
+    assert!(f.ioctl(fd, 0xc010001e, &wait, 16).is_err());
+    f.nv.channels.get_mut(&channel).unwrap().completed = 2;
+    assert_eq!(f.ioctl(fd, 0xc010001e, &wait, 16).unwrap(), wait);
+    let mut read = vec![0; 8];
+    put32(&mut read, 0, channel);
+    assert_eq!(
+        read_u32(&f.ioctl(fd, 0xc0080014, &read, 8).unwrap(), 4).unwrap(),
+        2
+    );
+    f.ioctl(fd, 0xc0040020, &0u32.to_le_bytes(), 4).unwrap();
+    assert!(f.ioctl(fd, 0xc010001e, &wait, 16).is_err());
+    f.ioctl(fd, 0xc004001f, &0u32.to_le_bytes(), 4).unwrap();
+    f.call(&Fixture::request(2, fd.to_le_bytes().to_vec()))
+        .unwrap();
+    assert!(f.nv.fence_events.is_empty());
+}
