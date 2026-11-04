@@ -56,7 +56,11 @@ impl Emitter<'_> {
                 .ok_or_else(|| x.error(format!("attribute 0x{address:x} absent from SPH")))?;
             let r = (u32::from(first) + c) as u8;
             if store {
-                let field = if (0x70..0x80).contains(&address) {
+                let field = if address == 0x6c {
+                    "point_size".into()
+                } else if (0x2c0..0x2e0).contains(&address) {
+                    format!("clip_distance[{}]", (address - 0x2c0) / 4)
+                } else if (0x70..0x80).contains(&address) {
                     format!("position[{}]", (address - 0x70) / 4)
                 } else {
                     format!("v{}", address / 4)

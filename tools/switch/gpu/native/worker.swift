@@ -24,6 +24,8 @@ final class Worker {
     let device: MTLDevice
     let queue: MTLCommandQueue
     var targets = [String: MTLTexture](), generations = [String: Int](), depths = [String: MTLTexture](), depthGenerations = [String: Int]()
+    var occlusion: UInt64 = 0
+    var queryValues = [String: UInt32]()
     var targetBytes = [String: Int]()
     var pipelines = [String: MTLRenderPipelineState](), depthStates = [String: MTLDepthStencilState]()
     var functions = [String: MTLFunction](), textureCache = [String: MTLTexture]()
@@ -49,6 +51,8 @@ final class Worker {
         guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[source] = f; return f
     }
     for command in commands {
+        if command["query_reset"] != nil {occlusion=0;continue}
+        if let key=command["query_report"] as? String {queryValues[key]=UInt32(truncatingIfNeeded:occlusion);continue}
         guard let raw = command["registers"] as? Object, let attachments = command["targets"] as? [Object], let target = attachments.first else { throw Failure("missing state") }
         func r(_ a: Int) -> Int { number(raw,String(a)) }
         func f(_ a: Int) -> Double { Double(Float(bitPattern:UInt32(r(a)))) }
@@ -77,6 +81,9 @@ final class Worker {
             a.texture = color; a.loadAction = isClear && mask & 60 != 0 && (mask >> 6) == slot ? .clear : .load; a.storeAction = .store
             a.clearColor = MTLClearColor(red:f(0xd80),green:f(0xd84),blue:f(0xd88),alpha:f(0xd8c))
         }
+        try need(r(0x1514)<=1,"invalid occlusion enable")
+        let visibility = r(0x1514)==1 && !isClear ? device.makeBuffer(length:8,options:.storageModeShared) : nil
+        if let visibility {visibility.contents().storeBytes(of:UInt64(0),as:UInt64.self);pass.visibilityResultBuffer=visibility}
         var depthFormat = MTLPixelFormat.invalid
         if let depth = command["depth"] as? Object {
             let dk = try string(depth,"key")
@@ -131,7 +138,7 @@ final class Worker {
                     let slot = number(a,"slot"), stream = number(a,"stream")
                     guard let format = MTLVertexFormat(rawValue:UInt(number(a,"format"))) else {throw Failure("vertex format")}
                     vertex.attributes[slot].format = format;vertex.attributes[slot].offset = number(a,"offset");vertex.attributes[slot].bufferIndex = stream
-                    vertex.layouts[stream].stride = number(a,"stride");vertex.layouts[stream].stepFunction = number(a,"instanced")==1 ? .perInstance : .perVertex;vertex.layouts[stream].stepRate = number(a,"rate")
+                    vertex.layouts[stream].stride = number(a,"stride");vertex.layouts[stream].stepFunction = number(a,"instanced")==1 ? .constant : .perVertex;vertex.layouts[stream].stepRate = number(a,"instanced")==1 ? 0 : 1
                 }
                 descriptor.vertexDescriptor = vertex
                 pipelines[pk] = try device.makeRenderPipelineState(descriptor:descriptor)
@@ -152,10 +159,18 @@ final class Worker {
                 guard let state = device.makeDepthStencilState(descriptor:d) else {throw Failure("depth/stencil state")};depthStates[pk] = state
             }
             guard let encoder = cb.makeRenderCommandEncoder(descriptor:pass) else {throw Failure("render encoder")}
+            if visibility != nil {encoder.setVisibilityResultMode(.counting,offset:0)}
             encoder.setRenderPipelineState(pipelines[pk]!);encoder.setDepthStencilState(depthStates[pk]!)
             let sx=f(0xa00),sy=f(0xa04),sz=f(0xa08),ox=f(0xa0c),oy=f(0xa10),oz=f(0xa14)
-            try need([sx,sy,sz,ox,oy,oz].allSatisfy{$0.isFinite} && sx>0 && sy>0 && sz>=0 && oz>=0 && oz+sz<=1,"viewport supports positive XY scales and zero-to-one depth")
-            encoder.setViewport(MTLViewport(originX:ox-sx,originY:oy-sy,width:2*sx,height:2*sy,znear:oz,zfar:oz+sz))
+            let near = r(0xd7c)==0 ? oz-sz : oz, far=oz+sz
+            try need([sx,sy,sz,ox,oy,oz].allSatisfy{$0.isFinite} && sx != 0 && sy != 0 && near>=0 && near<=1 && far>=0 && far<=1,"invalid viewport/depth range")
+            encoder.setViewport(MTLViewport(originX:ox-abs(sx),originY:oy-abs(sy),width:2*abs(sx),height:2*abs(sy),znear:near,zfar:far))
+            let offset = r(0xdac)==0x1b01 ? r(0xdc4) : r(0xdc8)
+            try need([r(0xdc0),r(0xdc4),r(0xdc8)].allSatisfy{$0<=1},"invalid polygon offset enable")
+            if offset != 0 {
+                try need(r(0x1110)==1,"depth bias requires format-dependent units")
+                encoder.setDepthBias(Float(f(0x15bc)),slopeScale:Float(f(0x156c)),clamp:Float(f(0x187c)))
+            } else {encoder.setDepthBias(0,slopeScale:0,clamp:0)}
             if r(0xe00) != 0 {
                 let x=r(0xe04)&65535,y=r(0xe08)&65535,endX=r(0xe04)>>16,endY=r(0xe08)>>16
                 try need(x<endX && y<endY && endX<=w && endY<=h,"invalid scissor")
@@ -169,7 +184,12 @@ final class Worker {
             encoder.setTriangleFillMode(r(0xdac)==0x1b01 ? .lines : .fill)
             encoder.setBlendColor(red:Float(f(0x131c)),green:Float(f(0x1320)),blue:Float(f(0x1324)),alpha:Float(f(0x1328)))
             encoder.setStencilReferenceValues(front:UInt32(r(0x1394)),back:UInt32(r(r(0x1594)==1 ? 0xf54 : 0x1394)))
-            for b in array(command,"buffers") {encoder.setVertexBuffer(try buffer(string(b,"file")),offset:0,index:number(b,"slot"))}
+            for b in array(command,"buffers") {
+                let slot=number(b,"slot")
+                let a=array(command,"attributes").first{number($0,"stream")==slot}!
+                let offset=number(a,"instanced")==1 ? (number(command,"instance")/number(a,"rate"))*number(a,"stride") : 0
+                encoder.setVertexBuffer(try buffer(string(b,"file")),offset:offset,index:slot)
+            }
             for c in array(command,"constants") {
                 let b=try buffer(string(c,"file"));if number(c,"stage")==0 {encoder.setVertexBuffer(b,offset:0,index:number(c,"slot"))}else{encoder.setFragmentBuffer(b,offset:0,index:number(c,"slot"))}
             }
@@ -207,11 +227,15 @@ final class Worker {
             let topology:MTLPrimitiveType
             switch number(command,"topology") {case 0:topology = .point;case 1:topology = .line;case 3:topology = .lineStrip;case 4:topology = .triangle;case 5:topology = .triangleStrip;default:throw Failure("primitive")}
             if let indexFile=command["indices"] as? String {
-                encoder.drawIndexedPrimitives(type:topology,indexCount:number(command,"count"),indexType:number(command,"indexSize")==2 ? .uint16 : .uint32,indexBuffer:try buffer(indexFile),indexBufferOffset:0,instanceCount:1,baseVertex:number(command,"baseVertex"),baseInstance:number(command,"instance"))
+                let indices=try buffer(indexFile)
+                for segment in array(command,"segments") {
+                    encoder.drawIndexedPrimitives(type:topology,indexCount:number(segment,"count"),indexType:number(command,"indexSize")==2 ? .uint16 : .uint32,indexBuffer:indices,indexBufferOffset:number(segment,"start")*number(command,"indexSize"),instanceCount:1,baseVertex:number(command,"baseVertex"),baseInstance:number(command,"instance"))
+                }
             }else{encoder.drawPrimitives(type:topology,vertexStart:number(command,"first"),vertexCount:number(command,"count"),instanceCount:1,baseInstance:number(command,"instance"))}
             encoder.endEncoding();draws += 1
         }
         cb.commit();cb.waitUntilCompleted();withExtendedLifetime(retainedSamplers) {};try need(cb.status == .completed,"GPU command failed: \(String(describing:cb.error))")
+        if let visibility {occlusion &+= visibility.contents().load(as:UInt64.self)}
     }
     return "device=\(device.name) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
@@ -222,6 +246,10 @@ final class Worker {
         t.getBytes(&bytes,bytesPerRow:t.width*targetBytes[key]!,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
         try Data(bytes).write(to:root.appendingPathComponent("\(key).rgba"))
     }
+        for (key,value) in queryValues {
+            var little=value.littleEndian
+            try withUnsafeBytes(of:&little) {try Data($0).write(to:root.appendingPathComponent("\(key).query"))}
+        }
         return "readback_targets=\(targets.count)"
     }
 }
@@ -234,7 +262,7 @@ do {
                 try need(parts.count == 2,"invalid request")
                 let result = try parts[0] == "submit" ? worker.run(parts[1]) : worker.readback(parts[1])
                 print("OK \(result)"); fflush(stdout)
-            } catch { print("ERROR \(error)"); fflush(stdout) }
+            } catch { print("ERROR \(String(describing:error).replacingOccurrences(of:"\n",with:" "))"); fflush(stdout) }
         }
     } else {
         print(try worker.run(CommandLine.arguments[1]))

@@ -27,6 +27,7 @@ pub struct Backend {
     targets: BTreeMap<String, Target>,
     worker: Option<crate::worker::Worker>,
     serial: u64,
+    queries: BTreeMap<String, (u64, u64, u64)>,
 }
 #[derive(Clone)]
 struct Target {
@@ -127,13 +128,38 @@ impl Backend {
     }
     /// Resolve immediately at each action, before later CPU/transfer writes.
     pub fn prepare(&mut self, s: &Snapshot, memory: &Memory) -> Result<()> {
+        match s.action {
+            Action::ResetOcclusion => {
+                self.commands.push("{\"query_reset\":true}".into());
+                return Ok(());
+            }
+            Action::ReportOcclusion { address } => {
+                let generation = memory.generation(address, 4)?;
+                let key = format!("{}-{address:x}", memory.identity);
+                self.commands
+                    .push(format!("{{\"query_report\":{}}}", quote(&key)));
+                self.queries
+                    .insert(key, (address, generation, memory.identity));
+                return Ok(());
+            }
+            _ => {}
+        }
         let r = &s.registers;
         for &offset in r.0.keys() {
-            let supported = matches!(offset,0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1538|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
+            let supported = matches!(offset,0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
             require(
                 supported,
                 &format!("Metal state method {offset:#x} is not implemented"),
             )?;
+        }
+        if let Some(&mode) = r.0.get(&0x1558) {
+            require(
+                mode <= 1,
+                "memory conditional rendering mode not implemented",
+            )?;
+            if mode == 0 {
+                return Ok(());
+            }
         }
         let attachment_count = r.get(0x121c) & 15;
         require(
@@ -281,6 +307,7 @@ impl Backend {
             target_jsons.join(",")
         );
         match s.action {
+            Action::ResetOcclusion | Action::ReportOcclusion { .. } => unreachable!(),
             Action::Clear(mask) => {
                 require(
                     mask != 0
@@ -306,10 +333,7 @@ impl Backend {
                 indexed,
                 instance,
             } => {
-                require(
-                    r.get(0xd7c) == 1,
-                    "only zero-to-positive-W clip depth is implemented",
-                )?;
+                require(r.get(0xd7c) <= 1, "invalid clip depth convention")?;
                 require(count > 0 && count <= 1_000_000, "invalid draw count")?;
                 for stage in [0, 2, 3, 4] {
                     require(
@@ -328,7 +352,7 @@ impl Backend {
                 let fa = base
                     .checked_add(u64::from(r.get(0x2144)))
                     .ok_or_else(|| Error("shader address overflow".into()))?;
-                let (vs, vh, vkey) = self.shader(va, memory, Stage::Vertex)?;
+                let (mut vs, vh, vkey) = self.shader(va, memory, Stage::Vertex)?;
                 let (mut fs, fh, fkey) = self.shader(fa, memory, Stage::Fragment)?;
                 require(
                     fh.color_masks[..attachment_count as usize]
@@ -358,9 +382,62 @@ impl Backend {
                         }
                     }
                 }
+                let mut finish = String::new();
+                for (axis, reg) in [("x", 0xa00), ("y", 0xa04)] {
+                    if r.float(reg) < 0. {
+                        writeln!(finish, "out.position.{axis} = -out.position.{axis};").unwrap();
+                    }
+                }
+                if r.get(0xd7c) == 0 {
+                    finish.push_str("out.position.z = (out.position.z + out.position.w) * 0.5f;\n");
+                }
+                require(
+                    r.get(0x1510) <= 255 && r.get(0x1940) == 0,
+                    "unsupported clip/cull mask",
+                )?;
+                let has_clip = vh
+                    .outputs
+                    .iter()
+                    .any(|a| (0x2c0..0x2e0).contains(&a.address));
+                for i in 0..8 {
+                    if r.get(0x1510) & (1 << i) != 0 {
+                        require(
+                            vh.outputs.iter().any(|a| a.address == 0x2c0 + i * 4),
+                            "enabled clip distance missing from shader",
+                        )?;
+                    } else if has_clip {
+                        writeln!(finish, "out.clip_distance[{i}]=1.0f;").unwrap();
+                    }
+                }
+                require(
+                    r.get(0x1910) == 0,
+                    "shader-selected point size slot unsupported",
+                )?;
+                if topology == 0 {
+                    let size = r.float(0x1518);
+                    require(size.is_finite() && size > 0., "invalid point size")?;
+                    if !vh.outputs.iter().any(|a| a.address == 0x6c) {
+                        vs.source = vs.source.replace(
+                            "float4 position [[position]];",
+                            "float4 position [[position]]; float point_size [[point_size]];",
+                        );
+                    }
+                    writeln!(finish, "out.point_size={size:?}f;").unwrap();
+                }
+                finish.push_str("return out;");
+                let entry = vs
+                    .source
+                    .find("vertex StageOut soju_vertex")
+                    .ok_or_else(|| Error("vertex entry missing".into()))?;
+                vs.source = format!(
+                    "{}{}",
+                    &vs.source[..entry],
+                    vs.source[entry..].replace("return out;", &finish)
+                );
                 let vfile = self.file(vs.source.as_bytes().to_vec());
                 let ffile = self.file(fs.source.as_bytes().to_vec());
-                let mut cache_state = Vec::new();
+                let mut cache_state = vs.source.as_bytes().to_vec();
+                cache_state.extend(fs.source.as_bytes());
                 // Canonical descriptor state: absent registers and explicit zero agree.
                 // Addresses, draw arguments, viewports and clears are dynamic state.
                 for a in (0..=0x2000).step_by(4) {
@@ -400,6 +477,7 @@ impl Backend {
                     .get(0x1438)
                     .checked_add(instance)
                     .ok_or_else(|| Error("base instance overflow".into()))?;
+                let mut segments = Vec::new();
                 let (index_file, min_vertex, max_vertex, index_size) = if indexed {
                     let size = match r.get(0x17d8) {
                         0 => 1,
@@ -427,8 +505,26 @@ impl Backend {
                             u32::from_le_bytes(word)
                         })
                         .collect::<Vec<_>>();
-                    let min = i64::from(*indices.iter().min().unwrap()) + i64::from(base_vertex);
-                    let max = i64::from(*indices.iter().max().unwrap()) + i64::from(base_vertex);
+                    require(r.get(0x1644) <= 1, "invalid primitive restart enable")?;
+                    let restart = r.get(0x1644) == 1;
+                    let marker = r.get(0x1648);
+                    let mut valid = Vec::new();
+                    let mut start = 0;
+                    for (i, &v) in indices.iter().enumerate() {
+                        if restart && v == marker {
+                            if i > start {
+                                segments.push((start, i - start));
+                            }
+                            start = i + 1;
+                        } else {
+                            valid.push(v);
+                        }
+                    }
+                    if start < indices.len() {
+                        segments.push((start, indices.len() - start));
+                    }
+                    let min = i64::from(*valid.iter().min().unwrap_or(&0)) + i64::from(base_vertex);
+                    let max = i64::from(*valid.iter().max().unwrap_or(&0)) + i64::from(base_vertex);
                     require(
                         min >= 0 && max <= u32::MAX as i64,
                         "base vertex outside range",
@@ -459,6 +555,16 @@ impl Backend {
                         0,
                     )
                 };
+                write!(
+                    command,
+                    ",\"segments\":[{}]",
+                    segments
+                        .iter()
+                        .map(|(start, count)| format!("{{\"start\":{start},\"count\":{count}}}"))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )
+                .unwrap();
                 let _ = min_vertex;
                 let slots = vh
                     .inputs
@@ -707,6 +813,12 @@ impl Backend {
                 "CPU write overlaps pending target; synchronize before writing",
             )?;
         }
+        for &(address, generation, identity) in self.queries.values() {
+            require(
+                memory.identity == identity && memory.generation(address, 4)? == generation,
+                "CPU write overlaps pending query",
+            )?;
+        }
         std::fs::create_dir_all(directory).map_err(io)?;
         let directory = std::fs::canonicalize(directory).map_err(io)?;
         require(
@@ -753,12 +865,18 @@ impl Backend {
                 rgba: crate::format::rgba(t.format, &bytes),
             });
         }
+        for (key, &(address, _, _)) in &self.queries {
+            let data = std::fs::read(directory.join(format!("{key}.query"))).map_err(io)?;
+            require(data.len() == 4, "invalid query result")?;
+            writes.push((address, data));
+        }
         for (address, data) in writes {
             memory.write(address, &data)?;
         }
         self.commands.clear();
         self.files.clear();
         self.targets.clear();
+        self.queries.clear();
         Ok(Report {
             images,
             diagnostics,

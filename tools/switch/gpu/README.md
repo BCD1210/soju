@@ -56,7 +56,7 @@ shader enables, vertex formats, viewport and clip convention explicitly.
 | Register file | Public method catalogue for B197, A140 and 902D; named byte offsets and bounded arrays in `REGISTERS.md`; unknown methods rejected |
 | Color target | CT_SELECT routes up to eight targets; 17 normalized, float, sRGB and integer colour formats; block-linear or tightly pitched, single layer; upload, load/store, readback and guest-memory writeback |
 | Zeta | Z16, Z24S8 (promoted), ZF32 and ZF32_X24S8 Metal attachments; size validation; full clear required on first use; depth/stencil preserved between draws in the same batch |
-| Viewport | Viewport 0, positive XY scales, top-left Metal coordinates; explicitly selected zero-to-positive-W clip depth; Z offset/scale maps to Metal near/far |
+| Viewport | Viewport 0, signed XY scales, top-left Metal coordinates; both clip-depth conventions; Z offset/scale maps to Metal near/far |
 | Scissor | Enabled viewport-0 scissor within target bounds |
 | Vertex fetch | Float1/2/3/4 and normalized RGBA8; stream stride, address, inclusive limit; per-instance stream divisors; used stream indices 0–29 |
 | Shaders | Standalone Vertex B and fragment from program-region address plus stage offset; SPH stage checked; other enabled stages rejected |
@@ -65,7 +65,7 @@ shader enables, vertex formats, viewport and clip convention explicitly.
 | Samplers | 32-byte TSC; point/linear min/mag, repeat/mirror-repeat/clamp-to-edge, no mip filtering; argument buffers with explicit residency |
 | Handles | Existing shader normalized bindings select TIC and TSC pool indices independently, checked against pool limits; up to 16 resources per table; default paired-index ABI also supported |
 | Draws | BEGIN/END, array first/count, indexed first/count, 8/16/32-bit indices (8-bit widened), signed indexed base vertex, instance first/subsequent/unchanged, global base instance |
-| Topology | Points, lines, line strip, triangles and triangle strip; no restart or split primitives |
+| Topology | Points, lines, line strip, triangles and triangle strip; indexed restart splitting; no split-primitive BEGIN modes |
 | Blend | Per-target RGB/alpha operations and factors, separate alpha, constant blend color; dual-source factors rejected |
 | Depth/stencil | OGL/D3D compares, depth writes, front/back stencil ops, masks and refs |
 | Raster | Front winding, front/back culling, matching front/back fill or wireframe polygon modes |
@@ -219,3 +219,26 @@ Forty format/view cases check 40,960 pixels, including nonzero sRGB/depth/packed
 
 Z16 uses Metal depth16; Z24S8 uses depth32/stencil8 promotion. Two additional depth
 rejection images check 2,048 pixels. Promotion does not reproduce D24 quantization.
+
+## Raster and query additions
+
+Signed X/Y viewport scales are lowered in the vertex export, preserving positive
+Metal viewport dimensions. Both clip-depth conventions map to the programmed depth
+range. Up to eight shader clip-distance exports and fixed point size are supported.
+Format-dependent polygon bias maps to Metal bias/slope/clamp; depth-format-independent
+bias is rejected. Shader-selected point-size slots and cull-distance mode are rejected.
+Arbitrary indexed restart markers split the captured index list into primitive runs.
+
+Each guest draw currently contains one instance. Divisor attributes are explicitly
+selected at floor(base_instance / divisor), with constant Metal vertex stepping;
+this avoids Metal's different base-instance/step-rate convention. The divisor-two
+image checks repeated blending, not just whether two instances are visible.
+
+`Action` adds `ResetOcclusion` and `ReportOcclusion { address }`; downstream exhaustive
+matches must handle these or continue forwarding snapshots to `Backend::prepare`.
+B197 CLEAR_REPORT_VALUE(ZPASS) and one-word REPORT_ONLY ZPASS at DEPTH_TEST map to
+Metal counting visibility queries. Results become guest-visible at `readback`.
+Other report sizes, timestamps, and report types are rejected. SET_RENDER_ENABLE_C
+TRUE/FALSE works; memory predicate modes remain explicitly unsupported.
+Six images check 6,144 pixels; the query verifies 1,024 passing samples and excludes
+occluded fragments. The bias check verifies direction, not cross-device bit precision.

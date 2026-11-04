@@ -580,7 +580,7 @@ fn malformed_draw_resources_fail_before_native_execution() {
     let original = e.method(B197, 0xd78, 6, &mut h.memory).unwrap().unwrap();
     for (offset, value, message) in [
         (0x1f04, 0, "vertex stream limit"),
-        (0xd7c, 0, "clip depth"),
+        (0xd7c, 2, "clip depth"),
         (0x121c, 2, "CT_SELECT"),
         (0x810, 0xc1, "render target requires"),
         (0x2080, 0x21, "unsupported enabled shader stage"),
@@ -1112,4 +1112,208 @@ fn depth16_and_depth24_stencil_render_on_metal() {
         assert!(image.rgba.chunks_exact(4).all(|p| p == [0, 255, 0, 255]));
     }
     eprintln!("depth16 and promoted depth24/stencil: checked=2048");
+}
+
+#[test]
+fn raster_extras_and_occlusion_results_match_images() {
+    let mut h = Harness::new();
+    // Signed viewport plus negative-W clip convention and a non-default depth range.
+    let (mut e, a) = h.engine("signed-viewport", [0., 0., 0., 1.]);
+    let z = h.alloc(vec![0; 4096]);
+    h.methods(
+        &mut e,
+        &[
+            (0xa00, (-16f32).to_bits()),
+            (0xd7c, 0),
+            (0xa08, 0.3f32.to_bits()),
+            (0xa14, 0.5f32.to_bits()),
+            (0xfe4, z as u32),
+            (0xfe8, 0xa),
+            (0x1228, 32),
+            (0x122c, 32),
+            (0x1230, 1),
+            (0x1538, 1),
+            (0xd90, 0.4f32.to_bits()),
+            (0x19d0, 1),
+            (0x12cc, 1),
+            (0x12e8, 1),
+            (0x130c, 0x201),
+        ],
+    );
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 0., 1., -0.5, [1., 0., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [0., 0., 1., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.rect_expected(a, 16, 0, 32, 32, [255, 0, 0, 255]);
+
+    let (mut e, a) = h.engine("clip-distance", [0., 0., 0., 1.]);
+    let original = shader(false, true);
+    let mut header = original[..80].to_vec();
+    header[72..76].copy_from_slice(&1u32.to_le_bytes());
+    let mut instructions: Vec<u64> = original[80..]
+        .chunks_exact(8)
+        .enumerate()
+        .filter(|(i, _)| i % 4 != 0)
+        .map(|(_, b)| u64::from_le_bytes(b.try_into().unwrap()))
+        .collect();
+    instructions.insert(instructions.len() - 1, attr(true, 0x2c0, 0, 1));
+    for chunk in instructions.chunks(3) {
+        header.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for w in chunk {
+            header.extend(w.to_le_bytes());
+        }
+    }
+    let vs = h.program(header);
+    h.methods(&mut e, &[(0x2044, vs as u32), (0x1510, 1)]);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [0., 1., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.rect_expected(a, 16, 0, 32, 32, [0, 255, 0, 255]);
+
+    let (mut e, a) = h.engine("point-size", [0., 0., 0., 1.]);
+    h.methods(&mut e, &[(0x1518, 4f32.to_bits())]);
+    h.vertices(
+        &mut e,
+        &[vertex(0., 0., 0.5, [1., 1., 0., 1.], 0., 0.)],
+        &[[0.; 4]],
+    );
+    h.methods(&mut e, &[(0x1618, 0), (0xd78, 1), (0x1614, 0)]);
+    h.rect_expected(a, 14, 14, 18, 18, [255, 255, 0, 255]);
+
+    let (mut e, a) = h.engine("primitive-restart", [0., 0., 0., 1.]);
+    let vertices = quad(-1., -1., 1., 1., 0.5, [1., 0., 1., 1.]);
+    h.vertices(&mut e, &vertices, &[[0.; 4]]);
+    let indices = h.alloc(
+        [0u16, 1, 2, 1234, 3, 4, 5]
+            .into_iter()
+            .flat_map(u16::to_le_bytes)
+            .collect(),
+    );
+    h.methods(
+        &mut e,
+        &[
+            (0x17c8, 0),
+            (0x17cc, indices as u32),
+            (0x17d0, 0),
+            (0x17d4, (indices + 13) as u32),
+            (0x17d8, 1),
+            (0x1644, 1),
+            (0x1648, 1234),
+        ],
+    );
+    h.draw(&mut e, 7, true, false);
+    h.rect_expected(a, 0, 0, 32, 32, [255, 0, 255, 255]);
+
+    let (mut e, a) = h.engine("divisor-two", [0., 0., 0., 1.]);
+    h.vertices(
+        &mut e,
+        &quad(-0.25, -0.5, 0.25, 0.5, 0.5, [1., 0., 0., 0.5]),
+        &[[-0.5, 0., 0., 0.], [0.5, 0., 0., 0.]],
+    );
+    h.methods(
+        &mut e,
+        &[
+            (0x1c1c, 2),
+            (0x1360, 1),
+            (0x1340, 1),
+            (0x1344, 5),
+            (0x1348, 6),
+            (0x133c, 1),
+            (0x134c, 1),
+            (0x1350, 1),
+            (0x1358, 2),
+        ],
+    );
+    for next in [false, true, true] {
+        h.draw(&mut e, 6, false, next);
+    }
+    h.rect_expected(a, 4, 8, 12, 24, [192, 0, 0, 255]);
+    h.rect_expected(a, 20, 8, 28, 24, [128, 0, 0, 255]);
+
+    let (mut e, a) = h.engine("query-and-bias", [0., 0., 0., 1.]);
+    let z = h.alloc(vec![0; 4096]);
+    let query = h.alloc(vec![0; 4]);
+    h.methods(
+        &mut e,
+        &[
+            (0xfe4, z as u32),
+            (0xfe8, 0xa),
+            (0x1228, 32),
+            (0x122c, 32),
+            (0x1230, 1),
+            (0x1538, 1),
+            (0xd90, 1f32.to_bits()),
+            (0x19d0, 1),
+            (0x12cc, 1),
+            (0x12e8, 1),
+            (0x130c, 0x201),
+            (0x1514, 1),
+            (0x1530, 1),
+        ],
+    );
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [1., 0., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.75, [0., 0., 1., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.methods(
+        &mut e,
+        &[
+            (0x1b00, 0),
+            (0x1b04, query as u32),
+            (0x1b0c, (1 << 28) | (2 << 23) | (0xc << 12) | 2),
+            (0x1514, 0),
+            (0x1110, 1),
+            (0xdc8, 1),
+            (0x15bc, (-65536f32).to_bits()),
+        ],
+    );
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.5, [0., 1., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.methods(&mut e, &[(0x1558, 0)]);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.1, [0., 0., 1., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    h.rect_expected(a, 0, 0, 32, 32, [0, 255, 0, 255]);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/raster-extras-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    assert_eq!(
+        u32::from_le_bytes(h.memory.read(query, 4).unwrap().try_into().unwrap()),
+        1024
+    );
+    for image in report.images {
+        let (name, expected) = &h.expected[&image.address];
+        for (i, (p, e)) in image.rgba.chunks_exact(4).zip(expected).enumerate() {
+            assert!(
+                p.iter().zip(e.unwrap()).all(|(a, b)| a.abs_diff(b) <= 2),
+                "{name} at {i}: {p:?} expected {e:?}"
+            );
+        }
+    }
+    eprintln!("viewport/clip/point/restart/divisor/bias/query: checked=6144; occlusion=1024");
 }

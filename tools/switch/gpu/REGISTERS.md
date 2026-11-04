@@ -6,14 +6,19 @@ Unimplemented effects are rejected. Fields and enums are defined by the linked p
 
 | Class | Byte offset | Count / stride | Public symbol |
 | --- | --- | --- | --- |
+| B197 | `0x0130` | 1 / 0 | [`SET_GLOBAL_RENDER_ENABLE_A`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x0134` | 1 / 0 | [`SET_GLOBAL_RENDER_ENABLE_B`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x0138` | 1 / 0 | [`SET_GLOBAL_RENDER_ENABLE_C`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x01a0` | 1 / 0 | [`SET_DST_DEPTH`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x02e4` | 1 / 0 | [`SET_ZCULL_ROP_BYPASS`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x02e8` | 1 / 0 | [`SET_ZCULL_SUBREGION`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x02f4` | 1 / 0 | [`SET_ITERATED_BLEND_OPTIMIZATION`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x02f8` | 1 / 0 | [`SET_ZCULL_SUBREGION_ALLOCATION`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x02fc` | 1 / 0 | [`ASSIGN_ZCULL_SUBREGIONS`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x030c` | 1 / 0 | [`SET_RENDER_ENABLE_CONTROL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x036c` | 1 / 0 | [`SET_ZCULL_SUBREGION_TO_REPORT`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x0370` | 1 / 0 | [`SET_ZCULL_SUBREGION_REPORT_TYPE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x0748` | 1 / 0 | [`SET_DA_PRIMITIVE_RESTART_TOPOLOGY_CHANGE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x07a4` | 1 / 0 | [`SET_COLOR_ZERO_BANDWIDTH_CLEAR`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x07a8` | 1 / 0 | [`SET_Z_ZERO_BANDWIDTH_CLEAR`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x07c0` | 1 / 0 | [`SET_ZCULL_REGION_SIZE_A`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
@@ -63,9 +68,13 @@ Unimplemented effects are rejected. Fields and enums are defined by the linked p
 | B197 | `0x0db0` | 1 / 0 | [`SET_BACK_POLYGON_MODE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x0db8` | 1 / 0 | [`SET_ZT_MARK`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x0dbc` | 1 / 0 | [`SET_ZCULL_DIR_FORMAT`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x0dc0` | 1 / 0 | [`SET_POLY_OFFSET_POINT`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x0dc4` | 1 / 0 | [`SET_POLY_OFFSET_LINE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x0dc8` | 1 / 0 | [`SET_POLY_OFFSET_FILL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x0dd0` | 1 / 0 | [`SET_ITERATED_BLEND`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x0dd4` | 1 / 0 | [`SET_ITERATED_BLEND_PASS`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x0dd8` | 1 / 0 | [`SET_ZCULL_CRITERION`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x0de8` | 1 / 0 | [`SET_DA_PRIMITIVE_RESTART_VERTEX_ARRAY`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x0df0` | 1 / 0 | [`LOAD_ITERATED_BLEND_INSTRUCTION_POINTER`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x0df4` | 1 / 0 | [`LOAD_ITERATED_BLEND_INSTRUCTION`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x0e00` | 16 / 16 | [`SET_SCISSOR_ENABLE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
@@ -98,6 +107,7 @@ Unimplemented effects are rejected. Fields and enums are defined by the linked p
 | B197 | `0x1228` | 1 / 0 | [`SET_ZT_SIZE_A`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x122c` | 1 / 0 | [`SET_ZT_SIZE_B`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1230` | 1 / 0 | [`SET_ZT_SIZE_C`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x12a4` | 1 / 0 | [`SET_DA_PRIMITIVE_RESTART_INDEX_TOPOLOGY_CHANGE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x12c8` | 1 / 0 | [`CLEAR_ZCULL_REGION`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x12cc` | 1 / 0 | [`SET_DEPTH_TEST`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x12e4` | 1 / 0 | [`SET_BLEND_STATE_PER_TARGET`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
@@ -133,9 +143,15 @@ Unimplemented effects are rejected. Fields and enums are defined by the linked p
 | B197 | `0x1500` | 1 / 0 | [`LOAD_ZCULL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1508` | 1 / 0 | [`SET_CLIP_ID_CLEAR_RECT_HORIZONTAL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x150c` | 1 / 0 | [`SET_CLIP_ID_CLEAR_RECT_VERTICAL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1510` | 1 / 0 | [`SET_USER_CLIP_ENABLE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1514` | 1 / 0 | [`SET_ZPASS_PIXEL_COUNT`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1518` | 1 / 0 | [`SET_POINT_SIZE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x151c` | 1 / 0 | [`SET_ZCULL_STATS`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1530` | 1 / 0 | [`CLEAR_REPORT_VALUE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1538` | 1 / 0 | [`SET_ZT_SELECT`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1550` | 1 / 0 | [`SET_RENDER_ENABLE_A`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1554` | 1 / 0 | [`SET_RENDER_ENABLE_B`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1558` | 1 / 0 | [`SET_RENDER_ENABLE_C`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x155c` | 1 / 0 | [`SET_TEX_SAMPLER_POOL_A`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1560` | 1 / 0 | [`SET_TEX_SAMPLER_POOL_B`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1564` | 1 / 0 | [`SET_TEX_SAMPLER_POOL_C`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
@@ -160,6 +176,8 @@ Unimplemented effects are rejected. Fields and enums are defined by the linked p
 | B197 | `0x1614` | 1 / 0 | [`END`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1618` | 1 / 0 | [`BEGIN`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x162c` | 1 / 0 | [`SET_SHADER_BASED_CULL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1644` | 1 / 0 | [`SET_DA_PRIMITIVE_RESTART`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1648` | 1 / 0 | [`SET_DA_PRIMITIVE_RESTART_INDEX`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x179c` | 1 / 0 | [`SET_ZT_LAYER`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x17c8` | 1 / 0 | [`SET_INDEX_BUFFER_A`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x17cc` | 1 / 0 | [`SET_INDEX_BUFFER_B`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
@@ -177,12 +195,15 @@ Unimplemented effects are rejected. Fields and enums are defined by the linked p
 | B197 | `0x187c` | 1 / 0 | [`SET_DEPTH_BIAS_CLAMP`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1880` | 16 / 4 | [`SET_VERTEX_STREAM_INSTANCE_A`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x18c0` | 16 / 4 | [`SET_VERTEX_STREAM_INSTANCE_B`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1910` | 1 / 0 | [`SET_ATTRIBUTE_POINT_SIZE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1918` | 1 / 0 | [`OGL_SET_CULL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x191c` | 1 / 0 | [`OGL_SET_FRONT_FACE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1920` | 1 / 0 | [`OGL_SET_CULL_FACE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1924` | 1 / 0 | [`SET_VIEWPORT_PIXEL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x192c` | 1 / 0 | [`SET_VIEWPORT_SCALE_OFFSET`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x193c` | 1 / 0 | [`SET_VIEWPORT_CLIP_CONTROL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1940` | 1 / 0 | [`SET_USER_CLIP_OP`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1944` | 1 / 0 | [`SET_RENDER_ENABLE_OVERRIDE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1958` | 1 / 0 | [`INVALIDATE_ZCULL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1968` | 1 / 0 | [`SET_ZCULL`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x196c` | 1 / 0 | [`SET_ZCULL_BOUNDS`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
@@ -191,6 +212,10 @@ Unimplemented effects are rejected. Fields and enums are defined by the linked p
 | B197 | `0x19c0` | 1 / 0 | [`SET_BLEND_FLOAT_OPTION`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x19d0` | 1 / 0 | [`CLEAR_SURFACE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x19d4` | 1 / 0 | [`CLEAR_CLIP_ID_SURFACE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1b00` | 1 / 0 | [`SET_REPORT_SEMAPHORE_A`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1b04` | 1 / 0 | [`SET_REPORT_SEMAPHORE_B`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1b08` | 1 / 0 | [`SET_REPORT_SEMAPHORE_C`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1b0c` | 1 / 0 | [`SET_REPORT_SEMAPHORE_D`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1c00` | 16 / 16 | [`SET_VERTEX_STREAM_A_FORMAT`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1c04` | 16 / 16 | [`SET_VERTEX_STREAM_A_LOCATION_A`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1c08` | 16 / 16 | [`SET_VERTEX_STREAM_A_LOCATION_B`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |

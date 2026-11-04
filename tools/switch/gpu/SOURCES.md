@@ -35,3 +35,10 @@ Per-method links: REGISTERS.md. Original shader fixtures use the ISA sources alr
 
 - https://developer.apple.com/documentation/metal
   Metal device, descriptors, render encoders and readback; locally installed SDK declarations are the API authority.
+
+- https://raw.githubusercontent.com/envytools/envytools/f102b82381f3f11cee113d16374c87091db039d9/rnndb/graph/gf100_shaders.xml
+  Export map PSIZE at 0x6c and CLIP_DISTANCE at 0x2c0–0x2dc; same pinned
+  public SPH source as the shader crate. Apple MSL specification (in the shader
+  ledger), Table 5.4, supplies Metal point_size and clip_distance attributes.
+  Metal SDK MTLTexture.h supplies texture-view swizzles; MTLRenderCommandEncoder.h
+  supplies visibility counting, depth bias, viewport, and vertex step functions.

@@ -24,6 +24,10 @@ pub struct ConstantBuffer {
 }
 #[derive(Clone, Debug)]
 pub enum Action {
+    ResetOcclusion,
+    ReportOcclusion {
+        address: u64,
+    },
     Clear(u32),
     Draw {
         topology: u32,
@@ -112,6 +116,20 @@ impl Engine {
                     indexed: offset == 0x17e0,
                     instance: self.instance,
                 })
+            }
+            0x1530 => {
+                require(value == 1, "unsupported report reset")?;
+                Some(Action::ResetOcclusion)
+            }
+            0x1b0c => {
+                require(
+                    value & !0x10 == (1 << 28) | (2 << 23) | (0xc << 12) | 2,
+                    "only one-word ZPASS report at depth-test completion supported",
+                )?;
+                let address = self.registers.address(0x1b00);
+                require(address & 3 == 0, "query alignment")?;
+                memory.read(address, 4)?;
+                Some(Action::ReportOcclusion { address })
             }
             0x19d0 => Some(Action::Clear(value)),
             0x2410 | 0x2430 | 0x2450 | 0x2470 | 0x2490 => {
