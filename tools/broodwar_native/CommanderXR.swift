@@ -19,6 +19,12 @@ func xrControls(_ context:UnsafeMutableRawPointer?,_ packet:UnsafePointer<SojuXR
 }
 extension Commander {
     func renderEye(_ texture:MTLTexture,_ queue:MTLCommandQueue,_ eye:SojuXREye) {
+        if eye.eye==0,xrDrawCount==120,let path=argument("--metal-capture") {
+            let capture=MTLCaptureDescriptor();capture.captureObject=queue;capture.destination = .gpuTraceDocument
+            capture.outputURL=URL(fileURLWithPath:path)
+            do {try MTLCaptureManager.shared().startCapture(with:capture)}
+            catch {fputs("Metal capture: \(error)\n",stderr)}
+        }
         guard let renderer=xrRenderer,let buffer=queue.makeCommandBuffer() else { return }
         buffer.label="Brood War eye \(eye.eye)"
         let eyeStart=CACurrentMediaTime()
@@ -73,7 +79,7 @@ extension Commander {
             fputs("XR sRGB render view unavailable\n",stderr);return
         }
         let index=Int(eye.eye)
-        if xrDepth[index]?.width != texture.width || xrDepth[index]?.height != texture.height {
+        if !CommandLine.arguments.contains("--metal-batches"),xrDepth[index]?.width != texture.width || xrDepth[index]?.height != texture.height {
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float_stencil8,width:texture.width,height:texture.height,mipmapped:false)
             desc.storageMode = .private;desc.usage = .renderTarget
             desc.textureType = .type2DMultisample;desc.sampleCount=4
@@ -97,6 +103,7 @@ extension Commander {
                 "swapchainFormat":texture.pixelFormat.rawValue,"renderFormat":output.pixelFormat.rawValue,
                 "exposureOffset":xrCamera.camera!.exposureOffset,"hdr":xrCamera.camera!.wantsHDR,
                 "iblIntensity":world.lightingEnvironment.intensity,"tracked":eye.tracked,"selected":selected,"frame":number(state,"frame"),"yaw":yaw,
+                "batchDraws":metalBatches?.draws ?? 0,"batchVisible":metalBatches?.visible ?? 0,"batchCulled":metalBatches?.culled ?? 0,"batchLOD":metalBatches?.lodCount ?? 0,"batchOcclusionSkipped":metalBatches?.occlusionSkipped ?? 0,
                 "worldUnitsPerMeter":worldUnitsPerMeter,"wristCardClicks":wrists.cardClicks,"boxSelections":wrists.boxSelections,"doubleTaps":wrists.doubleTaps,"grabs":wrists.grabs,
                 "orientation":[xrCamera.simdOrientation.imag.x,xrCamera.simdOrientation.imag.y,xrCamera.simdOrientation.imag.z,xrCamera.simdOrientation.real]]
             if let data=try? JSONSerialization.data(withJSONObject:diagnostic,options:.prettyPrinted) { try? data.write(to:runtime.appendingPathComponent("xr-view-diagnostics.json"),options:.atomic) }
@@ -104,9 +111,28 @@ extension Commander {
         let renderStart=CACurrentMediaTime()
         frameMetrics.stage("eyeSetup",milliseconds:(renderStart-eyeStart)*1000)
         os_signpost(.begin,log:XRFrameMetrics.log,name:"SceneKit render")
-        renderer.render(atTime:xrFrameTime,viewport:CGRect(x:0,y:0,width:texture.width,height:texture.height),commandBuffer:buffer,passDescriptor:pass)
+        if CommandLine.arguments.contains("--metal-batches"),argument("--snapshot") != nil {
+            do {
+                if metalBatches==nil {metalBatches=try MetalBatches(device:art.device)}
+                try metalBatches!.prepare(self)
+                if eye.eye==0 {
+                    var right=SojuXREye();_ = soju_xr_eye(1,&right)
+                    let rightPosition=base+body.act((SIMD3<Float>(right.px,right.py,right.pz)-(xrOrigin ?? .zero))*worldUnitsPerMeter)
+                    var rightTransform=simd_float4x4(body*simd_quatf(ix:right.qx,iy:right.qy,iz:right.qz,r:right.qw))
+                    rightTransform.columns.3=SIMD4<Float>(rightPosition,1)
+                    let rl=Float(tan(right.left)),rr=Float(tan(right.right)),ru=Float(tan(right.up)),rd=Float(tan(right.down))
+                    var rightProjection=simd_float4x4(projection)
+                    rightProjection.columns.0.x=2/(rr-rl);rightProjection.columns.1.y=2/(ru-rd)
+                    rightProjection.columns.2.x=(rr+rl)/(rr-rl);rightProjection.columns.2.y=(ru+rd)/(ru-rd)
+                    metalBatches!.render(command:buffer,output:output,camera:xrCamera,eye:position,rightTransform:rightTransform,rightProjection:rightProjection)
+                }
+                metalBatches!.copyEye(command:buffer,to:output,eye:Int(eye.eye))
+            } catch {fputs("Metal batches: \(error)\n",stderr);NSApp.terminate(nil)}
+        } else {
+            renderer.render(atTime:xrFrameTime,viewport:CGRect(x:0,y:0,width:texture.width,height:texture.height),commandBuffer:buffer,passDescriptor:pass)
+        }
         os_signpost(.end,log:XRFrameMetrics.log,name:"SceneKit render")
-        frameMetrics.stage("sceneKitRenderEye",milliseconds:(CACurrentMediaTime()-renderStart)*1000)
+        frameMetrics.stage("renderEncodeEye",milliseconds:(CACurrentMediaTime()-renderStart)*1000)
         let postStart=CACurrentMediaTime()
         if eye.eye==0 {xrStereoCaptureIndex=initialized ? captureFrames.reserve():nil}
         let captureIndex=(eye.eye==0 || CommandLine.arguments.contains("--record-stereo")) ? xrStereoCaptureIndex:nil
@@ -116,7 +142,9 @@ extension Commander {
             "loneFrames":worldSprites.loneFrames,"creepTiles":creepNodes.count,"source":"OpenXR Metal swapchain eye", "snapshotSource":argument("--snapshot") ?? "live",
             "camera":[position.x,position.y,position.z],"orientation":[xrCamera.simdOrientation.imag.x,xrCamera.simdOrientation.imag.y,xrCamera.simdOrientation.imag.z,xrCamera.simdOrientation.real],
             "billboards":billboards.mapValues{["position":[$0.root.position.x,$0.root.position.y,$0.root.position.z],"layers":$0.evidence] as Obj}]:[:]
-        if (eye.eye==0 && xrDrawCount%10==0 || captureIndex != nil),let context=mirrorContext {
+        let mirrorDue=eye.eye==0 && xrFrameTime-lastMirrorTime>=0.5
+        if (mirrorDue || captureIndex != nil),let context=mirrorContext {
+            if eye.eye==0 {lastMirrorTime=xrFrameTime}
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:texture.pixelFormat,width:texture.width,height:texture.height,mipmapped:false)
             desc.usage = .shaderRead;desc.storageMode = .private
             if let copy=art.device.makeTexture(descriptor:desc),let blit=buffer.makeBlitCommandEncoder() {
@@ -135,7 +163,10 @@ extension Commander {
         }
         frameMetrics.stage("eyePostRender",milliseconds:(CACurrentMediaTime()-postStart)*1000)
         buffer.commit()
-        if eye.eye==1 {frameMetrics.submitted()}
+        if eye.eye==1 {
+            frameMetrics.submitted()
+            if xrDrawCount==121,MTLCaptureManager.shared().isCapturing {MTLCaptureManager.shared().stopCapture()}
+        }
     }
 }
 #endif

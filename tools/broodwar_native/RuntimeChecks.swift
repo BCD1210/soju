@@ -26,6 +26,20 @@ func runtimeChecks()throws {
     timing.completed(frame:2,eye:0,milliseconds:4)
     timing.completed(frame:2,eye:1,milliseconds:5)
     try require(timing.completedStereoSamples==2,"GPU timing pairs either completion callback order")
+    let batchCheck = try MetalBatches(device:commander.art.device)
+    try require(true,"instanced stereo Metal pipelines compile on this device")
+    let bitmap=NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:2,pixelsHigh:2,bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:8,bitsPerPixel:32)!
+    for y in 0..<2 {for x in 0..<2 {var pixel=[y==0 ? 255:0,y==0 ? 255:0,y==0 ? 255:0,255];bitmap.setPixel(&pixel,atX:x,y:y)}}
+    let image=NSImage(size:NSSize(width:2,height:2));image.addRepresentation(bitmap)
+    for topLeft in [true,false] {
+        let texture=try batchCheck.texture(image,fallback:batchCheck.white,topLeft:topLeft)
+        let readback=commander.art.device.makeBuffer(length:512,options:.storageModeShared)!
+        let command=batchCheck.queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
+        blit.copy(from:texture,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:2,height:2,depth:1),to:readback,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:512)
+        blit.endEncoding();command.commit();command.waitUntilCompleted()
+        let first=readback.contents().load(as:UInt8.self)
+        try require(topLeft ? first>250:first<5,"Metal texture origin matches relief or plane UV convention")
+    }
     let cache=ResidentCache<Int>(limit:4)
     cache.insert(1,key:"first",bytes:2);cache.insert(2,key:"second",bytes:2)
     _=cache.get("first");cache.insert(3,key:"third",bytes:2)

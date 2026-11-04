@@ -23,6 +23,7 @@ void* soju_xr_device(void);
 int soju_xr_step(void*,SojuXRDraw,SojuXRControls);
 const char* soju_xr_status(void);
 void soju_xr_close(void);
+int soju_xr_eye(uint32_t,SojuXREye*);
 #ifdef __cplusplus
 }
 #endif

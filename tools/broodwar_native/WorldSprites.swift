@@ -9,10 +9,11 @@ final class UnitBillboard {
     var layers=[Int:SCNNode](),evidence=[Obj]()
     var nativeLayers=[Int:Obj](),unit:Obj=[:],team=[255,255,255]
     var shown=[Int:Int]()
+    var geometryRevision=0
     var lastEye:SIMD3<Float>?,lastRotation:SIMD4<Float>?,lastPerspective:Bool?
     init(id:String) {root.name=id}
     func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites,color:[Int]=[255,255,255]) {
-        lastEye=nil
+        lastEye=nil;geometryRevision &+= 1
         self.unit=unit;team=color;nativeLayers.removeAll();shown.removeAll()
         let x=number(unit,"x")/32,z=number(unit,"y")/32
         root.position=Terrain3D.worldPosition(x,ground.elevation(x,z)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
@@ -82,6 +83,7 @@ final class UnitBillboard {
             let shadow=Int(number(native,"drawfunc"))==10
             let (frame,mirrored)=perspective && !shadow ? Self.viewFrame(native,azimuth:azimuth,count:records.count):(Int(number(native,"frame")),Int(number(native,"flags"))&2 != 0)
             if shown[index] != frame {
+                geometryRevision &+= 1
                 let id=Int(number(native,"id"))
                 if !shadow,let mesh=art.relief.geometry(id,frame:frame,art:art) {
                     mesh.materials=[art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh;node.renderingOrder=0

@@ -78,6 +78,8 @@ final class Commander: NSObject, NSApplicationDelegate {
     var lastTick=CACurrentMediaTime();var lastSceneDiagnostic=0.0;var tick:Timer?;var poll:Timer?;var placingDepot=false
     #if SOJU_OPENXR
     var xrStereoCaptureIndex:Int?
+    var lastMirrorTime=0.0
+    var metalBatches:MetalBatches?
     var xrTimer:Timer?;var xrRenderer:SCNRenderer?;var xrCamera=SCNNode()
     var xrColor=[Int:MTLTexture]();var xrDepth=[Int:MTLTexture]();var lastXRInput=CACurrentMediaTime();var turnHeld=false
     var eyePositions=[SIMD3<Float>](repeating:.zero,count:2);var headCenter:SIMD3<Float>?
