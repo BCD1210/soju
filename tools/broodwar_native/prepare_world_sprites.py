@@ -20,6 +20,7 @@ def prepare() -> None:
     """Keep original frame metadata; the native engine chooses animation frames."""
     folder = RUNTIME/'world-sprites'
     folder.mkdir(exist_ok=True)
+    previous = json.loads((folder/'catalog.json').read_text()) if (folder/'catalog.json').exists() else {}
     casc = Casc(dependency(RUNTIME,'CascLib'),RUNTIME/'bottle/drive_c/Program Files (x86)/StarCraft')
     images = {}
     sources = {}
@@ -27,6 +28,8 @@ def prepare() -> None:
     creep = {}
     try:
         relations = casc.read('images.rel')
+        image_dat = casc.read('arr/images.dat')
+        image_names = casc.read('arr/images.tbl')
         for image in range(999):
             source = image
             seen = set()
@@ -57,8 +60,19 @@ def prepare() -> None:
                     rgba.save(folder/filename,compress_level=1)
                     info.update(atlasWidth=rgba.width,atlasHeight=rgba.height)
                 info.update(file=filename,sourceImage=source,sourceSha256=hashlib.sha256(data).hexdigest())
+                if 'teamcolor' in layers:
+                    team_file = f'team-{source}.png'
+                    with Image.open(io.BytesIO(layers['teamcolor'][0])) as texture:
+                        texture.convert('RGBA').save(folder/team_file,compress_level=1)
+                    info['teamFile'] = team_file
                 sources[source] = info
-            images[str(image)] = sources[source]
+            entry = dict(sources[source])
+            name_index = struct.unpack_from('<I',image_dat,image*4)[0]
+            name_offset = struct.unpack_from('<H',image_names,name_index*2)[0]
+            name = image_names[name_offset:].split(b'\0',1)[0].decode('ascii')
+            grp = casc.read('unit/'+name)
+            _,entry['grpWidth'],entry['grpHeight'] = struct.unpack_from('<HHH',grp)
+            images[str(image)] = entry
             if image%100==0:
                 print(f'Exported image {image}',flush=True)
         for tileset in ('badlands','platform','install','ashworld','jungle','desert','ice','twilight'):
@@ -74,7 +88,8 @@ def prepare() -> None:
                 with Image.open(io.BytesIO(tiles[index][0])) as texture:
                     texture.convert('RGBA').save(folder/filename)
                 entries.append({'file':filename,'megatile':index})
-            creep[tileset] = {'tiles':entries,'sourceSha256':hashlib.sha256(graphics).hexdigest(),'cv5Group':1}
+            creep[tileset] = {**previous.get('creep',{}).get(tileset,{}),
+                             'tiles':entries,'sourceSha256':hashlib.sha256(graphics).hexdigest(),'cv5Group':1}
         catalog = {'schemaVersion':1,'source':'owned-remastered-casc','images':images,'creep':creep,'missing':missing,
                    'timing':'Native image.frame only; no guessed iscript duration',
                    'layer':'diffuse: original prelit color and alpha'}
