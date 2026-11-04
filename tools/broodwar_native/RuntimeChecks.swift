@@ -27,13 +27,14 @@ func runtimeChecks()throws {
     let attack:Obj=["kind":"attack","unit":"a","seq":1,"x":x,"y":y]
     commander.apply(state(12,[unit("a"),unit("b")],[attack]),[:])
     try require(commander.models["a"]?.action=="attack","native fire selects attack animation")
+    let authoredDeath=commander.models["b"]?.clip(for:"death") != nil
     let death:Obj=["kind":"death","unit":"b","seq":2,"state":unit("b")]
     commander.apply(state(24,[unit("a")],[death]),[:])
-    try require(commander.models["b"]==nil && commander.retiring["b"]?.dying==true && commander.deathCount==1,"confirmed death retires exactly one model")
+    try require(commander.models["b"]==nil && (authoredDeath ? commander.retiring["b"]?.dying==true : commander.retiring["b"]==nil) && commander.deathCount==(authoredDeath ? 1:0),"confirmed death retires only an authored death clip")
     commander.apply(state(25,[unit("a")],[death]),[:])
-    try require(commander.deathCount==1,"replayed event is ignored")
+    try require(commander.deathCount==(authoredDeath ? 1:0),"replayed event is ignored")
     commander.apply(state(26,[]),[:])
-    try require(commander.models.isEmpty && commander.deathCount==1,"fog disappearance does not create death")
+    try require(commander.models.isEmpty && commander.deathCount==(authoredDeath ? 1:0),"fog disappearance does not create death")
     commander.apply(state(1000,[]),[:])
     try require(commander.retiring.isEmpty,"death model is released")
     let model=try commander.modelLibrary.make(0)
@@ -67,6 +68,27 @@ func runtimeChecks()throws {
     commander.apply(state(1,[unit("c")],session:"new-game"),[:])
     try require(commander.fog.isEmpty && commander.controlGroups.isEmpty && commander.effects.sprites.renderedFrames==0,"new game clears fog control groups and sprite counters")
     try require(commander.deathCount==0 && commander.effects.counts.isEmpty && Set(commander.models.keys)==["c"],"new game clears old effects and identities")
+    var nativeDeath=unit("fallback");nativeDeath["image"]=["id":239,"frame":0,"flags":0]
+    commander.worldSprites.apply(["dyingUnits":[nativeDeath]],ground:commander.ground,authored:[])
+    try require(commander.worldSprites.nodes.count==1,"native death image creates fallback geometry")
+    commander.worldSprites.apply(["dyingUnits":[nativeDeath]],ground:commander.ground,authored:["fallback"])
+    try require(commander.worldSprites.nodes.isEmpty,"authored death suppresses duplicate sprite")
+    commander.worldSprites.apply(["loneSprites":[nativeDeath]],ground:commander.ground,authored:[])
+    try require(commander.worldSprites.nodes.count==1,"visible independent native sprite is rendered")
+    commander.worldSprites.apply([:],ground:commander.ground,authored:[])
+    try require(commander.worldSprites.nodes.isEmpty,"native disappearance removes sprite without a fabricated timeline")
+    let card=CommandCard();card.accept(["types":[["id":7,"mineralCost":75,"gasCost":9]]])
+    let production=card.choices(["type":106,"building":true])
+    try require(production.contains{$0.payload["op"] as? String == "train" && $0.title.hasSuffix("75/9")},"command card uses native DAT prices")
+    let repair=card.choices(["type":7,"worker":true]).first{$0.payload["op"] as? String == "repair"}
+    try require(repair?.target == .unit,"repair requires a unit target")
+    let evolution=card.choices(["type":139,"building":true]),pool=card.choices(["type":142,"building":true])
+    try require(evolution.contains{$0.payload["op"] as? String == "upgrade" && number($0.payload,"type")==10} && !pool.contains{$0.title=="Melee attacks"},"Zerg weapon upgrades belong to Evolution Chamber")
+    commander.wrists.pending=CommandChoice("Old repair",["op":"repair"],.unit);commander.selected=["new-selection"]
+    commander.wrists.update(commander)
+    try require(commander.wrists.pending==nil,"selection changes cancel stale targeting")
+    commander.tabletop=true;commander.wrists.zoom=10;let closeHeight=commander.commanderHeight;commander.wrists.zoom=20
+    try require(closeHeight==9 && commander.commanderHeight==18,"tabletop zoom changes world viewing distance at a centered head pose")
     let report:Obj=["passed":true,"checks":passed,"source":"deterministic renderer inputs; not live-game acceptance"]
     let path=argument("--runtime-report").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("runtime-checks.json")
     try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:path,options:.atomic)

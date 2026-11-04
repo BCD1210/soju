@@ -12,6 +12,8 @@ typedef struct {
 typedef struct {
     float px,py,pz,qx,qy,qz,qw,moveX,moveY,turnX;
     int aimValid,leftPressed,rightPressed,leftGripPressed,rightGripPressed;
+    float leftX,leftY,leftZ,leftQx,leftQy,leftQz,leftQw;
+    int leftValid,leftHeld,rightHeld,leftReleased,rightReleased,leftGripHeld,rightGripHeld;
 } SojuXRInput;
 typedef void (*SojuXRDraw)(void*,void*,void*,const SojuXREye*);
 typedef void (*SojuXRControls)(void*,const SojuXRInput*);

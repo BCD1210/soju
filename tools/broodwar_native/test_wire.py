@@ -31,7 +31,7 @@ class WireTests(unittest.TestCase):
         for p in [b"SBW1",HEADER.pack(b"SBW1",1,0,257,2*1024*1024+1),HEADER.pack(b"SBW1",1,2,2,10000),HEADER.pack(b"SBW1",1,0,0,0)]:
             with self.assertRaises(ValueError): receive(Socket([p]))
     def test_swift_decoder(self):
-        source=pathlib.Path(__file__).with_name("NativeScene.swift").read_text()
+        source=pathlib.Path(__file__).with_name("SceneSupport.swift").read_text()
         decoder=source[source.index("struct SnapshotWire {"):source.index("final class Bridge {")]
         u32=source[source.index("func u32("):source.index("// A snapshot is applied")]
         main=r'''

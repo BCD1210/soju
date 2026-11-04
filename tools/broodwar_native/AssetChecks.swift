@@ -119,14 +119,16 @@ func liveModelProof()throws {
     let commander=try Commander(art:Art()),map=try Bridge().request(["op":"scene"])
     let nativeMap=map["map"] as? Obj ?? [:]
     let mapPath=nativeMap["path"] as? String ?? ""
-    guard ["Soju-Coverage-","Soju-Combat-Test-","Soju-Commander-Test"].contains(where:{mapPath.contains($0)}) else {throw SceneError.invalid("Live proof requires a private Soju fixture map")}
+    guard ["Soju-Acceptance-","Soju-Coverage-","Soju-Combat-Test-","Soju-Commander-Test"].contains(where:{mapPath.contains($0)}) else {throw SceneError.invalid("Live proof requires a private Soju fixture map")}
     let prepared=commander.art.manifest["map"] as! Obj
     commander.mapWidth=Int(number(prepared,"width"));commander.mapHeight=Int(number(prepared,"height"));commander.mapTiles=prepared["tiles"] as! [Int]
+    commander.world.rootNode.addChildNode(commander.worldSprites.root)
     commander.apply(map,[:])
     for y in stride(from:0,to:commander.mapHeight,by:64) {
         for x in stride(from:0,to:commander.mapWidth,by:64) {
             let width=min(64,commander.mapWidth-x),height=min(64,commander.mapHeight-y)
             let region=try Bridge().request(["op":"terrain","x":x,"y":y,"width":width,"height":height])
+            for (i,value) in (region["creep"] as? String ?? "").utf8.enumerated() where value==49 {commander.creepTiles.insert((y+i/width)*commander.mapWidth+x+i%width)}
             for (i,value) in (region["fog"] as? String ?? "").utf8.enumerated() {
                 commander.fog[(y+i/width)*commander.mapWidth+x+i%width]=value
             }
@@ -140,7 +142,7 @@ func liveModelProof()throws {
     let out=argument("--proof-dir").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("3d-proof/m2/live")
     try FileManager.default.createDirectory(at:out,withIntermediateDirectories:true)
     var seen=Set<Int>(),records=[Obj]()
-    for (_,model) in commander.models.sorted(by:{$0.value.kind<$1.value.kind}) where !seen.contains(model.kind) && !model.root.isHidden {
+    for (_,model) in commander.models.sorted(by:{$0.value.kind<$1.value.kind}) where !CommandLine.arguments.contains("--overview-only") && !seen.contains(model.kind) && !model.root.isHidden {
         seen.insert(model.kind)
         let box=model.root.boundingBox,size=max(1,max(box.max.x-box.min.x,max(box.max.y-box.min.y,box.max.z-box.min.z)))
         let center=SCNVector3(model.root.position.x,model.root.position.y+(box.max.y+box.min.y)/2,model.root.position.z)
@@ -153,7 +155,12 @@ func liveModelProof()throws {
         if let tiff=image.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let png=bitmap.representation(using:.png,properties:[:]) {try png.write(to:out.appendingPathComponent(filename))}
         records.append(["type":model.kind,"position":[model.root.position.x,model.root.position.y,model.root.position.z],"action":model.action,"file":filename])
     }
-    let report:Obj=["frame":number(map,"frame"),"map":nativeMap,"rendered":records,"missingTypes":Array(Set(commander.units.values.compactMap {u -> Int? in
+    commander.tabletop=true;commander.yaw=0
+    commander.camera.position=SCNVector3(30,22,42);commander.camera.look(at:SCNVector3(30,0,22))
+    Models3D.followLight(commander.world,position:SCNVector3(30,0,22));commander.updateTerrain();SCNTransaction.flush()
+    let overview=renderer.snapshot(atTime:CACurrentMediaTime(),with:CGSize(width:1440,height:1000),antialiasingMode:.multisampling4X)
+    if let tiff=overview.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let png=bitmap.representation(using:.png,properties:[:]) {try png.write(to:out.appendingPathComponent("overview.png"))}
+    let report:Obj=["frame":number(map,"frame"),"map":nativeMap,"nativeLoneFrames":commander.worldSprites.loneFrames,"nativeDeathFrames":commander.worldSprites.deathFrames,"creepTiles":commander.creepNodes.count,"rendered":records,"missingTypes":Array(Set(commander.units.values.compactMap {u -> Int? in
         let id=u["id"] as? String ?? "";return commander.models[id]==nil ? Int(number(u,"type")):nil
     })).sorted(),"errors":Dictionary(uniqueKeysWithValues:commander.modelLibrary.errors.map{(String($0.key),$0.value)})]
     try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent("live-proof.json"))
