@@ -256,3 +256,12 @@ The runner retains sample state through clear/draw normalization and flushes
 attachment ownership when sample storage changes. Example06 is accepted by
 `tests/gpu_msaa.rs` against its public source's initial cube transform, gradient
 and four programmed sample locations (921,600 pixels, 1,580 coverage edges).
+
+## Compute-generated smooth lines
+
+Example09 acceptance derives its tick-zero geometry from the local public
+sinewave.glsl and Example09_SimpleCompute.cpp. It checks the compute launch and
+921,600 pixels after rendering, including line coverage and blending. Line AA
+and width registers survive draw normalization. Inactive point/polygon AA bits
+are accepted for line draws; polygon smoothing and wide aliased line draws
+still reject. See the GPU source ledger for the public rasterization contract.

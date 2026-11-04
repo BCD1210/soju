@@ -206,3 +206,28 @@ The backend pixel test checks linear 0.5 writes as 128 in UNORM and 188 in sRGB,
 with per-sample depth/stencil preservation. The CPU reduction oracle checks
 black/white averaging to RGB 188 and alpha 128. Example07 progresses to its
 independent inactive vertex-attribute boundary and is not counted as accepted.
+
+## Smooth line rectangles and Example09
+
+OpenGL 2.1 section 3.4.2 defines antialiased line coverage as the intersection
+area of a width-sized segment rectangle and the pixel square:
+https://registry.khronos.org/OpenGL/specs/gl/glspec21.pdf
+The pinned NVIDIA clb197.h supplies SET_ANTI_ALIASED_LINE and
+SET_LINE_WIDTH_FLOAT. Generated Metal evaluates the original vertex shader at
+both endpoints, clips the segment, interpolates its outputs and expands bounded
+rectangles. Fragment coverage multiplies output alpha before ordinary blending.
+Flat, linear and perspective varying modes retain their distinct interpolation;
+reciprocal clip W remains available for guest IPA perspective correction.
+
+The initial path supports nonindexed single-sample lines and line strips, widths
+through 64, ordinary vertex attributes and up to sixteen fragment inputs.
+Indexed/instanced-attribute lines, vertex memory effects, special outputs,
+integer fragment outputs and alpha testing fail explicitly. Polygon smoothing
+and wide aliased lines remain unsupported. Expanded streams have a 64 MiB cap.
+
+Metal validation checks fractional widths, reversed endpoints, perspective
+colors and clipping against independent 64-by-64 subpixel coverage integration.
+The real Example09 test navigates to the scene at tick zero, checks its compute
+launch and compares the entire capture to the public sinewave shader's 256
+vertices, width-16 rectangles, grayscale interpolation and ordered blending.
+No scene-specific geometry or shader substitution is used by the renderer.

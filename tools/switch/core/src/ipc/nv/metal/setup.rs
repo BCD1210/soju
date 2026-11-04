@@ -3,7 +3,8 @@ use super::*;
 
 pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
     let valid = match method {
-        0xf1c | 0x1224 | 0x11f0 | 0x1658 | 0x1570 | 0xdb4 => value == 0,
+        0xf1c | 0x1224 | 0x11f0 => value == 0,
+        0x1658 | 0x1570 | 0xdb4 => value <= 1,
         0x12ec => value <= 1,
         0x1310 => true,
         0x1314 => matches!(value, 1..=8 | 0x200..=0x207),
@@ -75,7 +76,7 @@ pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
         0x12e0 => value <= 1,
         0xfb8 => matches!(value, 0 | 2),
         0x11e0..=0x11ec if method.is_multiple_of(4) => true,
-        0x13b0 | 0x13b4 => value == 1f32.to_bits(),
+        0x13b0 | 0x13b4 => { let width=f32::from_bits(value); width.is_finite() && width>0. && width<=64. },
         0x2608 => value <= 31,
         0xf90 => value <= 1,
         0xde8 => value <= 1,

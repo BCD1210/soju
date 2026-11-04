@@ -19,6 +19,7 @@ use std::{
 
 mod compute;
 mod fill_rectangle;
+mod smooth_line;
 use crate::protocol::*;
 use std::fmt::Write;
 
@@ -74,6 +75,7 @@ fn compatible_draw(previous: &Snapshot, r: &Registers, action: &Action, capacity
             },
         ) => {
             r.get(0x113c) == 0
+                && r.get(0x1570) == 0
                 && *topology != 7
                 && topology == old_topology
                 && instance == old_instance
@@ -505,7 +507,7 @@ impl Backend {
                 !crate::engine::stream_output_method(offset),
                 "transform feedback (stream output) is not implemented",
             )?;
-            let supported = matches!(offset,0x15d0|0x1534|0x11e0..=0x11ec|0x1684|0x113c|0x12ec|0x1310|0x1314|0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
+            let supported = matches!(offset,0x1570|0x13b0|0x15d0|0x1534|0x11e0..=0x11ec|0x1684|0x113c|0x12ec|0x1310|0x1314|0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
             let viewport_array = (0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20;
             let scissor_array = (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8;
             if !supported && !viewport_array && !scissor_array {
@@ -840,6 +842,12 @@ impl Backend {
                     r.get(0x2040) == 0x11 && r.get(0x2140) == 0x51,
                     "Vertex B and fragment stages must be enabled",
                 )?;
+                let smooth = matches!(topology, 1 | 3) && r.get(0x1570) == 1;
+                require(r.get(0x1570)<=1,"invalid line smoothing enable")?;
+                if smooth {
+                    require(!indexed && count>=2 && (topology!=1 || count%2==0) && samples==1,
+                        "smooth lines require complete nonindexed single-sample segments")?;
+                }
                 let rectangle = r.get(0x113c) == 2;
                 require(r.get(0x113c) == 0 || rectangle, "FILL_ALL is not implemented")?;
                 if rectangle {
@@ -965,6 +973,9 @@ impl Backend {
                 ] {
                     signature.extend(value.to_le_bytes());
                 }
+                if smooth {
+                    for offset in [0x1570,0x13b0,0xa00,0xa04,0xa0c,0xa10] { signature.extend(r.get(offset).to_le_bytes()); }
+                }
                 for index in 0..16 {
                     signature.push(u8::from(r.float(0xa00 + index * 32) < 0.));
                     signature.push(u8::from(r.float(0xa04 + index * 32) < 0.));
@@ -1059,6 +1070,10 @@ impl Backend {
                     if rectangle {
                         require(self.programs[&va].1.global_memory.is_none(), "rectangle vertex global-memory side effects unsupported")?;
                         fill_rectangle::wrap(&mut vs, &vh, &fh, r.get(0x1684) == 1)?;
+                    }
+                    if smooth {
+                        require(self.programs[&va].1.global_memory.is_none(), "smooth line vertex memory side effects unsupported")?;
+                        smooth_line::wrap(&mut vs,&mut fs,&vh,&fh,r)?;
                     }
                     let mut cache_state = signature.clone();
                     cache_state.extend(vs.source.as_bytes());
@@ -1302,6 +1317,7 @@ impl Backend {
                     };
                     let instanced = r.get(0x1880 + stream * 4);
                     require(instanced <= 1, "invalid instancing mode")?;
+                    require(!smooth || instanced==0, "smooth line instanced attributes unsupported")?;
                     let rate = if instanced == 1 {
                         r.get(0x1c0c + stream * 16)
                     } else {
@@ -1351,11 +1367,24 @@ impl Backend {
                         .min(available)
                         .min(limit.min(usize::MAX as u64) as usize);
                     require(captured >= length as usize, "unmapped vertex stream range")?;
-                    let file = self.resource_file(memory, &mut dependencies, address, captured)?;
+                    let file = if smooth {
+                        let source=capture(memory,&mut dependencies,address,captured)?;
+                        let data=smooth_line::expand(source,r.get(0x1c00+stream*16)&4095,first,count,topology)?;
+                        self.file(data)
+                    } else { self.resource_file(memory, &mut dependencies, address, captured)? };
                     buffers.push(BufferCommand {
                         slot: i64::from(stream_slots[&stream]),
                         file: file.into(),
                     });
+                }
+                if smooth {
+                    let mut paired=Vec::new();
+                    for attr in &mut attrs {
+                        require(attr.slot<16,"smooth line attribute slot limit")?;
+                        let mut other=attr.clone();other.slot+=16;other.offset+=attr.stride;
+                        attr.stride*=2;other.stride=attr.stride;paired.push(other);
+                    }
+                    attrs.extend(paired);
                 }
                 let mut textures = Vec::new();
                 for (stage, shader, address) in [(0, &vs, va), (1, &fs, fa)] {
@@ -1538,6 +1567,15 @@ impl Backend {
                 command.index_size = index_size as _;
                 command.base_vertex = base_vertex as _;
                 command.instance = base_instance as _;
+                if smooth {
+                    command.topology=4;command.first=0;
+                    command.count=i64::from(if topology==1 {count/2} else {count-1})*18;
+                    let mut registers=command.registers.to_vec();
+                    for (address,value) in [(0x1918,0),(0xdac,0x1b02),(0xdb0,0x1b02),(0x15bc,0),(0x156c,0),(0x187c,0)] {
+                        registers.retain(|r|r.address!=address);registers.push(Reg{address,value});
+                    }
+                    command.registers=registers.into();
+                }
             }
         }
         self.checkpoint(&mut clock, 2);

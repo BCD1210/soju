@@ -3407,3 +3407,141 @@ fn multisample_draw_preserves_edge_coverage_depth_and_stencil_samples() {
         std::fs::remove_dir_all(directory).unwrap();
     }
 }
+
+#[test]
+fn smooth_lines_match_area_coverage_and_perspective_color_at_caps_and_clips() {
+    for (a, b, width, wb) in [
+        ([4.25, 10.3], [27.6, 10.3], 5.25, 1.),
+        ([27.6, 21.7], [4.25, 10.3], 5.25, 2.),
+        ([-4., 8.], [20., 24.], 3.5, 1.),
+    ] {
+        let mut h = Harness::new();
+        let (mut e, target) = h.engine("smooth line", [0.; 4]);
+        let mut header = [0u32; 20];
+        header[0] = 1 | 1 << 10;
+        header[6] = 0xff;
+        header[13] = (15 << 12) | (15 << 16);
+        let mut bytes = header
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect::<Vec<_>>();
+        let code = [
+            attr(false, 0x80, 0, 4),
+            attr(false, 0x90, 4, 4),
+            attr(true, 0x70, 0, 4),
+            attr(true, 0x80, 4, 4),
+            0xe30000000000000f | PT,
+        ];
+        for chunk in code.chunks(3) {
+            bytes.extend(0x001f8000fc0007e0u64.to_le_bytes());
+            for w in chunk {
+                bytes.extend(w.to_le_bytes());
+            }
+        }
+        let vs = h.program(bytes);
+        let colors = [[0.2, 0.4, 0.6, 1.], [0.8, 0.6, 0.3, 1.]];
+        let vertex = |p: [f32; 2], w: f32, c: [f32; 4]| {
+            [
+                (p[0] / 16. - 1.) * w,
+                (1. - p[1] / 16.) * w,
+                0.5 * w,
+                w,
+                c[0],
+                c[1],
+                c[2],
+                c[3],
+                0.,
+                0.,
+                0.,
+                0.,
+            ]
+        };
+        h.vertices(
+            &mut e,
+            &[vertex(a, 1., colors[0]), vertex(b, wb, colors[1])],
+            &[[0.; 4]],
+        );
+        h.methods(
+            &mut e,
+            &[
+                (0x2044, vs as u32),
+                (0x1570, 1),
+                (0x13b0, f32::to_bits(width)),
+                (0x1918, 1),
+                (0x1920, 0x405),
+                (0x1618, 1),
+                (0xd78, 2),
+                (0x1614, 0),
+            ],
+        );
+        let directory =
+            std::env::temp_dir().join(format!("soju-smooth-lines-{}", std::process::id()));
+        h.backend.execute_memory(&directory, &mut h.memory).unwrap();
+        let surface = Surface {
+            width: 32,
+            height: 32,
+            depth: 1,
+            bytes_per_block: 4,
+            block_height_log2: 0,
+            block_depth_log2: 0,
+        };
+        let pixels = surface
+            .deswizzle(h.memory.read(target, surface.size()).unwrap())
+            .unwrap();
+        let aa = if a[0] < 0. {
+            [0., a[1] + (b[1] - a[1]) * (-a[0]) / (b[0] - a[0])]
+        } else {
+            a
+        };
+        let direction = [(b[0] - aa[0]) as f64, (b[1] - aa[1]) as f64];
+        let length = (direction[0] * direction[0] + direction[1] * direction[1]).sqrt();
+        let tangent = direction.map(|v| v / length);
+        let mut partial = 0;
+        for y in 0..32 {
+            for x in 0..32 {
+                // Independent subpixel integration of longitudinal and transverse distances.
+                let mut inside = 0;
+                for yy in 0..64 {
+                    for xx in 0..64 {
+                        let p = [
+                            x as f64 + (xx as f64 + 0.5) / 64. - aa[0] as f64,
+                            y as f64 + (yy as f64 + 0.5) / 64. - aa[1] as f64,
+                        ];
+                        let along = p[0] * tangent[0] + p[1] * tangent[1];
+                        let across = -p[0] * tangent[1] + p[1] * tangent[0];
+                        if (0. ..=length).contains(&along) && across.abs() <= width as f64 / 2. {
+                            inside += 1;
+                        }
+                    }
+                }
+                let p = &pixels[(y * 32 + x) * 4..(y * 32 + x + 1) * 4];
+                let alpha = (inside as f64 / 4096. * 255.).round() as u8;
+                assert!(
+                    p[3].abs_diff(alpha) <= 3,
+                    "coverage ({x},{y}) {p:?} expected alpha {alpha}, a={a:?} b={b:?}"
+                );
+                if (1..254).contains(&alpha) {
+                    partial += 1;
+                }
+                if alpha > 4 {
+                    let delta = [(b[0] - a[0]) as f64, (b[1] - a[1]) as f64];
+                    let t = (((x as f64 + 0.5 - a[0] as f64) * delta[0]
+                        + (y as f64 + 0.5 - a[1] as f64) * delta[1])
+                        / (delta[0] * delta[0] + delta[1] * delta[1]))
+                        .clamp(0., 1.);
+                    for c in 0..3 {
+                        let value = ((1. - t) * colors[0][c] as f64
+                            + t * colors[1][c] as f64 / wb as f64)
+                            / (1. - t + t / wb as f64);
+                        assert!(
+                            p[c].abs_diff((value * 255.).round() as u8) <= 2,
+                            "color ({x},{y}) {p:?}, t={t}"
+                        );
+                    }
+                }
+            }
+        }
+        assert!(partial > 20);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+}

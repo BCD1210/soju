@@ -559,6 +559,16 @@ impl Renderer {
                     snapshot.action,
                     soju_switch_gpu::engine::Action::Draw { .. }
                 ) {
+                    if let soju_switch_gpu::engine::Action::Draw {topology,..} = snapshot.action {
+                        let line=matches!(topology,1|3);
+                        let r=&snapshot.registers;
+                        if !line && r.get(0xdb4)!=0 {
+                            return Err(Error::Malformed("polygon smoothing unsupported"));
+                        }
+                        if line && r.get(0x1570)==0 && r.get(0x20c)==1 && r.get(0x13b4)!=1f32.to_bits() {
+                            return Err(Error::Malformed("wide aliased lines unsupported"));
+                        }
+                    }
                     let indexed = matches!(
                         snapshot.action,
                         soju_switch_gpu::engine::Action::Draw { indexed: true, .. }
@@ -655,7 +665,7 @@ impl Renderer {
                             }
                         }
                         snapshot.registers.0.retain(|&offset, value| {
-                            (matches!(offset, 0x1684 | 0x113c | 0x12ec | 0x1310 | 0x1314 | 0x15d0 | 0x1534 | 0x11e0..=0x11ec)
+                            (matches!(offset, 0x1684 | 0x113c | 0x12ec | 0x1310 | 0x1314 | 0x15d0 | 0x1534 | 0x11e0..=0x11ec | 0x1570 | 0x13b0)
                                 || (0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20
                                 || (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8
                                 || !setup::retain(offset, *value).unwrap_or(false))

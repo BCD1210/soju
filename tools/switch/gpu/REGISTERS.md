@@ -543,3 +543,5 @@ transform-feedback error. Geometry is pipeline slot four, `0x2100` enable.
 | B197 | `0x15d0` | 1 / 0 | [`SET_ANTI_ALIAS`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x1534` | 1 / 0 | [`SET_ANTI_ALIAS_ENABLE`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
 | B197 | `0x11e0` | 4 / 4 | [`SET_ANTI_ALIAS_SAMPLE_POSITIONS`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/clb197.h) |
+| B197 | `0x1570` | 1 / 0 | `SET_ANTI_ALIASED_LINE` |
+| B197 | `0x13b0` | 1 / 0 | `SET_LINE_WIDTH_FLOAT` |
