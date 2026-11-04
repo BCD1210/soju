@@ -1696,7 +1696,10 @@ fn bgra_views_and_srgb_sampling() {
 #[test]
 #[ignore = "explicit mixed throughput measurement"]
 fn throughput_state_mixes() {
-    const DRAWS: u32 = 2000;
+    let draws: u32 = std::env::var("SOJU_GPU_BENCH_DRAWS")
+        .map(|v| v.parse().expect("SOJU_GPU_BENCH_DRAWS must be an integer"))
+        .unwrap_or(2000);
+    assert!(draws >= 2 && draws.is_multiple_of(2));
     for mix in ["same", "textures", "constants", "targets"] {
         let mut h = Harness::new();
         let (mut e, first_target) = h.engine("mix", [0., 0., 0., 1.]);
@@ -1788,7 +1791,7 @@ fn throughput_state_mixes() {
             let started = std::time::Instant::now();
             let mut decode = std::time::Duration::ZERO;
             let mut prepare = std::time::Duration::ZERO;
-            let count = if phase == 0 { 2 } else { DRAWS };
+            let count = if phase == 0 { 2 } else { draws };
             for i in 0..count {
                 let change = match mix {
                     "textures" => Some((0x1578, pools[i as usize % 2] as u32)),
@@ -1844,7 +1847,7 @@ fn throughput_state_mixes() {
                     "preparation phases (state, shader/key, resources) {:?}",
                     h.backend.preparation_profile().unwrap()
                 );
-                eprintln!("mix={mix} draws={DRAWS} e2e={:.1}/s decode_snapshot={:.6}s prepare={:.6}s submit_io={:.6}s total={elapsed:.6}s; {diagnostic}", DRAWS as f64/elapsed,decode.as_secs_f64(),prepare.as_secs_f64(),submit.as_secs_f64());
+                eprintln!("mix={mix} draws={draws} e2e={:.1}/s decode_snapshot={:.6}s prepare={:.6}s submit_io={:.6}s total={elapsed:.6}s; {diagnostic}", draws as f64/elapsed,decode.as_secs_f64(),prepare.as_secs_f64(),submit.as_secs_f64());
             }
         }
         let report = h.backend.readback(&root, &mut h.memory).unwrap();

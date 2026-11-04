@@ -34,10 +34,15 @@ readback and rejected instead of overwritten. Changing a captured target via a
 later prepared snapshot observes the newer write generation. Pending overlapping
 views and simultaneous aliased MRT attachments are rejected.
 
-Use an exclusive caller-owned directory for each Backend. Resources and manifests
-use per-submission subdirectories. A bounded worker-thread queue drives a persistent
-Swift Metal service; it is compiled once per Backend with the installed `xcrun
-swiftc`. The device and caches survive batches. Failed requests poison the worker:
+Use an exclusive caller-owned directory for each Backend. Per-submission
+subdirectories contain native build artifacts; readback still writes output files.
+An eight-slot atomic ownership ring drives an in-process Swift Metal worker. Its
+library is compiled once per process with `xcrun swiftc -O -g`, checked against the
+Rust/C struct sizes, and retained for the process lifetime because Swift runtime
+metadata cannot safely be unloaded. Each Backend owns its own device-side caches
+and worker instance. Commands and resource captures cross the ring as owned typed
+allocations, without JSON, resource-file uploads, or command serialization.
+Failed requests poison the worker:
 discard the Backend after failure rather than replaying possibly executed work.
 
 `sync::Host` decodes A06F semaphore byte methods separately from B197. Equality,
@@ -83,6 +88,16 @@ draw's base instance. NVIDIA A1R5G5B5 storage is repacked for Metal's A1BGR5 ord
 D24 depth is promoted while GPU-resident and rounded to 24 bits on guest writeback;
 that does not reproduce D24 quantization at every depth test.
 
+## Current throughput
+
+The mixed-state follow-up removes JSON and upload files, adds validated draw
+variants, incremental native state groups, persistent tier-2 argument heaps,
+per-slot uniform offsets, and cached render-pass descriptors. Disjoint color-only
+passes may be grouped while preserving each target's draw order; depth, query,
+clear, overlapping-target and generation boundaries prevent unsafe regrouping.
+Public APIs remain unchanged. See [PERFORMANCE.md](PERFORMANCE.md) for the
+before/after table, Instruments measurements, correctness evidence, and limits.
+
 ## Caches and batching
 
 Pipeline keys cover translated shader sources, target formats/routing, vertex
@@ -91,14 +106,15 @@ Some state is conservatively included in keys. Native shader functions, pipeline
 depth states, textures and attachments survive submissions. Texture preparation
 uses the full TIC and overlapping memory-write generation; unrelated writes hit.
 
-Compatible consecutive draws share a render encoder and command buffer. Clears and
+Compatible consecutive draws share a render encoder and command buffer. Independent
+color target sets are grouped within dependency-safe spans. Clears and actual
 attachment changes end passes. CPU upload invalidation and query boundaries flush
 GPU work. Disabled scissor restores full-target bounds. Diagnostics report pipeline,
 depth-state and texture cache hits, encoder/command-buffer counts, worker seconds
 and draws/second. Caches currently have no eviction policy. Range generations use split intervals,
 so repeated writes to the same cbuf do not grow a write journal.
 
-## Verification on Apple M4 Pro
+## Original foundation verification on Apple M4 Pro
 
 ```sh
 cargo test --offline -- --nocapture
@@ -146,8 +162,8 @@ or GPU-only throughput. Re-run the command to measure the current machine/load.
 
 - Memory-backed conditional rendering, other report types/sizes/timestamps,
   automatic FIFO/channel scheduling and guest syncpoint-ID integration.
-- Runner-owned readback interception remains mandatory. Uploads still use files;
-  no in-process Metal bridge, cache eviction, IOMMU or automatic transfer barriers.
+- Runner-owned readback interception remains mandatory. No cache eviction, IOMMU
+  or automatic transfer barriers; readback still uses output files.
 - Mixed integer/float texture tables, mixed TIC component types, stencil sampling,
   mip/layer/cube/3D views, MSAA, anisotropy, custom borders and LOD bias.
 - Shader-selected point-size slots, cull distances, viewport arrays, depth bounds/
@@ -164,7 +180,7 @@ or GPU-only throughput. Re-run the command to measure the current machine/load.
 
 This is a verified backend foundation, not a claim of game compatibility.
 
-## Throughput follow-up
+## Previous throughput baseline (048a31d)
 
 Existing public structs and signatures remain compatible. The additive
 `Engine::method_into(class, offset, value, &mut memory, &mut backend)` borrows
@@ -205,10 +221,10 @@ compiled in release mode, independently of the earlier debug-profile 834/s resul
 Logs under `target/mixes-before.log` and `target/mixes-after.log` include decode,
 prepare, file submission, worker JSON parse and encoding/completion timings.
 
-The 300,000 draws/s requirement is met only for repeated identical state. Mixed
-state remains a blocker: changing-state preparation still allocates and captures
-attachments and resources, and the worker still consumes JSON/dictionaries and
-rebinds state per draw. An incremental typed command/resource protocol and an
+At this historical baseline, the 300,000 draws/s requirement was met only for
+repeated identical state. Mixed state was a blocker: changing-state preparation
+allocated and captured attachments and resources, and the worker consumed
+JSON/dictionaries and rebound state per draw. An incremental typed command/resource protocol and an
 in-process encoder path remain necessary work; no retail throughput is claimed.
 
 | Mix | Baseline end-to-end draws/s | Updated end-to-end draws/s | Updated worker draws/s |
@@ -294,3 +310,8 @@ Final verification for this follow-up: **22 GPU-crate tests passed** with
 passed offline. Both ignored throughput tests were run explicitly during the
 performance step. All three crates pass offline Clippy with warnings denied;
 GPU and shader formatting checks pass. Evidence stays in ignored `target/`.
+
+Current follow-up verification: **27 GPU tests** pass with Metal validation (the
+original 22 plus five new image regressions); both ignored benchmarks also pass
+with validation. Shader tests: **44**; texture tests: **7**. All three crates pass
+offline Clippy with warnings denied. The five new regressions check 7,168 pixels.

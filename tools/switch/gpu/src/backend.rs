@@ -148,7 +148,7 @@ impl Target {
 }
 impl Backend {
     /// Opt-in phase timing: attachment/state validation, shader/key construction,
-    /// and remaining resource capture/serialization. Cached repeats bypass all three.
+    /// and remaining resource capture. Cached repeats bypass all three.
     pub fn enable_profiling(&mut self) {
         self.profile = Some([std::time::Duration::ZERO; 3]);
     }

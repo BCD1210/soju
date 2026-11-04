@@ -561,3 +561,13 @@ public func sojuReadback(_ pointer: UnsafeMutableRawPointer, _ directory: Unsafe
         catch { return strdup("ERROR \(error)") }
     }
 }
+
+@_cdecl("soju_layout")
+public func sojuLayout(_ index: Int) -> Int {
+    let sizes = [MemoryLayout<Command>.stride, MemoryLayout<SpanByte>.stride,
+                 MemoryLayout<Reg>.stride, MemoryLayout<TargetCommand>.stride,
+                 MemoryLayout<DepthCommand>.stride, MemoryLayout<ConstantCommand>.stride,
+                 MemoryLayout<AttributeCommand>.stride, MemoryLayout<BufferCommand>.stride,
+                 MemoryLayout<SegmentCommand>.stride, MemoryLayout<TextureCommand>.stride]
+    return sizes.indices.contains(index) ? sizes[index] : -1
+}
