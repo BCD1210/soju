@@ -81,9 +81,11 @@ impl Hub {
             platform.set_control(control)?;
         }
         drop(bytes);
+        let filesystem = Filesystem::new(nro_path, home)?;
+        platform.program_id = filesystem.program_id();
         Ok(Self {
             platform,
-            filesystem: Filesystem::new(nro_path, home)?,
+            filesystem,
             nv: Nv::default(),
             media: Media::default(),
             domains: BTreeMap::new(),
@@ -95,9 +97,11 @@ impl Hub {
         if let Some(control) = &program.control {
             platform.set_control(control.clone())?;
         }
+        let filesystem = Filesystem::new_program(program, home)?;
+        platform.program_id = filesystem.program_id();
         Ok(Self {
             platform,
-            filesystem: Filesystem::new_program(program, home)?,
+            filesystem,
             nv: Nv::default(),
             media: Media::default(),
             domains: BTreeMap::new(),

@@ -149,3 +149,14 @@ currently records no play journal. Enumeration returns zero records without
 writing caller arrays; range queries report an empty range. Input/output arrays
 and flags are checked. Individual statistics commands 4/5 and journal recording
 remain unsupported, rather than returning invented timestamps or launch counts.
+
+## Read-only application control data
+
+https://switchbrew.org/wiki/NS_services#GetApplicationControlData documents the
+source byte, aligned application ID, receive buffer and u32 returned size.
+https://switchbrew.org/wiki/Error_codes documents 0x410 as title ID not found.
+The 7989 child exposes command 0 against the current launch's supplied 0x4000-byte
+control property, using the same program identity as the filesystem. Unknown
+identities and missing properties return 0x410 without output writes. The property
+is resident for all three source modes. Icon loading and language-selection
+commands remain unsupported.

@@ -9,6 +9,7 @@ mod error_tests;
 mod exit_tests;
 mod fonts;
 mod network;
+mod ns;
 mod play_history;
 mod settings;
 mod shared;
@@ -74,6 +75,8 @@ enum Kind {
     Nifm,
     Network,
     PlayHistory,
+    Ns,
+    ControlData,
 }
 struct Object {
     kind: Kind,
@@ -107,6 +110,7 @@ pub struct Platform {
     launch_popped: bool,
     operation_mode: u32,
     control: Option<Vec<u8>>,
+    pub(super) program_id: u64,
     hid: Option<Handle>,
     time: Option<Handle>,
     font_handle: Option<Handle>,
@@ -141,6 +145,7 @@ impl Platform {
                 _ => return Err(Error::Malformed("SOJU_SWITCH_DOCKED must be 0 or 1")),
             },
             control: None,
+            program_id: 0,
             hid: None,
             time: None,
             font_handle: None,
@@ -162,7 +167,7 @@ impl Platform {
     }
     pub fn open(&mut self, name: &str, ctx: &mut Context<'_>) -> Result<Handle, Error> {
         let kind = match name {
-            "ns:am2" => Kind::Empty,
+            "ns:am2" => Kind::Ns,
             "psm" => Kind::Power,
             "set" => Kind::Settings,
             "set:sys" => Kind::Firmware,
