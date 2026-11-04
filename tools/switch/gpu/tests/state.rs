@@ -1,0 +1,161 @@
+use soju_switch_gpu::{engine::*, memory::Memory, texture::*};
+#[test]
+fn ordered_draws_and_constant_bindings() {
+    let mut e = Engine::default();
+    let mut m = Memory::default();
+    m.map(0x1000, vec![0; 16]).unwrap();
+    for (r, v) in [
+        (0x2380, 16),
+        (0x2384, 0),
+        (0x2388, 0x1000),
+        (0x238c, 0),
+        (0x2390, 123),
+        (0x2410, 0x21),
+        (0x1618, 4),
+    ] {
+        e.method(B197, r, v, &mut m).unwrap();
+    }
+    let s = e.method(B197, 0xd78, 3, &mut m).unwrap().unwrap();
+    assert_eq!(s.constants[0][2].unwrap().address, 0x1000);
+    assert_eq!(m.read(0x1000, 4).unwrap(), 123u32.to_le_bytes());
+    assert!(matches!(
+        s.action,
+        Action::Draw {
+            count: 3,
+            instance: 0,
+            ..
+        }
+    ));
+    e.method(B197, 0x1614, 0, &mut m).unwrap();
+    e.method(B197, 0x1618, 4 | 1 << 26, &mut m).unwrap();
+    assert!(matches!(
+        e.method(B197, 0x17e0, 6, &mut m).unwrap().unwrap().action,
+        Action::Draw {
+            indexed: true,
+            instance: 1,
+            ..
+        }
+    ));
+    assert!(e.method(B197, 0x1618, 4, &mut m).is_err());
+    assert!(e.method(B197, 0xdead, 0, &mut m).is_err());
+}
+#[test]
+fn inline_upload_and_dirty_overlap() {
+    let mut e = Engine::default();
+    let mut m = Memory::default();
+    m.map(0x1000, vec![0; 32]).unwrap();
+    let old = m.generation(0x1000, 4).unwrap();
+    for (r, v) in [
+        (0x180, 5),
+        (0x184, 1),
+        (0x188, 0),
+        (0x18c, 0x1000),
+        (0x1b0, 1),
+        (0x1b4, 0x04030201),
+        (0x1b4, 5),
+    ] {
+        e.method(A140, r, v, &mut m).unwrap();
+    }
+    assert_eq!(m.read(0x1000, 6).unwrap(), [1, 2, 3, 4, 5, 0]);
+    assert!(m.generation(0x1000, 4).unwrap() > old);
+    assert_eq!(m.generation(0x1010, 4).unwrap(), old);
+    assert!(e.method(A140, 0x1b4, 0, &mut m).is_err());
+    assert!(m.read(u64::MAX, 2).is_err());
+    assert!(m.map(0x1010, vec![0; 1]).is_err());
+}
+#[test]
+fn pitched_copy_rect() {
+    let mut e = Engine::default();
+    let mut m = Memory::default();
+    m.map(0x1000, (0..64).collect()).unwrap();
+    m.map(0x2000, vec![0; 64]).unwrap();
+    for (r, v) in [
+        (0x200, 0xd5),
+        (0x230, 0xd5),
+        (0x204, 1),
+        (0x234, 1),
+        (0x2ac, 3),
+        (0x20c, 1),
+        (0x23c, 1),
+        (0x214, 16),
+        (0x244, 16),
+        (0x218, 4),
+        (0x21c, 4),
+        (0x248, 4),
+        (0x24c, 4),
+        (0x224, 0x2000),
+        (0x254, 0x1000),
+        (0x8b0, 1),
+        (0x8b4, 1),
+        (0x8b8, 2),
+        (0x8bc, 2),
+        (0x8c4, 1),
+        (0x8cc, 1),
+        (0x8d4, 1),
+        (0x8dc, 0),
+    ] {
+        e.method(TWOD, r, v, &mut m).unwrap();
+    }
+    assert_eq!(m.read(0x2014, 8).unwrap(), m.read(0x1004, 8).unwrap());
+    assert_eq!(m.read(0x2024, 8).unwrap(), m.read(0x1014, 8).unwrap());
+}
+pub fn tic() -> [u32; 8] {
+    [
+        8 | (2 << 7)
+            | (2 << 10)
+            | (2 << 13)
+            | (2 << 16)
+            | (2 << 19)
+            | (3 << 22)
+            | (4 << 25)
+            | (5 << 28),
+        0x1000,
+        3 << 21,
+        0,
+        (1 << 23) | 3,
+        (1 << 31) | 3,
+        0,
+        0,
+    ]
+}
+#[test]
+fn tic_tsc_validation_and_cache_invalidation() {
+    let w = tic();
+    let t = Tic::parse(&w.into_iter().flat_map(u32::to_le_bytes).collect::<Vec<_>>()).unwrap();
+    assert_eq!((t.width, t.height, t.address), (4, 4, 0x1000));
+    let mut m = Memory::default();
+    m.map(0x1000, vec![0; 1024]).unwrap();
+    let mut c = TextureCache::default();
+    assert_eq!(c.upload(&t, &m).unwrap(), vec![0; 64]);
+    c.upload(&t, &m).unwrap();
+    m.write(0x1300, &[1]).unwrap();
+    c.upload(&t, &m).unwrap();
+    assert_eq!((c.uploads, c.hits), (1, 2));
+    m.write(0x1000, &[17]).unwrap();
+    assert_eq!(c.upload(&t, &m).unwrap()[0], 17);
+    assert_eq!(c.uploads, 2);
+    let mut other = Memory::default();
+    other.map(0x1000, vec![99; 1024]).unwrap();
+    assert_eq!(c.upload(&t, &other).unwrap()[0], 99);
+    assert!(Tic::parse(&[0; 32]).is_err());
+    let mut s = [0u32; 8];
+    s[0] = 2 | 2 << 3 | 2 << 6;
+    s[1] = 1 | 1 << 4 | 1 << 6;
+    assert!(Tsc::parse(&s.into_iter().flat_map(u32::to_le_bytes).collect::<Vec<_>>()).is_ok());
+}
+
+#[test]
+fn unimplemented_launches_are_not_silently_stored() {
+    let mut e = Engine::default();
+    let mut m = Memory::default();
+    for offset in [0x1214, 0x1218, 0x17e4, 0x17f0] {
+        let error = e.method(B197, offset, 3, &mut m).unwrap_err();
+        let expected = if soju_switch_gpu::registers::lookup(B197, offset).is_some() {
+            "unsupported B197 effect"
+        } else {
+            "unknown method"
+        };
+        assert!(error.0.contains(expected), "{offset:#x}: {error}");
+        assert!(!e.registers.0.contains_key(&offset));
+    }
+}
