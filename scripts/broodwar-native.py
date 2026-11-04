@@ -207,7 +207,8 @@ def main():
     p.add_argument("--xr",action="store_true")
     sub.add_parser("xr-probe")
     p=sub.add_parser("assets-review")
-    p.add_argument("source",type=pathlib.Path)
+    p.add_argument("source",type=pathlib.Path,nargs="?")
+    p.add_argument("--installed",action="store_true")
     for name in ("assets-check", "assets-install"):
         p=sub.add_parser(name)
         p.add_argument("source",type=pathlib.Path,help="Folder containing GLBs and optional catalog.json")
@@ -233,6 +234,10 @@ def main():
     elif a.action=="scene": launch_scene(a.xr)
     elif a.action=="xr-probe": launch_scene(probe=True)
     elif a.action=="assets-review":
+        if a.installed:
+            if a.source is not None:parser.error("Choose a delivery source or --installed, not both")
+            return subprocess.call([str(RUNTIME/"asset-venv/bin/python"),str(ROOT/"tools/broodwar_native/model_fidelity_report.py"),"--installed"])
+        if a.source is None:parser.error("assets-review requires a delivery source or --installed")
         return subprocess.call([str(RUNTIME/"asset-venv/bin/python"), str(ROOT/"tools/broodwar_native/review_delivery.py"), str(a.source)])
     elif a.action in ("assets-check","assets-install","assets-rollback"):
         from model_assets import main as assets_main

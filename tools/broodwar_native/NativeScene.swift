@@ -56,6 +56,7 @@ final class WalkView: SCNView {
 final class Commander: NSObject, NSApplicationDelegate {
     var window:NSWindow!;var view:WalkView!;var label:NSTextField!
     var desktopCard=NSView(),desktopCardSignature=""
+    var requireFidelity=true
     let art:Art;let bridge=Bridge();let world=SCNScene();let camera=SCNNode()
     var yaw:CGFloat = -0.54,pitch:CGFloat = -0.14
     var units=[String:Obj](),nodes=[String:SCNNode](),selected=[String]()
@@ -127,7 +128,7 @@ final class Commander: NSObject, NSApplicationDelegate {
             let mirror=MirrorView(frame:view.bounds);mirror.autoresizingMask=[.width,.height];mirror.imageScaling = .scaleProportionallyUpOrDown
             view.addSubview(mirror,positioned:.below,relativeTo:label);self.mirror=mirror;mirrorContext=CIContext(mtlDevice:art.device)
             let panel=SCNMaterial();panel.lightingModel = .constant;panel.isDoubleSided=true;panel.readsFromDepthBuffer=false;panel.writesToDepthBuffer=false
-            hud.geometry?.materials=[panel];hud.renderingOrder=100;hud.name="hud";world.rootNode.addChildNode(hud)
+            hud.geometry?.materials=[panel];hud.renderingOrder=1_000_000;hud.name="hud";world.rootNode.addChildNode(hud)
             let marker=SCNMaterial();marker.lightingModel = .constant;marker.diffuse.contents=NSColor.green
             reticle.categoryBitMask=2;reticle.geometry?.materials=[marker];reticle.isHidden=true;reticle.name="aim-marker"
             world.rootNode.addChildNode(reticle)
@@ -151,7 +152,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         guard !busy else { return };busy=true
         let center=terrainCenter
         let cx=max(0,min(mapWidth-1,Int(center.x))),cy=max(0,min(mapHeight-1,Int(center.z)))
-        let regionWidth=min(tabletop ? 64:48,mapWidth),regionHeight=min(tabletop ? 64:48,mapHeight)
+        let regionWidth=min(tabletop || camera.camera?.usesOrthographicProjection == true ? 64:48,mapWidth),regionHeight=min(tabletop || camera.camera?.usesOrthographicProjection == true ? 64:48,mapHeight)
         let x=max(0,min(mapWidth-regionWidth,cx-regionWidth/2)),y=max(0,min(mapHeight-regionHeight,cy-regionHeight/2))
         let since=eventSequence,knownSession=session
         bridge.queue.async {
@@ -186,6 +187,7 @@ do {
     if CommandLine.arguments.contains("--effect-proof") {try effectSpriteProof();exit(0)}
     if CommandLine.arguments.contains("--live-proof") {try liveModelProof();exit(0)}
     if argument("--command-audit") != nil {try commandAudit();exit(0)}
+    if argument("--fidelity-job") != nil {guard let device=MTLCreateSystemDefaultDevice() else {throw SceneError.invalid("Metal unavailable")};try modelFidelityProof(device:device);exit(0)}
     if CommandLine.arguments.contains("--runtime-check") {try runtimeChecks();exit(0)}
     if CommandLine.arguments.contains("--model-check") || CommandLine.arguments.contains("--model-proof") {
         guard let device=MTLCreateSystemDefaultDevice() else { throw SceneError.invalid("Metal device unavailable") }

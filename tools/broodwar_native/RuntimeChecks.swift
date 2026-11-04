@@ -7,6 +7,7 @@ import GLTFKit2
 // recorded separately. No commands are issued to the game by these checks.
 func runtimeChecks()throws {
     let commander=try Commander(art:Art())
+    commander.requireFidelity=false // Exercise rig lifecycle independently of the live fidelity gate.
     let map=commander.art.manifest["map"] as! Obj
     commander.mapWidth=Int(number(map,"width"));commander.mapHeight=Int(number(map,"height"))
     commander.mapTiles=map["tiles"] as! [Int]
@@ -138,6 +139,18 @@ func runtimeChecks()throws {
         try require(Terrain3D.exposedEdge(top,bottom)==expected,"cliff edge clips exposed interval \(top)")
     }
     try require(Terrain3D.exposedEdge([0,0],[2,2])==nil,"lower cliff neighbor emits no duplicate wall")
+    let red=commander.worldSprites.texture(239,frame:0,color:[255,0,0])!
+    let blue=commander.worldSprites.texture(239,frame:0,color:[0,0,255])!
+    let redPixels=NSBitmapImageRep(data:red.tiffRepresentation!)!,bluePixels=NSBitmapImageRep(data:blue.tiffRepresentation!)!
+    var teamPixel=false
+    for y in 0..<redPixels.pixelsHigh where !teamPixel {for x in 0..<redPixels.pixelsWide {
+        let a=redPixels.colorAt(x:x,y:y)!.usingColorSpace(.deviceRGB)!,b=bluePixels.colorAt(x:x,y:y)!.usingColorSpace(.deviceRGB)!
+        if a.redComponent>b.redComponent+0.1 && b.blueComponent>a.blueComponent+0.1 && abs(a.alphaComponent-b.alphaComponent)<0.001 {teamPixel=true;break}
+    }}
+    try require(teamPixel,"HD team mask changes color while preserving alpha and cache isolation")
+    commander.requireFidelity=true
+    commander.apply(state(1001,[unit("unapproved")]),[:])
+    try require(commander.models.isEmpty && commander.billboards["unapproved"] != nil,"unapproved live model uses the HD image fallback")
     let report:Obj=["passed":true,"checks":passed,"source":"deterministic renderer inputs; not live-game acceptance"]
     let path=argument("--runtime-report").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("runtime-checks.json")
     try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:path,options:.atomic)

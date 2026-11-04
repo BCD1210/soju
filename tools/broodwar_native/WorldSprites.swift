@@ -1,5 +1,6 @@
 import Cocoa
 import SceneKit
+import CoreImage
 
 // The original image frame already includes the 17-direction lookup and the
 // mirrored half of the turn. Keep its animation frameset and image-chain order.
@@ -49,6 +50,7 @@ final class UnitBillboard {
 final class WorldSprites {
     let root=SCNNode(),folder=runtime.appendingPathComponent("world-sprites")
     let images:[String:Obj],creep:[String:Obj]
+    let colorContext=CIContext()
     var nodes=[String:SCNNode](),frames=[String:NSImage](),atlases=[String:NSImage]()
     var missing=Set<Int>(),deathFrames=0,loneFrames=0
     var creepMaterials=[String:SCNMaterial]()
@@ -78,20 +80,20 @@ final class WorldSprites {
             maskAtlas.draw(in:NSRect(x:number(f,"ox"),y:height-number(f,"oy")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),
                 from:NSRect(x:number(f,"x"),y:number(entry,"atlasHeight")-number(f,"y")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),operation:.copy,fraction:1)
             mask.unlockFocus()
-            if let data=image.tiffRepresentation,let pixels=NSBitmapImageRep(data:data),
-               let maskData=mask.tiffRepresentation,let weights=NSBitmapImageRep(data:maskData) {
-                for y in 0..<pixels.pixelsHigh {for x in 0..<pixels.pixelsWide {
-                    guard let base=pixels.colorAt(x:x,y:y)?.usingColorSpace(.deviceRGB),
-                          let weight=weights.colorAt(x:x,y:y)?.usingColorSpace(.deviceRGB)?.redComponent else {continue}
-                    pixels.setColor(NSColor(deviceRed:base.redComponent*(1-weight+weight*CGFloat(color[0])/255),
-                        green:base.greenComponent*(1-weight+weight*CGFloat(color[1])/255),
-                        blue:base.blueComponent*(1-weight+weight*CGFloat(color[2])/255),alpha:base.alphaComponent),atX:x,y:y)
-                }}
-                let tinted=NSImage(size:image.size);tinted.addRepresentation(pixels)
-                if frames.count>128 {frames.removeAll()};frames[key]=tinted;return tinted
+            if let data=image.tiffRepresentation,let base=CIImage(data:data),
+               let maskData=mask.tiffRepresentation,let weights=CIImage(data:maskData) {
+                let tinted=base.applyingFilter("CIColorMatrix",parameters:[
+                    "inputRVector":CIVector(x:CGFloat(color[0])/255,y:0,z:0,w:0),
+                    "inputGVector":CIVector(x:0,y:CGFloat(color[1])/255,z:0,w:0),
+                    "inputBVector":CIVector(x:0,y:0,z:CGFloat(color[2])/255,w:0)])
+                let mixed=tinted.applyingFilter("CIBlendWithMask",parameters:[kCIInputBackgroundImageKey:base,kCIInputMaskImageKey:weights])
+                if let cg=colorContext.createCGImage(mixed,from:base.extent) {
+                    let result=NSImage(cgImage:cg,size:image.size)
+                    if frames.count>512 {frames.removeAll()};frames[key]=result;return result
+                }
             }
         }
-        if frames.count>128 {frames.removeAll()};frames[key]=image;return image
+        if frames.count>512 {frames.removeAll()};frames[key]=image;return image
     }
     func apply(_ state:Obj,ground:Terrain3D,authored:Set<String>) {
         var live=Set<String>()

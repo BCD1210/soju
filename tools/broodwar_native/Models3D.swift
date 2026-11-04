@@ -3,6 +3,7 @@ import Cocoa
 import SceneKit
 import GLTFKit2
 import simd
+import CryptoKit
 
 final class ModelInstance {
     let root=SCNNode(),placement=SCNNode()
@@ -254,10 +255,21 @@ final class ModelInstance {
 
 final class Models3D {
     let catalog:ModelCatalog
+    let fidelity:[Int:Obj]
     var assets=[Int:(String,GLTFAsset)](),errors=[Int:String]()
     var failedRevisions=[Int:String]()
     init(folder:URL=runtime.appendingPathComponent("models-3d"),catalogURL:URL?=nil,includeDefaults:Bool=true)throws {
         catalog=try ModelCatalog(folder:folder,catalog:catalogURL,includeDefaults:includeDefaults)
+        let report=(try? loadObject(runtime.appendingPathComponent("model-fidelity.json"))) ?? [:]
+        fidelity=Dictionary((report["models"] as? [Obj] ?? []).map{(Int(number($0,"type")),$0)},uniquingKeysWith:{_,new in new})
+    }
+    func approvedForLive(_ kind:Int)->Bool {
+        guard let row=fidelity[kind],
+              row["passed"] as? Bool == true,row["modelRevision"] as? String == catalog.signatures[kind],number(row,"minimumIoU")>=0.95,number(row,"minimumSSIM")>=0.85,
+              let definition=catalog.definitions[kind],let path=try? catalog.url(definition),
+              let bytes=try? Data(contentsOf:path) else {return false}
+        let hash=SHA256.hash(data:bytes).map{String(format:"%02x",$0)}.joined()
+        return row["modelSha256"] as? String == hash
     }
     func make(_ kind:Int)throws->ModelInstance {
         guard let definition=catalog.definitions[kind],let revision=catalog.signatures[kind] else {

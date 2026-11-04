@@ -67,6 +67,10 @@ extension Commander {
         for (id,u) in units {
             let kind=Int(number(u,"type"))
             do {
+                if requireFidelity && !modelLibrary.approvedForLive(kind) {
+                    models.removeValue(forKey:id)?.root.removeFromParentNode()
+                    throw SceneError.invalid("Model has no passing HD fidelity measurement")
+                }
                 let instance:ModelInstance
                 if let old=models[id],old.kind==kind,old.revision==modelLibrary.catalog.signatures[kind] { instance=old }
                 else {
@@ -92,7 +96,8 @@ extension Commander {
                         nodes[id]?.removeFromParentNode();models.removeValue(forKey:id)
                         billboards[id]=billboard;nodes[id]=billboard.root;world.rootNode.addChildNode(billboard.root)
                     }
-                    billboard.apply(u,ground:ground,art:worldSprites)
+                    let colors=s["playerColors"] as? [[Int]] ?? [],owner=Int(number(u,"owner"))
+                    billboard.apply(u,ground:ground,art:worldSprites,color:colors.indices.contains(owner) ? colors[owner]:[255,255,255])
                 }
             }
         }
@@ -107,6 +112,8 @@ extension Commander {
         else if ["Connecting","Connection:","3D models unavailable","Asset update rejected","Model catalog:","Reloading 3D assets"].contains(where:{notice.hasPrefix($0)}) { notice="Original engine connected · rigged 3D models" }
     }
     var terrainCenter:SCNVector3 {
+        if CommandLine.arguments.contains("--top-down"),let values=argument("--camera")?.split(separator:","),values.count==2,
+           let x=Double(values[0]),let z=Double(values[1]) {return SCNVector3(x,0,z)}
         if tabletop {return SCNVector3(camera.position.x-sin(yaw)*CGFloat(wrists.zoom),0,camera.position.z-cos(yaw)*CGFloat(wrists.zoom))}
         #if SOJU_OPENXR
         if xrRequested,let h=headCenter { return SCNVector3(h.x,h.y,h.z) }
@@ -115,7 +122,7 @@ extension Commander {
     }
     func updateTerrain() {
         let tiles=art.manifest["tiles"] as? [String:Obj] ?? [:]
-        let cx=Int(terrainCenter.x),cy=Int(terrainCenter.z),radius=tabletop ? 44:20
+        let cx=Int(terrainCenter.x),cy=Int(terrainCenter.z),radius=tabletop || camera.camera?.usesOrthographicProjection == true ? 44:20
         var keep=Set<Int>()
         for y in max(0,cy-radius)..<max(0,min(mapHeight,cy+radius+1)) {
             for x in max(0,cx-radius)..<max(0,min(mapWidth,cx+radius+1)) {
@@ -195,7 +202,9 @@ extension Commander {
         camera.position.y=CGFloat(ground.elevation(Double(camera.position.x),Double(camera.position.z))+commanderHeight)
         camera.eulerAngles=SCNVector3(pitch,yaw,0)
         if CommandLine.arguments.contains("--top-down") {
-            camera.position.y=40;camera.eulerAngles=SCNVector3(-Double.pi/2,0,0)
+            let elevation=(Double(argument("--elevation") ?? "90") ?? 90)*Double.pi/180
+            camera.position.y=40;camera.eulerAngles=SCNVector3(-elevation,0,0)
+            if let center=argument("--camera")?.split(separator:",").last,let z=Double(center) {camera.position.z=CGFloat(z+40/tan(elevation))}
         }
         if !xrRequested {updateDesktopCard()}
         Models3D.followLight(world,position:camera.position)
@@ -203,6 +212,7 @@ extension Commander {
             let tiff=view.snapshot().tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let image=bitmap.cgImage {
             captureFrames.save(image,index:index,metadata:["frame":number(state,"frame"),
                 "camera":[camera.position.x,camera.position.y,camera.position.z],
+                "state":state,"fog":Dictionary(uniqueKeysWithValues:fog.map{(String($0.key),Int($0.value))}),"creepTiles":Array(creepTiles).sorted(),"elevationDegrees":Double(argument("--elevation") ?? "90") ?? 90,"viewHeight":camera.camera?.orthographicScale ?? 0,
                 "map":state["map"] ?? [:],"terrainTiles":terrain.count,"topDown":camera.camera?.usesOrthographicProjection ?? false])
         }
         if now-lastSceneDiagnostic>1 {
