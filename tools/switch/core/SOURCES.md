@@ -160,3 +160,14 @@ control property, using the same program identity as the filesystem. Unknown
 identities and missing properties return 0x410 without output writes. The property
 is resident for all three source modes. Icon loading and language-selection
 commands remain unsupported.
+
+## Empty USB host bus
+
+https://switchbrew.org/wiki/USB_services#usb:hs,_usb:hs:a describes process binding,
+16-byte filters, 0x228-byte interface records and three availability-event slots.
+https://switchbrew.org/wiki/Error_codes supplies USB invalid-state, argument, size
+and interface results. No host devices are exposed. Enumeration returns zero
+records without writes. Availability/removal events stay unsignaled; filters and
+event ownership are retained per session, duplicates are rejected, and destroy or
+close releases the owned handles while guest duplicates survive. Acquiring any
+interface fails with ResultInterfaceInvalid. Unimplemented commands still stop.

@@ -20,6 +20,7 @@ mod tables;
 #[cfg(test)]
 mod tests;
 mod time;
+mod usb;
 use super::types::*;
 use crate::kernel::{Handle, Kernel, ObjectId};
 use crate::memory::GuestMemory;
@@ -77,6 +78,7 @@ enum Kind {
     PlayHistory,
     Ns,
     ControlData,
+    Usb,
 }
 struct Object {
     kind: Kind,
@@ -91,6 +93,7 @@ struct Player {
 }
 pub struct Platform {
     objects: BTreeMap<ObjectId, Object>,
+    usb: BTreeMap<ObjectId, usb::Session>,
     storage: BTreeMap<ObjectId, Rc<RefCell<Vec<u8>>>>,
     players: BTreeMap<ObjectId, Player>,
     messages: VecDeque<u32>,
@@ -122,6 +125,7 @@ impl Platform {
     pub fn new(home: &Path) -> Result<Self, Error> {
         Ok(Self {
             objects: BTreeMap::new(),
+            usb: BTreeMap::new(),
             storage: BTreeMap::new(),
             players: BTreeMap::new(),
             messages: VecDeque::new(),
@@ -188,6 +192,7 @@ impl Platform {
             "csrng" => Kind::Random,
             "nifm:u" => Kind::Nifm,
             "pdm:qry" => Kind::PlayHistory,
+            "usb:hs" => Kind::Usb,
             _ => return Err(Error::Malformed("unknown platform service")),
         };
         self.session(kind, ctx)
@@ -218,6 +223,7 @@ impl Platform {
     }
     pub fn close_object(&mut self, id: ObjectId) {
         self.objects.remove(&id);
+        self.usb.remove(&id);
         self.storage.remove(&id);
         self.players.remove(&id);
         if let Some(events) = self.owned_events.remove(&id) {
