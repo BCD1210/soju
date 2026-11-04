@@ -7,6 +7,7 @@ use crate::nacp::{self, Nacp};
 use crate::nca::{ContentType, FsType, Nca};
 use crate::pfs0::{self, Entry, Storage, Sub};
 use crate::romfs;
+use crate::ticket;
 use crate::xci::Xci;
 use crate::{Error, Result};
 
@@ -27,6 +28,27 @@ pub struct TitleInfo {
 
 /// NCA entries of a container, by file extension ("nsp" or "xci").
 pub fn nca_entries(s: &dyn Storage, ext: &str) -> Result<Vec<Entry>> {
+    Ok(container_entries(s, ext)?.into_iter().filter(|e| e.name.ends_with(".nca")).collect())
+}
+
+/// The player's keys plus title keys from the container's own common tickets (.tik).
+/// Personalized tickets cannot be used without the console they belong to.
+pub fn keys_with_tickets(s: &dyn Storage, ext: &str, keys: &KeySet) -> Result<(KeySet, Vec<(String, String)>)> {
+    let mut ks = keys.clone();
+    let mut problems = Vec::new();
+    for e in container_entries(s, ext)?.iter().filter(|e| e.name.ends_with(".tik")) {
+        match small(s, e.offset, e.size).and_then(|b| ticket::parse(&b)) {
+            Ok(t) => match t.title_key {
+                Some(k) => ks.insert_title(t.rights_id, k),
+                None => problems.push((e.name.clone(), "personalized ticket: this game must be dumped with its title key from your own Switch".into())),
+            },
+            Err(err) => problems.push((e.name.clone(), err.to_string())),
+        }
+    }
+    Ok((ks, problems))
+}
+
+fn container_entries(s: &dyn Storage, ext: &str) -> Result<Vec<Entry>> {
     let all = match ext {
         "nsp" | "nsz" => pfs0::parse(s)?,
         "xci" | "xcz" => Xci::open(s)?.partition("secure")?.into_iter().map(|h| h.entry).collect(),
@@ -35,7 +57,7 @@ pub fn nca_entries(s: &dyn Storage, ext: &str) -> Result<Vec<Entry>> {
     if all.iter().any(|e| e.name.ends_with(".ncz")) {
         return Err(Error::Unsupported("compressed NSZ/XCZ files; decompress them first"));
     }
-    Ok(all.into_iter().filter(|e| e.name.ends_with(".nca")).collect())
+    Ok(all)
 }
 
 fn small(s: &dyn Storage, offset: u64, size: u64) -> Result<Vec<u8>> {
@@ -47,7 +69,9 @@ fn small(s: &dyn Storage, offset: u64, size: u64) -> Result<Vec<u8>> {
 
 pub fn read(s: &dyn Storage, ext: &str, keys: &KeySet) -> Result<TitleInfo> {
     let entries = nca_entries(s, ext)?;
-    let mut info = TitleInfo { title_id: None, kind: None, version: None, nacp: None, icon: None, nca_count: entries.len(), problems: vec![] };
+    let (keys, ticket_problems) = keys_with_tickets(s, ext, keys)?;
+    let keys = &keys;
+    let mut info = TitleInfo { title_id: None, kind: None, version: None, nacp: None, icon: None, nca_count: entries.len(), problems: ticket_problems };
     let mut meta: Option<Cnmt> = None;
     let mut program_id = None;
     for e in &entries {
@@ -113,11 +137,12 @@ mod tests {
         let prog = program_nca(&[("main", b"code")], false);
         let cn = cnmt::build(0x0100_0000_0001_0000, 0, 0x80, None, &[([1; 16], prog.image.len() as u64, 1), ([2; 16], ctrl.image.len() as u64, 3)]);
         let meta = meta_nca("Application_0100000000010000.cnmt", &cn);
+        let tik = crate::ticket::build([7; 16], [8; 16], false);
         let files: [(&str, &[u8]); 4] = [
             ("01010101010101010101010101010101.nca", &prog.image),
             ("02020202020202020202020202020202.nca", &ctrl.image),
             ("03030303030303030303030303030303.cnmt.nca", &meta.image),
-            ("01000000000100000000000000000000.tik", b"ticket"),
+            ("07070707070707070707070707070707.tik", &tik),
         ];
         let img = if ext == "nsp" { pfs0::build(&files) } else { crate::xci::build(&files, false) };
         (img, prog.keys) // every fixture NCA uses the same made-up keys
@@ -148,6 +173,27 @@ mod tests {
         assert!(t.nacp.is_none());
         assert_eq!(t.problems.len(), 3);
         assert!(t.problems.iter().all(|p| p.1.contains("key_area_key_application_02")));
+    }
+
+    #[test]
+    fn common_ticket_in_the_nsp_replaces_title_keys() {
+        let prog = program_nca(&[("main", b"code")], true);
+        let mut rid = [0u8; 16];
+        rid[0] = 1;
+        rid[15] = 2;
+        let enc = prog.keys.encrypted_title_key(&rid).unwrap();
+        let mut prod_only = KeySet::default();
+        prod_only.insert("header_key", &[0x5au8; 32]);
+        prod_only.insert("titlekek_02", &[0x19u8; 16]);
+        let tik = crate::ticket::build(rid, enc, false);
+        let with = pfs0::build(&[("p.nca", &prog.image), ("0100.tik", &tik)]);
+        let t = read(&with, "nsp", &prod_only).unwrap();
+        assert!(t.problems.is_empty(), "{:?}", t.problems);
+        assert_eq!(t.title_id, Some(0x0100_0000_0001_0000));
+        let without = pfs0::build(&[("p.nca", &prog.image)]);
+        assert!(read(&without, "nsp", &prod_only).unwrap().problems[0].1.contains("rights id"));
+        let personal = pfs0::build(&[("p.nca", &prog.image), ("x.tik", &crate::ticket::build(rid, enc, true))]);
+        assert!(read(&personal, "nsp", &prod_only).unwrap().problems.iter().any(|p| p.1.contains("personalized")));
     }
 
     #[test]

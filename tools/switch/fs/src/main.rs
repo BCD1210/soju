@@ -106,6 +106,12 @@ fn run() -> Result<String, String> {
     let keys = KeySet::load(&prod, title.as_deref()).map_err(|e| e.to_string())?;
     let f = std::fs::File::open(&file).map_err(|e| format!("cannot open the game file: {e}"))?;
     let ext = file.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    // Common tickets inside the package supply title keys, so prod.keys alone is enough.
+    let keys = if matches!(ext.as_str(), "nsp" | "xci") {
+        soju_switch_fs::title::keys_with_tickets(&f, &ext, &keys).map(|(k, _)| k).unwrap_or(keys)
+    } else {
+        keys
+    };
     if cmd == "title" {
         let t = soju_switch_fs::title::read(&f, &ext, &keys).map_err(|e| e.to_string())?;
         let pref = soju_switch_fs::title::PREFERRED;

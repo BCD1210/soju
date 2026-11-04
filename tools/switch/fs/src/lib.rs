@@ -16,6 +16,7 @@ pub mod npdm;
 pub mod nso;
 pub mod pfs0;
 pub mod romfs;
+pub mod ticket;
 pub mod title;
 pub mod xci;
 
