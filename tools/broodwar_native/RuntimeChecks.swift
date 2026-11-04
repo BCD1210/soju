@@ -103,6 +103,14 @@ func runtimeChecks()throws {
         try require(material.readsFromDepthBuffer && material.writesToDepthBuffer,"relief participates in scene occlusion")
         try require(material.shaderModifiers?[.surface]?.contains("relief_specular")==true,"relief shader binds material layers")
     } else {try require(false,"prepared Marine relief required")}
+    var profileContinuous=true
+    for y in stride(from:1,to:commander.ground.height-1,by:3) {
+        for x in stride(from:1,to:commander.ground.width-1,by:3) {
+            let px=Double(x)/4,pz=(Double(y)+0.37)/4
+            if abs(commander.ground.profile(px-0.000001,pz)-commander.ground.profile(px+0.000001,pz))>0.001 {profileContinuous=false}
+        }
+    }
+    try require(profileContinuous,"subdivided cliff profiles meet across minitile boundaries")
     let fixed=UnitBillboard.viewFrame(["frame":3,"frameset":0,"flags":0],azimuth:.pi,count:50)
     try require(fixed.0==3 && !fixed.1,"non-directional building animation does not become a directional frame")
     let short=UnitBillboard.viewFrame(["frame":0,"frameset":0,"flags":8],azimuth:.pi,count:1)

@@ -32,9 +32,17 @@ final class Terrain3D {
     func surface(_ x:Int,_ y:Int)->[Double] {
         [corner(x,y,x,y),corner(x,y,x,y+1),corner(x,y,x+1,y+1),corner(x,y,x+1,y)]
     }
+    func profile(_ x:Double,_ z:Double)->Double {
+        let sx=x*4,sy=z*4,ix=Int(floor(sx)),iy=Int(floor(sy)),v=surface(ix,iy)
+        var fx=sx-floor(sx),fy=sy-floor(sy)
+        fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy)
+        return v[0]*(1-fx)*(1-fy)+v[1]*(1-fx)*fy+v[2]*fx*fy+v[3]*fx*(1-fy)
+    }
     func elevation(_ x:Double,_ z:Double)->Double {
-        let sx=x*4,sy=z*4,ix=Int(floor(sx)),iy=Int(floor(sy)),fx=sx-floor(sx),fy=sy-floor(sy),v=surface(ix,iy)
-        return fy>=fx ? v[0]*(1-fy)+v[1]*(fy-fx)+v[2]*fx : v[0]*(1-fx)+v[2]*fy+v[3]*(fx-fy)
+        let sx=x*16,sy=z*16,ix=floor(sx),iy=floor(sy),fx=sx-ix,fy=sy-iy
+        let a=profile(ix/16,iy/16),b=profile(ix/16,(iy+1)/16)
+        let c=profile((ix+1)/16,(iy+1)/16),d=profile((ix+1)/16,iy/16)
+        return fy>=fx ? a*(1-fy)+b*(fy-fx)+c*fx:a*(1-fx)+c*fy+d*(fx-fy)
     }
     func walkable(_ x:Double,_ z:Double)->Bool {
         x>=0 && z>=0 && x<Double(width)/4 && z<Double(height)/4 && flags[index(Int(x*4),Int(z*4))]&1 != 0
@@ -55,13 +63,14 @@ final class Terrain3D {
             for i in 0..<4 { vertices.append(Self.worldPosition(Double(p[i].x),Double(p[i].y),Double(p[i].z)));normals.append(SCNVector3(normal.x,normal.y,normal.z));uv.append(t[i]) }
             indices += [base,base+1,base+2,base,base+2,base+3]
         }
-        for y in 0..<4 { for x in 0..<4 {
-            let mx=tileX*4+x,my=tileY*4+y,v=surface(mx,my)
-            let ax=Float(x)/4,bx=ax+0.25,az=Float(y)/4,bz=az+0.25
-            let points=[SIMD3<Float>(ax,Float(v[0]),az),SIMD3<Float>(ax,Float(v[1]),bz),SIMD3<Float>(bx,Float(v[2]),bz),SIMD3<Float>(bx,Float(v[3]),az)]
-            let u=CGFloat(x)/4,w=u+0.25,t=1-CGFloat(y)/4,b=t-0.25
-            quad(points,[CGPoint(x:u,y:t),CGPoint(x:u,y:b),CGPoint(x:w,y:b),CGPoint(x:w,y:t)])
-
+        let values=(0...4).flatMap{y in (0...4).map{x in profile(Double(tileX)+Double(x)/4,Double(tileY)+Double(y)/4)}}
+        let segments=(values.max()!-values.min()!)>0.001 ? 16:4
+        for y in 0..<segments {for x in 0..<segments {
+            let ax=Double(x)/Double(segments),bx=Double(x+1)/Double(segments)
+            let az=Double(y)/Double(segments),bz=Double(y+1)/Double(segments)
+            let points=[(ax,az),(ax,bz),(bx,bz),(bx,az)]
+            quad(points.map{px,pz in SIMD3<Float>(Float(px),Float(profile(Double(tileX)+px,Double(tileY)+pz)),Float(pz))},
+                 points.map{px,pz in CGPoint(x:px,y:1-pz)})
         }}
         let geometry=SCNGeometry(sources:[SCNGeometrySource(vertices:vertices),SCNGeometrySource(normals:normals),SCNGeometrySource(textureCoordinates:uv)],
             elements:[SCNGeometryElement(indices:indices,primitiveType:.triangles)])
