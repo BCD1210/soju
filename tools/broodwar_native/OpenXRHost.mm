@@ -90,10 +90,13 @@ void input(XrTime time,void* context,SojuXRControls callback) {
         xrGetActionStateBoolean(session,&get,&select);
         bool now=select.isActive && select.currentState;
         if(h==0)result.leftPressed=now&&!previousSelect[h];else result.rightPressed=now&&!previousSelect[h];
+        if(h==0){result.leftHeld=now;result.leftReleased=!now&&previousSelect[h];}
+        else {result.rightHeld=now;result.rightReleased=!now&&previousSelect[h];}
         previousSelect[h]=now;
         get.action=gripAction;XrActionStateBoolean grip{XR_TYPE_ACTION_STATE_BOOLEAN};
         xrGetActionStateBoolean(session,&get,&grip);bool squeezed=grip.isActive&&grip.currentState;
         if(h==0)result.leftGripPressed=squeezed&&!previousGrip[h];else result.rightGripPressed=squeezed&&!previousGrip[h];
+        if(h==0)result.leftGripHeld=squeezed;else result.rightGripHeld=squeezed;
         previousGrip[h]=squeezed;
         get.action=moveAction;XrActionStateVector2f move{XR_TYPE_ACTION_STATE_VECTOR2F};
         xrGetActionStateVector2f(session,&get,&move);
@@ -108,6 +111,14 @@ void input(XrTime time,void* context,SojuXRControls callback) {
         result.aimValid=1;
         result.px=aim.pose.position.x;result.py=aim.pose.position.y;result.pz=aim.pose.position.z;
         result.qx=aim.pose.orientation.x;result.qy=aim.pose.orientation.y;result.qz=aim.pose.orientation.z;result.qw=aim.pose.orientation.w;
+    }
+    XrSpaceLocation left{XR_TYPE_SPACE_LOCATION};
+    if(XR_SUCCEEDED(xrLocateSpace(handSpace[0],localSpace,time,&left)) &&
+       (left.locationFlags&XR_SPACE_LOCATION_POSITION_VALID_BIT) &&
+       (left.locationFlags&XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)) {
+        result.leftValid=1;
+        result.leftX=left.pose.position.x;result.leftY=left.pose.position.y;result.leftZ=left.pose.position.z;
+        result.leftQx=left.pose.orientation.x;result.leftQy=left.pose.orientation.y;result.leftQz=left.pose.orientation.z;result.leftQw=left.pose.orientation.w;
     }
     callback(context,&result);
 }

@@ -37,7 +37,7 @@ extension Commander {
         notice=tabletop ? "Tabletop commander · V returns to unit scale":"Unit scale"
     }
     func captureDesktop() {
-        let folder=runtime.appendingPathComponent("3d-proof/m3/desktop")
+        let folder=argument("--proof-dir").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("3d-proof/m4/desktop")
         do {
             try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
             let image=view.snapshot()
