@@ -8,7 +8,7 @@ use std::ptr::NonNull;
 pub const PAGE: usize = 4096;
 pub const PHYSICAL_BASE: u64 = 0x10000;
 pub const ROOT: u64 = PHYSICAL_BASE + 0x1000;
-pub const MAX_ARENA: usize = 512 * 1024 * 1024;
+pub const MAX_ARENA: usize = 3584 * 1024 * 1024;
 const ADDRESS_MASK: u64 = 0x0000_ffff_ffff_f000;
 const LIMIT: u64 = 1 << 39;
 

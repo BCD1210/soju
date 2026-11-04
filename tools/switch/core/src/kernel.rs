@@ -5,14 +5,17 @@ use crate::nro::{BASE, EXCEPTION_CONTEXT, Homebrew, LOADER_RETURN, STACK, STACK_
 use std::collections::{BTreeMap, VecDeque};
 #[path = "kernel_threads.rs"]
 mod threads;
+#[path = "kernel_virtual_memory.rs"]
+mod virtual_memory;
 
 pub type Handle = u32;
 pub type ThreadId = u32;
 pub type ObjectId = u64;
 pub const MAIN_THREAD: ThreadId = 0x101;
+pub const PROCESS_HANDLE: Handle = 0x102;
 pub const CURRENT_THREAD: Handle = 0xffff8000;
 pub const HEAP: u64 = 0x400000000;
-pub const HEAP_LIMIT: usize = 0x10000000;
+pub const HEAP_LIMIT: usize = 3 * 1024 * 1024 * 1024;
 pub const SUCCESS: u64 = 0;
 pub const INVALID_SIZE: u64 = 0xca01;
 pub const INVALID_ADDRESS: u64 = 0xcc01;
@@ -96,6 +99,7 @@ pub enum Dispatch {
 }
 #[derive(Clone, Debug)]
 enum Object {
+    Process,
     Thread(ThreadId),
     Event(bool),
     Session(u64),
@@ -126,6 +130,8 @@ pub struct Kernel {
     next_object: ObjectId,
     ports: BTreeMap<Vec<u8>, u64>,
     aliases: BTreeMap<(u64, u64), usize>,
+    physical_mappings: BTreeMap<u64, usize>,
+    code_mappings: BTreeMap<(u64, u64), usize>,
     shared_mappings: BTreeMap<(ObjectId, u64), usize>,
     next_shared: u64,
     heap_size: usize,
@@ -218,6 +224,8 @@ impl Kernel {
             next_object: 1,
             ports: BTreeMap::from([(b"sm:".to_vec(), 0)]),
             aliases: BTreeMap::new(),
+            physical_mappings: BTreeMap::new(),
+            code_mappings: BTreeMap::new(),
             shared_mappings: BTreeMap::new(),
             next_shared: 0x7000000000,
             heap_size: 0,
@@ -238,6 +246,10 @@ impl Kernel {
             .object(Object::Thread(MAIN_THREAD))
             .expect("initial object");
         kernel.handles.insert(MAIN_THREAD, object);
+        let object = kernel
+            .object(Object::Process)
+            .expect("initial process object");
+        kernel.handles.insert(PROCESS_HANDLE, object);
         kernel
     }
     fn allocation_available(&self) -> Result<(), u64> {
@@ -712,7 +724,7 @@ impl Kernel {
                 }
                 if requested < self.heap_size {
                     let end = HEAP + requested as u64;
-                    if self.aliases.iter().any(|((_,source),size)|source+*size as u64>end) || self.objects.values().any(|e|matches!(e.object,Object::Transfer { address,size } if address+size as u64>end)) { return Err(INVALID_MEMORY_STATE); }
+                    if self.aliases.iter().chain(self.code_mappings.iter()).any(|((_,source),size)|source+*size as u64>end) || self.objects.values().any(|e|matches!(e.object,Object::Transfer { address,size } if address+size as u64>end)) { return Err(INVALID_MEMORY_STATE); }
                     memory
                         .unmap(end, self.heap_size - requested)
                         .map_err(|_| INVALID_MEMORY_STATE)?;
@@ -820,6 +832,7 @@ impl Kernel {
                 out(0)
             }
             7 => Dispatch::ProcessExited(0),
+            0x2c | 0x2d | 0x73 | 0x77 | 0x78 => self.dispatch_virtual_memory(memory, svc, r)?,
             8..=16 => self.dispatch_thread(memory, current, svc, r, now)?,
             17 => {
                 self.signal_event(r[0] as u32)?;
@@ -1209,7 +1222,9 @@ impl Kernel {
                 ret(0)
             }
             0x45 => {
-                if self.handles.len() + 2 > MAX_HANDLES { return Err(LIMIT_REACHED); }
+                if self.handles.len() + 2 > MAX_HANDLES {
+                    return Err(LIMIT_REACHED);
+                }
                 let write = self.register_event(false)?;
                 let read = self.duplicate_handle(write)?;
                 Dispatch::Return(vec![0, u64::from(write), u64::from(read)])
