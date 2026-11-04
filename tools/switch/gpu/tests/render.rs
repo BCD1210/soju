@@ -2802,7 +2802,13 @@ fn split_texs_exports_four_distinct_components() {
         ],
     );
     h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
-    h.draw(&mut e, 6, false, false);
+    for encoding in 0..8u32 {
+        h.memory
+            .write(tsc, &(0x26492 | (encoding << 20)).to_le_bytes())
+            .unwrap();
+        h.memory.write(tsc + 4, &0x372u32.to_le_bytes()).unwrap();
+        h.draw(&mut e, 6, false, false);
+    }
     let directory = std::env::temp_dir().join(format!("soju-texs-{}", std::process::id()));
     std::fs::create_dir_all(&directory).unwrap();
     let report = h.backend.execute(&directory, &mut h.memory).unwrap();

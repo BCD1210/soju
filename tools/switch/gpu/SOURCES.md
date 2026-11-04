@@ -83,3 +83,10 @@ specifies sixteen viewport transforms (stride 32) and scissors (stride 16).
 https://download.nvidia.com/open-gpu-doc/Shader-Program-Header/1/Shader-Program-Header.html
 Apple's installed MTLRenderCommandEncoder.h and MSL specification define
 setViewports/setScissorRects and the uint viewport_array_index vertex output.
+
+Sampler anisotropy uses the pinned clb197tex.h TEXSAMP0 MAX_ANISOTROPY
+encodings (1, 2, 4, 6, 8, 10, 12, 16) when TEXSAMP1 MIN_FILTER is MIN_ANISO.
+Apple MTLSamplerDescriptor.maxAnisotropy receives the decoded ratio, which is
+part of the native argument-table cache identity. Point/linear modes retain
+isotropic filtering. The split-TEXS pixel oracle exercises all eight ratios
+with Metal API validation; it does not measure anisotropic quality on mip chains.

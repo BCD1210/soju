@@ -554,7 +554,7 @@ final class Worker {
                 let stageItems=items(command.textures).filter{Int($0.stage)==stage}
                 if stageItems.isEmpty {continue}
                 let tableKey = pk + ":" + String(stage) + ":" + stageItems.map { item in
-                    "\(text(item.key)):\(item.image):\(item.sampler):\(item.count):\(item.u):\(item.v):\(item.min):\(item.mag)"
+                    "\(text(item.key)):\(item.image):\(item.sampler):\(item.count):\(item.u):\(item.v):\(item.min):\(item.mag):\(item.anisotropy)"
                 }.joined(separator: "|")
                 touch("a", tableKey)
                 if let resolved = argumentTables[tableKey] {
@@ -599,6 +599,8 @@ final class Worker {
                         let d=MTLSamplerDescriptor();let modes:[MTLSamplerAddressMode]=[.repeat,.mirrorRepeat,.clampToEdge]
                         d.sAddressMode=modes[Int(item.u)];d.tAddressMode=modes[Int(item.v)];d.normalizedCoordinates=true
                         d.minFilter=Int(item.min)==1 ? .nearest : .linear;d.magFilter=Int(item.mag)==1 ? .nearest : .linear;d.mipFilter = .notMipmapped;d.supportArgumentBuffers=true
+                        try need((1...16).contains(Int(item.anisotropy)), "sampler anisotropy range")
+                        d.maxAnisotropy=Int(item.anisotropy)
                         guard let sampler=device.makeSamplerState(descriptor:d) else {throw Failure("sampler allocation")};tableSamplers.append(sampler);argument.setSamplerState(sampler,index:9*Int(item.count)+Int(item.sampler))
                     }
                 }

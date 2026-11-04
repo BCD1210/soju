@@ -1,5 +1,5 @@
 //! Maxwell block-linear TIC and TSC fields: NVIDIA clb197tex.h (see SOURCES.md).
-use crate::{memory::Memory, require, Error, Result};
+use crate::{Error, Result, memory::Memory, require};
 use soju_switch_texture::Surface;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tic {
@@ -112,6 +112,7 @@ pub struct Tsc {
     pub address_v: u32,
     pub min_filter: u32,
     pub mag_filter: u32,
+    pub max_anisotropy: u32,
 }
 impl Tsc {
     pub fn parse(bytes: &[u8]) -> Result<Self> {
@@ -119,14 +120,17 @@ impl Tsc {
         let (u, v, p) = (w[0] & 7, (w[0] >> 3) & 7, (w[0] >> 6) & 7);
         // The comparison function is inactive when DEPTH_COMPARE (bit 9) is zero.
         require(
-            u <= 2 && v <= 2 && p <= 2 && matches!(w[0] & !0x1dff, 0 | 0x26000),
-            &format!("TSC wrap/compare/aniso unsupported: control={:#010x}", w[0]),
+            u <= 2 && v <= 2 && p <= 2 && matches!(w[0] & !0x701dff, 0 | 0x26000),
+            &format!(
+                "TSC wrap/compare/reserved fields unsupported: control={:#010x}",
+                w[0]
+            ),
         )?;
         let mag = w[1] & 7;
         let min = (w[1] >> 4) & 3;
         require(
             matches!(mag, 1 | 2)
-                && matches!(min, 1 | 2)
+                && matches!(min, 1..=3)
                 && matches!(w[1] & !0x37, 0x40 | 0x340)
                 && matches!(w[2], 0 | 0x00f00000)
                 && w[3..].iter().all(|x| *x == 0),
@@ -137,6 +141,11 @@ impl Tsc {
             address_v: v,
             min_filter: min,
             mag_filter: mag,
+            max_anisotropy: if min == 3 {
+                [1, 2, 4, 6, 8, 10, 12, 16][((w[0] >> 20) & 7) as usize]
+            } else {
+                1
+            },
         })
     }
 }

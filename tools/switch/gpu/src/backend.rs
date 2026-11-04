@@ -1449,6 +1449,7 @@ impl Backend {
                             v: t.address_v as _,
                             min: t.min_filter as _,
                             mag: t.mag_filter as _,
+                            anisotropy: t.max_anisotropy as _,
                             ..TextureCommand::default()
                         });
                     }

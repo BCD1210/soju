@@ -283,11 +283,32 @@ fn inactive_sampler_compare_function_does_not_reject_color_sampling() {
             let bytes: Vec<_> = words.into_iter().flat_map(u32::to_le_bytes).collect();
             let sampler = soju_switch_gpu::texture::Tsc::parse(&bytes).unwrap();
             assert_eq!(sampler.address_u, 2);
-            for unsupported in [1 << 9, 1 << 20] {
+            for unsupported in [1 << 9, 1 << 23] {
                 let mut bytes = bytes.clone();
                 bytes[..4].copy_from_slice(&(words[0] | unsupported).to_le_bytes());
                 assert!(soju_switch_gpu::texture::Tsc::parse(&bytes).is_err());
             }
+        }
+    }
+}
+
+#[test]
+fn anisotropic_sampler_decodes_all_documented_ratios() {
+    for (encoding, ratio) in [1, 2, 4, 6, 8, 10, 12, 16].into_iter().enumerate() {
+        for min in 1..=3 {
+            let words = [
+                0x92 | ((encoding as u32) << 20),
+                0x42 | (min << 4),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ];
+            let bytes: Vec<_> = words.into_iter().flat_map(u32::to_le_bytes).collect();
+            let sampler = soju_switch_gpu::texture::Tsc::parse(&bytes).unwrap();
+            assert_eq!(sampler.max_anisotropy, if min == 3 { ratio } else { 1 });
         }
     }
 }
