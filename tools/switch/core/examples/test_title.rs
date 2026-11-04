@@ -83,6 +83,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .timer_preemptions
                         .load(std::sync::atomic::Ordering::Relaxed)
                 );
+                println!(
+                    "SCHEDULER|parallel_waves={}|single_waves={}",
+                    runtime.profile.parallel_waves, runtime.profile.single_waves
+                );
                 println!("exit0|probe-complete");
                 return Ok(());
             }

@@ -92,10 +92,14 @@ pub struct RuntimeProfile {
     pub ipc: Duration,
     pub poll: Duration,
     pub sleep: Duration,
+    pub parallel_waves: u64,
+    pub single_waves: u64,
 }
 pub struct Runtime {
     pub profile: RuntimeProfile,
     pub yield_on_frame: bool,
+    parallel_work: bool,
+    parallel_credit: u32,
     process: Arc<Process>,
     kernel: Kernel,
     workers: BTreeMap<ThreadId, Box<Context>>,
@@ -125,6 +129,8 @@ impl Runtime {
         Ok(Self {
             profile: RuntimeProfile::default(),
             yield_on_frame: false,
+            parallel_work: false,
+            parallel_credit: 0,
             process,
             kernel: Kernel::new(boot),
             workers,
@@ -274,6 +280,7 @@ impl Runtime {
                     occupied[core] = true;
                     selected.push((id, core));
                     if !self.parallel
+                        || !self.parallel_work
                         || selected.len() == 4
                         || quanta + selected.len() as u64 >= max_quanta
                     {
@@ -292,6 +299,11 @@ impl Runtime {
                     thread::sleep(Duration::from_nanos(wait.max(1)));
                     self.profile.sleep += started.elapsed();
                     continue;
+                }
+                if selected.len() > 1 {
+                    self.profile.parallel_waves += 1;
+                } else {
+                    self.profile.single_waves += 1;
                 }
                 let barrier = Arc::new(std::sync::Barrier::new(selected.len()));
                 let budget = RunBudget {
@@ -324,7 +336,21 @@ impl Runtime {
                     .iter()
                     .map(|&(id, core)| (id, self.cores[core].receive()))
                     .collect();
-                self.profile.worker += started.elapsed();
+                let elapsed = started.elapsed();
+                self.profile.worker += elapsed;
+                // Cooperative SVC-heavy waves spend more time starting workers than
+                // executing guest instructions. Keep one context in flight until a
+                // long quantum demonstrates useful work to overlap again.
+                let useful_parallel_work = elapsed >= Duration::from_millis(1)
+                    && completed
+                        .iter()
+                        .any(|(_, result)| matches!(result, Ok((_, RunOutcome::Yield(_)))));
+                self.parallel_credit = if useful_parallel_work {
+                    32
+                } else {
+                    self.parallel_credit.saturating_sub(1)
+                };
+                self.parallel_work = self.parallel_credit != 0;
                 for (id, result) in completed {
                     let (context, outcome) = result?;
                     self.workers.insert(id, context);

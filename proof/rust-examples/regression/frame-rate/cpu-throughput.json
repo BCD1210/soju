@@ -1,0 +1,33 @@
+{
+  "runs": [
+    {
+      "serial": 921.07296875,
+      "original_parallel": 312.77661458333336,
+      "parallel": 327.10072916666667
+    },
+    {
+      "serial": 922.2828645833333,
+      "original_parallel": 349.1254166666667,
+      "parallel": 307.21869791666666
+    },
+    {
+      "serial": 923.4893229166667,
+      "original_parallel": 318.3911458333333,
+      "parallel": 318.44567708333335
+    },
+    {
+      "serial": 926.46640625,
+      "original_parallel": 307.113125,
+      "parallel": 316.2161458333333
+    },
+    {
+      "serial": 972.03171875,
+      "original_parallel": 316.8180208333333,
+      "parallel": 297.53239583333334
+    }
+  ],
+  "serial_median_ms": 923.4893229166667,
+  "original_parallel_median_ms": 316.8180208333333,
+  "parallel_median_ms": 316.2161458333333,
+  "speedup": 2.920436970360793
+}

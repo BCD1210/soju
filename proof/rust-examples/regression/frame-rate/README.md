@@ -134,3 +134,22 @@ hashing and 809 ms in deswizzle. These are statistical CPU samples, not wall-tim
 partitions. The Metal trace's application intervals filtered to the runner show
 2,820 encoding intervals totaling 2,529.764 ms; the trace contains system activity
 and must be filtered by runner PID/name before attribution.
+
+## Cooperative contention scheduling
+
+The scheduler starts with one context in flight, enabling four-core waves after a
+long yielding quantum and retaining that decision for 32 waves. Short cooperative
+SVC traffic therefore avoids repeatedly starting and cancelling sibling workers.
+Guest scheduling order, affinity and synchronization semantics are unchanged.
+
+The original five-pair stress baseline measured median 324.540 ms serialized and
+455.768 ms parallel. The final 100 alternating-order pairs measured 329.4565 ms
+serialized and 328.024 ms adaptive (all failure counters zero). This establishes
+parity within normal timing noise, not a meaningful speedup. The reproducible
+benchmark is `tools/switch/testtitles/benchmark_contention.sh`; it requires the
+locally built `dist/testtitles/thread_stress.nro` fixture.
+
+A separate five-pair CPU workload measured 923.489 ms serialized, 316.818 ms with
+the original parallel scheduler and 316.216 ms adaptive: 2.92x speedup, four guest
+cores overlapping, with all atomic checks passing. Raw numeric results accompany
+this report. There is no promise that every individual stress run beats serial.
