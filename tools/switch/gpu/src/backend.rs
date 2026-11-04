@@ -1,6 +1,6 @@
 //! Resource resolution and a dependency-free protocol to the native Metal worker.
 use crate::{
-    engine::{Action, Snapshot},
+    engine::{Action, ConstantBuffer, Registers, Snapshot},
     memory::Memory,
     require,
     texture::{TextureCache, Tic, Tsc},
@@ -22,8 +22,14 @@ use std::{
 pub struct Backend {
     programs: BTreeMap<u64, (usize, Options)>,
     pub textures: TextureCache,
-    commands: Vec<String>,
+    commands: Vec<(String, u32)>,
+    profile: Option<[std::time::Duration; 3]>,
+    prepared: Option<(Snapshot, (u64, u64), usize)>,
+    file_cache: std::collections::HashMap<Vec<u8>, String>,
+    pipeline_states: std::collections::HashMap<Vec<u8>, (MetalShader, MetalShader, String)>,
+    shader_cache: BTreeMap<(u64, u64, u64), (MetalShader, Header, Key)>,
     files: Vec<Vec<u8>>,
+    constant_upload: Vec<u8>,
     targets: BTreeMap<String, Target>,
     depth_targets: BTreeMap<String, Target>,
     worker: Option<crate::worker::Worker>,
@@ -102,6 +108,21 @@ impl Target {
     }
 }
 impl Backend {
+    /// Opt-in phase timing: attachment/state validation, shader/key construction,
+    /// and remaining resource capture/serialization. Cached repeats bypass all three.
+    pub fn enable_profiling(&mut self) {
+        self.profile = Some([std::time::Duration::ZERO; 3]);
+    }
+    pub fn preparation_profile(&self) -> Option<[std::time::Duration; 3]> {
+        self.profile
+    }
+    fn checkpoint(&mut self, clock: &mut Option<std::time::Instant>, phase: usize) {
+        if let (Some(start), Some(totals)) = (clock.as_mut(), self.profile.as_mut()) {
+            totals[phase] += start.elapsed();
+            *start = std::time::Instant::now();
+        }
+    }
+
     /// Program extents come from the runner's shader allocation tracker. No guessed
     /// instruction scan beyond an allocation; bytes are reread at every launch.
     pub fn program(&mut self, address: u64, size: usize, options: Options) -> Result<()> {
@@ -115,16 +136,22 @@ impl Backend {
                 && options.global_memory.is_none(),
             "unsupported resource ABI",
         )?;
+        self.shader_cache.clear();
+        self.prepared = None;
         self.programs.insert(address, (size, options));
         Ok(())
     }
     fn file(&mut self, bytes: Vec<u8>) -> String {
-        let name = format!("resource-{}.bin", self.files.len());
+        if let Some(name) = self.file_cache.get(&bytes) {
+            return name.clone();
+        }
+        let name = quote(&format!("resource-{}.bin", self.files.len()));
+        self.file_cache.insert(bytes.clone(), name.clone());
         self.files.push(bytes);
-        quote(&name)
+        name
     }
     fn shader(
-        &self,
+        &mut self,
         address: u64,
         memory: &Memory,
         stage: Stage,
@@ -133,6 +160,11 @@ impl Backend {
             .programs
             .get(&address)
             .ok_or_else(|| Error(format!("shader extent not registered: {address:#x}")))?;
+        let identity = (memory.identity, address, memory.generation(address, *size)?);
+        if let Some(cached) = self.shader_cache.get(&identity) {
+            require(cached.1.stage == stage, "pipeline stage/SPH mismatch")?;
+            return Ok(cached.clone());
+        }
         let bytes = memory.read(address, *size)?;
         let header = Header::parse(bytes).map_err(io)?;
         require(header.stage == stage, "pipeline stage/SPH mismatch")?;
@@ -143,33 +175,56 @@ impl Backend {
             header: &[],
             render_state: shader.source.as_bytes(),
         });
+        self.shader_cache
+            .insert(identity, (shader.clone(), header.clone(), key));
         Ok((shader, header, key))
     }
     /// Resolve immediately at each action, before later CPU/transfer writes.
     pub fn prepare(&mut self, s: &Snapshot, memory: &Memory) -> Result<()> {
-        match s.action {
+        self.prepare_state(&s.registers, &s.constants, &s.action, memory)
+    }
+    pub(crate) fn prepare_state(
+        &mut self,
+        r: &Registers,
+        bindings: &[[Option<ConstantBuffer>; 32]; 5],
+        action: &Action,
+        memory: &Memory,
+    ) -> Result<()> {
+        if let Some((previous, epoch, index)) = &self.prepared {
+            if *epoch == memory.epoch()
+                && previous.registers == *r
+                && previous.constants == *bindings
+                && previous.action == *action
+            {
+                self.commands[*index].1 += 1;
+                return Ok(());
+            }
+        }
+        self.prepared = None;
+        let mut clock = self.profile.map(|_| std::time::Instant::now());
+        match *action {
             Action::ResetOcclusion => {
-                self.commands.push("{\"query_reset\":true}".into());
+                self.commands.push(("{\"query_reset\":true}".into(), 1));
                 return Ok(());
             }
             Action::ReportOcclusion { address } => {
                 let generation = memory.generation(address, 4)?;
                 let key = format!("{}-{address:x}", memory.identity);
                 self.commands
-                    .push(format!("{{\"query_report\":{}}}", quote(&key)));
+                    .push((format!("{{\"query_report\":{}}}", quote(&key)), 1));
                 self.queries
                     .insert(key, (address, generation, memory.identity));
                 return Ok(());
             }
             _ => {}
         }
-        let r = &s.registers;
         for &offset in r.0.keys() {
             let supported = matches!(offset,0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
-            require(
-                supported,
-                &format!("Metal state method {offset:#x} is not implemented"),
-            )?;
+            if !supported {
+                return Err(Error(format!(
+                    "Metal state method {offset:#x} is not implemented"
+                )));
+            }
         }
         if let Some(&mode) = r.0.get(&0x1558) {
             require(
@@ -379,7 +434,8 @@ impl Backend {
             "{{\"registers\":{{{registers}}},\"targets\":[{}],\"depth\":{depth}",
             target_jsons.join(",")
         );
-        match s.action {
+        self.checkpoint(&mut clock, 0);
+        match *action {
             Action::ResetOcclusion | Action::ReportOcclusion { .. } => unreachable!(),
             Action::Clear(mask) => {
                 require(
@@ -496,93 +552,126 @@ impl Backend {
                         }
                     }
                 }
-                let mut finish = String::new();
-                for (axis, reg) in [("x", 0xa00), ("y", 0xa04)] {
-                    if r.float(reg) < 0. {
-                        writeln!(finish, "out.position.{axis} = -out.position.{axis};").unwrap();
-                    }
+                let mut signature = Vec::with_capacity(2048);
+                signature.extend(vkey.0);
+                signature.extend(fkey.0);
+                for value in [
+                    topology,
+                    r.get(0xd7c),
+                    r.get(0x1510),
+                    r.get(0x1940),
+                    r.get(0x1910),
+                    r.get(0x1518),
+                    u32::from(r.float(0xa00) < 0.),
+                    u32::from(r.float(0xa04) < 0.),
+                    u32::from(vs.source.contains("texture2d<uint>")),
+                    u32::from(fs.source.contains("texture2d<uint>")),
+                ] {
+                    signature.extend(value.to_le_bytes());
                 }
-                if r.get(0xd7c) == 0 {
-                    finish.push_str("out.position.z = (out.position.z + out.position.w) * 0.5f;\n");
-                }
-                require(
-                    r.get(0x1510) <= 255 && r.get(0x1940) == 0,
-                    "unsupported clip/cull mask",
-                )?;
-                let has_clip = vh
-                    .outputs
-                    .iter()
-                    .any(|a| (0x2c0..0x2e0).contains(&a.address));
-                for i in 0..8 {
-                    if r.get(0x1510) & (1 << i) != 0 {
-                        require(
-                            vh.outputs.iter().any(|a| a.address == 0x2c0 + i * 4),
-                            "enabled clip distance missing from shader",
-                        )?;
-                    } else if has_clip {
-                        writeln!(finish, "out.clip_distance[{i}]=1.0f;").unwrap();
-                    }
-                }
-                require(
-                    r.get(0x1910) == 0,
-                    "shader-selected point size slot unsupported",
-                )?;
-                if topology == 0 {
-                    let size = r.float(0x1518);
-                    require(size.is_finite() && size > 0., "invalid point size")?;
-                    if !vh.outputs.iter().any(|a| a.address == 0x6c) {
-                        vs.source = vs.source.replace(
-                            "float4 position [[position]];",
-                            "float4 position [[position]]; float point_size [[point_size]];",
-                        );
-                    }
-                    writeln!(finish, "out.point_size={size:?}f;").unwrap();
-                }
-                finish.push_str("return out;");
-                let entry = vs
-                    .source
-                    .find("vertex StageOut soju_vertex")
-                    .ok_or_else(|| Error("vertex entry missing".into()))?;
-                vs.source = format!(
-                    "{}{}",
-                    &vs.source[..entry],
-                    vs.source[entry..].replace("return out;", &finish)
-                );
-                let vfile = self.file(vs.source.as_bytes().to_vec());
-                let ffile = self.file(fs.source.as_bytes().to_vec());
-                let mut cache_state = vs.source.as_bytes().to_vec();
-                cache_state.extend(fs.source.as_bytes());
-                // Canonical descriptor state: absent registers and explicit zero agree.
-                // Addresses, draw arguments, viewports and clears are dynamic state.
                 for a in (0..=0x2000).step_by(4) {
                     let descriptor = matches!(a, 0x810 | 0x850 | 0x890 | 0x8d0 | 0x910 | 0x950 | 0x990 | 0x9d0 | 0x121c | 0x1e00..=0x1eff | 0xfe8 | 0x1538 | 0xf54..=0xf5c | 0x1160..=0x11dc | 0x12cc | 0x12e4 | 0x12e8 | 0x130c | 0x133c..=0x139c | 0x1594..=0x15a4 | 0x1880..=0x18fc)
                         || ((0x1c00..=0x1dff).contains(&a) && matches!(a % 16, 0 | 12));
                     if descriptor {
-                        cache_state.extend((a as u32).to_le_bytes());
-                        cache_state.extend(r.get(a as u32).to_le_bytes());
+                        signature.extend((a as u32).to_le_bytes());
+                        signature.extend(r.get(a as u32).to_le_bytes());
                     }
                 }
-                let pipeline = Key::new(Inputs {
-                    program: &vkey.0,
-                    header: &fkey.0,
-                    render_state: &cache_state,
-                });
-                let pipeline = pipeline
-                    .0
-                    .iter()
-                    .map(|b| format!("{b:02x}"))
-                    .collect::<String>();
+                let (vs, fs, pipeline) = if let Some(cached) = self.pipeline_states.get(&signature)
+                {
+                    cached.clone()
+                } else {
+                    let mut finish = String::new();
+                    for (axis, reg) in [("x", 0xa00), ("y", 0xa04)] {
+                        if r.float(reg) < 0. {
+                            writeln!(finish, "out.position.{axis} = -out.position.{axis};")
+                                .unwrap();
+                        }
+                    }
+                    if r.get(0xd7c) == 0 {
+                        finish.push_str(
+                            "out.position.z = (out.position.z + out.position.w) * 0.5f;\n",
+                        );
+                    }
+                    require(
+                        r.get(0x1510) <= 255 && r.get(0x1940) == 0,
+                        "unsupported clip/cull mask",
+                    )?;
+                    let has_clip = vh
+                        .outputs
+                        .iter()
+                        .any(|a| (0x2c0..0x2e0).contains(&a.address));
+                    for i in 0..8 {
+                        if r.get(0x1510) & (1 << i) != 0 {
+                            require(
+                                vh.outputs.iter().any(|a| a.address == 0x2c0 + i * 4),
+                                "enabled clip distance missing from shader",
+                            )?;
+                        } else if has_clip {
+                            writeln!(finish, "out.clip_distance[{i}]=1.0f;").unwrap();
+                        }
+                    }
+                    require(
+                        r.get(0x1910) == 0,
+                        "shader-selected point size slot unsupported",
+                    )?;
+                    if topology == 0 {
+                        let size = r.float(0x1518);
+                        require(size.is_finite() && size > 0., "invalid point size")?;
+                        if !vh.outputs.iter().any(|a| a.address == 0x6c) {
+                            vs.source = vs.source.replace(
+                                "float4 position [[position]];",
+                                "float4 position [[position]]; float point_size [[point_size]];",
+                            );
+                        }
+                        writeln!(finish, "out.point_size={size:?}f;").unwrap();
+                    }
+                    finish.push_str("return out;");
+                    let entry = vs
+                        .source
+                        .find("vertex StageOut soju_vertex")
+                        .ok_or_else(|| Error("vertex entry missing".into()))?;
+                    vs.source = format!(
+                        "{}{}",
+                        &vs.source[..entry],
+                        vs.source[entry..].replace("return out;", &finish)
+                    );
+                    let mut cache_state = signature.clone();
+                    cache_state.extend(vs.source.as_bytes());
+                    cache_state.extend(fs.source.as_bytes());
+                    // Canonical descriptor state: absent registers and explicit zero agree.
+                    // Addresses, draw arguments, viewports and clears are dynamic state.
+                    let pipeline = Key::new(Inputs {
+                        program: &vkey.0,
+                        header: &fkey.0,
+                        render_state: &cache_state,
+                    });
+                    let pipeline = pipeline
+                        .0
+                        .iter()
+                        .map(|b| format!("{b:02x}"))
+                        .collect::<String>();
+                    self.pipeline_states
+                        .insert(signature, (vs.clone(), fs.clone(), pipeline.clone()));
+                    (vs, fs, pipeline)
+                };
+                let vfile = self.file(vs.source.as_bytes().to_vec());
+                let ffile = self.file(fs.source.as_bytes().to_vec());
+                self.checkpoint(&mut clock, 1);
                 let mut constants = Vec::new();
                 for (stage, shader, group_reg) in [(0, &vs, 0x2050), (1, &fs, 0x2150)] {
                     let group = r.get(group_reg) as usize;
                     require(group < 5, "constant binding group out of range")?;
                     for slot in &shader.constant_buffers {
-                        let cb = s.constants[group][*slot as usize]
+                        let cb = bindings[group][*slot as usize]
                             .ok_or_else(|| Error(format!("unbound cbuf {stage}:{slot}")))?;
                         require(cb.size > 0, "empty constant buffer")?;
-                        let f = self.file(memory.read(cb.address, cb.size as usize)?.to_vec());
+                        let offset = self.constant_upload.len().div_ceil(256) * 256;
+                        self.constant_upload.resize(offset, 0);
+                        self.constant_upload
+                            .extend_from_slice(memory.read(cb.address, cb.size as usize)?);
                         constants.push(format!(
-                            "{{\"stage\":{stage},\"slot\":{slot},\"file\":{f}}}"
+                            "{{\"stage\":{stage},\"slot\":{slot},\"offset\":{offset}}}"
                         ));
                     }
                 }
@@ -882,8 +971,20 @@ impl Backend {
                 write!(command,",\"pipeline\":{},\"vertex\":{vfile},\"fragment\":{ffile},\"attributes\":[{}],\"buffers\":[{}],\"constants\":[{}],\"textures\":[{}],\"topology\":{topology},\"first\":{first},\"count\":{count},\"indices\":{index_file},\"indexSize\":{index_size},\"baseVertex\":{base_vertex},\"instance\":{base_instance}",quote(&pipeline),attrs.join(","),buffers.join(","),constants.join(","),textures.join(",")).unwrap();
             }
         }
+        self.checkpoint(&mut clock, 2);
         command.push('}');
-        self.commands.push(command);
+        if matches!(action, Action::Draw { .. }) && r.get(0x1514) == 0 {
+            self.prepared = Some((
+                Snapshot {
+                    registers: r.clone(),
+                    constants: *bindings,
+                    action: action.clone(),
+                },
+                memory.epoch(),
+                self.commands.len(),
+            ));
+        }
+        self.commands.push((command, 1));
         self.targets.extend(batch_targets);
         if let Some((key, t)) = pending_depth {
             self.depth_targets.insert(key, t);
@@ -901,20 +1002,33 @@ impl Backend {
             !directory.to_string_lossy().contains(['\n', '\t']),
             "invalid worker directory",
         )?;
+        std::fs::write(directory.join("constants.bin"), &self.constant_upload).map_err(io)?;
         for (i, data) in self.files.iter().enumerate() {
             std::fs::write(directory.join(format!("resource-{i}.bin")), data).map_err(io)?;
         }
         std::fs::write(
             directory.join("commands.json"),
-            format!("[{}]", self.commands.join(",")),
+            format!(
+                "[{}]",
+                self.commands
+                    .iter()
+                    .map(|(command, repeats)| {
+                        format!("{{\"repeats\":{repeats},{}", &command[1..])
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
         )
         .map_err(io)?;
         let fence = self
             .worker
             .get_or_insert_with(crate::worker::Worker::new)
             .request("submit", directory)?;
+        self.prepared = None;
         self.commands.clear();
         self.files.clear();
+        self.file_cache.clear();
+        self.constant_upload.clear();
         Ok(fence)
     }
     /// Explicit CPU visibility boundary. Waits for queued work and writes pending
@@ -1025,8 +1139,11 @@ impl Backend {
         for (address, data) in writes {
             memory.write(address, &data)?;
         }
+        self.prepared = None;
         self.commands.clear();
         self.files.clear();
+        self.file_cache.clear();
+        self.constant_upload.clear();
         self.targets.clear();
         self.depth_targets.clear();
         self.queries.clear();

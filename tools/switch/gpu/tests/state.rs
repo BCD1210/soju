@@ -211,3 +211,26 @@ fn host_semaphore_acquires_and_unsupported_release_modes() {
     assert!(host.method(0x14, 0x1001).is_err());
     assert_eq!(memory.read(0x1000, 4).unwrap(), 8u32.to_le_bytes());
 }
+
+#[test]
+fn range_generations_split_restore_and_ignore_empty_writes() {
+    let mut memory = Memory::default();
+    memory.map(0x1000, vec![0; 128]).unwrap();
+    let initial = memory.generation(0x1000, 128).unwrap();
+    memory.write(0x1020, &[1; 16]).unwrap();
+    let first = memory.generation(0x1020, 16).unwrap();
+    memory.write(0x1028, &[2; 16]).unwrap();
+    let second = memory.generation(0x1028, 16).unwrap();
+    assert!(initial < first && first < second);
+    assert_eq!(memory.generation(0x1000, 32).unwrap(), initial);
+    assert_eq!(memory.generation(0x1020, 8).unwrap(), first);
+    assert_eq!(memory.generation(0x1038, 72).unwrap(), initial);
+    assert_eq!(memory.generation(0x1020, 32).unwrap(), second);
+    memory.write(0x1020, &[]).unwrap();
+    assert_eq!(memory.generation(0x1020, 8).unwrap(), first);
+    memory.write(0x1000, &[3; 128]).unwrap();
+    assert_eq!(
+        memory.generation(0x1000, 1).unwrap(),
+        memory.generation(0x107f, 1).unwrap()
+    );
+}

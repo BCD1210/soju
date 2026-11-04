@@ -29,11 +29,15 @@ final class Worker {
     var targetBytes = [String: Int]()
     var pipelines = [String: MTLRenderPipelineState](), depthStates = [String: MTLDepthStencilState]()
     var functions = [String: MTLFunction](), textureCache = [String: MTLTexture]()
+    var uploadRing: [MTLBuffer?] = [nil, nil, nil]
+    var uploadSlot = 0
+    var argumentTables = [String: (MTLBuffer, [MTLTexture], [MTLSamplerState])]()
     init() throws {
         guard let d = MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue() else { throw Failure("no default Metal device/queue") }
         device = d; queue = q
     }
     func run(_ directory: String) throws -> String {
+    let parseStarted=ProcessInfo.processInfo.systemUptime
     let root = URL(fileURLWithPath: directory)
     let data = try Data(contentsOf: root.appendingPathComponent("commands.json"))
     guard let commands = try JSONSerialization.jsonObject(with: data) as? [Object] else { throw Failure("invalid command protocol") }
@@ -43,6 +47,16 @@ final class Worker {
     var activeEncoder: MTLRenderCommandEncoder? = nil
     var activeKey=""
     var retainedSamplers=[MTLSamplerState]()
+    // run returns only after completion; a ring slot cannot still be in flight.
+    uploadSlot = (uploadSlot + 1) % 3
+    let constantData = try Data(contentsOf: root.appendingPathComponent("constants.bin"))
+    if !constantData.isEmpty {
+        if (uploadRing[uploadSlot]?.length ?? 0) < constantData.count {
+            uploadRing[uploadSlot] = device.makeBuffer(length: max(65536, constantData.count), options: .storageModeShared)
+        }
+        guard let upload = uploadRing[uploadSlot] else { throw Failure("constant ring allocation") }
+        constantData.withUnsafeBytes { p in upload.contents().copyMemory(from: p.baseAddress!, byteCount: p.count) }
+    }
     func endPass() {activeEncoder?.endEncoding();activeEncoder=nil;activeKey=""}
     func flush() throws {
         endPass()
@@ -57,16 +71,19 @@ final class Worker {
         guard let buffer=cb else {throw Failure("command buffer")};return buffer
     }
     func file(_ name: String) throws -> Data { try Data(contentsOf: root.appendingPathComponent(name)) }
+    var buffers = [String: MTLBuffer](), fileFunctions = [String: MTLFunction]()
     func buffer(_ name: String) throws -> MTLBuffer {
+        if let b = buffers[name] { return b }
         let bytes = try file(name)
-        guard !bytes.isEmpty, let b = bytes.withUnsafeBytes({ p in device.makeBuffer(bytes:p.baseAddress!,length:p.count,options:.storageModeShared) }) else { throw Failure("buffer allocation") }; return b
+        guard !bytes.isEmpty, let b = bytes.withUnsafeBytes({ p in device.makeBuffer(bytes:p.baseAddress!,length:p.count,options:.storageModeShared) }) else { throw Failure("buffer allocation") }; buffers[name] = b; return b
     }
     func function(_ path: String, _ entry: String) throws -> MTLFunction {
+        if let f = fileFunctions[path] { return f }
         let source = try String(contentsOf: root.appendingPathComponent(path), encoding:.utf8)
-        if let f = functions[source] { return f }
+        if let f = functions[source] { fileFunctions[path] = f; return f }
         let options = MTLCompileOptions(); options.mathMode = .safe
         let library = try device.makeLibrary(source:source, options:options)
-        guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[source] = f; return f
+        guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[source] = f; fileFunctions[path] = f; return f
     }
     for command in commands {
         if command["query_reset"] != nil {try flush();occlusion=0;continue}
@@ -230,11 +247,21 @@ final class Worker {
                 encoder.setVertexBuffer(try buffer(string(b,"file")),offset:offset,index:slot)
             }
             for c in array(command,"constants") {
-                let b=try buffer(string(c,"file"));if number(c,"stage")==0 {encoder.setVertexBuffer(b,offset:0,index:number(c,"slot"))}else{encoder.setFragmentBuffer(b,offset:0,index:number(c,"slot"))}
+                guard let b=uploadRing[uploadSlot] else {throw Failure("missing constant upload")}
+                let offset=number(c,"offset")
+                if number(c,"stage")==0 {encoder.setVertexBuffer(b,offset:offset,index:number(c,"slot"))}else{encoder.setFragmentBuffer(b,offset:offset,index:number(c,"slot"))}
             }
             for stage in 0...1 {
                 let items=array(command,"textures").filter{number($0,"stage")==stage}
                 if items.isEmpty {continue}
+                let identity = items.map { item -> Object in var item=item; item.removeValue(forKey:"file"); return item }
+                let tableKey = pk + ":" + String(stage) + ":" + String(data:try JSONSerialization.data(withJSONObject:identity,options:.sortedKeys),encoding:.utf8)!
+                if let (table, resources, _) = argumentTables[tableKey] {
+                    for t in resources {encoder.useResource(t,usage:.read,stages:stage==0 ? .vertex : .fragment);textureHits += 1}
+                    if stage==0 {encoder.setVertexBuffer(table,offset:0,index:30)}else{encoder.setFragmentBuffer(table,offset:0,index:30)}
+                    continue
+                }
+                var tableTextures=[MTLTexture](), tableSamplers=[MTLSamplerState]()
                 let argument=(stage==0 ? vs : fs).makeArgumentEncoder(bufferIndex:30)
                 guard let table=device.makeBuffer(length:argument.encodedLength,options:.storageModeShared) else {throw Failure("argument allocation")};argument.setArgumentBuffer(table,offset:0)
                 for item in items {
@@ -253,18 +280,21 @@ final class Worker {
                             guard let view=t.makeTextureView(pixelFormat:t.pixelFormat,textureType:.type2D,levels:0..<1,slices:0..<1,swizzle:swizzle) else {throw Failure("texture view")}
                             textureCache[tk]=view
                         }else{textureHits += 1}
-                        let t=textureCache[tk]!;argument.setTexture(t,index:number(item,"image"));encoder.useResource(t,usage:.read,stages:stage==0 ? .vertex : .fragment)
+                        let t=textureCache[tk]!;tableTextures.append(t);argument.setTexture(t,index:number(item,"image"));encoder.useResource(t,usage:.read,stages:stage==0 ? .vertex : .fragment)
                     }else{
                         let d=MTLSamplerDescriptor();let modes:[MTLSamplerAddressMode]=[.repeat,.mirrorRepeat,.clampToEdge]
                         d.sAddressMode=modes[number(item,"u")];d.tAddressMode=modes[number(item,"v")];d.normalizedCoordinates=true
                         d.minFilter=number(item,"min")==1 ? .nearest : .linear;d.magFilter=number(item,"mag")==1 ? .nearest : .linear;d.mipFilter = .notMipmapped;d.supportArgumentBuffers=true
-                        guard let sampler=device.makeSamplerState(descriptor:d) else {throw Failure("sampler allocation")};retainedSamplers.append(sampler);argument.setSamplerState(sampler,index:9*number(item,"count")+number(item,"sampler"))
+                        guard let sampler=device.makeSamplerState(descriptor:d) else {throw Failure("sampler allocation")};tableSamplers.append(sampler);argument.setSamplerState(sampler,index:9*number(item,"count")+number(item,"sampler"))
                     }
                 }
+                argumentTables[tableKey] = (table, tableTextures, tableSamplers)
                 if stage==0 {encoder.setVertexBuffer(table,offset:0,index:30)}else{encoder.setFragmentBuffer(table,offset:0,index:30)}
             }
             let topology:MTLPrimitiveType
             switch number(command,"topology") {case 0:topology = .point;case 1:topology = .line;case 3:topology = .lineStrip;case 4:topology = .triangle;case 5:topology = .triangleStrip;default:throw Failure("primitive")}
+            let repeats = max(1, number(command,"repeats"))
+            for _ in 0..<repeats {
             if let indexFile=command["indices"] as? String {
                 let indices=try buffer(indexFile)
                 for segment in array(command,"segments") {
@@ -272,12 +302,14 @@ final class Worker {
                 }
             }else{encoder.drawPrimitives(type:topology,vertexStart:number(command,"first"),vertexCount:number(command,"count"),instanceCount:1,baseInstance:number(command,"instance"))}
             draws += 1
+            }
+            pipelineHits += repeats - 1; depthHits += repeats - 1
         }
         if let visibility {try flush();occlusion &+= visibility.contents().load(as:UInt64.self)}
     }
     try flush()
     let elapsed=ProcessInfo.processInfo.systemUptime-started
-    return "encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
+    return "encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)
