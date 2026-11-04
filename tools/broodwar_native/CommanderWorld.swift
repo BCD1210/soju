@@ -140,14 +140,31 @@ extension Commander {
         }
         for (i,n) in terrain where !keep.contains(i) { n.removeFromParentNode();terrain.removeValue(forKey:i) }
         let tileset=(art.manifest["map"] as? Obj)?["tileset"] as? String ?? "badlands"
-        for index in creepTiles.intersection(keep) where creepNodes[index]==nil {
+        let visibleCreep=creepTiles.filter{fog[$0]==50}
+        var creepKeep=Set<Int>()
+        for index in keep where fog[index]==50 {
             let x=index%mapWidth,y=index/mapWidth
-            if let material=worldSprites.creepMaterial(tileset:tileset,index:(x*7+y*13)%16) {
+            let interior=visibleCreep.contains(index)
+            var neighbors=0
+            for (bit,offset) in [(1,1),(0,1),(-1,1),(1,0),(-1,0),(1,-1),(0,-1),(-1,-1)].enumerated() {
+                let nx=x+offset.0,ny=y+offset.1
+                if nx>=0 && nx<mapWidth && ny>=0 && ny<mapHeight && visibleCreep.contains(ny*mapWidth+nx) {neighbors |= 1<<bit}
+            }
+            let edge=interior ? 0:worldSprites.creepEdgeFrame(tileset:tileset,neighbors:neighbors)
+            if !interior && edge==0 {continue}
+            creepKeep.insert(index)
+            let signature=interior ? "creep":"creep-edge-\(edge)"
+            if creepNodes[index]?.name==signature {continue}
+            creepNodes.removeValue(forKey:index)?.removeFromParentNode()
+            let material=interior ? worldSprites.creepMaterial(tileset:tileset,index:(x*7+y*13)%16):worldSprites.creepEdgeMaterial(tileset:tileset,frame:edge)
+            if let material=material {
                 let node=SCNNode(geometry:ground.geometry(tileX:x,tileY:y,material:material))
-                node.position=SCNVector3(Double(x),0.015,Double(y));node.name="creep";world.rootNode.addChildNode(node);creepNodes[index]=node
+                node.position=SCNVector3(Double(x),0.015,Double(y));node.name=signature;node.castsShadow=false
+                node.renderingOrder=1
+                world.rootNode.addChildNode(node);creepNodes[index]=node
             }
         }
-        for (index,node) in creepNodes where !creepTiles.contains(index) || !keep.contains(index) {node.removeFromParentNode();creepNodes.removeValue(forKey:index)}
+        for (index,node) in creepNodes where !creepKeep.contains(index) {node.removeFromParentNode();creepNodes.removeValue(forKey:index)}
     }
     func walk(_ dx:CGFloat,_ dz:CGFloat) {
         for axis in 0..<2 {
@@ -195,7 +212,8 @@ extension Commander {
             let diagnostics:Obj=["time":Date().timeIntervalSince1970,"frame":number(state,"frame"),
                 "units":rendered,"camera":[camera.position.x,camera.position.y,camera.position.z],"xr":xrRequested,
                 "protocol":number(state,"protocol"),"eventSequence":eventSequence,"eventsLost":lostEvents,
-                "creepTiles":creepNodes.count,"nativeDeathFrames":worldSprites.deathFrames,"nativeLoneFrames":worldSprites.loneFrames,"missingWorldImages":worldSprites.missing.sorted(),
+                "creepTiles":creepNodes.count,"creepEdgeTiles":creepNodes.values.filter{$0.name?.hasPrefix("creep-edge-")==true}.count,
+                "nativeDeathFrames":worldSprites.deathFrames,"nativeLoneFrames":worldSprites.loneFrames,"missingWorldImages":worldSprites.missing.sorted(),
                 "spriteFrames":effects.sprites.renderedFrames,"missingEffectImages":effects.sprites.missing.sorted(),"combatEvents":effects.counts,"deathAnimations":deathCount,"retiringModels":retiring.count,"projectiles":effects.projectiles.count,
                 "effectErrors":Dictionary(uniqueKeysWithValues:effects.library.errors.map{(String($0.key),$0.value)}),
                 "catalogError":modelLibrary.catalog.lastError,"assetErrors":Dictionary(uniqueKeysWithValues:modelLibrary.errors.map{(String($0.key),$0.value)}),

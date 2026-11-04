@@ -79,6 +79,7 @@ final class Commander: NSObject, NSApplicationDelegate {
     var xrOrigin:SIMD3<Float>?;var xrOriginYaw:Float=0;var xrDrawCount=0;var xrFrameTime=0.0
     let reticle=SCNNode(geometry:SCNSphere(radius:0.06))
     var lastAimLog=0.0;var selectionGroup = -1;var actionMode=0
+    var controllerHistory=[Obj](),lastControllerLog=0.0
     let actionNames=["Point / move","Mine","Follow SCV","Train SCV","Build basic structure","Attack / attack move","Stop","Hold"]
     let hud=SCNNode(geometry:SCNPlane(width:1.05,height:0.16));var hudText=""
     var mirror:MirrorView?;var mirrorContext:CIContext?

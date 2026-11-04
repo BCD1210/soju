@@ -11,12 +11,14 @@ struct CommandChoice {
 // The original command handler remains authoritative for prerequisites and availability.
 final class CommandCard {
     var costs=[Int:Obj]()
+    var spells=[Obj]()
     let names: [String:String]
     init() {
         names=((try? loadObject(runtime.appendingPathComponent("unit-names.json")))?["types"] as? [String:String]) ?? [:]
     }
     func accept(_ response:Obj) {
         for row in response["types"] as? [Obj] ?? [] {costs[Int(number(row,"id"))]=row}
+        spells=response["spells"] as? [Obj] ?? []
     }
     func choices(_ unit:Obj)->[CommandChoice] {
         let kind=Int(number(unit,"type")),building=unit["building"] as? Bool == true
@@ -27,11 +29,16 @@ final class CommandCard {
         } else {result.append(CommandChoice("Rally",["op":"rally"],.rally))}
         if unit["worker"] as? Bool == true {result.append(CommandChoice("Gather",["op":"gather"],.unit))}
         if kind==7 {result.append(CommandChoice("Repair",["op":"repair"],.unit))}
+        for spell in spells where (spell["casters"] as? [Int] ?? []).contains(kind) {
+            guard let action=spell["action"] as? String,let title=spell["title"] as? String else {continue}
+            let cost=number(spell,"energy"),label=title+(cost>0 ? " \(Int(cost)) energy":"")
+            result.append(CommandChoice(label,["op":"spell","action":action],spell["target"] as? String == "unit" ? .unit:.ground))
+        }
         let builds:[Int:[Int]]=[7:[106,109,110,111,112,113,114,116,122,123,124,125],
-            41:[131,149,142,135,139,141,138,136,140,134,143],64:[154,156,157,160,164,166,163,169,170,167,172,171,165,155]]
+            41:[131,149,142,135,139,141,138,136,140,134,143],64:[154,156,157,160,164,166,163,169,170,167,172,171,165,155,159]]
         let trains:[Int:[Int]]=[106:[7],111:[0,32,1,34],113:[2,5,3],114:[8,12,11,9,58],
-            154:[64],160:[65,66,67,61],155:[69,83,84],167:[70,71,72,60]]
-        let morphs:[Int:[Int]]=[35:[41,37,38,43,45,46,42,39,50],38:[103],43:[44,62],131:[132],132:[133],141:[137],143:[144,146]]
+            154:[64],160:[65,66,67,61],155:[69,83,84],167:[70,71,72,60],130:[50]]
+        let morphs:[Int:[Int]]=[35:[41,37,38,43,45,46,42,39,47],38:[103],43:[44,62],131:[132],132:[133],141:[137],143:[144,146]]
         let addons:[Int:[Int]]=[106:[107,108],113:[120],114:[115],116:[117,118]]
         for (operation,table,target) in [("build",builds,CommandTarget.ground),("train",trains,.none),("morph",morphs,.none),("addon",addons,.ground)] {
             for type in table[kind] ?? [] {
@@ -43,12 +50,22 @@ final class CommandCard {
         let research:[Int:[(Int,String)]]=[112:[(0,"Stim"),(24,"Restoration"),(30,"Optical flare")],
             120:[(5,"Siege"),(3,"Spider mines")],115:[(9,"Cloaking field")],117:[(1,"Lockdown"),(10,"Personnel cloak")],
             116:[(7,"Irradiate"),(2,"EMP")],131:[(11,"Burrow")],132:[(11,"Burrow")],133:[(11,"Burrow")],
-            135:[(32,"Lurker aspect")],136:[(15,"Consume"),(16,"Plague")],138:[(13,"Spawn broodling"),(17,"Ensnare")],
-            165:[(19,"Psionic storm"),(20,"Hallucination")],170:[(21,"Recall"),(22,"Stasis")]]
+            135:[(32,"Lurker aspect")],136:[(16,"Consume"),(15,"Plague")],138:[(13,"Spawn broodling"),(17,"Ensnare")],
+            118:[(8,"Yamato gun")],169:[(25,"Disruption web")],
+            165:[(19,"Psionic storm"),(20,"Hallucination"),(27,"Mind control"),(31,"Maelstrom")],170:[(21,"Recall"),(22,"Stasis")]]
         let upgrades:[Int:[(Int,String)]]=[122:[(7,"Infantry weapons"),(0,"Infantry armor")],
             123:[(8,"Vehicle weapons"),(9,"Ship weapons"),(1,"Vehicle armor"),(2,"Ship armor")],
-            112:[(16,"U-238 shells")],120:[(17,"Ion thrusters")],139:[(10,"Melee attacks"),(11,"Missile attacks"),(3,"Carapace")],
-            166:[(13,"Ground weapons"),(5,"Ground armor"),(15,"Plasma shields")],164:[(14,"Air weapons"),(6,"Air armor")]]
+            112:[(16,"U-238 shells"),(51,"Caduceus reactor")],120:[(17,"Ion thrusters"),(54,"Charon boosters")],
+            116:[(19,"Titan reactor")],117:[(20,"Ocular implants"),(21,"Moebius reactor")],115:[(22,"Apollo reactor")],118:[(23,"Colossus reactor")],
+            139:[(10,"Melee attacks"),(11,"Missile attacks"),(3,"Carapace")],
+            141:[(12,"Flyer attacks"),(4,"Flyer carapace")],137:[(12,"Flyer attacks"),(4,"Flyer carapace")],
+            132:[(24,"Ventral sacs"),(25,"Antennae"),(26,"Pneumatized carapace")],133:[(24,"Ventral sacs"),(25,"Antennae"),(26,"Pneumatized carapace")],
+            142:[(27,"Metabolic boost"),(28,"Adrenal glands")],135:[(29,"Muscular augments"),(30,"Grooved spines")],
+            138:[(31,"Gamete meiosis")],136:[(32,"Metasynaptic node")],140:[(52,"Chitinous plating"),(53,"Anabolic synthesis")],
+            166:[(13,"Ground weapons"),(5,"Ground armor"),(15,"Plasma shields")],164:[(14,"Air weapons"),(6,"Air armor"),(33,"Singularity charge")],
+            163:[(34,"Leg enhancements")],171:[(35,"Scarab damage"),(36,"Reaver capacity"),(37,"Gravitic drive")],
+            159:[(38,"Sensor array"),(39,"Gravitic boosters")],165:[(40,"Khaydarin amulet"),(49,"Argus talisman")],
+            169:[(41,"Apial sensors"),(42,"Gravitic thrusters"),(43,"Carrier capacity"),(47,"Argus jewel")],170:[(44,"Khaydarin core")]]
         for (operation,table) in [("research",research),("upgrade",upgrades)] {
             for (type,title) in table[kind] ?? [] {result.append(CommandChoice(title,["op":operation,"type":type]))}
         }
