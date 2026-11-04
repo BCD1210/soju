@@ -242,8 +242,8 @@ mod tests {
             [0x1001..0x1007, 0x2000..0x2004]
         );
         assert_eq!(
-            memory.changed_ranges(0x1004, 2, revision).unwrap(),
-            [0x1004..0x1006]
+            memory.changed_ranges(0x1004, 2, revision).unwrap().as_slice(),
+            std::slice::from_ref(&(0x1004..0x1006))
         );
         assert!(
             memory
