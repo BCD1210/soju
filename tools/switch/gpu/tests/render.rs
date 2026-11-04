@@ -567,7 +567,11 @@ fn method_streams_render_expected_images_on_metal() {
     }
     assert_eq!(
         (h.backend.textures.uploads, h.backend.textures.hits),
-        (2, 2)
+        if std::env::var("SOJU_GPU_CPU_CACHE_BYTES").as_deref() == Ok("0") {
+            (4, 0)
+        } else {
+            (2, 2)
+        }
     );
 }
 
@@ -811,7 +815,12 @@ fn asynchronous_batches_preserve_depth_stencil_without_cpu_readback() {
             }
         );
     }
-    assert!(report.diagnostics.contains("pipeline_hits=1"));
+    let hits = if std::env::var("SOJU_GPU_CACHE_BYTES").as_deref() == Ok("0") {
+        "pipeline_hits=0"
+    } else {
+        "pipeline_hits=1"
+    };
+    assert!(report.diagnostics.contains(hits));
     eprintln!(
         "persistent depth/stencil and deferred CPU readback: checked=2048; {}",
         report.diagnostics
@@ -2161,6 +2170,24 @@ fn shared_depth_prevents_target_pass_reordering() {
     }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/shared-depth-order-checks");
     let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    let merged = std::env::var("SOJU_GPU_MERGE_DEPTH").as_deref() != Ok("0");
+    assert!(
+        report.diagnostics.contains(if merged {
+            "merged_depth_draws=3"
+        } else {
+            "merged_depth_draws=0"
+        }),
+        "{}",
+        report.diagnostics
+    );
+    assert!(
+        report
+            .diagnostics
+            .contains(if merged { "encoders=4 " } else { "encoders=6 " }),
+        "{}",
+        report.diagnostics
+    );
+    eprintln!("shared_depth {}", report.diagnostics);
     for image in report.images {
         let expected = if image.address == a {
             [255, 0, 0, 255]
@@ -2232,4 +2259,293 @@ fn scissored_color_clear_preserves_outside_and_accepts_single_layer_stride() {
         assert_eq!(pixel, if inside { &[255,0,0,255] } else { &[0,0,255,255] }, "pixel {i}");
     }
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+#[ignore = "explicit 30-minute resource churn soak"]
+fn resource_churn_soak() {
+    let seconds: u64 = std::env::var("SOJU_GPU_SOAK_SECONDS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1800);
+    let label = std::env::var("SOJU_GPU_SOAK_LABEL").unwrap_or_else(|_| "bounded".into());
+    assert!(label
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b == b'-'));
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("target/soak-{label}"));
+    let mut h = Harness::new();
+    let (mut e, first) = h.engine("soak", [0., 0., 0., 1.]);
+    let mut targets = vec![first];
+    for _ in 0..63 {
+        targets.push(h.alloc(vec![0; 4096]));
+    }
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    let surface = Surface {
+        width: 8,
+        height: 8,
+        depth: 1,
+        bytes_per_block: 4,
+        block_height_log2: 1,
+        block_depth_log2: 0,
+    };
+    let address = h.alloc(surface.swizzle(&[255u8; 256]).unwrap());
+    let words = [
+        8 | 2 << 7 | 2 << 10 | 2 << 13 | 2 << 16 | 2 << 19 | 3 << 22 | 4 << 25 | 5 << 28,
+        address as u32,
+        3 << 21,
+        1 << 3,
+        1 << 23 | 7,
+        1 << 31 | 7,
+        0,
+        0,
+    ];
+    let tic = h.alloc(words.into_iter().flat_map(u32::to_le_bytes).collect());
+    let tsc = h.alloc(
+        [
+            2u32 | 2 << 3 | 2 << 6,
+            1 | 1 << 4 | 1 << 6,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect(),
+    );
+    h.methods(
+        &mut e,
+        &[
+            (0x2144, h.tex_fs as u32),
+            (0xf10, 1),
+            (0x1574, 0),
+            (0x1578, tic as u32),
+            (0x157c, 0),
+            (0x155c, 0),
+            (0x1560, tsc as u32),
+            (0x1564, 0),
+        ],
+    );
+    h.backend.submit(&root).unwrap().wait().unwrap();
+    h.backend.readback(&root, &mut h.memory).unwrap();
+    let start = std::time::Instant::now();
+    let mut frame = 0;
+    let mut next_sample = 0;
+    while start.elapsed().as_secs() < seconds {
+        let pixel = [(frame & 255) as u8, ((frame >> 8) & 255) as u8, 127, 255];
+        h.memory
+            .write(address, &surface.swizzle(&pixel.repeat(64)).unwrap())
+            .unwrap();
+        h.methods(&mut e, &[(0x804, targets[frame % targets.len()] as u32)]);
+        // Vary validated blend descriptors while preserving the full opaque image.
+        h.methods(
+            &mut e,
+            &[
+                (0x1360, 1),
+                (0x1340, 1),
+                (0x1344, 2),
+                (0x1348, 1),
+                (0x1394, (frame % 256) as u32),
+            ],
+        );
+        h.draw(&mut e, 6, false, false);
+        let stats = h.backend.submit(&root).unwrap().wait().unwrap();
+        if let Some(bytes) = stats
+            .split_whitespace()
+            .find_map(|s| s.strip_prefix("cache_bytes="))
+            .and_then(|s| s.parse::<usize>().ok())
+        {
+            let budget = stats
+                .split_whitespace()
+                .find_map(|s| s.strip_prefix("cache_budget="))
+                .unwrap()
+                .parse::<usize>()
+                .unwrap();
+            assert!(bytes <= budget, "{stats}");
+        }
+        let report = h.backend.readback(&root, &mut h.memory).unwrap();
+        assert_eq!(report.images.len(), 1);
+        assert!(report.images[0].rgba.chunks_exact(4).all(|p| p == pixel));
+        if start.elapsed().as_secs() >= next_sample {
+            let rss = std::process::Command::new("ps")
+                .args(["-o", "rss=", "-p", &std::process::id().to_string()])
+                .output()
+                .unwrap();
+            eprintln!(
+                "soak label={label} seconds={} frame={frame} rss_kib={} {stats}",
+                start.elapsed().as_secs(),
+                String::from_utf8_lossy(&rss.stdout).trim()
+            );
+            next_sample += 60;
+        }
+        frame += 1;
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    eprintln!(
+        "soak_complete label={label} seconds={} frames={frame} checked_pixels={}",
+        start.elapsed().as_secs(),
+        frame * 1024
+    );
+}
+
+#[test]
+fn parallel_color_passes_preserve_per_target_blend_order() {
+    let mut h = Harness::new();
+    let (mut e, a) = h.engine("parallel", [0., 0., 0., 1.]);
+    let b = h.alloc(vec![0; 4096]);
+    h.methods(&mut e, &[(0x804, b as u32), (0x19d0, 60)]);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/parallel-checks");
+    h.backend.submit(&root).unwrap().wait().unwrap();
+    h.methods(
+        &mut e,
+        &[
+            (0x1360, 1),
+            (0x133c, 1),
+            (0x1340, 0x8006),
+            (0x1344, 0x4302),
+            (0x1348, 0x4303),
+            (0x134c, 0x8006),
+            (0x1350, 0x4001),
+            (0x1358, 0x4303),
+        ],
+    );
+    for i in 0..8 {
+        let color = if i < 4 {
+            [1., 0., 0., 0.5]
+        } else {
+            [0., 1., 0., 0.5]
+        };
+        h.methods(&mut e, &[(0x804, if i % 2 == 0 { a } else { b } as u32)]);
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, color), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+        // Repeat references must be remapped into each independent command list.
+        h.draw(&mut e, 6, false, false);
+    }
+    let stats = h.backend.submit(&root).unwrap().wait().unwrap();
+    if std::env::var("SOJU_GPU_PARALLEL_PASSES").as_deref() == Ok("1")
+        && std::env::var("SOJU_GPU_CACHE_BYTES").as_deref() != Ok("0")
+    {
+        assert!(stats.contains("parallel_passes=2"), "{stats}");
+        assert!(stats.contains("command_buffers=2"), "{stats}");
+    }
+    let report = h.backend.readback(&root, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 2);
+    for image in report.images {
+        assert!(image.rgba.chunks_exact(4).all(|p| p
+            .iter()
+            .zip([15u8, 239, 0, 255])
+            .all(|(a, b)| a.abs_diff(b) <= 2)));
+    }
+}
+
+#[test]
+fn shared_depth_mrt_slot_permutations_keep_outputs_and_depth_order() {
+    let mut h = Harness::new();
+    let (mut e, a) = h.engine("depth-mrt", [0., 0., 0., 1.]);
+    let b = h.alloc(vec![0; 4096]);
+    h.methods(
+        &mut e,
+        &[
+            (0x844, b as u32),
+            (0x848, 32),
+            (0x84c, 32),
+            (0x850, 0xd5),
+            (0x858, 1),
+            (0x121c, 2 | 1 << 7),
+        ],
+    );
+    let z = h.alloc(vec![0; 4096]);
+    h.methods(
+        &mut e,
+        &[
+            (0xfe4, z as u32),
+            (0xfe8, 0xa),
+            (0x1228, 32),
+            (0x122c, 32),
+            (0x1230, 1),
+            (0x1538, 1),
+            (0xd90, 1f32.to_bits()),
+            (0x19d0, 1),
+            (0x12cc, 1),
+            (0x12e8, 1),
+            (0x130c, 0x201),
+        ],
+    );
+    let mut header = [0u32; 20];
+    header[0] = 2 | 5 << 10;
+    header[6] = 0xaa;
+    header[18] = 255;
+    let mut code = Vec::new();
+    for slot in 0..2 {
+        for c in 0..4 {
+            code.push(ipa(slot * 4 + c, 0x80 + ((c + slot) % 4) * 4));
+        }
+    }
+    code.push(0xe30000000000000f | PT);
+    let mut bytes: Vec<u8> = header.into_iter().flat_map(u32::to_le_bytes).collect();
+    for chunk in code.chunks(3) {
+        bytes.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for w in chunk {
+            bytes.extend(w.to_le_bytes());
+        }
+    }
+    let fs = h.program(bytes);
+    h.methods(&mut e, &[(0x2144, fs as u32)]);
+    for (select, z, color) in [
+        (2 | 1 << 7, 0.6, [1., 0., 0., 1.]),
+        (2 | 1 << 4, 0.4, [0., 1., 0., 1.]),
+        (2 | 1 << 7, 0.5, [0., 0., 1., 1.]),
+    ] {
+        h.methods(&mut e, &[(0x121c, select)]);
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., z, color), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/shared-depth-mrt");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 2);
+    for image in report.images {
+        let expected = if image.address == a {
+            [255, 0, 255, 0]
+        } else {
+            [0, 255, 0, 255]
+        };
+        assert!(image.rgba.chunks_exact(4).all(|p| p == expected));
+    }
+}
+
+#[test]
+#[ignore = "run with SOJU_GPU_ASYNC_PIPELINES=1"]
+fn pending_pipeline_skips_frame_then_renders() {
+    assert_eq!(
+        std::env::var("SOJU_GPU_ASYNC_PIPELINES").as_deref(),
+        Ok("1")
+    );
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("pending", [0., 0., 0., 1.]);
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    h.draw(&mut e, 6, false, false);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/pending-pipeline");
+    let stats = h.backend.submit(&root).unwrap().wait().unwrap();
+    assert!(
+        stats.contains("skipped_draws=1 ") && stats.contains("draws=0 "),
+        "{stats}"
+    );
+    let first = h.backend.readback(&root, &mut h.memory).unwrap();
+    assert!(first.images[0]
+        .rgba
+        .chunks_exact(4)
+        .all(|p| p == [0, 0, 0, 255]));
+    for _ in 0..200 {
+        h.draw(&mut e, 6, false, false);
+        let stats = h.backend.submit(&root).unwrap().wait().unwrap();
+        if stats.contains("skipped_draws=0 ") {
+            let ready = h.backend.readback(&root, &mut h.memory).unwrap();
+            assert!(ready.images[0].rgba.chunks_exact(4).all(|p| p == [255; 4]));
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    panic!("ready pipeline never rendered");
 }

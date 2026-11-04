@@ -202,7 +202,13 @@ impl Native {
                         "\n",
                         include_str!("../native/worker.swift"),
                         "\n",
-                        include_str!("../native/pipeline_cache.swift")
+                        include_str!("../native/pipeline_cache.swift"),
+                        "\n",
+                        include_str!("../native/memory_cache.swift"),
+                        "\n",
+                        include_str!("../native/parallel.swift"),
+                        "\n",
+                        include_str!("../native/shared_depth.swift")
                     ),
                 )
                 .map_err(error)?;

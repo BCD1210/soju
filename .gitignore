@@ -18,3 +18,5 @@ __pycache__/
 
 # Rust build products
 tools/switch/core/target/
+# Local GPU cache, spill and verification artifacts
+/target/

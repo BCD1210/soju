@@ -18,9 +18,11 @@ func stencilOp(_ v: Int) throws -> MTLStencilOperation {
 }
 struct StateTransition: Hashable { let previous: Int; let current: Int }
 struct ArgumentTable {
+    let key: String
     let buffer: MTLBuffer
     let offset: Int
     let textures: [MTLTexture]
+    let usage: [CacheStamp]
     let samplers: [MTLSamplerState]
 }
 // Graphics shaders have no writable storage. Within a span without clear/query/depth
@@ -66,6 +68,7 @@ struct RenderPassState {
     let key: String
     let colors: [MTLTexture]
     let depthFormat: MTLPixelFormat
+    let usage: [CacheStamp]
 }
 final class Worker {
     let device: MTLDevice
@@ -74,6 +77,14 @@ final class Worker {
     var occlusion: UInt64 = 0
     var queryValues = [String: UInt32]()
     var targetBytes = [String: Int]()
+    let pressure = MemoryPressure()
+    var cacheClock: UInt64 = 0
+    var lastUse = [String: CacheStamp]()
+    let cacheBudget = max(0, Int(ProcessInfo.processInfo.environment["SOJU_GPU_CACHE_BYTES"] ?? "") ?? 268435456)
+    let spillRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath + "/target/soju-spill-" + UUID().uuidString, isDirectory: true)
+    var dirtyAttachments = Set<String>()
+    var spilledColors = [String: Int](), spilledDepths = [String: Int]()
+    deinit { try? FileManager.default.removeItem(at: spillRoot) }
     let compiler: RenderCompiler
     var renderFunctions = [String: (MTLFunction, MTLFunction)]()
     var pipelines = [String: MTLRenderPipelineState](), depthStates = [String: MTLDepthStencilState]()
@@ -85,9 +96,9 @@ final class Worker {
     var argumentTables = [String: ArgumentTable]()
     var renderPasses = [String: MTLRenderPassDescriptor]()
     var argumentHeaps = [String: (MTLBuffer, Int)]()
-    init() throws {
-        guard let d = MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue() else { throw Failure("no default Metal device/queue") }
-        device = d; queue = q; compiler = RenderCompiler(d)
+    init(device shared: MTLDevice? = nil, compiler sharedCompiler: RenderCompiler? = nil) throws {
+        guard let d = shared ?? MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue() else { throw Failure("no default Metal device/queue") }
+        device = d; queue = q; compiler = sharedCompiler ?? RenderCompiler(d)
     }
     func run(_ commands: UnsafeBufferPointer<Command>, _ resources: UnsafeBufferPointer<SpanByte>, _ constants: SpanByte) throws -> String {
     let parseStarted=ProcessInfo.processInfo.systemUptime
@@ -136,6 +147,7 @@ final class Worker {
         boundBuffers[key] = (identity, offset)
     }
     func bindTable(_ encoder: MTLRenderCommandEncoder, _ stage: Int, _ table: ArgumentTable) {
+        for stamp in table.usage { use(stamp) }
         for texture in table.textures {
             if resident.insert(ObjectIdentifier(texture)).inserted { encoder.useResource(texture, usage: .read, stages: [.vertex, .fragment]) }
         }
@@ -180,6 +192,9 @@ final class Worker {
     var registerStates = [Int: [Int: Int]]()
     var resolvedTables = [Int: [Int: ArgumentTable]]()
     let scheduled = try schedulePasses(commands)
+    let depthPlans = sharedDepthPlans(commands, scheduled)
+    var mergedKeys = [Int: String]()
+    var pipelineUsage = [Int: CacheStamp]()
     for inputIndex in scheduled {
         let input = commands[inputIndex]
         let commandIndex = input.kind == 5 ? Int(input.reference) : inputIndex
@@ -217,8 +232,10 @@ final class Worker {
         }
         if command.kind == 2 {try flush();occlusion=0;continue}
         if command.kind == 3 { let key = text(command.key);try flush();queryValues[key]=UInt32(truncatingIfNeeded:occlusion);continue}
-        let attachments = items(command.targets)
-        guard let target = attachments.first else { throw Failure("missing state") }
+        let originalAttachments = items(command.targets)
+        let merged = depthPlans[inputIndex]
+        let passStateIndex = merged == nil ? commandIndex : commands.count + inputIndex
+        guard let target = originalAttachments.first else { throw Failure("missing state") }
         if registerStates[commandIndex] == nil { registerStates[commandIndex] = Dictionary(uniqueKeysWithValues: items(command.registers).map { (Int($0.address), Int($0.value)) }) }
         let raw = registerStates[commandIndex]!
         func r(_ a: Int) -> Int { raw[a] ?? 0 }
@@ -231,21 +248,25 @@ final class Worker {
         var depthFormat = MTLPixelFormat.invalid
         let pass: MTLRenderPassDescriptor
         let passKey: String
-        if let resolved = passStates[commandIndex] {
+        if let resolved = passStates[passStateIndex] {
+            for stamp in resolved.usage { use(stamp) }
             pass = resolved.descriptor; passKey = resolved.key; colors = resolved.colors; depthFormat = resolved.depthFormat; passHits += 1
         } else {
 
+        let attachments = merged?.attachments ?? Array(originalAttachments)
         for target in attachments {
             let key = text(target.key)
-        if targets[key] == nil {
+        touch("c", key); dirtyAttachments.insert(key)
+        let newTarget = targets[key] == nil
+        if newTarget {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(Int(target.metal)))!,width:w,height:h,mipmapped:false)
             descriptor.storageMode = .shared; descriptor.usage = [.renderTarget,.shaderRead]
             guard let texture = device.makeTexture(descriptor:descriptor) else { throw Failure("color allocation") }; targets[key] = texture; targetBytes[key] = Int(target.bytes)
         }
         let color = targets[key]!
-        if generations[key] != Int(target.generation) {
+        if newTarget || generations[key] != Int(target.generation) {
             if generations[key] != nil {try flush()}
-            let initial = try file(text(target.file));try need(initial.count == w*h*Int(target.bytes),"target initial bytes")
+            let initial = try restore(key, Int(target.generation), ".rgba") { try file(text(target.file)) };try need(initial.count == w*h*Int(target.bytes),"target initial bytes")
             initial.withUnsafeBytes { p in color.replace(region:MTLRegionMake2D(0,0,w,h),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:w*Int(target.bytes)) }
             generations[key] = Int(target.generation)
         }
@@ -269,10 +290,12 @@ final class Worker {
 
         if let depth = items(command.depth).first {
             let dk = text(depth.key)
+            touch("d", dk); dirtyAttachments.insert(dk)
             depthFormat = [0x19,0x14].contains(Int(depth.format)) ? .depth32Float_stencil8 : (Int(depth.format)==0x13 ? .depth16Unorm : .depth32Float)
             if depthGenerations[dk] != Int(depth.generation) {
                 if depthGenerations[dk] != nil {try flush()}
                 depths.removeValue(forKey:dk)
+                renderPasses.removeAll()
             }
             if depths[dk] == nil {
                 let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:depthFormat,width:w,height:h,mipmapped:false)
@@ -282,7 +305,7 @@ final class Worker {
                 let upload=try commandBuffer()
                 guard let blit=upload.makeBlitCommandEncoder() else {throw Failure("depth upload encoder")}
                 func plane(_ name:String,_ bytesPerPixel:Int,_ options:MTLBlitOption) throws {
-                    let bytes=try file((name == "zfile" ? text(depth.zfile) : text(depth.sfile))), row=((w*bytesPerPixel+255)/256)*256
+                    let bytes=try restore(dk, Int(depth.generation), name == "zfile" ? ".depth" : ".stencil") { try file((name == "zfile" ? text(depth.zfile) : text(depth.sfile))) }, row=((w*bytesPerPixel+255)/256)*256
                     try need(bytes.count==w*h*bytesPerPixel,"depth initial bytes")
                     guard let staging=device.makeBuffer(length:row*h,options:.storageModeShared) else {throw Failure("depth staging")}
                     bytes.withUnsafeBytes {p in for y in 0..<h {memcpy(staging.contents().advanced(by:y*row),p.baseAddress!.advanced(by:y*w*bytesPerPixel),w*bytesPerPixel)} }
@@ -303,7 +326,7 @@ final class Worker {
         }
         if !isClear && visibility == nil {
             renderPasses[passKey] = pass
-            passStates[commandIndex] = RenderPassState(descriptor: pass, key: passKey, colors: colors, depthFormat: depthFormat)
+            passStates[passStateIndex] = RenderPassState(descriptor: pass, key: passKey, colors: colors, depthFormat: depthFormat, usage: attachments.map { cacheStamp("c", text($0.key)) } + items(command.depth).map { cacheStamp("d", text($0.key)) })
         }
         }
         if isClear || visibility != nil || activeKey != passKey {endPass()}
@@ -352,16 +375,23 @@ final class Worker {
             }
             clears += 1
         } else {
-            let pk = text(command.pipeline)
+            let pk: String
+            if let merged {
+                if let cached = mergedKeys[passStateIndex] { pk = cached }
+                else { pk = text(command.pipeline) + merged.suffix(command); mergedKeys[passStateIndex] = pk }
+            } else { pk = text(command.pipeline) }
             if pipelines[pk] == nil {
                 let descriptor = MTLRenderPipelineDescriptor()
                 for slot in colors.indices { descriptor.colorAttachments[slot].pixelFormat = colors[slot].pixelFormat }
                 descriptor.depthAttachmentPixelFormat = depthFormat
                 if depthFormat == .depth32Float_stencil8 { descriptor.stencilAttachmentPixelFormat = depthFormat }
                 try need(r(0x12e4)<=1,"invalid per-target blend enable")
-                for slot in colors.indices {
-                    let physical = (r(0x121c) >> (4 + slot * 3)) & 7
+                let outputSlots = merged?.mapping(command) ?? Array(originalAttachments.indices)
+                for slot in colors.indices { descriptor.colorAttachments[slot].writeMask = [] }
+                for (originalSlot, slot) in outputSlots.enumerated() {
+                    let physical = (r(0x121c) >> (4 + originalSlot * 3)) & 7
                     let blend = descriptor.colorAttachments[slot]!
+                    blend.writeMask = .all
                     try need(r(0x1360 + physical*4)<=1,"invalid blend enable")
                     blend.isBlendingEnabled = r(0x1360 + physical*4)==1
                     if blend.isBlendingEnabled {
@@ -384,13 +414,16 @@ final class Worker {
                 }
                 descriptor.vertexDescriptor = vertex
                 let vertexSource = String(decoding: try file(text(command.vertex)), as: UTF8.self)
-                let fragmentSource = String(decoding: try file(text(command.fragment)), as: UTF8.self)
+                var fragmentSource = String(decoding: try file(text(command.fragment)), as: UTF8.self)
+                if let merged { fragmentSource = merged.fragment(fragmentSource, command) }
                 guard let ready = try compiler.request(pk, descriptor, vertexSource, fragmentSource) else {
                     skippedDraws += max(1, Int(input.repeats)); continue
                 }
                 pipelines[pk] = ready.pipeline
                 renderFunctions[pk] = (ready.vertex, ready.fragment)
             } else {pipelineHits += 1}
+            if pipelineUsage[passStateIndex] == nil { pipelineUsage[passStateIndex] = cacheStamp("p", pk) }
+            use(pipelineUsage[passStateIndex]!)
             let (vs, fs) = renderFunctions[pk]!
             if depthStates[pk] == nil {
                 let d = MTLDepthStencilDescriptor()
@@ -486,6 +519,7 @@ final class Worker {
                 let tableKey = pk + ":" + String(stage) + ":" + stageItems.map { item in
                     "\(text(item.key)):\(item.image):\(item.sampler):\(item.count):\(item.u):\(item.v):\(item.min):\(item.mag)"
                 }.joined(separator: "|")
+                touch("a", tableKey)
                 if let resolved = argumentTables[tableKey] {
                     resolvedTables[commandIndex, default: [:]][stage] = resolved
                     bindTable(encoder, stage, resolved); textureHits += resolved.textures.count
@@ -507,6 +541,7 @@ final class Worker {
                 for item in stageItems {
                     if item.image >= 0 {
                         let tk=text(item.key)
+                        touch("t", tk)
                         if textureCache[tk]==nil {
                             let tw=Int(item.width),th=Int(item.height)
                             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(Int(item.metal)))!,width:tw,height:th,mipmapped:false)
@@ -528,7 +563,7 @@ final class Worker {
                         guard let sampler=device.makeSamplerState(descriptor:d) else {throw Failure("sampler allocation")};tableSamplers.append(sampler);argument.setSamplerState(sampler,index:9*Int(item.count)+Int(item.sampler))
                     }
                 }
-                let resolved = ArgumentTable(buffer: table, offset: tableOffset, textures: tableTextures, samplers: tableSamplers)
+                let resolved = ArgumentTable(key: tableKey, buffer: table, offset: tableOffset, textures: tableTextures, usage: [cacheStamp("a", tableKey)] + stageItems.filter { $0.image >= 0 }.map { cacheStamp("t", text($0.key)) }, samplers: tableSamplers)
                 argumentTables[tableKey] = resolved
                 resolvedTables[commandIndex, default: [:]][stage] = resolved
                 bindTable(encoder, stage, resolved)
@@ -551,10 +586,20 @@ final class Worker {
     }
     try flush()
     let elapsed=ProcessInfo.processInfo.systemUptime-started
-    return "skipped_draws=\(skippedDraws) pass_hits=\(passHits) encoding_seconds=\(elapsed-gpuWait) gpu_wait_seconds=\(gpuWait) state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
+    return "merged_depth_draws=\(depthPlans.count) skipped_draws=\(skippedDraws) pass_hits=\(passHits) encoding_seconds=\(elapsed-gpuWait) gpu_wait_seconds=\(gpuWait) state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)
+        if root != spillRoot {
+            for key in spilledColors.keys where targets[key] == nil {
+                try Data(contentsOf: spillRoot.appendingPathComponent(key + ".rgba")).write(to: root.appendingPathComponent(key + ".rgba"))
+            }
+            for key in spilledDepths.keys where depths[key] == nil {
+                for suffix in [".depth", ".stencil"] {
+                    try Data(contentsOf: spillRoot.appendingPathComponent(key + suffix)).write(to: root.appendingPathComponent(key + suffix))
+                }
+            }
+        }
     for (key,t) in targets {
         var bytes=[UInt8](repeating:0,count:t.width*t.height*targetBytes[key]!)
         t.getBytes(&bytes,bytesPerRow:t.width*targetBytes[key]!,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
@@ -600,14 +645,23 @@ public func sojuDestroy(_ pointer: UnsafeMutableRawPointer) { Unmanaged<Worker>.
 @_cdecl("soju_run")
 public func sojuRun(_ pointer: UnsafeMutableRawPointer, _ commands: UnsafePointer<Command>?, _ count: Int, _ resources: UnsafePointer<SpanByte>?, _ resourceCount: Int, _ constants: UnsafePointer<SpanByte>) -> UnsafeMutablePointer<CChar>? {
     autoreleasepool {
-        do { return strdup("OK " + (try Unmanaged<Worker>.fromOpaque(pointer).takeUnretainedValue().run(UnsafeBufferPointer(start: commands, count: count), UnsafeBufferPointer(start: resources, count: resourceCount), constants.pointee))) }
+        do {
+            let worker = Unmanaged<Worker>.fromOpaque(pointer).takeUnretainedValue()
+            let result = try autoreleasepool { try worker.runSubmission(UnsafeBufferPointer(start: commands, count: count), UnsafeBufferPointer(start: resources, count: resourceCount), constants.pointee) }
+            return strdup("OK " + result + " " + (try worker.trimCaches()))
+        }
         catch { return strdup("ERROR \(error)") }
     }
 }
 @_cdecl("soju_readback")
 public func sojuReadback(_ pointer: UnsafeMutableRawPointer, _ directory: UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>? {
     autoreleasepool {
-        do { return strdup("OK " + (try Unmanaged<Worker>.fromOpaque(pointer).takeUnretainedValue().readback(String(cString: directory)))) }
+        do {
+            let worker = Unmanaged<Worker>.fromOpaque(pointer).takeUnretainedValue()
+            let result = try autoreleasepool { try worker.readback(String(cString: directory)) }
+            worker.finishReadback()
+            return strdup("OK " + result + " " + (try worker.trimCaches()))
+        }
         catch { return strdup("ERROR \(error)") }
     }
 }
