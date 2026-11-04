@@ -201,7 +201,7 @@ impl Renderer {
             if method == 0x2c && matches!(value, 0x80000000 | 0x70000000) {
                 if pending {
                     backend
-                        .execute(&self.directory()?, &mut memory)
+                        .execute_memory(&self.directory()?, &mut memory)
                         .map_err(gpu_error)?;
                     pending = false;
                     target_state.clear();
@@ -230,7 +230,7 @@ impl Renderer {
                     || matches!(method, 0x180..=0x1b4 | 0x1b0c | 0x2c8 | 0x2e0 | 0xf80))
             {
                 backend
-                    .execute(&self.directory()?, &mut memory)
+                    .execute_memory(&self.directory()?, &mut memory)
                     .map_err(gpu_error)?;
                 pending = false;
                 target_state.clear();
@@ -353,7 +353,9 @@ impl Renderer {
                             .prepare_compute(&dispatch, &memory)
                             .map_err(gpu_error)?;
                         let dir = self.directory()?;
-                        backend.execute(&dir, &mut memory).map_err(gpu_error)?;
+                        backend
+                            .execute_memory(&dir, &mut memory)
+                            .map_err(gpu_error)?;
                     }
                 } else if setup::compute_field(method, value)? {
                     self.compute_setup.insert(method, value);
@@ -591,7 +593,7 @@ impl Renderer {
                     }
                     if pending && backend.reads_pending(&snapshot) {
                         backend
-                            .execute(&self.directory()?, &mut memory)
+                            .execute_memory(&self.directory()?, &mut memory)
                             .map_err(gpu_error)?;
                         pending = false;
                         target_state.clear();
@@ -629,7 +631,7 @@ impl Renderer {
                     .collect();
                 if pending && (targets != target_state || backend.reads_pending(&snapshot)) {
                     backend
-                        .execute(&self.directory()?, &mut memory)
+                        .execute_memory(&self.directory()?, &mut memory)
                         .map_err(gpu_error)?;
                 }
                 backend.prepare(&snapshot, &memory).map_err(gpu_error)?;
@@ -645,7 +647,7 @@ impl Renderer {
         }
         if pending {
             backend
-                .execute(&self.directory()?, &mut memory)
+                .execute_memory(&self.directory()?, &mut memory)
                 .map_err(gpu_error)?;
         }
         self.backend = backend;

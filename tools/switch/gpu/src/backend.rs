@@ -1490,6 +1490,9 @@ impl Backend {
     /// Explicit CPU visibility boundary. Waits for queued work and writes pending
     /// color/depth targets and query results to guest memory. Fence waits alone never copy image bytes.
     pub fn readback(&mut self, directory: &Path, memory: &mut Memory) -> Result<Report> {
+        self.readback_inner(directory, memory, true)
+    }
+    fn readback_inner(&mut self, directory: &Path, memory: &mut Memory, capture_images: bool) -> Result<Report> {
         let _span = crate::profile::span(crate::profile::Stage::Readback);
         require(
             self.commands.is_empty(),
@@ -1557,12 +1560,14 @@ impl Backend {
             let data = t.writeback(&bytes, memory)?;
             memory.read(t.address, data.len())?;
             writes.push((t.address, data));
-            images.push(Readback {
-                address: t.address,
-                width: t.width,
-                height: t.height,
-                rgba: crate::format::rgba(t.format, &bytes),
-            });
+            if capture_images {
+                images.push(Readback {
+                    address: t.address,
+                    width: t.width,
+                    height: t.height,
+                    rgba: crate::format::rgba(t.format, &bytes),
+                });
+            }
         }
         for (key, t) in &self.depth_targets {
             use soju_switch_texture::format::Format;
@@ -1632,6 +1637,14 @@ impl Backend {
             images,
             diagnostics,
         })
+    }
+    /// Publish guest storage without also constructing discarded display-format images.
+    pub fn execute_memory(&mut self, directory: &Path, memory: &mut Memory) -> Result<()> {
+        let span = crate::profile::span(crate::profile::Stage::Submit);
+        self.submit(directory)?.wait()?;
+        drop(span);
+        self.readback_inner(directory, memory, false)?;
+        Ok(())
     }
     /// Compatibility wrapper: submit, wait, then make color targets CPU-visible.
     pub fn execute(&mut self, directory: &Path, memory: &mut Memory) -> Result<Report> {
