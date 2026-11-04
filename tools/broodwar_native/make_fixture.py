@@ -62,13 +62,17 @@ def build(lib,source,destination,combat=False):
     neutral=[u for u in units if struct.unpack_from("<H",u,8)[0] in (176,177,178,188,214)]
     placed=[unit(10000,x,y,106,player),unit(10001,x-75,y+70,7,player),unit(10002,x-45,y+70,7,player),
             unit(10003,x+15,y+70,0,player),unit(10004,x+45,y+70,0,player)]
-    replacements={b"UNIT":b"".join(neutral+placed),b"TRIG":bytes(2400),b"MBRF":bytes(2400)}
+    owners=bytearray(12);owners[player]=6
+    races=bytearray(data[b"SIDE"]);races[player]=1
+    forces=bytearray(20)
+    for slot in range(8):forces[slot]=0 if slot==player else 1
+    replacements={b"UNIT":b"".join(neutral+placed),b"TRIG":bytes(2400),b"MBRF":bytes(2400),
+                  b"OWNR":bytes(owners),b"IOWN":bytes(owners),b"SIDE":bytes(races),b"FORC":bytes(forces)}
     if combat:
         enemy=1 if player!=1 else 0
         placed.extend([unit(10005,x-420,y+70,0,enemy),unit(10006,x-470,y+120,7,enemy)])
-        owners=bytearray(data[b"OWNR"]);owners[enemy]=5
-        forces=bytearray(data[b"FORC"]);forces[player]=0;forces[enemy]=1
-        replacements.update({b"UNIT":b"".join(neutral+placed),b"OWNR":bytes(owners),b"FORC":bytes(forces)})
+        owners[enemy]=5
+        replacements.update({b"UNIT":b"".join(neutral+placed),b"OWNR":bytes(owners),b"IOWN":bytes(owners)})
     packed=b"".join(name+struct.pack("<I",len(replacements.get(name,value)))+replacements.get(name,value)
                     for name,value in original)
     destination.parent.mkdir(parents=True,exist_ok=True)
@@ -80,7 +84,10 @@ def build(lib,source,destination,combat=False):
         try:
             if not lib.SFileAddFileEx(archive,bytes(chk),b"staredit\\scenario.chk",0x200,2,2):raise RuntimeError("cannot write CHK")
         finally:lib.SFileCloseArchive(archive)
-    assert dict(sections(read_chk(lib,destination)))[b"UNIT"]==replacements[b"UNIT"]
+    written=dict(sections(read_chk(lib,destination)))
+    assert written[b"UNIT"]==replacements[b"UNIT"]
+    for key in (b"DIM ",b"ERA ",b"MTXM",b"THG2",b"DD2 "):
+        assert written.get(key)==data.get(key), "Terrain and doodads must remain unchanged"
     return {"map":str(destination),"start":[x,y],"units":len(neutral)+len(placed)}
 
 if __name__=="__main__":

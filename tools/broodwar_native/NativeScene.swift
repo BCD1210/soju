@@ -94,6 +94,10 @@ final class Commander: NSObject, NSApplicationDelegate {
         world.background.contents=NSColor(calibratedRed:0.025,green:0.035,blue:0.05,alpha:1)
         camera.camera=SCNCamera();camera.camera!.fieldOfView=80
         camera.camera!.zNear=0.03;camera.camera!.zFar=150;Models3D.exposure(camera.camera!)
+        if CommandLine.arguments.contains("--top-down") {
+            camera.camera!.usesOrthographicProjection=true
+            camera.camera!.orthographicScale=Double(argument("--view-height") ?? "24") ?? 24
+        }
         world.rootNode.addChildNode(camera);view.pointOfView=camera
         Models3D.lights(world,tileset:(art.manifest["map"] as? Obj)?["tileset"] as? String ?? "badlands");world.rootNode.addChildNode(effects.root)
         world.rootNode.addChildNode(worldSprites.root)
