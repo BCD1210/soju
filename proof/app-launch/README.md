@@ -26,8 +26,9 @@ Verified bundle size: 5.5 MB; no target directories; codesign strict verificatio
 passed both before and after Play. Metal archives now default to
 ~/Library/Caches/Soju/Metal/v1; the old cwd-relative cache invalidated the app
 bundle seal. SOJU_GPU_CACHE_DIR still overrides the location.
-Existing installed app bundles were not replaced. Build artifacts stay
-under ignored dist/.
+The verified bundle was then installed at ~/Applications/Soju.app. The previous
+bundle was preserved as a timestamped Soju.previous-switch-*.app sibling.
+Other running app bundles were not replaced. Build artifacts stay under ignored dist/.
 
 Installed runner SHA-256 at capture:
 7d438f3dd4544418d0558d1adb510c02657b814af9053af91edb56bca384af12
