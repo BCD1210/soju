@@ -330,3 +330,26 @@ OpenGL at `B197:0de4`. The selected Example01 probe is distinct from the softwar
 menu capture. The full corpus remains 33/59 first frames, and audren/SDL are
 unfinished. Full acceptance table and validation evidence are in
 [SWITCH-EXAMPLES.md](SWITCH-EXAMPLES.md). These follow-up commits are local only.
+
+## GPU observation policy
+
+The Metal bridge uses an explicit allowlist for methods whose public semantics
+are incomplete and which have no established observable memory write. B197
+Falcon hooks (`0x2300`–`0x237c`), performance triggers (`0x140`, `0x144`,
+`0x1114`), trap-handler configuration (`0x260c`, `0x33dc`), and NO_OPERATION
+(`0x100`) are accepted and logged as `gpu-noop` with a per-channel, per-method
+counter. They do not advance fences or stage memory writes. Captured output
+is the acceptance criterion; incorrect output requires revisiting these methods.
+Unclassified methods and unsupported observable memory writers still stop with
+class, method, value and diagnostic. This is not a blanket unknown-method bypass.
+
+Compressed colour/depth memory is treated as ordinary pitch/block-linear storage
+according to the surface descriptor; Metal owns host compression. Original kinds
+remain in allocation/mapping records. The currently exercised kinds include
+C32 `0xdb` and S8Z24_2CZ `0x17`; accepting a mapping does not imply support for
+all surface formats or multisample layouts. Tests verify retained kind/backing,
+no-op counts, absence of memory/fence effects, and rejection of unsupported
+semaphore writes. Native scene captures remain required separately.
+
+Shader branch through `57f7a5c` was merged at `857f834`. Its throughput figures
+measure the backend benchmark, not the synchronous runner's scene performance.

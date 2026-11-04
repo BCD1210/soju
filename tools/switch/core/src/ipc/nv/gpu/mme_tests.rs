@@ -215,3 +215,31 @@ fn scratch_read_observes_latest_emission_but_effect_reads_stay_rejected() {
         }
     }
 }
+
+#[test]
+fn macro_register_arithmetic_and_boolean_ops_emit_exact_values() {
+    for (alu, expected) in [
+        (0, 2),
+        (2, 0xffff_fffc),
+        (8, 0xffff_fffc),
+        (11, 0xffff_fffc),
+        (12, 0xffff_fffc),
+    ] {
+        let mut mme = MacroUpload::default();
+        upload(
+            &mut mme,
+            0,
+            0,
+            &[
+                ((0x3400 / 4) << 14) | 0x21,
+                0x201,
+                (alu << 17) | (2 << 14) | (1 << 11) | 0xc0,
+                0x11,
+            ],
+        );
+        assert_eq!(
+            mme.run(0, u32::MAX, &[3], |_| Ok(0)).unwrap(),
+            [(0x3400, expected)]
+        );
+    }
+}

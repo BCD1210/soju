@@ -113,9 +113,18 @@ impl MacroUpload {
                         (registers[a] & !mask) | (((registers[b] >> source) << destination) & mask)
                     }
                     0 => match (word >> 17) & 31 {
+                        0 => registers[a].wrapping_add(registers[b]),
+                        2 => registers[a].wrapping_sub(registers[b]),
+                        8 => registers[a] ^ registers[b],
+                        11 => registers[a] & !registers[b],
+                        12 => !(registers[a] & registers[b]),
                         9 => registers[a] | registers[b],
                         10 => registers[a] & registers[b],
-                        _ => return Err(invalid("unsupported MME ALU")),
+                        _ => {
+                            return Err(Error::Message(format!(
+                                "unsupported MME ALU word={word:#x} pc={pc}"
+                            )));
+                        }
                     },
                     _ => return Err(invalid("unsupported MME opcode")),
                 };

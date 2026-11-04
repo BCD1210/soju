@@ -35,6 +35,7 @@ pub(super) struct Renderer {
     bindings: BTreeMap<u32, u32>,
     twod: BTreeMap<u32, u32>,
     compute_setup: BTreeMap<u32, u32>,
+    pub(super) noop_counts: BTreeMap<(u32, u32), u64>,
     compute_counters: BTreeMap<u32, u32>,
     compute_upload: Engine,
     directory: Option<PathBuf>,
@@ -135,6 +136,11 @@ impl Renderer {
                 trace.accepted = true;
                 continue;
             }
+            // A06F L2_FLUSH_DIRTY: every prior action has synchronously read back.
+            if method == 0x2c && matches!(value, 0x80000000 | 0x70000000) {
+                trace.accepted = true;
+                continue;
+            }
             let class = *self
                 .bindings
                 .get(&subchannel)
@@ -216,6 +222,13 @@ impl Renderer {
                         "Metal compute method {method:#x}={value:#x} unsupported"
                     )));
                 }
+                trace.accepted = true;
+                continue;
+            }
+            if setup::accepted_noop(class, method) {
+                let count = self.noop_counts.entry((class, method)).or_default();
+                *count = count.saturating_add(1);
+                eprintln!("gpu-noop|{class:#06x}|{method:#06x}|{value:#010x}|count={count}");
                 trace.accepted = true;
                 continue;
             }

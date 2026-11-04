@@ -313,7 +313,7 @@ fn metal_compute_initial_upload_is_isolated_and_staged() {
 }
 
 #[test]
-fn metal_retained_setup_rejects_reserved_fields_and_unknown_falcon() {
+fn metal_retained_setup_rejects_reserved_fields_and_unclassified_method() {
     let mut f = Fixture::new();
     let (fd, space, _) = f.setup();
     let access = submit::Access {
@@ -328,7 +328,7 @@ fn metal_retained_setup_rejects_reserved_fields_and_unknown_falcon() {
         (0x1528, 1),
         (0x135c, 1),
         (0x124, 3),
-        (0x2310, 0x418800),
+        (0x23fc, 0x418800),
     ] {
         assert!(
             Renderer::default()
@@ -361,4 +361,33 @@ fn metal_retained_setup_rejects_reserved_fields_and_unknown_falcon() {
         .unwrap();
     assert!(writes.is_empty());
     assert_eq!(count, 0);
+}
+
+#[test]
+fn accepted_firmware_noops_count_without_memory_or_fence_effects() {
+    let mut f = Fixture::new();
+    let (fd, space, _) = f.setup();
+    let access = submit::Access {
+        space: &f.nv.spaces[&space],
+        memory: &f.memory,
+    };
+    let mut renderer = Renderer::default();
+    let stream = methods(&[(0, 0xb197), (0x2310, 0x418800), (0x2310, 7), (0x140, 99)]);
+    let (writes, increments) = renderer.submit(&stream, fd, Some(0), &access, &[]).unwrap();
+    assert!(writes.is_empty());
+    assert_eq!(increments, 0);
+    assert_eq!(renderer.noop_counts[&(0xb197, 0x2310)], 2);
+    assert_eq!(renderer.noop_counts[&(0xb197, 0x140)], 1);
+    // Report-semaphore writes must not enter the firmware policy allowlist.
+    assert!(
+        renderer
+            .submit(
+                &methods(&[(0x1b00, 0), (0x1b04, 0), (0x1b08, 7), (0x1b0c, 0)]),
+                fd,
+                None,
+                &access,
+                &[]
+            )
+            .is_err()
+    );
 }
