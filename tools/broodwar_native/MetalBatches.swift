@@ -35,16 +35,18 @@ final class MetalBatches {
     private let preparationQueue=DispatchQueue(label:"soju.bw.batch-prepare",qos:.userInitiated)
     private var builder:MetalBatches?
     private var preparing=false
+    private var capturedSprites=[String:(Int,[Int:SCNGeometry])]()
     private var capturedTerrain=[Int:(SCNGeometry,AnyObject,SCNNode)]()
     private var submittedRevision = -1
     private var submittedGeometry=[(UnitBillboard,Int)]()
 
     private func input(_ commander:Commander)->Input {
-        func detached(_ node:SCNNode)->SCNNode {
+        func detached(_ node:SCNNode,geometry preparedGeometry:SCNGeometry?=nil)->SCNNode {
             let copy=SCNNode()
             copy.simdTransform=node.simdWorldTransform;copy.isHidden=node.isHidden || node.parent?.isHidden==true
             copy.opacity=CGFloat(inheritedOpacity(node));copy.constraints=node.constraints
-            if let geometry=node.geometry?.copy() as? SCNGeometry {
+            if let geometry=preparedGeometry {copy.geometry=geometry}
+            else if let geometry=node.geometry?.copy() as? SCNGeometry {
                 geometry.materials=node.geometry!.materials.map{$0.copy() as! SCNMaterial};copy.geometry=geometry
             }
             node.categoryBitMask=4
@@ -66,9 +68,19 @@ final class MetalBatches {
             copy.root.isHidden=original.root.isHidden
             copy.nativeLayers=original.nativeLayers;copy.shown=original.shown;copy.shownImages=original.shownImages
             copy.shownColors=original.shownColors;copy.team=original.team;copy.geometryRevision=original.geometryRevision
-            copy.layers=original.layers.mapValues{detached($0)}
+            let id=original.root.name ?? ""
+            let previous=capturedSprites[id]
+            let reusable=previous?.0==original.geometryRevision
+            var geometries=[Int:SCNGeometry]()
+            for (index,node) in original.layers {
+                let detachedNode=detached(node,geometry:reusable ? previous?.1[index]:nil)
+                copy.layers[index]=detachedNode
+                geometries[index]=detachedNode.geometry
+            }
+            capturedSprites[id]=(original.geometryRevision,geometries)
             return copy
         }
+        for id in capturedSprites.keys where commander.billboards[id]==nil {capturedSprites.removeValue(forKey:id)}
         return Input(sceneRevision:commander.sceneRevision,terrainRevision:commander.terrainRevision,
             terrainFogRevision:commander.terrainFogRevision,terrain:terrain,
             billboards:billboards,overlays:(Array(commander.creepNodes.values)+Array(commander.worldSprites.nodes.values)).map{detached($0)},objectCount:commander.nodes.count)
