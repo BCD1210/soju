@@ -68,7 +68,8 @@ impl Nro {
         }
         let size = word(&header, 0x18);
         let bss = word(&header, 0x38);
-        if word(&header, 0x14) != 0 || size < 0x80 || size > MAX_IMAGE || bss > MAX_IMAGE - size {
+        if word(&header, 0x14) != 0 || !(0x80..=MAX_IMAGE).contains(&size) || bss > MAX_IMAGE - size
+        {
             return Err(Error::Size);
         }
         let mut segments = [Segment { offset: 0, size: 0 }; 3];
@@ -79,7 +80,7 @@ impl Nro {
             if offset < end || offset > size || length > size - offset {
                 return Err(Error::Segment);
             }
-            if i == 0 && (offset != 0 || length < 0x80 || length % 4 != 0) {
+            if i == 0 && (offset != 0 || length < 0x80 || !length.is_multiple_of(4)) {
                 return Err(Error::Text);
             }
             *segment = Segment {

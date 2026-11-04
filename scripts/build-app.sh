@@ -17,6 +17,8 @@ done
 for file in install.sh VERSION LICENSE NOTICE; do
   cp "$ROOT/$file" "$APP/Contents/Resources/soju/"
 done
+# Local Rust test executables and caches are not app resources.
+rm -rf "$APP/Contents/Resources/soju/tools/switch/core/target"
 find "$APP" -name __pycache__ -type d -prune -exec rm -rf {} +
 python3 - "$APP" "$VERSION" <<'PY'
 import plistlib, sys

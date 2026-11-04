@@ -125,3 +125,49 @@ cargo test --offline --manifest-path tools/switch/core/Cargo.toml
 Four synthetic unit tests cover image loading, malformed/truncated inputs,
 segment bounds and ABI bytes/zeroed memory. CI runs only pure Rust tests with
 no default features. The launcher still uses the Python runner.
+
+## Apple Hypervisor CPU: M1 bring-up
+
+The optional `hv` feature uses Apple's installed Hypervisor.framework SDK,
+without external crates. It creates one VM, a 64 KiB aligned host arena and one
+thread-affine vCPU. A synthetic AArch64 program runs at EL0 with stage-1
+translation disabled. Synchronous exceptions enter the EL1 vector; its HVC
+returns to the host, which reads ESR_EL1 and the preserved guest registers.
+Handled timer reads resume through ERET. CNTKCTL_EL1 disables direct EL0 timer
+access: CNTFRQ returns 19,200,000 Hz and CNTVCT is host monotonic elapsed time
+scaled to that frequency, starting at VM creation. This is not cycle-accurate.
+
+On this Apple Silicon Mac, the following signed synthetic tests passed:
+
+```sh
+cargo test --offline --manifest-path tools/switch/core/Cargo.toml --features hv
+bash scripts/test-switch-hv.sh
+```
+
+The first command runs five pure tests, leaving three hardware integration
+tests ignored. The script builds just the integration test executable, signs
+it ad-hoc with `com.apple.security.hypervisor`, verifies its signature and runs
+all three tests serially. It does not install or launch Soju, download anything,
+or change services. CI does not run hardware tests.
+
+Observed results:
+
+- `mov x0,#7; svc #0x26` at EL0 produces SVC 0x26 and x0=7 at the host;
+  resuming executes a second SVC with x0=9.
+- Three timer accesses trap: CNTFRQ returns 19,200,000 and successive CNTVCT
+  reads are monotonic. A pure test verifies nanoseconds-to-ticks scaling.
+- A looping guest is canceled by the two-second host watchdog. An undefined
+  instruction stops with an unsupported guest exception.
+
+This milestone does **not** connect the Rust NRO loader to the hypervisor,
+implement Horizon SVC services, stage-1 page tables, segment permissions,
+thread scheduling, GPU/Metal, audio or retail support. The small identity
+mapping is RWX at guest stage 2 and is only intended for trusted synthetic
+CPU tests. No game has been tested on this Rust backend. The existing Python
+runner and its established limitations remain the launcher execution path.
+
+Validation on 2026-11-03: the full Python suite ran 320 tests with 21 skips
+and only the known `test_only_attributed_commits_fail` failure. The Switch
+venv suite ran 92 tests with three optional tests skipped and no failures.
+`bash scripts/build-app.sh` built and signature-verified the native app; it
+was not installed or launched. All new game fixtures were synthetic.
