@@ -13,6 +13,7 @@ pub(super) const fn c(
 pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
     match kind {
         Kind::Empty => &[],
+        Kind::PlayHistory => play_history::COMMANDS,
         // The desktop profile is permanently on mains power with full charge.
         Kind::Power => {
             const {

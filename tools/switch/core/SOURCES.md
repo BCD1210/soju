@@ -140,3 +140,12 @@ https://github.com/switchbrew/libnx/blob/master/nx/source/services/psm.c
 The desktop profile reports constant full charge, full battery health and mains
 power. These are virtual-device values, not host battery telemetry. Unimplemented
 power-management commands remain errors.
+
+## Read-only play history
+
+https://switchbrew.org/wiki/Shared_Database_services#pdm:qry
+defines HOS 17 query commands and event/statistics array layouts. The runner
+currently records no play journal. Enumeration returns zero records without
+writing caller arrays; range queries report an empty range. Input/output arrays
+and flags are checked. Individual statistics commands 4/5 and journal recording
+remain unsupported, rather than returning invented timestamps or launch counts.

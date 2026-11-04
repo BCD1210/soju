@@ -9,6 +9,7 @@ mod error_tests;
 mod exit_tests;
 mod fonts;
 mod network;
+mod play_history;
 mod settings;
 mod shared;
 #[cfg(test)]
@@ -72,6 +73,7 @@ enum Kind {
     Random,
     Nifm,
     Network,
+    PlayHistory,
 }
 struct Object {
     kind: Kind,
@@ -180,6 +182,7 @@ impl Platform {
             "sfdnsres" => Kind::Dns,
             "csrng" => Kind::Random,
             "nifm:u" => Kind::Nifm,
+            "pdm:qry" => Kind::PlayHistory,
             _ => return Err(Error::Malformed("unknown platform service")),
         };
         self.session(kind, ctx)
