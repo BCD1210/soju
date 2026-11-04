@@ -6,6 +6,21 @@ import QuartzCore
 import CoreImage
 import Darwin
 import simd
+struct PreparedState {
+    let list:[Obj],units:[String:Obj],dirty:Set<String>
+    init(_ state:Obj,previous:Obj) {
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"State diff")
+        defer {os_signpost(.end,log:XRFrameMetrics.log,name:"State diff")}
+        list=state["units"] as? [Obj] ?? []
+        units=Dictionary(uniqueKeysWithValues:list.compactMap {unit in (unit["id"] as? String).map{($0,unit)}})
+        let old=Dictionary(uniqueKeysWithValues:(previous["units"] as? [Obj] ?? []).compactMap {unit in (unit["id"] as? String).map{($0,unit)}})
+        let reset=state["session"] as? String != previous["session"] as? String ||
+            !NSArray(array:state["playerColors"] as? [[Int]] ?? []).isEqual(to:previous["playerColors"] as? [[Int]] ?? [])
+        dirty=Set(units.compactMap {id,unit in
+            reset || old[id]==nil || !NSDictionary(dictionary:unit).isEqual(to:old[id]!) ? id:nil
+        })
+    }
+}
 extension Commander {
     func apply(_ s:Obj,_ f:Obj,prepared preparedState:PreparedState?=nil) {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"State apply")
