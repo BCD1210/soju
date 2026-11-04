@@ -272,3 +272,9 @@ The depth I/O test checks 8,192 colour pixels and 8,192 exact raw depth/stencil
 pixels across import without clear, depth writes, CPU overwrite/invalidation and
 subsequent rendering. ZF32_X24S8 padding is also checked. D24 still uses promoted
 floating depth while resident; conversion rounds to 24 bits on guest writeback.
+
+R32Uint nearest sampling now specializes an all-integer texture table to Metal
+`texture2d<uint>`; exact integer readback checks 1,024 pixels, including 1,
+0x3f800000, 0xdeadbeef and 0xffffffff. Mixed integer/float tables and integer linear
+filtering remain rejected. Two explicit BGRA/sRGB view tests add 2,048 pixels.
+Together the texture cases exercise all 43 entries of the texture crate's table.

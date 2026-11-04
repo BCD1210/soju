@@ -426,6 +426,47 @@ impl Backend {
                     .ok_or_else(|| Error("shader address overflow".into()))?;
                 let (mut vs, vh, vkey) = self.shader(va, memory, Stage::Vertex)?;
                 let (mut fs, fh, fkey) = self.shader(fa, memory, Stage::Fragment)?;
+                for shader in [&mut vs, &mut fs] {
+                    if !shader.uses_texture_table {
+                        continue;
+                    }
+                    let mut kinds = BTreeSet::new();
+                    for binding in &shader.texture_bindings {
+                        require(
+                            binding.texture_index <= r.get(0x157c)
+                                && binding.sampler_index <= r.get(0x1564),
+                            "texture pool index out of bounds",
+                        )?;
+                        let tic_address = r
+                            .address(0x1574)
+                            .checked_add(u64::from(binding.texture_index) * 32)
+                            .ok_or_else(|| Error("TIC address overflow".into()))?;
+                        let tic = Tic::parse(memory.read(tic_address, 32)?)?;
+                        let integer = tic.format() == soju_switch_texture::format::Format::R32Uint;
+                        kinds.insert(integer);
+                        if integer {
+                            let sampler_address = r
+                                .address(0x155c)
+                                .checked_add(u64::from(binding.sampler_index) * 32)
+                                .ok_or_else(|| Error("TSC address overflow".into()))?;
+                            let sampler = Tsc::parse(memory.read(sampler_address, 32)?)?;
+                            require(
+                                sampler.min_filter == 1 && sampler.mag_filter == 1,
+                                "integer sampling requires nearest filtering",
+                            )?;
+                        }
+                    }
+                    require(
+                        kinds.len() <= 1,
+                        "mixed integer/float texture tables unsupported",
+                    )?;
+                    if kinds.contains(&true) {
+                        shader.source = shader
+                            .source
+                            .replace("texture2d<float>", "texture2d<uint>")
+                            .replace("float4 texel =", "uint4 texel =");
+                    }
+                }
                 require(
                     fh.color_masks[..attachment_count as usize]
                         .iter()
@@ -825,10 +866,6 @@ impl Backend {
                         });
                         let key = key.0.iter().map(|v| format!("{v:02x}")).collect::<String>();
                         let file = self.file(data);
-                        require(
-                            tic.format() != soju_switch_texture::format::Format::R32Uint,
-                            "integer texture ABI not implemented",
-                        )?;
                         textures.push(format!("{{\"stage\":{stage},\"count\":{count},\"image\":{index},\"key\":{},\"width\":{},\"height\":{},\"metal\":{},\"row\":{},\"rows\":{},\"swizzle\":{:?},\"file\":{file}}}",quote(&key),tic.width,tic.height,metal,row,tic.surface().height,swizzle));
                     }
                     for index in samplers {

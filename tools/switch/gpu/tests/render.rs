@@ -1474,3 +1474,190 @@ fn depth_import_writeback_and_cpu_invalidation() {
     }
     eprintln!("depth import/writeback/CPU invalidation: checked=8192 color pixels and 8192 raw depth/stencil pixels");
 }
+
+#[test]
+fn unsigned_integer_texture_preserves_bits_through_sampling() {
+    let mut h = Harness::new();
+    let surface = Surface {
+        width: 2,
+        height: 2,
+        depth: 1,
+        bytes_per_block: 4,
+        block_height_log2: 0,
+        block_depth_log2: 0,
+    };
+    let values = [1u32, 0x3f800000, 0xdeadbeef, 0xffffffff];
+    let tex = h.alloc(
+        surface
+            .swizzle(
+                &values
+                    .into_iter()
+                    .flat_map(u32::to_le_bytes)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+    );
+    let tic = h.alloc(
+        [
+            0xfu32
+                | (4 << 7)
+                | (4 << 10)
+                | (4 << 13)
+                | (4 << 16)
+                | (2 << 19)
+                | (3 << 22)
+                | (4 << 25)
+                | (5 << 28),
+            tex as u32,
+            3 << 21,
+            0,
+            (1 << 23) | 1,
+            (1 << 31) | 1,
+            0,
+            0,
+        ]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect(),
+    );
+    let tsc = h.alloc(
+        [
+            2u32 | 2 << 3 | 2 << 6,
+            1 | 1 << 4 | 1 << 6,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect(),
+    );
+    let (mut e, _) = h.engine("uint-texture", [0.; 4]);
+    let target = h.alloc(vec![0; 4096]);
+    h.methods(
+        &mut e,
+        &[
+            (0x804, target as u32),
+            (0x810, 0xe4),
+            (0x2144, h.tex_fs as u32),
+            (0xf10, 1),
+            (0x1574, 0),
+            (0x1578, tic as u32),
+            (0x157c, 0),
+            (0x155c, 0),
+            (0x1560, tsc as u32),
+            (0x1564, 0),
+        ],
+    );
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    h.draw(&mut e, 6, false, false);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/uint-texture-checks");
+    h.backend.execute(&root, &mut h.memory).unwrap();
+    let target_surface = Surface {
+        width: 32,
+        height: 32,
+        ..surface
+    };
+    let raw = target_surface
+        .deswizzle(h.memory.read(target, 4096).unwrap())
+        .unwrap();
+    for (i, p) in raw.chunks_exact(4).enumerate() {
+        let expected = values[(i / 32 / 16) * 2 + (i % 32 / 16)];
+        assert_eq!(
+            u32::from_le_bytes(p.try_into().unwrap()),
+            expected,
+            "pixel {i}"
+        );
+    }
+    eprintln!("R32Uint nearest sampling: checked=1024 exact integer pixels");
+}
+
+#[test]
+fn bgra_views_and_srgb_sampling() {
+    let mut h = Harness::new();
+    let mut expected = BTreeMap::new();
+    for srgb in [false, true] {
+        let surface = Surface {
+            width: 1,
+            height: 1,
+            depth: 1,
+            bytes_per_block: 4,
+            block_height_log2: 0,
+            block_depth_log2: 0,
+        };
+        let tex = h.alloc(surface.swizzle(&[64, 128, 192, 255]).unwrap());
+        let tic = h.alloc(
+            [
+                8u32 | (2 << 7)
+                    | (2 << 10)
+                    | (2 << 13)
+                    | (2 << 16)
+                    | (4 << 19)
+                    | (3 << 22)
+                    | (2 << 25)
+                    | (5 << 28),
+                tex as u32,
+                3 << 21,
+                0,
+                (1 << 23) | ((srgb as u32) << 22),
+                1 << 31,
+                0,
+                0,
+            ]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect(),
+        );
+        let tsc = h.alloc(
+            [
+                2u32 | 2 << 3 | 2 << 6,
+                1 | 1 << 4 | 1 << 6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect(),
+        );
+        let (mut e, a) = h.engine("bgra", [0.; 4]);
+        h.methods(
+            &mut e,
+            &[
+                (0x2144, h.tex_fs as u32),
+                (0xf10, 1),
+                (0x1574, 0),
+                (0x1578, tic as u32),
+                (0x157c, 0),
+                (0x155c, 0),
+                (0x1560, tsc as u32),
+                (0x1564, 0),
+            ],
+        );
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+        expected.insert(
+            a,
+            if srgb {
+                [134u8, 55, 13, 255]
+            } else {
+                [192, 128, 64, 255]
+            },
+        );
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/bgra-checks");
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    for image in report.images {
+        assert!(image.rgba.chunks_exact(4).all(|p| p
+            .iter()
+            .zip(expected[&image.address])
+            .all(|(a, b)| a.abs_diff(b) <= 1)));
+    }
+    eprintln!("BGRA and BGRA sRGB texture views: checked=2048");
+}

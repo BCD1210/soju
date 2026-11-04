@@ -34,6 +34,14 @@ impl Tic {
             w[0] >> 31 == 0 && (0..4).all(|c| matches!((w[0] >> (19 + c * 3)) & 7, 0 | 2..=7)),
             "invalid TIC swizzle",
         )?;
+        require(
+            (0..4).all(|c| match (w[0] >> (19 + c * 3)) & 7 {
+                6 => ty == 4,
+                7 => ty != 4,
+                _ => true,
+            }),
+            "TIC constant-one type mismatch",
+        )?;
         let bc1 = matches!(
             format,
             soju_switch_texture::format::Format::Bc1RgbaUnorm
