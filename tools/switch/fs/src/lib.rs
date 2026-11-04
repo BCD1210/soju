@@ -8,6 +8,7 @@ pub mod bktr;
 pub mod cnmt;
 pub mod crypto;
 pub mod error;
+pub mod firmware;
 pub mod hfs0;
 pub mod keys;
 pub mod lz4;
@@ -19,6 +20,7 @@ pub mod pfs0;
 pub mod romfs;
 pub mod ticket;
 pub mod title;
+pub mod tzif;
 pub mod xci;
 
 pub use error::{Error, Result};

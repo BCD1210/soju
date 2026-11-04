@@ -89,8 +89,8 @@ fn run() -> Result<String, String> {
     let mut icon_out = None;
     let mut it = args.iter();
     let cmd = match it.next().map(String::as_str) {
-        Some(c @ ("info" | "title")) => c.to_string(),
-        _ => return Err("usage: soju-switch-fs info|title <game.nsp|game.xci|file.nca> --keys <prod.keys> [--title-keys <title.keys>] [--icon-out <icon.jpg>]".into()),
+        Some(c @ ("info" | "title" | "firmware")) => c.to_string(),
+        _ => return Err("usage: soju-switch-fs info|title|firmware <game.nsp|game.xci|file.nca|firmware folder> --keys <prod.keys> [--title-keys <title.keys>] [--icon-out <icon.jpg>]".into()),
     };
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -104,6 +104,17 @@ fn run() -> Result<String, String> {
     let file = file.ok_or("choose a game file")?;
     let prod = prod.ok_or("pass --keys with the prod.keys dumped from your own Switch")?;
     let keys = KeySet::load(&prod, title.as_deref()).map_err(|e| e.to_string())?;
+    if cmd == "firmware" {
+        let r = soju_switch_fs::firmware::scan(&file, &keys).map_err(|e| e.to_string())?;
+        let version = soju_switch_fs::firmware::system_version(&file, &r, &keys);
+        let titles = r.titles.iter().map(|(id, (v, c))| format!("{{\"title_id\":\"{id:016x}\",\"version\":{v},\"contents\":{}}}", c.len())).collect::<Vec<_>>().join(",");
+        let missing = r.missing_needed.iter().map(|(id, n)| format!("{{\"title_id\":\"{id:016x}\",\"name\":{}}}", json_str(n))).collect::<Vec<_>>().join(",");
+        let problems = r.problems.iter().map(|(f, e)| format!("{{\"file\":{},\"error\":{}}}", json_str(f), json_str(e))).collect::<Vec<_>>().join(",");
+        return Ok(format!(
+            "{{\"nca_count\":{},\"system_version\":{},\"titles\":[{}],\"missing_needed\":[{}],\"problems\":[{}]}}",
+            r.nca_count, version.map(|v| json_str(&v)).unwrap_or_else(|| "null".into()), titles, missing, problems
+        ));
+    }
     let f = std::fs::File::open(&file).map_err(|e| format!("cannot open the game file: {e}"))?;
     let ext = file.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
     // Common tickets inside the package supply title keys, so prod.keys alone is enough.

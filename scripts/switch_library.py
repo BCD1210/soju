@@ -82,6 +82,53 @@ def import_keys(base, prod, title_keys=None):
     return len(names)
 
 
+def firmware_dir(base):
+    return Path(base) / 'switch/firmware'
+
+
+def import_firmware(base, folder):
+    """Check the player's own firmware dump with their keys, then keep a private copy."""
+    tool, prod = fs_tool(), key_dir(base) / 'prod.keys'
+    if not tool:
+        raise ValueError("Run 'soju switch setup' first (it builds the Switch file reader).")
+    if not prod.is_file():
+        raise ValueError("Import your keys first: soju switch import-keys <prod.keys>")
+    folder = Path(folder)
+    if not folder.is_dir():
+        raise ValueError('Choose the folder of your firmware dump (extract the ZIP first).')
+    done = subprocess.run([str(tool), 'firmware', str(folder), '--keys', str(prod)], capture_output=True, text=True, timeout=600)
+    if done.returncode != 0:
+        raise ValueError(done.stderr.strip()[:300] or 'This folder could not be read as a firmware dump.')
+    report = json.loads(done.stdout)
+    if report['problems'] or not report['titles']:
+        raise ValueError(f"{len(report['problems'])} of {report['nca_count']} files could not be opened with your keys. "
+                         'Dump the firmware and keys again from the same console.')
+    version = report.get('system_version') or 'unknown'
+    if not re.fullmatch(r'[0-9A-Za-z._-]{1,32}', version):
+        version = 'unknown'
+    target = firmware_dir(base) / version
+    Path(base).mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix='.firmware-', dir=base))
+    try:
+        os.chmod(staging, 0o700)
+        for item in sorted(folder.iterdir()):
+            if item.is_symlink() or not item.name.endswith('.nca'):
+                continue
+            source = item / '00' if item.is_dir() else item
+            if source.is_file():
+                shutil.copyfile(source, staging / item.name)
+                os.chmod(staging / item.name, 0o600)
+        (staging / 'report.json').write_text(json.dumps(report))
+        firmware_dir(base).mkdir(parents=True, exist_ok=True, mode=0o700)
+        if target.exists():
+            shutil.rmtree(target)
+        os.replace(staging, target)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    return version, report
+
+
 def retail_info(base, path, uid):
     """Name, icon, kind and version of an NSP/XCI, cached per file id. None without keys/tool."""
     cache = meta_dir(base) / (uid.split(':', 1)[1] + '.json')
@@ -217,6 +264,7 @@ def main():
     commands.add_parser('import').add_argument('file')
     commands.add_parser('list').add_argument('--json', action='store_true')
     commands.add_parser('remove').add_argument('id')
+    commands.add_parser('import-firmware').add_argument('folder')
     keys = commands.add_parser('import-keys')
     keys.add_argument('prod_keys')
     keys.add_argument('title_keys', nargs='?')
@@ -227,6 +275,11 @@ def main():
             print(import_file(base, args.file))
         elif args.action == 'remove':
             remove(base, args.id)
+        elif args.action == 'import-firmware':
+            version, report = import_firmware(base, args.folder)
+            print(f"Imported firmware {version}: {report['nca_count']} files, {len(report['titles'])} system titles.")
+            for item in report['missing_needed']:
+                print(f"  missing {item['name']} ({item['title_id']}): some games may not start without it")
         elif args.action == 'import-keys':
             count = import_keys(base, args.prod_keys, args.title_keys)
             print(f'Imported {count} keys (values are never shown). Stored with owner-only access.')
