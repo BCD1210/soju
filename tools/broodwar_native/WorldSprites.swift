@@ -76,6 +76,18 @@ final class UnitBillboard {
                 contact=max(0,(number(records[frame],"oy")+number(records[frame],"h"))/number(entry,"scale")-number(entry,"grpHeight")/2+number(main,"offsetY"))/32
             }
         }
+        var buildingLift:Float=0
+        if perspective,unit["building"] as? Bool == true,unit["airborne"] as? Bool != true,
+           let entry=art.images[String(Int(number(main,"id")))],let records=entry["frames"] as? [Obj] {
+            let (frame,_)=Self.viewFrame(main,azimuth:azimuth,count:records.count)
+            let id=Int(number(main,"id"))
+            let key="\(id)/\(frame)"
+            if art.relief.contactHeights[key]==nil {_ = art.relief.geometry(id,frame:frame,art:art)}
+            if let minimum=art.relief.contactHeights[key] {
+                let oy=(number(main,"offsetY")+Double(Int(number(entry,"grpHeight"))%2)/2)/32
+                buildingLift = -minimum+Float(oy*cos(Terrain3D.canonicalElevation))
+            }
+        }
         evidence=[]
         for (index,native) in nativeLayers.sorted(by:{$0.key<$1.key}) {
             guard let node=layers[index],let entry=art.images[String(Int(number(native,"id")))],
@@ -105,7 +117,7 @@ final class UnitBillboard {
             } else {
                 node.simdOrientation=rotation
                 let offset=rotation.act(SIMD3<Float>(Float(ox),Float(-oy),0))
-                node.simdPosition=offset+SIMD3<Float>(0,node.geometry is SCNPlane ? Float(contact):0,0)
+                node.simdPosition=offset+SIMD3<Float>(0,node.geometry is SCNPlane ? Float(contact):buildingLift,0)
             }
             node.scale.x=mirrored ? -1:1
             if !(node.geometry is SCNPlane),let material=node.geometry?.firstMaterial {
@@ -118,7 +130,7 @@ final class UnitBillboard {
             }
             evidence.append(["image":number(native,"id"),"frame":frame,"nativeFrame":number(native,"frame"),
                 "frameset":number(native,"frameset"),"mirrored":mirrored,"observerAzimuth":azimuth,
-                "shadow":shadow,"relief":!(node.geometry is SCNPlane),"contactLift":contact,"position":[node.position.x,node.position.y,node.position.z]])
+                "shadow":shadow,"relief":!(node.geometry is SCNPlane),"contactLift":contact,"buildingLift":buildingLift,"position":[node.position.x,node.position.y,node.position.z]])
         }
     }
     func projectedLayers(view:SCNView,art:WorldSprites)->[Obj] {

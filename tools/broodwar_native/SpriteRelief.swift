@@ -9,6 +9,8 @@ final class SpriteRelief {
     let dataTextures=ResidentCache<MTLTexture>(limit:256*1024*1024)
     let materials=ResidentCache<SCNMaterial>(limit:2048)
     var meshes=[String:SCNGeometry](),depthAtlases=[String:NSBitmapImageRep]()
+    var contactHeights=[String:Float]()
+    let alphaAtlases=ResidentCache<NSBitmapImageRep>(limit:128*1024*1024)
     static let sun=SIMD3<Float>(-0.22033581,0.89032002,0.39847509)
     static let reference=SIMD3<Float>(-0.22033581,0.54387457,0.80972377)
     func geometry(_ id:Int,frame:Int,art:WorldSprites)->SCNGeometry? {
@@ -24,6 +26,14 @@ final class SpriteRelief {
             depth=loaded
             if depthAtlases.count>40 {depthAtlases.removeAll()};depthAtlases[file]=loaded
         }
+        var alpha:NSBitmapImageRep?
+        if let file=entry["file"] as? String {
+            alpha=alphaAtlases.get(file)
+            if alpha==nil,let data=try? Data(contentsOf:art.folder.appendingPathComponent(file)),let bitmap=NSBitmapImageRep(data:data) {
+                alpha=bitmap;alphaAtlases.insert(bitmap,key:file,bytes:bitmap.bytesPerRow*bitmap.pixelsHigh)
+            }
+        }
+        var minimum=Double.infinity
         let f=records[frame],w=Int(number(f,"w")),h=Int(number(f,"h")),scale=number(entry,"scale"),unit=scale*32
         guard w>0,h>0,unit>0 else {return nil}
         let cw=number(entry,"grpWidth")*scale,ch=number(entry,"grpHeight")*scale
@@ -37,7 +47,12 @@ final class SpriteRelief {
             let base=max(0,(number(f,"oy")+Double(h)-ch/2)/unit)/tan(Terrain3D.canonicalElevation)
             let z=base+Double(sample[0])*0.5/unit
             let u=(number(f,"ox")+px)/cw,v=(number(f,"oy")+py)/ch
-            vertices.append(SCNVector3((u-0.5)*cw/unit,(0.5-v)*ch/unit,z))
+            let localY=(0.5-v)*ch/unit
+            vertices.append(SCNVector3((u-0.5)*cw/unit,localY,z))
+            if let alpha=alpha {
+                var coverage=[Int](repeating:0,count:4);alpha.getPixel(&coverage,atX:ax,y:ay)
+                if coverage[3]>=16 {minimum=min(minimum,localY*cos(Terrain3D.canonicalElevation)+z*sin(Terrain3D.canonicalElevation))}
+            }
             uv.append(CGPoint(x:u,y:v))
         }}
         for y in 0..<ny {for x in 0..<nx {
@@ -46,6 +61,7 @@ final class SpriteRelief {
         }}
         let mesh=SCNGeometry(sources:[SCNGeometrySource(vertices:vertices),SCNGeometrySource(textureCoordinates:uv)],
                              elements:[SCNGeometryElement(indices:indices,primitiveType:.triangles)])
+        contactHeights[key]=minimum.isFinite ? Float(minimum):0
         if meshes.count>512 {meshes.removeAll()};meshes[key]=mesh
         return mesh.copy() as? SCNGeometry
     }
