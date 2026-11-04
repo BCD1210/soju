@@ -222,6 +222,27 @@ enum Launcher: String, CaseIterable, Identifiable {
         run(["switch", "import", url.path], title: "Importing Switch game…")
     }
 
+    func importSwitchKeys() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose the prod.keys dumped from your own Switch"
+        panel.message = "Soju checks the file format and stores it so only you can read it. Key values are never shown."
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        let prod = panel.urls.first { $0.lastPathComponent.lowercased() == "prod.keys" } ?? panel.urls[0]
+        let title = panel.urls.first { $0.lastPathComponent.lowercased() == "title.keys" }
+        run(["switch", "import-keys", prod.path] + (title.map { [$0.path] } ?? []), title: "Importing your Switch keys…")
+    }
+
+    func importSwitchFirmware() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose the folder of your own Switch firmware dump"
+        panel.message = "Extract the ZIP first. Soju opens every file with your keys before keeping a private copy."
+        panel.canChooseDirectories = true; panel.canChooseFiles = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        run(["switch", "import-firmware", url.path], title: "Importing your Switch firmware…")
+    }
+
     func addGPTK() {
         let panel = NSOpenPanel()
         panel.title = "Choose the mounted Game Porting Toolkit volume or payload"
@@ -338,8 +359,15 @@ struct PlatformsView: View {
                     .font(.system(size: 10)).foregroundStyle(.tertiary)
                 Spacer()
                 if launcher == .switch {
-                    Button("Setup") { model.run(["switch", "setup"], title: "Setting up Switch homebrew…") }.disabled(model.busy)
-                    Button("Add game file", action: model.addSwitchGame).disabled(model.busy)
+                    Button("Add game", action: model.addSwitchGame).disabled(model.busy).fixedSize()
+                    Menu("Set up") {
+                        Button("Set up the Switch runner") { model.run(["switch", "setup"], title: "Setting up Switch…") }
+                        Divider()
+                        Button("Import prod.keys…", action: model.importSwitchKeys)
+                        Button("Import firmware folder…", action: model.importSwitchFirmware)
+                    }
+                    .fixedSize().disabled(model.busy)
+                    .help("Keys and firmware must be dumped from your own Switch. Soju never downloads them.")
                 } else if installed && !launcher.opensAWindow {
                     Button(model.accountSummaries.contains { $0.platform == launcher } ? "Manage…" : "Sign In…") { model.requestedPage = "accounts" }
                         .accessibilityLabel("Open Accounts for " + launcher.title)
