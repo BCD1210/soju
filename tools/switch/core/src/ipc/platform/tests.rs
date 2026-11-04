@@ -266,3 +266,44 @@ fn firmware_fonts_and_descriptor_rejection() {
     assert!(h.call(pl, r).is_err());
     assert!(h.call(set, req(3, vec![])).is_err());
 }
+
+#[test]
+fn joy_hold_type_round_trips_and_rejects_reserved_values() {
+    let mut h = Harness::new();
+    let hid = h.open("hid");
+    for value in [0u64, 1] {
+        h.call(
+            hid,
+            req(
+                120,
+                [1u64, value]
+                    .into_iter()
+                    .flat_map(u64::to_le_bytes)
+                    .collect(),
+            ),
+        )
+        .unwrap();
+        assert_eq!(
+            h.call(hid, req(121, 1u64.to_le_bytes().to_vec()))
+                .unwrap()
+                .data,
+            value.to_le_bytes()
+        );
+    }
+    assert!(
+        h.call(
+            hid,
+            req(
+                120,
+                [1u64, 2].into_iter().flat_map(u64::to_le_bytes).collect()
+            )
+        )
+        .is_err()
+    );
+    assert_eq!(
+        h.call(hid, req(121, 1u64.to_le_bytes().to_vec()))
+            .unwrap()
+            .data,
+        1u64.to_le_bytes()
+    );
+}

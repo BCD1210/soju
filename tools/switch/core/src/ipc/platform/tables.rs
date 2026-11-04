@@ -192,6 +192,17 @@ const HID: &[CommandSpec<Platform>] = &[
     c(102, 8, success),
     c(103, 8, success),
     c(109, 16, success),
+    c(120, 16, |s, r, _| {
+        let hold = r.u64(8)?;
+        if hold > 1 {
+            return Err(Error::Malformed("Npad hold type"));
+        }
+        s.joy_hold_type = hold;
+        Ok(Reply::success())
+    }),
+    c(121, 8, |s, _, _| {
+        Ok(Reply::data(s.joy_hold_type.to_le_bytes().to_vec()))
+    }),
     c(124, 8, success),
     c(201, 24, success),
     c(203, 0, |s, _, x| s.child(Kind::Vibration, x)),
