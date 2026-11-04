@@ -1,0 +1,5 @@
+# Tested private-runtime reconstruction environment; no game artwork dependencies.
+Pillow==13.0.0
+numpy==2.5.4
+scipy==1.18.1
+scikit-image==0.26.0
