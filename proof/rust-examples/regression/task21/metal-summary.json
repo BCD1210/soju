@@ -1,0 +1,24 @@
+{
+  "before": {
+    "target_exit_status": "0",
+    "recording_seconds": 10.761064,
+    "excluded_other_process_intervals": 805,
+    "events": {
+      "Encoding": {
+        "count": 1491,
+        "ms": 893.415525
+      }
+    }
+  },
+  "after": {
+    "target_exit_status": "0",
+    "recording_seconds": 9.193955,
+    "excluded_other_process_intervals": 864,
+    "events": {
+      "Encoding": {
+        "count": 1505,
+        "ms": 804.924831
+      }
+    }
+  }
+}

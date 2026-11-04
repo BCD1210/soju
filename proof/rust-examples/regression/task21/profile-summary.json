@@ -1,0 +1,244 @@
+{
+  "before": {
+    "cpu_leaf_ms": {
+      "_platform_memcmp": 935.0,
+      "_platform_memmove": 921.0,
+      "soju_switch_texture::Surface::swizzle_into::h4b0688a787c07e8e": 668.0,
+      "__bzero": 377.0,
+      "<deduplicated_symbol>": 264.0,
+      "soju_switch_core::ipc::media::frame::GraphicBuffer::pixels::hb271101d84dedc67": 253.0,
+      "_$LT$alloc..collections..btree..map..BTreeMap$LT$K$C$V$C$A$GT$$u20$as$u20$core..cmp..PartialEq$GT$::eq::hc338e409e7c2eaf9": 206.0,
+      "void AGX::Texture<(AGXTextureMemoryLayout)3, AGX::HAL200::Encoders, AGX::HAL200::Classes>::processCompressedRegion2D<AGX::AppleCompressionGen2::Compressor<(AGX::AppleCompressionGen2::PixelFormat)15, 1u, (unsigned char)1, (AGX::AppleCompressionGen2::SubblockOrder)0, (AGXTextureFootprint)0>, true, (AGXHardwareTextureMemoryOrder)2>(void*, void const*, void*, MTLPixelFormat, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned long, unsigned int, unsigned int) const": 172.0,
+      "soju_switch_gpu::backend::Backend::prepare_state::haf5716d059c44a96": 132.0,
+      "_$LT$soju_switch_core..memory..MemoryImage$u20$as$u20$soju_switch_core..memory..GuestMemory$GT$::contiguous::h14b62c37f484b26b": 121.0,
+      "soju_switch_gpu::backend::Backend::readback_inner::h4ff193a8ae8661ce": 110.0,
+      "alloc::collections::btree::navigate::_$LT$impl$u20$alloc..collections..btree..node..NodeRef$LT$BorrowType$C$K$C$V$C$alloc..collections..btree..node..marker..LeafOrInternal$GT$$GT$::find_leaf_edges_spanning_range::hd124186d147072c7": 110.0,
+      "soju_switch_core::memory::MemoryImage::change::hffb023efeba460e5": 97.0,
+      "_$LT$core..hash..sip..Hasher$LT$S$GT$$u20$as$u20$core..hash..Hasher$GT$::write::h61ee670a2cc41b11": 97.0,
+      "soju_switch_gpu::memory::Memory::read::h39c7725e013b5d1f": 88.0,
+      "alloc::collections::btree::navigate::_$LT$impl$u20$alloc..collections..btree..node..NodeRef$LT$BorrowType$C$K$C$V$C$alloc..collections..btree..node..marker..LeafOrInternal$GT$$GT$::find_leaf_edges_spanning_range::h462bab7d5f629975": 81.0,
+      "soju_switch_gpu::engine::Registers::get::hdcc0300657427f31": 80.0,
+      "specialized __RawDictionaryStorage.find<A>(_:hashValue:)": 74.0,
+      "core::str::pattern::TwoWaySearcher::next::h7ecdb5060e482c48": 70.0,
+      "soju_switch_gpu::memory::Memory::generation::hb6ddd850f28cd478": 69.0
+    },
+    "signposts": {
+      "buffer_upload": {
+        "calls": 9006,
+        "ms": 48.673597
+      },
+      "commit": {
+        "calls": 302,
+        "ms": 545.236623
+      },
+      "decode": {
+        "calls": 302,
+        "ms": 3.934703
+      },
+      "gpu_completion": {
+        "calls": 302,
+        "ms": 442.591755
+      },
+      "guest": {
+        "calls": 3684,
+        "ms": 53.06941
+      },
+      "ipc": {
+        "calls": 1075,
+        "ms": 6183.589998
+      },
+      "macro": {
+        "calls": 6,
+        "ms": 0.011292
+      },
+      "native_readback": {
+        "calls": 302,
+        "ms": 884.724329
+      },
+      "native_run": {
+        "calls": 302,
+        "ms": 811.427877
+      },
+      "native_startup": {
+        "calls": 1,
+        "ms": 19.251625
+      },
+      "nv_ioctl": {
+        "calls": 386,
+        "ms": 5553.176826
+      },
+      "pipeline_creation": {
+        "calls": 1,
+        "ms": 0.232458
+      },
+      "prepare": {
+        "calls": 19500,
+        "ms": 873.278447
+      },
+      "present": {
+        "calls": 300,
+        "ms": 604.50704
+      },
+      "readback": {
+        "calls": 302,
+        "ms": 2087.854974
+      },
+      "rendezvous": {
+        "calls": 9977,
+        "ms": 3.338232
+      },
+      "shader_compile": {
+        "calls": 1,
+        "ms": 0.920541
+      },
+      "shader_discovery": {
+        "calls": 19200,
+        "ms": 33.161398
+      },
+      "shader_translation": {
+        "calls": 2,
+        "ms": 0.338751
+      },
+      "snapshot": {
+        "calls": 302,
+        "ms": 903.022545
+      },
+      "submit": {
+        "calls": 302,
+        "ms": 898.264332
+      },
+      "svc": {
+        "calls": 1732,
+        "ms": 180.269522
+      },
+      "texture_upload": {
+        "calls": 4,
+        "ms": 8.774209
+      }
+    },
+    "unmatched_begin": 0
+  },
+  "after": {
+    "cpu_leaf_ms": {
+      "_platform_memcmp": 935.0,
+      "soju_switch_texture::Surface::swizzle_into::h4b0688a787c07e8e": 671.0,
+      "_platform_memmove": 586.0,
+      "__bzero": 326.0,
+      "_$LT$alloc..collections..btree..map..BTreeMap$LT$K$C$V$C$A$GT$$u20$as$u20$core..cmp..PartialEq$GT$::eq::hc338e409e7c2eaf9": 201.0,
+      "soju_switch_core::ipc::media::frame::GraphicBuffer::pixels::hb271101d84dedc67": 164.0,
+      "soju_switch_gpu::backend::Backend::prepare_state::haf5716d059c44a96": 149.0,
+      "soju_switch_gpu::backend::Backend::readback_inner::h4ff193a8ae8661ce": 143.0,
+      "core::ptr::drop_in_place$LT$soju_switch_core..ipc..types..Error$GT$::h662d9e17fade2cee": 123.0,
+      "_$LT$soju_switch_core..memory..MemoryImage$u20$as$u20$soju_switch_core..memory..GuestMemory$GT$::contiguous::h14b62c37f484b26b": 117.0,
+      "_$LT$core..hash..sip..Hasher$LT$S$GT$$u20$as$u20$core..hash..Hasher$GT$::write::h61ee670a2cc41b11": 111.0,
+      "soju_switch_core::memory::MemoryImage::change::hffb023efeba460e5": 95.0,
+      "specialized __RawDictionaryStorage.find<A>(_:hashValue:)": 74.0,
+      "soju_switch_gpu::engine::Registers::get::hdcc0300657427f31": 69.0,
+      "iokit_user_client_trap": 65.0,
+      "<deduplicated_symbol>": 61.0,
+      "soju_switch_gpu::memory::Memory::read::h39c7725e013b5d1f": 61.0,
+      "DYLD-STUB$$memcpy": 60.0,
+      "_xzm_free": 51.0,
+      "core::str::pattern::TwoWaySearcher::next::h7ecdb5060e482c48": 49.0
+    },
+    "signposts": {
+      "attachment_completion": {
+        "calls": 302,
+        "ms": 130.340747
+      },
+      "buffer_upload": {
+        "calls": 9006,
+        "ms": 54.798861
+      },
+      "commit": {
+        "calls": 302,
+        "ms": 298.911378
+      },
+      "decode": {
+        "calls": 302,
+        "ms": 4.167706
+      },
+      "gpu_completion": {
+        "calls": 302,
+        "ms": 282.841035
+      },
+      "guest": {
+        "calls": 3683,
+        "ms": 41.820502
+      },
+      "ipc": {
+        "calls": 1075,
+        "ms": 5097.122023
+      },
+      "macro": {
+        "calls": 6,
+        "ms": 0.008708
+      },
+      "native_readback": {
+        "calls": 302,
+        "ms": 294.522415
+      },
+      "native_run": {
+        "calls": 302,
+        "ms": 671.307498
+      },
+      "native_startup": {
+        "calls": 1,
+        "ms": 17.60775
+      },
+      "nv_ioctl": {
+        "calls": 386,
+        "ms": 4446.040894
+      },
+      "pipeline_creation": {
+        "calls": 1,
+        "ms": 0.27275
+      },
+      "prepare": {
+        "calls": 19500,
+        "ms": 857.937366
+      },
+      "present": {
+        "calls": 300,
+        "ms": 620.239214
+      },
+      "readback": {
+        "calls": 302,
+        "ms": 1318.37921
+      },
+      "rendezvous": {
+        "calls": 9974,
+        "ms": 3.202738
+      },
+      "shader_compile": {
+        "calls": 1,
+        "ms": 1.469333
+      },
+      "shader_discovery": {
+        "calls": 19200,
+        "ms": 27.59809
+      },
+      "shader_translation": {
+        "calls": 2,
+        "ms": 0.254667
+      },
+      "snapshot": {
+        "calls": 302,
+        "ms": 918.755376
+      },
+      "submit": {
+        "calls": 302,
+        "ms": 811.709559
+      },
+      "svc": {
+        "calls": 1732,
+        "ms": 178.281643
+      },
+      "texture_upload": {
+        "calls": 4,
+        "ms": 7.990708
+      }
+    },
+    "unmatched_begin": 0
+  }
+}

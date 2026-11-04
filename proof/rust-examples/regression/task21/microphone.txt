@@ -1,0 +1,7 @@
+authorization_before=0
+authorization_after=0 engine_open=0
+
+System audio enumeration: two output devices, zero devices exposing input channels.
+The probe timed out with permission undetermined; no AVAudioEngine capture was established. Neither authorized live capture nor a real denied-permission run is proven.
+The existing audin:u silence test passed: a 192-byte stereo PCM16 buffer at 48 kHz is held for 1 ms of running time. After pause/resume, the event is unset at 10,499,999 ns; PCM is zeroed before signaling at 10,500,000 ns. This is simulated-clock evidence, not live capture timing.
+No recorded audio was written.

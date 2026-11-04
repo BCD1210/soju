@@ -1,0 +1,11 @@
+PASS|device|rc=00000000
+PASS|CPU reads first GPU clear after fence|rc=00000000
+PASS|GPU write preserves adjacent CPU guard|rc=00000000
+PASS|CPU reads second GPU clear after fence|rc=00000000
+PASS|GPU write preserves adjacent CPU guard|rc=00000000
+TOTAL|checks=5|failures=0
+PROFILE|elapsed_ms=289.970|max_parallel=1|timer_preemptions=1
+SCHEDULER|parallel_waves=0|single_waves=114
+exit0|probe-complete
+
+Mutation: removing the GPU clear produced two failed CPU-read checks and nonzero process status. Source restored and the normal probe passed again.

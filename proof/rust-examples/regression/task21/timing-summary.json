@@ -1,0 +1,38 @@
+{
+  "before-gears": {
+    "intervals": 299,
+    "first_interval_ms": 523.756584,
+    "mean_ms": 13.06152675585285,
+    "p50_ms": 12.618083,
+    "p95_ms": 15.458,
+    "p99_ms": 22.855291,
+    "over_17_5_ms": 10
+  },
+  "after-gears": {
+    "intervals": 299,
+    "first_interval_ms": 363.8585,
+    "mean_ms": 11.775093923076927,
+    "p50_ms": 11.265292,
+    "p95_ms": 14.432333,
+    "p99_ms": 19.670334,
+    "over_17_5_ms": 4
+  },
+  "before-dynamic": {
+    "intervals": 299,
+    "first_interval_ms": 393.35141600000003,
+    "mean_ms": 20.21481786622073,
+    "p50_ms": 19.853125,
+    "p95_ms": 22.921875,
+    "p99_ms": 28.796374999999998,
+    "over_17_5_ms": 299
+  },
+  "after-dynamic": {
+    "intervals": 299,
+    "first_interval_ms": 381.707833,
+    "mean_ms": 16.7126528729097,
+    "p50_ms": 16.15075,
+    "p95_ms": 19.447166,
+    "p99_ms": 21.915792,
+    "over_17_5_ms": 43
+  }
+}
