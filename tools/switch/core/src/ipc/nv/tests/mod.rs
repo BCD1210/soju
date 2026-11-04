@@ -7,6 +7,8 @@ use crate::{
 mod commit;
 mod ioctls;
 mod lifetime;
+#[cfg(target_os = "macos")]
+mod metal;
 mod submission;
 struct Fixture {
     nv: Nv,

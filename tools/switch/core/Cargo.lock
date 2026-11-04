@@ -278,6 +278,7 @@ dependencies = [
  "sha2",
  "soju-switch-audio",
  "soju-switch-fs",
+ "soju-switch-gpu",
  "soju-switch-input",
 ]
 
@@ -290,7 +291,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "soju-switch-gpu"
+version = "0.1.0"
+dependencies = [
+ "soju-switch-shader",
+ "soju-switch-texture",
+]
+
+[[package]]
 name = "soju-switch-input"
+version = "0.1.0"
+
+[[package]]
+name = "soju-switch-shader"
+version = "0.1.0"
+
+[[package]]
+name = "soju-switch-texture"
 version = "0.1.0"
 
 [[package]]

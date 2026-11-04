@@ -4,6 +4,7 @@ mod control;
 mod gpu;
 mod ioctl;
 mod memory;
+mod metal;
 mod nvmap;
 mod queries;
 mod service;
@@ -48,6 +49,7 @@ struct Channel {
 #[derive(Default)]
 pub struct Nv {
     pending: BTreeMap<u64, submit::Pending>,
+    metal: BTreeMap<u32, metal::Renderer>,
     next_transaction: u64,
     next_fd: u32,
     sessions: BTreeSet<ObjectId>,
@@ -110,6 +112,7 @@ impl Nv {
     }
     fn remove_fd(&mut self, fd: u32) {
         self.files.remove(&fd);
+        self.metal.remove(&fd);
         if let Some(channel) = self.channels.remove(&fd)
             && let Some(event) = channel.event
         {

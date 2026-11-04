@@ -6,6 +6,7 @@ license = "GPL-3.0-or-later"
 publish = false
 
 [dependencies]
+soju-switch-gpu = { path = "../gpu" }
 soju-switch-fs = { path = "../fs" }
 soju-switch-audio = { path = "../audio" }
 soju-switch-input = { path = "../input" }

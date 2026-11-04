@@ -5,6 +5,7 @@ pub(super) struct Pending {
     pub fd: u32,
     pub state: gpu::ExecutionState,
     pub fence: u32,
+    pub metal: bool,
 }
 pub(super) struct Access<'a> {
     pub space: &'a memory::AddressSpace,
@@ -80,7 +81,11 @@ fn submit(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error>
         || read_u32(&args, 16)? != 0
         || read_u32(&args, 20)? != 1
     {
-        return Err(Error::Malformed("CPU GPU submission contract"));
+        return Err(Error::Message(format!(
+            "GPU submission contract: count={count} flags={flags:#x} fence={}:{}",
+            read_u32(&args, 16)?,
+            read_u32(&args, 20)?
+        )));
     }
     let mut protected = vec![
         (arguments.address, arguments.len),
@@ -122,8 +127,16 @@ fn submit(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error>
         space,
         memory: c.memory,
     };
-    let mut staged = channel.execution.stage(&methods, &access)?;
-    let writes = super::commit::prepare(&staged, fd, &access, &protected)?;
+    let metal = std::env::var_os("SOJU_SWITCH_GPU").is_some_and(|v| v == "metal");
+    let (mut staged, writes) = if metal {
+        let renderer = nv.metal.entry(fd).or_default();
+        let writes = renderer.submit(&methods, fd, &access, &protected)?;
+        (channel.execution.clone(), writes)
+    } else {
+        let staged = channel.execution.stage(&methods, &access)?;
+        let writes = super::commit::prepare(&staged, fd, &access, &protected)?;
+        (staged, writes)
+    };
     let fence = channel.completed + 1;
     let mut result = args;
     put32(&mut result, 16, fd);
@@ -140,6 +153,7 @@ fn submit(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error>
             fd,
             state: staged,
             fence,
+            metal,
         },
     );
     let mut reply = Reply::data(vec![0; 4]).write(output, result)?;
@@ -167,7 +181,7 @@ impl Nv {
             .channels
             .get_mut(&pending.fd)
             .ok_or(Error::Malformed("closed GPU transaction channel"))?;
-        if rollback_failed {
+        if rollback_failed || (pending.metal && !committed) {
             channel.faulted = true;
             if let Some(event) = channel.event {
                 c.kernel.signal_event(event).map_err(Error::Kernel)?;

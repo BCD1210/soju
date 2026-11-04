@@ -98,7 +98,11 @@ pub(super) fn prepare(
     }
     Ok(writes)
 }
-fn validate_target(address: u64, size: usize, protected: &[(u64, u64)]) -> Result<(), Error> {
+pub(super) fn validate_target(
+    address: u64,
+    size: usize,
+    protected: &[(u64, u64)],
+) -> Result<(), Error> {
     let size = u64::try_from(size).map_err(|_| Error::Malformed("GPU write size"))?;
     if protected
         .iter()
