@@ -2,7 +2,7 @@
 
 Updated 2026-11-04 UTC. This is a continuation checkpoint, not a claim of complete Brood War/VR support.
 
-Latest partial continuation: [presentation and commander checkpoint](BROODWAR-M3-CHECKPOINT.md).
+Latest partial continuation: [M15 command and visual checkpoint](BROODWAR-M15-CHECKPOINT.md).
 See that report for the delivery gate, desktop controls, new command endpoints,
 evidence and the live-client blocker. The older verification below predates it.
 
@@ -31,7 +31,7 @@ Both desktop ARM64 and OpenXR x86_64 builds pass. 25 Python/Swift map/transport/
 
 ## Work still required
 
-1. Complete production and ability controls: Zerg larva/building morph, addon, research/upgrade, spell targeting, transport/unload and full per-unit action UI. Current shortcuts expose only a subset; do not claim all-race gameplay is complete.
+1. Finish exact native command-card parity and controller acceptance. M15 verifies native outcomes for 17 Zerg morphs, six Terran addons, 24 research entries, 50 upgrades, 24 spells, transport, rally, modes and cancellation. The selected card now queries native prerequisites and costs, but candidate relationships remain curated; specialized commands and full native buttonset parity remain open. See the M15 per-command evidence table. Do not claim all-race gameplay is complete.
 2. Import all final Dots source deliveries without discarding originals; map every unit/form/clip/effect and verify authored scale, pivot, turret and team-material conventions. Final assets have not been supplied/approved. Existing eight-type fixtures cannot establish all-unit visual coverage.
 3. Validate other terrain layouts/tilesets, broader live state transitions and large armies. Protocol currently caps 4096 visible objects and 2 MiB total response; oversized data is rejected atomically. Fragmented transport has synthetic 2 MiB tests, not full-size live stress acceptance.
 4. Finish authored combat/ability visuals; procedural projectile/muzzle/impact markers remain fallbacks. Native data exists, but visual fidelity and specialized effect timing need actual assets.

@@ -38,8 +38,10 @@ Read-only additions: `unit_types` returns native units.dat properties/costs;
 `loneSprites` with native image chains. Owned buildings expose `rally` coordinates
 and a visibility-filtered target handle. The Pylon union is excluded.
 
-Targeted spells and individual-passenger unload remain unsupported. Wrist
-command cards cover common producer relationships and named abilities; their
-full technology/requirement coverage and controller gesture acceptance remain
-open. units.dat supplies unit costs and properties, not the complete command-card
-relationships. See the M4 checkpoint for exact live evidence and remaining gaps.
+M15 verifies 24 targeted spells through native energy/effect transitions and
+load/unload-all through cargo counts for Dropship, Shuttle and upgraded Overlord.
+Individual-passenger unload remains unsupported. Selected command cards query
+native DAT prerequisites and current costs; candidate relationships remain
+curated rather than exported from the original buttonset. Full parity and XR
+controller acceptance remain open. See [M15](BROODWAR-M15-CHECKPOINT.md) for
+the per-command evidence and explicit remaining gates.
