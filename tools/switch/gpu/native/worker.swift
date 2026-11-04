@@ -93,9 +93,9 @@ final class Worker {
     var argumentTables = [String: ArgumentTable]()
     var renderPasses = [String: MTLRenderPassDescriptor]()
     var argumentHeaps = [String: (MTLBuffer, Int)]()
-    init() throws {
-        guard let d = MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue() else { throw Failure("no default Metal device/queue") }
-        device = d; queue = q; compiler = RenderCompiler(d)
+    init(device shared: MTLDevice? = nil, compiler sharedCompiler: RenderCompiler? = nil) throws {
+        guard let d = shared ?? MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue() else { throw Failure("no default Metal device/queue") }
+        device = d; queue = q; compiler = sharedCompiler ?? RenderCompiler(d)
     }
     func run(_ commands: UnsafeBufferPointer<Command>, _ resources: UnsafeBufferPointer<SpanByte>, _ constants: SpanByte) throws -> String {
     let parseStarted=ProcessInfo.processInfo.systemUptime
@@ -586,7 +586,7 @@ public func sojuRun(_ pointer: UnsafeMutableRawPointer, _ commands: UnsafePointe
     autoreleasepool {
         do {
             let worker = Unmanaged<Worker>.fromOpaque(pointer).takeUnretainedValue()
-            let result = try autoreleasepool { try worker.run(UnsafeBufferPointer(start: commands, count: count), UnsafeBufferPointer(start: resources, count: resourceCount), constants.pointee) }
+            let result = try autoreleasepool { try worker.runSubmission(UnsafeBufferPointer(start: commands, count: count), UnsafeBufferPointer(start: resources, count: resourceCount), constants.pointee) }
             return strdup("OK " + result + " " + (try worker.trimCaches()))
         }
         catch { return strdup("ERROR \(error)") }

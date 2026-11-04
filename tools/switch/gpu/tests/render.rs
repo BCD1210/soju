@@ -2352,3 +2352,51 @@ fn resource_churn_soak() {
         frame * 1024
     );
 }
+
+#[test]
+fn parallel_color_passes_preserve_per_target_blend_order() {
+    let mut h = Harness::new();
+    let (mut e, a) = h.engine("parallel", [0., 0., 0., 1.]);
+    let b = h.alloc(vec![0; 4096]);
+    h.methods(&mut e, &[(0x804, b as u32), (0x19d0, 60)]);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/parallel-checks");
+    h.backend.submit(&root).unwrap().wait().unwrap();
+    h.methods(
+        &mut e,
+        &[
+            (0x1360, 1),
+            (0x133c, 1),
+            (0x1340, 0x8006),
+            (0x1344, 0x4302),
+            (0x1348, 0x4303),
+            (0x134c, 0x8006),
+            (0x1350, 0x4001),
+            (0x1358, 0x4303),
+        ],
+    );
+    for i in 0..8 {
+        let color = if i < 4 {
+            [1., 0., 0., 0.5]
+        } else {
+            [0., 1., 0., 0.5]
+        };
+        h.methods(&mut e, &[(0x804, if i % 2 == 0 { a } else { b } as u32)]);
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, color), &[[0.; 4]]);
+        h.draw(&mut e, 6, false, false);
+        // Repeat references must be remapped into each independent command list.
+        h.draw(&mut e, 6, false, false);
+    }
+    let stats = h.backend.submit(&root).unwrap().wait().unwrap();
+    if std::env::var("SOJU_GPU_PARALLEL_PASSES").as_deref() == Ok("1") {
+        assert!(stats.contains("parallel_passes=2"), "{stats}");
+        assert!(stats.contains("command_buffers=2"), "{stats}");
+    }
+    let report = h.backend.readback(&root, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 2);
+    for image in report.images {
+        assert!(image.rgba.chunks_exact(4).all(|p| p
+            .iter()
+            .zip([15u8, 239, 0, 255])
+            .all(|(a, b)| a.abs_diff(b) <= 2)));
+    }
+}

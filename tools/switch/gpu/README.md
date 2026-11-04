@@ -372,3 +372,16 @@ It runs 1,800 seconds, churns textures across 64 render targets, checks every
 pixel, and logs process RSS plus Metal allocation size every minute. Set
 `SOJU_GPU_SOAK_SECONDS` for a shorter smoke check and `SOJU_GPU_SOAK_LABEL` to
 separate output directories.
+
+## Parallel pass encoding
+
+`SOJU_GPU_PARALLEL_PASSES=1` opts into concurrent encoding for draw-only batches
+with two to eight disjoint colour attachment sets. Each set gets its own worker
+queue/command buffer and preserves original draw order. Reference commands are
+remapped into the group; immutable captured resources and completed pipeline
+objects can be shared, while upload storage, heap cursors and render descriptors
+are isolated. Every worker joins before the fence completes or an error returns.
+Clears, depth/stencil, queries, compute, shared/partially overlapping attachment
+sets, generation changes and spilled attachments select the ordered path.
+Diagnostics report `parallel_passes`. This conservative mode is opt-in because
+small passes may cost more to partition than they save in encoding time.
