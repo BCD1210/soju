@@ -1,0 +1,60 @@
+name|result|detail
+account|frame|process status 0
+alarm-notifications|stop|soju-switch-core: Ipc("IPC: Message(\"Sm object 3 command 1: IPC: Message(\\\"unsupported service notif:a\\\")\")")
+app_controldata|stop|soju-switch-core: Ipc("IPC: Message(\"Platform object 43 command 7989: IPC: Unsupported { object: 43, command: 7989 }\")")
+applet__app-playstats|stop|soju-switch-core: Ipc("IPC: Message(\"Sm object 3 command 1: IPC: Message(\\\"unsupported service pdm:qry\\\")\")")
+applet__libapplets__error|frame|process status 0
+applet__libapplets__pctlauth|frame|process status 0
+applet__libapplets__software-keyboard|frame|process status 0
+applet__libapplets__web|frame|process status 0
+applet__light-sensor|frame|process status 0
+applet__lockexit|frame|process status 0
+applet__recording|frame|process status 0
+applet__screenshot-overlay|frame|process status 0
+applet__vrmode|frame|process status 0
+audio__audren-simple|frame|process status 0
+audio__echo|stop|soju-switch-core: Ipc("IPC: Message(\"Sm object 3 command 1: IPC: Message(\\\"unsupported service audin:u\\\")\")")
+audio__playtone|frame|process status 0
+exception-handler|frame|process status 0
+fs__romfs|frame|process status 0
+fs__save|frame|process status 0
+fs__sdmc|frame|process status 0
+graphics__deko3d__deko_basic|frame|process status 0
+graphics__deko3d__deko_console|stop|soju-switch-core: Ipc("IPC: Message(\"Nv object 42 command 11: IPC: Message(\\\"Metal setup field 0x113c=0x2\\\")\")")
+graphics__deko3d__deko_examples|frame|process status 0
+graphics__opengl__dynamic_resolution|frame|process status 0
+graphics__opengl__es2gears|frame|process status 0
+graphics__opengl__gpu_console|stop|soju-switch-core: Ipc("IPC: Message(\"Nv object 41 command 11: IPC: Message(\\\"Metal submission: missing handle mapping or texture type mismatch at 0x48: 0xd8e0008ff0370000 (TEXS)\\\")\")")
+graphics__opengl__lenny|frame|process status 0
+graphics__opengl__simple_triangle|frame|process status 0
+graphics__opengl__textured_cube|frame|process status 0
+graphics__printing__hello-world|frame|process status 0
+graphics__printing__vt52-demo|frame|process status 0
+graphics__sdl2__sdl2-simple|frame|process status 0
+graphics__simplegfx|frame|process status 0
+graphics__simplegfx_moviemaker|exit0|process status 0
+hid__abstracted-pad|stop|soju-switch-core: Ipc("IPC: Message(\"Sm object 3 command 1: IPC: Message(\\\"unsupported service hid:dbg\\\")\")")
+hid__colors|frame|process status 0
+hid__hdls|stop|soju-switch-core: Ipc("IPC: Message(\"Sm object 3 command 1: IPC: Message(\\\"unsupported service hid:dbg\\\")\")")
+hid__irsensor|stop|soju-switch-core: Ipc("IPC: Message(\"Sm object 3 command 1: IPC: Message(\\\"unsupported service irs\\\")\")")
+hid__notification-led|stop|soju-switch-core: Ipc("IPC: Message(\"Sm object 3 command 1: IPC: Message(\\\"unsupported service hid:sys\\\")\")")
+hid__read-controls|frame|process status 0
+hid__ring-con|frame|process status 0
+hid__sevensixaxis|stop|soju-switch-core: Ipc("IPC: Message(\"Platform object 21 command 306: IPC: Unsupported { object: 21, command: 306 }\")")
+hid__sixaxis|frame|process status 0
+hid__touch-screen|frame|process status 0
+hid__vibration|frame|process status 0
+jit|frame|process status 0
+misc__barrier|frame|process status 0
+misc__user_events|frame|process status 0
+misc__user_timers|frame|process status 0
+network__curl|frame|process status 0
+network__ldn|stop|soju-switch-core: Ipc("IPC: Message(\"Sm object 3 command 1: IPC: Message(\\\"unsupported service ldn:u\\\")\")")
+network__lp2p|stop|soju-switch-core: Ipc("IPC: Message(\"Sm object 3 command 1: IPC: Message(\\\"unsupported service lp2p:app\\\")\")")
+network__nxlink_stdio|frame|process status 0
+nfc|frame|process status 0
+power|frame|process status 0
+settings__get_system_language|frame|process status 0
+templates__application|frame|process status 0
+time|frame|process status 0
+usb__usbhs|stop|soju-switch-core: Ipc("IPC: Message(\"Sm object 3 command 1: IPC: Message(\\\"unsupported service usb:hs\\\")\")")

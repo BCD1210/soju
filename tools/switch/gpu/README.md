@@ -68,19 +68,22 @@ an assertion about hardware reset values; callers must configure their state.
 | Colour formats | All 17 colour entries of the texture table, including sRGB, packed normalized, R32Uint and 16/32-bit float; guest writeback preserves precision; RGBA8 reports are previews |
 | Depth/stencil | Z16, ZF32, Z24S8 and S8Z24 promoted to float32/stencil8, ZF32_X24S8; imported guest contents, independent clears, compares, writes, front/back stencil operations/masks/references |
 | Persistence | Attachment keys include address space, GPU address, format, dimensions and layout; writes invalidate affected contents; depth/stencil survives batches and supports first use without a clear |
-| Textures | All 43 texture-table entries: normalized/float/packed, BC1–BC7, ASTC block sizes, sRGB, depth and unsigned integer; block-linear 2D, one mip/layer, checked pools |
+| Textures | All 43 texture-table entries: normalized/float/packed, BC1–BC7, ASTC block sizes, sRGB, depth and unsigned integer; block-linear 2D and 2D arrays, one mip, checked pools |
 | Texture views | TIC component permutations and zero/typed-one constants use Metal texture views; BGRA is expressed by component selection; packed-format channel order is adapted |
-| Depth sampling | Guest depth unpacked to scalar R32Float; D16 normalized, D24 unpacked, D32 preserved; stencil sampling is not implemented |
+| Depth sampling | Guest depth unpacked to scalar R32Float for ordinary sampling and private Depth32Float for comparison; all eight compare functions; stencil sampling is not implemented |
 | Integer sampling | All-integer tables specialize to `texture2d<uint>`; nearest sampling preserves raw register bits; integer target exports use `uint4`, clears preserve integer payload bits, and blending is rejected |
-| Samplers | Point/linear min/mag, repeat/mirror/clamp-to-edge; normalized 2D; argument-buffer residency |
+| Samplers | Point/linear min/mag, repeat/mirror/clamp-to-edge, comparison and 1–16 anisotropy limits; argument-buffer residency |
 | Shaders/constants | Vertex B and fragment stages; explicit normalized texture handle mappings; bounds-checked shader extents, cbuf groups/binding/upload; limits inherited from the shader translator |
-| Vertex fetch | Float1/2/3/4 and normalized RGBA8; checked streams, offsets, stride and limits; per-instance divisors and base instance |
+| Vertex fetch | Float1/2/3/4, supported signed/unsigned 8/16-bit integer and normalized formats; checked streams, offsets, stride and limits; per-instance divisors and base instance |
 | Draws | BEGIN/END, array/indexed draws, 8/16/32-bit indices, signed base vertex, instance sequencing; points, lines/line strip, triangles/triangle strip; arbitrary indexed restart splitting |
 | Raster | Signed XY viewport scales, both clip-depth conventions and programmed depth range, viewport-0 scissor, winding/culling, fill/wireframe, fixed point size, eight shader clip distances |
+| Multisampling | Four samples with programmed positions; RGBA8/BGRA8 UNORM/sRGB, Depth32Float and depth/stencil storage; individual sample preservation and centered 2x2 resolves in linear light |
+| Smooth lines | Nonindexed single-sample lines/strips through width 64; clipped rectangles with area coverage, flat/linear/perspective varying interpolation; bounded expansion |
+| Rectangle fill | SET_FILL_VIA_TRIANGLE FILL_BBOX for complete nonindexed triangles with supported procedural/instanced inputs; alpha testing |
 | Polygon offset | Format-dependent bias/slope/clamp mapped to Metal; direction verified, cross-device bit precision not claimed |
 | Queries | ZPASS reset and one-word REPORT_ONLY at DEPTH_TEST; Metal visibility counters count passing samples and write results at readback |
 | Render enable | Explicit TRUE/FALSE; memory-backed predicate modes are rejected |
-| Transfers | A140 single pitched-line upload; 902D pitched RGBA8 SRCCOPY rectangles, overlap-safe source capture; caller supplies render/transfer ordering |
+| Transfers | A140 single pitched-line upload; 902D pitched/block-linear RGBA8 UNORM/sRGB SRCCOPY rectangles and centered 2x2 bilinear reduction, overlap-safe source capture; caller supplies render/transfer ordering |
 
 For one-instance guest draw commands, divisor attributes are selected explicitly
 at `floor(base_instance / divisor)` and bound with constant Metal stepping. This
@@ -165,16 +168,15 @@ or GPU-only throughput. Re-run the command to measure the current machine/load.
   automatic FIFO/channel scheduling and guest syncpoint-ID integration.
 - Runner-owned readback interception remains mandatory. No IOMMU or automatic transfer barriers; readback still uses output files.
 - Mixed integer/float texture tables, mixed TIC component types, stencil sampling,
-  mip/layer/cube/3D views, MSAA, anisotropy, custom borders and LOD bias.
+  mip/cube/3D views, multisample modes beyond four samples and unsupported multisample formats, custom borders and LOD bias.
 - Shader-selected point-size slots, cull distances, viewport arrays, depth bounds/
   clamp, depth-format-independent bias, logic operations and D24-exact raster depth.
 - Vertex A pairing, tessellation, geometry, transform feedback, indirect/packed
   draws, split-primitive BEGIN modes and quads/fans. Compute coverage is below.
-- Vertex integer/half/scaled/packed formats beyond normalized RGBA8; generic
+- Remaining vertex half/scaled/packed formats; generic
   attribute defaults; partial-channel/scissored/layered clears and full write masks.
 - Pitched target width is byte pitch divided by pixel size; independent logical
-  width/padding is not modeled. Transfer engines lack conversion/scaling/block-linear
-  copies/ROP/color-key paths, and inline upload is single-line only.
+  width/padding is not modeled. Transfer engines lack general conversion/scaling/ROP/color-key paths, and inline upload is single-line only.
 - Many raster, sampler and blend combinations have mappings but no dedicated
   image test. Shader limitations in `../shader/README.md` and `SEMANTICS.md` remain.
 
