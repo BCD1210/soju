@@ -36,6 +36,7 @@ pub struct Backend {
     shader_cache: BTreeMap<(u64, u64, u64), (MetalShader, Header, Key)>,
     files: Vec<Vec<u8>>,
     constant_upload: Vec<u8>,
+    uniform_offsets: std::collections::HashMap<(u64, u64, u32), (u64, usize)>,
     targets: BTreeMap<String, Target>,
     depth_targets: BTreeMap<String, Target>,
     worker: Option<crate::worker::Worker>,
@@ -84,6 +85,29 @@ pub struct Report {
 }
 fn io(e: impl std::fmt::Display) -> Error {
     Error(e.to_string())
+}
+fn uniform_offset(
+    upload: &mut Vec<u8>,
+    offsets: &mut std::collections::HashMap<(u64, u64, u32), (u64, usize)>,
+    cb: ConstantBuffer,
+    memory: &Memory,
+) -> Result<usize> {
+    let generation = memory.generation(cb.address, cb.size as usize)?;
+    let key = (memory.identity, cb.address, cb.size);
+    if let Some(&(previous, offset)) = offsets.get(&key) {
+        if previous == generation {
+            return Ok(offset);
+        }
+    }
+    let offset = upload.len().div_ceil(256) * 256;
+    let bytes = memory.read(cb.address, cb.size as usize)?;
+    if upload.capacity() < offset + bytes.len() {
+        upload.reserve((offset + bytes.len()).next_power_of_two().max(1024 * 1024) - upload.len());
+    }
+    upload.resize(offset, 0);
+    upload.extend_from_slice(bytes);
+    offsets.insert(key, (generation, offset));
+    Ok(offset)
 }
 impl Target {
     fn surface(&self) -> Surface {
@@ -232,24 +256,27 @@ impl Backend {
                         .all(|&(a, n, g)| memory.generation(a, n) == Ok(g)))
         }) {
             let template = &self.commands[variant.index];
-            let first = self.constant_upload.len().div_ceil(256) * 256;
-            for cb in &variant.constants {
-                let bytes = memory.read(cb.address, cb.size as usize)?;
-                let offset = self.constant_upload.len().div_ceil(256) * 256;
-                self.constant_upload.resize(offset, 0);
-                self.constant_upload.extend_from_slice(bytes);
-            }
-            let delta = template
-                .constants
-                .first()
-                .map_or(0, |c| first as i64 - c.offset);
-            self.commands.push(Command {
+            let mut command = Command {
                 kind: 5,
                 reference: variant.index as _,
-                constant_delta: delta,
                 repeats: 1,
                 ..Command::default()
-            });
+            };
+            for (cb, binding) in variant.constants.iter().zip(template.constants.iter()) {
+                let offset = uniform_offset(
+                    &mut self.constant_upload,
+                    &mut self.uniform_offsets,
+                    *cb,
+                    memory,
+                )?;
+                let offsets = if binding.stage == 0 {
+                    &mut command.constant_vertex
+                } else {
+                    &mut command.constant_fragment
+                };
+                offsets[binding.slot as usize] = offset as _;
+            }
+            self.commands.push(command);
             variant.epoch = memory.epoch();
             self.prepared = None;
             return Ok(());
@@ -766,10 +793,12 @@ impl Backend {
                         let cb = bindings[group][*slot as usize]
                             .ok_or_else(|| Error(format!("unbound cbuf {stage}:{slot}")))?;
                         require(cb.size > 0, "empty constant buffer")?;
-                        let offset = self.constant_upload.len().div_ceil(256) * 256;
-                        self.constant_upload.resize(offset, 0);
-                        self.constant_upload
-                            .extend_from_slice(memory.read(cb.address, cb.size as usize)?);
+                        let offset = uniform_offset(
+                            &mut self.constant_upload,
+                            &mut self.uniform_offsets,
+                            cb,
+                            memory,
+                        )?;
                         captured_constants.push(cb);
                         constants.push(ConstantCommand {
                             stage,
@@ -1193,6 +1222,7 @@ impl Backend {
         self.files.clear();
         self.file_cache.clear();
         self.constant_upload.clear();
+        self.uniform_offsets.clear();
         Ok(fence)
     }
     /// Explicit CPU visibility boundary. Waits for queued work and writes pending
@@ -1321,6 +1351,7 @@ impl Backend {
         self.files.clear();
         self.file_cache.clear();
         self.constant_upload.clear();
+        self.uniform_offsets.clear();
         self.compute_targets.clear();
         self.targets.clear();
         self.depth_targets.clear();
