@@ -69,7 +69,10 @@ impl AddressSpace {
         let offset = u64at(data, 16)?;
         let requested = u64at(data, 24)?;
         if u32at(data, 0)? & !5 != 0
-            || !matches!(kind, 0 | 0x11 | 0x17 | 0x51 | 0xdb | 0xfe)
+            || !matches!(
+                kind,
+                0 | 0x11 | 0x17 | 0x51 | 0x53 | 0xdb | 0xe0 | 0xe9 | 0xfe
+            )
             || !matches!(page, 4096 | 65536 | 131072)
             || (u32at(data, 0)? & 1 == 0 && u64at(data, 32)? != 0)
             || view.guest_address == 0
@@ -149,7 +152,10 @@ impl AddressSpace {
         if u32at(data, 0)? != 0x100
             || u32at(data, 8)? != 0
             || u32at(data, 12)? != 0
-            || !matches!(kind, 0 | 0x11 | 0x17 | 0x51 | 0xdb | 0xfe)
+            || !matches!(
+                kind,
+                0 | 0x11 | 0x17 | 0x51 | 0x53 | 0xdb | 0xe0 | 0xe9 | 0xfe
+            )
             || !offset.is_multiple_of(4096)
             || size == 0
             || !size.is_multiple_of(4096)

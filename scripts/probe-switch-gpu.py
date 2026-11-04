@@ -13,7 +13,7 @@ parser.add_argument('--corpus', type=Path, default=Path.home() / '.local/share/s
 parser.add_argument("--scene", help="probe one named scene")
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
-scenes = [(f'deko-example{i:02}', 'graphics__deko3d__deko_examples', i - 1) for i in range(1, 5)]
+scenes = [(f'deko-example{i:02}', 'graphics__deko3d__deko_examples', i - 1) for i in range(1, 10)]
 scenes += [('deko-basic', 'graphics__deko3d__deko_basic', None)]
 scenes += [(f'opengl-{name}', f'graphics__opengl__{name}', None) for name in ('simple_triangle', 'textured_cube', 'es2gears')]
 if args.scene:

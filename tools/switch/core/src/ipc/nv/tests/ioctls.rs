@@ -242,3 +242,23 @@ fn invalid_mapping_modification_preserves_backing() {
         assert_eq!(format!("{:?}", f.nv.spaces[&space]), before);
     }
 }
+#[test]
+fn compressed_multisample_color_kind_is_retained_in_the_virtual_mapping() {
+    for kind in [0x53, 0xe0, 0xe9] {
+        let mut f = Fixture::new();
+        let (_, space, va) = f.setup();
+        let allocation = f.nv.spaces[&space].mappings[&va].view.allocation;
+        let mut d = vec![0; 40];
+        put32(&mut d, 0, 4);
+        put32(&mut d, 4, kind);
+        put32(&mut d, 8, allocation);
+        put32(&mut d, 12, 65536);
+        let reply = f.ioctl(space, 0xc0284106, &d, 40).unwrap();
+        let address = read_u64(&reply, 32).unwrap();
+        assert_ne!(address, va);
+        assert_eq!(
+            f.nv.spaces[&space].resolve(address, 4096).unwrap(),
+            (crate::kernel::HEAP, kind)
+        );
+    }
+}
