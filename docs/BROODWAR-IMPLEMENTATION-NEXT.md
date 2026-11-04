@@ -2,6 +2,10 @@
 
 Updated 2026-11-04 UTC. This is a continuation checkpoint, not a claim of complete Brood War/VR support.
 
+Latest partial continuation: [presentation and commander checkpoint](BROODWAR-M3-CHECKPOINT.md).
+See that report for the delivery gate, desktop controls, new command endpoints,
+evidence and the live-client blocker. The older verification below predates it.
+
 ## Working implementation
 
 The original, unmodified Blizzard 1.23.10.13515 offline client drives simulation through the pinned Samase API 44 plugin. `tools/broodwar_native/src/world.rs` exports typed native unit state, cooldown/HP change events, visible bullets and confirmed Die-order events. Events have bounded history, sequence numbers and per-game identity. Fog/transport disappearance never implies death.
