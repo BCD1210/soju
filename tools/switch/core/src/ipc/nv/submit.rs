@@ -74,12 +74,12 @@ fn submit(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error>
     let entries_data = c.read_buffer(entries, 32768)?;
     let count = read_u32(&args, 8)?;
     let flags = read_u32(&args, 12)?;
+    let metal = std::env::var_os("SOJU_SWITCH_GPU").is_some_and(|v| v == "metal");
     if count == 0
         || count > capacity.min(4096)
         || u64::from(count) * 8 != entries.len
-        || flags != 0x104
-        || read_u32(&args, 16)? != 0
-        || read_u32(&args, 20)? != 1
+        || !(flags == 0x104 && read_u32(&args, 16)? == 0 && read_u32(&args, 20)? == 1
+            || metal && flags == 4 && read_u32(&args, 16)? == 0 && read_u32(&args, 20)? == 0)
     {
         return Err(Error::Message(format!(
             "GPU submission contract: count={count} flags={flags:#x} fence={}:{}",
@@ -127,17 +127,25 @@ fn submit(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<Reply, Error>
         space,
         memory: c.memory,
     };
-    let metal = std::env::var_os("SOJU_SWITCH_GPU").is_some_and(|v| v == "metal");
-    let (mut staged, writes) = if metal {
+    let (mut staged, writes, increments) = if metal {
         let renderer = nv.metal.entry(fd).or_default();
-        let writes = renderer.submit(&methods, fd, &access, &protected)?;
-        (channel.execution.clone(), writes)
+        let (writes, increments) = renderer.submit(
+            &methods,
+            fd,
+            (flags == 0x104).then_some(1),
+            &access,
+            &protected,
+        )?;
+        (channel.execution.clone(), writes, increments)
     } else {
         let staged = channel.execution.stage(&methods, &access)?;
         let writes = super::commit::prepare(&staged, fd, &access, &protected)?;
-        (staged, writes)
+        (staged, writes, 1)
     };
-    let fence = channel.completed + 1;
+    let fence = channel
+        .completed
+        .checked_add(increments)
+        .ok_or(Error::Malformed("GPU completion overflow"))?;
     let mut result = args;
     put32(&mut result, 16, fd);
     put32(&mut result, 20, fence);

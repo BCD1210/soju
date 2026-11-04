@@ -1,7 +1,7 @@
 //! Bounded CPU execution of the supported virtual GPU profile.
 mod effects;
 mod masks;
-mod mme;
+pub(super) mod mme;
 mod packets;
 mod state;
 mod surface;

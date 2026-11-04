@@ -8,7 +8,9 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 #[derive(Default)]
 pub(super) struct Renderer {
     engine: Engine,
+    macros: gpu::mme::MacroUpload,
     bindings: BTreeMap<u32, u32>,
+    twod: BTreeMap<u32, u32>,
     directory: Option<PathBuf>,
     faulted: bool,
 }
@@ -27,15 +29,16 @@ impl Renderer {
         &mut self,
         methods: &[gpu::Method],
         syncpoint: u32,
+        expected_increments: Option<u32>,
         access: &submit::Access<'_>,
         protected: &[(u64, u64)],
-    ) -> Result<Vec<MemoryWrite>, Error> {
+    ) -> Result<(Vec<MemoryWrite>, u32), Error> {
         if self.faulted {
             return Err(Error::Malformed("Metal channel faulted"));
         }
         // A failed native operation cannot be replayed: no completion or guest writes escape.
         self.faulted = true;
-        let result = self.execute(methods, syncpoint, access, protected);
+        let result = self.execute(methods, syncpoint, expected_increments, access, protected);
         if result.is_ok() {
             self.faulted = false;
         }
@@ -45,9 +48,15 @@ impl Renderer {
         &mut self,
         methods: &[gpu::Method],
         syncpoint: u32,
+        expected_increments: Option<u32>,
         access: &submit::Access<'_>,
         protected: &[(u64, u64)],
-    ) -> Result<Vec<MemoryWrite>, Error> {
+    ) -> Result<(Vec<MemoryWrite>, u32), Error> {
+        if std::env::var_os("SOJU_SWITCH_TRACE_GPU").is_some() {
+            for m in methods {
+                eprintln!("gpu-method|{}|{:#x}|{:#x}", m.subchannel, m.method, m.value);
+            }
+        }
         let mut memory = Memory::default();
         let mut original = Vec::new();
         let mut total = 0u64;
@@ -65,14 +74,20 @@ impl Renderer {
             original.push((address, guest, bytes));
         }
         let mut backend = Backend::default();
-        let mut incremented = false;
-        for command in methods {
+        let mut increments = 0u32;
+        let mut queue: std::collections::VecDeque<_> = methods.iter().copied().collect();
+        let mut processed = 0usize;
+        while let Some(command) = queue.pop_front() {
+            processed += 1;
+            if processed > 1_048_576 {
+                return Err(Error::Malformed("Metal expanded method limit"));
+            }
             let gpu::Method {
                 subchannel,
                 method,
                 value,
                 ..
-            } = *command;
+            } = command;
             if method == 0 {
                 if !matches!(value, 0xb197 | 0xa140 | 0x902d | 0xb0b5 | 0xb1c0) {
                     return Err(Error::Message(format!(
@@ -86,17 +101,117 @@ impl Renderer {
                 .bindings
                 .get(&subchannel)
                 .ok_or(Error::Malformed("Metal unbound subchannel"))?;
+            if class == 0xb197 && matches!(method, 0x114 | 0x118 | 0x11c | 0x120) {
+                self.macros.write(method, value)?;
+                continue;
+            }
+            if class == 0xb197 && (0x3800..=0x3ff8).contains(&method) && method % 8 == 0 {
+                let mut params = Vec::new();
+                while queue
+                    .front()
+                    .is_some_and(|m| m.subchannel == subchannel && m.method == method + 4)
+                {
+                    params.push(queue.pop_front().unwrap().value);
+                    if params.len() > 256 {
+                        return Err(Error::Malformed("Metal macro parameter limit"));
+                    }
+                }
+                let generated = self
+                    .macros
+                    .run((method - 0x3800) / 8, value, &params, |reg| {
+                        Ok(self.engine.registers.get(reg))
+                    })?;
+                if generated
+                    .iter()
+                    .any(|(reg, _)| (0x3800..=0x3ffc).contains(reg))
+                {
+                    return Err(Error::Malformed("Metal recursive macro"));
+                }
+                for (method, value) in generated.into_iter().rev() {
+                    queue.push_front(gpu::Method {
+                        method,
+                        value,
+                        ..command
+                    });
+                }
+                continue;
+            }
             if class == 0xb197 && method == 0x2c8 {
-                if incremented || value != (1 << 20) | syncpoint {
+                if value & !0x110fff != 0 || value & 0xfff != syncpoint || value & (1 << 20) == 0 {
                     return Err(Error::Message(format!(
                         "Metal syncpoint operation {value:#x}, expected {syncpoint}"
                     )));
                 }
-                incremented = true;
+                increments = increments
+                    .checked_add(1)
+                    .ok_or(Error::Malformed("Metal syncpoint overflow"))?;
                 continue;
             }
-            if incremented {
-                return Err(Error::Malformed("Metal method after completion"));
+            if class == 0xb197 && matches!(method, 0x15b4 | 0x1234 | 0x15d0 | 0x153c) {
+                if value != 0 {
+                    return Err(Error::Malformed(
+                        "Metal CSAA, MSAA or linked TSC unsupported",
+                    ));
+                }
+                self.engine.registers.0.insert(method, value);
+                continue;
+            }
+            if class == 0xb197
+                && ((0xd00..=0xd3c).contains(&method) && method % 4 == 0
+                    || matches!(method, 0x194c | 0x1950))
+            {
+                if method == 0x194c && value > 1 || method == 0x1950 && value > 2 {
+                    return Err(Error::Malformed("Metal window clip control"));
+                }
+                self.engine.registers.0.insert(method, value);
+                continue;
+            }
+            if class == 0xb197 && matches!(method, 0x74c | 0x16a8 | 0x1794) {
+                let valid = match method {
+                    0x74c => value <= 255,
+                    0x16a8 => value == 0x30003,
+                    0x1794 => value == 0x20002,
+                    _ => false,
+                };
+                if !valid {
+                    return Err(Error::Malformed(
+                        "Metal alpha fraction or interface version",
+                    ));
+                }
+                self.engine.registers.0.insert(method, value);
+                continue;
+            }
+            if class == 0x902d {
+                let mask = match method {
+                    0x260 | 0x290 | 0x29c | 0x2b8 | 0x888 => Some(1),
+                    0x104 => Some(0x1ffffff),
+                    0x108 => Some(u32::MAX),
+                    0x884 => Some(0x3ff),
+                    0x880 => Some(7),
+                    0x88c => Some(0x11),
+                    0x264 | 0x2a0 => Some(0xff),
+                    0x26c | 0x294 => Some(7),
+                    0x268 | 0x280..=0x28c | 0x298 | 0x2a4 | 0x2a8 => Some(u32::MAX),
+                    _ => None,
+                };
+                if let Some(mask) = mask {
+                    if method % 4 != 0 || value & !mask != 0 {
+                        return Err(Error::Malformed("Metal 902D initialization field"));
+                    }
+                    self.twod.insert(method, value);
+                    continue;
+                }
+                if method == 0x8dc
+                    && (self.twod.get(&0x290).copied().unwrap_or(0) != 0
+                        || self.twod.get(&0x29c).copied().unwrap_or(0) != 0
+                        || self.twod.get(&0x2b8).copied().unwrap_or(0) != 0
+                        || self.twod.get(&0x88c).copied().unwrap_or(0) & 0x10 != 0
+                        || self.twod.get(&0x26c).copied().unwrap_or(1) != 1)
+                {
+                    return Err(Error::Malformed(
+                        "Metal 902D clipping, key, zeta or conditional rendering unsupported",
+                    ));
+                }
             }
             let snapshot = self
                 .engine
@@ -107,14 +222,21 @@ impl Renderer {
                     ))
                 })?;
             if let Some(snapshot) = snapshot {
+                if snapshot.registers.get(0x194c) != 0 {
+                    return Err(Error::Malformed(
+                        "Metal enabled window clipping unsupported",
+                    ));
+                }
                 backend.prepare(&snapshot, &memory).map_err(gpu_error)?;
                 // Read back before any later transfer, upload, or texture read.
                 let dir = self.directory()?;
                 backend.execute(&dir, &mut memory).map_err(gpu_error)?;
             }
         }
-        if !incremented {
-            return Err(Error::Malformed("Metal submission missing increment"));
+        if expected_increments.is_some_and(|n| n != increments) {
+            return Err(Error::Malformed(
+                "Metal submission increment count mismatch",
+            ));
         }
         let mut writes = Vec::new();
         for (address, guest, bytes) in original {
@@ -131,7 +253,7 @@ impl Renderer {
                 }
             }
         }
-        Ok(writes)
+        Ok((writes, increments))
     }
     fn directory(&mut self) -> Result<PathBuf, Error> {
         if self.directory.is_none() {

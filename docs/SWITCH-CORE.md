@@ -315,3 +315,18 @@ headless fps (60 frames / 0.177209 s; 1,443 exits, 8,143 exits/s), against
 Unicorn's 25.15 fps. Together with the earlier 630.08 fps sample, this shows
 substantial host-load variation while retaining ample headroom for 60 Hz. The
 signed AudioUnit test consumed all 47,920 expected nonzero samples again.
+
+## Latest M2 integration checkpoint
+
+Merged `feat/switch-shader` through `e633b45` (typed worker ring, validated draw
+variants and aligned uniform heap); imported GPU/shader sources were not edited.
+The core supports MapBufferEx kind modification and fixed big-page reservations,
+zero-increment Metal kickoff, bounded MME dispatch, additional MME destination
+and delay-slot semantics, and partial 902D initialization with checked SRCCOPY.
+Native tests validate macro-driven clear pixels and delayed publication.
+
+No GPU example is accepted: deko initialization currently stops at `B197:165c`,
+OpenGL at `B197:0de4`. The selected Example01 probe is distinct from the software
+menu capture. The full corpus remains 33/59 first frames, and audren/SDL are
+unfinished. Full acceptance table and validation evidence are in
+[SWITCH-EXAMPLES.md](SWITCH-EXAMPLES.md). These follow-up commits are local only.

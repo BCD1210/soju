@@ -1,8 +1,9 @@
 # Official devkitPro example corpus
 
-Follow-up verification on the Mac, after merging `feat/switch-shader` at
-`2b31d37` and `feat/switch-fs` at `a956946`. Follow-up commits are local only;
-nothing was pushed in this pass. The earlier checkpoint `04176c2` was already pushed.
+Latest M2 follow-up starts from pushed checkpoint `61bce81`. GPU work through
+`e633b45` from `feat/switch-shader` is merged, including the native command ring,
+draw variants and aligned uniform heap. Core changes and merges in this pass are
+local only; nothing was pushed.
 
 **First-frame result: Unicorn 2 / 59; Rust 33 / 59 (previously 32).**
 Rust exits without a frame for one example; 25 stop before a frame. These are
@@ -101,15 +102,15 @@ unverified. Frame observations include error screens explicitly.
 | `fs__romfs` | stop | frame | Both embedded text files printed through EOF, including the Unicode path; content matches the two source RomFS files. |
 | `fs__save` | stop | frame | Local UID is available; mount reports 0x202 for the example’s absent external-title save. Not a save-mount success. |
 | `fs__sdmc` | stop | frame | Expected directory listing includes the virtual soju-current.nro and Done. |
-| `graphics__deko3d__deko_basic` | stop | stop | Triangle unverified: Modify and fixed big-page mappings now pass; next stop is kickoff flags 0x4. |
-| `graphics__deko3d__deko_console` | stop | stop | GPU console/colored text unverified: current CPU GPFIFO submission contract rejects its submission. |
-| `graphics__deko3d__deko_examples` | stop | frame | Expected nine-item software console selector. Scripted A selecting Simple Setup stops at CPU GPFIFO submission contract. |
-| `graphics__opengl__dynamic_resolution` | stop | stop | Dynamic-resolution scene unverified: GPU syncpoint operation rejected during submission. |
-| `graphics__opengl__es2gears` | stop | stop | Gears unverified: GPU syncpoint operation rejected during submission. |
-| `graphics__opengl__gpu_console` | stop | stop | VT52 GPU console unverified: GPU syncpoint operation rejected during submission. |
-| `graphics__opengl__lenny` | stop | stop | Lenny mesh unverified: GPU syncpoint operation rejected during submission. |
-| `graphics__opengl__simple_triangle` | stop | stop | Triangle on teal background unverified: GPU syncpoint operation rejected during submission. |
-| `graphics__opengl__textured_cube` | stop | stop | Textured cube on blue background unverified: GPU syncpoint operation rejected during submission. |
+| `graphics__deko3d__deko_basic` | stop | stop | Triangle unverified: mappings pass; default CPU path rejects flags 0x4. Metal reaches B197:165c initialization. |
+| `graphics__deko3d__deko_console` | stop | stop | GPU console/colored text unverified: CPU rejects kickoff; Metal reaches B197:165c initialization. |
+| `graphics__deko3d__deko_examples` | stop | frame | Expected nine-item software console selector. Selected Simple Setup reaches B197:165c under Metal; no accepted scene. |
+| `graphics__opengl__dynamic_resolution` | stop | stop | Dynamic-resolution scene unverified: CPU syncpoint operation rejected; Metal reaches B197:0de4 initialization. |
+| `graphics__opengl__es2gears` | stop | stop | Gears unverified: CPU syncpoint operation rejected; Metal reaches B197:0de4 initialization. |
+| `graphics__opengl__gpu_console` | stop | stop | VT52 GPU console unverified: CPU syncpoint operation rejected; Metal reaches B197:0de4 initialization. |
+| `graphics__opengl__lenny` | stop | stop | Lenny mesh unverified: CPU syncpoint operation rejected; Metal reaches B197:0de4 initialization. |
+| `graphics__opengl__simple_triangle` | stop | stop | Triangle on teal background unverified: CPU syncpoint operation rejected; Metal reaches B197:0de4 initialization. |
+| `graphics__opengl__textured_cube` | stop | stop | Textured cube on blue background unverified: CPU syncpoint operation rejected; Metal reaches B197:0de4 initialization. |
 | `graphics__printing__hello-world` | stop | frame | Hello World at row 16, column 20 as specified. |
 | `graphics__printing__vt52-demo` | stop | frame | Expected cursor-position labels and eight colored text/attribute rows. |
 | `graphics__sdl2__sdl2-simple` | stop | stop | Red/green/blue rectangles unverified: keyboard/mouse activation accepted; next stop is HID SetNpadJoyHoldType command 120. |
@@ -218,18 +219,16 @@ or failed publication makes that channel unusable. A native 32×32 red clear tes
 checks all pixels and verifies guest memory remains unchanged until publication.
 This is a synthetic integration test, not example acceptance.
 
-The bridge still lacks shader-extent registration, complete engine/MME routing,
-general submission flags, semaphore scheduling, mapping/remapping support, and
-persistent resource tracking across submissions. It currently rebuilds backend
-memory per submission and synchronously reads back each action. It must remain
-opt-in until these gaps and the example image checks are resolved.
+The bridge still lacks shader-extent registration, complete engine routing,
+general submission flags, semaphore scheduling and persistent resource tracking.
+It rebuilds backend memory per submission and synchronously reads back each
+action. It must remain opt-in until the remaining gaps and image checks pass.
 
-The full Metal probe is in `rust-examples/gpu/summary.txt` and individual logs:
-all six OpenGL examples stop on `902d:0260=0` (unsupported 2D engine method);
-deko_console stops on submission flags `0x4`, fence `0:0`; deko_basic stops on
-allocation ownership in a later mapping. The only PNG there is the CPU deko menu,
-not an accepted GPU capture. Triangles, textures, cube, gears, and all selected
-deko scenes remain unverified. No GPU/shader source was edited in this pass.
+The current Metal probe is in `rust-examples/gpu/m2-followup/summary.txt`.
+Deko basic/console and selected Example01 reach `b197:165c=0`; all six OpenGL
+examples reach `b197:0de4=0x17`. These are initialization failures before an
+accepted scene. Only the CPU menu is captured; it is not GPU acceptance.
+No source under `tools/switch/gpu` or `tools/switch/shader` was edited locally.
 
 Audren and microphone input remain absent. Physical controller peripherals,
 motion, touch injection, system applets, guest exception handling, JIT, external
@@ -318,3 +317,63 @@ NV tests: 23 passed; desktop/all-target Clippy passed with warnings denied.
 References: installed libnx `nvidia/ioctl.h` (Modify and FixedOffset flags),
 `nvidia/gpu_channel.h`, and [NV service layouts](https://switchbrew.org/wiki/NV_services).
 Local probe/test evidence: `dist/m2-probe/`.
+
+## M2 submission and initialization follow-up
+
+The core Metal bridge accepts hardware kickoff `0x4` with no requested fence
+increment, routes MME upload/calls through the bounded interpreter, and counts
+actual syncpoint increments. Zero-increment initialization does not invent a
+completion. The existing `0x104` profile still requires one matching increment.
+Writes and completion remain unpublished until the reply transaction commits.
+
+MME now supports all eight result destinations, six-bit method increments,
+conditional branch exits and an exit in a branch delay slot. Existing bounds,
+unsupported ALU checks and rejection of reads after emitted methods remain.
+Native clear tests exercise a macro-generated clear and two increments; the
+source guest scene is still unaccepted.
+
+902D notification-address and render configuration are retained. A tested 2×2
+pitch RGBA8 SRCCOPY stages the exact source pixels without modifying guest memory
+before publication. Enabled clipping, color key, zeta, conditional rendering and
+bilinear sampling fail explicitly. B197 initialization covers disabled CSAA/MSAA,
+alpha controls, interface-version checks and disabled window clipping. This is
+partial engine coverage, not general 2D/3D support.
+
+| Acceptance target | Current result | Next observed blocker |
+| --- | --- | --- |
+| deko Example01 Simple Setup | Not accepted | `B197:165c=0` |
+| deko Example02 Triangle | Not accepted | Not reached after Example01 |
+| deko Example03 Cube / Example04 Textured Cube | Not accepted | Not reached after Example01 |
+| deko_basic / deko_console | Not accepted | `B197:165c=0` |
+| OpenGL simple_triangle | Not accepted | `B197:0de4=0x17` |
+| OpenGL textured_cube | Not accepted | `B197:0de4=0x17` |
+| OpenGL es2gears | Not accepted | `B197:0de4=0x17` |
+| OpenGL lenny | Not accepted | `B197:0de4=0x17` |
+| OpenGL gpu_console | Not accepted | `B197:0de4=0x17` |
+| OpenGL dynamic_resolution | Not accepted | `B197:0de4=0x17` |
+| audren-simple | Not accepted | `audren:u` remains absent |
+| SDL2 simple | Not accepted | HID command 120 remains unsupported |
+
+Example01's installed source uses scissored clears: dark green background,
+a centered 400×400 pale box, and green tiles inside. It does not draw the
+triangle (Example02 does). A press held from time zero is consumed by the menu's
+initial pad update; the selected-scene probe uses A at 100 ms and a large frame
+budget. `deko-example01.log` records the actual selected-scene stop.
+`rejected-menu-probe.png` was inspected and rejected as GPU evidence.
+**There are no accepted GPU example captures or acceptance commits.**
+
+Latest checks: core hv 98 passed; core desktop 100 passed; signed Hypervisor
+22 passed; signed 2048 input/save/restart passed; signed AudioUnit tone passed
+(47,920 nonzero samples consumed); GPU 25 passed / 2 benchmarks ignored; shader
+44 passed; Python full suite 327 run, OK / 2 skipped. Desktop/all-target Clippy
+passes with warnings denied; the app build and strict signature check passed.
+Full corpus rerun remains **33 frame / 1 exit0 /
+25 stop**, versus Unicorn **2 frame / 57 stop**. Logs are under `dist/m2-probe/`;
+corpus and GPU logs are under the normal proof directory.
+
+Core implementation commits: `bdc37aa` (mapping kinds/fixed big pages),
+`36f8de7` (MME result destinations/delayed exits). See
+[the source ledger](../tools/switch/core/SOURCES.md) for the public register and
+ISA references. Audren routing, SDL completion, accepted triangles/cubes/textures,
+shader extent tracking, broader engine initialization and persistent core-side
+GPU resources are not done.
