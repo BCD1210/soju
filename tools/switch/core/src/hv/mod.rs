@@ -1,7 +1,9 @@
 //! Apple Silicon EL0 execution with 4 KiB stage-1 permissions and an EL1 bridge.
-mod ffi;
 mod context;
+mod execution;
+mod ffi;
 pub use context::Context;
+use execution::{Execution, MemoryLease};
 
 use crate::memory::{MAX_ARENA, MemoryImage, PHYSICAL_BASE, ROOT};
 use crate::nro::{Homebrew, Region};
@@ -11,7 +13,7 @@ use std::marker::PhantomData;
 use std::ptr;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, mpsc};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub const TIMER_HZ: u64 = 19_200_000;
@@ -77,13 +79,16 @@ pub struct ExitProfile {
     pub cache: AtomicU64,
     pub maintenance: AtomicU64,
     pub lock_wait_ns: AtomicU64,
+    pub max_parallel: AtomicU64,
+    pub timer_preemptions: AtomicU64,
 }
 
-/// The single VM and its memory. The mutex serializes ALL guest execution and
-/// host memory access; vCPUs hold an Arc until their thread-affine destruction.
+/// Shared VM. Host memory access rendezvous with every active guest core;
+/// guest execution holds no memory mutex. vCPUs retain thread-affine ownership.
 pub struct Process {
     pub profile: ExitProfile,
     memory: Mutex<MemoryImage>,
+    execution: Execution,
     start: Instant,
     capture_tick: AtomicU64,
     mapped: bool,
@@ -91,7 +96,8 @@ pub struct Process {
 }
 pub struct ProcessGuard<'a> {
     process: &'a Process,
-    memory: MutexGuard<'a, MemoryImage>,
+    memory: MemoryLease<'a>,
+    held: bool,
 }
 impl Process {
     pub fn new(boot: &Homebrew) -> Result<Arc<Self>, Error> {
@@ -107,6 +113,7 @@ impl Process {
         let mut process = Self {
             profile: ExitProfile::default(),
             memory: Mutex::new(memory),
+            execution: Execution::default(),
             start: Instant::now(),
             capture_tick: AtomicU64::new(u64::MAX),
             mapped: false,
@@ -126,13 +133,14 @@ impl Process {
     }
     pub fn lock(&self) -> Result<ProcessGuard<'_>, Error> {
         let started = Instant::now();
-        let memory = self.memory.lock().map_err(|_| Error::Lock)?;
+        let memory = self.execution.acquire(self)?;
         self.profile
             .lock_wait_ns
             .fetch_add(started.elapsed().as_nanos() as u64, Ordering::Relaxed);
         Ok(ProcessGuard {
             process: self,
-            memory,
+            memory: MemoryLease(Some(memory)),
+            held: true,
         })
     }
     pub fn elapsed_ns(&self) -> u64 {
@@ -429,6 +437,14 @@ impl Cpu {
         guard: &mut ProcessGuard<'_>,
         budget: RunBudget,
     ) -> Result<RunOutcome, Error> {
+        self.run_quantum_batch(guard, budget, None)
+    }
+    pub(crate) fn run_quantum_batch(
+        &mut self,
+        guard: &mut ProcessGuard<'_>,
+        budget: RunBudget,
+        mut barrier: Option<&std::sync::Barrier>,
+    ) -> Result<RunOutcome, Error> {
         self.validate(guard)?;
         if budget.max_duration.is_zero() {
             return Ok(RunOutcome::Yield(YieldReason::Deadline));
@@ -437,17 +453,7 @@ impl Cpu {
             return Ok(RunOutcome::Yield(YieldReason::ExitBudget));
         }
         let started = Instant::now();
-        let id = self.id();
         let duration = budget.max_duration;
-        let (done, wait) = mpsc::channel();
-        let watchdog = std::thread::spawn(move || {
-            if wait.recv_timeout(duration) == Err(mpsc::RecvTimeoutError::Timeout) {
-                // SAFETY: the owner joins this watchdog before CPU destruction.
-                check("hv_vcpus_exit", unsafe { ffi::hv_vcpus_exit(&id, 1) })
-            } else {
-                Ok(())
-            }
-        });
         let result = (|| {
             if self.generation != guard.memory.generation() {
                 self.invalidate()?;
@@ -456,13 +462,12 @@ impl Cpu {
                 self.generation = guard.memory.generation();
             }
             self.pending_svc = false;
-            if started.elapsed() >= duration {
-                return Ok(RunOutcome::Yield(YieldReason::Deadline));
-            }
-            self.run_exits(guard, budget.max_exits, started + duration)
+            self.run_exits(guard, budget.max_exits, started + duration, &mut barrier)
         })();
-        let _ = done.send(());
-        watchdog.join().map_err(|_| Error::Lock)??;
+        if let Some(barrier) = barrier.take() {
+            guard.wait_barrier(barrier)?;
+        }
+
         result
     }
     /// Compatibility wrapper with the original two-second, 64-exit bound.
@@ -540,16 +545,34 @@ impl Cpu {
         guard: &mut ProcessGuard<'_>,
         max_exits: u32,
         deadline: Instant,
+        barrier: &mut Option<&std::sync::Barrier>,
     ) -> Result<RunOutcome, Error> {
         let mut timer_reads = 0;
         for _ in 0..max_exits {
-            if Instant::now() >= deadline {
+            if barrier.is_none() && Instant::now() >= deadline {
                 return Ok(RunOutcome::Yield(YieldReason::Deadline));
             }
-            // SAFETY: same owning thread; mapping remains live until Drop.
-            check("hv_vcpu_run", unsafe { ffi::hv_vcpu_run(self.id()) })?;
+            if !guard.run_vcpu(
+                self.id(),
+                self.generation,
+                barrier.take(),
+                deadline.saturating_duration_since(Instant::now()),
+            )? {
+                self.invalidate()?;
+                guard.memory.publish();
+                self.invalidate()?;
+                self.generation = guard.memory.generation();
+                continue;
+            }
             // SAFETY: framework-provided exit storage lives until vCPU destruction.
             let exit = unsafe { *self.exit };
+            if exit.reason == 2 {
+                self.process
+                    .profile
+                    .timer_preemptions
+                    .fetch_add(1, Ordering::Relaxed);
+                return Ok(RunOutcome::Yield(YieldReason::Deadline));
+            }
             if exit.reason == 0 {
                 self.process
                     .profile
@@ -660,7 +683,7 @@ impl Cpu {
 }
 impl Drop for Cpu {
     fn drop(&mut self) {
-        // SAFETY: no vCPU runs and the watchdog has joined. Never free mapped
+        // SAFETY: this owner has finished running its vCPU. Never free mapped
         // memory after a teardown failure; abort rather than leave a dangling map.
         unsafe {
             if let Some(id) = self.vcpu

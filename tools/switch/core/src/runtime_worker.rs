@@ -3,12 +3,16 @@ use super::Error;
 use crate::hv::{Context, Cpu, Error as HvError, Process, RunBudget, RunOutcome, ThreadState};
 use std::sync::{Arc, mpsc};
 use std::thread::{self, JoinHandle};
+unsafe extern "C" {
+    fn soju_worker_qos() -> i32;
+}
 pub(super) enum Command {
     Run {
         thread: crate::kernel::ThreadId,
         context: Box<Context>,
         results: Option<Vec<u64>>,
         budget: RunBudget,
+        barrier: Arc<std::sync::Barrier>,
     },
     Stop,
 }
@@ -23,6 +27,11 @@ impl Worker {
         let (send, results) = mpsc::channel();
         let (started, ready) = mpsc::channel();
         let join = thread::spawn(move || {
+            // SAFETY: adjusts only the calling worker's scheduling class.
+            if unsafe { soju_worker_qos() } != 0 {
+                let _ = started.send(Err(HvError::InvalidState));
+                return;
+            }
             let mut cpu = match Cpu::attach(Arc::clone(&process), state) {
                 Ok(cpu) => {
                     let _ = started.send(Ok(()));
@@ -39,17 +48,32 @@ impl Worker {
                 mut context,
                 results,
                 budget,
+                barrier,
             }) = receive.recv()
             {
                 let result = (|| {
-                    let mut guard = process.lock()?;
-                    if active_thread != Some((thread, context.revision)) {
-                        cpu.load_context(&guard, &context)?;
+                    let mut guard = match process.lock() {
+                        Ok(guard) => guard,
+                        Err(error) => {
+                            barrier.wait();
+                            return Err(error);
+                        }
+                    };
+                    let prepared = (|| {
+                        if active_thread != Some((thread, context.revision)) {
+                            cpu.load_context(&guard, &context)?;
+                        }
+                        if let Some(values) = results {
+                            cpu.set_svc_results(&mut guard, &values)?;
+                        }
+                        Ok::<_, HvError>(())
+                    })();
+                    if let Err(error) = prepared {
+                        drop(guard);
+                        barrier.wait();
+                        return Err(error);
                     }
-                    if let Some(values) = results {
-                        cpu.set_svc_results(&mut guard, &values)?;
-                    }
-                    let outcome = cpu.run_quantum(&mut guard, budget)?;
+                    let outcome = cpu.run_quantum_batch(&mut guard, budget, Some(&barrier))?;
                     cpu.save_context(&guard, &mut context)?;
                     active_thread = Some((thread, context.revision));
                     Ok((context, outcome))
@@ -79,8 +103,10 @@ impl Worker {
             }
         }
     }
-    pub(super) fn run(&self, command: Command) -> Result<(Box<Context>, RunOutcome), Error> {
-        self.commands.send(command).map_err(|_| Error::Worker)?;
+    pub(super) fn submit(&self, command: Command) -> Result<(), Error> {
+        self.commands.send(command).map_err(|_| Error::Worker)
+    }
+    pub(super) fn receive(&self) -> Result<(Box<Context>, RunOutcome), Error> {
         self.results
             .recv()
             .map_err(|_| Error::Worker)?

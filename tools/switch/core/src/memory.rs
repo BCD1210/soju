@@ -48,7 +48,7 @@ pub struct MemoryImage {
     generation: u64,
 }
 // SAFETY: the allocation is exclusively owned. Every access requires a borrow;
-// the HV owner places this object behind its execution mutex, including guest runs.
+// the HV owner excludes every guest run while a host memory lease is held.
 unsafe impl Send for MemoryImage {}
 impl Drop for MemoryImage {
     fn drop(&mut self) {

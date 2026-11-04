@@ -1,6 +1,5 @@
-//! Four permanent core workers with saved guest contexts and deterministic scheduling.
-//! Only the selected worker receives a run command. Every quantum and host memory
-//! operation holds the shared ProcessGuard; channel waits and sleeping never do.
+//! Four thread-affine hardware workers. Each wave selects one context per core;
+//! the coordinator owns kernel state and dispatches exits after all workers return.
 use crate::hv::{Context, Error as HvError, Process, RunBudget, RunOutcome, ThreadState};
 use crate::kernel::{Dispatch, IpcRequest, Kernel, MAIN_THREAD, ThreadId, ThreadStatus};
 use crate::memory::GuestMemory;
@@ -102,8 +101,11 @@ pub struct Runtime {
     workers: BTreeMap<ThreadId, Box<Context>>,
     cores: Vec<Worker>,
     pub quantum: RunBudget,
+    /// Keep the same hardware path but dispatch one core at a time for comparison.
+    pub parallel: bool,
     pub schedule: std::collections::VecDeque<ThreadId>,
     pending_ipc: Option<IpcRequest>,
+    completed: std::collections::VecDeque<(ThreadId, RunOutcome)>,
 }
 impl Runtime {
     pub fn new(boot: &Homebrew) -> Result<Self, Error> {
@@ -128,8 +130,10 @@ impl Runtime {
             workers,
             cores,
             quantum: RunBudget::default(),
+            parallel: true,
             schedule: std::collections::VecDeque::new(),
             pending_ipc: None,
+            completed: std::collections::VecDeque::new(),
         })
     }
     pub fn from_program(program: &crate::program::Program) -> Result<Self, Error> {
@@ -225,6 +229,8 @@ impl Runtime {
         loop {
             if Instant::now() >= deadline
                 || quanta >= max_quanta
+                || self.quantum.max_exits == 0
+                || self.quantum.max_duration.is_zero()
                 || (self.yield_on_frame && handler.frame_ready())
             {
                 return Ok(Stop::BudgetExpired);
@@ -245,97 +251,136 @@ impl Runtime {
             if self.kernel.all_exited() {
                 return Ok(Stop::AllThreadsExited);
             }
-            let Some(id) = self.kernel.next_runnable() else {
-                let wait = self
-                    .kernel
-                    .next_deadline()
-                    .map_or(1_000_000, |d| d.saturating_sub(now).min(1_000_000));
+            if self.completed.is_empty() {
+                let mut selected = Vec::new();
+                let mut deferred = Vec::new();
+                let mut occupied = [false; 4];
+                while let Some(id) = self.kernel.next_runnable() {
+                    let t = self.kernel.thread(id).ok_or(Error::Worker)?;
+                    let core = if t.ideal_core >= 0 {
+                        t.ideal_core as usize
+                    } else {
+                        t.affinity.trailing_zeros() as usize
+                    };
+                    if core >= 4 {
+                        return Err(Error::Worker);
+                    }
+                    if occupied[core] {
+                        deferred.push(id);
+                        continue;
+                    }
+                    occupied[core] = true;
+                    selected.push((id, core));
+                    if !self.parallel
+                        || selected.len() == 4
+                        || quanta + selected.len() as u64 >= max_quanta
+                    {
+                        break;
+                    }
+                }
+                for id in deferred {
+                    self.kernel.requeue(id);
+                }
+                if selected.is_empty() {
+                    let wait = self
+                        .kernel
+                        .next_deadline()
+                        .map_or(1_000_000, |d| d.saturating_sub(now).min(1_000_000));
+                    let started = Instant::now();
+                    thread::sleep(Duration::from_nanos(wait.max(1)));
+                    self.profile.sleep += started.elapsed();
+                    continue;
+                }
+                let barrier = Arc::new(std::sync::Barrier::new(selected.len()));
+                let budget = RunBudget {
+                    max_duration: self
+                        .quantum
+                        .max_duration
+                        .min(deadline.saturating_duration_since(Instant::now()))
+                        .max(Duration::from_nanos(1)),
+                    max_exits: self.quantum.max_exits,
+                };
                 let started = Instant::now();
-                thread::sleep(Duration::from_nanos(wait.max(1)));
-                self.profile.sleep += started.elapsed();
-                continue;
-            };
-            let results = self.kernel.take_results(id);
-            if self.schedule.len() == 1024 {
-                self.schedule.pop_front();
-            }
-            self.schedule.push_back(id);
-            quanta += 1;
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            let budget = RunBudget {
-                max_duration: self.quantum.max_duration.min(remaining),
-                max_exits: self.quantum.max_exits,
-            };
-            let started = Instant::now();
-            let thread = self.kernel.thread(id).ok_or(Error::Worker)?;
-            let core = if thread.ideal_core >= 0 {
-                usize::try_from(thread.ideal_core).map_err(|_| Error::Worker)?
-            } else {
-                usize::try_from(thread.affinity.trailing_zeros()).map_err(|_| Error::Worker)?
-            };
-            let context = self.workers.remove(&id).ok_or(Error::Worker)?;
-            let (context, outcome) =
-                self.cores
-                    .get(core)
-                    .ok_or(Error::Worker)?
-                    .run(Command::Run {
+                for &(id, core) in &selected {
+                    let results = self.kernel.take_results(id);
+                    if self.schedule.len() == 1024 {
+                        self.schedule.pop_front();
+                    }
+                    self.schedule.push_back(id);
+                    let context = self.workers.remove(&id).ok_or(Error::Worker)?;
+                    self.cores[core].submit(Command::Run {
                         thread: id,
                         context,
                         results,
                         budget,
+                        barrier: Arc::clone(&barrier),
                     })?;
-            self.workers.insert(id, context);
-            self.profile.worker += started.elapsed();
-            match outcome {
-                RunOutcome::Yield(_) => self.kernel.requeue(id),
-                RunOutcome::Svc(exit) => {
-                    let now = self.now();
-                    let started = Instant::now();
-                    let dispatch = {
-                        let mut guard = self.process.lock()?;
-                        self.kernel.dispatch(
-                            guard.memory(),
-                            id,
-                            exit.immediate,
-                            &exit.registers,
-                            exit.guest_pc,
-                            now,
-                        )
-                    };
-                    self.profile.svc += started.elapsed();
-                    match dispatch {
-                        Dispatch::Return(mut results) => {
-                            if exit.immediate == 30 {
-                                results = vec![self.process.ticks()];
+                    quanta += 1;
+                }
+                // Drain every in-flight command before dispatching or returning a stop.
+                let completed: Vec<_> = selected
+                    .iter()
+                    .map(|&(id, core)| (id, self.cores[core].receive()))
+                    .collect();
+                self.profile.worker += started.elapsed();
+                for (id, result) in completed {
+                    let (context, outcome) = result?;
+                    self.workers.insert(id, context);
+                    self.completed.push_back((id, outcome));
+                }
+            }
+            while let Some((id, outcome)) = self.completed.pop_front() {
+                match outcome {
+                    RunOutcome::Yield(_) => self.kernel.requeue(id),
+                    RunOutcome::Svc(exit) => {
+                        let now = self.now();
+                        let started = Instant::now();
+                        let dispatch = {
+                            let mut guard = self.process.lock()?;
+                            self.kernel.dispatch(
+                                guard.memory(),
+                                id,
+                                exit.immediate,
+                                &exit.registers,
+                                exit.guest_pc,
+                                now,
+                            )
+                        };
+                        self.profile.svc += started.elapsed();
+                        match dispatch {
+                            Dispatch::Return(mut results) => {
+                                if exit.immediate == 30 {
+                                    results = vec![self.process.ticks()];
+                                }
+                                self.kernel
+                                    .set_results(id, results)
+                                    .map_err(Error::Kernel)?;
+                                self.kernel.requeue(id);
                             }
-                            self.kernel
-                                .set_results(id, results)
-                                .map_err(Error::Kernel)?;
-                            self.kernel.requeue(id);
-                        }
-                        Dispatch::Blocked | Dispatch::ThreadExited => {}
-                        Dispatch::ProcessExited(code) => return Ok(Stop::ProcessExited(code)),
-                        Dispatch::Break {
-                            reason,
-                            address,
-                            size,
-                        } => {
-                            return Ok(Stop::Break {
+                            Dispatch::Blocked | Dispatch::ThreadExited => {}
+                            Dispatch::ProcessExited(code) => return Ok(Stop::ProcessExited(code)),
+                            Dispatch::Break {
                                 reason,
                                 address,
                                 size,
-                            });
-                        }
-                        Dispatch::Unsupported(svc) => {
-                            return Ok(Stop::Unsupported {
-                                thread: id,
-                                svc,
-                                pc: exit.guest_pc,
-                            });
-                        }
-                        Dispatch::Ipc(request) => {
-                            if let Some(stop) = self.ipc(handler, request)? {
-                                return Ok(stop);
+                            } => {
+                                return Ok(Stop::Break {
+                                    reason,
+                                    address,
+                                    size,
+                                });
+                            }
+                            Dispatch::Unsupported(svc) => {
+                                return Ok(Stop::Unsupported {
+                                    thread: id,
+                                    svc,
+                                    pc: exit.guest_pc,
+                                });
+                            }
+                            Dispatch::Ipc(request) => {
+                                if let Some(stop) = self.ipc(handler, request)? {
+                                    return Ok(stop);
+                                }
                             }
                         }
                     }

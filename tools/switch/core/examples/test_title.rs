@@ -10,6 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let home = PathBuf::from(args.next().ok_or("isolated home required")?);
     let (mut runtime, mut hub) = soju_switch_core::launch::load(&path, &home)?;
     runtime.yield_on_frame = true;
+    runtime.parallel = std::env::var_os("SOJU_SERIALIZED").is_none();
     let mut presentations = 0;
     let start = Instant::now();
     let mut transcript = String::new();
@@ -68,6 +69,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if path.file_stem().is_some_and(|name| name == "media") && presentations != 2 {
                     return Err("missing media presentations".into());
                 }
+                println!(
+                    "PROFILE|elapsed_ms={:.3}|max_parallel={}|timer_preemptions={}",
+                    start.elapsed().as_secs_f64() * 1000.0,
+                    runtime
+                        .process()
+                        .profile
+                        .max_parallel
+                        .load(std::sync::atomic::Ordering::Relaxed),
+                    runtime
+                        .process()
+                        .profile
+                        .timer_preemptions
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                );
                 println!("exit0|probe-complete");
                 return Ok(());
             }
