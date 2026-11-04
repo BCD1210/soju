@@ -1,8 +1,10 @@
 //! Read-only independent sprite snapshots; animation timing remains native.
-use std::collections::HashSet;
+use std::{collections::HashSet, ffi::c_void};
 use bw_dat::structs::{LoneSprite, Sprite};
 use serde_json::{json, Value};
 use super::{image_chain, image_info};
+
+pub(super) type SpritePosition = unsafe extern "C" fn(*mut c_void, *mut u16);
 
 pub(super) fn visible(flags: u8, mask: u8, player: usize) -> bool {
     player < 8 && flags & 0x20 == 0 && mask & (1 << player) != 0
@@ -10,7 +12,7 @@ pub(super) fn visible(flags: u8, mask: u8, player: usize) -> bool {
 
 /// Caller runs on the simulation thread with a valid SCR sprite list, whose
 /// nodes and images remain allocated for the duration of the snapshot.
-pub(super) unsafe fn lone_snapshot(mut ptr: *mut LoneSprite, player: usize) -> (Vec<Value>, bool) {
+pub(super) unsafe fn lone_snapshot(mut ptr: *mut LoneSprite, player: usize, position: SpritePosition) -> (Vec<Value>, bool) {
     let mut seen = HashSet::new();
     let mut sprites = Vec::new();
     while !ptr.is_null() && seen.len() < 4096 && seen.insert(ptr) {
@@ -26,8 +28,12 @@ pub(super) unsafe fn lone_snapshot(mut ptr: *mut LoneSprite, player: usize) -> (
                 let scr = unsafe { s.version_specific.scr };
                 // SAFETY: these image pointers belong to the live sprite above.
                 let (image, visual) = unsafe { (image_info(scr.main_image), image_chain(sprite)) };
+                let mut coordinates = [0u16; 2];
+                // SAFETY: Samase decodes SCR's opaque position storage into two
+                // u16 coordinates; sprite and the writable output remain live.
+                unsafe {position(sprite.cast(),coordinates.as_mut_ptr());}
                 sprites.push(json!({"id":format!("{ptr:p}-{}",s.sprite_id),"spriteId":s.sprite_id,
-                    "owner":s.player,"x":scr.position[0],"y":scr.position[1],
+                    "owner":s.player,"x":coordinates[0],"y":coordinates[1],
                     "elevation":s.elevation_level,"image":image,"visual":visual}));
             }
         }
@@ -40,6 +46,11 @@ pub(super) unsafe fn lone_snapshot(mut ptr: *mut LoneSprite, player: usize) -> (
 mod tests {
     use super::*;
     use bw_dat::structs::{Image, SpriteScr, SpriteVersions};
+
+    unsafe extern "C" fn decoded_position(_: *mut c_void, output: *mut u16) {
+        // SAFETY: the reader passes a writable two-element coordinate array.
+        unsafe {output.write(64);output.add(1).write(96);}
+    }
 
     #[test]
     fn native_sprite_frames_follow_chain_and_cycles_are_bounded() {
@@ -55,22 +66,23 @@ mod tests {
         sprite.sprite_id = 130;
         sprite.visibility_mask = 1 << 6;
         let image_ptr = &raw mut image;
-        sprite.version_specific = SpriteVersions {scr:SpriteScr {position:[64,96],main_image:image_ptr,first_image:image_ptr,last_image:image_ptr}};
+        sprite.version_specific = SpriteVersions {scr:SpriteScr {position:[usize::MAX,usize::MAX-1],main_image:image_ptr,first_image:image_ptr,last_image:image_ptr}};
         lone.sprite = &mut sprite;
         let lone_ptr = &raw mut lone;
         // SAFETY: write through the same provenance used for the cyclic list.
         unsafe {(*lone_ptr).next = lone_ptr;}
         // SAFETY: the list and its image allocations are live through the call.
-        let (result,truncated) = unsafe {lone_snapshot(lone_ptr,6)};
+        let (result,truncated) = unsafe {lone_snapshot(lone_ptr,6,decoded_position)};
         assert!(truncated);
         assert_eq!(result.len(),1);
         assert_eq!(result[0]["image"]["frame"],17);
         assert_eq!(result[0]["visual"]["images"][0]["animation"],1);
         assert_eq!(result[0]["x"],64);
+        assert_eq!(result[0]["y"],96);
         // SAFETY: this pointer still refers to the stack-owned sprite.
         unsafe {(*(*lone_ptr).sprite).flags = 0x20;}
         // SAFETY: same owned allocations; hidden sprites must not be exposed.
-        assert!(unsafe {lone_snapshot(lone_ptr,6)}.0.is_empty());
+        assert!(unsafe {lone_snapshot(lone_ptr,6,decoded_position)}.0.is_empty());
     }
 
     #[test]
