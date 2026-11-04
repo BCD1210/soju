@@ -60,3 +60,10 @@ Downloaded public-reference SHA-256 fingerprints for this extension:
 | NVIDIA `clb1c0qmd.h` | `0041719fd1619035e58eb882e04196743dc1475af65147ff851fdf9f81dd672c` |
 | NVIDIA `clb197.h` | `175c50f29798b39c6858cafe31497e9e9798c70ca068a64856719003b5d088d7` |
 | Apple MSL PDF, dated 2026-06-04 | `41538b30d2f1140a5b2a0c84ce0a9f7b67bf0c707e224cfea0bfe5a44aa26cf5` |
+
+Homebrew container audit (2026-11-04):
+- https://github.com/devkitPro/deko3d/blob/373bfd43d8b2d805fa2eb7d406dbb823032df958/source/dksh.h
+  DKSH section sizes, program table, entrypoint and compute allocation fields.
+  SHA-256 `6f2fb02eaf056254eb9fb5433975ff721830484c2bc79847eb8fcce17996caf0`.
+  The adjacent `dk_shader.cpp` establishes entrypoint offsets relative to the
+  code section. These are container facts, not shader execution implementations.

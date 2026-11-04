@@ -175,3 +175,25 @@ errors. Geometry SPH rejection remains separately covered. No OUT semantics were
 guessed. The GPU README records the proposed compute-export/vertex-pulling
 architecture and the unresolved primitive/stream/transform-feedback contracts.
 The current shader regression total is **44 tests**; numerical coverage is unchanged.
+
+## Local embedded shader audit
+
+`cargo run --offline --example corpus_audit -- <homebrew-directory>` reads DKSH
+containers embedded in local NROs or standalone DKSH files. It reports program
+offsets, decoded opcode counts, unknown opcode prefixes and translation errors.
+It writes no shader blobs. Section and program extents are checked; code is
+trimmed through the last unconditional EXIT before alignment padding.
+
+This is a static translation audit, not an execution test or a complete census
+of runtime-generated GL shaders. Translation uses declared 64 KiB cbuf bounds,
+the default texture table and a synthetic 1 MiB global window. Resource-binding
+errors are distinguished in the output but remain failures; the tool cannot
+resolve application-specific descriptors. Compute local/shared sizes come from
+DKSH metadata. Native device compatibility is not established by translation.
+
+The current 59-NRO corpus contains 16 DKSH programs: 514 of 521 instruction
+occurrences decode, and 8 programs translate with these audit options. The same
+audit at `3deb0fb` gives the same totals. Remaining unknown prefixes are `5c90`
+(RRO, three occurrences) and `efd0` (four tessellation occurrences). Runtime
+es2gears now exercises FMNMX.FTZ, with 32 additional native/reference FTZ cases;
+that shader is generated at runtime and is outside the static DKSH totals.
