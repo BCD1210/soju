@@ -21,8 +21,9 @@ retargeting dependency. A custom mapping must identify original and delivered
 bone names; it is not an instruction to retarget automatically.
 
 Use diffuse alpha as team mask (`alpha`), or a separate grayscale mask texture
-(`texture`, `teamMaskTexture`). White means team color, black means unchanged.
-Alpha masks are color data, not cutout opacity. Check all eight player colors
+(`texture`, `teamMaskTexture`). For a separate texture, white means team color and black means unchanged.
+The existing diffuse-alpha convention is inverted: zero alpha marks team paint,
+one marks unchanged paint. Alpha masks are color data, not cutout opacity. Check all eight player colors
 in the native renderer. Supply `provenance.json` describing sources and rights.
 
 Example `catalog.json` (add SCV as key `7`):
