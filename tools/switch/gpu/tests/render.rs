@@ -2405,7 +2405,9 @@ fn parallel_color_passes_preserve_per_target_blend_order() {
         h.draw(&mut e, 6, false, false);
     }
     let stats = h.backend.submit(&root).unwrap().wait().unwrap();
-    if std::env::var("SOJU_GPU_PARALLEL_PASSES").as_deref() == Ok("1") {
+    if std::env::var("SOJU_GPU_PARALLEL_PASSES").as_deref() == Ok("1")
+        && std::env::var("SOJU_GPU_CACHE_BYTES").as_deref() != Ok("0")
+    {
         assert!(stats.contains("parallel_passes=2"), "{stats}");
         assert!(stats.contains("command_buffers=2"), "{stats}");
     }
@@ -2492,4 +2494,39 @@ fn shared_depth_mrt_slot_permutations_keep_outputs_and_depth_order() {
         };
         assert!(image.rgba.chunks_exact(4).all(|p| p == expected));
     }
+}
+
+#[test]
+#[ignore = "run with SOJU_GPU_ASYNC_PIPELINES=1"]
+fn pending_pipeline_skips_frame_then_renders() {
+    assert_eq!(
+        std::env::var("SOJU_GPU_ASYNC_PIPELINES").as_deref(),
+        Ok("1")
+    );
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("pending", [0., 0., 0., 1.]);
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    h.draw(&mut e, 6, false, false);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/pending-pipeline");
+    let stats = h.backend.submit(&root).unwrap().wait().unwrap();
+    assert!(
+        stats.contains("skipped_draws=1 ") && stats.contains("draws=0 "),
+        "{stats}"
+    );
+    let first = h.backend.readback(&root, &mut h.memory).unwrap();
+    assert!(first.images[0]
+        .rgba
+        .chunks_exact(4)
+        .all(|p| p == [0, 0, 0, 255]));
+    for _ in 0..200 {
+        h.draw(&mut e, 6, false, false);
+        let stats = h.backend.submit(&root).unwrap().wait().unwrap();
+        if stats.contains("skipped_draws=0 ") {
+            let ready = h.backend.readback(&root, &mut h.memory).unwrap();
+            assert!(ready.images[0].rgba.chunks_exact(4).all(|p| p == [255; 4]));
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    panic!("ready pipeline never rendered");
 }

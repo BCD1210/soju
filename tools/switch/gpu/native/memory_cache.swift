@@ -2,9 +2,13 @@
 // every submitted command buffer has completed. Dirty attachments are spilled
 // before releasing their Metal allocation; their guest generation stays attached.
 extension Worker {
-    func touch(_ category: String, _ key: String) {
-        cacheClock &+= 1; lastUse[category + key] = cacheClock
+    func cacheStamp(_ category: String, _ key: String) -> CacheStamp {
+        let id = category + key
+        if let stamp = lastUse[id] { return stamp }
+        let stamp = CacheStamp(); lastUse[id] = stamp; return stamp
     }
+    func use(_ stamp: CacheStamp) { cacheClock &+= 1; stamp.tick = cacheClock }
+    func touch(_ category: String, _ key: String) { use(cacheStamp(category, key)) }
     func cacheBytes() -> Int {
         var seen = Set<ObjectIdentifier>(), bytes = 0
         func resource(_ r: MTLResource) {
@@ -28,7 +32,7 @@ extension Worker {
         let limit = pressure.budget(cacheBudget)
         var evicted = 0
         if cacheBytes() > limit {
-            let candidates = lastUse.sorted { $0.value < $1.value }
+            let candidates = lastUse.sorted { $0.value.tick < $1.value.tick }
             var spilled = false
             for (id, _) in candidates where cacheBytes() > limit {
                 let key = String(id.dropFirst())
@@ -87,7 +91,7 @@ final class MemoryPressure {
     init() {
         source.setEventHandler { [weak self] in
             guard let self else { return }
-            lock.lock(); pressured = !source.data.contains(.normal); lock.unlock()
+            lock.lock(); pressured = source.data.contains(.warning) || source.data.contains(.critical); lock.unlock()
         }
         source.resume()
     }
@@ -97,3 +101,5 @@ final class MemoryPressure {
         return pressured ? configured / 2 : configured
     }
 }
+
+final class CacheStamp { var tick: UInt64 = 0 }

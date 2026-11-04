@@ -13,6 +13,7 @@ final class RenderCompiler {
     let lock = NSLock()
     var pending = Set<String>()
     var completed = [String: Result<CompiledRender, Error>]()
+    var completionOrder = [String]()
     let asynchronous = ProcessInfo.processInfo.environment["SOJU_GPU_ASYNC_PIPELINES"] == "1"
     let diskLimit = max(0, Int(ProcessInfo.processInfo.environment["SOJU_GPU_DISK_CACHE_BYTES"] ?? "") ?? 134217728)
     let root: URL
@@ -47,7 +48,14 @@ final class RenderCompiler {
             if archive == nil { archive = try? device.makeBinaryArchive(descriptor: MTLBinaryArchiveDescriptor()) }
             if let archive { descriptor.binaryArchives = [archive] }
         }
-        let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+        let pipeline: MTLRenderPipelineState
+        do { pipeline = try device.makeRenderPipelineState(descriptor: descriptor) }
+        catch {
+            guard archive != nil else { throw error }
+            descriptor.binaryArchives = []
+            pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+            archive = try? device.makeBinaryArchive(descriptor: MTLBinaryArchiveDescriptor())
+        }
         if let archive {
             do {
                 try archive.addRenderPipelineFunctions(descriptor: descriptor)
@@ -56,10 +64,10 @@ final class RenderCompiler {
                 var bytes = Data(digest(payload).utf8); bytes.append(payload)
                 if bytes.count <= diskLimit {
                     try bytes.write(to: destination, options: .atomic)
-                    prune()
                 }
             } catch { /* Disk caching is optional; compiled pipelines remain usable. */ }
         }
+        if diskLimit > 0 { prune() }
         return CompiledRender(pipeline: pipeline, vertex: vs, fragment: fs)
     }
     func prune() {
@@ -77,14 +85,16 @@ final class RenderCompiler {
     func request(_ key: String, _ descriptor: MTLRenderPipelineDescriptor, _ vertex: String, _ fragment: String) throws -> CompiledRender? {
         if !asynchronous { return try queue.sync { try compile(key, descriptor, vertex, fragment) } }
         lock.lock()
-        if let result = completed.removeValue(forKey: key) { lock.unlock(); return try result.get() }
+        if let result = completed.removeValue(forKey: key) { completionOrder.removeAll { $0 == key }; lock.unlock(); return try result.get() }
         if pending.contains(key) || pending.count >= 32 { lock.unlock(); return nil }
-        if completed.count >= 32, let stale = completed.keys.first { completed.removeValue(forKey: stale) }
+        if completed.count >= 32 { completed.removeValue(forKey: completionOrder.removeFirst()) }
         pending.insert(key); lock.unlock()
         // descriptor and source strings are owned copies; no Command/Span survives run.
         queue.async { [self] in
             let result = autoreleasepool { Result { try compile(key, descriptor, vertex, fragment) } }
-            lock.lock(); pending.remove(key); completed[key] = result; lock.unlock()
+            lock.lock(); pending.remove(key)
+            if completed.count >= 32 { completed.removeValue(forKey: completionOrder.removeFirst()) }
+            completed[key] = result; completionOrder.append(key); lock.unlock()
         }
         return nil
     }

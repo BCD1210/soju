@@ -18,9 +18,11 @@ func stencilOp(_ v: Int) throws -> MTLStencilOperation {
 }
 struct StateTransition: Hashable { let previous: Int; let current: Int }
 struct ArgumentTable {
+    let key: String
     let buffer: MTLBuffer
     let offset: Int
     let textures: [MTLTexture]
+    let usage: [CacheStamp]
     let samplers: [MTLSamplerState]
 }
 // Graphics shaders have no writable storage. Within a span without clear/query/depth
@@ -66,6 +68,7 @@ struct RenderPassState {
     let key: String
     let colors: [MTLTexture]
     let depthFormat: MTLPixelFormat
+    let usage: [CacheStamp]
 }
 final class Worker {
     let device: MTLDevice
@@ -76,7 +79,7 @@ final class Worker {
     var targetBytes = [String: Int]()
     let pressure = MemoryPressure()
     var cacheClock: UInt64 = 0
-    var lastUse = [String: UInt64]()
+    var lastUse = [String: CacheStamp]()
     let cacheBudget = max(0, Int(ProcessInfo.processInfo.environment["SOJU_GPU_CACHE_BYTES"] ?? "") ?? 268435456)
     let spillRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath + "/target/soju-spill-" + UUID().uuidString, isDirectory: true)
     var dirtyAttachments = Set<String>()
@@ -143,6 +146,7 @@ final class Worker {
         boundBuffers[key] = (identity, offset)
     }
     func bindTable(_ encoder: MTLRenderCommandEncoder, _ stage: Int, _ table: ArgumentTable) {
+        for stamp in table.usage { use(stamp) }
         for texture in table.textures {
             if resident.insert(ObjectIdentifier(texture)).inserted { encoder.useResource(texture, usage: .read, stages: [.vertex, .fragment]) }
         }
@@ -189,6 +193,7 @@ final class Worker {
     let scheduled = try schedulePasses(commands)
     let depthPlans = sharedDepthPlans(commands, scheduled)
     var mergedKeys = [Int: String]()
+    var pipelineUsage = [Int: CacheStamp]()
     for inputIndex in scheduled {
         let input = commands[inputIndex]
         let commandIndex = input.kind == 5 ? Int(input.reference) : inputIndex
@@ -243,6 +248,7 @@ final class Worker {
         let pass: MTLRenderPassDescriptor
         let passKey: String
         if let resolved = passStates[passStateIndex] {
+            for stamp in resolved.usage { use(stamp) }
             pass = resolved.descriptor; passKey = resolved.key; colors = resolved.colors; depthFormat = resolved.depthFormat; passHits += 1
         } else {
 
@@ -319,7 +325,7 @@ final class Worker {
         }
         if !isClear && visibility == nil {
             renderPasses[passKey] = pass
-            passStates[passStateIndex] = RenderPassState(descriptor: pass, key: passKey, colors: colors, depthFormat: depthFormat)
+            passStates[passStateIndex] = RenderPassState(descriptor: pass, key: passKey, colors: colors, depthFormat: depthFormat, usage: attachments.map { cacheStamp("c", text($0.key)) } + items(command.depth).map { cacheStamp("d", text($0.key)) })
         }
         }
         if isClear || visibility != nil || activeKey != passKey {endPass()}
@@ -375,7 +381,8 @@ final class Worker {
                 pipelines[pk] = ready.pipeline
                 renderFunctions[pk] = (ready.vertex, ready.fragment)
             } else {pipelineHits += 1}
-            touch("p", pk)
+            if pipelineUsage[passStateIndex] == nil { pipelineUsage[passStateIndex] = cacheStamp("p", pk) }
+            use(pipelineUsage[passStateIndex]!)
             let (vs, fs) = renderFunctions[pk]!
             if depthStates[pk] == nil {
                 let d = MTLDepthStencilDescriptor()
@@ -515,7 +522,7 @@ final class Worker {
                         guard let sampler=device.makeSamplerState(descriptor:d) else {throw Failure("sampler allocation")};tableSamplers.append(sampler);argument.setSamplerState(sampler,index:9*Int(item.count)+Int(item.sampler))
                     }
                 }
-                let resolved = ArgumentTable(buffer: table, offset: tableOffset, textures: tableTextures, samplers: tableSamplers)
+                let resolved = ArgumentTable(key: tableKey, buffer: table, offset: tableOffset, textures: tableTextures, usage: [cacheStamp("a", tableKey)] + stageItems.filter { $0.image >= 0 }.map { cacheStamp("t", text($0.key)) }, samplers: tableSamplers)
                 argumentTables[tableKey] = resolved
                 resolvedTables[commandIndex, default: [:]][stage] = resolved
                 bindTable(encoder, stage, resolved)
