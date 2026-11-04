@@ -44,7 +44,7 @@ impl AddressSpace {
         let page = u64::from(u32at(data, 4)?);
         let alignment = u64at(data, 16)?;
         if pages == 0
-            || !matches!(page, 4096 | 65536)
+            || !matches!(page, 4096 | 65536 | 131072)
             || u32at(data, 8)? != 0
             || u32at(data, 12)? != 0
             || alignment < page
@@ -67,9 +67,9 @@ impl AddressSpace {
         let page = u64::from(u32at(data, 12)?);
         let offset = u64at(data, 16)?;
         let requested = u64at(data, 24)?;
-        if u32at(data, 0)? != 0
+        if u32at(data, 0)? & !4 != 0
             || !matches!(kind, 0 | 0x11 | 0xfe)
-            || !matches!(page, 4096 | 65536)
+            || !matches!(page, 4096 | 65536 | 131072)
             || u64at(data, 32)? != 0
             || view.guest_address == 0
             || !view.guest_address.is_multiple_of(4096)
@@ -80,7 +80,10 @@ impl AddressSpace {
             || offset >= view.size
             || self.mappings.len() >= 4096
         {
-            return Err(Error::Malformed("GPU dynamic mapping parameters"));
+            return Err(Error::Message(format!(
+                "GPU dynamic mapping parameters: {:02x?}",
+                data
+            )));
         }
         let size = if requested == 0 {
             view.size - offset

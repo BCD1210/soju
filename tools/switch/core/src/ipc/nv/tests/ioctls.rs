@@ -58,6 +58,13 @@ fn metadata_replies_and_all_control_ioctl_profiles() {
         read_u32(&f.ioctl(fd, 0x80284702, &[], 40).unwrap(), 24).unwrap(),
         0xc0
     );
+    let mut masks = vec![0; 24];
+    put32(&mut masks, 0, 4);
+    put64(&mut masks, 8, 1);
+    let out = f.ioctl(fd, 0xc0184706, &masks, 24).unwrap();
+    assert_eq!(&out[16..], &[3, 0, 0, 0, 0, 0, 0, 0]);
+    put32(&mut masks, 0, 9);
+    assert!(f.ioctl(fd, 0xc0184706, &masks, 24).is_err());
     let (channel, space, va) = f.setup();
     let mut d = vec![0; 16];
     put32(&mut d, 0, 0xb197);
@@ -114,6 +121,15 @@ fn malformed_descriptors_outputs_and_mapped_free_preserve_state() {
     put32(&mut d, 8, id);
     put32(&mut d, 12, 65536);
     let tiled = read_u64(&f.ioctl(space, 0xc0284106, &d, 40).unwrap(), 32).unwrap();
+    put32(&mut d, 0, 4);
+    put32(&mut d, 4, 0);
+    put32(&mut d, 12, 131072);
+    let cached = read_u64(&f.ioctl(space, 0xc0284106, &d, 40).unwrap(), 32).unwrap();
+    assert_eq!(cached % 131072, 0);
+    assert_eq!(
+        f.nv.spaces[&space].resolve(cached, 4).unwrap(),
+        (crate::kernel::HEAP, 0)
+    );
     let a = &f.nv.spaces[&space];
     assert_eq!(a.resolve(va, 4).unwrap(), (crate::kernel::HEAP, 0));
     assert_eq!(a.resolve(tiled, 4).unwrap(), (crate::kernel::HEAP, 0xfe));

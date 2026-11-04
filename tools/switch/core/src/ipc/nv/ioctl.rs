@@ -21,6 +21,7 @@ const NVMAP: &[CommandSpec<Nv>] = &[
     spec(0xc008010e, 8, nvmap::get_id),
 ];
 const CTRL: &[CommandSpec<Nv>] = &[
+    spec(0xc0184706, 24, queries::tpc_masks),
     spec(0xc0b04705, 176, control::characteristics),
     spec(0x80044701, 0, control::zcull_size),
     spec(0x80284702, 0, control::zcull_info),
@@ -96,7 +97,9 @@ pub(super) fn dispatch(nv: &mut Nv, r: &Request, c: &mut Context<'_>) -> Result<
     let mut inner = r.clone();
     inner.command_id = command;
     inner.data = data;
-    let bytes = dispatch_table(nv, table, &inner, c)?.data;
+    let bytes = dispatch_table(nv, table, &inner, c)
+        .map_err(|error| Error::Message(format!("NV ioctl {command:#010x} fd={fd}: {error}")))?
+        .data;
     Reply::data(vec![0; 4]).write(output, bytes)
 }
 pub(super) fn args(r: &Request) -> &[u8] {

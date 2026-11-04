@@ -60,10 +60,13 @@ pub(super) fn initialize_space(
     if nv.spaces.contains_key(&fd)
         || read_u32(d, 0)? != 1
         || read_u32(d, 4)? != 0
-        || read_u32(d, 8)? != 65536
+        || !matches!(read_u32(d, 8)?, 65536 | 131072)
         || d[12..].iter().any(|&b| b != 0)
     {
-        return Err(Error::Malformed("GPU address space initialization"));
+        return Err(Error::Message(format!(
+            "GPU address space initialization: {:02x?}",
+            d
+        )));
     }
     nv.spaces.insert(fd, memory::AddressSpace::default());
     Ok(Reply::success())

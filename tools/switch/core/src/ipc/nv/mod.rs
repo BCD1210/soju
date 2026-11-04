@@ -5,6 +5,7 @@ mod gpu;
 mod ioctl;
 mod memory;
 mod nvmap;
+mod queries;
 mod service;
 mod submit;
 use super::types::*;
