@@ -200,18 +200,15 @@ impl Target {
             block_depth_log2: 0,
         }
     }
-    fn writeback(&self, bytes: &[u8], memory: &Memory) -> Result<Vec<u8>> {
+    fn writeback(&self, bytes: &[u8], memory: &mut Memory) -> Result<()> {
         require(
             bytes.len() == self.width as usize * self.height as usize * self.format.info().bytes,
             "invalid attachment readback size",
         )?;
         if self.pitch {
-            return Ok(bytes.to_vec());
+            return memory.write(self.address, bytes);
         }
-        let surface = self.surface();
-        let mut data = memory.read(self.address, self.size())?.to_vec();
-        surface.swizzle_into(bytes, &mut data).map_err(io)?;
-        Ok(data)
+        memory.write_surface(self.address, &self.surface(), bytes)
     }
     fn size(&self) -> usize {
         if self.pitch {
@@ -1713,6 +1710,7 @@ impl Backend {
         };
         let mut images = Vec::new();
         let mut writes = Vec::new();
+        let mut attachments = Vec::new();
         let retain = self.queries.is_empty() && self.compute_targets.is_empty();
         let mut retained = std::collections::HashMap::new();
         let mut retained_bytes = 0usize;
@@ -1751,9 +1749,7 @@ impl Backend {
                 bytes.len() == t.width as usize * t.height as usize * t.format.info().bytes,
                 "invalid readback length",
             )?;
-            let data = t.writeback(&bytes, memory)?;
-            memory.read(t.address, data.len())?;
-            writes.push((t.address, data));
+            memory.read(t.address, t.size())?;
             if capture_images {
                 images.push(Readback {
                     address: t.address,
@@ -1762,6 +1758,7 @@ impl Backend {
                     rgba: crate::format::rgba(t.format, &bytes),
                 });
             }
+            attachments.push((t, bytes));
         }
         for (key, t) in &self.depth_targets {
             use soju_switch_texture::format::Format;
@@ -1809,7 +1806,7 @@ impl Backend {
                 }
                 _ => z,
             };
-            writes.push((t.address, t.writeback(&raw, memory)?));
+            attachments.push((t, raw));
         }
         for (key, &(address, _, _)) in &self.queries {
             let data = take(format!("{key}.query"))?;
@@ -1820,6 +1817,9 @@ impl Backend {
             let bytes = take(format!("{key}.buffer"))?;
             require(bytes.len() == t.size, "invalid compute readback size")?;
             writes.push((t.address, bytes));
+        }
+        for (target, data) in attachments {
+            target.writeback(&data, memory)?;
         }
         for (address, data) in writes {
             memory.write(address, &data)?;

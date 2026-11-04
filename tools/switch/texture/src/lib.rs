@@ -51,7 +51,8 @@ fn div_up(a: usize, b: usize) -> usize {
 }
 
 impl Surface {
-    fn check(&self) -> Result<(), Error> {
+    /// Validate dimensions and block geometry before allocating or borrowing storage.
+    pub fn check(&self) -> Result<(), Error> {
         if self.width == 0 || self.height == 0 || self.depth == 0 {
             return Err(Error::BadParameter("zero size"));
         }

@@ -106,6 +106,30 @@ impl Memory {
     pub fn revision(&self) -> u64 {
         self.generation
     }
+    /// Publish active tiled texels directly into the persistent memory image.
+    /// Surface validation precedes mutation; untouched padding stays in place.
+    pub fn write_surface(
+        &mut self,
+        address: u64,
+        surface: &soju_switch_texture::Surface,
+        bytes: &[u8],
+    ) -> Result<()> {
+        surface.check().map_err(|e| Error(e.to_string()))?;
+        let size = surface.size();
+        self.read(address, size)?;
+        let (base, backing) = self
+            .regions
+            .iter_mut()
+            .find(|(a, b)| address >= *a && address + size as u64 <= *a + b.len() as u64)
+            .ok_or_else(|| Error("unmapped surface write".into()))?;
+        let offset = usize::try_from(address - *base)
+            .map_err(|_| Error("surface offset overflow".into()))?;
+        surface
+            .swizzle_into(bytes, &mut backing[offset..offset + size])
+            .map_err(|e| Error(e.to_string()))?;
+        self.mark(address..address + size as u64);
+        Ok(())
+    }
     /// Mapped byte intervals written after a captured revision. Adjacent writes
     /// are coalesced; unchanged gaps and mapping boundaries are preserved.
     pub fn changed_ranges(
@@ -164,6 +188,47 @@ impl Memory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tiled_write_is_cpu_visible_preserves_padding_and_rejects_short_input() {
+        let surface = soju_switch_texture::Surface {
+            width: 5,
+            height: 3,
+            depth: 1,
+            bytes_per_block: 4,
+            block_height_log2: 1,
+            block_depth_log2: 0,
+        };
+        let mut memory = Memory::default();
+        memory.map(0x1000, vec![0xa5; surface.size()]).unwrap();
+        let old = memory.revision();
+        assert!(memory.write_surface(0x1000, &surface, &[0; 59]).is_err());
+        assert_eq!(memory.revision(), old);
+        assert!(
+            memory
+                .read(0x1000, surface.size())
+                .unwrap()
+                .iter()
+                .all(|b| *b == 0xa5)
+        );
+        let pixels: Vec<u8> = (0..60).collect();
+        memory.write_surface(0x1000, &surface, &pixels).unwrap();
+        let stored = memory.read(0x1000, surface.size()).unwrap();
+        let mut occupied = vec![false; surface.size()];
+        for y in 0..3 {
+            for byte in 0..20 {
+                let offset = surface.offset(byte, y, 0);
+                assert_eq!(stored[offset], pixels[y * 20 + byte]);
+                occupied[offset] = true;
+            }
+        }
+        assert!(
+            stored
+                .iter()
+                .zip(occupied)
+                .all(|(b, active)| active || *b == 0xa5)
+        );
+        assert!(memory.generation(0x1000, surface.size()).unwrap() > old);
+    }
     #[test]
     fn changed_ranges_preserve_gaps_overlaps_and_mapping_edges() {
         let mut memory = Memory::default();
