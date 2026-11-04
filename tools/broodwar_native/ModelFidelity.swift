@@ -51,7 +51,8 @@ func buildingGroundingProof()throws {
     guard let input=argument("--grounding-job") else {throw SceneError.invalid("Missing grounding job")}
     let job=try loadObject(URL(fileURLWithPath:input))
     guard let state=job["state"] as? Obj,let units=state["units"] as? [Obj],let output=job["output"] as? String else {throw SceneError.invalid("Invalid grounding job")}
-    let folder=URL(fileURLWithPath:output),art=try Art(),ground=try Terrain3D(url:assets.appendingPathComponent("terrain3d.json"))
+    let folder=URL(fileURLWithPath:output),art=try Art(),ground=try Terrain3D(url:(job["terrain"] as? String).map{URL(fileURLWithPath:$0)} ?? assets.appendingPathComponent("terrain3d.json"))
+    let metal=job["renderer"] as? String == "metal"
     try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
     let manifest=art.manifest["map"] as! Obj,tiles=manifest["tiles"] as! [Int],width=Int(number(manifest,"width")),height=Int(number(manifest,"height"))
     let tileCatalog=art.manifest["tiles"] as? [String:Obj] ?? [:]
@@ -65,16 +66,18 @@ func buildingGroundingProof()throws {
             billboard.apply(unit,ground:ground,art:sprites);scene.rootNode.addChildNode(billboard.root)
             let entry=sprites.images[String(Int(number(unit["image"] as? Obj ?? [:],"id")))] ?? [:]
             let radius=min(24,max(5,Int(ceil(max(number(entry,"grpWidth"),number(entry,"grpHeight"))/32))+3))
+            var terrainNodes=[Int:SCNNode]()
             for y in max(0,Int(z)-radius)..<min(height,Int(z)+radius+1) {for tx in max(0,Int(x)-radius)..<min(width,Int(x)+radius+1) {
                 guard let file=tileCatalog[String(tiles[y*width+tx])]?["file"] as? String else {continue}
                 let material=try art.terrainMaterial([String](repeating:file,count:9))
                 let node=SCNNode(geometry:ground.geometry(tileX:tx,tileY:y,material:material))
-                node.position=SCNVector3(tx,0,y);scene.rootNode.addChildNode(node)
+                node.position=SCNVector3(tx,0,y);scene.rootNode.addChildNode(node);terrainNodes[y*width+tx]=node
             }}
             camera.camera=SCNCamera();camera.camera!.fieldOfView=55;camera.camera!.zNear=0.03;camera.camera!.zFar=100
             Models3D.exposure(camera.camera!);scene.rootNode.addChildNode(camera)
             renderer.scene=scene;renderer.pointOfView=camera
-            var captures=[String]()
+            var captures=[String](),pixelChecks=[Obj]()
+            let batches=metal ? try MetalBatches(device:art.device):nil
             let base=billboard.root.simdPosition
             for angle in 0..<4 {
                 let yaw=Float(angle)*Float.pi/2
@@ -92,15 +95,35 @@ func buildingGroundingProof()throws {
                 billboard.updateView(eye:camera.simdPosition,orientation:camera.simdOrientation,perspective:true,art:sprites)
                 SCNTransaction.flush()
                 let image=renderer.snapshot(atTime:CACurrentMediaTime(),with:CGSize(width:512,height:512),antialiasingMode:.multisampling4X)
-                guard let tiff=image.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let png=bitmap.representation(using:.png,properties:[:]) else {throw SceneError.invalid("Grounding PNG encoding")}
+                let bitmap:NSBitmapImageRep
+                if let batches=batches {
+                    try batches.prepare(MetalBatches.Input(sceneRevision:angle+1,terrainRevision:1,terrainFogRevision:1,mapWidth:width,terrain:terrainNodes,billboards:[billboard],overlays:[],objectCount:1))
+                    let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm_srgb,width:512,height:512,mipmapped:false)
+                    descriptor.storageMode = .shared;descriptor.usage=[.renderTarget,.shaderRead]
+                    guard let targetTexture=art.device.makeTexture(descriptor:descriptor),let command=batches.queue.makeCommandBuffer() else {throw SceneError.invalid("Grounding Metal target")}
+                    var right=camera.simdWorldTransform;right.columns.3.x += 0.064
+                    try batches.render(command:command,output:targetTexture,camera:camera,eye:camera.simdWorldPosition,rightTransform:right,rightProjection:simd_float4x4(camera.camera!.projectionTransform))
+                    batches.copyEye(command:command,to:targetTexture,eye:0)
+                    command.commit();command.waitUntilCompleted()
+                    guard command.status == .completed else {throw SceneError.invalid("Grounding Metal submission")}
+                    bitmap=NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:512,pixelsHigh:512,bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:2048,bitsPerPixel:32)!
+                    targetTexture.getBytes(bitmap.bitmapData!,bytesPerRow:2048,from:MTLRegionMake2D(0,0,512,512),mipmapLevel:0)
+                    for i in stride(from:0,to:512*512*4,by:4) {let b=bitmap.bitmapData![i];bitmap.bitmapData![i]=bitmap.bitmapData![i+2];bitmap.bitmapData![i+2]=b}
+                } else {
+                    guard let tiff=image.tiffRepresentation,let decoded=NSBitmapImageRep(data:tiff) else {throw SceneError.invalid("Grounding image decoding")};bitmap=decoded
+                }
+                guard let png=bitmap.representation(using:.png,properties:[:]) else {throw SceneError.invalid("Grounding PNG encoding")}
                 let name="\(kind)-\(angle).png";try png.write(to:folder.appendingPathComponent(name));captures.append(name)
+                var occupied=0
+                for y in 0..<512 {for x in 0..<512 {if let color=bitmap.colorAt(x:x,y:y),max(color.redComponent,color.greenComponent,color.blueComponent)>0.12 {occupied+=1}}}
+                pixelChecks.append(["file":name,"nonBackgroundPixels":occupied,"nonempty":occupied>64,"footprintContactAccepted":false])
             }
             results.append(["type":kind,"nativeFrame":number(state,"frame"),"files":captures,"nativeImages":billboard.nativeLayers.count,
-                            "contactConvention":"Lowest opaque relief vertex; complete footprint contact is not certified"])
+                            "pixelChecks":pixelChecks,"contactConvention":"Lowest opaque relief vertex; complete footprint contact is not certified"])
             print("Grounding views \(kind)");fflush(stdout)
         }
     }
-    let report:Obj=["buildings":results,"viewsPerBuilding":4,"renderer":"SceneKit geometry diagnostic using native completed building image chains; not XR performance evidence",
+    let report:Obj=["buildings":results,"viewsPerBuilding":4,"renderer":metal ? "Metal stereo pipeline offscreen; not headset presentation":"SceneKit geometry diagnostic",
                     "completeGroundingVerified":false]
     try JSONSerialization.data(withJSONObject:report,options:.prettyPrinted).write(to:folder.appendingPathComponent("grounding.json"))
 }
