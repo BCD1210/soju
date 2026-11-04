@@ -92,10 +92,15 @@ impl MacroUpload {
                         }
                         let address =
                             u32::try_from(index * 4).map_err(|_| invalid("MME state address"))?;
-                        if emitted.iter().any(|&(m, _)| m == address) {
-                            return Err(invalid("MME state read after emission"));
+                        match emitted.iter().rev().find(|&&(m, _)| m == address) {
+                            Some(&(_, value)) if (0x3400..0x3800).contains(&address) => value,
+                            Some(_) => {
+                                return Err(Error::Message(format!(
+                                    "MME state read after side-effect emission {address:#x}"
+                                )));
+                            }
+                            None => read(address)?,
                         }
-                        read(address)?
                     }
                     2 => {
                         let source = (word >> 17) & 31;

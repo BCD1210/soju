@@ -190,3 +190,28 @@ fn branch_exit_modifier_only_exits_when_branch_is_not_taken() {
         [(0x100, 3), (0x104, 3)]
     );
 }
+
+#[test]
+fn scratch_read_observes_latest_emission_but_effect_reads_stay_rejected() {
+    for address in [0x3400u32, 0x100] {
+        let mut mme = MacroUpload::default();
+        upload(
+            &mut mme,
+            0,
+            0,
+            &[
+                ((address / 4) << 14) | 0x21,
+                (7 << 14) | 0x41,
+                (9 << 14) | 0x41,
+                ((address / 4) << 14) | 0x295,
+                (2 << 11) | 0x41,
+            ],
+        );
+        let result = mme.run(0, 0, &[], |_| Ok(123));
+        if address == 0x3400 {
+            assert_eq!(result.unwrap(), [(address, 7), (address, 9), (address, 9)]);
+        } else {
+            assert!(result.is_err());
+        }
+    }
+}

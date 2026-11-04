@@ -29,3 +29,11 @@ The Metal bridge remains synchronous. It counts executed increment methods,
 accepts zero-increment initialization, and publishes completion only after guest
 memory writes commit. This is not an asynchronous GPU scheduler. Unsupported
 methods and instruction combinations remain explicit errors.
+
+M2 continuation also consulted the corresponding public Kepler header:
+https://raw.githubusercontent.com/NVIDIA/open-gpu-doc/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/3d/cla097.h
+Both A097 and B197 describe SET_FALCON04 (0x2310) only as V[31:0];
+this is not enough evidence to implement its firmware-mediated effect.
+B197 SET_MME_SHADOW_SCRATCH is ordinary 32-bit scratch storage. The MME
+interpreter forwards its latest emitted scratch value to subsequent reads;
+reads after emissions to other methods still fail explicitly.
