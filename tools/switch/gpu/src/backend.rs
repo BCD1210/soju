@@ -500,7 +500,7 @@ impl Backend {
                 !crate::engine::stream_output_method(offset),
                 "transform feedback (stream output) is not implemented",
             )?;
-            let supported = matches!(offset,0x1570|0x13b0|0x15d0|0x1534|0x11e0..=0x11ec|0x1684|0x113c|0x12ec|0x1310|0x1314|0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
+            let supported = matches!(offset,0x1610|0x1570|0x13b0|0x15d0|0x1534|0x11e0..=0x11ec|0x1684|0x113c|0x12ec|0x1310|0x1314|0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
             let viewport_array = (0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20;
             let scissor_array = (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8;
             if !supported && !viewport_array && !scissor_array {
@@ -936,7 +936,24 @@ impl Backend {
                 }
                 // Integer vertex fetch must preserve register bits rather than convert to float.
                 for slot in 0..32 {
-                    let ty = (r.get(0x1160 + slot * 4) >> 27) & 7;
+                    let attribute = r.get(0x1160 + slot * 4);
+                    let ty = (attribute >> 27) & 7;
+                    if attribute & 0x40 != 0 {
+                        // clb197 SET_ATTRIBUTE_DEFAULT.GENERIC_VECTOR supplies
+                        // inactive inputs without fetching a vertex stream.
+                        vs.source = vs.source.replace(
+                            &format!("float4 a{slot} [[attribute({slot})]];"), "");
+                        for component in 0..4 {
+                            let value = u32::from(component == 3 && r.get(0x1610) & 4 != 0);
+                            let literal = if matches!(ty, 3 | 4) {
+                                format!("{value}u")
+                            } else {
+                                format!("{value}.0f")
+                            };
+                            vs.source = vs.source.replace(&format!("in.a{slot}[{component}]"), &literal);
+                        }
+                        continue;
+                    }
                     let name = match ty { 3 => "int", 4 => "uint", _ => continue };
                     vs.source = vs.source.replace(
                         &format!("float4 a{slot} [[attribute({slot})]];"),
@@ -958,6 +975,7 @@ impl Backend {
                     r.get(0x1510),
                     r.get(0x1940),
                     r.get(0x1910),
+                    r.get(0x1610),
                     r.get(0x1518),
                     u32::from(r.float(0xa00) < 0.),
                     u32::from(r.float(0xa04) < 0.),
@@ -1261,6 +1279,9 @@ impl Backend {
                     occupied.insert(u32::from(global.buffer));
                 }
                 for slot in slots {
+                    if r.get(0x1160 + slot * 4) & 0x40 != 0 {
+                        continue;
+                    }
                     if rectangle {
                         let stream = r.get(0x1160 + slot * 4) & 31;
                         require(r.get(0x1880 + stream * 4) == 1, "rectangle per-vertex attributes require vertex pulling")?;
@@ -1272,8 +1293,8 @@ impl Backend {
                     let bits = (a >> 21) & 63;
                     let ty = (a >> 27) & 7;
                     require(
-                        a & 0x80000040 == 0,
-                        "inactive/swapped vertex attribute unsupported",
+                        a & 0x80000000 == 0,
+                        "swapped vertex attribute unsupported",
                     )?;
                     let (format, bytes) = match (bits, ty) {
                         (1, 7) => (31, 16),

@@ -247,6 +247,25 @@ fn quad(x0: f32, y0: f32, x1: f32, y1: f32, z: f32, color: [f32; 4]) -> Vec<[f32
     ];
     [0, 1, 2, 0, 2, 3].map(|i| v[i]).to_vec()
 }
+
+#[test]
+fn inactive_attributes_use_programmed_defaults_without_stream_access() {
+    let mut h = Harness::new();
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/inactive-attributes");
+    for defaults in [4, 0, 4] {
+        let (mut e, address) = h.engine("inactive attribute", [1., 0., 1., 1.]);
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1., 1., 1., 1.]), &[[0.; 4]]);
+        // Color input points to an unmapped, disabled stream. Inactive fetch
+        // must not validate or access it; the default vector reaches the pixels.
+        h.methods(&mut e, &[(0x1610, defaults), (0x1164, 31 | 0x40 | (1 << 21) | (7 << 27))]);
+        h.draw(&mut e, 6, false, false);
+        let report = h.backend.execute(&root, &mut h.memory).unwrap();
+        let image = report.images.iter().find(|image| image.address == address).unwrap();
+        let expected = [0, 0, 0, if defaults & 4 != 0 { 255 } else { 0 }];
+        assert!(image.rgba.chunks_exact(4).all(|pixel| pixel == expected));
+        assert!(e.method(B197, 0x1610, 64, &mut h.memory).is_err());
+    }
+}
 #[test]
 fn method_streams_render_expected_images_on_metal() {
     let mut h = Harness::new();

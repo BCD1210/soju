@@ -122,6 +122,10 @@ impl Engine {
         }
         require(class == B197, "unsupported engine class")?;
         let action = match offset {
+            0x1610 => {
+                require(value & !0x3f == 0, "reserved attribute default bits")?;
+                None
+            }
             0x1618 => {
                 require(self.begin.is_none(), "nested BEGIN")?;
                 require(value & !0x0c00ffff == 0, "split primitive mode unsupported")?;

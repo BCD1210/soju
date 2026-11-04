@@ -242,3 +242,11 @@ size, odd width, block height and depth, including unchanged padding and rejecte
 short-input atomicity. All GPU tests pass with Metal validation. A local optimized
 720p microbenchmark measured deswizzle around 0.12 ms versus 0.56–0.57 ms before;
 this is a layout-only measurement, not a frame-time acceptance claim.
+
+Inactive generic vertex attributes use `clb197.h`
+`SET_VERTEX_ATTRIBUTE_A.SOURCE_INACTIVE` and
+`SET_ATTRIBUTE_DEFAULT.GENERIC_VECTOR` (0000/0001). They do not fetch a vertex
+stream. The default register participates in pipeline identity. Example07's
+third input uses this state; its scene oracle derives projection, per-sample
+depth and Blinn-Phong/Reinhard/sRGB lighting from the locally supplied public
+sample and mesh, with no reference image embedded in the test.

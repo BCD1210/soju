@@ -8,6 +8,7 @@ pub struct Method {
     pub name: &'static str,
 }
 pub const METHODS: &[Method] = &[
+    Method { class: 0xb197, offset: 0x1610, count: 1, stride: 0, name: "SET_ATTRIBUTE_DEFAULT" },
     Method { class: 0xb197, offset: 0x1570, count: 1, stride: 0, name: "SET_ANTI_ALIASED_LINE" },
     Method { class: 0xb197, offset: 0x13b0, count: 1, stride: 0, name: "SET_LINE_WIDTH_FLOAT" },
     Method {
