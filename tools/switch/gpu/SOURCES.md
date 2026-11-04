@@ -231,3 +231,14 @@ The real Example09 test navigates to the scene at tick zero, checks its compute
 launch and compares the entire capture to the public sinewave shader's 256
 vertices, width-16 rectangles, grayscale interpolation and ordered blending.
 No scene-specific geometry or shader substitution is used by the renderer.
+
+## Fixed-size block-linear transfers
+
+Surface transfers factor the existing public GOB address formula into row and
+column contributions and copy complete 16-byte groups at fixed size. The final
+partial group remains checked. Attachment writes use the shared padding-preserving
+operation. An independent byte-address oracle covers 432 combinations of pixel
+size, odd width, block height and depth, including unchanged padding and rejected
+short-input atomicity. All GPU tests pass with Metal validation. A local optimized
+720p microbenchmark measured deswizzle around 0.12 ms versus 0.56–0.57 ms before;
+this is a layout-only measurement, not a frame-time acceptance claim.

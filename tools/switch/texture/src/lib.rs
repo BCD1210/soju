@@ -117,16 +117,19 @@ impl Surface {
         }
         let row = self.width * self.bytes_per_block;
         let mut out = vec![0u8; row * self.height * self.depth];
+        let columns: Vec<_> = (0..row / 16).map(|x| self.offset(x * 16, 0, 0)).collect();
         for z in 0..self.depth {
             for y in 0..self.height {
-                let dst_row = (z * self.height + y) * row;
-                let mut x = 0;
-                while x < row {
-                    // 16-byte pieces are contiguous; copy up to the next 16-byte boundary.
-                    let n = (16 - x % 16).min(row - x);
+                let base = self.offset(0, y, z);
+                let dst = &mut out[(z * self.height + y) * row..][..row];
+                for (piece, &column) in dst.chunks_exact_mut(16).zip(&columns) {
+                    piece.copy_from_slice(&src[base + column..][..16]);
+                }
+                let tail = row % 16;
+                if tail != 0 {
+                    let x = row - tail;
                     let o = self.offset(x, y, z);
-                    out[dst_row + x..dst_row + x + n].copy_from_slice(&src[o..o + n]);
-                    x += n;
+                    dst[x..].copy_from_slice(&src[o..o + tail]);
                 }
             }
         }
@@ -136,25 +139,45 @@ impl Surface {
     /// Linear -> block-linear (padding bytes are zero).
     pub fn swizzle(&self, linear: &[u8]) -> Result<Vec<u8>, Error> {
         self.check()?;
+        let needed = self.width * self.height * self.depth * self.bytes_per_block;
+        if linear.len() < needed {
+            return Err(Error::SourceTooSmall { needed, got: linear.len() });
+        }
+        let mut out = vec![0u8; self.size()];
+        self.swizzle_into(linear, &mut out)?;
+        Ok(out)
+    }
+
+    /// Copy active texels into existing storage, preserving all layout padding.
+    pub fn swizzle_into(&self, linear: &[u8], out: &mut [u8]) -> Result<(), Error> {
+        self.check()?;
         let row = self.width * self.bytes_per_block;
         let need = row * self.height * self.depth;
         if linear.len() < need {
             return Err(Error::SourceTooSmall { needed: need, got: linear.len() });
         }
-        let mut out = vec![0u8; self.size()];
+        if out.len() < self.size() {
+            return Err(Error::SourceTooSmall { needed: self.size(), got: out.len() });
+        }
+        // X and Y/Z address contributions are independent at 16-byte boundaries.
+        // Fixed-size pieces avoid a variable-length copy for every pixel group.
+        let columns: Vec<_> = (0..row / 16).map(|x| self.offset(x * 16, 0, 0)).collect();
         for z in 0..self.depth {
             for y in 0..self.height {
-                let src_row = (z * self.height + y) * row;
-                let mut x = 0;
-                while x < row {
-                    let n = (16 - x % 16).min(row - x);
+                let base = self.offset(0, y, z);
+                let src = &linear[(z * self.height + y) * row..][..row];
+                for (piece, &column) in src.chunks_exact(16).zip(&columns) {
+                    out[base + column..][..16].copy_from_slice(piece);
+                }
+                let tail = row % 16;
+                if tail != 0 {
+                    let x = row - tail;
                     let o = self.offset(x, y, z);
-                    out[o..o + n].copy_from_slice(&linear[src_row + x..src_row + x + n]);
-                    x += n;
+                    out[o..o + tail].copy_from_slice(&src[x..]);
                 }
             }
         }
-        Ok(out)
+        Ok(())
     }
 }
 
@@ -303,6 +326,33 @@ mod tests {
         assert_eq!(all.len(), 18);
         assert_eq!(all[0].len(), 64 * 64 * 8);
         assert_eq!(all[17].len(), 8);
+    }
+
+    #[test]
+    fn swizzle_into_preserves_padding_and_matches_byte_addressing() {
+        for bh in 0..=5 {
+            for bd in 0..=2 {
+                for bytes in [1, 2, 4, 8, 12, 16] {
+                    for width in [1, 3, 17, 65] {
+                        let surface = Surface { width, height: 19, depth: 3, bytes_per_block: bytes,
+                            block_height_log2: bh, block_depth_log2: bd };
+                        let row = width * bytes;
+                        let linear = noise(row * 19 * 3, 71);
+                        let mut expected = vec![0xa7; surface.size()];
+                        for z in 0..3 { for y in 0..19 { for x in 0..row {
+                            expected[surface.offset(x, y, z)] = linear[(z * 19 + y) * row + x];
+                        }}}
+                        let mut actual = vec![0xa7; surface.size()];
+                        surface.swizzle_into(&linear, &mut actual).unwrap();
+                        assert_eq!(actual, expected);
+                        assert_eq!(surface.deswizzle(&expected).unwrap(), linear);
+                        let before = actual.clone();
+                        assert!(surface.swizzle_into(&linear[..linear.len()-1], &mut actual).is_err());
+                        assert_eq!(actual, before);
+                    }
+                }
+            }
+        }
     }
 
     #[test]
