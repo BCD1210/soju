@@ -7,7 +7,7 @@ pub(super) static ENCODINGS: &[Encoding] = &[
     Encoding { opcode: Opcode::OUT, value: 0xf6e0000000000000, mask: 0xfef8000000000000, predicated: true, fields: "REG_00 REG_08 S20_20", flags: &[], options: &[("fbe0_0",0x0000018000000000)] },
     Encoding { opcode: Opcode::SYNC, value: 0xf0f8000000000000, mask: 0xfff8000000000000, predicated: true, fields: "", flags: &[], options: &[("f0f8_0",0x000000000000001f)] },
     Encoding { opcode: Opcode::DEPBAR, value: 0xf0f0000000000000, mask: 0xfff8000000000000, predicated: true, fields: "U03_26 U06_20 U06_00", flags: &[], options: &[("f0f0_0",0x0000000020000000)] },
-    Encoding { opcode: Opcode::BAR, value: 0xf0a8000000000000, mask: 0xfff8000000000000, predicated: true, fields: "p39", flags: &[(42,"not",false,0)], options: &[("f0a8_0",0x0000009b00000000),("f0a8_1",0x0000180000000000)] },
+    Encoding { opcode: Opcode::BAR, value: 0xf0a8000000000000, mask: 0xfff8000000000000, predicated: true, fields: "BAR_ID BAR_COUNT p39", flags: &[(42,"not",false,2)], options: &[("f0a8_0",0x0000009b00000000),("f0a8_1",0x0000180000000000)] },
     Encoding { opcode: Opcode::AST, value: 0xeff0000000000000, mask: 0xfff8000000000000, predicated: true, fields: "AMEM REG_00 REG_39", flags: &[(31,"p",false,-1)], options: &[("eff0_0",0x0001800000000000)] },
     Encoding { opcode: Opcode::ALD, value: 0xefd8000000000000, mask: 0xfff8000000000000, predicated: true, fields: "REG_00 AMEM REG_39", flags: &[(32,"o",false,-1),(31,"p",false,-1)], options: &[("eff0_0",0x0001800000000000)] },
     Encoding { opcode: Opcode::LDC, value: 0xef90000000000000, mask: 0xfff8000000000000, predicated: true, fields: "REG_00 C36_08_S16_20", flags: &[], options: &[("ef90_0",0x0000300000000000),("ef90sz",0x0007000000000000)] },

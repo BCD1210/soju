@@ -114,7 +114,7 @@ impl Header {
                         interpolation: None,
                     });
                 }
-                if raw[13 + i / 32] & (1 << (i % 32)) != 0 {
+                if i < 168 && raw[13 + i / 32] & (1 << (i % 32)) != 0 {
                     outputs.push(Attribute {
                         address: (0x40 + i * 4) as u16,
                         interpolation: None,

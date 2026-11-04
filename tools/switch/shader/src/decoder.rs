@@ -177,7 +177,18 @@ pub fn decode_instruction(address: u32, raw: u64) -> Result<Instruction> {
     let mut operands = Vec::new();
     for field in e.fields.split_whitespace() {
         let reg = |p| bits(raw, p, 8) as u8;
-        let operand = if let Some(p) = field.strip_prefix("REG_") {
+        let operand = if field == "BAR_ID" || field == "BAR_COUNT" {
+            let (selector, start, width) = if field == "BAR_ID" {
+                (44, 8, 8)
+            } else {
+                (43, 20, 12)
+            };
+            if bits(raw, selector, 1) != 0 {
+                Operand::Immediate(bits(raw, start, width))
+            } else {
+                Operand::Register(reg(start))
+            }
+        } else if let Some(p) = field.strip_prefix("REG_") {
             Operand::Register(reg(p.parse().unwrap()))
         } else if field.starts_with("PRED") || field.starts_with('p') || field == "INV_PRED41" {
             let (p, invert) = if field == "INV_PRED41" {

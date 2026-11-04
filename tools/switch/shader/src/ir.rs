@@ -42,6 +42,9 @@ impl Program {
         }
         let ins: Vec<_> = decoded.iter().map(|s| s.instruction.clone()).collect();
         let n = ins.len();
+        if n > 65536 {
+            return Err(Error("shader exceeds 65536 instruction limit".into()));
+        }
         let addresses: BTreeMap<_, _> = ins
             .iter()
             .enumerate()
@@ -195,7 +198,7 @@ impl Program {
             loops: &loops,
             reachable: &reachable,
         };
-        let body = builder.range(0, n, None)?;
+        let body = builder.range(0, n, None, 0)?;
         let mut leaders = BTreeSet::from([0]);
         for (i, successors) in edges.iter().enumerate() {
             if jumps[i].is_some() || matches!(ins[i].opcode, Opcode::EXIT | Opcode::KIL) {
@@ -236,7 +239,16 @@ struct Builder<'a> {
     reachable: &'a [bool],
 }
 impl Builder<'_> {
-    fn range(&self, mut i: usize, end: usize, active: Option<(usize, usize)>) -> Result<Vec<Node>> {
+    fn range(
+        &self,
+        mut i: usize,
+        end: usize,
+        active: Option<(usize, usize)>,
+        depth: usize,
+    ) -> Result<Vec<Node>> {
+        if depth > 64 {
+            return Err(self.ins[i].error("structured nesting exceeds depth 64"));
+        }
         let mut result = Vec::new();
         while i < end {
             let x = &self.ins[i];
@@ -249,7 +261,7 @@ impl Builder<'_> {
                     if latch >= end {
                         return Err(x.error("loop crosses conditional region"));
                     }
-                    let mut body = self.range(i, latch, Some((i, latch + 1)))?;
+                    let mut body = self.range(i, latch, Some((i, latch + 1)), depth + 1)?;
                     body.push(Node::Continue(self.ins[latch].predicate));
                     body.push(Node::Break(Predicate::ALWAYS));
                     result.push(Node::Loop { body });
@@ -283,7 +295,7 @@ impl Builder<'_> {
                 };
                 result.push(Node::If {
                     condition: p,
-                    body: self.range(i + 1, t, active)?,
+                    body: self.range(i + 1, t, active, depth + 1)?,
                 });
                 i = t;
             } else {

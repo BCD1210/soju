@@ -45,6 +45,7 @@ for line in tables['root'].splitlines():
                 field_mask = 0
                 for n in re.findall(r'\{ (?:0x[0-9a-f]+)ull, (0x[0-9a-f]+)ull', tables.get(key, '')): field_mask |= int(n,16)
                 options.append((key,field_mask))
+                if key == "f0a8_1": ops.extend(["BAR_ID", "BAR_COUNT"])
         elif token.startswith('N('):
             options.append((token[2:-1].strip().strip('"'),0))
         else:
