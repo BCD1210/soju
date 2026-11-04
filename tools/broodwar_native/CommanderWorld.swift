@@ -173,6 +173,15 @@ extension Commander {
         return cameraMapPosition
     }
     func updateTerrain(dirty:Set<Int>?=nil) {
+        if let worker=terrainWorker {
+            let center=terrainCenter
+            worker.submit(TerrainWorker.Request(session:session,center:SIMD2<Int>(Int(center.x),Int(center.z)),
+                radius:tabletop || camera.camera?.usesOrthographicProjection == true ? 44:20,fog:fog,creep:creepTiles)) { [weak self] result in
+                guard let self=self,result.session==self.session else {return}
+                self.installTerrain(result)
+            }
+            return
+        }
         let tiles=art.tileCatalog
         let cx=Int(terrainCenter.x),cy=Int(terrainCenter.z),radius=tabletop || camera.camera?.usesOrthographicProjection == true ? 44:20
         var keep=dirty==nil ? Set<Int>():Set(terrain.keys)
@@ -240,6 +249,26 @@ extension Commander {
             }
         }
         for (index,node) in creepNodes where !creepKeep.contains(index) {node.removeFromParentNode();creepNodes.removeValue(forKey:index)}
+    }
+    func installTerrain(_ result:TerrainWorker.Result) {
+        for index in result.removedTerrain {terrain.removeValue(forKey:index)?.removeFromParentNode();terrainRevision &+= 1}
+        for index in result.removedCreep {creepNodes.removeValue(forKey:index)?.removeFromParentNode()}
+        for tile in result.terrain {
+            if let node=terrain[tile.index] {node.geometry=tile.geometry;terrainFogRevision &+= 1}
+            else {
+                let node=SCNNode(geometry:tile.geometry);node.name=tile.name;node.castsShadow=false
+                node.position=SCNVector3(CGFloat(tile.index%mapWidth),0,CGFloat(tile.index/mapWidth))
+                world.rootNode.addChildNode(node);terrain[tile.index]=node;terrainRevision &+= 1
+            }
+        }
+        for tile in result.creep {
+            creepNodes.removeValue(forKey:tile.index)?.removeFromParentNode()
+            let node=SCNNode(geometry:tile.geometry);node.name=tile.name;node.castsShadow=false;node.renderingOrder=1
+            node.position=SCNVector3(CGFloat(tile.index%mapWidth),0,CGFloat(tile.index/mapWidth))
+            world.rootNode.addChildNode(node);creepNodes[tile.index]=node
+        }
+        if !result.terrain.isEmpty || !result.creep.isEmpty || !result.removedTerrain.isEmpty || !result.removedCreep.isEmpty {sceneRevision &+= 1}
+        if !result.error.isEmpty {notice=result.error}
     }
     var cameraMapPosition:SCNVector3 {
         Terrain3D.mapPosition(SCNVector3(camera.position.x,camera.position.y-CGFloat(placedEyeHeight),camera.position.z))
