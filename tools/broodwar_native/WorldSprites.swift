@@ -7,7 +7,7 @@ final class UnitBillboard {
     let root=SCNNode()
     var layers=[Int:SCNNode](),evidence=[Obj]()
     init(id:String) {root.name=id}
-    func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites) {
+    func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites,color:[Int]=[255,255,255]) {
         let x=number(unit,"x")/32,z=number(unit,"y")/32
         root.position=SCNVector3(x,ground.elevation(x,z)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
         root.isHidden=unit["renderHidden"] as? Bool == true || unit["transported"] as? Bool == true
@@ -19,25 +19,23 @@ final class UnitBillboard {
             guard Int(number(native,"flags"))&0x40==0,let id=native["id"] as? Int,
                 let entry=art.images[String(id)],let records=entry["frames"] as? [Obj] else {continue}
             let frame=Int(number(native,"frame"))
-            guard records.indices.contains(frame),let image=art.texture(id,frame:frame) else {continue}
+            guard records.indices.contains(frame),let image=art.texture(id,frame:frame,color:color) else {continue}
             let scale=number(entry,"scale")*32
             guard scale>0 else {continue}
             keep.insert(index)
             let shadow=Int(number(native,"drawfunc"))==10,node=layers[index] ?? SCNNode()
-            let plane=SCNPlane(width:number(entry,"width")/scale,height:number(entry,"height")/scale)
+            let plane=SCNPlane(width:number(entry,"grpWidth")/32,height:number(entry,"grpHeight")/32)
             let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
             material.diffuse.contents=image;material.diffuse.wrapS = .clamp;material.diffuse.wrapT = .clamp
-            material.writesToDepthBuffer=false;plane.materials=[material];node.geometry=plane
-            node.castsShadow=false;node.renderingOrder=index
+            material.readsFromDepthBuffer=false;material.writesToDepthBuffer=false;plane.materials=[material];node.geometry=plane
+            node.castsShadow=false;node.renderingOrder=1000+Int(number(unit,"y"))*32+chain.count-index
             if shadow {
-                node.constraints=nil;node.eulerAngles.x = -.pi/2;material.multiply.contents=NSColor.black;node.opacity=0.45
+                node.constraints=nil;node.eulerAngles.x = -.pi/2;material.multiply.contents=NSColor.black;node.opacity=0.5
             } else {
                 node.eulerAngles = SCNVector3Zero;node.opacity=1
                 let constraint=SCNBillboardConstraint();constraint.freeAxes = .all;node.constraints=[constraint]
             }
-            let anchor=records.first ?? [:]
-            let feet=(number(anchor,"oy")+number(anchor,"h")-number(entry,"height")/2)/scale
-            node.position=SCNVector3(number(native,"offsetX")/32,shadow ? 0.025:feet-number(native,"offsetY")/32,0)
+            node.position=SCNVector3(number(native,"offsetX")/32,shadow ? 0.025:-number(native,"offsetY")/32,0)
             node.scale.x=Int(number(native,"flags"))&2 != 0 ? -1:1
             if layers[index]==nil {layers[index]=node;root.addChildNode(node)}
             evidence.append(["image":id,"frame":frame,"frameset":number(native,"frameset"),
@@ -63,18 +61,37 @@ final class WorldSprites {
         for node in nodes.values {node.removeFromParentNode()}
         nodes.removeAll();deathFrames=0;loneFrames=0;missing.removeAll()
     }
-    func texture(_ id:Int,frame:Int)->NSImage? {
-        let key="\(id)/\(frame)"
+    func texture(_ id:Int,frame:Int,color:[Int]=[255,255,255])->NSImage? {
+        let key="\(id)/\(frame)/\(color)"
         if let image=frames[key] {return image}
         guard let entry=images[String(id)],let records=entry["frames"] as? [Obj],records.indices.contains(frame),let file=entry["file"] as? String else {missing.insert(id);return nil}
         let atlas:NSImage
         if let cached=atlases[file] {atlas=cached}
         else {guard let loaded=NSImage(contentsOf:folder.appendingPathComponent(file)) else {return nil};atlas=loaded;if atlases.count>32 {atlases.removeAll()};atlases[file]=loaded}
-        let f=records[frame],width=number(entry,"width"),height=number(entry,"height")
+        let f=records[frame],width=number(entry,"grpWidth")*number(entry,"scale"),height=number(entry,"grpHeight")*number(entry,"scale")
         let image=NSImage(size:NSSize(width:width,height:height));image.lockFocus()
         atlas.draw(in:NSRect(x:number(f,"ox"),y:height-number(f,"oy")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),
                    from:NSRect(x:number(f,"x"),y:number(entry,"atlasHeight")-number(f,"y")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),operation:.copy,fraction:1)
-        image.unlockFocus();if frames.count>128 {frames.removeAll()};frames[key]=image;return image
+        image.unlockFocus()
+        if let teamFile=entry["teamFile"] as? String,let maskAtlas=NSImage(contentsOf:folder.appendingPathComponent(teamFile)),color.count>=3 {
+            let mask=NSImage(size:image.size);mask.lockFocus()
+            maskAtlas.draw(in:NSRect(x:number(f,"ox"),y:height-number(f,"oy")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),
+                from:NSRect(x:number(f,"x"),y:number(entry,"atlasHeight")-number(f,"y")-number(f,"h"),width:number(f,"w"),height:number(f,"h")),operation:.copy,fraction:1)
+            mask.unlockFocus()
+            if let data=image.tiffRepresentation,let pixels=NSBitmapImageRep(data:data),
+               let maskData=mask.tiffRepresentation,let weights=NSBitmapImageRep(data:maskData) {
+                for y in 0..<pixels.pixelsHigh {for x in 0..<pixels.pixelsWide {
+                    guard let base=pixels.colorAt(x:x,y:y)?.usingColorSpace(.deviceRGB),
+                          let weight=weights.colorAt(x:x,y:y)?.usingColorSpace(.deviceRGB)?.redComponent else {continue}
+                    pixels.setColor(NSColor(deviceRed:base.redComponent*(1-weight+weight*CGFloat(color[0])/255),
+                        green:base.greenComponent*(1-weight+weight*CGFloat(color[1])/255),
+                        blue:base.blueComponent*(1-weight+weight*CGFloat(color[2])/255),alpha:base.alphaComponent),atX:x,y:y)
+                }}
+                let tinted=NSImage(size:image.size);tinted.addRepresentation(pixels)
+                if frames.count>128 {frames.removeAll()};frames[key]=tinted;return tinted
+            }
+        }
+        if frames.count>128 {frames.removeAll()};frames[key]=image;return image
     }
     func apply(_ state:Obj,ground:Terrain3D,authored:Set<String>) {
         var live=Set<String>()
@@ -91,21 +108,19 @@ final class WorldSprites {
                     let node:SCNNode
                     if let existing=nodes[key] {node=existing}
                     else {
-                        let scale=number(entry,"scale")*32
-                        let geometry=SCNPlane(width:number(entry,"width")/scale,height:number(entry,"height")/scale)
-                        let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true;material.writesToDepthBuffer=false
+                        let geometry=SCNPlane(width:number(entry,"grpWidth")/32,height:number(entry,"grpHeight")/32)
+                        let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true;material.readsFromDepthBuffer=false;material.writesToDepthBuffer=false
                         geometry.materials=[material];node=SCNNode(geometry:geometry);node.castsShadow=false
                         if Int(number(native,"drawfunc"))==10 {
-                            node.eulerAngles.x = -.pi/2;material.multiply.contents=NSColor.black;node.opacity=0.45
+                            node.eulerAngles.x = -.pi/2;material.multiply.contents=NSColor.black;node.opacity=0.5
                         } else {let billboard=SCNBillboardConstraint();billboard.freeAxes = .all;node.constraints=[billboard]}
                         nodes[key]=node;root.addChildNode(node)
                     }
+                    node.renderingOrder=1000+Int(number(sprite,"y"))*32+chain.count-index
                     node.geometry?.firstMaterial?.diffuse.contents=image
                     let x=number(sprite,"x")/32,z=number(sprite,"y")/32
-                    let anchor=(entry["frames"] as? [Obj])?.first ?? [:]
-                    let feet=(number(anchor,"oy")+number(anchor,"h")-number(entry,"height")/2)/(number(entry,"scale")*32)
                     let shadow=Int(number(native,"drawfunc"))==10
-                    node.position=SCNVector3(x+number(native,"offsetX")/32,ground.elevation(x,z)+(shadow ? 0.025:feet-number(native,"offsetY")/32),z)
+                    node.position=SCNVector3(x+number(native,"offsetX")/32,ground.elevation(x,z)+(shadow ? 0.025:-number(native,"offsetY")/32),z)
                     node.scale.x=Int(number(native,"flags"))&2 != 0 ? -1:1
                     if prefix=="death" {deathFrames+=1}else {loneFrames+=1}
                 }
