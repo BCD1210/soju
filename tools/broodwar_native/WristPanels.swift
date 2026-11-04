@@ -7,10 +7,11 @@ final class WristPanels {
     let card=CommandCard()
     var selection=[String]()
     var choices=[CommandChoice](),page=0,signature="",lastMap=0.0
+    var dragUnit:String?
     var pending:CommandChoice?,dragStart:SCNVector3?,lastTap=0.0,lastUnit=""
     var grab:SIMD3<Float>?,grabDistance:Float?,zoom:Float=20
     var cardClicks=0,boxSelections=0,doubleTaps=0,grabs=0
-    init() {commands.name="wrist-commands";resources.name="wrist-resources";ray.name="target-ray";box.name="selection-box"}
+    init() {commands.name="wrist-commands";resources.name="wrist-resources";ray.name="target-ray";box.name="selection-box";ray.categoryBitMask=2;box.categoryBitMask=2;resources.categoryBitMask=2}
     func panel(_ title:String,size:CGSize,enabled:Bool=true)->SCNGeometry {
         let image=NSImage(size:NSSize(width:600,height:180))
         image.lockFocus();NSColor(calibratedRed:0.025,green:0.045,blue:0.065,alpha:0.96).setFill()
@@ -32,7 +33,7 @@ final class WristPanels {
             for child in commands.childNodes {child.removeFromParentNode()}
             let title=selected.map{card.names[String(Int(number($0,"type")))] ?? "Unit"} ?? "Select units"
             let header=SCNNode(geometry:panel(title,size:CGSize(width:0.42,height:0.055)))
-            header.position.y=0.18;commands.addChildNode(header)
+            header.categoryBitMask=2;header.position.y=0.18;commands.addChildNode(header)
             for i in 0..<9 where page*9+i<choices.count {
                 let entry=choices[page*9+i],node=SCNNode(geometry:panel(entry.label,size:CGSize(width:0.135,height:0.075),enabled:entry.unavailable(commander.state,selected ?? [:])==nil))
                 node.name="card-\(page*9+i)";node.position=SCNVector3(Double(i%3-1)*0.14,0.10-Double(i/3)*0.08,0)

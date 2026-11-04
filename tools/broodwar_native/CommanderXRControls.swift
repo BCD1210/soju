@@ -23,7 +23,8 @@ extension Commander {
                     "leftHeld":input.leftHeld,"rightHeld":input.rightHeld,"leftGrip":input.leftGripHeld,"rightGrip":input.rightGripHeld,
                     "selected":selected,"boxSelections":wrists.boxSelections,"doubleTaps":wrists.doubleTaps,
                     "grabs":wrists.grabs,"zoom":wrists.zoom,"camera":[camera.position.x,camera.position.y,camera.position.z],
-                    "aimValid":input.aimValid,"leftValid":input.leftValid,"pendingSpell":wrists.pending?.title ?? ""]
+                    "aimValid":input.aimValid,"leftValid":input.leftValid,"pendingSpell":wrists.pending?.title ?? "",
+                    "dragging":wrists.dragStart != nil]
                 record("xr-controller-diagnostics.json",sample)
                 if edge {
                     controllerHistory.append(sample)
@@ -60,11 +61,14 @@ extension Commander {
         guard input.aimValid != 0 else {reticle.isHidden=true;wrists.ray.isHidden=true;wrists.dragStart=nil;wrists.box.geometry=nil;return}
         let from=handPosition(raw),direction=(xrBody*simd_quatf(ix:input.qx,iy:input.qy,iz:input.qz,r:input.qw)).act(SIMD3<Float>(0,0,-1))
         let end=from+direction*100
-        let hits=world.rootNode.hitTestWithSegment(from:SCNVector3(from.x,from.y,from.z),to:SCNVector3(end.x,end.y,end.z),options:nil)
+        let hits=world.rootNode.hitTestWithSegment(from:SCNVector3(from.x,from.y,from.z),to:SCNVector3(end.x,end.y,end.z),options:[SCNHitTestOption.searchMode.rawValue:SCNHitTestSearchMode.closest.rawValue,SCNHitTestOption.categoryBitMask.rawValue:1])
         let hit=hits.first(where:{$0.node.name?.hasPrefix("card-")==true || $0.node.name=="terrain" || unitID($0.node) != nil})
         wrists.ray.isHidden=false
         wrists.line(from:SCNVector3(from.x,from.y,from.z),to:hit?.worldCoordinates ?? SCNVector3(end.x,end.y,end.z),color:wrists.pending==nil ? .cyan:.orange)
-        guard let hit=hit else {wrists.dragStart=nil;wrists.box.geometry=nil;reticle.isHidden=true;return}
+        guard let hit=hit else {
+            if input.leftHeld==0 {wrists.dragStart=nil;wrists.box.geometry=nil}
+            reticle.isHidden=true;return
+        }
         reticle.isHidden=false;reticle.position=hit.worldCoordinates;reticle.position.y+=0.07
         if input.rightPressed != 0,let name=hit.node.name,name.hasPrefix("card-"),let index=Int(name.dropFirst(5)) {
             wrists.cardClicks+=1
@@ -75,13 +79,14 @@ extension Commander {
             default:
                 guard wrists.choices.indices.contains(index) else {return}
                 let choice=wrists.choices[index]
+                if let unit=selected.first.flatMap({units[$0]}),let reason=choice.unavailable(state,unit) {notice=reason;return}
                 if choice.target == .none {cardCommand(choice,hit:nil)}
                 else {wrists.pending=choice;notice="Aim target: \(choice.title)"}
             }
             return
         }
         let point=hit.worldCoordinates
-        if input.leftPressed != 0 {wrists.dragStart=point}
+        if input.leftPressed != 0 || (input.leftHeld != 0 && wrists.dragStart==nil) {wrists.dragStart=point;wrists.dragUnit=unitID(hit.node)}
         if let start=wrists.dragStart,input.leftHeld != 0 {
             let points=[start,SCNVector3(point.x,start.y,start.z),point,SCNVector3(start.x,point.y,point.z),start].map{SCNVector3($0.x,$0.y+0.1,$0.z)}
             let geometry=SCNGeometry(sources:[SCNGeometrySource(vertices:points)],elements:[SCNGeometryElement(indices:[Int32(0),1,1,2,2,3,3,4],primitiveType:.line)])
@@ -89,7 +94,7 @@ extension Commander {
         }
         if input.leftReleased != 0,let start=wrists.dragStart {
             wrists.dragStart=nil;wrists.box.geometry=nil
-            if hypot(point.x-start.x,point.z-start.z)>0.5 {
+            if hypot(point.x-start.x,point.z-start.z)>0.5 && (wrists.dragUnit==nil || wrists.dragUnit != unitID(hit.node)) {
                 selected=Array(units.keys.sorted().filter {id in
                     guard let u=units[id],number(u,"owner")==number(state,"player"),let node=nodes[id],!node.isHidden else {return false}
                     return node.position.x>=min(start.x,point.x) && node.position.x<=max(start.x,point.x) && node.position.z>=min(start.z,point.z) && node.position.z<=max(start.z,point.z) && xrRenderer?.isNode(node,insideFrustumOf:xrCamera)==true
@@ -114,7 +119,7 @@ extension Commander {
         if now-lastAimLog>1 || input.leftPressed != 0 || input.rightPressed != 0 || input.leftReleased != 0 {
             lastAimLog=now
             record("xr-input-diagnostics.json",["time":Date().timeIntervalSince1970,"selected":selected,"leftPressed":input.leftPressed,"rightPressed":input.rightPressed,
-                "leftHeld":input.leftHeld,"rightHeld":input.rightHeld,"leftReleased":input.leftReleased,"hit":hit.node.name ?? "","point":[point.x,point.y,point.z],
+                "leftHeld":input.leftHeld,"rightHeld":input.rightHeld,"leftReleased":input.leftReleased,"hit":hit.node.name ?? "","hitUnit":unitID(hit.node) ?? "","point":[point.x,point.y,point.z],
                 "leftValid":input.leftValid,"aimValid":input.aimValid,"worldUnitsPerMeter":worldUnitsPerMeter,"boxSelections":wrists.boxSelections,"doubleTaps":wrists.doubleTaps,"cardClicks":wrists.cardClicks])
         }
     }

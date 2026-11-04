@@ -95,6 +95,8 @@ func runtimeChecks()throws {
         "creep border lookup distinguishes empty north and surrounded tiles")
     try require(commander.worldSprites.creepEdgeMaterial(tileset:"twilight",frame:1) != nil,
         "owned HD creep border is loadable")
+    try require(commander.wrists.ray.categoryBitMask==2 && commander.wrists.box.categoryBitMask==2,
+        "decorative rays and drag outlines cannot intercept command hits")
     let card=CommandCard();card.accept(["types":[["id":7,"mineralCost":75,"gasCost":9]]])
     let production=card.choices(["type":106,"building":true])
     try require(production.contains{$0.payload["op"] as? String == "train" && $0.title.hasSuffix("75/9")},"command card uses native DAT prices")
