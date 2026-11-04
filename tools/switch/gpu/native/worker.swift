@@ -29,6 +29,8 @@ final class Worker {
     var targetBytes = [String: Int]()
     var pipelines = [String: MTLRenderPipelineState](), depthStates = [String: MTLDepthStencilState]()
     var functions = [String: MTLFunction](), textureCache = [String: MTLTexture]()
+    var computePipelines = [String: MTLComputePipelineState]()
+    var computeBuffers = [String: MTLBuffer](), computeGenerations = [String: Int]()
     var uploadRing: [MTLBuffer?] = [nil, nil, nil]
     var uploadSlot = 0
     var argumentTables = [String: (MTLBuffer, [MTLTexture], [MTLSamplerState])]()
@@ -85,7 +87,38 @@ final class Worker {
         let library = try device.makeLibrary(source:source, options:options)
         guard let f = library.makeFunction(name:entry) else { throw Failure("entry \(entry)") }; functions[source] = f; fileFunctions[path] = f; return f
     }
+    var dispatches=0
     for command in commands {
+        if command["compute"] != nil {
+            endPass()
+            let key=try string(command,"key"), source=try string(command,"source")
+            let f=try function(source,"soju_compute")
+            let pipelineKey=String(data:try file(source),encoding:.utf8)!
+            if computePipelines[pipelineKey] == nil {computePipelines[pipelineKey]=try device.makeComputePipelineState(function:f)}
+            let pipeline=computePipelines[pipelineKey]!
+            if computeGenerations[key] != number(command,"generation") {
+                if computeBuffers[key] != nil {try flush()}
+                let bytes=try file(string(command,"file"))
+                guard let storage=bytes.withUnsafeBytes({ p in device.makeBuffer(bytes:p.baseAddress!,length:p.count,options:.storageModeShared) }) else {throw Failure("compute allocation")}
+                computeBuffers[key]=storage
+                computeGenerations[key]=number(command,"generation")
+            }
+            let local=(command["local"] as! [NSNumber]).map{$0.intValue}
+            let groups=(command["groups"] as! [NSNumber]).map{$0.intValue}
+            try need(local.reduce(1,*) <= pipeline.maxTotalThreadsPerThreadgroup,"compute threadgroup device limit")
+            try need(pipeline.staticThreadgroupMemoryLength <= device.maxThreadgroupMemoryLength,"compute shared device limit")
+            for axis in 0..<3 {
+                let limit=[device.maxThreadsPerThreadgroup.width,device.maxThreadsPerThreadgroup.height,device.maxThreadsPerThreadgroup.depth][axis]
+                try need(local[axis] <= limit,"compute local dimension limit")
+            }
+            guard let encoder=try commandBuffer().makeComputeCommandEncoder() else {throw Failure("compute encoder")}
+            encoder.setComputePipelineState(pipeline)
+            encoder.setBuffer(computeBuffers[key],offset:0,index:number(command,"slot"))
+            for c in array(command,"constants") {encoder.setBuffer(uploadRing[uploadSlot],offset:number(c,"offset"),index:number(c,"slot"))}
+            encoder.dispatchThreadgroups(MTLSize(width:groups[0],height:groups[1],depth:groups[2]),threadsPerThreadgroup:MTLSize(width:local[0],height:local[1],depth:local[2]))
+            encoder.endEncoding();dispatches += 1
+            continue
+        }
         if command["query_reset"] != nil {try flush();occlusion=0;continue}
         if let key=command["query_report"] as? String {try flush();queryValues[key]=UInt32(truncatingIfNeeded:occlusion);continue}
         guard let raw = command["registers"] as? Object, let attachments = command["targets"] as? [Object], let target = attachments.first else { throw Failure("missing state") }
@@ -309,7 +342,7 @@ final class Worker {
     }
     try flush()
     let elapsed=ProcessInfo.processInfo.systemUptime-started
-    return "encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
+    return "encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
     func readback(_ directory: String) throws -> String {
         let root = URL(fileURLWithPath:directory)
@@ -341,6 +374,9 @@ final class Worker {
         for (key,value) in queryValues {
             var little=value.littleEndian
             try withUnsafeBytes(of:&little) {try Data($0).write(to:root.appendingPathComponent("\(key).query"))}
+        }
+        for (key,buffer) in computeBuffers {
+            try Data(bytes:buffer.contents(),count:buffer.length).write(to:root.appendingPathComponent("\(key).buffer"))
         }
         return "readback_targets=\(targets.count)"
     }

@@ -18,8 +18,12 @@ use std::{
     path::Path,
 };
 
+mod compute;
+
 #[derive(Default)]
 pub struct Backend {
+    compute_programs: BTreeMap<u64, (usize, Options)>,
+    compute_targets: BTreeMap<String, compute::ComputeTarget>,
     programs: BTreeMap<u64, (usize, Options)>,
     pub textures: TextureCache,
     commands: Vec<(String, u32)>,
@@ -190,6 +194,10 @@ impl Backend {
         action: &Action,
         memory: &Memory,
     ) -> Result<()> {
+        require(
+            self.compute_targets.is_empty(),
+            "readback compute before graphics",
+        )?;
         if let Some((previous, epoch, index)) = &self.prepared {
             if *epoch == memory.epoch()
                 && previous.registers == *r
@@ -1038,6 +1046,13 @@ impl Backend {
             self.commands.is_empty(),
             "submit prepared commands before readback",
         )?;
+        for t in self.compute_targets.values() {
+            require(
+                memory.identity == t.identity
+                    && memory.generation(t.address, t.size)? == t.generation,
+                "CPU write overlaps pending compute; synchronize before writing",
+            )?;
+        }
         for t in self.targets.values().chain(self.depth_targets.values()) {
             require(
                 memory.identity == t.memory_identity
@@ -1136,6 +1151,11 @@ impl Backend {
             require(data.len() == 4, "invalid query result")?;
             writes.push((address, data));
         }
+        for (key, t) in &self.compute_targets {
+            let bytes = std::fs::read(directory.join(format!("{key}.buffer"))).map_err(io)?;
+            require(bytes.len() == t.size, "invalid compute readback size")?;
+            writes.push((t.address, bytes));
+        }
         for (address, data) in writes {
             memory.write(address, &data)?;
         }
@@ -1144,6 +1164,7 @@ impl Backend {
         self.files.clear();
         self.file_cache.clear();
         self.constant_upload.clear();
+        self.compute_targets.clear();
         self.targets.clear();
         self.depth_targets.clear();
         self.queries.clear();

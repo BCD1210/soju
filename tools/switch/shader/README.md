@@ -24,7 +24,9 @@ Graphics supports standalone Vertex B and Fragment. Compute takes scheduling
 bundles without a graphics header. QMD 0.6/1.7 parsing exposes local x/y/z size,
 shared bytes, positive/negative local allocations and all 64 raw words. The host
 resolves program start/cbuf addresses and dispatches the parsed local size.
-No CLI, runner integration or native descriptor-memory reader is implemented.
+The adjacent `../gpu` crate now supplies a separate B1C0 engine, bounded QMD
+resource resolution, Metal dispatch and deferred global-buffer readback; see its
+README for the standalone-grid subset. This shader crate remains I/O-free.
 Translation itself invokes no compiler and performs no I/O.
 
 The graphics parser preserves all 20 SPH words, stage/version/allocation fields,

@@ -45,3 +45,9 @@ Per-method links: REGISTERS.md. Original shader fixtures use the ISA sources alr
 
 The installed Apple SDK's `MTLBlitCommandEncoder.h` supplies buffer/texture copies
 and the depth/stencil plane options used for attachment import and readback.
+
+B1C0 execution now uses the already pinned `clb1c0.h` and `clb1c0qmd.h` above,
+including PCAS scheduling, program offset, CTA raster dimensions and cbuf fields.
+The installed SDK `MTLComputeCommandEncoder.h` and `MTLComputePipeline.h` define
+dispatch, static threadgroup allocation limits and buffer bindings. No additional
+third-party implementation was consulted.

@@ -503,3 +503,24 @@ Unimplemented effects are rejected. Fields and enums are defined by the linked p
 | 902D | `0x3400` | 16 / 4 | [`SET_MME_SHADOW_SCRATCH`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/twod/cl902d.h) |
 | 902D | `0x3800` | 16 / 8 | [`CALL_MME_MACRO`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/twod/cl902d.h) |
 | 902D | `0x3804` | 16 / 8 | [`CALL_MME_DATA`](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/twod/cl902d.h) |
+
+## B1C0 standalone compute grids
+
+`compute::Engine` deliberately has a separate method entry point. Supported byte
+methods from the pinned [clb1c0.h](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/compute/clb1c0.h):
+
+| Offset | Symbol | Implemented meaning |
+| --- | --- | --- |
+| `0x1608` / `0x160c` | SET_PROGRAM_REGION_A/B | 40-bit program-region base |
+| `0x02b4` | SEND_PCAS_A | QMD address shifted right by eight |
+| `0x02bc` | SEND_SIGNALING_PCAS_B | Bit 1 schedules; bit 0 invalidates; other bits rejected |
+
+The pinned [clb1c0qmd.h](https://github.com/NVIDIA/open-gpu-doc/blob/9fdf5c4062007929d9f4e6cbad9c9771fe61b880/classes/compute/clb1c0qmd.h)
+defines QMD 0.6/1.7: program offset 287:256, grid dimensions 415:384,
+431:416 and 447:432, shared bytes 561:544, version 583:576, local dimensions
+607:592 / 623:608 / 639:624, cbuf-valid 647:640. Cbuf N lower address starts at
+928+64N, upper eight address bits at 960+64N, invalidate at 974+64N, and byte
+size at 975+64N through 991+64N. Local allocations and register count retain
+the shader crate's existing parsing. Nonzero queue, dependent-grid, semaphore,
+resume and numerical-mode fields are rejected; supported cache hints do not
+change semantics. `SEND_PCAS_B` is not implemented.

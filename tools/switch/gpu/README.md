@@ -153,7 +153,7 @@ or GPU-only throughput. Re-run the command to measure the current machine/load.
 - Shader-selected point-size slots, cull distances, viewport arrays, depth bounds/
   clamp, depth-format-independent bias, logic operations and D24-exact raster depth.
 - Vertex A pairing, tessellation, geometry, transform feedback, indirect/packed
-  draws, split-primitive BEGIN modes, quads/fans and compute dispatch.
+  draws, split-primitive BEGIN modes and quads/fans. Compute coverage is below.
 - Vertex integer/half/scaled/packed formats beyond normalized RGBA8; generic
   attribute defaults; partial-channel/scissored/layered clears and full write masks.
 - Pitched target width is byte pitch divided by pixel size; independent logical
@@ -223,3 +223,48 @@ parsing, Rust work and file submission; end-to-end columns include all of them.
 Metal validation passed 19 tests (12 raster and 7 portable); two benchmarks are
 explicitly ignored in the normal suite. The mixed benchmark checks 5,120 final
 pixels; the seven-batch repeat/ring regression checks 7,168 pixels.
+
+## B1C0 compute integration
+
+Additive API; graphics `Engine`, `Snapshot` and `Action` are unchanged:
+
+```rust,ignore
+let mut compute = soju_switch_gpu::compute::Engine::default();
+backend.compute_program(address, code_length, options)?;
+if let Some(dispatch) = compute.method(0xb1c0, byte_offset, value, &memory)? {
+    backend.prepare_compute(&dispatch, &memory)?;
+}
+let fence = backend.submit(directory)?;
+fence.wait()?;
+backend.readback(directory, &mut memory)?;
+```
+
+Compute program extents contain scheduling bundles, without a graphics SPH.
+Options must supply the shader ABI's one bounded `GlobalMemory` window (up to
+64 MiB); this is an explicit runner-resolved allocation, not a GPU virtual-memory
+implementation. QMD 0.6/1.7 supplies the program offset, three-dimensional grid,
+local dimensions, up to 48 KiB shared storage, local allocations and eight cbuf
+bindings. The shader crate lowers the kernel including LDS/STS and BAR. Native
+device limits are checked before dispatch. The backend limits grids to 16,777,216
+threadgroups. Unsupported QMD modes and B1C0 methods fail explicitly.
+
+Code, QMD and constants are captured at preparation. Writable windows remain
+GPU-resident between ordered dispatches, including across submissions. A fence
+makes no guest-memory writes. `readback` copies the window into `Memory`; it does
+not invent a width/height or add entries to `Report.images`. Synthetic tests
+interpret that output as a 32×32 RGBA image. CPU writes over pending output,
+overlapping windows, writable aliases of code/QMD/cbuf, and mixed graphics/compute
+without a readback boundary are rejected. The runner must not CPU-read pending
+GPU-written code, descriptors or outputs before readback.
+
+The Metal validation test checks 4,096 pixels: both QMD versions execute a
+cross-lane shared-memory exchange, and two independent windows with identical
+initial bytes remain independent. Repeated dispatches read and accumulate prior
+GPU writes. It also checks deferred visibility and CPU-write rejection. Portable
+tests cover 40-bit addresses, cbuf fields, malformed dimensions, unsupported
+versions, queue/semaphore/dependent/resume/numerical modes and invalid PCAS bits.
+
+Remaining compute gaps: texture/image instructions, multiple global allocations,
+indirect/queued/dependent launches, semaphore release, atomics, additional memory
+widths, scheduling controls and automatic graphics/compute resource barriers.
+This is a standalone-grid subset, not general B1C0 compatibility.
