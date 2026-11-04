@@ -16,7 +16,7 @@ spec.loader.exec_module(vr)
 class ManifestTests(unittest.TestCase):
     def test_every_download_is_pinned_https(self):
         m = json.loads((ROOT / 'resources/d2r-vr.json').read_text())
-        for key in ('runtime', 'python', 'mod', 'loader', 'reshade'):
+        for key in ('runtime', 'python', 'mod', 'mod_patch', 'loader', 'reshade'):
             self.assertTrue(m[key]['url'].startswith('https://'), key)
             self.assertRegex(m[key]['sha256'], '^[0-9a-f]{64}$', key)
             self.assertGreater(m[key]['size'], 0, key)
@@ -25,6 +25,34 @@ class ManifestTests(unittest.TestCase):
         patch = m['reshade']['patch']
         self.assertEqual(len(bytes.fromhex(patch['old'])), len(bytes.fromhex(patch['new'])))
         self.assertRegex(patch['patched_sha256'], '^[0-9a-f]{64}$')
+
+    def test_mod_patch_source_pin(self):
+        spec = vr.manifest()['mod_patch']
+        self.assertEqual(vr.digest(ROOT / spec['patch']), spec['patch_sha256'])
+        self.assertEqual(spec['base_commit'], '70ad0e665952f1bd829176ba461a85ebb974c3f0')
+
+    def test_stage_mod_patch_verifies_before_replacing_and_keeps_source(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            mod = base / 'mod'
+            (mod / 'bin').mkdir(parents=True)
+            target = mod / 'bin/d2rl-pcvr.dll'
+            target.write_bytes(b'upstream')
+            plugin = base / 'patched.dll'
+            plugin.write_bytes(b'patched fixture')
+            spec = dict(vr.manifest()['mod_patch'], size=plugin.stat().st_size,
+                        sha256=vr.digest(plugin))
+            vr.stage_mod_patch(mod, plugin, spec)
+            self.assertEqual(target.read_bytes(), plugin.read_bytes())
+            self.assertEqual(vr.digest(mod / 'soju-source/vr-character-create.patch'), spec['patch_sha256'])
+            self.assertIn(spec['base_commit'], (mod / 'soju-source/SOURCE.txt').read_text())
+            self.assertTrue((mod / 'soju-source/LICENSE').is_file())
+            target.write_bytes(b'keep')
+            for bad in (dict(spec, size=1), dict(spec, sha256='0' * 64),
+                        dict(spec, patch_sha256='0' * 64)):
+                with self.assertRaises(vr.VRError):
+                    vr.stage_mod_patch(mod, plugin, bad)
+                self.assertEqual(target.read_bytes(), b'keep')
 
     def test_cli_routes_vr_to_the_script(self):
         self.assertIn('vr)             shift; exec python3 "$ROOT/scripts/d2r-vr.py" "$@" ;;',
