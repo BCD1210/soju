@@ -45,10 +45,14 @@ pub fn packet(request: &Value, building: bool) -> Result<Option<Vec<u8>>, &'stat
 // f5eab0dde407c61c4f7d2b0f64c24c960e3ef596. Packed tail and rally dispatch:
 // BWAPI OrderTypes.h / GameCommands.cpp at the revision cited above.
 pub fn rally_packet(x: u16, y: u16, target: u32) -> Vec<u8> {
+    targeted_packet(x,y,target,if target==0 {0x28}else {0x27})
+}
+
+pub fn targeted_packet(x: u16, y: u16, target: u32, order: u8) -> Vec<u8> {
     let mut packet=vec![0x61];
     packet.extend(x.to_le_bytes());packet.extend(y.to_le_bytes());
     packet.extend(target.to_le_bytes());packet.extend(0xe4u16.to_le_bytes());
-    packet.extend([if target==0 {0x28}else {0x27},0]);
+    packet.extend([order,0]);
     packet
 }
 
@@ -60,6 +64,7 @@ mod tests {
     fn rally_encodes_ground_and_unit_targets_in_extended_packets() {
         assert_eq!(rally_packet(896,992,0),vec![0x61,0x80,3,0xe0,3,0,0,0,0,0xe4,0,0x28,0]);
         assert_eq!(rally_packet(100,200,0x12345678),vec![0x61,100,0,200,0,0x78,0x56,0x34,0x12,0xe4,0,0x27,0]);
+        assert_eq!(targeted_packet(100,200,0,0x8e),vec![0x61,100,0,200,0,0,0,0,0,0xe4,0,0x8e,0]);
     }
     #[test]
     fn research_rejects_units_and_out_of_range_tech() {

@@ -89,11 +89,24 @@ func runtimeChecks()throws {
     fallback.apply(sprite,ground:commander.ground,art:commander.worldSprites)
     try require(fallback.layers.isEmpty,"invalid native frame removes stale fallback geometry")
     try require(!commander.devOverlay,"developer overlay defaults off")
+    try require(commander.worldSprites.creepEdgeFrame(tileset:"twilight",neighbors:0)==0 &&
+        commander.worldSprites.creepEdgeFrame(tileset:"twilight",neighbors:64)==1 &&
+        commander.worldSprites.creepEdgeFrame(tileset:"twilight",neighbors:255)==37,
+        "creep border lookup distinguishes empty north and surrounded tiles")
+    try require(commander.worldSprites.creepEdgeMaterial(tileset:"twilight",frame:1) != nil,
+        "owned HD creep border is loadable")
     let card=CommandCard();card.accept(["types":[["id":7,"mineralCost":75,"gasCost":9]]])
     let production=card.choices(["type":106,"building":true])
     try require(production.contains{$0.payload["op"] as? String == "train" && $0.title.hasSuffix("75/9")},"command card uses native DAT prices")
     let repair=card.choices(["type":7,"worker":true]).first{$0.payload["op"] as? String == "repair"}
     try require(repair?.target == .unit,"repair requires a unit target")
+    card.accept(["spells":[["action":"storm","title":"Psionic storm","casters":[67],"target":"ground","energy":75]]])
+    let storm=card.choices(["type":67]).first{$0.payload["op"] as? String == "spell"}
+    try require(storm?.target == .ground && storm?.title.hasSuffix("75 energy")==true,"spell targeting and energy come from native metadata")
+    let defiler=card.choices(["type":136,"building":true])
+    try require(defiler.contains{$0.title=="Consume" && number($0.payload,"type")==16} && defiler.contains{$0.title=="Plague" && number($0.payload,"type")==15},"Defiler research uses correct technology IDs")
+    let larva=card.choices(["type":35])
+    try require(larva.contains{$0.payload["op"] as? String == "morph" && number($0.payload,"type")==47} && !larva.contains{number($0.payload,"type")==50},"larva produces Scourge rather than Infested Terrans")
     let evolution=card.choices(["type":139,"building":true]),pool=card.choices(["type":142,"building":true])
     try require(evolution.contains{$0.payload["op"] as? String == "upgrade" && number($0.payload,"type")==10} && !pool.contains{$0.title=="Melee attacks"},"Zerg weapon upgrades belong to Evolution Chamber")
     commander.wrists.pending=CommandChoice("Old repair",["op":"repair"],.unit);commander.selected=["new-selection"]

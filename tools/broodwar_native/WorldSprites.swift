@@ -53,6 +53,7 @@ final class WorldSprites {
     let images:[String:Obj],creep:[String:Obj]
     var nodes=[String:SCNNode](),frames=[String:NSImage](),atlases=[String:NSImage]()
     var missing=Set<Int>(),deathFrames=0,loneFrames=0
+    var creepMaterials=[String:SCNMaterial]()
     init() {
         let catalog=(try? loadObject(folder.appendingPathComponent("catalog.json"))) ?? [:]
         images=catalog["images"] as? [String:Obj] ?? [:];creep=catalog["creep"] as? [String:Obj] ?? [:]
@@ -114,7 +115,22 @@ final class WorldSprites {
     }
     func creepMaterial(tileset:String,index:Int)->SCNMaterial? {
         guard let entries=creep[tileset]?["tiles"] as? [Obj],!entries.isEmpty,
-            let file=entries[index%entries.count]["file"] as? String,let image=NSImage(contentsOf:folder.appendingPathComponent(file)) else {return nil}
-        let material=SCNMaterial();material.lightingModel = .constant;material.diffuse.contents=image;return material
+            let file=entries[index%entries.count]["file"] as? String else {return nil}
+        return creepImage(file)
+    }
+    func creepEdgeFrame(tileset:String,neighbors:Int)->Int {
+        guard let lookup=creep[tileset]?["edgeLookup"] as? [Int],lookup.indices.contains(neighbors) else {return 0}
+        return lookup[neighbors]
+    }
+    func creepEdgeMaterial(tileset:String,frame:Int)->SCNMaterial? {
+        guard let files=creep[tileset]?["edges"] as? [String],files.indices.contains(frame-1) else {return nil}
+        return creepImage(files[frame-1])
+    }
+    func creepImage(_ file:String)->SCNMaterial? {
+        if let material=creepMaterials[file] {return material}
+        guard let image=NSImage(contentsOf:folder.appendingPathComponent(file)) else {return nil}
+        let material=SCNMaterial();material.lightingModel = .constant;material.diffuse.contents=image
+        material.isDoubleSided=true;material.writesToDepthBuffer=false
+        creepMaterials[file]=material;return material
     }
 }

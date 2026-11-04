@@ -6,6 +6,25 @@ import CoreImage
 import Darwin
 import simd
 extension Commander {
+    func cardCommand(_ choice:CommandChoice,hit:SCNHitTestResult?) {
+        guard !selected.isEmpty else {return}
+        var payload=choice.payload
+        payload["units"]=["move","attack_move","stop","hold","gather","repair"].contains(payload["op"] as? String ?? "") ? selected:Array(selected.prefix(1))
+        switch choice.target {
+        case .none:break
+        case .unit:
+            guard let hit=hit,let id=unitID(hit.node) else {notice="Aim at a visible unit";return};payload["target"]=id
+        case .ground,.rally:
+            guard let hit=hit else {return}
+            let point=hit.worldCoordinates
+            if choice.target == .rally,let id=unitID(hit.node) {payload["target"]=id}
+            else if ["build","addon"].contains(payload["op"] as? String ?? "") {
+                payload["tileX"]=max(0,Int(point.x)-1);payload["tileY"]=max(0,Int(point.z)-1)
+            } else {payload["x"]=max(0,Int(point.x*32));payload["y"]=max(0,Int(point.z*32))}
+        }
+        command(payload);wrists.pending=nil
+    }
+
     func owned(_ kind:Int)->[Obj] { units.values.filter { Int(number($0,"type"))==kind && number($0,"owner")==number(state,"player") } }
     func group(_ name:String)->[Obj] {
         units.values.filter { u in
@@ -17,6 +36,15 @@ extension Commander {
     }
     func key(_ key:String) {
         if key=="`" {devOverlay.toggle();label?.isHidden = !devOverlay;return}
+        if key=="c",let id=selected.first,let unit=units[id] {
+            let spells=wrists.card.choices(unit).filter{$0.payload["op"] as? String == "spell"}
+            if !spells.isEmpty {
+                let previous=spells.firstIndex{$0.title==wrists.pending?.title} ?? -1
+                wrists.pending=spells[(previous+1)%spells.count]
+            }
+            return
+        }
+        if key=="\u{1b}" {wrists.pending=nil;return}
         if key=="v" {toggleTabletop();return}
         if key=="q" {targetingOrder="attack_move";notice="Point at enemy or ground to attack"}
         if key=="h",!selected.isEmpty {command(["op":"hold","units":Array(selected.prefix(12))])}
@@ -57,6 +85,10 @@ extension Commander {
     }
     func move(to p:NSPoint) {
         let hits=view.hitTest(p,options:nil)
+        if let choice=wrists.pending {
+            let hit=hits.first{choice.target == .unit ? unitID($0.node) != nil:$0.node.name=="terrain"}
+            cardCommand(choice,hit:hit);return
+        }
         if !placingDepot,let hit=hits.first(where:{unitID($0.node) != nil}),let id=unitID(hit.node),contextCommand(id) {return}
         guard !selected.isEmpty,let hit=hits.first(where:{$0.node.name=="terrain"}) else { notice="Select units and right-click explored ground";return }
         groundCommand(hit.worldCoordinates)

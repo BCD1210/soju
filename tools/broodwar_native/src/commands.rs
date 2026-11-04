@@ -51,7 +51,13 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
                 "building":kind.is_building(),"worker":kind.is_worker(),
                 "race":kind.primary_race().map(|race|race.id())})
         }).collect();
-        return Ok(json!({"ok":true,"source":"native-units.dat","supplyUnits":"half-supply","types":types}));
+        let spells: Vec<_> = super::spells::SPELLS.iter().map(|spell| {
+            let tech=spell.order.tech();
+            json!({"action":spell.action,"title":spell.title,"order":spell.order.0,
+                "casters":spell.casters,"target":if spell.unit_target {"unit"}else {"ground"},
+                "tech":tech.map(|id|id.0),"energy":tech.map(|id|id.energy_cost())})
+        }).collect();
+        return Ok(json!({"ok":true,"source":"native-units.dat/orders.dat","supplyUnits":"half-supply","types":types,"spells":spells}));
     }
     if op == "terrain" {
         let region = super::terrain::Region::parse(req,[game.map_width_tiles,game.map_height_tiles])?;
@@ -120,8 +126,13 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         },
         None => std::ptr::null_mut()
     };
-    if op == "rally" {
-        if selected.iter().any(|&u| !UnitId((*u).unit_id).is_building()) {
+    if op == "rally" || op == "spell" {
+        let spell=if op=="spell" {
+            if selected.len()!=1 {return Err("select one spell caster");}
+            Some(super::spells::validate(req["action"].as_str().ok_or("missing spell action")?,
+                (*selected[0]).unit_id,!target.is_null())?)
+        } else {None};
+        if op == "rally" && selected.iter().any(|&u| !UnitId((*u).unit_id).is_building()) {
             return Err("rally requires a production building");
         }
         let (x,y,tag) = if target.is_null() {
@@ -135,7 +146,10 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
             (u16::try_from((*target).flingy.position.x).map_err(|_| "target outside map")?,
              u16::try_from((*target).flingy.position.y).map_err(|_| "target outside map")?,unit_tag(r,target)?)
         };
-        let packet=production::rally_packet(x,y,tag);
+        let packet=match spell {
+            Some(spell)=>production::targeted_packet(x,y,tag,spell.order.0),
+            None=>production::rally_packet(x,y,tag),
+        };
         for &producer in &selected {send_one(r,producer,&packet)?;}
         r.sequence.store(seq,Ordering::Relaxed);
         return Ok(json!({"ok":true,"seq":seq,"frame":game.frame_count,"queued":true}));

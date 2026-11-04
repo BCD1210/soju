@@ -11,26 +11,27 @@ extension Commander {
     func handPosition(_ position:SIMD3<Float>)->SIMD3<Float> {
         camera.simdPosition+xrBody.act((position-(xrOrigin ?? .zero))*worldUnitsPerMeter)
     }
-    func cardCommand(_ choice:CommandChoice,hit:SCNHitTestResult?) {
-        guard !selected.isEmpty else {return}
-        var payload=choice.payload
-        payload["units"]=["move","attack_move","stop","hold","gather","repair"].contains(payload["op"] as? String ?? "") ? selected:Array(selected.prefix(1))
-        switch choice.target {
-        case .none:break
-        case .unit:
-            guard let hit=hit,let id=unitID(hit.node) else {notice="Aim at a visible unit";return};payload["target"]=id
-        case .ground,.rally:
-            guard let hit=hit else {return}
-            let point=hit.worldCoordinates
-            if choice.target == .rally,let id=unitID(hit.node) {payload["target"]=id}
-            else if ["build","addon"].contains(payload["op"] as? String ?? "") {
-                payload["tileX"]=max(0,Int(point.x)-1);payload["tileY"]=max(0,Int(point.z)-1)
-            } else {payload["x"]=max(0,Int(point.x*32));payload["y"]=max(0,Int(point.z*32))}
-        }
-        command(payload);wrists.pending=nil
-    }
     func controls(_ input:SojuXRInput) {
         let now=CACurrentMediaTime(),dt=Float(min(0.05,now-lastXRInput));lastXRInput=now
+        defer {
+            let edge=input.leftPressed != 0 || input.rightPressed != 0 || input.leftReleased != 0 ||
+                input.rightReleased != 0 || input.leftGripPressed != 0 || input.rightGripPressed != 0
+            if edge || now-lastControllerLog>1 {
+                lastControllerLog=now
+                let sample:Obj=["time":Date().timeIntervalSince1970,"frame":number(state,"frame"),
+                    "leftPressed":input.leftPressed,"leftReleased":input.leftReleased,"rightPressed":input.rightPressed,
+                    "leftHeld":input.leftHeld,"rightHeld":input.rightHeld,"leftGrip":input.leftGripHeld,"rightGrip":input.rightGripHeld,
+                    "selected":selected,"boxSelections":wrists.boxSelections,"doubleTaps":wrists.doubleTaps,
+                    "grabs":wrists.grabs,"zoom":wrists.zoom,"camera":[camera.position.x,camera.position.y,camera.position.z],
+                    "aimValid":input.aimValid,"leftValid":input.leftValid,"pendingSpell":wrists.pending?.title ?? ""]
+                record("xr-controller-diagnostics.json",sample)
+                if edge {
+                    controllerHistory.append(sample)
+                    if controllerHistory.count>256 {controllerHistory.removeFirst()}
+                    record("xr-controller-events.json",["events":controllerHistory])
+                }
+            }
+        }
         guard xrOrigin != nil else {return}
         if input.leftGripPressed != 0 && input.rightGripHeld==0 {toggleTabletop()}
         let raw=SIMD3<Float>(input.px,input.py,input.pz),left=SIMD3<Float>(input.leftX,input.leftY,input.leftZ)

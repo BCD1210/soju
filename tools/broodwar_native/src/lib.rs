@@ -6,6 +6,7 @@ use std::{ffi::c_void, fs::OpenOptions, io::Write, net::UdpSocket,
 use bw_dat::structs::{Game, Unit};
 mod world;
 mod production;
+mod spells;
 mod commands;
 mod terrain;
 mod visuals;
@@ -161,6 +162,14 @@ pub unsafe extern "C" fn samase_plugin_init(api: *const PluginApi) {
     let dat=weapons_dat(&mut dat_len);
     if dat.is_null() || dat_len==0 {log("weapons DAT unavailable");return;}
     bw_dat::init_weapons(dat.cast(),dat_len);
+    let Some(tech_dat)=((*api).extended_dat)(4) else {log("tech DAT unavailable");return;};
+    let dat=tech_dat(&mut dat_len);
+    if dat.is_null() || dat_len<4 {log("tech DAT unavailable");return;}
+    bw_dat::init_techdata(dat.cast(),dat_len);
+    let Some(orders_dat)=((*api).extended_dat)(7) else {log("orders DAT unavailable");return;};
+    let dat=orders_dat(&mut dat_len);
+    if dat.is_null() || dat_len<15 {log("orders DAT unavailable");return;}
+    bw_dat::init_orders(dat.cast(),dat_len);
     let mut supported = [0u8;3];
     ((*api).load_vars)(VARS.as_ptr(),supported.as_mut_ptr(),VARS.len());
     if supported.iter().any(|&x| x < 2) { log("required game variables unavailable"); return; }
