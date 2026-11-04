@@ -2004,3 +2004,58 @@ fn prepared_variants_revalidate_vertex_writes_and_public_register_changes() {
         .chunks_exact(4)
         .all(|p| p == [0, 255, 0, 255]));
 }
+
+#[test]
+fn independent_uniform_slots_keep_unchanged_offsets() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("uniforms", [0., 0., 0., 1.]);
+    let mut code = shader_with_tint(false, false, true);
+    for instruction in code[80..].chunks_exact_mut(8) {
+        let mut word = u64::from_le_bytes(instruction.try_into().unwrap());
+        if word >> 48 == 0x4c68 && word & 1 != 0 {
+            word = (word & !(31 << 34)) | (3 << 34);
+            instruction.copy_from_slice(&word.to_le_bytes());
+        }
+    }
+    let program = h.program(code);
+    let changing = h.alloc(vec![0; 16]);
+    let stable = h.alloc([1f32; 4].into_iter().flat_map(f32::to_le_bytes).collect());
+    h.methods(
+        &mut e,
+        &[
+            (0x2144, program as u32),
+            (0x2380, 16),
+            (0x2384, 0),
+            (0x2388, changing as u32),
+            (0x2490, 0x21),
+            (0x2388, stable as u32),
+            (0x2490, 0x31),
+        ],
+    );
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    for i in 0..4 {
+        let tint = if i % 2 == 0 {
+            [1f32, 0., 0., 0.]
+        } else {
+            [0f32, 0., 1., 0.]
+        };
+        h.memory
+            .write(
+                changing,
+                &tint
+                    .into_iter()
+                    .flat_map(f32::to_le_bytes)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
+        h.draw(&mut e, 6, false, false);
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/uniform-slot-checks");
+    let diagnostic = h.backend.submit(&root).unwrap().wait().unwrap();
+    assert!(diagnostic.contains("offset_writes=3 "), "{diagnostic}");
+    let report = h.backend.readback(&root, &mut h.memory).unwrap();
+    assert!(report.images[0]
+        .rgba
+        .chunks_exact(4)
+        .all(|p| p == [0, 255, 255, 255]));
+}

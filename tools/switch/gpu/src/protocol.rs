@@ -143,7 +143,8 @@ pub(crate) struct TextureCommand {
 #[derive(Clone, Default)]
 pub(crate) struct Command {
     pub reference: i64,
-    pub constant_delta: i64,
+    pub constant_vertex: [i64; 32],
+    pub constant_fragment: [i64; 32],
     pub kind: i64,
     pub repeats: i64,
     pub clear: i64,

@@ -124,7 +124,6 @@ final class Worker {
         let commandIndex = input.kind == 5 ? Int(input.reference) : inputIndex
         try need(commandIndex >= 0 && commandIndex <= inputIndex, "invalid command reference")
         let command = commands[commandIndex]
-        let constantDelta = input.kind == 5 ? Int(input.constant_delta) : 0
         if command.kind == 4 {
             endPass()
             let key=text(command.key), source=text(command.source)
@@ -336,7 +335,7 @@ final class Worker {
             }
             for c in items(command.constants) {
                 guard let b=uploadRing[uploadSlot] else {throw Failure("missing constant upload")}
-                let offset=Int(c.offset) + constantDelta
+                let offset = input.kind == 5 ? uniformOffset(input, Int(c.stage), Int(c.slot)) : Int(c.offset)
                 bind(encoder, Int(c.stage), b, offset, Int(c.slot))
             }
             for stage in 0...1 {

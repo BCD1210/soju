@@ -107,10 +107,15 @@ impl Backend {
                     "compute global/cbuf alias requires readback and separate storage",
                 )?;
             }
-            let offset = self.constant_upload.len().div_ceil(256) * 256;
-            self.constant_upload.resize(offset, 0);
-            self.constant_upload
-                .extend_from_slice(memory.read(cb.address, cb.size as usize)?);
+            let offset = uniform_offset(
+                &mut self.constant_upload,
+                &mut self.uniform_offsets,
+                ConstantBuffer {
+                    address: cb.address,
+                    size: cb.size,
+                },
+                memory,
+            )?;
             constants.push(ConstantCommand {
                 stage: 0,
                 slot: slot as _,
