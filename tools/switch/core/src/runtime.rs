@@ -279,6 +279,7 @@ impl Runtime {
                     .get(core)
                     .ok_or(Error::Worker)?
                     .run(Command::Run {
+                        thread: id,
                         context,
                         results,
                         budget,

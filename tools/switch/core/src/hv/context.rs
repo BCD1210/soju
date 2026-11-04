@@ -2,6 +2,7 @@
 use super::{Cpu, Error, ProcessGuard, ThreadState, check};
 #[derive(Debug)]
 pub struct Context {
+    pub(crate) revision: u64,
     registers: [u64; 35],
     system: [u64; 7],
     vectors: [u8; 512],
@@ -14,6 +15,7 @@ impl From<ThreadState> for Context {
         registers[31] = state.pc;
         registers[34] = 0x3c0;
         Self {
+            revision: 0,
             registers,
             system: [state.sp, 0, state.tpidrro_el0, 0, 0, 0, 0],
             vectors: [0; 512],
@@ -61,6 +63,7 @@ impl Cpu {
             )
         })?;
         state.pending_svc = self.pending_svc;
+        state.revision = state.revision.wrapping_add(1);
         Ok(())
     }
 }

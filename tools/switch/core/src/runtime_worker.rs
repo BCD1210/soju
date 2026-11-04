@@ -5,6 +5,7 @@ use std::sync::{Arc, mpsc};
 use std::thread::{self, JoinHandle};
 pub(super) enum Command {
     Run {
+        thread: crate::kernel::ThreadId,
         context: Box<Context>,
         results: Option<Vec<u64>>,
         budget: RunBudget,
@@ -32,7 +33,9 @@ impl Worker {
                     return;
                 }
             };
+            let mut active_thread = None;
             while let Ok(Command::Run {
+                thread,
                 mut context,
                 results,
                 budget,
@@ -40,12 +43,15 @@ impl Worker {
             {
                 let result = (|| {
                     let mut guard = process.lock()?;
-                    cpu.load_context(&guard, &context)?;
+                    if active_thread != Some((thread, context.revision)) {
+                        cpu.load_context(&guard, &context)?;
+                    }
                     if let Some(values) = results {
                         cpu.set_svc_results(&mut guard, &values)?;
                     }
                     let outcome = cpu.run_quantum(&mut guard, budget)?;
                     cpu.save_context(&guard, &mut context)?;
+                    active_thread = Some((thread, context.revision));
                     Ok((context, outcome))
                 })();
                 let failed = result.is_err();
