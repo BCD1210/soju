@@ -1,0 +1,122 @@
+[
+  {
+    "run": "timing-before",
+    "title": "es2gears",
+    "frames": 300,
+    "mean_ms": 13.966585421404682,
+    "p95_ms": 14.444834,
+    "p99_ms": 22.266417,
+    "over_17_5_ms": 4,
+    "first_present_ms": 464.816
+  },
+  {
+    "run": "timing-before",
+    "title": "lenny",
+    "frames": 300,
+    "mean_ms": 10.043532468227426,
+    "p95_ms": 10.468167000000001,
+    "p99_ms": 11.500292,
+    "over_17_5_ms": 1,
+    "first_present_ms": 467.12
+  },
+  {
+    "run": "timing-before",
+    "title": "dynamic_resolution",
+    "frames": 300,
+    "mean_ms": 23.35051031438127,
+    "p95_ms": 25.204833999999998,
+    "p99_ms": 31.787125,
+    "over_17_5_ms": 299,
+    "first_present_ms": 506.828
+  },
+  {
+    "run": "timing-before",
+    "title": "2048",
+    "frames": 300,
+    "mean_ms": 1.2181236053511706,
+    "p95_ms": 1.365,
+    "p99_ms": 1.694084,
+    "over_17_5_ms": 0,
+    "first_present_ms": 359.864
+  },
+  {
+    "run": "timing-final-1",
+    "title": "es2gears",
+    "frames": 300,
+    "mean_ms": 12.575825110367893,
+    "p95_ms": 12.992666999999999,
+    "p99_ms": 19.607209,
+    "over_17_5_ms": 4,
+    "first_present_ms": 475.19
+  },
+  {
+    "run": "timing-final-1",
+    "title": "lenny",
+    "frames": 300,
+    "mean_ms": 8.63909364548495,
+    "p95_ms": 9.043208,
+    "p99_ms": 11.603250000000001,
+    "over_17_5_ms": 1,
+    "first_present_ms": 460.211
+  },
+  {
+    "run": "timing-final-1",
+    "title": "dynamic_resolution",
+    "frames": 300,
+    "mean_ms": 19.890198160535117,
+    "p95_ms": 20.710958,
+    "p99_ms": 26.360459,
+    "over_17_5_ms": 299,
+    "first_present_ms": 512.66
+  },
+  {
+    "run": "timing-final-1",
+    "title": "2048",
+    "frames": 300,
+    "mean_ms": 1.2570641003344483,
+    "p95_ms": 1.395334,
+    "p99_ms": 1.8271249999999999,
+    "over_17_5_ms": 0,
+    "first_present_ms": 359.091
+  },
+  {
+    "run": "timing-final-2",
+    "title": "es2gears",
+    "frames": 300,
+    "mean_ms": 12.634739130434783,
+    "p95_ms": 13.108167,
+    "p99_ms": 19.712084,
+    "over_17_5_ms": 4,
+    "first_present_ms": 482.474
+  },
+  {
+    "run": "timing-final-2",
+    "title": "lenny",
+    "frames": 300,
+    "mean_ms": 8.722699555183947,
+    "p95_ms": 9.1015,
+    "p99_ms": 14.507041,
+    "over_17_5_ms": 1,
+    "first_present_ms": 454.416
+  },
+  {
+    "run": "timing-final-2",
+    "title": "dynamic_resolution",
+    "frames": 300,
+    "mean_ms": 19.95106772575251,
+    "p95_ms": 21.816667000000002,
+    "p99_ms": 28.242542,
+    "over_17_5_ms": 299,
+    "first_present_ms": 508.695
+  },
+  {
+    "run": "timing-final-2",
+    "title": "2048",
+    "frames": 300,
+    "mean_ms": 1.3644003612040134,
+    "p95_ms": 1.633125,
+    "p99_ms": 1.9957500000000001,
+    "over_17_5_ms": 0,
+    "first_present_ms": 437.773
+  }
+]
