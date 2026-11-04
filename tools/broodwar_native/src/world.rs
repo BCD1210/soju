@@ -36,6 +36,7 @@ pub unsafe fn unit_info(ptr:*mut Unit,all:&HashSet<usize>,player:usize,details:b
     let image=if sprite.is_null(){std::ptr::null_mut()}else{(*sprite).version_specific.scr.main_image};
     let turret=if !u.subunit.is_null() && UnitId((*u.subunit).unit_id).is_subunit() {u.subunit}else{ptr};
     let ti=if (*turret).flingy.sprite.is_null(){std::ptr::null_mut()}else{(*(*turret).flingy.sprite).version_specific.scr.main_image};
+    let native=bw_dat::Unit::from_ptr(ptr).unwrap();
     let dead=u.order==bw_dat::order::DIE.0;
     let hidden=sprite.is_null() || (*sprite).flags&0x20!=0 || u.flags&0x60!=0;
     // The rally union is a pylon linked list for type156; expose only owned
@@ -61,6 +62,11 @@ pub unsafe fn unit_info(ptr:*mut Unit,all:&HashSet<usize>,player:usize,details:b
         "groundWeapon":UnitId((*turret).unit_id).ground_weapon().map(|w|w.0),"airWeapon":UnitId((*turret).unit_id).air_weapon().map(|w|w.0),
         "turret":{"type":(*turret).unit_id,"facing":(*turret).flingy.facing_direction,"image":image_info(ti)},
         "buildTimeRemaining":u.remaining_build_time,"buildQueue":u.build_queue,
+        "cargoCount":native.cargo_count(),"parent":target_id(u.related,all,player),
+        "researching":native.tech_in_progress().map(|id|id.0),
+        "upgrading":native.upgrade_in_progress().map(|id|id.0),
+        "researchTimeRemaining":if kind.is_building(){u.unit_specific.building.research_time_remaining}else{0},
+        "addon":native.addon().map(|addon|target_id(*addon,all,player)),
         "status":{"stim":u.stim_timer,"ensnare":u.ensnare_timer,"lockdown":u.lockdown_timer,
             "irradiate":u.irradiate_timer,"stasis":u.stasis_timer,"plague":u.plague_timer,
             "storm":u.is_under_storm,"matrix":u.matrix_timer,"maelstrom":u.maelstrom_timer,
@@ -102,6 +108,9 @@ pub unsafe fn death(r:&Runtime,ptr:*mut Unit,game:&Game,player:usize) {
     }
 }
 pub unsafe fn snapshot(r:&Runtime,game:&Game,all:&[*mut Unit],player:usize,details:bool,since:Option<u64>)->Value {
+    let native_game=bw_dat::Game::from_ptr(game as *const Game as *mut Game);
+    let technologies:Vec<_>=(0..44).map(|id|json!({"id":id,"researched":native_game.tech_researched(player as u8,bw_dat::TechId(id)),"available":native_game.tech_available(player as u8,bw_dat::TechId(id)),"inProgress":native_game.tech_in_progress(player as u8,bw_dat::TechId(id))})).collect();
+    let upgrades:Vec<_>=(0..61).map(|id|json!({"id":id,"level":native_game.upgrade_level(player as u8,bw_dat::UpgradeId(id)),"limit":native_game.upgrade_max_level(player as u8,bw_dat::UpgradeId(id)),"inProgress":native_game.upgrade_in_progress(player as u8,bw_dat::UpgradeId(id))})).collect();
     let pointers:HashSet<usize>=all.iter().map(|&u|u as usize).collect();
     let visible:Vec<_>=all.iter().copied().filter(|&u|visible(u,player) && !UnitId((*u).unit_id).is_subunit() && (*u).order!=bw_dat::order::DIE.0).collect();
     let units:Vec<_>=visible.iter().take(4096).map(|&u|unit_info(u,&pointers,player,details)).collect();
@@ -152,7 +161,7 @@ pub unsafe fn snapshot(r:&Runtime,game:&Game,all:&[*mut Unit],player:usize,detai
         "playerColors":game.scr_init_color_rgba,"alliances":game.alliances[player],
         "map":{"width":game.map_width_tiles as u32*32,"height":game.map_height_tiles as u32*32,"tileset":game.tileset,
             "path":cstring(&game.map_path),"title":cstring(&game.map_title)},
-        "units":units,"dyingUnits":dying,"loneSprites":lone_sprites,
+        "technologies":technologies,"upgrades":upgrades,"units":units,"dyingUnits":dying,"loneSprites":lone_sprites,
         "loneSpritesAvailable":r.lone_sprites.is_some() && r.sprite_position.is_some(),"loneSpritesTruncated":lone_truncated,
         "bullets":bullets,"events":events,"eventSeq":h.sequence,
         "eventsLost":since.map(|s|s+1<earliest).unwrap_or(false),"visibleCount":visible.len(),"truncated":visible.len()>4096})

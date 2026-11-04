@@ -142,7 +142,10 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         },
         None => std::ptr::null_mut()
     };
-    if op == "rally" || op == "spell" {
+    if op == "rally" || op == "spell" || op == "load" {
+        if op == "load" && (selected.len()!=1 || target.is_null() || (*target).player as usize!=player || UnitId((*selected[0]).unit_id).cargo_space_provided()==0) {
+            return Err("load requires one transport and an owned target");
+        }
         let spell=if op=="spell" {
             if selected.len()!=1 {return Err("select one spell caster");}
             Some(super::spells::validate(req["action"].as_str().ok_or("missing spell action")?,
@@ -164,6 +167,7 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         };
         let packet=match spell {
             Some(spell)=>production::targeted_packet(x,y,tag,spell.order.0),
+            None if op=="load"=>production::targeted_packet(x,y,tag,if (*selected[0]).unit_id==125 {95}else{94}),
             None=>production::rally_packet(x,y,tag),
         };
         for &producer in &selected {send_one(r,producer,&packet)?;}
@@ -196,12 +200,6 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         "repair" => {
             if target.is_null() || (*target).player as usize != player || !UnitId((*target).unit_id).is_mechanical() || selected.iter().any(|&u| (*u).unit_id != 7) {return Err("repair requires SCVs and an owned mechanical target");}
             (34,u32::try_from((*target).flingy.position.x).map_err(|_| "target outside map")?,u32::try_from((*target).flingy.position.y).map_err(|_| "target outside map")?)
-        },
-        "load" => {
-            if target.is_null() || (*target).player as usize != player || selected.len()!=1 {return Err("load requires one transport and an owned target");}
-            let kind=UnitId((*selected[0]).unit_id);
-            if kind.cargo_space_provided()==0 {return Err("selected unit is not a transport");}
-            (if kind.0==125 {95} else {94},u32::try_from((*target).flingy.position.x).map_err(|_| "target outside map")?,u32::try_from((*target).flingy.position.y).map_err(|_| "target outside map")?)
         },
         "hold" => (107,0,0),
         "stop" => (1,0,0),
