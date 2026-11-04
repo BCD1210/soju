@@ -4,15 +4,18 @@ enum CommandTarget { case none, ground, unit, rally }
 struct CommandChoice {
     let title:String,payload:Obj,target:CommandTarget
     var hotkey="",mineralCost=0.0,gasCost=0.0,energyCost=0.0,supplyCost=0.0,race=0
+    var requirementReason:String?
     var priced=true
     var label:String {
-        let cost=payload["op"] as? String == "research" && priced ? " \(Int(mineralCost))/\(Int(gasCost))":""
+        let cost=["research","upgrade"].contains(payload["op"] as? String ?? "") && priced ? " \(Int(mineralCost))/\(Int(gasCost))":""
         return (hotkey.isEmpty ? title : "[\(hotkey)] \(title)")+cost
     }
     func unavailable(_ state:Obj,_ unit:Obj)->String? {
+        if let reason=requirementReason {return reason}
         if !priced {return "Loading costs"}
         if number(state,"minerals")<mineralCost {return "Not enough minerals"}
         if number(state,"gas")<gasCost {return "Not enough gas"}
+        if ["spell","ability"].contains(payload["op"] as? String ?? "") && number(unit,"spellCooldown")>0 {return "Ability cooldown"}
         if number(unit,"energy")<energyCost {return "Not enough energy"}
         if supplyCost>0,let supply=(state["supplies"] as? [Obj])?.first(where:{Int(number($0,"race"))==race}),number(supply,"used")+supplyCost>min(400,number(supply,"provided")) {return "Not enough supply"}
         return nil
@@ -25,6 +28,9 @@ struct CommandChoice {
 // The original command handler remains authoritative for prerequisites and availability.
 final class CommandCard {
     var costs=[Int:Obj]()
+    var availability:Obj=[:]
+    func acceptAvailability(_ response:Obj) {availability=response}
+    func choiceKey(_ payload:Obj)->String {"\(payload["op"] ?? ""):\(payload["type"] ?? ""):\(payload["action"] ?? "")"}
     var spells=[Obj](),technologies=[Int:Obj]()
     let names: [String:String]
     init() {
@@ -105,7 +111,8 @@ final class CommandCard {
         if building && (unit["buildQueue"] as? [Int] ?? []).contains(where:{$0<228}) {result.append(CommandChoice("Cancel train",["op":"cancel","action":"train"]))}
         if building && number(unit,"order")==75 {result.append(CommandChoice("Cancel research",["op":"cancel","action":"research"]))}
         if building && number(unit,"order")==76 {result.append(CommandChoice("Cancel upgrade",["op":"cancel","action":"upgrade"]))}
-        if unit["completed"] as? Bool == false {result.append(CommandChoice("Cancel construction",["op":"cancel","action":"construction"]))}
+        if unit["constructingAddon"] as? Bool == true {result.append(CommandChoice("Cancel addon",["op":"cancel","action":"addon"]))}
+        if unit["completed"] as? Bool == false && ![36,59,97].contains(kind) {result.append(CommandChoice("Cancel construction",["op":"cancel","action":"construction"]))}
         if [36,59,97].contains(kind) {result.append(CommandChoice("Cancel morph",["op":"cancel","action":"morph"]))}
         let hotkeys=["move":"M","attack_move":"A","stop":"S","hold":"H","patrol":"P","gather":"G","repair":"R","rally":"R","return_cargo":"C","lift":"L","land":"L","select_larvae":"S"]
         let unitKeys:[Int:String]=[7:"S",64:"P",106:"C",109:"S",110:"R",111:"B",112:"A",113:"F",114:"S",116:"I",122:"E",123:"A",124:"T",125:"U",107:"C",108:"N",131:"H",149:"E",142:"S",135:"H",139:"E",141:"S",138:"Q",136:"D",140:"U",134:"N",143:"C",154:"N",156:"P",157:"A",160:"G",164:"Y",166:"F",163:"C",169:"F",170:"A",167:"S",172:"B",171:"B",165:"T",155:"R",159:"O",132:"L",133:"H"]
@@ -118,6 +125,7 @@ final class CommandCard {
                 choice.mineralCost=number(dat,"mineralCost");choice.gasCost=number(dat,"gasCost")
                 choice.race=Int(number(dat,"race"))
                 choice.supplyCost=["train","morph"].contains(op) ? max(0,number(dat,"supplyCost")-(op=="morph" ? number(costs[kind] ?? [:],"supplyCost"):0)):0
+                if [37,47].contains(id) {choice.supplyCost *= 2}
                 let trainedKeys:[Int:String]=[0:"M",1:"G",2:"V",3:"G",5:"T",8:"W",9:"V",11:"D",12:"B",32:"F",34:"C",37:"Z",38:"H",39:"U",41:"D",42:"O",43:"M",44:"G",45:"Q",46:"D",47:"S",50:"I",58:"V",60:"O",61:"K",62:"D",65:"Z",66:"D",67:"T",69:"S",70:"S",71:"A",72:"C",83:"V",84:"O",103:"L"]
                 choice.hotkey=unitKeys[id] ?? trainedKeys[id] ?? ""
             }
@@ -132,9 +140,20 @@ final class CommandCard {
             return choice
         }
         var used=Set<String>()
+        let liveRows=availability["unit"] as? String == unit["id"] as? String ? availability["choices"] as? [Obj] ?? []:[]
         return priced.enumerated().map { index,entry in
             if index%9==0 {used.removeAll()}
             var choice=entry
+            let op=choice.payload["op"] as? String ?? ""
+            if ["build","train","morph","addon","research","upgrade","spell","ability","load","unload"].contains(op) {
+                if let row=liveRows.first(where:{choiceKey($0["payload"] as? Obj ?? [:])==choiceKey(choice.payload)}) {
+                    choice.energyCost=number(row,"energyCost")
+                    choice.requirementReason=row["requirementsMet"] as? Bool == true ? nil:"Native requirements not met"
+                    if ["build","train","morph","addon","research","upgrade"].contains(op) {
+                        choice.mineralCost=number(row,"mineralCost");choice.gasCost=number(row,"gasCost");choice.priced=true
+                    }
+                } else {choice.requirementReason="Checking native requirements"}
+            }
             if choice.hotkey.isEmpty || used.contains(choice.hotkey) {choice.hotkey=String(index%9+1)}
             used.insert(choice.hotkey)
             return choice
