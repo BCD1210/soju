@@ -66,6 +66,19 @@
         worker.pressure.lock.lock(); worker.pressure.pressured = true; worker.pressure.lock.unlock()
         _ = try worker.trimCaches()
         try need(worker.cacheBytes() <= a.allocatedSize, "pressure did not halve budget")
+        setenv("SOJU_GPU_CACHE_BYTES", "2048", 1)
+        let passes = try Worker(device: device)
+        for key in ["a", "b", "c"] { passes.renderPasses[key] = MTLRenderPassDescriptor(); passes.touch("r", key) }
+        passes.touch("r", "a")
+        _ = try passes.trimCaches()
+        try need(Set(passes.renderPasses.keys) == Set(["a", "c"]), "render-pass metadata escaped LRU budget")
+        passes.invalidatePasses()
+        try need(passes.lastUse.isEmpty && passes.cacheBytes() == 0, "invalidated passes retained metadata")
+        passes.queryValues["old-query"] = 7
+        passes.computeBuffers["old-buffer"] = device.makeBuffer(length: 4096, options: .storageModeShared)!
+        passes.computeGenerations["old-buffer"] = 1
+        passes.finishReadback()
+        try need(passes.queryValues.isEmpty && passes.computeBuffers.isEmpty && passes.computeGenerations.isEmpty, "readback retained delivered resources")
         try plannerChecks()
         print("native_checks archive_corruption=passed archive_truncation=passed disk_bytes=\(size) async_saturation=passed compile_error=passed lru=passed pressure=passed")
     }

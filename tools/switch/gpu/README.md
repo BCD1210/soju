@@ -342,8 +342,8 @@ budget. MSL still goes through Metal's library compiler on a disk-cache hit.
 `SOJU_GPU_CACHE_BYTES` sets the per-Backend native graphics cache budget (default
 256 MiB). LRU eviction runs after GPU completion and release of per-batch
 bindings. Textures, render targets, depth targets, argument tables/heaps and
-render pipelines participate. Argument-table dependencies are released with
-textures; cached render passes are invalidated with attachments. Dirty colour
+render/compute pipelines and render-pass metadata participate. Argument-table
+dependencies are released with textures; cached render passes are invalidated with attachments. Dirty colour
 and depth/stencil contents spill to an exclusive `target/soju-spill-*` directory
 and restore only for the matching guest generation. Readback and worker teardown
 remove the spill files. Spills are authoritative pending guest output, not a
@@ -353,10 +353,12 @@ Memory-pressure warning/critical notifications halve the effective budget until
 normal pressure returns. This is enforced at submission/readback boundaries,
 not during a frame. Diagnostics expose `cache_bytes`, `cache_budget`,
 `cache_evictions` and Metal `metal_bytes`. Pipeline/function storage is charged
-64 KiB per render variant because Metal has no per-pipeline allocation-size API.
+64 KiB per pipeline variant because Metal has no per-pipeline allocation-size API.
+Pass descriptors are charged 1 KiB each.
 The budget bounds accounted reusable graphics resources, **not process RSS or
 Metal driver allocations**, active submission working sets, compiler jobs or
-compute buffers. A single frame may temporarily exceed it.
+pending compute buffers. Completed compute buffers and query results retire after
+readback. A single frame may temporarily exceed the budget.
 
 CPU translated-shader, pipeline-state and deswizzled-texture caches each use a
 byte-accounted LRU with `SOJU_GPU_CPU_CACHE_BYTES` (default 16 MiB per cache).

@@ -50,7 +50,7 @@ extension Worker {
             depthStates.merge(child.depthStates) { _, new in new }
             textureCache.merge(child.textureCache) { _, new in new }
             dirtyAttachments.formUnion(child.dirtyAttachments)
-            for (key, _) in child.lastUse.sorted(by: { $0.value.tick < $1.value.tick }) where !key.hasPrefix("a") { use(cacheStamp(String(key.prefix(1)), String(key.dropFirst()))) }
+            for (key, _) in child.lastUse.sorted(by: { $0.value.tick < $1.value.tick }) where !key.hasPrefix("a") && !key.hasPrefix("r") { use(cacheStamp(String(key.prefix(1)), String(key.dropFirst()))) }
         }
         let names = ["skipped_draws", "draws", "encoders", "command_buffers", "pipeline_hits", "depth_hits", "texture_hits"]
         let totals = names.map { name -> String in
