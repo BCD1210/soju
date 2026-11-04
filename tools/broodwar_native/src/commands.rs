@@ -57,7 +57,11 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
                 "casters":spell.casters,"target":if spell.unit_target {"unit"}else {"ground"},
                 "tech":tech.map(|id|id.0),"energy":tech.map(|id|id.energy_cost())})
         }).collect();
-        return Ok(json!({"ok":true,"source":"native-units.dat/orders.dat","supplyUnits":"half-supply","types":types,"spells":spells}));
+        let technologies: Vec<_> = (0..44).map(|id| {
+            let tech=bw_dat::TechId(id);
+            json!({"id":id,"mineralCost":tech.mineral_cost(),"gasCost":tech.gas_cost(),"energy":tech.energy_cost()})
+        }).collect();
+        return Ok(json!({"technologies":technologies,"ok":true,"source":"native-units.dat/orders.dat/techdata.dat","supplyUnits":"half-supply","types":types,"spells":spells}));
     }
     if op == "terrain" {
         let region = super::terrain::Region::parse(req,[game.map_width_tiles,game.map_height_tiles])?;
@@ -81,6 +85,18 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         let ptr = all.iter().copied().find(|&u| handle(u) == id).ok_or("stale unit")?;
         if (*ptr).player as usize != player || (*ptr).flingy.hitpoints <= 0 { return Err("unit is not owned or alive"); }
         if !selected.contains(&ptr) { selected.push(ptr); }
+    }
+    if op == "lift" && ![106,111,113,114,116,122].contains(&(*selected[0]).unit_id) {return Err("building cannot lift");}
+    if op == "return_cargo" && ![7,41,64].contains(&(*selected[0]).unit_id) {return Err("return cargo requires a worker");}
+    if op == "land" {
+        let unit=selected[0];
+        if selected.len()!=1 || ![106,111,113,114,116,122].contains(&(*unit).unit_id) {return Err("select one flying building");}
+        let x=req["tileX"].as_u64().ok_or("invalid tileX")?;
+        let y=req["tileY"].as_u64().ok_or("invalid tileY")?;
+        if x>=u64::from(game.map_width_tiles) || y>=u64::from(game.map_height_tiles) {return Err("outside map");}
+        let mut packet=vec![0x0c,0x47];packet.extend((x as u16).to_le_bytes());packet.extend((y as u16).to_le_bytes());packet.extend((*unit).unit_id.to_le_bytes());
+        send_one(r,unit,&packet)?;r.sequence.store(seq,Ordering::Relaxed);
+        return Ok(json!({"ok":true,"frame":game.frame_count,"queued":true}));
     }
     if let Some(command) = production::packet(req, UnitId((*selected[0]).unit_id).is_building())? {
         if selected.len() != 1 {return Err("select one producer or ability user");}

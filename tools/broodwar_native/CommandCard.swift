@@ -3,6 +3,20 @@ import Foundation
 enum CommandTarget { case none, ground, unit, rally }
 struct CommandChoice {
     let title:String,payload:Obj,target:CommandTarget
+    var hotkey="",mineralCost=0.0,gasCost=0.0,energyCost=0.0,supplyCost=0.0,race=0
+    var priced=true
+    var label:String {
+        let cost=payload["op"] as? String == "research" && priced ? " \(Int(mineralCost))/\(Int(gasCost))":""
+        return (hotkey.isEmpty ? title : "[\(hotkey)] \(title)")+cost
+    }
+    func unavailable(_ state:Obj,_ unit:Obj)->String? {
+        if !priced {return "Loading costs"}
+        if number(state,"minerals")<mineralCost {return "Not enough minerals"}
+        if number(state,"gas")<gasCost {return "Not enough gas"}
+        if number(unit,"energy")<energyCost {return "Not enough energy"}
+        if supplyCost>0,let supply=(state["supplies"] as? [Obj])?.first(where:{Int(number($0,"race"))==race}),number(supply,"used")+supplyCost>min(400,number(supply,"provided")) {return "Not enough supply"}
+        return nil
+    }
     init(_ title:String,_ payload:Obj,_ target:CommandTarget = .none) {
         self.title=title;self.payload=payload;self.target=target
     }
@@ -11,13 +25,14 @@ struct CommandChoice {
 // The original command handler remains authoritative for prerequisites and availability.
 final class CommandCard {
     var costs=[Int:Obj]()
-    var spells=[Obj]()
+    var spells=[Obj](),technologies=[Int:Obj]()
     let names: [String:String]
     init() {
         names=((try? loadObject(runtime.appendingPathComponent("unit-names.json")))?["types"] as? [String:String]) ?? [:]
     }
     func accept(_ response:Obj) {
         for row in response["types"] as? [Obj] ?? [] {costs[Int(number(row,"id"))]=row}
+        for row in response["technologies"] as? [Obj] ?? [] {technologies[Int(number(row,"id"))]=row}
         spells=response["spells"] as? [Obj] ?? []
     }
     func choices(_ unit:Obj)->[CommandChoice] {
@@ -25,9 +40,15 @@ final class CommandCard {
         var result=[CommandChoice]()
         if !building {
             result += [CommandChoice("Move",["op":"move"],.ground),CommandChoice("Attack",["op":"attack_move"],.ground),
-                       CommandChoice("Stop",["op":"stop"]),CommandChoice("Hold",["op":"hold"])]
+                       CommandChoice("Stop",["op":"stop"]),CommandChoice("Hold",["op":"hold"]),
+                       CommandChoice("Patrol",["op":"patrol"],.ground)]
         } else {result.append(CommandChoice("Rally",["op":"rally"],.rally))}
         if unit["worker"] as? Bool == true {result.append(CommandChoice("Gather",["op":"gather"],.unit))}
+        if unit["worker"] as? Bool == true && number(unit,"carrying") != 0 {result.append(CommandChoice("Return cargo",["op":"return_cargo"]))}
+        if [131,132,133].contains(kind) {result.append(CommandChoice("Select larvae",["op":"select_larvae"]))}
+        if [106,111,113,114,116,122].contains(kind) {
+            result.append(CommandChoice(unit["airborne"] as? Bool == true ? "Land":"Lift off",["op":unit["airborne"] as? Bool == true ? "land":"lift","type":kind],unit["airborne"] as? Bool == true ? .ground:.none))
+        }
         if kind==7 {result.append(CommandChoice("Repair",["op":"repair"],.unit))}
         for spell in spells where (spell["casters"] as? [Int] ?? []).contains(kind) {
             guard let action=spell["action"] as? String,let title=spell["title"] as? String else {continue}
@@ -84,6 +105,28 @@ final class CommandCard {
             CommandChoice("Cancel research",["op":"cancel","action":"research"]),CommandChoice("Cancel upgrade",["op":"cancel","action":"upgrade"])]}
         if unit["completed"] as? Bool == false {result.append(CommandChoice("Cancel construction",["op":"cancel","action":"construction"]))}
         if [36,59,97].contains(kind) {result.append(CommandChoice("Cancel morph",["op":"cancel","action":"morph"]))}
-        return result
+        let hotkeys=["move":"M","attack_move":"A","stop":"S","hold":"H","patrol":"P","gather":"G","repair":"R","rally":"R","return_cargo":"C","lift":"L","land":"L","select_larvae":"S"]
+        let unitKeys:[Int:String]=[7:"S",64:"P",106:"C",109:"S",110:"R",111:"B",112:"A",113:"F",114:"S",116:"I",122:"E",123:"A",124:"T",125:"U",107:"C",108:"N",131:"H",149:"E",142:"S",135:"H",139:"E",141:"S",138:"Q",136:"D",140:"U",134:"N",143:"C",154:"N",156:"P",157:"A",160:"G",164:"Y",166:"F",163:"C",169:"F",170:"A",167:"S",172:"B",171:"B",165:"T",155:"R",159:"O",132:"L",133:"H"]
+        return result.map { entry in
+            var choice=entry
+            let op=choice.payload["op"] as? String ?? "",id=Int(number(choice.payload,"type"))
+            choice.hotkey=hotkeys[op] ?? ""
+            if ["build","train","morph","addon"].contains(op) {
+                let dat=costs[id] ?? [:];choice.priced=costs[id] != nil
+                choice.mineralCost=number(dat,"mineralCost");choice.gasCost=number(dat,"gasCost")
+                choice.race=Int(number(dat,"race"))
+                choice.supplyCost=["train","morph"].contains(op) ? max(0,number(dat,"supplyCost")-(op=="morph" ? number(costs[kind] ?? [:],"supplyCost"):0)):0
+                choice.hotkey=unitKeys[id] ?? ""
+            }
+            if op=="research" {
+                let dat=technologies[id] ?? [:];choice.priced=technologies[id] != nil
+                choice.mineralCost=number(dat,"mineralCost");choice.gasCost=number(dat,"gasCost")
+                if id==11 {choice.hotkey="B"}
+            }
+            if op=="spell",let spell=spells.first(where:{$0["action"] as? String==choice.payload["action"] as? String}) {choice.energyCost=number(spell,"energy")}
+            if op=="ability" {choice.hotkey=["stim":"T","burrow":"B","unburrow":"U"][choice.payload["action"] as? String ?? ""] ?? ""}
+            if op=="cancel" {choice.hotkey="Esc"}
+            return choice
+        }
     }
 }
