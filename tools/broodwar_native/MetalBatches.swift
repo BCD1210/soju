@@ -53,7 +53,7 @@ final class MetalBatches {
             constants.setConstantValue(&value,type:.uint,index:0)
             d.fragmentFunction=try library.makeFunction(name:"batchFragment",constantValues:constants)
             d.colorAttachments[0].pixelFormat = .bgra8Unorm_srgb;d.depthAttachmentPixelFormat = .depth32Float
-            d.rasterSampleCount=2;d.maxVertexAmplificationCount=2
+            d.rasterSampleCount=1;d.maxVertexAmplificationCount=2
             d.colorAttachments[0].isBlendingEnabled=shadow
             d.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha;d.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
             d.colorAttachments[0].sourceAlphaBlendFactor = .one;d.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
@@ -202,11 +202,11 @@ final class MetalBatches {
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm_srgb,width:output.width,height:output.height,mipmapped:false)
             d.textureType = .type2DArray;d.arrayLength=2;d.storageMode = .private;d.usage = [.renderTarget,.shaderRead]
             stereoResolved=device.makeTexture(descriptor:d)
-            d.textureType = .type2DMultisampleArray;d.sampleCount=2;d.usage = .renderTarget
-            stereoColor=device.makeTexture(descriptor:d);d.pixelFormat = .depth32Float;stereoDepth=device.makeTexture(descriptor:d)
+            stereoColor=stereoResolved;d.usage = .renderTarget
+            d.pixelFormat = .depth32Float;stereoDepth=device.makeTexture(descriptor:d)
             stereoPass.renderTargetArrayLength=2
-            stereoPass.colorAttachments[0].texture=stereoColor;stereoPass.colorAttachments[0].resolveTexture=stereoResolved
-            stereoPass.colorAttachments[0].loadAction = .clear;stereoPass.colorAttachments[0].storeAction = .multisampleResolve
+            stereoPass.colorAttachments[0].texture=stereoColor;stereoPass.colorAttachments[0].resolveTexture=nil
+            stereoPass.colorAttachments[0].loadAction = .clear;stereoPass.colorAttachments[0].storeAction = .store
             stereoPass.colorAttachments[0].clearColor=MTLClearColorMake(0.0019349845,0.0027089783,0.0039359395,1)
             stereoPass.depthAttachment.texture=stereoDepth;stereoPass.depthAttachment.loadAction = .clear;stereoPass.depthAttachment.storeAction = .dontCare;stereoPass.depthAttachment.clearDepth=1
         }

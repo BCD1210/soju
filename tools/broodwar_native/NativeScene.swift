@@ -138,7 +138,10 @@ final class Commander: NSObject, NSApplicationDelegate {
             reticle.categoryBitMask=2;reticle.geometry?.materials=[marker];reticle.isHidden=true;reticle.name="aim-marker"
             world.rootNode.addChildNode(reticle)
             for node in [wrists.commands,wrists.resources,wrists.ray,wrists.box] {world.rootNode.addChildNode(node)}
-            xrTimer=Timer.scheduledTimer(withTimeInterval:1/90,repeats:true) { [weak self] _ in
+            // xrWaitFrame owns pacing. Avoid a second 90 Hz deadline in the
+            // replay path: a busy main loop otherwise skips a whole period.
+            let xrPollInterval=CommandLine.arguments.contains("--metal-batches") ? 0.001:1.0/90
+            xrTimer=Timer.scheduledTimer(withTimeInterval:xrPollInterval,repeats:true) { [weak self] _ in
                 guard let self=self else { return }
                 if soju_xr_step(Unmanaged.passUnretained(self).toOpaque(),xrDraw,xrControls)==0 {
                     self.notice=String(cString:soju_xr_status());self.xrTimer?.invalidate();soju_xr_close()
