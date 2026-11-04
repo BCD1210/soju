@@ -168,3 +168,10 @@ hand-assembled fixtures are original.
 Vertex output maps now include point size (0x6c) and eight clip distances
 (0x2c0–0x2dc), from the pinned envytools SPH source. The GPU backend supplies
 clip enable and raster point-size state; its image suite exercises a clip plane.
+
+Geometry rejection is now regression-tested for all three OUT encodings and all
+four stream-mode bit patterns (12 reachable programs), with instruction-address
+errors. Geometry SPH rejection remains separately covered. No OUT semantics were
+guessed. The GPU README records the proposed compute-export/vertex-pulling
+architecture and the unresolved primitive/stream/transform-feedback contracts.
+The current shader regression total is **44 tests**; numerical coverage is unchanged.

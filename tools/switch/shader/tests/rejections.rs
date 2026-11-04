@@ -170,3 +170,23 @@ fn divergent_and_counted_barriers_are_rejected() {
             .contains("straight-line")
     );
 }
+
+#[test]
+fn rejects_all_reachable_out_encodings_and_stream_modes() {
+    // Register, immediate and cbuf forms from the pinned ISA table. No guessed
+    // export-handle semantics are translated into an apparently valid shader.
+    for encoding in [0xfbe0000000000000, 0xf6e0000000000000, 0xebe0000000000000] {
+        for mode in 0..4 {
+            let mut a = Assembler::default();
+            a.emit(encoding | PT | mode << 39);
+            a.emit(EXIT);
+            let binary = a.finish(vertex_header());
+            let error = translate(&binary, &Options::default()).unwrap_err();
+            assert!(
+                error.0.contains("OUT geometry export/stream semantics"),
+                "{error}"
+            );
+            assert!(error.0.contains("0x8"), "{error}");
+        }
+    }
+}

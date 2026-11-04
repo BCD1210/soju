@@ -234,3 +234,25 @@ fn range_generations_split_restore_and_ignore_empty_writes() {
         memory.generation(0x107f, 1).unwrap()
     );
 }
+
+#[test]
+fn transform_feedback_methods_reject_without_mutating_state() {
+    let mut engine = Engine::default();
+    let mut memory = Memory::default();
+    let mut backend = soju_switch_gpu::backend::Backend::default();
+    for offset in [
+        0x380, 0x384, 0x388, 0x38c, 0x390, 0x3e0, 0x3f0, 0x700, 0x704, 0x708, 0x738, 0x744, 0x2800,
+        0x29fc,
+    ] {
+        for value in [0, 1, u32::MAX] {
+            let error = engine.method(B197, offset, value, &mut memory).unwrap_err();
+            assert!(error.0.contains("transform feedback"));
+            assert!(engine.registers.0.is_empty());
+            assert!(engine
+                .method_into(B197, offset, value, &mut memory, &mut backend)
+                .unwrap_err()
+                .0
+                .contains("transform feedback"));
+        }
+    }
+}

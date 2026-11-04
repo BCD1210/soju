@@ -2,6 +2,9 @@ use super::*;
 impl Emitter<'_> {
     pub(super) fn validate(&self, x: &Instruction) -> Result<()> {
         use Opcode::*;
+        if x.opcode == OUT {
+            return Err(x.error("OUT geometry export/stream semantics are unsupported"));
+        }
         // Every decoded modifier must be explicitly consumed or safely scheduling-only.
         for m in &x.modifiers {
             let allowed = match m.name {

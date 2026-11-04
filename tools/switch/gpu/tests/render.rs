@@ -584,6 +584,9 @@ fn malformed_draw_resources_fail_before_native_execution() {
         (0x121c, 2, "CT_SELECT"),
         (0x810, 0xc1, "render target requires"),
         (0x2080, 0x21, "unsupported enabled shader stage"),
+        (0x2100, 0x41, "geometry stage/OUT"),
+        (0x744, 1, "transform feedback"),
+        (0x380, 1, "transform feedback"),
         (0x1160, 0, "vertex format"),
         (0x2144, 0, "shader extent"),
     ] {

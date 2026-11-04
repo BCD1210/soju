@@ -268,3 +268,29 @@ Remaining compute gaps: texture/image instructions, multiple global allocations,
 indirect/queued/dependent launches, semaphore release, atomics, additional memory
 widths, scheduling controls and automatic graphics/compute resource barriers.
 This is a standalone-grid subset, not general B1C0 compatibility.
+
+## Geometry and transform feedback boundary
+
+Geometry remains rejected at draw preparation with `geometry stage/OUT emulation
+is not implemented`. The shader crate rejects all reachable OUT register,
+immediate and cbuf forms, including all four decoded stream-mode bit patterns.
+B197 stream-output buffer/control/layout methods fail with a transform-feedback
+error before changing engine state. These configuration methods are rejected even
+when written with zero; applications that initialize disabled stream-output state
+will need a future explicitly validated disable/configuration subset. Manually
+constructed snapshots cannot bypass the rejection. Existing signatures remain
+unchanged; only unsupported-path diagnostics become more specific.
+
+A future implementation would need a compute prepass that executes vertex and
+geometry invocations, records variable-length per-stream vertices/primitives,
+and supplies a vertex-pulling raster pass. Transform feedback would need the
+same ordered exports with guest buffer bounds, strides, write pointers and query
+semantics. The present compute path has neither geometry input/primitive assembly
+nor validated OUT export-handle/stream semantics. Adding vertex pulling alone
+would not establish those semantics. No emulation is claimed or silently elided.
+
+Final verification for this follow-up: **22 GPU-crate tests passed** with
+`MTL_DEBUG_LAYER=1` (including compute); **44 shader tests** and **7 texture tests**
+passed offline. Both ignored throughput tests were run explicitly during the
+performance step. All three crates pass offline Clippy with warnings denied;
+GPU and shader formatting checks pass. Evidence stays in ignored `target/`.

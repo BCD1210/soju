@@ -4,6 +4,12 @@ use std::collections::BTreeMap;
 pub const B197: u32 = 0xb197;
 pub const A140: u32 = 0xa140;
 pub const TWOD: u32 = 0x902d;
+pub(crate) fn stream_output_method(offset: u32) -> bool {
+    offset == 0x744
+        || ((0x380..=0x3f0).contains(&offset) && offset % 32 <= 16 && offset.is_multiple_of(4))
+        || ((0x700..=0x738).contains(&offset) && offset % 16 <= 8 && offset.is_multiple_of(4))
+        || ((0x2800..=0x29fc).contains(&offset) && offset.is_multiple_of(4))
+}
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Registers(pub BTreeMap<u32, u32>);
 impl Registers {
@@ -92,6 +98,10 @@ impl Engine {
         value: u32,
         memory: &mut Memory,
     ) -> Result<Option<Action>> {
+        require(
+            class != B197 || !stream_output_method(offset),
+            "transform feedback (stream output) is not implemented",
+        )?;
         let method = registers::lookup(class, offset)
             .ok_or_else(|| Error(format!("unknown method {class:04x}:{offset:04x}")))?;
         if class == A140 {

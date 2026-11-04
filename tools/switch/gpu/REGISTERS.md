@@ -524,3 +524,13 @@ size at 975+64N through 991+64N. Local allocations and register count retain
 the shader crate's existing parsing. Nonzero queue, dependent-grid, semaphore,
 resume and numerical-mode fields are rejected; supported cache hints do not
 change semantics. `SEND_PCAS_B` is not implemented.
+
+## Explicitly rejected stream-output methods
+
+The pinned clb197.h defines SET_STREAM_OUT_BUFFER_ENABLE/ADDRESS_A/ADDRESS_B/
+SIZE/LOAD_WRITE_POINTER at `0x380 + j*32` through `0x390 + j*32` (four buffers),
+SET_STREAM_OUT_CONTROL_STREAM/COMPONENT_COUNT/STRIDE at `0x700 + j*16` through
+`0x708 + j*16`, SET_STREAM_OUTPUT at `0x744`, and SET_STREAM_OUT_LAYOUT_SELECT
+at `0x2800 + i*128 + j*4` (four streams, 32 packed layout words each).
+The backend recognizes these ranges solely to return a precise unsupported
+transform-feedback error. Geometry is pipeline slot four, `0x2100` enable.
