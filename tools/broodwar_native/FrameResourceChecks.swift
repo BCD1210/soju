@@ -63,7 +63,9 @@ func frameResourceChecks(device:MTLDevice,require:(Bool,String)throws->Void)thro
     let pool=FrameCapturePool(device:device,captures:captures,metrics:metrics,mirror:captured.receive)
     func request(_ frame:Int)->FrameCapturePool.Request {FrameCapturePool.Request(packet:nil,camera:camera,frame:frame,eye:0,index:nil,mirror:true,scale:1)}
     let copies=(0..<3).map{_ in renderer.queue.makeCommandBuffer()!}
-    let acceptedCopies=copies.enumerated().reduce(0){$0+(pool.enqueue($1.element,source:output,request:request($1.offset+1)) ? 1:0)}
+    let firstAccepted=pool.enqueue(copies[0],source:output,request:request(1))
+    try require(firstAccepted && pool.statistics().textureCreations==3,"first capture preallocates all three textures before any slot is in flight")
+    let acceptedCopies=(firstAccepted ? 1:0)+copies.dropFirst().enumerated().reduce(0){$0+(pool.enqueue($1.element,source:output,request:request($1.offset+2)) ? 1:0)}
     try require(acceptedCopies==3,"capture pool leases all three available texture slots")
     let fourth=renderer.queue.makeCommandBuffer()!
     try require(!pool.enqueue(fourth,source:output,request:request(4)) && pool.statistics().exhausted==1,"capture pool refuses overwrite before GPU copy and conversion complete")
