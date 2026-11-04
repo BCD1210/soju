@@ -384,10 +384,7 @@ impl Renderer {
                         "Metal enabled window clipping unsupported",
                     ));
                 }
-                if let soju_switch_gpu::engine::Action::Clear(mask) = snapshot.action {
-                    if mask & 3 != 0 {
-                        return Err(Error::Malformed("core depth clear integration unverified"));
-                    }
+                if let soju_switch_gpu::engine::Action::Clear(_) = snapshot.action {
                     let r = &mut snapshot.registers;
                     let control = r.get(0x10f8);
                     if control & !0x101 != 0 {
@@ -395,13 +392,17 @@ impl Renderer {
                             "core clear rectangle/viewport control unsupported",
                         ));
                     }
-                    if control & 0x100 == 0 {
+                    if control & 0x100 == 0
+                        || (r.get(0xe04) == r.get(0x808) << 16
+                            && r.get(0xe08) == r.get(0x80c) << 16)
+                    {
                         r.0.insert(0xe00, 0);
                     }
                     // A clear does not consume shader, blend, vertex or raster setup.
                     r.0.retain(|offset, _| {
                         matches!(*offset,
-                        0x800..=0x9e0 | 0xd80..=0xd90 | 0xda0 | 0xe00..=0xe08 | 0x121c)
+                        0x800..=0x9e0 | 0xd80..=0xd90 | 0xda0 | 0xe00..=0xe08 | 0x121c
+                            | 0xfe0..=0xff0 | 0x1228..=0x1230 | 0x1538)
                     });
                 }
                 if matches!(

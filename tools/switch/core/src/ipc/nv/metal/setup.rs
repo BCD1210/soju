@@ -52,7 +52,7 @@ pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
         0x16b4 => value <= 3,
         0x1134 => value <= 1,
         0x1a2c => true,
-        0xdd0 | 0xde8 | 0x1534 | 0x2608 => value == 0,
+        0xde0 | 0xdd0 | 0xde8 | 0x1534 | 0x2608 => value == 0,
         0xfdc | 0x192c => value == 1,
         0x1140 => value == 0x10,
         0x19c0 => value == 1,
@@ -91,7 +91,24 @@ pub(super) fn accepted_noop(class: u32, method: u32) -> bool {
     class == 0xb197
         && (matches!(
             method,
-            0xdd8
+            0xf78
+                | 0x2e8
+                | 0x2f8
+                | 0x2fc
+                | 0xdbc
+                | 0x12c8
+                | 0x1958
+                | 0x1978
+                | 0x7c0
+                | 0x7c4
+                | 0x7c8
+                | 0x7cc
+                | 0x7e0
+                | 0x7e4
+                | 0x15c8
+                | 0x15fc
+                | 0x1600
+                | 0xdd8
                 | 0x360
                 | 0x364
                 | 0xf64
@@ -110,5 +127,5 @@ pub(super) fn accepted_noop(class: u32, method: u32) -> bool {
 
 pub(super) fn shadowed(method: u32) -> bool {
     (0x800..=0x9fc).contains(&method) && method.is_multiple_of(4)
-        || matches!(method, 0xfb4 | 0x15d0 | 0xff4 | 0xff8 | 0x13ac)
+        || matches!(method, 0x139c | 0xfb4 | 0x15d0 | 0xff4 | 0xff8 | 0x13ac)
 }

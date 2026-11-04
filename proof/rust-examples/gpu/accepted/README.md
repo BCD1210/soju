@@ -44,3 +44,25 @@ Centroid, offset, indexed and sample-predicate forms remain rejected.
 Reproduce both accepted scenes: `bash scripts/test-switch-gpu-accepted.sh`.
 
 - Capture SHA-256: `2f391c3ab3f8edcde6db39d95d5b6bea7070fa53a4b6a125b3b8075c7b030a65`
+
+## deko3d Example03: Cube
+
+`deko-example03.png` captures the initial cube pose. The source uses six quads,
+model/view and projection uniform matrices, D24/stencil, and ZCULL setup.
+The pixel test checks 912,096 pixels against the source's initial front-face
+projection (40-degree FOV, half-unit scale, camera translation -3) and the
+quad's interpolated colors. Edge samples are excluded and channel tolerance
+is four to allow the small initial animation time. Outside pixels are black.
+This is first-pose acceptance, not a rotating/multiple-frame depth oracle.
+Native regressions independently verify depth comparisons/storage, nonzero
+single-layer depth pitch, and the quad's two-triangle coverage.
+
+Nonindexed, complete smooth-shaded quads are expanded into triangles in host
+index storage; indexed/flat-shaded quads remain rejected. ZCULL clear, invalidate,
+sync and metadata setup are logged no-ops, while actual depth/stencil clears
+and tests execute through Metal. Store/load serialization is not implemented.
+The source's discard-depth hint preserves completed storage; deko3d identifies
+byte method `0xf78` as `DiscardRenderTarget`, so it is logged as a no-op.
+Pixel shader barriers complete synchronously.
+
+- Capture SHA-256: `0b60192ab10cf45532e905d6d4adc8f9d4e12f946df7a8c04716b1eacf889702`

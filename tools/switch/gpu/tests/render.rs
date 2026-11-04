@@ -378,6 +378,7 @@ fn method_streams_render_expected_images_on_metal() {
             (0x122c, 32),
             (0x1230, 1),
             (0x1538, 1),
+            (0xff0, 0x1000),
             (0xd90, 1f32.to_bits()),
             (0x19d0, 1),
             (0x12cc, 1),
@@ -2612,5 +2613,22 @@ fn explicit_fragment_interpolation_multiplier_uses_reciprocal_w() {
             "{pixel:?}"
         );
     }
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn nonindexed_quad_expands_to_two_triangles() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("quad", [0.; 4]);
+    let v = quad(-1., -1., 1., 1., 0.5, [1., 0., 0., 1.]);
+    h.vertices(&mut e, &[v[0], v[1], v[2], v[5]], &[[0.; 4]]);
+    h.methods(&mut e, &[(0x1618, 7), (0xd78, 4), (0x1614, 0)]);
+    let directory = std::env::temp_dir().join(format!("soju-quad-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let report = h.backend.execute(&directory, &mut h.memory).unwrap();
+    assert!(report.images[0]
+        .rgba
+        .chunks_exact(4)
+        .all(|p| p == [255, 0, 0, 255]));
     std::fs::remove_dir_all(directory).unwrap();
 }

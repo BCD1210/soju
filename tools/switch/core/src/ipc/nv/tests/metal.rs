@@ -381,12 +381,23 @@ fn accepted_firmware_noops_count_without_memory_or_fence_effects() {
         memory: &f.memory,
     };
     let mut renderer = Renderer::default();
-    let stream = methods(&[(0, 0xb197), (0x2310, 0x418800), (0x2310, 7), (0x140, 99)]);
+    let stream = methods(&[
+        (0, 0xb197),
+        (0x2310, 0x418800),
+        (0x2310, 7),
+        (0x140, 99),
+        (0x12c8, 0x19),
+        (0x1958, 0),
+        (0x1978, 0),
+    ]);
     let (writes, increments) = renderer.submit(&stream, fd, Some(0), &access, &[]).unwrap();
     assert!(writes.is_empty());
     assert_eq!(increments, 0);
     assert_eq!(renderer.noop_counts[&(0xb197, 0x2310)], 2);
     assert_eq!(renderer.noop_counts[&(0xb197, 0x140)], 1);
+    for method in [0x12c8, 0x1958, 0x1978] {
+        assert_eq!(renderer.noop_counts[&(0xb197, method)], 1);
+    }
     // Report-semaphore writes must not enter the firmware policy allowlist.
     assert!(
         renderer

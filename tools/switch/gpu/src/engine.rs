@@ -118,7 +118,7 @@ impl Engine {
                 require(self.begin.is_none(), "nested BEGIN")?;
                 require(value & !0x0c00ffff == 0, "split primitive mode unsupported")?;
                 require(
-                    matches!(value & 0xffff, 0 | 1 | 3 | 4 | 5),
+                    matches!(value & 0xffff, 0 | 1 | 3 | 4 | 5 | 7),
                     "unsupported primitive topology",
                 )?;
                 self.instance = match (value >> 26) & 3 {

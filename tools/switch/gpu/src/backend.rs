@@ -451,8 +451,7 @@ impl Backend {
                     && r.get(0x122c) == height
                     && matches!(r.get(0x1230), 1 | 0x10001)
                     && r.get(0xfec) & !0x70 == 0
-                    && ((r.get(0xfec) >> 4) & 7) <= 5
-                    && r.get(0xff0) == 0,
+                    && ((r.get(0xfec) >> 4) & 7) <= 5,
                 "depth target layout mismatch",
             )?;
             use soju_switch_texture::format::Format;
@@ -818,7 +817,29 @@ impl Backend {
                     .checked_add(instance)
                     .ok_or_else(|| Error("base instance overflow".into()))?;
                 let mut segments = Vec::new();
-                let (index_file, min_vertex, max_vertex, index_size) = if indexed {
+                let (index_file, min_vertex, max_vertex, index_size) = if topology == 7 {
+                    require(
+                        !indexed && count.is_multiple_of(4) && base_vertex == 0,
+                        "only complete nonindexed quads supported",
+                    )?;
+                    require(
+                        !fh.inputs.iter().any(|a| {
+                            a.interpolation == Some(soju_switch_shader::header::Interpolation::Flat)
+                        }),
+                        "flat-shaded quad provoking vertex unsupported",
+                    )?;
+                    let max = first
+                        .checked_add(count - 1)
+                        .ok_or_else(|| Error("quad vertex overflow".into()))?;
+                    let mut data = Vec::with_capacity(count as usize * 6);
+                    for start in (first..=max).step_by(4) {
+                        for corner in [0, 1, 2, 0, 2, 3] {
+                            data.extend((start + corner).to_le_bytes());
+                        }
+                    }
+                    segments.push((0, (count / 4 * 6) as usize));
+                    (self.file(data), first, max, 4)
+                } else if indexed {
                     let size = match r.get(0x17d8) {
                         0 => 1,
                         1 => 2,
@@ -1160,7 +1181,7 @@ impl Backend {
                 command.buffers = buffers.into();
                 command.constants = constants.into();
                 command.textures = textures.into();
-                command.topology = topology as _;
+                command.topology = if topology == 7 { 4 } else { topology as _ };
                 command.first = first as _;
                 command.count = count as _;
                 command.indices = index_file.into();

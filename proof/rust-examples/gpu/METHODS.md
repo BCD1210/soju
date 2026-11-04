@@ -88,3 +88,16 @@ The source ledger for IPA encoding is the shader crate's pinned envytools
 `envydis/gm107.c` (`tabe000_0`, mode 1, operand registers 20 and 39). Arithmetic
 was inferred from the installed original homebrew shader and tested with W=2;
 no emulator/codegen source was used.
+
+## Example03 depth and ZCULL
+
+Allowed no-op metadata: `02e8/02f8/02fc`, `07c0/07c4/07c8/07cc/07e0/07e4`,
+`0dbc`, `12c8`, `15c8/15fc/1600`, `1958`, `1978`. These never write depth
+storage or report memory. `1464` STORE_ZCULL remains unsupported. `0de0`
+PIXEL_SHADER_BARRIER value zero is satisfied by synchronous readback.
+`139c` stencil mask participates in MME shadow track/replay for depth clears.
+Single-layer ZT_ARRAY_PITCH does not change the selected layer's address.
+
+Discard provenance: devkitPro/deko3d `source/maxwell/engine_3d.def` (word 0x3de),
+`source/maxwell/gpu_3d_base.cpp`, `dkCmdBufDiscardDepthStencil`.
+https://github.com/devkitPro/deko3d/blob/master/source/maxwell/gpu_3d_base.cpp
