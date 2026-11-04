@@ -266,6 +266,10 @@ final class Models3D {
         if failedRevisions[kind]==revision { throw SceneError.invalid(errors[kind] ?? "Rejected model revision") }
         let asset:GLTFAsset
         do {
+            // Incomplete imports must not replace the owned, animated image chain.
+            if definition.raw["nativeImages"] as? Bool == true {
+                throw SceneError.invalid("Catalog requests native image rendering")
+            }
             if let cached=assets[kind],cached.0==revision { asset=cached.1 }
             else { asset=try GLTFAsset(url:catalog.url(definition),options:[:]) }
             let instance=try ModelInstance(asset:asset,definition:definition,revision:revision,folder:catalog.folder)
