@@ -108,12 +108,13 @@ final class CommandCard {
             result.append(CommandChoice(cloaked ? "Decloak":"Cloak",["op":"ability","action":cloaked ? "decloak":"cloak"]))
         }
         if [11,42,69,125].contains(kind) {result += [CommandChoice("Load",["op":"load"],.unit),CommandChoice("Unload all",["op":"unload"])]}
-        if building && (unit["buildQueue"] as? [Int] ?? []).contains(where:{$0<228}) {result.append(CommandChoice("Cancel train",["op":"cancel","action":"train"]))}
+        let buildingMorph=building && (unit["buildQueue"] as? [Int] ?? []).contains{(morphs[kind] ?? []).contains($0)}
+        if building && !buildingMorph && unit["completed"] as? Bool != false && (unit["buildQueue"] as? [Int] ?? []).contains(where:{$0<228}) {result.append(CommandChoice("Cancel train",["op":"cancel","action":"train"]))}
         if building && number(unit,"order")==75 {result.append(CommandChoice("Cancel research",["op":"cancel","action":"research"]))}
         if building && number(unit,"order")==76 {result.append(CommandChoice("Cancel upgrade",["op":"cancel","action":"upgrade"]))}
         if unit["constructingAddon"] as? Bool == true {result.append(CommandChoice("Cancel addon",["op":"cancel","action":"addon"]))}
-        if unit["completed"] as? Bool == false && ![36,59,97].contains(kind) {result.append(CommandChoice("Cancel construction",["op":"cancel","action":"construction"]))}
-        if [36,59,97].contains(kind) {result.append(CommandChoice("Cancel morph",["op":"cancel","action":"morph"]))}
+        if unit["completed"] as? Bool == false && !buildingMorph && ![36,59,97].contains(kind) {result.append(CommandChoice("Cancel construction",["op":"cancel","action":"construction"]))}
+        if [36,59,97].contains(kind) || buildingMorph {result.append(CommandChoice("Cancel morph",["op":"cancel","action":"morph"]))}
         let hotkeys=["move":"M","attack_move":"A","stop":"S","hold":"H","patrol":"P","gather":"G","repair":"R","rally":"R","return_cargo":"C","lift":"L","land":"L","select_larvae":"S"]
         let unitKeys:[Int:String]=[7:"S",64:"P",106:"C",109:"S",110:"R",111:"B",112:"A",113:"F",114:"S",116:"I",122:"E",123:"A",124:"T",125:"U",107:"C",108:"N",131:"H",149:"E",142:"S",135:"H",139:"E",141:"S",138:"Q",136:"D",140:"U",134:"N",143:"C",154:"N",156:"P",157:"A",160:"G",164:"Y",166:"F",163:"C",169:"F",170:"A",167:"S",172:"B",171:"B",165:"T",155:"R",159:"O",132:"L",133:"H"]
         let priced=result.map { entry in

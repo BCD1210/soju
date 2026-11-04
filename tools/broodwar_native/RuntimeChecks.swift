@@ -277,6 +277,8 @@ func runtimeChecks()throws {
     try require(card.choices(["type":0]).contains{$0.payload["op"] as? String == "patrol"},"Marine card includes patrol")
     try require(!production.contains{$0.payload["op"] as? String == "cancel"},"idle producers do not offer cancellation")
     try require(card.choices(["type":106,"building":true,"buildQueue":[7,228,228,228,228]]).contains{$0.payload["action"] as? String == "train"},"active native queue offers cancellation")
+    let hiveMorph=card.choices(["type":131,"building":true,"completed":false,"order":45,"buildQueue":[132,228,228,228,228]]).filter{$0.payload["op"] as? String=="cancel"}
+    try require(hiveMorph.count==1 && hiveMorph.first?.payload["action"] as? String=="morph","building morph offers its original cancellation handler without a train cancellation")
     let repair=card.choices(["type":7,"worker":true]).first{$0.payload["op"] as? String == "repair"}
     try require(repair?.target == .unit,"repair requires a unit target")
     card.accept(["spells":[["action":"storm","title":"Psionic storm","casters":[67],"target":"ground","energy":75]]])
