@@ -23,6 +23,6 @@ for cl, folder, ident in specs:
   rust.append(f'    Method {{ class: 0x{ident:x}, offset: 0x{off:04x}, count: {count}, stride: {stride}, name: "{name}" }},')
   url=f'https://github.com/NVIDIA/open-gpu-doc/blob/{revision}/classes/{folder}/cl{cl}.h'
   doc.append(f'| {cl.upper()} | `0x{off:04x}` | {count} / {stride} | [`{name}`]({url}) |')
-rust += ['];','pub fn lookup(class: u32, offset: u32) -> Option<&\'static Method> { METHODS.iter().find(|m| m.class == class && (offset == m.offset || (m.stride != 0 && offset >= m.offset && (offset-m.offset).is_multiple_of(m.stride) && (offset-m.offset)/m.stride < m.count))) }']
+rust += ['];', "pub fn lookup(class: u32, offset: u32) -> Option<&'static Method> {\n    use std::sync::OnceLock;\n    static INDEX: OnceLock<std::collections::HashMap<(u32, u32), &'static Method>> = OnceLock::new();\n    INDEX.get_or_init(|| {\n        let mut index = std::collections::HashMap::new();\n        for method in METHODS {\n            for i in 0..method.count {\n                index.entry((method.class, method.offset + i * method.stride)).or_insert(method);\n            }\n        }\n        index\n    }).get(&(class, offset)).copied()\n}\n"]
 (root/'src/registers.rs').write_text('\n'.join(rust)+'\n')
 (root/'REGISTERS.md').write_text('\n'.join(doc)+'\n')

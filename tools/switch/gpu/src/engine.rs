@@ -4,7 +4,13 @@ use std::collections::BTreeMap;
 pub const B197: u32 = 0xb197;
 pub const A140: u32 = 0xa140;
 pub const TWOD: u32 = 0x902d;
-#[derive(Clone, Debug, Default)]
+pub(crate) fn stream_output_method(offset: u32) -> bool {
+    offset == 0x744
+        || ((0x380..=0x3f0).contains(&offset) && offset % 32 <= 16 && offset.is_multiple_of(4))
+        || ((0x700..=0x738).contains(&offset) && offset % 16 <= 8 && offset.is_multiple_of(4))
+        || ((0x2800..=0x29fc).contains(&offset) && offset.is_multiple_of(4))
+}
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Registers(pub BTreeMap<u32, u32>);
 impl Registers {
     pub fn get(&self, offset: u32) -> u32 {
@@ -22,7 +28,7 @@ pub struct ConstantBuffer {
     pub address: u64,
     pub size: u32,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
     ResetOcclusion,
     ReportOcclusion {
@@ -63,10 +69,41 @@ impl Engine {
         value: u32,
         memory: &mut Memory,
     ) -> Result<Option<Snapshot>> {
+        let action = self.apply(class, offset, value, memory)?;
+        Ok(action.map(|action| Snapshot {
+            registers: self.registers.clone(),
+            constants: self.constants,
+            action,
+        }))
+    }
+    /// Borrow the current state directly; equivalent to method followed immediately
+    /// by prepare, without allocating a complete register snapshot per action.
+    pub fn method_into(
+        &mut self,
+        class: u32,
+        offset: u32,
+        value: u32,
+        memory: &mut Memory,
+        backend: &mut crate::backend::Backend,
+    ) -> Result<()> {
+        if let Some(action) = self.apply(class, offset, value, memory)? {
+            backend.prepare_state(&self.registers, &self.constants, &action, memory)?;
+        }
+        Ok(())
+    }
+    fn apply(
+        &mut self,
+        class: u32,
+        offset: u32,
+        value: u32,
+        memory: &mut Memory,
+    ) -> Result<Option<Action>> {
         require(
-            registers::lookup(class, offset).is_some(),
-            &format!("unknown method {class:04x}:{offset:04x}"),
+            class != B197 || !stream_output_method(offset),
+            "transform feedback (stream output) is not implemented",
         )?;
+        let method = registers::lookup(class, offset)
+            .ok_or_else(|| Error(format!("unknown method {class:04x}:{offset:04x}")))?;
         if class == A140 {
             self.inline(offset, value, memory)?;
             return Ok(None);
@@ -160,20 +197,17 @@ impl Engine {
                 None
             }
             _ => {
-                let name = registers::lookup(class, offset).unwrap().name;
-                require(
-                    name.starts_with("SET_") || name.starts_with("OGL_SET_") || offset == 0x238c,
-                    &format!("unsupported B197 effect {name} at {offset:#x}"),
-                )?;
+                let name = method.name;
+                if !(name.starts_with("SET_") || name.starts_with("OGL_SET_") || offset == 0x238c) {
+                    return Err(Error(format!(
+                        "unsupported B197 effect {name} at {offset:#x}"
+                    )));
+                }
                 None
             }
         };
         self.registers.0.insert(offset, value);
-        Ok(action.map(|action| Snapshot {
-            registers: self.registers.clone(),
-            constants: self.constants,
-            action,
-        }))
+        Ok(action)
     }
     fn inline(&mut self, offset: u32, value: u32, memory: &mut Memory) -> Result<()> {
         match offset {

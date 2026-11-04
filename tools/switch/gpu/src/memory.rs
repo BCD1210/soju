@@ -1,6 +1,7 @@
 //! Checked guest-address space. All writers advance range generations.
 use crate::{Error, Result};
 use std::{
+    collections::BTreeMap,
     ops::Range,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -8,7 +9,7 @@ static NEXT_SPACE: AtomicU64 = AtomicU64::new(1);
 pub struct Memory {
     pub(crate) identity: u64,
     regions: Vec<(u64, Vec<u8>)>,
-    writes: Vec<(u64, Range<u64>)>,
+    writes: BTreeMap<u64, u64>,
     generation: u64,
 }
 impl Default for Memory {
@@ -16,12 +17,15 @@ impl Default for Memory {
         Self {
             identity: NEXT_SPACE.fetch_add(1, Ordering::Relaxed),
             regions: Vec::new(),
-            writes: Vec::new(),
+            writes: BTreeMap::new(),
             generation: 0,
         }
     }
 }
 impl Memory {
+    pub(crate) fn epoch(&self) -> (u64, u64) {
+        (self.identity, self.generation)
+    }
     pub fn map(&mut self, address: u64, bytes: Vec<u8>) -> Result<()> {
         let end = address
             .checked_add(bytes.len() as u64)
@@ -39,9 +43,23 @@ impl Memory {
         Ok(())
     }
     fn mark(&mut self, range: Range<u64>) {
+        if range.is_empty() {
+            return;
+        }
         self.generation += 1;
-        self.writes.push((self.generation, range));
+        let after = self
+            .writes
+            .range(..=range.end)
+            .next_back()
+            .map_or(0, |(_, g)| *g);
+        let covered: Vec<_> = self.writes.range(range.clone()).map(|(a, _)| *a).collect();
+        for address in covered {
+            self.writes.remove(&address);
+        }
+        self.writes.insert(range.start, self.generation);
+        self.writes.insert(range.end, after);
     }
+
     pub fn read(&self, address: u64, size: usize) -> Result<&[u8]> {
         let end = address
             .checked_add(size as u64)
@@ -67,11 +85,18 @@ impl Memory {
     }
     pub fn generation(&self, address: u64, size: usize) -> Result<u64> {
         self.read(address, size)?;
+        if size == 0 {
+            return Ok(0);
+        }
+        let first = self
+            .writes
+            .range(..=address)
+            .next_back()
+            .map_or(0, |(_, g)| *g);
         Ok(self
             .writes
-            .iter()
-            .rev()
-            .find(|(_, r)| r.start < address + size as u64 && address < r.end)
-            .map_or(0, |x| x.0))
+            .range(address..address + size as u64)
+            .map(|(_, g)| *g)
+            .fold(first, u64::max))
     }
 }

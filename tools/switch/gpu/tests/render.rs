@@ -584,6 +584,9 @@ fn malformed_draw_resources_fail_before_native_execution() {
         (0x121c, 2, "CT_SELECT"),
         (0x810, 0xc1, "render target requires"),
         (0x2080, 0x21, "unsupported enabled shader stage"),
+        (0x2100, 0x41, "geometry stage/OUT"),
+        (0x744, 1, "transform feedback"),
+        (0x380, 1, "transform feedback"),
         (0x1160, 0, "vertex format"),
         (0x2144, 0, "shader extent"),
     ] {
@@ -1688,4 +1691,233 @@ fn bgra_views_and_srgb_sampling() {
             .all(|(a, b)| a.abs_diff(b) <= 1)));
     }
     eprintln!("BGRA and BGRA sRGB texture views: checked=2048");
+}
+
+#[test]
+#[ignore = "explicit mixed throughput measurement"]
+fn throughput_state_mixes() {
+    const DRAWS: u32 = 2000;
+    for mix in ["same", "textures", "constants", "targets"] {
+        let mut h = Harness::new();
+        let (mut e, first_target) = h.engine("mix", [0., 0., 0., 1.]);
+        let second_target = h.alloc(vec![0; 4096]);
+        h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+        let cb = h.alloc(vec![0; 16]);
+        let mut pools = [0; 2];
+        if mix == "constants" {
+            let program = h.program(shader_with_tint(false, false, true));
+            h.methods(
+                &mut e,
+                &[
+                    (0x2144, program as u32),
+                    (0x2380, 16),
+                    (0x2384, 0),
+                    (0x2388, cb as u32),
+                    (0x2490, 0x21),
+                ],
+            );
+        }
+        if mix == "textures" {
+            let surface = Surface {
+                width: 8,
+                height: 8,
+                depth: 1,
+                bytes_per_block: 4,
+                block_height_log2: 1,
+                block_depth_log2: 0,
+            };
+            for (i, pool) in pools.iter_mut().enumerate() {
+                let pixel = if i == 0 {
+                    [255, 0, 0, 255]
+                } else {
+                    [0, 255, 0, 255]
+                };
+                let address = h.alloc(surface.swizzle(&pixel.repeat(64)).unwrap());
+                let words = [
+                    8 | 2 << 7
+                        | 2 << 10
+                        | 2 << 13
+                        | 2 << 16
+                        | 2 << 19
+                        | 3 << 22
+                        | 4 << 25
+                        | 5 << 28,
+                    address as u32,
+                    3 << 21,
+                    1 << 3,
+                    1 << 23 | 7,
+                    1 << 31 | 7,
+                    0,
+                    0,
+                ];
+                *pool = h.alloc(words.into_iter().flat_map(u32::to_le_bytes).collect());
+            }
+            let tsc = h.alloc(
+                [
+                    2u32 | 2 << 3 | 2 << 6,
+                    1 | 1 << 4 | 1 << 6,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ]
+                .into_iter()
+                .flat_map(u32::to_le_bytes)
+                .collect(),
+            );
+            h.methods(
+                &mut e,
+                &[
+                    (0x2144, h.tex_fs as u32),
+                    (0xf10, 1),
+                    (0x1574, 0),
+                    (0x1578, pools[0] as u32),
+                    (0x157c, 0),
+                    (0x155c, 0),
+                    (0x1560, tsc as u32),
+                    (0x1564, 0),
+                ],
+            );
+        }
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("target/mix-{mix}"));
+        // Warm both alternating states, then measure including method decode and completion.
+        for phase in 0..2 {
+            h.backend.enable_profiling();
+            let started = std::time::Instant::now();
+            let mut decode = std::time::Duration::ZERO;
+            let mut prepare = std::time::Duration::ZERO;
+            let count = if phase == 0 { 2 } else { DRAWS };
+            for i in 0..count {
+                let change = match mix {
+                    "textures" => Some((0x1578, pools[i as usize % 2] as u32)),
+                    "targets" => Some((
+                        0x804,
+                        if i % 2 == 0 {
+                            first_target
+                        } else {
+                            second_target
+                        } as u32,
+                    )),
+                    "constants" => {
+                        let color = if i % 2 == 0 {
+                            [1f32, 0., 0., 1.]
+                        } else {
+                            [0f32, 1., 0., 1.]
+                        };
+                        h.memory
+                            .write(
+                                cb,
+                                &color
+                                    .into_iter()
+                                    .flat_map(f32::to_le_bytes)
+                                    .collect::<Vec<_>>(),
+                            )
+                            .unwrap();
+                        None
+                    }
+                    _ => None,
+                };
+                for (offset, value) in
+                    change
+                        .into_iter()
+                        .chain([(0x1618, 4), (0xd78, 6), (0x1614, 0)])
+                {
+                    let t = std::time::Instant::now();
+                    let snapshot = e.method(B197, offset, value, &mut h.memory).unwrap();
+                    decode += t.elapsed();
+                    if let Some(s) = snapshot {
+                        let t = std::time::Instant::now();
+                        h.backend.prepare(&s, &h.memory).unwrap();
+                        prepare += t.elapsed();
+                    }
+                }
+            }
+            let t = std::time::Instant::now();
+            let fence = h.backend.submit(&root).unwrap();
+            let submit = t.elapsed();
+            let diagnostic = fence.wait().unwrap();
+            let elapsed = started.elapsed().as_secs_f64();
+            if phase == 1 {
+                eprintln!(
+                    "preparation phases (state, shader/key, resources) {:?}",
+                    h.backend.preparation_profile().unwrap()
+                );
+                eprintln!("mix={mix} draws={DRAWS} e2e={:.1}/s decode_snapshot={:.6}s prepare={:.6}s submit_io={:.6}s total={elapsed:.6}s; {diagnostic}", DRAWS as f64/elapsed,decode.as_secs_f64(),prepare.as_secs_f64(),submit.as_secs_f64());
+            }
+        }
+        let report = h.backend.readback(&root, &mut h.memory).unwrap();
+        let expected = if matches!(mix, "textures" | "constants") {
+            [0, 255, 0, 255]
+        } else {
+            [255; 4]
+        };
+        assert_eq!(report.images.len(), if mix == "targets" { 2 } else { 1 });
+        for image in report.images {
+            assert!(image.rgba.chunks_exact(4).all(|p| p == expected), "{mix}");
+        }
+    }
+}
+
+#[test]
+fn borrowed_repeated_draws_preserve_blending_and_constant_uploads() {
+    let mut h = Harness::new();
+    let (mut e, _) = h.engine("repeats", [0., 0., 0., 1.]);
+    let program = h.program(shader_with_tint(false, false, true));
+    let cb = h.alloc(vec![0; 16]);
+    h.methods(
+        &mut e,
+        &[
+            (0x2144, program as u32),
+            (0x2380, 16),
+            (0x2384, 0),
+            (0x2388, cb as u32),
+            (0x2490, 0x21),
+            (0x1360, 1),
+            (0x133c, 1),
+            (0x1340, 0x8006),
+            (0x1344, 0x4302),
+            (0x1348, 0x4303),
+            (0x134c, 0x8006),
+            (0x1350, 0x4001),
+            (0x1358, 0x4303),
+        ],
+    );
+    h.vertices(&mut e, &quad(-1., -1., 1., 1., 0.5, [1.; 4]), &[[0.; 4]]);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/repeats-checks");
+    for batch in 0..7 {
+        let color = if batch % 2 == 0 {
+            [1f32, 0., 0., 0.5]
+        } else {
+            [0f32, 1., 0., 0.5]
+        };
+        h.memory
+            .write(
+                cb,
+                &color
+                    .into_iter()
+                    .flat_map(f32::to_le_bytes)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
+        for (offset, value) in [(0x19d0, 60)]
+            .into_iter()
+            .chain((0..4).flat_map(|_| [(0x1618, 4), (0xd78, 6), (0x1614, 0)]))
+        {
+            e.method_into(B197, offset, value, &mut h.memory, &mut h.backend)
+                .unwrap();
+        }
+        h.backend.submit(&root).unwrap().wait().unwrap();
+        let report = h.backend.readback(&root, &mut h.memory).unwrap();
+        let expected = if batch % 2 == 0 {
+            [239u8, 0, 0, 255]
+        } else {
+            [0u8, 239, 0, 255]
+        };
+        assert!(report.images[0]
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 1)));
+    }
 }

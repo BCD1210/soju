@@ -25,3 +25,5 @@ pub mod backend;
 pub mod format;
 pub mod sync;
 pub mod worker;
+
+pub mod compute;

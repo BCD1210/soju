@@ -3489,12 +3489,21 @@ pub const METHODS: &[Method] = &[
     },
 ];
 pub fn lookup(class: u32, offset: u32) -> Option<&'static Method> {
-    METHODS.iter().find(|m| {
-        m.class == class
-            && (offset == m.offset
-                || (m.stride != 0
-                    && offset >= m.offset
-                    && (offset - m.offset).is_multiple_of(m.stride)
-                    && (offset - m.offset) / m.stride < m.count))
-    })
+    use std::sync::OnceLock;
+    static INDEX: OnceLock<std::collections::HashMap<(u32, u32), &'static Method>> =
+        OnceLock::new();
+    INDEX
+        .get_or_init(|| {
+            let mut index = std::collections::HashMap::new();
+            for method in METHODS {
+                for i in 0..method.count {
+                    index
+                        .entry((method.class, method.offset + i * method.stride))
+                        .or_insert(method);
+                }
+            }
+            index
+        })
+        .get(&(class, offset))
+        .copied()
 }
