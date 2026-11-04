@@ -1,3 +1,4 @@
+import os.signpost
 import Cocoa
 import SceneKit
 import MetalKit
@@ -16,6 +17,8 @@ final class FrameStream {
     private lazy var loader=MTKTextureLoader(device:source.relief.device)
     private func key(_ id:Int,_ frame:Int,_ color:[Int])->String {"\(id)/\(frame)/\(color)"}
     func get(_ id:Int,frame:Int,color:[Int])->Prepared? {
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"Stream lookup")
+        defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Stream lookup")}
         let key=key(id,frame,color)
         lock.lock();defer{lock.unlock()}
         return resident.get(key)
@@ -47,6 +50,8 @@ final class FrameStream {
                     }
                     result=Prepared(geometry:mesh,material:material,image:diffuse,contact:source.relief.contactHeights["\(id)/\(frame)"] ?? 0)
                 } catch {fputs("HD stream \(id)/\(frame): \(error)\n",stderr)}
+                os_signpost(.begin,log:XRFrameMetrics.log,name:"Stream publish")
+                defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Stream publish")}
                 lock.lock()
                 pending.remove(key)
                 if let result=result,cost<=resident.limit {resident.insert(result,key:key,bytes:cost)}else {failed.insert(key)}

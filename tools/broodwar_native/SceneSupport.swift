@@ -1,3 +1,4 @@
+import os.signpost
 import Cocoa
 import SceneKit
 import Metal
@@ -41,6 +42,8 @@ struct SnapshotWire {
 final class Bridge {
     let queue = DispatchQueue(label:"soju.bw.native.state")
     func request(_ payload: Obj) throws -> Obj {
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"Bridge read")
+        defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Bridge read")}
         var o=payload
         o["token"]=try String(contentsOf:runtime.appendingPathComponent("session-token"),encoding:.utf8)
         if o["op"] as? String != "state" && o["op"] as? String != "scene" && o["op"] as? String != "terrain" {

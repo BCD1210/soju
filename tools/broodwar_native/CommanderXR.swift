@@ -20,6 +20,8 @@ func xrControls(_ context:UnsafeMutableRawPointer?,_ packet:UnsafePointer<SojuXR
 extension Commander {
     func pumpXR() {
         guard xrPumpActive else {return}
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"Frame loop")
+        defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Frame loop")}
         let result=soju_xr_step(Unmanaged.passUnretained(self).toOpaque(),xrDraw,xrControls)
         guard result != 0 else {xrPumpActive=false;notice=String(cString:soju_xr_status());soju_xr_close();return}
         // xrWaitFrame sets the deadline. Yield to input/state work between frames,

@@ -33,7 +33,7 @@ final class FrameDistribution {
 }
 
 final class XRFrameMetrics {
-    static let log=OSLog(subsystem:"soju.broodwar",category:"XRFrame")
+    static let log=OSLog(subsystem:"soju.broodwar",category:"PointsOfInterest")
     private let lock=NSLock()
     private let intervals=FrameDistribution(),cpu=FrameDistribution(),gpu=FrameDistribution()
     private let stages: [String:FrameDistribution]=Dictionary(uniqueKeysWithValues:
