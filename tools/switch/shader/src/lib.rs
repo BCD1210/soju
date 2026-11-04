@@ -1,4 +1,5 @@
 //! Clean-room GM20B graphics shader translation. See SOURCES.md for provenance.
+pub mod decoder;
 pub mod header;
 
 use std::fmt;
