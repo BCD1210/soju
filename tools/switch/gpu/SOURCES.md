@@ -90,3 +90,9 @@ Apple MTLSamplerDescriptor.maxAnisotropy receives the decoded ratio, which is
 part of the native argument-table cache identity. Point/linear modes retain
 isotropic filtering. The split-TEXS pixel oracle exercises all eight ratios
 with Metal API validation; it does not measure anisotropic quality on mip chains.
+
+2D array textures use the same pinned block-linear TIC fields: TEXTURE_TYPE=5,
+DEPTH_MINUS_ONE and normalized coordinates. Each single-mip array layer occupies
+a separate block-linear 2D slice (block depth zero). Metal type2DArray views bind
+at the shader table's array group, not the 2D group. A two-layer pixel oracle
+selects the second distinct-colored layer with a hand-encoded TEXS array instruction.

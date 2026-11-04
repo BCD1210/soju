@@ -180,3 +180,8 @@ array of u64 UniquePadIds and signed 64-bit output count. The runner's synthetic
 Npad is not a physical controller, so both queries enumerate zero physical pads.
 The documented 0x58aca result rejects invalid Npad IDs. No LED is fabricated;
 direct LED writes remain unsupported.
+
+TEXS array discovery preserves the shader crate's existing public-ISA type
+decoding (mode 7) while resolving the packed cbuf texture/sampler handle. The
+GPU backend validates the resolved type against the TIC and uploads all layers.
+The gpu_console probe advances past its type mismatch to integer vertex input.

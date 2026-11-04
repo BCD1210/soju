@@ -312,3 +312,18 @@ fn anisotropic_sampler_decodes_all_documented_ratios() {
         }
     }
 }
+
+#[test]
+fn array_tic_accounts_for_every_layer_and_rejects_nonarray_depth() {
+    let mut words = [8 | (2 << 7) | (2 << 10) | (2 << 13) | (2 << 16), 0x1000, 3 << 21, 0, (5 << 23) | 7, (1 << 31) | (1 << 16) | 7, 0, 0];
+    let parse = |w: [u32; 8]| soju_switch_gpu::texture::Tic::parse(&w.into_iter().flat_map(u32::to_le_bytes).collect::<Vec<_>>());
+    let tic = parse(words).unwrap();
+    assert!(tic.array);
+    assert_eq!(tic.layers, 2);
+    assert_eq!(tic.surface().size(), 1024);
+    words[4] = (1 << 23) | 7;
+    assert!(parse(words).is_err());
+    words[4] = (5 << 23) | 7;
+    words[5] = (1 << 31) | (2048 << 16) | 7;
+    assert!(parse(words).is_err());
+}

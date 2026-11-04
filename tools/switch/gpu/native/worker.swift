@@ -582,16 +582,22 @@ final class Worker {
                         if textureCache[tk]==nil {
                             let textureUpload = NativeSpan("texture_upload")
                             defer { textureUpload.end() }
-                            let tw=Int(item.width),th=Int(item.height)
+                            let tw=Int(item.width),th=Int(item.height),layers=Int(item.layers)
                             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(Int(item.metal)))!,width:tw,height:th,mipmapped:false)
+                            d.textureType = item.array == 1 ? .type2DArray : .type2D
+                            d.arrayLength=layers
                             d.storageMode = .shared;d.usage = [.shaderRead,.pixelFormatView]
                             guard let t=device.makeTexture(descriptor:d) else {throw Failure("sample texture allocation (BC1 device support required)")}
                             let bytes=try file(text(item.file));let row=Int(item.row)
-                            try need(bytes.count == row*Int(item.rows),"sample texture size")
-                            bytes.withUnsafeBytes{p in t.replace(region:MTLRegionMake2D(0,0,tw,th),mipmapLevel:0,withBytes:p.baseAddress!,bytesPerRow:row)}
+                            try need(bytes.count == row*Int(item.rows)*layers,"sample texture size")
+                            bytes.withUnsafeBytes{p in
+                                for layer in 0..<layers {
+                                    t.replace(region:MTLRegionMake2D(0,0,tw,th),mipmapLevel:0,slice:layer,withBytes:p.baseAddress!.advanced(by:layer*row*Int(item.rows)),bytesPerRow:row,bytesPerImage:row*Int(item.rows))
+                                }
+                            }
                             let components = [item.swizzle0,item.swizzle1,item.swizzle2,item.swizzle3].map { MTLTextureSwizzle(rawValue:UInt8($0))! }
                             let swizzle = MTLTextureSwizzleChannels(red:components[0],green:components[1],blue:components[2],alpha:components[3])
-                            guard let view=t.makeTextureView(pixelFormat:t.pixelFormat,textureType:.type2D,levels:0..<1,slices:0..<1,swizzle:swizzle) else {throw Failure("texture view")}
+                            guard let view=t.makeTextureView(pixelFormat:t.pixelFormat,textureType:d.textureType,levels:0..<1,slices:0..<layers,swizzle:swizzle) else {throw Failure("texture view")}
                             textureCache[tk]=view
                         }else{textureHits += 1}
                         let t=textureCache[tk]!;tableTextures.append(t);argument.setTexture(t,index:Int(item.image))

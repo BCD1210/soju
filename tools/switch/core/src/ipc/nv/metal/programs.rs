@@ -116,7 +116,11 @@ pub(super) fn register(
                 handle: soju_switch_shader::texture::Handle::Bound(*handle),
                 texture_index: packed & 0xfffff,
                 sampler_index: packed >> 20,
-                texture_type: soju_switch_shader::texture::TextureType::D2,
+                texture_type: if instruction.opcode == Opcode::TEXS && (instruction.raw >> 53) & 15 == 7 {
+                    soju_switch_shader::texture::TextureType::D2Array
+                } else {
+                    soju_switch_shader::texture::TextureType::D2
+                },
             });
         }
         let options = Options {

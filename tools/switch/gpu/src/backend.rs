@@ -1308,9 +1308,9 @@ impl Backend {
                     let count = options.texture_count;
                     require(
                         shader.texture_bindings.iter().all(|b| {
-                            b.texture_type == soju_switch_shader::texture::TextureType::D2
+                            matches!(b.texture_type, soju_switch_shader::texture::TextureType::D2 | soju_switch_shader::texture::TextureType::D2Array)
                         }),
-                        "only 2D texture argument tables supported",
+                        "only 2D/array texture argument tables supported",
                     )?;
                     require(
                         !shader.texture_bindings.is_empty(),
@@ -1319,16 +1319,18 @@ impl Backend {
                     let mut images = BTreeSet::new();
                     let mut samplers = BTreeSet::new();
                     for b in &shader.texture_bindings {
-                        images.insert(b.texture_index);
+                        images.insert((b.texture_index, b.texture_type));
                         samplers.insert(b.sampler_index);
                     }
-                    for index in images {
+                    for (index, texture_type) in images {
                         require(index <= r.get(0x157c), "TIC pool index out of bounds")?;
                         let addr = r
                             .address(0x1574)
                             .checked_add(u64::from(index) * 32)
                             .ok_or_else(|| Error("TIC address overflow".into()))?;
                         let tic = Tic::parse(capture(memory, &mut dependencies, addr, 32)?)?;
+                        let array = texture_type == soju_switch_shader::texture::TextureType::D2Array;
+                        require(tic.array == array, "shader/TIC array type mismatch")?;
                         let texture_end = tic
                             .address
                             .checked_add(tic.surface().size() as u64)
@@ -1417,7 +1419,9 @@ impl Backend {
                         textures.push(TextureCommand {
                             stage,
                             count: count as _,
-                            image: index as _,
+                            image: (index + if array { 5 * count } else { 0 }) as _,
+                            layers: tic.layers as _,
+                            array: i64::from(array),
                             sampler: -1,
                             key: key.into(),
                             width: tic.width as _,

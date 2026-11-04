@@ -125,6 +125,8 @@ pub(crate) struct TextureCommand {
     pub sampler: i64,
     pub width: i64,
     pub height: i64,
+    pub layers: i64,
+    pub array: i64,
     pub metal: i64,
     pub row: i64,
     pub rows: i64,

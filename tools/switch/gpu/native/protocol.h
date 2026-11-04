@@ -57,6 +57,8 @@ typedef struct {
     int64_t sampler;
     int64_t width;
     int64_t height;
+    int64_t layers;
+    int64_t array;
     int64_t metal;
     int64_t row;
     int64_t rows;

@@ -7,6 +7,8 @@ pub struct Tic {
     pub address: u64,
     pub width: u32,
     pub height: u32,
+    pub layers: u32,
+    pub array: bool,
     pub bc1: bool,
     pub block_height: u32,
 }
@@ -59,12 +61,16 @@ impl Tic {
             w4 &= !(7 << 29);
         }
         require(
-            w4 & !0x1840ffff == 1 << 23
-                && w[5] & !0xffff == 1 << 31
+            w4 & !0x1bc0ffff == 0
+                && matches!((w4 >> 23) & 7, 1 | 5)
+                && w[5] & !0x3fffffff == 1 << 31
                 && matches!(w[6], 0 | 0x03000000)
                 && w[7] == 0,
-            &format!("TIC requires normalized 2D single mip: {w:08x?}"),
+            &format!("TIC requires normalized 2D/array single mip: {w:08x?}"),
         )?;
+        let array = (w4 >> 23) & 7 == 5;
+        let layers = ((w[5] >> 16) & 0x3fff) + 1;
+        require(layers <= 2048 && (array || layers == 1), "TIC array layer count")?;
         let width = (w[4] & 65535) + 1;
         let height = (w[5] & 65535) + 1;
         require(
@@ -76,6 +82,8 @@ impl Tic {
             address: u64::from(w[1]) | (u64::from(w[2] & 65535) << 32),
             width,
             height,
+            layers,
+            array,
             bc1,
             block_height: (w[3] >> 3) & 7,
         })
@@ -99,7 +107,7 @@ impl Tic {
         Surface {
             width: (self.width as usize).div_ceil(info.block_w),
             height: (self.height as usize).div_ceil(info.block_h),
-            depth: 1,
+            depth: self.layers as usize,
             bytes_per_block: info.bytes,
             block_height_log2: self.block_height,
             block_depth_log2: 0,
