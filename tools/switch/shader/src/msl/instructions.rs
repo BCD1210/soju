@@ -179,6 +179,9 @@ impl Emitter<'_> {
                 bits(x.raw, 48, 1) != 0
             )),
             BFI => dst(format!("soju_bfi({}, {}, {})", a(1)?, a(2)?, a(3)?)),
+            ReducedSin => fdst(format!("sin({})", f(1)?)),
+            ReducedCos => fdst(format!("cos({})", f(1)?)),
+            ReducedExp2 => fdst(format!("exp2({})", f(1)?)),
             MUFU => {
                 let v = f(1)?;
                 let expr = match bits(x.raw, 20, 4) {

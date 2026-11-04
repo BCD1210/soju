@@ -190,3 +190,30 @@ fn rejects_all_reachable_out_encodings_and_stream_modes() {
         }
     }
 }
+
+#[test]
+fn reduction_intermediate_cannot_escape_or_be_entered() {
+    use soju_switch_shader::{decoder, ir::Program};
+    let reduction = 0x5c90000000000000 | PT;
+    let sine = 0x5080000000100000 | PT;
+    for ops in [
+        vec![reduction, NOP, sine, EXIT],
+        vec![reduction, sine | 1, EXIT],
+        vec![reduction, sine ^ (1 << 16), EXIT],
+    ] {
+        let mut a = Assembler::default();
+        for x in ops {
+            a.emit(x);
+        }
+        let b = a.finish(fragment_header());
+        assert!(Program::build(&decoder::decode(&b[80..]).unwrap()).is_err());
+    }
+    let mut a = Assembler::default();
+    a.branch(0xe24000000000000f, "consumer");
+    a.emit(reduction);
+    a.label("consumer");
+    a.emit(sine);
+    a.emit(EXIT);
+    let b = a.finish(fragment_header());
+    assert!(Program::build(&decoder::decode(&b[80..]).unwrap()).is_err());
+}

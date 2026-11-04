@@ -15,6 +15,9 @@ impl Emitter<'_> {
                         | FMNMX
                         | FSET
                         | FSETP
+                        | ReducedSin
+                        | ReducedCos
+                        | ReducedExp2
                         | MUFU
                         | F2F
                         | F2I
@@ -22,9 +25,23 @@ impl Emitter<'_> {
                         | IADD3
                         | ISCADD
                 ),
-                "abs" => matches!(x.opcode, FADD | FMNMX | FSET | FSETP | MUFU | F2F | F2I),
+                "abs" => matches!(
+                    x.opcode,
+                    FADD | FMNMX
+                        | FSET
+                        | FSETP
+                        | ReducedSin
+                        | ReducedCos
+                        | ReducedExp2
+                        | MUFU
+                        | F2F
+                        | F2I
+                ),
                 "inv" => matches!(x.opcode, LOP | POPC | FLO),
-                "sat" => matches!(x.opcode, FADD | FMUL | FFMA | MUFU | F2F | IPA),
+                "sat" => matches!(
+                    x.opcode,
+                    FADD | FMUL | FFMA | ReducedSin | ReducedCos | ReducedExp2 | MUFU | F2F | IPA
+                ),
                 "ftz" => matches!(x.opcode, FADD | FMNMX),
                 "bf" => matches!(x.opcode, FSET | ISET),
                 "w" => matches!(x.opcode, SHL | SHR),

@@ -67,3 +67,12 @@ Homebrew container audit (2026-11-04):
   SHA-256 `6f2fb02eaf056254eb9fb5433975ff721830484c2bc79847eb8fcce17996caf0`.
   The adjacent `dk_shader.cpp` establishes entrypoint offsets relative to the
   code section. These are container facts, not shader execution implementations.
+
+Closed RRO/MUFU pairs:
+- https://forums.developer.nvidia.com/t/arithmetical-functions-various/10624
+  NVIDIA's description identifies the reduction followed by the special function.
+  The pinned ISA table identifies SINCOS/EX2 and MUFU function selectors. Soju
+  fuses only adjacent, identically predicated pairs whose consumer overwrites the
+  intermediate register, with no control-flow entry at the consumer. Metal/Rust
+  math evaluates the complete function; intermediate hardware bits and hardware
+  approximation errors are not emulated. Escaping intermediates are rejected.

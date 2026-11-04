@@ -40,7 +40,8 @@ impl Program {
         if decoded.is_empty() {
             return Err(Error("empty shader".into()));
         }
-        let ins: Vec<_> = decoded.iter().map(|s| s.instruction.clone()).collect();
+        let mut ins: Vec<_> = decoded.iter().map(|s| s.instruction.clone()).collect();
+        reduce_special_functions(&mut ins)?;
         let n = ins.len();
         if n > 65536 {
             return Err(Error("shader exceeds 65536 instruction limit".into()));
@@ -305,6 +306,53 @@ impl Builder<'_> {
         }
         Ok(result)
     }
+}
+
+/// Fuse only closed, adjacent reduction/function pairs. The intermediate hardware
+/// representation is unobservable: the consumer overwrites it under the same predicate.
+fn reduce_special_functions(ins: &mut [Instruction]) -> Result<()> {
+    use crate::decoder::{bits, Operand};
+    let targets: BTreeSet<_> = ins
+        .iter()
+        .filter_map(Instruction::target)
+        .map(|a| if a % 32 == 0 { a + 8 } else { a })
+        .collect();
+    for i in 0..ins.len() {
+        if ins[i].opcode != Opcode::RRO {
+            continue;
+        }
+        let x = &ins[i];
+        let y = ins
+            .get(i + 1)
+            .ok_or_else(|| x.error("RRO has no consumer"))?;
+        let Some(Operand::Register(r)) = x.operands.first() else {
+            return Err(x.error("RRO destination is not a register"));
+        };
+        let function = bits(y.raw, 20, 4);
+        let mode = bits(x.raw, 39, 1);
+        if *r == 255
+            || y.opcode != Opcode::MUFU
+            || y.predicate != x.predicate
+            || y.operands.first() != Some(&Operand::Register(*r))
+            || y.operands.get(1) != Some(&Operand::Register(*r))
+            || !y.modifiers.is_empty()
+            || targets.contains(&y.address)
+            || !matches!((mode, function), (0, 0 | 1) | (1, 2))
+        {
+            return Err(x.error("RRO requires a closed adjacent matching MUFU pair"));
+        }
+        let opcode = match function {
+            0 => Opcode::ReducedCos,
+            1 => Opcode::ReducedSin,
+            _ => Opcode::ReducedExp2,
+        };
+        ins[i].opcode = opcode;
+        ins[i].options.clear();
+        ins[i + 1].opcode = Opcode::NOP;
+        ins[i + 1].operands.clear();
+        ins[i + 1].options.clear();
+    }
+    Ok(())
 }
 
 #[cfg(test)]

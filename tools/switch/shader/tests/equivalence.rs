@@ -198,3 +198,39 @@ fn arithmetic_grid_matches_cpu_reference() {
 
 #[path = "common/compute_cases.rs"]
 mod compute_cases;
+
+#[test]
+fn reduced_functions_match_native_math() {
+    let dir = gpu::setup();
+    for (name, mode, function) in [("rro_sin", 0, 1), ("rro_cos", 0, 0), ("rro_exp2", 1, 2)] {
+        let input: Vec<u32> = (0..32)
+            .flat_map(|i| {
+                let v = (i as f32 - 16.) * 0.375;
+                [v.to_bits(), 0, 0, 0, 0, 0, 0, 0]
+            })
+            .collect();
+        let (binary, p) = program(
+            &[
+                0x5c90000000000000 | PT | mode << 39,
+                0x5080000000000000 | PT | function << 20,
+            ],
+            32,
+        );
+        let shader = compute::translate(
+            &binary[80..],
+            &gpu::launch(32, 0),
+            &gpu::options(input.len()),
+        )
+        .unwrap();
+        let actual = gpu::execute(&dir, name, &shader.source, &input, 32);
+        let expected = cpu(&p, &input, 0, 32);
+        for i in 0..32 {
+            let a = f32::from_bits(actual[i * 8 + 4]);
+            let b = f32::from_bits(expected[i * 8 + 4]);
+            assert!(
+                (a - b).abs() <= 2e-6 * b.abs().max(1.),
+                "{name} lane {i}: {a} != {b}"
+            );
+        }
+    }
+}

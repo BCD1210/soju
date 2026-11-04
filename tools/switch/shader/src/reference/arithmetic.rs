@@ -145,7 +145,8 @@ impl Machine {
                     v as u32
                 }
             }
-            FADD | FMUL | FFMA | FMNMX | MUFU | F2F | I2F => {
+            FADD | FMUL | FFMA | FMNMX | ReducedSin | ReducedCos | ReducedExp2 | MUFU | F2F
+            | I2F => {
                 let flush = x.modified("ftz", None)
                     || (x.opcode == FMUL && bits(x.raw, 44, 2) == 1)
                     || (x.opcode == FFMA && bits(x.raw, 53, 2) == 1);
@@ -164,6 +165,9 @@ impl Machine {
                             minmax(f(1)?, f(2)?, false)
                         }
                     }
+                    ReducedSin => f(1)?.sin(),
+                    ReducedCos => f(1)?.cos(),
+                    ReducedExp2 => f(1)?.exp2(),
                     MUFU => match bits(x.raw, 20, 4) {
                         2 => f(1)?.exp2(),
                         3 => f(1)?.log2(),

@@ -10,7 +10,7 @@ import sys
 source = pathlib.Path(sys.argv[1]).read_text()
 assert hashlib.sha256(source.encode()).hexdigest() == "97195e120336becb52f4aeabce28fb8ee0ead4c3f30efed10879e309eae3d3e6", "Unexpected ISA revision"
 root = pathlib.Path(__file__).resolve().parents[1]
-classes = 'ffma fadd fmul fmnmx fset fsetp mufu f2f f2i i2f i2i iadd iadd3 iscadd imad xmad iset isetp imnmx lop lop3 shl shr bfe bfi popc flo sel mov psetp p2r r2p ld st ldg stg lds sts ldl stl ldc ipa ald ast out tex texs tld tlds tld4 txq bra ssy sync pbk brk exit kil nop depbar bar'.split()
+classes = 'ffma fadd fmul fmnmx fset fsetp rro mufu f2f f2i i2f i2i iadd iadd3 iscadd imad xmad iset isetp imnmx lop lop3 shl shr bfe bfi popc flo sel mov psetp p2r r2p ld st ldg stg lds sts ldl stl ldc ipa ald ast out tex texs tld tlds tld4 txq bra ssy sync pbk brk exit kil nop depbar bar'.split()
 tables = dict(re.findall(r'static struct insn tab(\w+)\[\] = \{(.*?)\n\};', source, re.S))
 rows = []
 for line in tables['root'].splitlines():

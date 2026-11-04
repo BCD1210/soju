@@ -124,3 +124,12 @@ in the GPU fixtures, but not every mode. The harness compiles Swift and generate
 MSL at test time, loads metallibs, checks Metal command completion and reads back
 results. Missing Metal on macOS fails; GPU tests skip on other platforms. No
 native Maxwell hardware, commercial shaders or Nintendo data are involved.
+
+Closed RRO/MUFU pairs are represented as complete sine, cosine or exp2 operations
+in the structured program. They use host mathematical functions, not the hardware
+range-reduction bit representation. Only adjacent pairs with equal predicates,
+equal reduction/consumer destinations, an unmodified matching consumer, and no
+branch/reconvergence target at the consumer are accepted. This preserves the
+observable dataflow while avoiding an assumed intermediate encoding. Other RRO
+uses fail. Native/reference tests cover 96 finite inputs with relative/absolute
+2e-6 tolerance; this does not prove hardware approximation equivalence.
