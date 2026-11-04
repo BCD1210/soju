@@ -1,0 +1,25 @@
+   Compiling soju-switch-shader v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/shader)
+   Compiling soju-switch-gpu v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/gpu)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.51s
+     Running tests/render.rs (tools/switch/gpu/target/debug/deps/render-c09def9e0a86fdfd)
+
+running 1 test
+test shader_selects_all_sixteen_viewports_and_scissors ... FAILED
+
+failures:
+
+---- shader_selects_all_sixteen_viewports_and_scissors stdout ----
+
+thread 'shader_selects_all_sixteen_viewports_and_scissors' (63052421) panicked at tests/render.rs:2966:9:
+assertion `left == right` failed: pixel 12,1
+  left: [0, 0, 0, 0]
+ right: [255, 0, 0, 255]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shader_selects_all_sixteen_viewports_and_scissors
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 32 filtered out; finished in 0.49s
+
+error: test failed, to rerun pass `--test render`

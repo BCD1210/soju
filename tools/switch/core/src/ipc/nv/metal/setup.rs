@@ -60,8 +60,8 @@ pub(super) fn retain(method: u32, value: u32) -> Result<bool, Error> {
         }
         0xa38..=0xbf8 if method % 32 == 24 => value == 0x6420,
         0xc10..=0xcf4 if matches!(method % 16, 0 | 4) => true,
-        // Retain all scissor bounds; shader translation still rejects viewport-index output.
-        0xe10..=0xef8 if method.is_multiple_of(16) => value == 1,
+        // Retain all sixteen independently selected scissor rectangles.
+        0xe10..=0xef8 if method.is_multiple_of(16) => value <= 1,
         0xe10..=0xef8 if matches!(method % 16, 4 | 8) => value as u16 <= (value >> 16) as u16,
         0xc18..=0xcfc if method % 16 == 8 => value == 0,
         0xc18..=0xcfc if method % 16 == 12 => value == 1f32.to_bits(),

@@ -1,10 +1,10 @@
 //! Resource resolution and a dependency-free protocol to the native Metal worker.
 use crate::{
+    Error, Result,
     engine::{Action, ConstantBuffer, Registers, Snapshot},
     memory::Memory,
     require,
     texture::{TextureCache, Tic, Tsc},
-    Error, Result,
 };
 use soju_switch_shader::{
     cache::{Inputs, Key},
@@ -325,7 +325,9 @@ impl Backend {
                 "transform feedback (stream output) is not implemented",
             )?;
             let supported = matches!(offset,0x800..=0x9e0|0xa00..=0xa14|0xd74..=0xd90|0xda0|0xdac|0xdb0|0xdc0..=0xdc8|0x1110|0x1510..=0x1518|0x1550..=0x1558|0x156c|0x15bc|0x1644|0x1648|0x187c|0x1910|0x1940|0xe00..=0xe08|0xf10|0xf54..=0xf5c|0xfe0..=0xff0|0x1160..=0x11dc|0x121c|0x1228..=0x1230|0x12cc|0x12e4|0x12e8|0x130c|0x131c..=0x1328|0x133c..=0x139c|0x1434|0x1438|0x1530|0x1538|0x1b00..=0x1b0c|0x155c..=0x1564|0x1574..=0x157c|0x1594..=0x15a4|0x1608|0x160c|0x1614|0x1618|0x17c8..=0x17e0|0x1880..=0x18fc|0x1918..=0x1920|0x19d0|0x1c00..=0x1eff|0x1f00..=0x1fff|0x2000..=0x2150|0x2380..=0x23cc|0x2410|0x2430|0x2450|0x2470|0x2490);
-            if !supported {
+            let viewport_array = (0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20;
+            let scissor_array = (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8;
+            if !supported && !viewport_array && !scissor_array {
                 return Err(Error(format!(
                     "Metal state method {offset:#x} is not implemented"
                 )));
@@ -712,6 +714,10 @@ impl Backend {
                 ] {
                     signature.extend(value.to_le_bytes());
                 }
+                for index in 0..16 {
+                    signature.push(u8::from(r.float(0xa00 + index * 32) < 0.));
+                    signature.push(u8::from(r.float(0xa04 + index * 32) < 0.));
+                }
                 for a in (0..=0x2000).step_by(4) {
                     let descriptor = matches!(a, 0x810 | 0x850 | 0x890 | 0x8d0 | 0x910 | 0x950 | 0x990 | 0x9d0 | 0x121c | 0x1e00..=0x1eff | 0xfe8 | 0x1538 | 0xf54..=0xf5c | 0x1160..=0x11dc | 0x12cc | 0x12e4 | 0x12e8 | 0x130c | 0x133c..=0x139c | 0x1594..=0x15a4 | 0x1880..=0x18fc)
                         || ((0x1c00..=0x1dff).contains(&a) && matches!(a % 16, 0 | 12));
@@ -725,8 +731,15 @@ impl Backend {
                     cached.clone()
                 } else {
                     let mut finish = String::new();
+                    let viewport_array = vh.outputs.iter().any(|a| a.address == 0x68);
                     for (axis, reg) in [("x", 0xa00), ("y", 0xa04)] {
-                        if r.float(reg) < 0. {
+                        if viewport_array {
+                            for index in 0..16 {
+                                if r.float(reg + index * 32) < 0. {
+                                    writeln!(finish, "if(out.viewport_index == {index}u) out.position.{axis} = -out.position.{axis};").unwrap();
+                                }
+                            }
+                        } else if r.float(reg) < 0. {
                             writeln!(finish, "out.position.{axis} = -out.position.{axis};")
                                 .unwrap();
                         }

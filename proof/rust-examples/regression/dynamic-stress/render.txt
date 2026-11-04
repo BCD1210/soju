@@ -1,0 +1,42 @@
+   Compiling soju-switch-shader v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/shader)
+   Compiling soju-switch-gpu v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/gpu)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.53s
+     Running tests/render.rs (tools/switch/gpu/target/debug/deps/render-c09def9e0a86fdfd)
+
+running 33 tests
+test first_seen_shader_frames ... ignored, explicit first-seen shader latency measurement
+test instance_builtin_positions_two_separate_draws ... ok
+test independent_uniform_slots_keep_unchanged_offsets ... ok
+test explicit_fragment_interpolation_multiplier_uses_reciprocal_w ... ok
+test microbenchmark_cached_draws ... ignored, explicit throughput measurement
+test implicit_fragment_group_uses_pixel_constants ... ok
+test malformed_draw_resources_fail_before_native_execution ... ok
+test independent_target_passes_coalesce_without_reordering_blends ... ok
+test pending_pipeline_skips_frame_then_renders ... ignored, run with SOJU_GPU_ASYNC_PIPELINES=1
+test eight_targets_route_outputs_and_blend_independently ... ok
+test depth16_and_depth24_stencil_render_on_metal ... ok
+test nonindexed_quad_expands_to_two_triangles ... ok
+test resource_churn_soak ... ignored, explicit 30-minute resource churn soak
+test prepared_variants_revalidate_vertex_writes_and_public_register_changes ... ok
+test borrowed_repeated_draws_preserve_blending_and_constant_uploads ... ok
+test parallel_color_passes_preserve_per_target_blend_order ... ok
+test asynchronous_batches_preserve_depth_stencil_without_cpu_readback ... ok
+test queued_batches_keep_captured_constants_alive_across_ring_wraps ... ok
+test shared_depth_prevents_target_pass_reordering ... ok
+test throughput_state_mixes ... ignored, explicit mixed throughput measurement
+test shader_selects_all_sixteen_viewports_and_scissors ... ok
+test repeated_program_registration_observes_changed_shader_bytes ... ok
+test shared_depth_mrt_slot_permutations_keep_outputs_and_depth_order ... ok
+test vertex_streams_and_constants_have_independent_binding_spaces ... ok
+test scissored_color_clear_preserves_outside_and_accepts_single_layer_stride ... ok
+test raster_extras_and_occlusion_results_match_images ... ok
+test depth_import_writeback_and_cpu_invalidation ... ok
+test color_formats_clear_draw_and_write_back_raw_storage ... ok
+test bgra_views_and_srgb_sampling ... ok
+test split_texs_exports_four_distinct_components ... ok
+test method_streams_render_expected_images_on_metal ... ok
+test unsigned_integer_texture_preserves_bits_through_sampling ... ok
+test texture_formats_and_tic_swizzles_sample_on_metal ... ok
+
+test result: ok. 28 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.52s
+

@@ -75,3 +75,11 @@ position). Soju rejects shifts and bitfields outside 32 bits and tests both
 forms with independent expected emitted values. The public libnx
 `include/switch/nvidia/types.h` names mapping kinds 1/2 as Z16/Z16_2C; they use
 the existing canonical uncompressed D16 storage path in this runner.
+
+Viewport arrays (2026-11-04): NVIDIA's public Shader Program Header specification,
+OmapSystemValuesB, orders ViewportIndex immediately before PointSize. Combined with
+the public export address map this selects output 0x68. The pinned B197 header
+specifies sixteen viewport transforms (stride 32) and scissors (stride 16).
+https://download.nvidia.com/open-gpu-doc/Shader-Program-Header/1/Shader-Program-Header.html
+Apple's installed MTLRenderCommandEncoder.h and MSL specification define
+setViewports/setScissorRects and the uint viewport_array_index vertex output.

@@ -123,7 +123,13 @@ final class Worker {
     var boundRegisters = [Int: Int]()
     var boundCommand = -1
     var groupChanges = [StateTransition: UInt8]()
-    let registerGroups = [[0xa00,0xa04,0xa08,0xa0c,0xa10,0xa14,0xd7c], [0xdac,0xdc0,0xdc4,0xdc8,0x1110,0x15bc,0x156c,0x187c], [0xe00,0xe04,0xe08], [0x1918,0x1920,0x191c,0xdac,0xdb0], [0x131c,0x1320,0x1324,0x1328], [0x1394,0x1594,0xf54]]
+    var viewportRegisters = [0xd7c]
+    var scissorRegisters = [Int]()
+    for index in 0..<16 {
+        for offset in stride(from: 0, through: 20, by: 4) { viewportRegisters.append(0xa00 + index*32 + offset) }
+        for offset in [0,4,8] { scissorRegisters.append(0xe00 + index*16 + offset) }
+    }
+    let registerGroups = [viewportRegisters, [0xdac,0xdc0,0xdc4,0xdc8,0x1110,0x15bc,0x156c,0x187c], scissorRegisters, [0x1918,0x1920,0x191c,0xdac,0xdb0], [0x131c,0x1320,0x1324,0x1328], [0x1394,0x1594,0xf54]]
     var boundBuffers = [Int: (ObjectIdentifier, Int)]()
     var resident = Set<ObjectIdentifier>()
     var stateBinds = 0, offsetWrites = 0, passHits = 0
@@ -462,10 +468,15 @@ final class Worker {
                 groupChanges[transition] = mask;changedGroups = mask
             }
             if changedGroups & 1 != 0 {
-            let sx=f(0xa00),sy=f(0xa04),sz=f(0xa08),ox=f(0xa0c),oy=f(0xa10),oz=f(0xa14)
-            let near = r(0xd7c)==0 ? oz-sz : oz, far=oz+sz
-            try need([sx,sy,sz,ox,oy,oz].allSatisfy{$0.isFinite} && sx != 0 && sy != 0 && near>=0 && near<=1 && far>=0 && far<=1,"invalid viewport/depth range")
-            encoder.setViewport(MTLViewport(originX:ox-abs(sx),originY:oy-abs(sy),width:2*abs(sx),height:2*abs(sy),znear:near,zfar:far))
+            var viewports = [MTLViewport]()
+            for index in 0..<16 {
+                let base = 0xa00 + index*32
+                let sx=f(base),sy=f(base+4),sz=f(base+8),ox=f(base+12),oy=f(base+16),oz=f(base+20)
+                let near = r(0xd7c)==0 ? oz-sz : oz, far=oz+sz
+                try need([sx,sy,sz,ox,oy,oz].allSatisfy{$0.isFinite} && near>=0 && near<=1 && far>=0 && far<=1,"invalid viewport/depth range")
+                viewports.append(MTLViewport(originX:ox-abs(sx),originY:oy-abs(sy),width:2*abs(sx),height:2*abs(sy),znear:near,zfar:far))
+            }
+            encoder.setViewports(viewports)
             }
             if changedGroups & 2 != 0 {
             let offset = r(0xdac)==0x1b01 ? r(0xdc4) : r(0xdc8)
@@ -476,11 +487,16 @@ final class Worker {
             } else {encoder.setDepthBias(0,slopeScale:0,clamp:0)}
             }
             if changedGroups & 4 != 0 {
-            if r(0xe00) != 0 {
-                let x=r(0xe04)&65535,y=r(0xe08)&65535,endX=r(0xe04)>>16,endY=r(0xe08)>>16
-                try need(x<endX && y<endY && endX<=w && endY<=h,"invalid scissor")
-                encoder.setScissorRect(MTLScissorRect(x:x,y:y,width:endX-x,height:endY-y))
-            } else {encoder.setScissorRect(MTLScissorRect(x:0,y:0,width:w,height:h))}
+            var scissors = [MTLScissorRect]()
+            for index in 0..<16 {
+                let base = 0xe00 + index*16
+                if r(base) != 0 {
+                    let x=r(base+4)&65535,y=r(base+8)&65535,endX=r(base+4)>>16,endY=r(base+8)>>16
+                    try need(x<=endX && y<=endY && endX<=w && endY<=h,"invalid scissor")
+                    scissors.append(MTLScissorRect(x:x,y:y,width:endX-x,height:endY-y))
+                } else {scissors.append(MTLScissorRect(x:0,y:0,width:w,height:h))}
+            }
+            encoder.setScissorRects(scissors)
             }
             if changedGroups & 8 != 0 {
             if r(0x1918) != 0 {

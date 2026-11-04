@@ -476,37 +476,50 @@ impl Renderer {
                             "partial shared color write mask unsupported",
                         ));
                     }
-                    for (clip, scissor) in [(0xc00, 0xe04), (0xc04, 0xe08)] {
-                        let lo = r.get(clip) & 0xffff;
-                        let hi = lo + (r.get(clip) >> 16);
-                        if hi > 65535 {
-                            return Err(Error::Malformed("viewport clip overflow"));
+                    for index in 0..16 {
+                        let clip_base = 0xc00 + index * 16;
+                        let scissor_base = 0xe00 + index * 16;
+                        for axis in [0, 4] {
+                            let clip = clip_base + axis;
+                            let scissor = scissor_base + 4 + axis;
+                            let lo = r.get(clip) & 0xffff;
+                            let hi = lo + (r.get(clip) >> 16);
+                            if hi > 65535 {
+                                return Err(Error::Malformed("viewport clip overflow"));
+                            }
+                            let (lo, hi) = if r.get(scissor_base) == 0 {
+                                (lo, hi)
+                            } else {
+                                let start = lo.max(r.get(scissor) & 0xffff);
+                                (start, hi.min(r.get(scissor) >> 16).max(start))
+                            };
+                            r.0.insert(scissor, lo | (hi << 16));
                         }
-                        let (lo, hi) = if r.get(0xe00) == 0 {
-                            (lo, hi)
-                        } else {
-                            let start = lo.max(r.get(scissor) & 0xffff);
-                            (start, hi.min(r.get(scissor) >> 16).max(start))
-                        };
-                        r.0.insert(scissor, lo | (hi << 16));
-                    }
-                    r.0.insert(0xe00, 1);
-                    if r.get(0xc08) != 0 || r.get(0xc0c) != 1f32.to_bits() {
-                        return Err(Error::Malformed(
-                            "non-default viewport depth clip unsupported",
-                        ));
+                        r.0.insert(scissor_base, 1);
+                        if r.get(clip_base + 8) != 0
+                            || (r.0.contains_key(&(clip_base + 12))
+                                && r.get(clip_base + 12) != 1f32.to_bits())
+                        {
+                            return Err(Error::Malformed(
+                                "non-default viewport depth clip unsupported",
+                            ));
+                        }
                     }
                     if snapshot.registers.get(0x12cc) == 0 && snapshot.registers.get(0x1380) == 0 {
                         snapshot.registers.0.insert(0x1538, 0);
                     }
                     programs::register(&snapshot, &memory, &original, &mut backend)?;
                     // Hardware Y is scale * NDC + offset; Metal's viewport reverses NDC Y.
-                    snapshot
-                        .registers
-                        .0
-                        .insert(0xa04, (-snapshot.registers.float(0xa04)).to_bits());
+                    for index in 0..16 {
+                        let offset = 0xa04 + index * 32;
+                        if let Some(value) = snapshot.registers.0.get_mut(&offset) {
+                            *value = (-f32::from_bits(*value)).to_bits();
+                        }
+                    }
                     snapshot.registers.0.retain(|&offset, value| {
-                        !setup::retain(offset, *value).unwrap_or(false)
+                        ((0xa00..=0xbf4).contains(&offset) && offset % 32 <= 20
+                            || (0xe00..=0xef8).contains(&offset) && offset % 16 <= 8
+                            || !setup::retain(offset, *value).unwrap_or(false))
                             && !matches!(offset, 0x15b4 | 0x1234 | 0x15d0 | 0x153c
                                 | 0x165c | 0xde4 | 0xd00..=0xd3c | 0x194c | 0x1950
                                 | 0x74c | 0x16a8 | 0x1794 | 0xc00..=0xc0c)

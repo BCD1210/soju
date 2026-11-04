@@ -67,6 +67,10 @@ impl Emitter<'_> {
                 continue;
             }
             if store {
+                if address == 0x68 {
+                    writeln!(s, "out.viewport_index = {};", reg(r)).unwrap();
+                    continue;
+                }
                 let field = if address == 0x6c {
                     "point_size".into()
                 } else if (0x2c0..0x2e0).contains(&address) {

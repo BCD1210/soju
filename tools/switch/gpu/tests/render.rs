@@ -1,7 +1,7 @@
 #![cfg(target_os = "macos")]
 use soju_switch_gpu::{
     backend::Backend,
-    engine::{Engine, B197},
+    engine::{B197, Engine},
     memory::Memory,
 };
 use soju_switch_shader::msl::Options;
@@ -608,12 +608,13 @@ fn malformed_draw_resources_fail_before_native_execution() {
             .0
             .insert(0x840 + offset, original.registers.get(0x800 + offset));
     }
-    assert!(h
-        .backend
-        .prepare(&alias, &h.memory)
-        .unwrap_err()
-        .0
-        .contains("aliased MRT"));
+    assert!(
+        h.backend
+            .prepare(&alias, &h.memory)
+            .unwrap_err()
+            .0
+            .contains("aliased MRT")
+    );
     let mut invalid = original.clone();
     invalid.action = soju_switch_gpu::engine::Action::Draw {
         topology: 4,
@@ -622,12 +623,13 @@ fn malformed_draw_resources_fail_before_native_execution() {
         indexed: true,
         instance: 0,
     };
-    assert!(h
-        .backend
-        .prepare(&invalid, &h.memory)
-        .unwrap_err()
-        .0
-        .contains("index buffer limit"));
+    assert!(
+        h.backend
+            .prepare(&invalid, &h.memory)
+            .unwrap_err()
+            .0
+            .contains("index buffer limit")
+    );
 }
 
 #[test]
@@ -772,12 +774,13 @@ fn asynchronous_batches_preserve_depth_stencil_without_cpu_readback() {
     let release = host.method(0x1c, (1 << 24) | 2).unwrap().unwrap();
     release.release(first, &mut h.memory).unwrap();
     assert_eq!(h.memory.read(sem_address, 4).unwrap(), 42u32.to_le_bytes());
-    assert!(host
-        .method(0x1c, 1)
-        .unwrap()
-        .unwrap()
-        .acquired(&h.memory)
-        .unwrap());
+    assert!(
+        host.method(0x1c, 1)
+            .unwrap()
+            .unwrap()
+            .acquired(&h.memory)
+            .unwrap()
+    );
     let mut syncpoint = soju_switch_gpu::sync::Syncpoint::default();
     syncpoint.complete(second).unwrap();
     empty.wait().unwrap();
@@ -1387,11 +1390,16 @@ fn microbenchmark_cached_draws() {
     assert!(diagnostic.contains("depth_hits=1000"), "{diagnostic}");
     let report = h.backend.readback(&root, &mut h.memory).unwrap();
     assert_eq!(report.images.len(), 1);
-    assert!(report.images[0]
-        .rgba
-        .chunks_exact(4)
-        .all(|p| p == [64, 128, 191, 255]));
-    eprintln!("benchmark {DRAWS} draws: end_to_end_seconds={elapsed:.6} end_to_end_draws_per_second={:.1}; {diagnostic}; checked=1024",DRAWS as f64/elapsed);
+    assert!(
+        report.images[0]
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p == [64, 128, 191, 255])
+    );
+    eprintln!(
+        "benchmark {DRAWS} draws: end_to_end_seconds={elapsed:.6} end_to_end_draws_per_second={:.1}; {diagnostic}; checked=1024",
+        DRAWS as f64 / elapsed
+    );
 }
 
 #[test]
@@ -1504,10 +1512,12 @@ fn depth_import_writeback_and_cpu_invalidation() {
         );
         h.draw(&mut e, 6, false, false);
         let report = h.backend.execute(&root, &mut h.memory).unwrap();
-        assert!(report.images[0]
-            .rgba
-            .chunks_exact(4)
-            .all(|p| p == [0, 0, 255, 255]));
+        assert!(
+            report.images[0]
+                .rgba
+                .chunks_exact(4)
+                .all(|p| p == [0, 0, 255, 255])
+        );
         let raw = surface
             .deswizzle(h.memory.read(z, surface.size()).unwrap())
             .unwrap();
@@ -1516,7 +1526,9 @@ fn depth_import_writeback_and_cpu_invalidation() {
             "depth format {code:x}"
         );
     }
-    eprintln!("depth import/writeback/CPU invalidation: checked=10240 color pixels and 10240 raw depth/stencil pixels");
+    eprintln!(
+        "depth import/writeback/CPU invalidation: checked=10240 color pixels and 10240 raw depth/stencil pixels"
+    );
 }
 
 #[test]
@@ -1741,10 +1753,11 @@ fn bgra_views_and_srgb_sampling() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/bgra-checks");
     let report = h.backend.execute(&root, &mut h.memory).unwrap();
     for image in report.images {
-        assert!(image.rgba.chunks_exact(4).all(|p| p
-            .iter()
-            .zip(expected[&image.address])
-            .all(|(a, b)| a.abs_diff(b) <= 1)));
+        assert!(image.rgba.chunks_exact(4).all(|p| {
+            p.iter()
+                .zip(expected[&image.address])
+                .all(|(a, b)| a.abs_diff(b) <= 1)
+        }));
     }
     eprintln!("BGRA and BGRA sRGB texture views: checked=2048");
 }
@@ -1903,7 +1916,13 @@ fn throughput_state_mixes() {
                     "preparation phases (state, shader/key, resources) {:?}",
                     h.backend.preparation_profile().unwrap()
                 );
-                eprintln!("mix={mix} draws={draws} e2e={:.1}/s decode_snapshot={:.6}s prepare={:.6}s submit_io={:.6}s total={elapsed:.6}s; {diagnostic}", draws as f64/elapsed,decode.as_secs_f64(),prepare.as_secs_f64(),submit.as_secs_f64());
+                eprintln!(
+                    "mix={mix} draws={draws} e2e={:.1}/s decode_snapshot={:.6}s prepare={:.6}s submit_io={:.6}s total={elapsed:.6}s; {diagnostic}",
+                    draws as f64 / elapsed,
+                    decode.as_secs_f64(),
+                    prepare.as_secs_f64(),
+                    submit.as_secs_f64()
+                );
             }
         }
         let report = h.backend.readback(&root, &mut h.memory).unwrap();
@@ -1974,10 +1993,12 @@ fn borrowed_repeated_draws_preserve_blending_and_constant_uploads() {
         } else {
             [0u8, 239, 0, 255]
         };
-        assert!(report.images[0]
-            .rgba
-            .chunks_exact(4)
-            .all(|p| p.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 1)));
+        assert!(
+            report.images[0]
+                .rgba
+                .chunks_exact(4)
+                .all(|p| p.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 1))
+        );
     }
 }
 
@@ -2025,10 +2046,12 @@ fn queued_batches_keep_captured_constants_alive_across_ring_wraps() {
         fence.wait().unwrap();
     }
     let report = h.backend.readback(&root, &mut h.memory).unwrap();
-    assert!(report.images[0]
-        .rgba
-        .chunks_exact(4)
-        .all(|p| p == [0, 255, 0, 255]));
+    assert!(
+        report.images[0]
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p == [0, 255, 0, 255])
+    );
 }
 
 #[test]
@@ -2058,10 +2081,12 @@ fn prepared_variants_revalidate_vertex_writes_and_public_register_changes() {
     }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/variants-checks");
     let report = h.backend.execute(&root, &mut h.memory).unwrap();
-    assert!(report.images[0]
-        .rgba
-        .chunks_exact(4)
-        .all(|p| p == [0, 255, 0, 255]));
+    assert!(
+        report.images[0]
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p == [0, 255, 0, 255])
+    );
 }
 
 #[test]
@@ -2113,10 +2138,12 @@ fn independent_uniform_slots_keep_unchanged_offsets() {
     let diagnostic = h.backend.submit(&root).unwrap().wait().unwrap();
     assert!(diagnostic.contains("offset_writes=3 "), "{diagnostic}");
     let report = h.backend.readback(&root, &mut h.memory).unwrap();
-    assert!(report.images[0]
-        .rgba
-        .chunks_exact(4)
-        .all(|p| p == [0, 255, 255, 255]));
+    assert!(
+        report.images[0]
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p == [0, 255, 255, 255])
+    );
 }
 
 #[test]
@@ -2175,10 +2202,12 @@ fn independent_target_passes_coalesce_without_reordering_blends() {
         } else {
             [159u8, 159, 80, 255]
         };
-        assert!(image
-            .rgba
-            .chunks_exact(4)
-            .all(|p| p.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 2)));
+        assert!(
+            image
+                .rgba
+                .chunks_exact(4)
+                .all(|p| p.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 2))
+        );
     }
 }
 
@@ -2274,7 +2303,10 @@ fn first_seen_shader_frames() {
         std::thread::sleep(std::time::Duration::from_millis(16));
     }
     times.sort_by(f64::total_cmp);
-    eprintln!("first_seen frames=300 new_every=10 p50_ms={:.3} p95_ms={:.3} p99_ms={:.3} max_ms={:.3} skipped={skipped}", times[150],times[285],times[297],times[299]);
+    eprintln!(
+        "first_seen frames=300 new_every=10 p50_ms={:.3} p95_ms={:.3} p99_ms={:.3} max_ms={:.3} skipped={skipped}",
+        times[150], times[285], times[297], times[299]
+    );
     // A final repeated shader must eventually render even in nonblocking mode.
     for _ in 0..200 {
         h.methods(&mut e, &[(0x1618, 0), (0xd78, 1), (0x1614, 0)]);
@@ -2331,9 +2363,11 @@ fn resource_churn_soak() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(1800);
     let label = std::env::var("SOJU_GPU_SOAK_LABEL").unwrap_or_else(|_| "bounded".into());
-    assert!(label
-        .bytes()
-        .all(|b| b.is_ascii_alphanumeric() || b == b'-'));
+    assert!(
+        label
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    );
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("target/soak-{label}"));
     let mut h = Harness::new();
     let (mut e, first) = h.engine("soak", [0., 0., 0., 1.]);
@@ -2495,10 +2529,11 @@ fn parallel_color_passes_preserve_per_target_blend_order() {
     let report = h.backend.readback(&root, &mut h.memory).unwrap();
     assert_eq!(report.images.len(), 2);
     for image in report.images {
-        assert!(image.rgba.chunks_exact(4).all(|p| p
-            .iter()
-            .zip([15u8, 239, 0, 255])
-            .all(|(a, b)| a.abs_diff(b) <= 2)));
+        assert!(image.rgba.chunks_exact(4).all(|p| {
+            p.iter()
+                .zip([15u8, 239, 0, 255])
+                .all(|(a, b)| a.abs_diff(b) <= 2)
+        }));
     }
 }
 
@@ -2595,10 +2630,12 @@ fn pending_pipeline_skips_frame_then_renders() {
         "{stats}"
     );
     let first = h.backend.readback(&root, &mut h.memory).unwrap();
-    assert!(first.images[0]
-        .rgba
-        .chunks_exact(4)
-        .all(|p| p == [0, 0, 0, 255]));
+    assert!(
+        first.images[0]
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p == [0, 0, 0, 255])
+    );
     for _ in 0..200 {
         h.draw(&mut e, 6, false, false);
         let stats = h.backend.submit(&root).unwrap().wait().unwrap();
@@ -2672,10 +2709,12 @@ fn nonindexed_quad_expands_to_two_triangles() {
     let directory = std::env::temp_dir().join(format!("soju-quad-{}", std::process::id()));
     std::fs::create_dir_all(&directory).unwrap();
     let report = h.backend.execute(&directory, &mut h.memory).unwrap();
-    assert!(report.images[0]
-        .rgba
-        .chunks_exact(4)
-        .all(|p| p == [255, 0, 0, 255]));
+    assert!(
+        report.images[0]
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p == [255, 0, 0, 255])
+    );
     std::fs::remove_dir_all(directory).unwrap();
 }
 
@@ -2887,10 +2926,106 @@ fn repeated_program_registration_observes_changed_shader_bytes() {
             .unwrap();
         h.draw(&mut e, 6, false, false);
         let report = h.backend.execute(&directory, &mut h.memory).unwrap();
-        assert!(report.images[0]
-            .rgba
-            .iter()
-            .all(|channel| channel.abs_diff(expected) <= 1));
+        assert!(
+            report.images[0]
+                .rgba
+                .iter()
+                .all(|channel| channel.abs_diff(expected) <= 1)
+        );
     }
     std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn shader_selects_all_sixteen_viewports_and_scissors() {
+    let mut h = Harness::new();
+    let mut header = [0u32; 20];
+    header[0] = 1 | 1 << 10;
+    header[6] = 0x1ff;
+    header[13] = (1 << 10) | (15 << 12) | (15 << 16);
+    let code = [
+        attr(false, 0x80, 0, 4),
+        attr(false, 0x90, 4, 4),
+        attr(false, 0xa0, 8, 1),
+        attr(true, 0x70, 0, 4),
+        attr(true, 0x80, 4, 4),
+        attr(true, 0x68, 8, 1),
+        0xe30000000000000f | PT,
+    ];
+    let mut bytes: Vec<_> = header.into_iter().flat_map(u32::to_le_bytes).collect();
+    for chunk in code.chunks(3) {
+        bytes.extend(0x001f8000fc0007e0u64.to_le_bytes());
+        for word in chunk {
+            bytes.extend(word.to_le_bytes());
+        }
+    }
+    let vs = h.program(bytes);
+    let (mut e, _) = h.engine("viewport-array", [0.; 4]);
+    h.methods(&mut e, &[(0x2044, vs as u32)]);
+    let mut vertices = Vec::new();
+    for index in 0..16u32 {
+        let x = (index % 4) * 8;
+        let y = (index / 4) * 8;
+        let base = 0xa00 + index * 32;
+        h.methods(
+            &mut e,
+            &[
+                (base, (if index % 2 == 0 { 4f32 } else { -4f32 }).to_bits()),
+                (base + 4, 4f32.to_bits()),
+                (base + 8, 1f32.to_bits()),
+                (base + 12, ((x + 4) as f32).to_bits()),
+                (base + 16, ((y + 4) as f32).to_bits()),
+                (base + 20, 0),
+                (0xe00 + index * 16, 1),
+                (0xe04 + index * 16, x | ((x + 8) << 16)),
+                (0xe08 + index * 16, (y + 1) | ((y + 7) << 16)),
+            ],
+        );
+        for mut vertex in quad(-1., -1., 0., 1., 0.5, [1., 0., 0., 1.]) {
+            vertex[8] = f32::from_bits(index);
+            vertices.push(vertex);
+        }
+    }
+    h.vertices(&mut e, &vertices, &[[0.; 4]]);
+    h.draw(&mut e, vertices.len() as u32, false, false);
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/viewport-array");
+    let report = h.backend.execute(&dir, &mut h.memory).unwrap();
+    for (pixel, rgba) in report.images[0].rgba.chunks_exact(4).enumerate() {
+        let x = pixel % 32;
+        let y = pixel / 32;
+        let column = x / 8;
+        let inside_x = if column % 2 == 0 {
+            x % 8 < 4
+        } else {
+            x % 8 >= 4
+        };
+        let expected = if inside_x && (1..7).contains(&(y % 8)) {
+            [255, 0, 0, 255]
+        } else {
+            [0; 4]
+        };
+        assert_eq!(rgba, expected, "pixel {x},{y}");
+    }
+    h.methods(
+        &mut e,
+        &[
+            (0xbe0, 4f32.to_bits()),
+            (0xbec, 12f32.to_bits()),
+            (0xbf0, 4f32.to_bits()),
+            (0xef4, 8 | (16 << 16)),
+            (0xef8, 8 << 16),
+        ],
+    );
+    h.draw(&mut e, vertices.len() as u32, false, false);
+    let report = h.backend.execute(&dir, &mut h.memory).unwrap();
+    for y in 0..8 {
+        for x in 8..12 {
+            let start = (y * 32 + x) * 4;
+            assert_eq!(
+                &report.images[0].rgba[start..start + 4],
+                &[255, 0, 0, 255],
+                "updated viewport 15 at {x},{y}"
+            );
+        }
+    }
 }
