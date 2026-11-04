@@ -696,3 +696,105 @@ fn eight_targets_route_outputs_and_blend_independently() {
     }
     eprintln!("MRT: checked=8192, eight routed targets, independent blending");
 }
+
+#[test]
+fn asynchronous_batches_preserve_depth_stencil_without_cpu_readback() {
+    let mut h = Harness::new();
+    let (mut e, a) = h.engine("persistent", [0., 0., 0., 1.]);
+    let z = h.alloc(vec![0; 8192]);
+    h.methods(
+        &mut e,
+        &[
+            (0xfe4, z as u32),
+            (0xfe8, 0x19),
+            (0x1228, 32),
+            (0x122c, 32),
+            (0x1230, 1),
+            (0x1538, 1),
+            (0xd90, 1f32.to_bits()),
+            (0x19d0, 3),
+            (0x12cc, 1),
+            (0x12e8, 1),
+            (0x130c, 0x201),
+            (0x1380, 1),
+            (0x1384, 0x1e00),
+            (0x1388, 0x1e00),
+            (0x138c, 0x1e01),
+            (0x1390, 0x207),
+            (0x1394, 1),
+            (0x1398, 255),
+            (0x139c, 255),
+        ],
+    );
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 0., 1., 0.25, [1., 0., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/async-checks");
+    let first = h.backend.submit(&root).unwrap();
+    h.methods(&mut e, &[(0x1390, 0x202), (0x138c, 0x1e00), (0x139c, 0)]);
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.75, [0., 0., 1., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    let second = h.backend.submit(&root).unwrap();
+    let sem_address = h.alloc(vec![0; 4]);
+    let mut host = soju_switch_gpu::sync::Host::default();
+    host.method(0x14, sem_address as u32).unwrap();
+    host.method(0x18, 42).unwrap();
+    let release = host.method(0x1c, (1 << 24) | 2).unwrap().unwrap();
+    release.release(first, &mut h.memory).unwrap();
+    assert_eq!(h.memory.read(sem_address, 4).unwrap(), 42u32.to_le_bytes());
+    assert!(host
+        .method(0x1c, 1)
+        .unwrap()
+        .unwrap()
+        .acquired(&h.memory)
+        .unwrap());
+    let mut syncpoint = soju_switch_gpu::sync::Syncpoint::default();
+    syncpoint.complete(second).unwrap();
+    assert_eq!(syncpoint.value, 1);
+    assert!(
+        h.memory.read(a, 4096).unwrap().iter().all(|b| *b == 0),
+        "fence unexpectedly copied image to CPU"
+    );
+    let report = h.backend.readback(&root, &mut h.memory).unwrap();
+    assert_eq!(report.images.len(), 1);
+    for (i, p) in report.images[0].rgba.chunks_exact(4).enumerate() {
+        assert_eq!(
+            p,
+            if i % 32 < 16 {
+                &[255, 0, 0, 255]
+            } else {
+                &[0, 0, 0, 255]
+            }
+        );
+    }
+    // A later batch must retain stencil and allow a nearer fragment only on its marked half.
+    h.vertices(
+        &mut e,
+        &quad(-1., -1., 1., 1., 0.1, [0., 1., 0., 1.]),
+        &[[0.; 4]],
+    );
+    h.draw(&mut e, 6, false, false);
+    let report = h.backend.execute(&root, &mut h.memory).unwrap();
+    for (i, p) in report.images[0].rgba.chunks_exact(4).enumerate() {
+        assert_eq!(
+            p,
+            if i % 32 < 16 {
+                &[0, 255, 0, 255]
+            } else {
+                &[0, 0, 0, 255]
+            }
+        );
+    }
+    assert!(report.diagnostics.contains("pipeline_hits=1"));
+    eprintln!(
+        "persistent depth/stencil and deferred CPU readback: checked=2048; {}",
+        report.diagnostics
+    );
+}

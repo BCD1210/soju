@@ -16,7 +16,6 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write,
     path::Path,
-    process::Command,
 };
 
 #[derive(Default)]
@@ -26,6 +25,8 @@ pub struct Backend {
     commands: Vec<String>,
     files: Vec<Vec<u8>>,
     targets: BTreeMap<String, Target>,
+    worker: Option<crate::worker::Worker>,
+    serial: u64,
 }
 #[derive(Clone)]
 struct Target {
@@ -34,6 +35,8 @@ struct Target {
     height: u32,
     block_height: u32,
     pitch: bool,
+    generation: u64,
+    memory_identity: u64,
 }
 #[derive(Debug)]
 pub struct Readback {
@@ -171,12 +174,14 @@ impl Backend {
                 width > 0 && height > 0 && width <= 16384 && height <= 16384,
                 "invalid render target size",
             )?;
-            let target = Target {
+            let mut target = Target {
                 address: r.address(base),
                 width,
                 height,
                 block_height: (layout >> 4) & 7,
                 pitch,
+                generation: 0,
+                memory_identity: memory.identity,
             };
             let key = format!(
                 "{}-{:x}-d5-{width}-{height}-{layout}",
@@ -198,6 +203,7 @@ impl Backend {
             };
             let file = self.file(initial);
             let generation = memory.generation(target.address, target.size())?;
+            target.generation = generation;
             let target_json=format!("{{\"key\":{},\"width\":{width},\"height\":{height},\"generation\":{generation},\"file\":{file}}}",quote(&key));
             target_jsons.push(target_json);
             batch_targets.insert(key, target);
@@ -224,13 +230,18 @@ impl Backend {
                 "depth target layout mismatch",
             )?;
             format!(
-                "{{\"key\":{},\"format\":{}}}",
+                "{{\"key\":{},\"format\":{},\"generation\":{}}}",
                 quote(&format!(
-                    "{:x}-{width}-{height}-{}",
+                    "{}-{:x}-{width}-{height}-{}",
+                    memory.identity,
                     r.address(0xfe0),
                     r.get(0xfe8)
                 )),
-                r.get(0xfe8)
+                r.get(0xfe8),
+                memory.generation(
+                    r.address(0xfe0),
+                    width as usize * height as usize * if r.get(0xfe8) == 0x19 { 8 } else { 4 }
+                )?
             )
         } else {
             require(
@@ -559,13 +570,18 @@ impl Backend {
         self.targets.extend(batch_targets);
         Ok(())
     }
-    /// Compile the small worker with the installed SDK, execute all queued actions,
-    /// read back every color target, and commit the bytes to guest memory. Call before
-    /// CPU readback, copies involving rendered surfaces, or render-to-texture sampling.
-    /// `directory` must be caller-owned, writable and unused by other executions.
-    pub fn execute(&mut self, directory: &Path, memory: &mut Memory) -> Result<Report> {
+    /// Queue a captured batch on the persistent GPU thread. No image readback occurs.
+    /// The caller must synchronize before CPU/transfer access to pending targets.
+    pub fn submit(&mut self, directory: &Path) -> Result<crate::worker::Fence> {
         require(!self.commands.is_empty(), "empty command batch")?;
-        std::fs::create_dir_all(directory).map_err(io)?;
+        self.serial += 1;
+        let directory = directory.join(format!("batch-{}", self.serial));
+        std::fs::create_dir_all(&directory).map_err(io)?;
+        let directory = std::fs::canonicalize(directory).map_err(io)?;
+        require(
+            !directory.to_string_lossy().contains(['\n', '\t']),
+            "invalid worker directory",
+        )?;
         for (i, data) in self.files.iter().enumerate() {
             std::fs::write(directory.join(format!("resource-{i}.bin")), data).map_err(io)?;
         }
@@ -574,42 +590,40 @@ impl Backend {
             format!("[{}]", self.commands.join(",")),
         )
         .map_err(io)?;
-        std::fs::write(
-            directory.join("worker.swift"),
-            include_str!("../native/worker.swift"),
-        )
-        .map_err(io)?;
-        let binary = directory.join("metal-worker");
-        let build = Command::new("xcrun")
-            .args([
-                "swiftc",
-                "-O",
-                "-framework",
-                "Metal",
-                "-framework",
-                "Foundation",
-            ])
-            .arg(directory.join("worker.swift"))
-            .arg("-o")
-            .arg(&binary)
-            .output()
-            .map_err(io)?;
+        let fence = self
+            .worker
+            .get_or_insert_with(crate::worker::Worker::new)
+            .request("submit", directory)?;
+        self.commands.clear();
+        self.files.clear();
+        Ok(fence)
+    }
+    /// Explicit CPU visibility boundary. Waits for queued work and writes pending
+    /// color targets to guest memory. Fence waits alone never copy image bytes.
+    pub fn readback(&mut self, directory: &Path, memory: &mut Memory) -> Result<Report> {
         require(
-            build.status.success(),
-            &format!(
-                "Swift compilation: {}",
-                String::from_utf8_lossy(&build.stderr)
-            ),
+            self.commands.is_empty(),
+            "submit prepared commands before readback",
         )?;
-        let output = Command::new(&binary).arg(directory).output().map_err(io)?;
+        for t in self.targets.values() {
+            require(
+                memory.identity == t.memory_identity
+                    && memory.generation(t.address, t.size())? == t.generation,
+                "CPU write overlaps pending target; synchronize before writing",
+            )?;
+        }
+        std::fs::create_dir_all(directory).map_err(io)?;
+        let directory = std::fs::canonicalize(directory).map_err(io)?;
         require(
-            output.status.success(),
-            &format!(
-                "Metal execution: {}\n{}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            ),
+            !directory.to_string_lossy().contains(['\n', '\t']),
+            "invalid worker directory",
         )?;
+        let diagnostics = self
+            .worker
+            .as_ref()
+            .ok_or_else(|| Error("no submitted work".into()))?
+            .request("readback", directory.clone())?
+            .wait()?;
         let mut images = Vec::new();
         let mut writes = Vec::new();
         for (key, t) in &self.targets {
@@ -640,7 +654,14 @@ impl Backend {
         self.targets.clear();
         Ok(Report {
             images,
-            diagnostics: String::from_utf8_lossy(&output.stdout).into_owned(),
+            diagnostics,
         })
+    }
+    /// Compatibility wrapper: submit, wait, then make color targets CPU-visible.
+    pub fn execute(&mut self, directory: &Path, memory: &mut Memory) -> Result<Report> {
+        let diagnostics = self.submit(directory)?.wait()?;
+        let mut report = self.readback(directory, memory)?;
+        report.diagnostics = diagnostics;
+        Ok(report)
     }
 }

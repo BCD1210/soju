@@ -20,14 +20,20 @@ func blendFactor(_ v: Int) throws -> MTLBlendFactor {
 func stencilOp(_ v: Int) throws -> MTLStencilOperation {
     switch v {case 1,0x1e00:return .keep;case 2,0:return .zero;case 3,0x1e01:return .replace;case 4,0x1e02:return .incrementClamp;case 5,0x1e03:return .decrementClamp;case 6,0x150a:return .invert;case 7,0x8507:return .incrementWrap;case 8,0x8508:return .decrementWrap;default:throw Failure("stencil op \(v)")}
 }
-func run(_ directory: String) throws {
-    let root = URL(fileURLWithPath: directory)
-    guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else { throw Failure("no default Metal device/queue") }
-    let data = try Data(contentsOf: root.appendingPathComponent("commands.json"))
-    guard let commands = try JSONSerialization.jsonObject(with: data) as? [Object] else { throw Failure("invalid command protocol") }
-    var targets = [String: MTLTexture](), generations = [String: Int](), depths = [String: MTLTexture]()
+final class Worker {
+    let device: MTLDevice
+    let queue: MTLCommandQueue
+    var targets = [String: MTLTexture](), generations = [String: Int](), depths = [String: MTLTexture](), depthGenerations = [String: Int]()
     var pipelines = [String: MTLRenderPipelineState](), depthStates = [String: MTLDepthStencilState]()
     var functions = [String: MTLFunction](), textureCache = [String: MTLTexture]()
+    init() throws {
+        guard let d = MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue() else { throw Failure("no default Metal device/queue") }
+        device = d; queue = q
+    }
+    func run(_ directory: String) throws -> String {
+    let root = URL(fileURLWithPath: directory)
+    let data = try Data(contentsOf: root.appendingPathComponent("commands.json"))
+    guard let commands = try JSONSerialization.jsonObject(with: data) as? [Object] else { throw Failure("invalid command protocol") }
     var pipelineHits = 0, textureHits = 0, draws = 0, clears = 0
     func file(_ name: String) throws -> Data { try Data(contentsOf: root.appendingPathComponent(name)) }
     func buffer(_ name: String) throws -> MTLBuffer {
@@ -74,11 +80,14 @@ func run(_ directory: String) throws {
         if let depth = command["depth"] as? Object {
             let dk = try string(depth,"key")
             depthFormat = number(depth,"format") == 0x19 ? .depth32Float_stencil8 : .depth32Float
+            if depthGenerations[dk] != number(depth,"generation") {
+                depths.removeValue(forKey:dk)
+            }
             if depths[dk] == nil {
                 try need(isClear && mask & 1 != 0 && (depthFormat != .depth32Float_stencil8 || mask & 2 != 0),"new zeta target requires clear before use")
                 let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:depthFormat,width:w,height:h,mipmapped:false)
                 descriptor.storageMode = .private;descriptor.usage = .renderTarget
-                guard let t = device.makeTexture(descriptor:descriptor) else { throw Failure("depth allocation") };depths[dk] = t
+                guard let t = device.makeTexture(descriptor:descriptor) else { throw Failure("depth allocation") };depths[dk] = t; depthGenerations[dk] = number(depth,"generation")
             }
             pass.depthAttachment.texture = depths[dk];pass.depthAttachment.loadAction = isClear && mask & 1 != 0 ? .clear : .load;pass.depthAttachment.storeAction = .store
             pass.depthAttachment.clearDepth = f(0xd90)
@@ -200,11 +209,31 @@ func run(_ directory: String) throws {
         }
         cb.commit();cb.waitUntilCompleted();withExtendedLifetime(retainedSamplers) {};try need(cb.status == .completed,"GPU command failed: \(String(describing:cb.error))")
     }
+    return "device=\(device.name) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
+}
+    func readback(_ directory: String) throws -> String {
+        let root = URL(fileURLWithPath:directory)
     for (key,t) in targets {
         var bytes=[UInt8](repeating:0,count:t.width*t.height*4)
         t.getBytes(&bytes,bytesPerRow:t.width*4,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
         try Data(bytes).write(to:root.appendingPathComponent("\(key).rgba"))
     }
-    print("device=\(device.name) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)")
+        return "readback_targets=\(targets.count)"
+    }
 }
-do {try run(CommandLine.arguments[1])}catch{fputs("\(error)\n",stderr);exit(1)}
+do {
+    let worker = try Worker()
+    if CommandLine.arguments[1] == "--service" {
+        while let line = readLine() {
+            do {
+                let parts = line.split(separator:"\t",maxSplits:1).map(String.init)
+                try need(parts.count == 2,"invalid request")
+                let result = try parts[0] == "submit" ? worker.run(parts[1]) : worker.readback(parts[1])
+                print("OK \(result)"); fflush(stdout)
+            } catch { print("ERROR \(error)"); fflush(stdout) }
+        }
+    } else {
+        print(try worker.run(CommandLine.arguments[1]))
+        print(try worker.readback(CommandLine.arguments[1]))
+    }
+} catch { fputs("\(error)\n",stderr); exit(1) }

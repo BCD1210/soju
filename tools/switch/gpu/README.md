@@ -1,6 +1,6 @@
 # Soju Switch GPU
 
-`soju-switch-gpu` is a clean-room B197 register file and synchronous, headless
+`soju-switch-gpu` is a clean-room B197 register file and persistent, headless
 Metal backend. It consumes original method streams and uses
 `soju-switch-shader` for Maxwell shader translation and `soju-switch-texture`
 for block-linear uploads and color-target writeback. Neither dependency was
@@ -86,7 +86,7 @@ Absent registers and explicit zero agree. Target/buffer addresses, clears,
 draw counts and viewport/scissor are dynamic and do not create new pipelines.
 Some stencil dynamic state is conservatively retained in the key. Native shader
 functions are cached by exact translated source; depth/stencil states share the
-pipeline's state key. Native caches live for one execution batch.
+pipeline's state key. Native caches live for the lifetime of a Backend.
 
 Texture preparation caches deswizzled data by the complete TIC and overlapping
 memory-write generation. Unrelated writes remain cache hits; descriptor changes,
@@ -145,14 +145,12 @@ The existing shader and texture offline suites were also run unchanged.
 
 ## Remaining gaps
 
-- No runner/FIFO/subchannel integration, macro interpreter, fences, semaphores,
-  query/report handling, conditional rendering or compute dispatch in this crate.
+- No runner/FIFO/subchannel integration, macro interpreter, query/report handling,
+  conditional rendering or compute dispatch in this crate.
   Transfer-engine/render ordering is the caller's responsibility.
-- The Swift worker is a synchronous process per batch, recompiles its host helper
-  at execution, and copies resources through files. There is no persistent
-  in-process Metal service, asynchronous scheduling or bounded production cache.
+- Resource uploads still use files; there is no in-process Metal bridge or cache eviction.
 - Zeta contents are device-only within a batch. They are not loaded from or
-  written back to guest memory, nor preserved across `execute` calls; first use
+  written back to guest memory, first use
   requires a clear. This prevents using depth as a texture or preserving it across
   batches. Color padding is reinitialized on block-linear writeback.
 - No MSAA, layered/cube/3D/mipped or sRGB textures, texture swizzles beyond
@@ -179,3 +177,27 @@ has its public header link in `REGISTERS.md`. The pinned NVIDIA extraction scrip
 is a development tool only; tests and builds never fetch sources.
 
 Eight-target routing and independent blending: 8,192 additional pixels checked on Metal.
+
+## Persistent submission API
+
+Existing `program`, `prepare`, and `execute` signatures are unchanged. `submit(directory)`
+returns a `worker::Fence` and queues the captured batch on a bounded GPU worker thread.
+`Fence::wait` reports GPU completion without reading image data. `readback(directory, memory)`
+is the explicit CPU visibility boundary; `execute` wraps submit/wait/readback for old callers.
+Call readback before guest CPU reads, transfer copies, or sampling pending targets. Direct
+`Memory::read` cannot trigger synchronization: the runner must insert this boundary. CPU
+writes over pending targets are detected at readback and rejected, rather than overwritten.
+
+The Swift service, device, attachment cache and state caches persist across submissions.
+Depth/stencil keys include address space, GPU address, format and dimensions. Writes to the
+mapped depth range invalidate its cached contents and currently require a fresh full clear.
+Depth guest-memory import/export is not yet implemented. The service is compiled once per
+Backend. Failed service requests poison the worker; discard the Backend after a failure.
+
+`sync::Host` decodes A06F semaphore methods separately from B197. Acquires return readiness;
+the runner suspends/retries the channel while false. Four-byte WFI releases wait a preceding
+GPU fence before writing their payload. Sixteen-byte/timestamp and non-WFI releases fail.
+`sync::Syncpoint::complete` maps a successful fence to a wrapping completion counter; guest
+syncpoint-ID routing remains the runner's responsibility. Neither operation reads back images.
+Cross-batch depth rejection and stencil preservation check 2,048 pixels, including a third
+batch after color writeback; the same test checks release payload and syncpoint completion.
