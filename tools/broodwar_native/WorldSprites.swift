@@ -1,6 +1,52 @@
 import Cocoa
 import SceneKit
 
+// The original image frame already includes the 17-direction lookup and the
+// mirrored half of the turn. Keep its animation frameset and image-chain order.
+final class UnitBillboard {
+    let root=SCNNode()
+    var layers=[Int:SCNNode](),evidence=[Obj]()
+    init(id:String) {root.name=id}
+    func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites) {
+        let x=number(unit,"x")/32,z=number(unit,"y")/32
+        root.position=SCNVector3(x,ground.elevation(x,z)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
+        root.isHidden=unit["renderHidden"] as? Bool == true || unit["transported"] as? Bool == true
+        root.opacity=unit["cloaked"] as? Bool == true ? 0.45:1
+        let main=unit["image"] as? Obj ?? [:]
+        let chain=(unit["visual"] as? Obj)?["images"] as? [Obj] ?? [main]
+        var keep=Set<Int>();evidence=[]
+        for (index,native) in chain.enumerated() {
+            guard Int(number(native,"flags"))&0x40==0,let id=native["id"] as? Int,
+                let entry=art.images[String(id)],let records=entry["frames"] as? [Obj] else {continue}
+            let frame=Int(number(native,"frame"))
+            guard records.indices.contains(frame),let image=art.texture(id,frame:frame) else {continue}
+            let scale=number(entry,"scale")*32
+            guard scale>0 else {continue}
+            keep.insert(index)
+            let shadow=Int(number(native,"drawfunc"))==10,node=layers[index] ?? SCNNode()
+            let plane=SCNPlane(width:number(entry,"width")/scale,height:number(entry,"height")/scale)
+            let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
+            material.diffuse.contents=image;material.diffuse.wrapS = .clamp;material.diffuse.wrapT = .clamp
+            material.writesToDepthBuffer=false;plane.materials=[material];node.geometry=plane
+            node.castsShadow=false;node.renderingOrder=index
+            if shadow {
+                node.constraints=nil;node.eulerAngles.x = -.pi/2;material.multiply.contents=NSColor.black;node.opacity=0.45
+            } else {
+                node.eulerAngles = SCNVector3Zero;node.opacity=1
+                let constraint=SCNBillboardConstraint();constraint.freeAxes = .all;node.constraints=[constraint]
+            }
+            let anchor=records.first ?? [:]
+            let feet=(number(anchor,"oy")+number(anchor,"h")-number(entry,"height")/2)/scale
+            node.position=SCNVector3(number(native,"offsetX")/32,shadow ? 0.025:feet-number(native,"offsetY")/32,0)
+            node.scale.x=Int(number(native,"flags"))&2 != 0 ? -1:1
+            if layers[index]==nil {layers[index]=node;root.addChildNode(node)}
+            evidence.append(["image":id,"frame":frame,"frameset":number(native,"frameset"),
+                "direction":number(native,"direction"),"mirrored":node.scale.x<0])
+        }
+        for (index,node) in layers where !keep.contains(index) {node.removeFromParentNode();layers.removeValue(forKey:index)}
+    }
+}
+
 // Native image chains drive both independent map sprites and fallback death frames.
 final class WorldSprites {
     let root=SCNNode(),folder=runtime.appendingPathComponent("world-sprites")

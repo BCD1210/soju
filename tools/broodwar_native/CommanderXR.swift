@@ -29,11 +29,12 @@ extension Commander {
         let base=SIMD3<Float>(Float(camera.position.x),Float(camera.position.y),Float(camera.position.z))
         let position=base+body.act((SIMD3<Float>(eye.px,eye.py,eye.pz)-(xrOrigin ?? .zero))*worldUnitsPerMeter)
         if eye.eye==0 {
+            hud.isHidden = !devOverlay
             let center=base+body.act((SIMD3<Float>(eye.headX,eye.headY,eye.headZ)-(xrOrigin ?? .zero))*worldUnitsPerMeter)
             let headRotation=body*simd_quatf(ix:eye.qx,iy:eye.qy,iz:eye.qz,r:eye.qw)
             hud.simdPosition=center+headRotation.act(SIMD3<Float>(0,0.45,-1.5)*worldUnitsPerMeter);hud.simdOrientation=headRotation;hud.simdScale=SIMD3<Float>(repeating:worldUnitsPerMeter)
             let text="Selected: \(selected.count)   Minerals: \(Int(number(state,"minerals")))   Action: \(actionNames[actionMode])\nLeft trigger: select / drag   Right trigger: command   Left grip: scale\n\(notice)"
-            if text != hudText {
+            if devOverlay && text != hudText {
                 hudText=text
                 let size=NSSize(width:1200,height:180),image=NSImage(size:NSSize(width:1200,height:180))
                 image.lockFocus();NSColor.black.withAlphaComponent(0.8).setFill();NSRect(origin:.zero,size:size).fill()
