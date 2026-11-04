@@ -128,3 +128,72 @@ fn invalid_copy_leaves_destination_and_generation_unchanged() {
         );
     }
 }
+
+#[test]
+fn bilinear_half_texel_reduction_averages_four_samples_and_preserves_other_bytes() {
+    for src in [None, Some(0), Some(1), Some(4)] {
+        for dst in [None, Some(0), Some(2), Some(4)] {
+            for alias in [false, true] {
+                let mut m = Memory::default();
+                let mut e = Engine::default();
+                let mut source = vec![0xa5; size(src).max(if alias { size(dst) } else { 0 })];
+                for y in 0..HEIGHT {
+                    for x in 0..WIDTH {
+                        let o = offset(src, x, y);
+                        source[o..o + 4].copy_from_slice(&[
+                            (x * 7) as u8,
+                            (y * 17) as u8,
+                            (x * 11 + y * 13) as u8,
+                            (x ^ y) as u8,
+                        ]);
+                    }
+                }
+                let mut expected = if alias {
+                    source.clone()
+                } else {
+                    vec![0x5a; size(dst)]
+                };
+                for y in 0..7 {
+                    for x in 0..9 {
+                        for c in 0..4 {
+                            let mut sum = 0u16;
+                            for yy in 0..2 {
+                                for xx in 0..2 {
+                                    sum += u16::from(
+                                        source[offset(src, 15 + x * 2 + xx, 3 + y * 2 + yy) + c],
+                                    );
+                                }
+                            }
+                            expected[offset(dst, 5 + x, 3 + y) + c] = ((sum + 2) / 4) as u8;
+                        }
+                    }
+                }
+                m.map(0x1000, source).unwrap();
+                if !alias {
+                    m.map(0x10000, vec![0x5a; size(dst)]).unwrap();
+                }
+                configure(&mut e, &mut m, src, dst, alias);
+                for (r, v) in [
+                    (0x88c, 0x10),
+                    (0x8b8, 9),
+                    (0x8bc, 7),
+                    (0x8c4, 2),
+                    (0x8cc, 2),
+                    (0x8d0, 0x80000000),
+                    (0x8d4, 15),
+                    (0x8d8, 0x80000000),
+                    (0x8dc, 3),
+                ] {
+                    e.method(TWOD, r, v, &mut m).unwrap();
+                }
+                let address = if alias { 0x1000 } else { 0x10000 };
+                assert_eq!(m.read(address, expected.len()).unwrap(), expected);
+                let revision = m.revision();
+                e.method(TWOD, 0x88c, 0x11, &mut m).unwrap();
+                assert!(e.method(TWOD, 0x8dc, 3, &mut m).is_err());
+                assert_eq!(m.revision(), revision);
+                assert_eq!(m.read(address, expected.len()).unwrap(), expected);
+            }
+        }
+    }
+}

@@ -55,8 +55,9 @@ impl Layout {
     }
 }
 
-pub(crate) fn copy(r: &Registers, memory: &mut Memory, rect: [u32; 6]) -> Result<()> {
+pub(crate) fn copy(r: &Registers, memory: &mut Memory, rect: [u32; 6], scale: u32) -> Result<()> {
     let [dx, dy, w, h, sx, sy] = rect.map(|v| v as usize);
+    let scale = scale as usize;
     let src = Layout::new(r, 0x230)?;
     let dst = Layout::new(r, 0x200)?;
     let source = memory.read(r.address(0x250), src.size)?;
@@ -65,9 +66,22 @@ pub(crate) fn copy(r: &Registers, memory: &mut Memory, rect: [u32; 6]) -> Result
     let mut destination = memory.read(r.address(0x220), dst.size)?.to_vec();
     for y in 0..h {
         for x in 0..w {
-            let from = src.offset(sx + x, sy + y);
+            let from = src.offset(sx + x * scale, sy + y * scale);
             let to = dst.offset(dx + x, dy + y);
-            destination[to..to + 4].copy_from_slice(&source[from..from + 4]);
+            if scale == 1 {
+                destination[to..to + 4].copy_from_slice(&source[from..from + 4]);
+            } else {
+                let offsets = [
+                    from,
+                    src.offset(sx + x * 2 + 1, sy + y * 2),
+                    src.offset(sx + x * 2, sy + y * 2 + 1),
+                    src.offset(sx + x * 2 + 1, sy + y * 2 + 1),
+                ];
+                for channel in 0..4 {
+                    let sum: u16 = offsets.iter().map(|o| u16::from(source[o + channel])).sum();
+                    destination[to + channel] = ((sum + 2) / 4) as u8;
+                }
+            }
         }
     }
     memory.write(r.address(0x220), &destination)

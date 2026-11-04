@@ -174,3 +174,19 @@ stencil preservation, and re-import followed by depth-only clear. The full GPU
 run passes 34 active render tests (five existing ignored), native cache checks,
 13 state tests and two copy tests. Example06 advances from the MSAA setup stop
 to the separate 902D compression/resolve path; scene acceptance is still pending.
+
+## 902D four-sample resolve
+
+The pinned cl902d.h defines the centered bilinear filter, 32.32 source origins
+and derivatives. The implemented reduction uses half-texel origins, derivative
+two on both axes, and four equal byte-domain weights. Other scaling/filter
+combinations fail explicitly. The logical virtual target storage does not
+expose physical compression metadata; the 902D destination compression hint
+therefore does not alter texel addressing. Existing clipping/key/zeta checks
+remain in force.
+
+The copy oracle covers 32 pitched/block-linear source/destination and alias
+combinations, preservation outside the rectangle, rounding, and invalid-filter
+atomicity. Example06 passes 921,600 source-derived pixel comparisons at tick
+zero, including exact coverage alpha for 1,580 partial edge pixels. Its native
+run uses Metal API validation. Four-sample sRGB storage is not yet enabled.

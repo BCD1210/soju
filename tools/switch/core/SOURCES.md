@@ -247,3 +247,12 @@ an explicit desktop capability policy, not a claim that native hardware returns
 that same result for every radio failure. No peers, addresses or successful
 transmissions are fabricated. Module-specific unavailable-radio error mapping
 remains unverified. Both public networking examples reached three frames.
+
+### Four-sample rendering and resolve
+
+The B197 MODE_2X2/sample-position controls and 902D centered bilinear copy
+controls follow the NVIDIA public headers cited in the GPU source ledger.
+The runner retains sample state through clear/draw normalization and flushes
+attachment ownership when sample storage changes. Example06 is accepted by
+`tests/gpu_msaa.rs` against its public source's initial cube transform, gradient
+and four programmed sample locations (921,600 pixels, 1,580 coverage edges).

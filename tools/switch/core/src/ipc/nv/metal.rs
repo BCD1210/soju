@@ -477,12 +477,11 @@ impl Renderer {
             }
             if class == 0x902d {
                 let mask = match method {
-                    0x260 | 0x290 | 0x29c | 0x2b8 | 0x888 => Some(1),
+                    0x260 | 0x290 | 0x29c | 0x2b8 | 0x888 | 0x2d4 => Some(1),
                     0x104 => Some(0x1ffffff),
                     0x108 => Some(u32::MAX),
                     0x884 => Some(0x3ff),
                     0x880 => Some(7),
-                    0x88c => Some(0x11),
                     0x264 | 0x2a0 => Some(0xff),
                     0x26c | 0x294 => Some(7),
                     0x268 | 0x280..=0x28c | 0x298 | 0x2a4 | 0x2a8 => Some(u32::MAX),
@@ -492,6 +491,8 @@ impl Renderer {
                     if method % 4 != 0 || value & !mask != 0 {
                         return Err(Error::Malformed("Metal 902D initialization field"));
                     }
+                    // Virtual render targets expose logical texels; destination compression
+                    // is a host allocation choice and does not change these copy results.
                     self.twod.insert(method, value);
                     trace.accepted = true;
                     continue;
@@ -500,7 +501,6 @@ impl Renderer {
                     && (self.twod.get(&0x290).copied().unwrap_or(0) != 0
                         || self.twod.get(&0x29c).copied().unwrap_or(0) != 0
                         || self.twod.get(&0x2b8).copied().unwrap_or(0) != 0
-                        || self.twod.get(&0x88c).copied().unwrap_or(0) & 0x10 != 0
                         || self.twod.get(&0x26c).copied().unwrap_or(1) != 1)
                 {
                     return Err(Error::Malformed(

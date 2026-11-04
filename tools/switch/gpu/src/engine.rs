@@ -1,5 +1,5 @@
 //! Ordered method writes. Offsets use NVIDIA byte units; FIFO decoding is caller-owned.
-use crate::{memory::Memory, registers, require, Error, Result};
+use crate::{Error, Result, memory::Memory, registers, require};
 use std::collections::BTreeMap;
 pub const B197: u32 = 0xb197;
 pub const A140: u32 = 0xa140;
@@ -256,9 +256,9 @@ impl Engine {
         Ok(())
     }
     fn copy(&mut self, offset: u32, value: u32, memory: &mut Memory) -> Result<()> {
-        // RGBA8 SRCCOPY, integer source origin and unity derivatives.
+        // RGBA8 SRCCOPY: unity point copy or a centered 2x2 bilinear reduction.
         require(
-            matches!(offset,0x200..=0x224|0x230..=0x254|0x2ac|0x8b0..=0x8dc),
+            matches!(offset,0x200..=0x224|0x230..=0x254|0x2ac|0x88c|0x8b0..=0x8dc),
             "unsupported 902D method",
         )?;
         self.copy.0.insert(offset, value);
@@ -267,20 +267,28 @@ impl Engine {
         }
         let r = &self.copy;
         require(
-            r.get(0x200) == 0xd5
-                && r.get(0x230) == 0xd5
-                && r.get(0x2ac) == 3,
+            r.get(0x200) == 0xd5 && r.get(0x230) == 0xd5 && r.get(0x2ac) == 3,
             "902D requires RGBA8 SRCCOPY",
         )?;
+        let unity = r.get(0x88c) & !1 == 0
+            && r.get(0x8c0) == 0
+            && r.get(0x8c4) == 1
+            && r.get(0x8c8) == 0
+            && r.get(0x8cc) == 1
+            && r.get(0x8d0) == 0
+            && r.get(0x8d8) == 0;
+        let reduce = r.get(0x88c) == 0x10
+            && r.get(0x8c0) == 0
+            && r.get(0x8c4) == 2
+            && r.get(0x8c8) == 0
+            && r.get(0x8cc) == 2
+            && r.get(0x8d0) == 0x80000000
+            && r.get(0x8d8) == 0x80000000;
         require(
-            r.get(0x8c0) == 0
-                && r.get(0x8c4) == 1
-                && r.get(0x8c8) == 0
-                && r.get(0x8cc) == 1
-                && r.get(0x8d0) == 0
-                && r.get(0x8d8) == 0,
-            "902D scaling/fractional origins unsupported",
+            unity || reduce,
+            "902D scaling/filter/origin combination unsupported",
         )?;
+        let scale = if reduce { 2 } else { 1 };
         require(
             r.get(0x20c) == 1 && r.get(0x23c) == 1 && r.get(0x210) == 0,
             "902D requires nonlayered 2D surfaces",
@@ -298,10 +306,14 @@ impl Engine {
                 && h > 0
                 && dx.checked_add(w).is_some_and(|v| v <= r.get(0x218))
                 && dy.checked_add(h).is_some_and(|v| v <= r.get(0x21c))
-                && sx.checked_add(w).is_some_and(|v| v <= r.get(0x248))
-                && sy.checked_add(h).is_some_and(|v| v <= r.get(0x24c)),
+                && w.checked_mul(scale)
+                    .and_then(|n| sx.checked_add(n))
+                    .is_some_and(|v| v <= r.get(0x248))
+                && h.checked_mul(scale)
+                    .and_then(|n| sy.checked_add(n))
+                    .is_some_and(|v| v <= r.get(0x24c)),
             "902D rectangle bounds",
         )?;
-        super::copy_surface::copy(r, memory, [dx, dy, w, h, sx, sy])
+        super::copy_surface::copy(r, memory, [dx, dy, w, h, sx, sy], scale)
     }
 }
