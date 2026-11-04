@@ -16,6 +16,10 @@ extension Commander {
         }
         var payload=choice.payload
         payload["units"]=["move","attack_move","stop","hold","patrol","gather","repair"].contains(payload["op"] as? String ?? "") ? selected:Array(selected.prefix(1))
+        if payload["op"] as? String == "addon" {
+            payload["tileX"]=Int((number(unit,"x")-number(unit,"footprintWidth")/2)/32)+4
+            payload["tileY"]=Int((number(unit,"y")-number(unit,"footprintHeight")/2)/32)+1
+        }
         switch choice.target {
         case .none:break
         case .unit:
@@ -25,7 +29,9 @@ extension Commander {
             let point=Terrain3D.mapPosition(hit.worldCoordinates)
             if choice.target == .rally,let id=hit.unitID {payload["target"]=id}
             else if ["build","addon","land"].contains(payload["op"] as? String ?? "") {
-                payload["tileX"]=max(0,Int(point.x)-1);payload["tileY"]=max(0,Int(point.z)-1)
+                let kind=Int(number(payload,"type")),dat=wrists.card.costs[kind] ?? [:]
+                payload["tileX"]=max(0,Int(floor(Double(point.x)-number(dat,"footprintWidth")/64)))
+                payload["tileY"]=max(0,Int(floor(Double(point.z)-number(dat,"footprintHeight")/64)))
             } else {payload["x"]=max(0,Int(point.x*32));payload["y"]=max(0,Int(point.z*32))}
         }
         command(payload);wrists.pending=nil

@@ -21,7 +21,7 @@ final class UnitBillboard {
         let sameTeam=team==color
         self.unit=unit;team=color
         let x=number(unit,"x")/32,z=number(unit,"y")/32
-        root.position=Terrain3D.worldPosition(x,ground.elevation(x,z)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
+        root.position=Terrain3D.worldPosition(x,ground.buildingElevation(unit)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
         root.isHidden=unit["renderHidden"] as? Bool == true || unit["transported"] as? Bool == true
         root.opacity=unit["cloaked"] as? Bool == true ? 0.45:1
         let main=unit["image"] as? Obj ?? [:]

@@ -140,14 +140,14 @@ extension Commander {
                     models[id]=instance;nodes[id]=instance.root;world.rootNode.addChildNode(instance.root)
                 }
                 for e in events where e["kind"] as? String == "attack" && e["unit"] as? String == id {instance.attackUntilFrame=number(s,"frame")+5}
-                instance.apply(u,height:ground.elevation(number(u,"x")/32,number(u,"y")/32),frame:number(s,"frame"))
+                instance.apply(u,height:ground.buildingElevation(u),frame:number(s,"frame"))
                 let colors=s["playerColors"] as? [[Int]] ?? [],owner=Int(number(u,"owner"))
                 if colors.indices.contains(owner),colors[owner].prefix(3).contains(where:{$0>0}) {instance.teamColor(colors[owner])}
                 else if Models3D.playerColors.indices.contains(owner) {instance.teamColor(Models3D.playerColors[owner])}
             } catch {
                 if modelLibrary.errors[kind]==nil { modelLibrary.errors[kind]=String(describing:error) }
                 if let old=models[id],old.kind==kind {
-                    old.apply(u,height:ground.elevation(number(u,"x")/32,number(u,"y")/32),frame:number(s,"frame"))
+                    old.apply(u,height:ground.buildingElevation(u),frame:number(s,"frame"))
                 } else {
                     unsupported.insert(kind)
                     let billboard=billboards[id] ?? UnitBillboard(id:id)

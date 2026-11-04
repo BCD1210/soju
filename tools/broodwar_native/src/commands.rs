@@ -48,6 +48,7 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
             let kind = UnitId(id);
             json!({"id":id,"mineralCost":kind.mineral_cost(),"gasCost":kind.gas_cost(),
                 "supplyCost":kind.supply_cost(),"buildTime":kind.build_time(),
+                "footprintWidth":kind.placement().width,"footprintHeight":kind.placement().height,
                 "building":kind.is_building(),"worker":kind.is_worker(),
                 "race":kind.primary_race().map(|race|race.id())})
         }).collect();

@@ -44,6 +44,20 @@ final class Terrain3D {
         let c=profile((ix+1)/16,(iy+1)/16),d=profile((ix+1)/16,iy/16)
         return fy>=fx ? a*(1-fy)+b*(fy-fx)+c*fx:a*(1-fx)+c*fy+d*(fx-fy)
     }
+    func buildingElevation(_ unit:Obj)->Double {
+        let x=number(unit,"x")/32,z=number(unit,"y")/32
+        guard unit["building"] as? Bool == true,unit["airborne"] as? Bool != true else {return elevation(x,z)}
+        let halfWidth=number(unit,"footprintWidth")/64,halfHeight=number(unit,"footprintHeight")/64
+        guard halfWidth>0,halfHeight>0 else {return elevation(x,z)}
+        // Support the native placement rectangle, including its interior. A
+        // center-only sample lets a sloped corner cut through the building.
+        var support=elevation(x,z)
+        let columns=max(1,Int(ceil(halfWidth*8))),rows=max(1,Int(ceil(halfHeight*8)))
+        for row in 0...rows {for column in 0...columns {
+            support=max(support,elevation(x-halfWidth+2*halfWidth*Double(column)/Double(columns),z-halfHeight+2*halfHeight*Double(row)/Double(rows)))
+        }}
+        return support
+    }
     func walkable(_ x:Double,_ z:Double)->Bool {
         x>=0 && z>=0 && x<Double(width)/4 && z<Double(height)/4 && flags[index(Int(x*4),Int(z*4))]&1 != 0
     }

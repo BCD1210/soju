@@ -50,6 +50,7 @@ pub unsafe fn unit_info(ptr:*mut Unit,all:&HashSet<usize>,player:usize,details:b
         "movementDirection":u.flingy.movement_direction,"speed":u.flingy.current_speed,
         "hp":u.flingy.hitpoints as f64/256.0,"maxHP":kind.hitpoints() as f64/256.0,
         "shields":u.shields as f64/256.0,"maxShields":kind.shields() as f64/256.0,"energy":u.energy as f64/256.0,
+        "footprintWidth":kind.placement().width,"footprintHeight":kind.placement().height,
         "completed":u.flags&1!=0,"order":u.order,"orderState":u.order_state,"secondaryOrder":u.secondary_order,
         "target":target_id((*turret).order_target.unit,all,player),
         "targetX":(*turret).order_target.pos.x,"targetY":(*turret).order_target.pos.y,

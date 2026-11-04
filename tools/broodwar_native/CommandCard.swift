@@ -68,7 +68,7 @@ final class CommandCard {
             154:[64],160:[65,66,67,61],155:[69,83,84],167:[70,71,72,60],130:[50]]
         let morphs:[Int:[Int]]=[35:[41,37,38,43,45,46,42,39,47],38:[103],43:[44,62],131:[132],132:[133],141:[137],143:[144,146]]
         let addons:[Int:[Int]]=[106:[107,108],113:[120],114:[115],116:[117,118]]
-        for (operation,table,target) in [("build",builds,CommandTarget.ground),("train",trains,.none),("morph",morphs,.none),("addon",addons,.ground)] {
+        for (operation,table,target) in [("build",builds,CommandTarget.ground),("train",trains,.none),("morph",morphs,.none),("addon",addons,.none)] {
             for type in table[kind] ?? [] {
                 let dat=costs[type] ?? [:]
                 let cost=costs[type]==nil ? "": " \(Int(number(dat,"mineralCost")))/\(Int(number(dat,"gasCost")))"
