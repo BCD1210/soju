@@ -101,6 +101,8 @@ final class Worker {
         device = d; queue = q; compiler = sharedCompiler ?? RenderCompiler(d)
     }
     func run(_ commands: UnsafeBufferPointer<Command>, _ resources: UnsafeBufferPointer<SpanByte>, _ constants: SpanByte) throws -> String {
+    let encoding = NativeSpan("native_run")
+    defer { encoding.end() }
     let parseStarted=ProcessInfo.processInfo.systemUptime
     var clearPipelines = [UInt: MTLRenderPipelineState]()
     var pipelineHits = 0, textureHits = 0, draws = 0, clears = 0, encoderCount = 0, bufferCount = 0, depthHits = 0
@@ -162,6 +164,8 @@ final class Worker {
     func flush() throws {
         endPass()
         if let pending=cb {
+            let completion = NativeSpan("gpu_completion")
+            defer { completion.end() }
             let waitStarted = ProcessInfo.processInfo.systemUptime
             pending.commit();pending.waitUntilCompleted()
             gpuWait += ProcessInfo.processInfo.systemUptime - waitStarted
@@ -184,6 +188,8 @@ final class Worker {
     var buffers = [String: MTLBuffer](), fileFunctions = [String: MTLFunction]()
     func buffer(_ name: String) throws -> MTLBuffer {
         if let b = buffers[name] { return b }
+        let upload = NativeSpan("buffer_upload")
+        defer { upload.end() }
         let span = try resource(name)
         // Rust captures are page-aligned, padded, immutable, and owned until GPU completion.
         guard span.length > 0, let pointer = span.pointer,
@@ -615,6 +621,8 @@ final class Worker {
     return "merged_depth_draws=\(depthPlans.count) skipped_draws=\(skippedDraws) pass_hits=\(passHits) encoding_seconds=\(elapsed-gpuWait) gpu_wait_seconds=\(gpuWait) state_binds=\(stateBinds) offset_writes=\(offsetWrites) encoders=\(encoderCount) command_buffers=\(bufferCount) depth_hits=\(depthHits) parse_seconds=\(started-parseStarted) seconds=\(elapsed) draws_per_second=\(Double(draws)/max(elapsed,0.000001)) device=\(device.name) dispatches=\(dispatches) draws=\(draws) clears=\(clears) pipelines=\(pipelines.count) pipeline_hits=\(pipelineHits) textures=\(textureCache.count) texture_hits=\(textureHits)"
 }
     func readback(_ directory: String, receive: ((String, Data) -> Void)? = nil) throws -> String {
+        let readback = NativeSpan("native_readback")
+        defer { readback.end() }
         let root = URL(fileURLWithPath:directory)
         func output(_ name: String, _ bytes: Data) throws {
             if let receive { receive(name, bytes) }
@@ -698,6 +706,7 @@ public func sojuReadback(_ pointer: UnsafeMutableRawPointer, _ directory: Unsafe
                 }
             }
             worker.finishReadback()
+            if NativeSpan.enabled { FileHandle.standardError.write(Data(("profile-native|" + NativeSpan.report() + "\n").utf8)) }
             return strdup("OK " + result + " " + (try worker.trimCaches()))
         }
         catch { return strdup("ERROR \(error)") }

@@ -117,3 +117,20 @@ per-draw first/count and independently captured constant offsets.
 120-frame run: 4.451 seconds overall, prepare 1156.137 ms. All 29 GPU render tests
 passed with Metal validation, including a new varying-first/count pixel oracle
 and an out-of-bounds rejection. Sustained 60 fps is still not established.
+
+## Native stage counters
+
+Opt-in native intervals now separate source compilation, pipeline creation, shared
+buffer imports, command-buffer completion and native readback. Rust separately
+counts translation and draw-reference hits. In the ten-frame detailed run there
+were exactly two shader translations, one native shader-pair compilation and one
+pipeline creation; neither count grew on subsequent frames. The 2,610 draw
+references reused validated state out of 2,800 draws. Native counters are
+cumulative and inclusive; native-run includes compilation and GPU completion.
+
+The baseline Time Profiler exported 19,554 sampled CPU milliseconds: leaf samples
+included 3,954 ms in target writeback, 3,161 ms in memory moves, 2,031 ms in byte
+hashing and 809 ms in deswizzle. These are statistical CPU samples, not wall-time
+partitions. The Metal trace's application intervals filtered to the runner show
+2,820 encoding intervals totaling 2,529.764 ms; the trace contains system activity
+and must be filtered by runner PID/name before attribution.

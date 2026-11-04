@@ -25,6 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut source = String::new();
     for name in [
         "protocol.swift",
+        "profile.swift",
         "worker.swift",
         "pipeline_cache.swift",
         "memory_cache.swift",

@@ -21,8 +21,10 @@ pub enum Stage {
     Readback,
     Commit,
     Present,
+    ShaderTranslation,
+    DrawReference,
 }
-const NAMES: [&std::ffi::CStr; 13] = [
+const NAMES: [&std::ffi::CStr; 15] = [
     c"guest",
     c"rendezvous",
     c"svc",
@@ -36,9 +38,11 @@ const NAMES: [&std::ffi::CStr; 13] = [
     c"readback",
     c"commit",
     c"present",
+    c"shader_translation",
+    c"draw_reference",
 ];
-static NS: [AtomicU64; 13] = [const { AtomicU64::new(0) }; 13];
-static CALLS: [AtomicU64; 13] = [const { AtomicU64::new(0) }; 13];
+static NS: [AtomicU64; 15] = [const { AtomicU64::new(0) }; 15];
+static CALLS: [AtomicU64; 15] = [const { AtomicU64::new(0) }; 15];
 pub fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| std::env::var_os("SOJU_PROFILE").is_some())

@@ -23,10 +23,13 @@ final class RenderCompiler {
     }
     func digest(_ bytes: Data) -> String { SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() }
     func compile(_ key: String, _ descriptor: MTLRenderPipelineDescriptor, _ vertex: String, _ fragment: String) throws -> CompiledRender {
+        let compilation = NativeSpan("shader_compile")
+        defer { compilation.end() }
         let options = MTLCompileOptions(); options.mathMode = .safe
         let vl = try device.makeLibrary(source: vertex, options: options)
         let fl = try device.makeLibrary(source: fragment, options: options)
         guard let vs = vl.makeFunction(name: "soju_vertex"), let fs = fl.makeFunction(name: "soju_fragment") else { throw Failure("render entry missing") }
+        compilation.end()
         descriptor.vertexFunction = vs; descriptor.fragmentFunction = fs
         // The stable guest key plus exact translated sources, options, OS and GPU
         // names scope archives across translator/compiler/device changes.
@@ -48,6 +51,8 @@ final class RenderCompiler {
             if archive == nil { archive = try? device.makeBinaryArchive(descriptor: MTLBinaryArchiveDescriptor()) }
             if let archive { descriptor.binaryArchives = [archive] }
         }
+        let creation = NativeSpan("pipeline_creation")
+        defer { creation.end() }
         let pipeline: MTLRenderPipelineState
         do { pipeline = try device.makeRenderPipelineState(descriptor: descriptor) }
         catch {

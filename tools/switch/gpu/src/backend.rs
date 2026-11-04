@@ -361,7 +361,9 @@ impl Backend {
         let bytes = memory.read(address, *size)?;
         let header = Header::parse(bytes).map_err(io)?;
         require(header.stage == stage, "pipeline stage/SPH mismatch")?;
+        let translation = crate::profile::span(crate::profile::Stage::ShaderTranslation);
         let shader = soju_switch_shader::translate(bytes, options).map_err(io)?;
+        drop(translation);
         // MSL includes normalized resource ABI and all compiler-facing translation inputs.
         let key = Key::new(Inputs {
             program: bytes,
@@ -401,7 +403,7 @@ impl Backend {
                 return Ok(());
             }
         }
-        if let Some(variant) = self.variants.iter_mut().find(|v| {
+        if let Some(variant) = self.variants.iter_mut().rev().find(|v| {
             v.epoch.0 == memory.identity
                 && v.state.constants == *bindings
                 && ((v.state.registers == *r && v.state.action == *action)
@@ -412,6 +414,7 @@ impl Backend {
                         .iter()
                         .all(|&(a, n, g)| memory.generation(a, n) == Ok(g)))
         }) {
+            let _reference = crate::profile::span(crate::profile::Stage::DrawReference);
             let template = &self.commands[variant.index];
             let mut command = Command {
                 kind: 5,

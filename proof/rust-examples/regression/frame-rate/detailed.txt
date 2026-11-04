@@ -1,0 +1,34 @@
+gpu-noop|0xb197|0x1330|0x00000000|count=1
+profile-native|gpu_completion_calls=1 gpu_completion_ms=16.329250065609813 native_readback_calls=1 native_readback_ms=3.4607499837875366 native_run_calls=1 native_run_ms=20.315541652962565
+gpu-noop|0xb197|0x021c|0x00001011|count=1
+gpu-noop|0xb197|0x021c|0x00001011|count=2
+gpu-noop|0xb197|0x021c|0x00001011|count=3
+gpu-noop|0xb197|0x0360|0x20164010|count=1
+gpu-noop|0xb197|0x0364|0x00000020|count=1
+profile-native|buffer_upload_calls=19 buffer_upload_ms=0.12395833618938923 gpu_completion_calls=2 gpu_completion_ms=18.05845834314823 native_readback_calls=2 native_readback_ms=6.011833203956485 native_run_calls=2 native_run_ms=30.502291629090905 pipeline_creation_calls=1 pipeline_creation_ms=2.213125117123127 shader_compile_calls=1 shader_compile_ms=1.3124165125191212
+frame|1280x720|/Users/mikekim/Projects/soju-switch-core/dist/frame-profile/detail.png
+profile-native|buffer_upload_calls=38 buffer_upload_ms=0.24004117585718632 gpu_completion_calls=3 gpu_completion_ms=19.876291742548347 native_readback_calls=3 native_readback_ms=8.557541528716683 native_run_calls=3 native_run_ms=34.83808320015669 pipeline_creation_calls=1 pipeline_creation_ms=2.213125117123127 shader_compile_calls=1 shader_compile_ms=1.3124165125191212
+profile-native|buffer_upload_calls=57 buffer_upload_ms=0.34987437538802624 gpu_completion_calls=4 gpu_completion_ms=20.98525012843311 native_readback_calls=4 native_readback_ms=10.594749823212624 native_run_calls=4 native_run_ms=38.27812499366701 pipeline_creation_calls=1 pipeline_creation_ms=2.213125117123127 shader_compile_calls=1 shader_compile_ms=1.3124165125191212
+profile-native|buffer_upload_calls=76 buffer_upload_ms=0.4934994503855705 gpu_completion_calls=5 gpu_completion_ms=23.754708468914032 native_readback_calls=5 native_readback_ms=12.537541566416621 native_run_calls=5 native_run_ms=43.880208395421505 pipeline_creation_calls=1 pipeline_creation_ms=2.213125117123127 shader_compile_calls=1 shader_compile_ms=1.3124165125191212
+profile-native|buffer_upload_calls=95 buffer_upload_ms=0.619916245341301 gpu_completion_calls=6 gpu_completion_ms=26.64816682226956 native_readback_calls=6 native_readback_ms=14.792999951168895 native_run_calls=6 native_run_ms=49.16316666640341 pipeline_creation_calls=1 pipeline_creation_ms=2.213125117123127 shader_compile_calls=1 shader_compile_ms=1.3124165125191212
+profile-native|buffer_upload_calls=114 buffer_upload_ms=0.7230828050523996 gpu_completion_calls=7 gpu_completion_ms=28.351500164717436 native_readback_calls=7 native_readback_ms=17.91375013999641 native_run_calls=7 native_run_ms=53.09695820324123 pipeline_creation_calls=1 pipeline_creation_ms=2.213125117123127 shader_compile_calls=1 shader_compile_ms=1.3124165125191212
+profile-native|buffer_upload_calls=133 buffer_upload_ms=0.8582493755966425 gpu_completion_calls=8 gpu_completion_ms=29.494500253349543 native_readback_calls=8 native_readback_ms=19.996041897684336 native_run_calls=8 native_run_ms=56.47541652433574 pipeline_creation_calls=1 pipeline_creation_ms=2.213125117123127 shader_compile_calls=1 shader_compile_ms=1.3124165125191212
+profile-native|buffer_upload_calls=152 buffer_upload_ms=0.9640420321375132 gpu_completion_calls=9 gpu_completion_ms=30.201666988432407 native_readback_calls=9 native_readback_ms=21.81870862841606 native_run_calls=9 native_run_ms=59.245833195745945 pipeline_creation_calls=1 pipeline_creation_ms=2.213125117123127 shader_compile_calls=1 shader_compile_ms=1.3124165125191212
+profile-native|buffer_upload_calls=171 buffer_upload_ms=1.0682500433176756 gpu_completion_calls=10 gpu_completion_ms=30.746750300750136 native_readback_calls=10 native_readback_ms=23.578208638355136 native_run_calls=10 native_run_ms=61.9140830822289 pipeline_creation_calls=1 pipeline_creation_ms=2.213125117123127 shader_compile_calls=1 shader_compile_ms=1.3124165125191212
+profile-native|buffer_upload_calls=190 buffer_upload_ms=1.1810834985226393 gpu_completion_calls=11 gpu_completion_ms=31.49079205468297 native_readback_calls=11 native_readback_ms=25.950750336050987 native_run_calls=11 native_run_ms=65.11895824223757 pipeline_creation_calls=1 pipeline_creation_ms=2.213125117123127 shader_compile_calls=1 shader_compile_ms=1.3124165125191212
+profile|guest|calls=702|ms=17.204004
+profile|rendezvous|calls=1765|ms=0.068096
+profile|svc|calls=281|ms=170.918330
+profile|ipc|calls=204|ms=640.437884
+profile|decode|calls=11|ms=0.306376
+profile|snapshot|calls=11|ms=47.141457
+profile|macro|calls=5|ms=0.005457
+profile|shader_discovery|calls=2800|ms=2.148875
+profile|prepare|calls=2810|ms=111.165269
+profile|submit|calls=11|ms=312.184417
+profile|readback|calls=11|ms=102.214250
+profile|commit|calls=11|ms=11.614876
+profile|present|calls=10|ms=9.325040
+profile|shader_translation|calls=2|ms=0.138166
+profile|draw_reference|calls=2610|ms=0.742870
+frames|10|seconds=0.850450
