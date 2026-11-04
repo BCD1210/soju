@@ -9,6 +9,7 @@ publish = false
 soju-switch-fs = { path = "../fs" }
 soju-switch-audio = { path = "../audio" }
 soju-switch-input = { path = "../input" }
+png = "0.18.1"
 base64 = "0.22.1"
 libc = "0.2.191"
 serde = { version = "1.0.229", features = ["derive"] }

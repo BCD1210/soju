@@ -3,6 +3,16 @@ use std::{fs::File, process::ExitCode};
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    #[cfg(all(feature = "hv", target_os = "macos", target_arch = "aarch64"))]
+    if args.first().is_some_and(|arg| arg == "--headless") {
+        return match soju_switch_core::headless::run(&args[1..]) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("soju-switch-core: {error}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     #[cfg(all(feature = "desktop", target_os = "macos", target_arch = "aarch64"))]
     if args.len() == 2 && args[0] == "--play" {
         let home = std::env::var_os("SOJU_SWITCH_HOME")
@@ -26,7 +36,7 @@ fn main() -> ExitCode {
     }
     if args.len() != 1 {
         eprintln!(
-            "usage: soju-switch-core <homebrew.nro> (validate; desktop builds also accept --play <homebrew.nro>)"
+            "usage: soju-switch-core <homebrew.nro> (validate); --headless <nro> --frames N --capture <png> [--inputs script.json] (hv); --play <nro> (desktop)"
         );
         return ExitCode::from(2);
     }
