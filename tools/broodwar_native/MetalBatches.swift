@@ -112,8 +112,8 @@ final class MetalBatches {
         }
     }
 
-    private let groupCache=ResidentCache<(SCNGeometrySource,Batch)>(limit:128*1024*1024)
-    let textures=ResidentCache<(NSImage,MTLTexture)>(limit:512*1024*1024)
+    private let groupCache=ResidentCache<(SCNGeometrySource,Batch)>(limit:96*1024*1024)
+    let textures=ResidentCache<(NSImage,MTLTexture)>(limit:128*1024*1024)
     var ready=false,draws=0,visible=0,culled=0,lodCount=0
     var sourceRevision = -1,terrainRevision = -1,terrainFogRevision = -1
     private var terrainPages=[([SCNNode],Int)]()
