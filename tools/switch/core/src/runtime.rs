@@ -359,7 +359,10 @@ impl Runtime {
                     };
                     self.profile.svc += started.elapsed();
                     match dispatch {
-                        Dispatch::Return(results) => {
+                        Dispatch::Return(mut results) => {
+                            if exit.immediate == 30 {
+                                results = vec![self.process.ticks()];
+                            }
                             self.kernel
                                 .set_results(id, results)
                                 .map_err(Error::Kernel)?;

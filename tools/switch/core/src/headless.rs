@@ -14,7 +14,7 @@ use std::{
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Input {
-    /// Milliseconds since guest boot; state persists until the next entry.
+    /// Milliseconds since guest boot; capture-clock mode preserves intervals after stalls.
     at_ms: u64,
     buttons: u64,
     #[serde(default)]
@@ -29,6 +29,7 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
     let mut capture = None;
     let mut capture_frame = 1;
     let mut warmup_ms = 0u64;
+    let mut capture_tick = None;
     let mut inputs = Vec::<Input>::new();
     let mut seen = std::collections::BTreeSet::new();
     let mut options = args[1..].chunks_exact(2);
@@ -51,6 +52,16 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
                     .ok_or("invalid capture frame")?
                     .parse::<std::num::NonZeroU64>()?
                     .get();
+            }
+            "--capture-tick" => {
+                let tick = pair[1]
+                    .to_str()
+                    .ok_or("invalid capture tick")?
+                    .parse::<u64>()?;
+                if tick == u64::MAX {
+                    return Err("capture tick is reserved".into());
+                }
+                capture_tick = Some(tick);
             }
             "--warmup-ms" => warmup_ms = pair[1].to_str().ok_or("invalid warmup")?.parse()?,
             "--capture" => capture = Some(PathBuf::from(&pair[1])),
@@ -84,18 +95,34 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("HOME is not set")?;
     let nro = Nro::read(&mut std::fs::File::open(path)?)?;
     let mut runtime = Runtime::new(&nro.protected_homebrew()?)?;
+    if let Some(tick) = capture_tick {
+        runtime.process().set_capture_tick(tick);
+        println!("capture-clock|tick={tick}|host-deadlines=real");
+    }
     let mut hub = Hub::new(std::path::Path::new(path), &home)?;
     runtime.kernel_mut().program_id = hub.program_id();
     runtime.yield_on_frame = true;
     let start = Instant::now();
     let mut input = inputs.iter().peekable();
     let mut count = 0;
+    let mut input_frame = false;
+    let mut next_input_at = inputs.first().map_or(0, |i| u128::from(i.at_ms));
     loop {
-        while input
-            .peek()
-            .is_some_and(|i| u128::from(i.at_ms) <= start.elapsed().as_millis())
+        // Deliver each state across a presentation boundary. A host stall must
+        // never collapse a press and release into one unobserved HID update.
+        while (capture_tick.is_none() || input_frame)
+            && input.peek().is_some()
+            && next_input_at <= start.elapsed().as_millis()
         {
             if let Some(i) = input.next() {
+                input_frame = false;
+                next_input_at = input.peek().map_or(0, |next| {
+                    if capture_tick.is_some() {
+                        start.elapsed().as_millis() + u128::from(next.at_ms - i.at_ms)
+                    } else {
+                        u128::from(next.at_ms)
+                    }
+                });
                 hub.set_input(
                     soju_switch_input::NpadState {
                         buttons: i.buttons,
@@ -115,27 +142,30 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
         let stop = runtime.run(&mut hub, Duration::from_millis(8), 10_000)?;
         // Consume audio packets without opening an output device in the headless harness.
         while hub.take_audio().is_some() {}
-        if let Some(frame) = hub.take_frame()
-            && start.elapsed().as_millis() >= u128::from(warmup_ms)
-        {
-            count += 1;
-            if count == capture_frame {
-                let mut encoder = png::Encoder::new(
-                    std::io::BufWriter::new(std::fs::File::create(&capture)?),
-                    frame.width,
-                    frame.height,
-                );
-                encoder.set_color(png::ColorType::Rgba);
-                encoder.set_depth(png::BitDepth::Eight);
-                let mut writer = encoder.write_header()?;
-                writer.write_image_data(&frame.pixels)?;
-                writer.finish()?;
-                println!(
-                    "frame|{}x{}|{}",
-                    frame.width,
-                    frame.height,
-                    capture.display()
-                );
+        if let Some(frame) = hub.take_frame() {
+            input_frame = true;
+            if start.elapsed().as_millis() >= u128::from(warmup_ms)
+                && (capture_tick.is_none() || input.peek().is_none())
+            {
+                count += 1;
+                if count == capture_frame {
+                    let mut encoder = png::Encoder::new(
+                        std::io::BufWriter::new(std::fs::File::create(&capture)?),
+                        frame.width,
+                        frame.height,
+                    );
+                    encoder.set_color(png::ColorType::Rgba);
+                    encoder.set_depth(png::BitDepth::Eight);
+                    let mut writer = encoder.write_header()?;
+                    writer.write_image_data(&frame.pixels)?;
+                    writer.finish()?;
+                    println!(
+                        "frame|{}x{}|{}",
+                        frame.width,
+                        frame.height,
+                        capture.display()
+                    );
+                }
             }
         }
         match stop {

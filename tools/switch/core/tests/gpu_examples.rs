@@ -20,7 +20,7 @@ fn deko_example01_matches_source_rectangles() {
         .env("SOJU_SWITCH_TRACE_GPU", "1")
         .arg("--headless")
         .arg(nro)
-        .args(["--frames", "1", "--warmup-ms", "1000", "--capture"])
+        .args(["--frames", "1", "--capture-tick", "0", "--capture"])
         .arg(&capture)
         .arg("--inputs")
         .arg(input)
@@ -92,7 +92,7 @@ fn deko_example02_matches_source_triangle() {
         .env("SOJU_GPU_ASYNC_PIPELINES", "0")
         .arg("--headless")
         .arg(nro)
-        .args(["--frames", "1", "--warmup-ms", "1000", "--capture"])
+        .args(["--frames", "1", "--capture-tick", "0", "--capture"])
         .arg(&capture)
         .arg("--inputs")
         .arg(input)
@@ -176,7 +176,7 @@ fn deko_example03_matches_source_cube() {
         .env("SOJU_GPU_ASYNC_PIPELINES", "0")
         .arg("--headless")
         .arg(nro)
-        .args(["--frames", "1", "--warmup-ms", "1000", "--capture"])
+        .args(["--frames", "1", "--capture-tick", "0", "--capture"])
         .arg(&capture)
         .arg("--inputs")
         .arg(input)
@@ -261,7 +261,7 @@ fn deko_example04_matches_source_texture() {
         .env("SOJU_GPU_ASYNC_PIPELINES", "0")
         .arg("--headless")
         .arg(nro)
-        .args(["--frames", "1", "--warmup-ms", "1000", "--capture"])
+        .args(["--frames", "1", "--capture-tick", "0", "--capture"])
         .arg(&capture)
         .arg("--inputs")
         .arg(input)
@@ -321,14 +321,6 @@ fn deko_example04_matches_source_texture() {
                 texture[(iy + 1).min(255) * 256 + ix],
                 texture[(iy + 1).min(255) * 256 + (ix + 1).min(255)],
             ];
-            // Exclude sharp texel transitions: tiny initial source animation changes sampling.
-            if (0..3).any(|c| {
-                neighbors.iter().map(|p| p[c]).max().unwrap()
-                    - neighbors.iter().map(|p| p[c]).min().unwrap()
-                    > 24
-            }) {
-                continue;
-            }
             interior += 1;
             std::array::from_fn(|c| {
                 let fx = tx - ix as f64;
@@ -418,7 +410,7 @@ fn opengl_simple_triangle_matches_source() {
         .env("SOJU_GPU_ASYNC_PIPELINES", "0")
         .arg("--headless")
         .arg(nro)
-        .args(["--frames", "1", "--warmup-ms", "1000", "--capture"])
+        .args(["--frames", "1", "--capture-tick", "0", "--capture"])
         .arg(&capture)
         .output()
         .unwrap();

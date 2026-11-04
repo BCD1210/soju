@@ -83,6 +83,7 @@ pub struct Process {
     pub profile: ExitProfile,
     memory: Mutex<MemoryImage>,
     start: Instant,
+    capture_tick: AtomicU64,
     mapped: bool,
     vm: bool,
 }
@@ -105,6 +106,7 @@ impl Process {
             profile: ExitProfile::default(),
             memory: Mutex::new(memory),
             start: Instant::now(),
+            capture_tick: AtomicU64::new(u64::MAX),
             mapped: false,
             vm: true,
         };
@@ -134,8 +136,16 @@ impl Process {
     pub fn elapsed_ns(&self) -> u64 {
         self.start.elapsed().as_nanos().min(u64::MAX as u128) as u64
     }
+    /// Freeze the guest-visible counter for headless pose capture. Host scheduling
+    /// deadlines continue to use elapsed_ns so sleeping service threads progress.
+    pub fn set_capture_tick(&self, tick: u64) {
+        self.capture_tick.store(tick, Ordering::Relaxed);
+    }
     pub fn ticks(&self) -> u64 {
-        ticks(self.start.elapsed())
+        match self.capture_tick.load(Ordering::Relaxed) {
+            u64::MAX => ticks(self.start.elapsed()),
+            tick => tick,
+        }
     }
 }
 impl Drop for Process {
