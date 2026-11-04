@@ -102,7 +102,7 @@ extension Commander {
                         billboards[id]=billboard;nodes[id]=billboard.root;world.rootNode.addChildNode(billboard.root)
                     }
                     let colors=s["playerColors"] as? [[Int]] ?? [],owner=Int(number(u,"owner"))
-                    billboard.apply(u,ground:ground,art:worldSprites,color:colors.indices.contains(owner) ? colors[owner]:[255,255,255])
+                    billboard.apply(u,ground:ground,art:worldSprites,color:WorldSprites.playerColor(colors,owner:owner))
                 }
             }
         }

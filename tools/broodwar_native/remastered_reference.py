@@ -47,6 +47,15 @@ def team_pixels(diffuse: np.ndarray, mask: np.ndarray, color: tuple[int, int, in
     return result
 
 
+def player_color(colors: list[list[int]], owner: int) -> tuple[int, int, int]:
+    """An all-zero SCR initialization slot is absent, not authored black paint."""
+    defaults = ((244,4,4),(12,72,204),(44,180,148),(136,64,156),
+                (248,140,20),(112,48,20),(204,224,208),(252,252,56))
+    if 0 <= owner < len(colors) and len(colors[owner]) >= 3 and any(colors[owner][:3]):
+        return tuple(colors[owner][:3])
+    return defaults[owner] if 0 <= owner < len(defaults) else (255,255,255)
+
+
 class ReferenceRenderer:
     """Caches immutable owned atlases; each render starts from a new canvas."""
 
@@ -139,7 +148,7 @@ class ReferenceRenderer:
                 continue
             owner = unit['owner']
             colors = state['playerColors']
-            color = tuple(colors[owner][:3]) if owner < len(colors) else (255,255,255)
+            color = player_color(colors, owner)
             for native in reversed(chain['images']):
                 if native['flags'] & 0x40:
                     continue

@@ -135,6 +135,10 @@ final class WorldSprites {
         images=catalog["images"] as? [String:Obj] ?? [:];creep=catalog["creep"] as? [String:Obj] ?? [:]
         root.name="native-world-sprites"
     }
+    static func playerColor(_ colors:[[Int]],owner:Int)->[Int] {
+        if colors.indices.contains(owner),colors[owner].count>=3,colors[owner].prefix(3).contains(where:{$0>0}) {return Array(colors[owner].prefix(3))}
+        return Models3D.playerColors.indices.contains(owner) ? Models3D.playerColors[owner]:[255,255,255]
+    }
     func clear() {
         for node in nodes.values {node.removeFromParentNode()}
         nodes.removeAll();deathFrames=0;loneFrames=0;missing.removeAll()
