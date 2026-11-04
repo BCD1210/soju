@@ -274,3 +274,20 @@ fn initial_stage_binding_groups_allow_explicit_overrides() {
     r.0.insert(0x2150, 0);
     assert_eq!(r.get(0x2150), 0);
 }
+
+#[test]
+fn inactive_sampler_compare_function_does_not_reject_color_sampling() {
+    for control in [0, 0x26000] {
+        for function in 0..8 {
+            let words = [control | (function << 10) | 0x92, 0x51, 0, 0, 0, 0, 0, 0];
+            let bytes: Vec<_> = words.into_iter().flat_map(u32::to_le_bytes).collect();
+            let sampler = soju_switch_gpu::texture::Tsc::parse(&bytes).unwrap();
+            assert_eq!(sampler.address_u, 2);
+            for unsupported in [1 << 9, 1 << 20] {
+                let mut bytes = bytes.clone();
+                bytes[..4].copy_from_slice(&(words[0] | unsupported).to_le_bytes());
+                assert!(soju_switch_gpu::texture::Tsc::parse(&bytes).is_err());
+            }
+        }
+    }
+}

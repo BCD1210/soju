@@ -117,9 +117,10 @@ impl Tsc {
     pub fn parse(bytes: &[u8]) -> Result<Self> {
         let w = words(bytes)?;
         let (u, v, p) = (w[0] & 7, (w[0] >> 3) & 7, (w[0] >> 6) & 7);
+        // The comparison function is inactive when DEPTH_COMPARE (bit 9) is zero.
         require(
-            u <= 2 && v <= 2 && p <= 2 && matches!(w[0] & !511, 0 | 0x26400),
-            "TSC wrap/compare/aniso unsupported",
+            u <= 2 && v <= 2 && p <= 2 && matches!(w[0] & !0x1dff, 0 | 0x26000),
+            &format!("TSC wrap/compare/aniso unsupported: control={:#010x}", w[0]),
         )?;
         let mag = w[1] & 7;
         let min = (w[1] >> 4) & 3;
