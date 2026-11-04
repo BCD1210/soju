@@ -42,3 +42,6 @@ Per-method links: REGISTERS.md. Original shader fixtures use the ISA sources alr
   ledger), Table 5.4, supplies Metal point_size and clip_distance attributes.
   Metal SDK MTLTexture.h supplies texture-view swizzles; MTLRenderCommandEncoder.h
   supplies visibility counting, depth bias, viewport, and vertex step functions.
+
+The installed Apple SDK's `MTLBlitCommandEncoder.h` supplies buffer/texture copies
+and the depth/stencil plane options used for attachment import and readback.

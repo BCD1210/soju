@@ -234,6 +234,7 @@ impl Backend {
                 target.address,
                 format.info().metal
             );
+            require(!batch_targets.contains_key(&key), "aliased MRT attachments")?;
             let initial = memory.read(target.address, target.size())?;
             for (other_key, other) in self
                 .targets
@@ -892,7 +893,6 @@ impl Backend {
     /// Queue a captured batch on the persistent GPU thread. No image readback occurs.
     /// The caller must synchronize before CPU/transfer access to pending targets.
     pub fn submit(&mut self, directory: &Path) -> Result<crate::worker::Fence> {
-        require(!self.commands.is_empty(), "empty command batch")?;
         self.serial += 1;
         let directory = directory.join(format!("batch-{}", self.serial));
         std::fs::create_dir_all(&directory).map_err(io)?;
@@ -918,7 +918,7 @@ impl Backend {
         Ok(fence)
     }
     /// Explicit CPU visibility boundary. Waits for queued work and writes pending
-    /// color targets to guest memory. Fence waits alone never copy image bytes.
+    /// color/depth targets and query results to guest memory. Fence waits alone never copy image bytes.
     pub fn readback(&mut self, directory: &Path, memory: &mut Memory) -> Result<Report> {
         require(
             self.commands.is_empty(),

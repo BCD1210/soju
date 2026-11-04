@@ -592,6 +592,20 @@ fn malformed_draw_resources_fail_before_native_execution() {
         let error = h.backend.prepare(&invalid, &h.memory).unwrap_err();
         assert!(error.0.contains(message), "{offset:#x}: {error}");
     }
+    let mut alias = original.clone();
+    alias.registers.0.insert(0x121c, 2 | (1 << 7));
+    for offset in (0..=0x20).step_by(4) {
+        alias
+            .registers
+            .0
+            .insert(0x840 + offset, original.registers.get(0x800 + offset));
+    }
+    assert!(h
+        .backend
+        .prepare(&alias, &h.memory)
+        .unwrap_err()
+        .0
+        .contains("aliased MRT"));
     let mut invalid = original.clone();
     invalid.action = soju_switch_gpu::engine::Action::Draw {
         topology: 4,
@@ -742,6 +756,7 @@ fn asynchronous_batches_preserve_depth_stencil_without_cpu_readback() {
     );
     h.draw(&mut e, 6, false, false);
     let second = h.backend.submit(&root).unwrap();
+    let empty = h.backend.submit(&root).unwrap();
     let sem_address = h.alloc(vec![0; 4]);
     let mut host = soju_switch_gpu::sync::Host::default();
     host.method(0x14, sem_address as u32).unwrap();
@@ -757,6 +772,7 @@ fn asynchronous_batches_preserve_depth_stencil_without_cpu_readback() {
         .unwrap());
     let mut syncpoint = soju_switch_gpu::sync::Syncpoint::default();
     syncpoint.complete(second).unwrap();
+    empty.wait().unwrap();
     assert_eq!(syncpoint.value, 1);
     assert!(
         h.memory.read(a, 4096).unwrap().iter().all(|b| *b == 0),
@@ -854,6 +870,18 @@ fn color_formats_clear_draw_and_write_back_raw_storage() {
             .deswizzle(h.memory.read(image.address, surface.size()).unwrap())
             .unwrap();
         assert_eq!(image.rgba, soju_switch_gpu::format::rgba(*format, &raw));
+        if *format == Format::R32Uint {
+            for (i, p) in raw.chunks_exact(4).enumerate() {
+                assert_eq!(
+                    u32::from_le_bytes(p.try_into().unwrap()),
+                    if i % 32 < 16 {
+                        1f32.to_bits()
+                    } else {
+                        0.25f32.to_bits()
+                    }
+                );
+            }
+        }
         for (i, p) in image.rgba.chunks_exact(4).enumerate() {
             let drawn = i % 32 < 16;
             let mut expected = if drawn {
@@ -867,7 +895,7 @@ fn color_formats_clear_draw_and_write_back_raw_storage() {
                     expected[2] = 0;
                 }
                 Format::Rg8Unorm | Format::Rg16Float | Format::Rg32Float => expected[2] = 0,
-                Format::R32Uint => expected = [if drawn { 255 } else { 0 }, 0, 0, 255],
+                Format::R32Uint => expected = [255, 0, 0, 255],
                 Format::Rgba8Srgb | Format::Bgra8Srgb => {
                     expected = if drawn {
                         [188, 137, 255, 255]

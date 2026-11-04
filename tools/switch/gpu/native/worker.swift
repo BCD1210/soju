@@ -97,7 +97,9 @@ final class Worker {
         for (slot, color) in colors.enumerated() {
             let a = pass.colorAttachments[slot]!
             a.texture = color; a.loadAction = isClear && mask & 60 != 0 && (mask >> 6) == slot ? .clear : .load; a.storeAction = .store
-            a.clearColor = MTLClearColor(red:f(0xd80),green:f(0xd84),blue:f(0xd88),alpha:f(0xd8c))
+            a.clearColor = color.pixelFormat == .r32Uint
+                ? MTLClearColor(red:Double(r(0xd80)),green:Double(r(0xd84)),blue:Double(r(0xd88)),alpha:Double(r(0xd8c)))
+                : MTLClearColor(red:f(0xd80),green:f(0xd84),blue:f(0xd88),alpha:f(0xd8c))
         }
         try need(r(0x1514)<=1,"invalid occlusion enable")
         let visibility = r(0x1514)==1 && !isClear ? device.makeBuffer(length:8,options:.storageModeShared) : nil
