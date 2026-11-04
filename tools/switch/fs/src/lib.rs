@@ -4,12 +4,21 @@
 //! existing emulator or dumping tool is used. Keys are never bundled: callers pass
 //! the player's own `prod.keys` / `title.keys`, and key material is never printed.
 
+pub mod bktr;
+pub mod cnmt;
 pub mod crypto;
 pub mod error;
 pub mod hfs0;
 pub mod keys;
+pub mod lz4;
+pub mod nacp;
 pub mod nca;
+pub mod npdm;
+pub mod nso;
 pub mod pfs0;
+pub mod romfs;
+pub mod ticket;
+pub mod title;
 pub mod xci;
 
 pub use error::{Error, Result};

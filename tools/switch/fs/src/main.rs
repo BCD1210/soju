@@ -33,13 +33,24 @@ fn describe_nca(s: &dyn Storage, keys: &KeySet) -> String {
                 .map(|x| {
                     let files = if x.fs_type == soju_switch_fs::nca::FsType::PartitionFs {
                         match n.pfs0_files(x.index) {
-                            Ok(f) => format!(",\"files\":[{}]", f.iter().map(|e| json_str(&e.name)).collect::<Vec<_>>().join(",")),
+                            Ok(f) => {
+                                let mut extra = String::new();
+                                if let (Some(meta), Ok(sec)) = (f.iter().find(|e| e.name == "main.npdm"), n.section(x.index)) {
+                                    if let Ok(np) = sec.read_vec(meta.offset, meta.size.min(1 << 20) as usize).and_then(|b| soju_switch_fs::npdm::parse(&b)) {
+                                        extra = format!(",\"npdm\":{{\"name\":{},\"program_id\":\"{:016x}\",\"is_64bit\":{}}}", json_str(&np.name), np.program_id, np.is_64bit);
+                                    }
+                                }
+                                format!(",\"files\":[{}]{}", f.iter().map(|e| json_str(&e.name)).collect::<Vec<_>>().join(","), extra)
+                            }
                             Err(e) => format!(",\"error\":{}", json_str(&e.to_string())),
                         }
                     } else {
-                        String::new()
+                        match n.section(x.index).and_then(|s| soju_switch_fs::romfs::list(&s)) {
+                            Ok(f) => format!(",\"romfs_files\":{}", f.len()),
+                            Err(e) => format!(",\"error\":{}", json_str(&e.to_string())),
+                        }
                     };
-                    format!("{{\"index\":{},\"type\":\"{}\",\"size\":{}{}}}", x.index, if files.is_empty() { "romfs" } else { "pfs0" }, x.data_size, files)
+                    format!("{{\"index\":{},\"type\":\"{}\",\"size\":{}{}}}", x.index, if x.fs_type == soju_switch_fs::nca::FsType::PartitionFs { "pfs0" } else { "romfs" }, x.data_size, files)
                 })
                 .collect();
             format!(
@@ -75,15 +86,17 @@ fn run() -> Result<String, String> {
     let mut file = None;
     let mut prod = None;
     let mut title = None;
+    let mut icon_out = None;
     let mut it = args.iter();
-    match it.next().map(String::as_str) {
-        Some("info") => {}
-        _ => return Err("usage: soju-switch-fs info <game.nsp|game.xci|file.nca> --keys <prod.keys> [--title-keys <title.keys>]".into()),
-    }
+    let cmd = match it.next().map(String::as_str) {
+        Some(c @ ("info" | "title")) => c.to_string(),
+        _ => return Err("usage: soju-switch-fs info|title <game.nsp|game.xci|file.nca> --keys <prod.keys> [--title-keys <title.keys>] [--icon-out <icon.jpg>]".into()),
+    };
     while let Some(a) = it.next() {
         match a.as_str() {
             "--keys" => prod = it.next().map(PathBuf::from),
             "--title-keys" => title = it.next().map(PathBuf::from),
+            "--icon-out" => icon_out = it.next().map(PathBuf::from),
             other if file.is_none() => file = Some(PathBuf::from(other)),
             _ => return Err("unexpected argument".into()),
         }
@@ -93,6 +106,37 @@ fn run() -> Result<String, String> {
     let keys = KeySet::load(&prod, title.as_deref()).map_err(|e| e.to_string())?;
     let f = std::fs::File::open(&file).map_err(|e| format!("cannot open the game file: {e}"))?;
     let ext = file.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    // Common tickets inside the package supply title keys, so prod.keys alone is enough.
+    let keys = if matches!(ext.as_str(), "nsp" | "xci") {
+        soju_switch_fs::title::keys_with_tickets(&f, &ext, &keys).map(|(k, _)| k).unwrap_or(keys)
+    } else {
+        keys
+    };
+    if cmd == "title" {
+        let t = soju_switch_fs::title::read(&f, &ext, &keys).map_err(|e| e.to_string())?;
+        let pref = soju_switch_fs::title::PREFERRED;
+        let opt = |v: Option<&str>| v.map(json_str).unwrap_or_else(|| "null".into());
+        let mut icon = "null".to_string();
+        if let (Some(path), Some(bytes)) = (&icon_out, &t.icon) {
+            if !bytes.starts_with(&[0xFF, 0xD8]) {
+                return Err("the game icon is not a JPEG".into());
+            }
+            std::fs::write(path, bytes).map_err(|e| format!("cannot write the icon: {e}"))?;
+            icon = json_str(&path.to_string_lossy());
+        }
+        let names = t.nacp.as_ref().map(|n| n.titles.iter().map(|x| format!("{}:{}", json_str(x.0), json_str(&x.1))).collect::<Vec<_>>().join(",")).unwrap_or_default();
+        let problems = t.problems.iter().map(|(f, e)| format!("{{\"file\":{},\"error\":{}}}", json_str(f), json_str(e))).collect::<Vec<_>>().join(",");
+        return Ok(format!(
+            "{{\"title_id\":{},\"kind\":{},\"version\":{},\"name\":{},\"publisher\":{},\"display_version\":{},\"names\":{{{}}},\"icon\":{},\"nca_count\":{},\"problems\":[{}]}}",
+            t.title_id.map(|v| format!("\"{v:016x}\"")).unwrap_or_else(|| "null".into()),
+            opt(t.kind),
+            t.version.map(|v| v.to_string()).unwrap_or_else(|| "null".into()),
+            opt(t.nacp.as_ref().and_then(|n| n.name(&pref))),
+            opt(t.nacp.as_ref().and_then(|n| n.publisher(&pref))),
+            opt(t.nacp.as_ref().map(|n| n.display_version.as_str())),
+            names, icon, t.nca_count, problems
+        ));
+    }
     let body = match ext.as_str() {
         "nsp" => {
             let entries = pfs0::parse(&f).map_err(|e| e.to_string())?;

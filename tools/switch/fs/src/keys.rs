@@ -26,7 +26,7 @@ impl fmt::Debug for KeySet {
 
 pub(crate) fn unhex(text: &str) -> Option<Vec<u8>> {
     let t = text.trim();
-    if t.is_empty() || t.len() % 2 != 0 {
+    if t.is_empty() || !t.len().is_multiple_of(2) {
         return None;
     }
     (0..t.len())

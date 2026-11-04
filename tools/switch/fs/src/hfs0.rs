@@ -58,7 +58,7 @@ pub fn build(files: &[(&str, &[u8])]) -> Vec<u8> {
         strings.extend_from_slice(name.as_bytes());
         strings.push(0);
     }
-    while (0x10 + files.len() * 0x40 + strings.len()) % 0x200 != 0 {
+    while !(0x10 + files.len() * 0x40 + strings.len()).is_multiple_of(0x200) {
         strings.push(0);
     }
     let mut out = Vec::new();

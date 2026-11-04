@@ -249,6 +249,20 @@ pub mod fixture {
     }
 
     pub fn program_nca(files: &[(&str, &[u8])], title_key: bool) -> Made {
+        make(0, &pfs0::build(files), false, title_key)
+    }
+
+    /// A Control NCA whose RomFS holds the given image (e.g. control.nacp and icons).
+    pub fn control_nca(romfs_image: &[u8]) -> Made {
+        make(2, romfs_image, true, false)
+    }
+
+    /// A Meta NCA whose PartitionFs holds `<name>.cnmt`.
+    pub fn meta_nca(cnmt_name: &str, cnmt: &[u8]) -> Made {
+        make(1, &pfs0::build(&[(cnmt_name, cnmt)]), false, false)
+    }
+
+    fn make(content_type: u8, payload: &[u8], romfs: bool, title_key: bool) -> Made {
         let header_key = [0x5au8; 32];
         let kak = [0x3cu8; 16];
         let section_key = [0x77u8; 16];
@@ -259,12 +273,12 @@ pub mod fixture {
         keys.insert("key_area_key_application_02", &kak);
         keys.insert("titlekek_02", &titlekek);
 
-        let pfs = pfs0::build(files);
+        let pfs = payload.to_vec();
         let section_start = 0xC00u64; // media 6
         let data_offset = 0x200u64; // a fake hash table precedes the PFS0
         let mut section = vec![0u8; data_offset as usize];
         section.extend_from_slice(&pfs);
-        while section.len() % MEDIA as usize != 0 {
+        while !section.len().is_multiple_of(MEDIA as usize) {
             section.push(0);
         }
         let section_end = section_start + section.len() as u64;
@@ -272,7 +286,7 @@ pub mod fixture {
         let mut h = vec![0u8; HEADER_LEN];
         h[0x200..0x204].copy_from_slice(b"NCA3");
         h[0x204] = 0; // system distribution
-        h[0x205] = 0; // program
+        h[0x205] = content_type;
         h[0x206] = 0;
         h[0x207] = 0; // application key area
         h[0x208..0x210].copy_from_slice(&section_end.to_le_bytes());
@@ -287,11 +301,18 @@ pub mod fixture {
         h[0x248] = 1;
         let fs = 0x400;
         h[fs..fs + 2].copy_from_slice(&2u16.to_le_bytes());
-        h[fs + 2] = 1; // PartitionFs
-        h[fs + 3] = 2; // HierarchicalSha256
+        h[fs + 2] = if romfs { 0 } else { 1 }; // RomFs or PartitionFs
+        h[fs + 3] = if romfs { 3 } else { 2 }; // IVFC or HierarchicalSha256
         h[fs + 4] = 3; // AES-CTR
-        h[fs + 0x8 + 0x38..fs + 0x8 + 0x40].copy_from_slice(&data_offset.to_le_bytes());
-        h[fs + 0x8 + 0x40..fs + 0x8 + 0x48].copy_from_slice(&(pfs.len() as u64).to_le_bytes());
+        if romfs {
+            h[fs + 0x8..fs + 0xC].copy_from_slice(b"IVFC");
+            let level = fs + 0x8 + 0x10 + 5 * 0x18;
+            h[level..level + 8].copy_from_slice(&data_offset.to_le_bytes());
+            h[level + 8..level + 16].copy_from_slice(&(pfs.len() as u64).to_le_bytes());
+        } else {
+            h[fs + 0x8 + 0x38..fs + 0x8 + 0x40].copy_from_slice(&data_offset.to_le_bytes());
+            h[fs + 0x8 + 0x40..fs + 0x8 + 0x48].copy_from_slice(&(pfs.len() as u64).to_le_bytes());
+        }
         let stored_ctr = [1u8, 2, 3, 4, 5, 6, 7, 8];
         h[fs + 0x140..fs + 0x148].copy_from_slice(&stored_ctr);
         let mut upper = stored_ctr;

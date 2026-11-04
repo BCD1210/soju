@@ -1,0 +1,9 @@
+[package]
+name = "soju-switch-audio"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Soju's own Switch audio voice processing: DSP-ADPCM and PCM decoding, resampling to 48 kHz, biquad filters and mixing."
+publish = false
+
+[dependencies]
