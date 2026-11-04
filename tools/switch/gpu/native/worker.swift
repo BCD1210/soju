@@ -111,10 +111,22 @@ final class Worker {
                 depths.removeValue(forKey:dk)
             }
             if depths[dk] == nil {
-                try need(isClear && mask & 1 != 0 && (depthFormat != .depth32Float_stencil8 || mask & 2 != 0),"new zeta target requires clear before use")
                 let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:depthFormat,width:w,height:h,mipmapped:false)
                 descriptor.storageMode = .private;descriptor.usage = .renderTarget
                 guard let t = device.makeTexture(descriptor:descriptor) else { throw Failure("depth allocation") };depths[dk] = t; depthGenerations[dk] = number(depth,"generation")
+                endPass()
+                let upload=try commandBuffer()
+                guard let blit=upload.makeBlitCommandEncoder() else {throw Failure("depth upload encoder")}
+                func plane(_ name:String,_ bytesPerPixel:Int,_ options:MTLBlitOption) throws {
+                    let bytes=try file(string(depth,name)), row=((w*bytesPerPixel+255)/256)*256
+                    try need(bytes.count==w*h*bytesPerPixel,"depth initial bytes")
+                    guard let staging=device.makeBuffer(length:row*h,options:.storageModeShared) else {throw Failure("depth staging")}
+                    bytes.withUnsafeBytes {p in for y in 0..<h {memcpy(staging.contents().advanced(by:y*row),p.baseAddress!.advanced(by:y*w*bytesPerPixel),w*bytesPerPixel)} }
+                    blit.copy(from:staging,sourceOffset:0,sourceBytesPerRow:row,sourceBytesPerImage:row*h,sourceSize:MTLSize(width:w,height:h,depth:1),to:t,destinationSlice:0,destinationLevel:0,destinationOrigin:MTLOrigin(x:0,y:0,z:0),options:options)
+                }
+                try plane("zfile",depthFormat == .depth16Unorm ? 2 : 4,depthFormat == .depth32Float_stencil8 ? .depthFromDepthStencil : [])
+                if depthFormat == .depth32Float_stencil8 {try plane("sfile",1,.stencilFromDepthStencil)}
+                blit.endEncoding()
             }
             pass.depthAttachment.texture = depths[dk];pass.depthAttachment.loadAction = isClear && mask & 1 != 0 ? .clear : .load;pass.depthAttachment.storeAction = .store
             pass.depthAttachment.clearDepth = f(0xd90)
@@ -272,6 +284,26 @@ final class Worker {
         t.getBytes(&bytes,bytesPerRow:t.width*targetBytes[key]!,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
         try Data(bytes).write(to:root.appendingPathComponent("\(key).rgba"))
     }
+        if !depths.isEmpty {
+            guard let cb=queue.makeCommandBuffer(),let blit=cb.makeBlitCommandEncoder() else {throw Failure("depth readback encoder")}
+            var planes=[(String,MTLBuffer,Int,Int,Int)]()
+            for (key,t) in depths {
+                for stencil in [false,true] {
+                    if stencil && t.pixelFormat != .depth32Float_stencil8 {try Data().write(to:root.appendingPathComponent("\(key).stencil"));continue}
+                    let bpp=stencil ? 1 : (t.pixelFormat == .depth16Unorm ? 2 : 4), row=((t.width*bpp+255)/256)*256
+                    guard let buffer=device.makeBuffer(length:row*t.height,options:.storageModeShared) else {throw Failure("depth readback buffer")}
+                    let options:MTLBlitOption=t.pixelFormat == .depth32Float_stencil8 ? (stencil ? .stencilFromDepthStencil : .depthFromDepthStencil) : []
+                    blit.copy(from:t,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(x:0,y:0,z:0),sourceSize:MTLSize(width:t.width,height:t.height,depth:1),to:buffer,destinationOffset:0,destinationBytesPerRow:row,destinationBytesPerImage:row*t.height,options:options)
+                    planes.append((key+(stencil ? ".stencil" : ".depth"),buffer,row,t.width*bpp,t.height))
+                }
+            }
+            blit.endEncoding();cb.commit();cb.waitUntilCompleted();try need(cb.status == .completed,"depth readback failed")
+            for (name,buffer,row,width,height) in planes {
+                var bytes=Data()
+                for y in 0..<height {bytes.append(buffer.contents().advanced(by:y*row).assumingMemoryBound(to:UInt8.self),count:width)}
+                try bytes.write(to:root.appendingPathComponent(name))
+            }
+        }
         for (key,value) in queryValues {
             var little=value.littleEndian
             try withUnsafeBytes(of:&little) {try Data($0).write(to:root.appendingPathComponent("\(key).query"))}

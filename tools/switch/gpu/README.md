@@ -258,3 +258,17 @@ worker (0.189 seconds), or 715 draws/second including Rust preparation, translat
 resource-file writes and submission (1.398 seconds). Compilation/warmup and final
 readback are excluded from those timings. The final image checks all 1,024 pixels.
 This is a small headless workload, not game performance or GPU-only throughput.
+
+## Depth memory visibility
+
+Depth/stencil attachments now import mapped guest contents on first use or a tracked
+CPU write, using Metal blit uploads of the depth and stencil planes. Readback exports
+both planes only at the explicit visibility boundary, re-encodes Z24S8 where needed,
+and preserves guest padding. Z16, ZF32, Z24S8, and ZF32_X24S8 support block heights
+0–5. A first-use clear is no longer required. Aliasing pending colour/depth views
+and sampling pending depth require a readback boundary.
+
+The depth I/O test checks 8,192 colour pixels and 8,192 exact raw depth/stencil
+pixels across import without clear, depth writes, CPU overwrite/invalidation and
+subsequent rendering. ZF32_X24S8 padding is also checked. D24 still uses promoted
+floating depth while resident; conversion rounds to 24 bits on guest writeback.

@@ -1352,3 +1352,125 @@ fn microbenchmark_cached_draws() {
         .all(|p| p == [64, 128, 191, 255]));
     eprintln!("benchmark {DRAWS} draws: end_to_end_seconds={elapsed:.6} end_to_end_draws_per_second={:.1}; {diagnostic}; checked=1024",DRAWS as f64/elapsed);
 }
+
+#[test]
+fn depth_import_writeback_and_cpu_invalidation() {
+    let mut h = Harness::new();
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/depth-io-checks");
+    for code in [0x13, 0x14, 0xa, 0x19] {
+        let bytes = match code {
+            0x13 => 2,
+            0x19 => 8,
+            _ => 4,
+        };
+        let surface = Surface {
+            width: 32,
+            height: 32,
+            depth: 1,
+            bytes_per_block: bytes,
+            block_height_log2: 1,
+            block_depth_log2: 0,
+        };
+        let packed = |z: f32, stencil: u8| -> Vec<u8> {
+            match code {
+                0x13 => ((z * 65535.).round() as u16).to_le_bytes().to_vec(),
+                0x14 => ((((z * 16777215.).round() as u32) << 8) | u32::from(stencil))
+                    .to_le_bytes()
+                    .to_vec(),
+                0x19 => {
+                    let mut b = z.to_le_bytes().to_vec();
+                    b.extend([stencil, 99, 98, 97]);
+                    b
+                }
+                _ => z.to_le_bytes().to_vec(),
+            }
+        };
+        let z = h.alloc(surface.swizzle(&packed(0.25, 1).repeat(1024)).unwrap());
+        let (mut e, _) = h.engine("depth-io", [0., 0., 0., 1.]);
+        h.methods(
+            &mut e,
+            &[
+                (0xfe4, z as u32),
+                (0xfe8, code),
+                (0xfec, 0x10),
+                (0x1228, 32),
+                (0x122c, 32),
+                (0x1230, 1),
+                (0x1538, 1),
+                (0x12cc, 1),
+                (0x12e8, 1),
+                (0x130c, 0x201),
+            ],
+        );
+        if matches!(code, 0x14 | 0x19) {
+            h.methods(
+                &mut e,
+                &[
+                    (0x1380, 1),
+                    (0x1384, 0x1e00),
+                    (0x1388, 0x1e00),
+                    (0x138c, 0x1e00),
+                    (0x1390, 0x202),
+                    (0x1394, 1),
+                    (0x1398, 255),
+                    (0x139c, 0),
+                ],
+            );
+        }
+        h.vertices(
+            &mut e,
+            &quad(-1., -1., 1., 1., 0.5, [1., 0., 0., 1.]),
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 6, false, false);
+        h.vertices(
+            &mut e,
+            &quad(-1., -1., 0., 1., 0.125, [0., 1., 0., 1.]),
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 6, false, false);
+        let report = h.backend.execute(&root, &mut h.memory).unwrap();
+        for (i, p) in report.images[0].rgba.chunks_exact(4).enumerate() {
+            assert_eq!(
+                p,
+                if i % 32 < 16 {
+                    &[0, 255, 0, 255]
+                } else {
+                    &[0, 0, 0, 255]
+                }
+            );
+        }
+        let raw = surface
+            .deswizzle(h.memory.read(z, surface.size()).unwrap())
+            .unwrap();
+        for (i, p) in raw.chunks_exact(bytes).enumerate() {
+            let expected = packed(if i % 32 < 16 { 0.125 } else { 0.25 }, 1);
+            assert_eq!(p, expected, "depth {code:x} raw pixel {i}");
+        }
+        h.memory
+            .write(z, &surface.swizzle(&packed(0.75, 2).repeat(1024)).unwrap())
+            .unwrap();
+        if matches!(code, 0x14 | 0x19) {
+            h.methods(&mut e, &[(0x1394, 2)]);
+        }
+        h.vertices(
+            &mut e,
+            &quad(-1., -1., 1., 1., 0.5, [0., 0., 1., 1.]),
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 6, false, false);
+        let report = h.backend.execute(&root, &mut h.memory).unwrap();
+        assert!(report.images[0]
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p == [0, 0, 255, 255]));
+        let raw = surface
+            .deswizzle(h.memory.read(z, surface.size()).unwrap())
+            .unwrap();
+        assert!(
+            raw.chunks_exact(bytes).all(|p| p == packed(0.5, 2)),
+            "depth format {code:x}"
+        );
+    }
+    eprintln!("depth import/writeback/CPU invalidation: checked=8192 color pixels and 8192 raw depth/stencil pixels");
+}

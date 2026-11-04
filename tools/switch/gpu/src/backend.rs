@@ -25,6 +25,7 @@ pub struct Backend {
     commands: Vec<String>,
     files: Vec<Vec<u8>>,
     targets: BTreeMap<String, Target>,
+    depth_targets: BTreeMap<String, Target>,
     worker: Option<crate::worker::Worker>,
     serial: u64,
     queries: BTreeMap<String, (u64, u64, u64)>,
@@ -73,6 +74,24 @@ impl Target {
             block_height_log2: self.block_height,
             block_depth_log2: 0,
         }
+    }
+    fn writeback(&self, bytes: &[u8], memory: &Memory) -> Result<Vec<u8>> {
+        require(
+            bytes.len() == self.width as usize * self.height as usize * self.format.info().bytes,
+            "invalid attachment readback size",
+        )?;
+        if self.pitch {
+            return Ok(bytes.to_vec());
+        }
+        let surface = self.surface();
+        let mut data = memory.read(self.address, self.size())?.to_vec();
+        let row = self.width as usize * self.format.info().bytes;
+        for y in 0..self.height as usize {
+            for x in 0..row {
+                data[surface.offset(x, y, 0)] = bytes[y * row + x];
+            }
+        }
+        Ok(data)
     }
     fn size(&self) -> usize {
         if self.pitch {
@@ -216,7 +235,12 @@ impl Backend {
                 format.info().metal
             );
             let initial = memory.read(target.address, target.size())?;
-            for (other_key, other) in self.targets.iter().chain(batch_targets.iter()) {
+            for (other_key, other) in self
+                .targets
+                .iter()
+                .chain(batch_targets.iter())
+                .chain(self.depth_targets.iter())
+            {
                 require(
                     other_key == &key
                         || target.address >= other.address + other.size() as u64
@@ -257,6 +281,7 @@ impl Backend {
                 .all(|t| t.width == width && t.height == height),
             "MRT size mismatch",
         )?;
+        let mut pending_depth = None;
         let depth = if r.get(0x1538) != 0 {
             require(
                 r.get(0x1538) == 1 && matches!(r.get(0xfe8), 0x0a | 0x19 | 0x13 | 0x14),
@@ -266,30 +291,77 @@ impl Backend {
                 r.get(0x1228) == width
                     && r.get(0x122c) == height
                     && matches!(r.get(0x1230), 1 | 0x10001)
-                    && r.get(0xfec) == 0
+                    && r.get(0xfec) & !0x70 == 0
+                    && ((r.get(0xfec) >> 4) & 7) <= 5
                     && r.get(0xff0) == 0,
                 "depth target layout mismatch",
             )?;
-            format!(
-                "{{\"key\":{},\"format\":{},\"generation\":{}}}",
-                quote(&format!(
-                    "{}-{:x}-{width}-{height}-{}",
-                    memory.identity,
-                    r.address(0xfe0),
-                    r.get(0xfe8)
-                )),
+            use soju_switch_texture::format::Format;
+            let format = match r.get(0xfe8) {
+                0x13 => Format::Depth16Unorm,
+                0x14 => Format::Depth24UnormStencil8,
+                0x19 => Format::Depth32FloatStencil8,
+                _ => Format::Depth32Float,
+            };
+            let mut t = Target {
+                address: r.address(0xfe0),
+                width,
+                height,
+                block_height: (r.get(0xfec) >> 4) & 7,
+                pitch: false,
+                generation: 0,
+                memory_identity: memory.identity,
+                format,
+            };
+            t.generation = memory.generation(t.address, t.size())?;
+            let key = format!(
+                "{}-{:x}-{width}-{height}-{}-{}",
+                memory.identity,
+                t.address,
                 r.get(0xfe8),
-                memory.generation(
-                    r.address(0xfe0),
-                    width as usize
-                        * height as usize
-                        * match r.get(0xfe8) {
-                            0x19 => 8,
-                            0x13 => 2,
-                            _ => 4,
-                        }
-                )?
-            )
+                t.block_height
+            );
+            for (other_key, other) in self
+                .targets
+                .iter()
+                .chain(batch_targets.iter())
+                .chain(self.depth_targets.iter())
+            {
+                require(
+                    other_key == &key
+                        || t.address >= other.address + other.size() as u64
+                        || other.address >= t.address + t.size() as u64,
+                    "overlapping attachment views require readback",
+                )?;
+            }
+            let initial = t
+                .surface()
+                .deswizzle(memory.read(t.address, t.size())?)
+                .map_err(io)?;
+            let mut z = Vec::new();
+            let mut stencil = Vec::new();
+            for p in initial.chunks_exact(format.info().bytes) {
+                match format {
+                    Format::Depth16Unorm => z.extend(&p[..2]),
+                    Format::Depth24UnormStencil8 => {
+                        z.extend(
+                            ((u32::from_le_bytes(p.try_into().unwrap()) >> 8) as f32 / 16777215.)
+                                .to_le_bytes(),
+                        );
+                        stencil.push(p[0]);
+                    }
+                    Format::Depth32FloatStencil8 => {
+                        z.extend(&p[..4]);
+                        stencil.push(p[4]);
+                    }
+                    _ => z.extend(&p[..4]),
+                }
+            }
+            let zfile = self.file(z);
+            let sfile = self.file(stencil);
+            let json=format!("{{\"key\":{},\"format\":{},\"generation\":{},\"zfile\":{zfile},\"sfile\":{sfile}}}",quote(&key),r.get(0xfe8),t.generation);
+            pending_depth = Some((key, t));
+            json
         } else {
             require(
                 r.get(0x12cc) == 0 && r.get(0x12e8) == 0 && r.get(0x1380) == 0,
@@ -677,7 +749,13 @@ impl Backend {
                             .address
                             .checked_add(tic.surface().size() as u64)
                             .ok_or_else(|| Error("texture range overflow".into()))?;
-                        for rendered in self.targets.values().chain(batch_targets.values()) {
+                        for rendered in self
+                            .targets
+                            .values()
+                            .chain(batch_targets.values())
+                            .chain(self.depth_targets.values())
+                            .chain(pending_depth.iter().map(|(_, t)| t))
+                        {
                             require(
                                 tic.address >= rendered.address + rendered.size() as u64
                                     || rendered.address >= texture_end,
@@ -769,6 +847,9 @@ impl Backend {
         command.push('}');
         self.commands.push(command);
         self.targets.extend(batch_targets);
+        if let Some((key, t)) = pending_depth {
+            self.depth_targets.insert(key, t);
+        }
         Ok(())
     }
     /// Queue a captured batch on the persistent GPU thread. No image readback occurs.
@@ -806,7 +887,7 @@ impl Backend {
             self.commands.is_empty(),
             "submit prepared commands before readback",
         )?;
-        for t in self.targets.values() {
+        for t in self.targets.values().chain(self.depth_targets.values()) {
             require(
                 memory.identity == t.memory_identity
                     && memory.generation(t.address, t.size())? == t.generation,
@@ -851,11 +932,7 @@ impl Backend {
                 bytes.len() == t.width as usize * t.height as usize * t.format.info().bytes,
                 "invalid readback length",
             )?;
-            let data = if t.pitch {
-                bytes.clone()
-            } else {
-                t.surface().swizzle(&bytes).map_err(io)?
-            };
+            let data = t.writeback(&bytes, memory)?;
             memory.read(t.address, data.len())?;
             writes.push((t.address, data));
             images.push(Readback {
@@ -864,6 +941,44 @@ impl Backend {
                 height: t.height,
                 rgba: crate::format::rgba(t.format, &bytes),
             });
+        }
+        for (key, t) in &self.depth_targets {
+            use soju_switch_texture::format::Format;
+            let z = std::fs::read(directory.join(format!("{key}.depth"))).map_err(io)?;
+            let stencil = std::fs::read(directory.join(format!("{key}.stencil"))).map_err(io)?;
+            let pixels = t.width as usize * t.height as usize;
+            let depth_bytes = if t.format == Format::Depth16Unorm {
+                2
+            } else {
+                4
+            };
+            require(
+                z.len() == pixels * depth_bytes && (stencil.is_empty() || stencil.len() == pixels),
+                "invalid depth readback",
+            )?;
+            let mut raw = t
+                .surface()
+                .deswizzle(memory.read(t.address, t.size())?)
+                .map_err(io)?;
+            for (i, p) in raw.chunks_exact_mut(t.format.info().bytes).enumerate() {
+                let value = &z[i * depth_bytes..(i + 1) * depth_bytes];
+                match t.format {
+                    Format::Depth24UnormStencil8 => {
+                        require(stencil.len() == pixels, "missing stencil bytes")?;
+                        let f = f32::from_le_bytes(value.try_into().unwrap());
+                        let v = ((f.clamp(0., 1.) * 16777215.).round() as u32) << 8
+                            | u32::from(stencil[i]);
+                        p.copy_from_slice(&v.to_le_bytes());
+                    }
+                    Format::Depth32FloatStencil8 => {
+                        require(stencil.len() == pixels, "missing stencil bytes")?;
+                        p[..4].copy_from_slice(value);
+                        p[4] = stencil[i];
+                    }
+                    _ => p.copy_from_slice(value),
+                }
+            }
+            writes.push((t.address, t.writeback(&raw, memory)?));
         }
         for (key, &(address, _, _)) in &self.queries {
             let data = std::fs::read(directory.join(format!("{key}.query"))).map_err(io)?;
@@ -876,6 +991,7 @@ impl Backend {
         self.commands.clear();
         self.files.clear();
         self.targets.clear();
+        self.depth_targets.clear();
         self.queries.clear();
         Ok(Report {
             images,
