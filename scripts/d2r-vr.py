@@ -382,7 +382,7 @@ def setup(refresh=False):
                                  'mod': m['mod']['name']}, indent=2) + '\n')
     say('D2R VR is set up. Play with: soju vr play')
     say('Connect the OXRSys headset/client or Simulator before soju vr play; tracking must be ready before the title screen.')
-    say('Create an OFFLINE character in VR with stick + A. Click the D2R window and type the name with the Mac keyboard.')
+    say('Create an OFFLINE character in VR: stick-right + A selects New; stick + A chooses a class and types on the VR keyboard.')
     say('If D2R says you have not been online for 30 days: play D2R online once from Battle.net, '
         'then run: soju vr setup --refresh (VR characters are kept).')
     return 0
@@ -448,7 +448,7 @@ def play(extra, flat=False):
         say('Opening the VR copy without VR. Create or check offline characters, then quit and run: soju vr play')
     if not flat:
         say('Connect the OXRSys headset/Simulator before the title screen. Use stick + A for offline character creation.')
-        say('For the name, click the D2R window and type on the Mac keyboard; then return to the simulator/headset.')
+        say('Use the VR name keyboard: stick + A types, X erases, Y changes case; select Create + A. B goes back.')
     os.chdir(BOTTLE / GAME_REL)
     # -mod keeps D2R offline: no Battle.net game servers.
     os.execve(str(ENGINE / 'bin/wine'), [str(ENGINE / 'bin/wine'), 'D2RLoader.exe', '-mod',

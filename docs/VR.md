@@ -39,7 +39,7 @@ The game streams to a headset running the **OXRSys client** (Meta Quest / PICO, 
 Simulator on the Mac for testing. The Mac and the headset need to be on the same network (or USB with adb).
 
 Status (November 2026): verified on M4 Pro / macOS 26.5 with the OXRSys Simulator: first-person view in Act 1 at
-72 fps. **Not yet tested on a real headset.** Controller input therefore has not been checked.
+72 fps. **Not yet tested on a real headset.** Physical Quest controller input therefore has not been checked.
 
 ## Create an offline character inside VR
 
@@ -49,30 +49,41 @@ connect as soon as it appears, before advancing the title screen. Opening the
 simulator window alone is insufficient: press **Connect** so it sends tracked head
 poses. The menu cannot anchor without tracking.
 
-1. Press **A** at the title. On OXRSys this sends one Enter directly to the title
-   window, without changing desktop focus. Use offline Play / character selection,
-   then **Start** for New (the first press may only switch to controller layout).
-   Choose a class with the **left stick + A**. D2R's native controller UI handles
-   class selection; the injected laser is not used for it.
-2. Select the name field, click the D2R window to give it keyboard focus, and type
-   the name on the Mac keyboard. Release controller keys before switching windows.
-3. Return focus to the simulator (or resume the headset controller), then use
-   stick + A to finish creation and enter the game. No `--flat` restart is needed.
+1. Press **A** at the title and release it. The character list opens in controller
+   mode. On the VR **Characters** panel, move the **left stick right** to highlight
+   **New**, then press **A**. Up/down still selects an existing character; left
+   selects **Play**. Start remains a shortcut for New.
+2. Move the **left stick left/right** to choose a class, then press **A** and release
+   it. The VR **Character Name** keyboard opens automatically.
+3. Move the **left stick** across the letters and press **A** for each letter.
+   **X** erases one character; **Y** switches letter case. Select **Create** at the
+   lower right and press **A** to create the character and enter its game.
+   D2R validates the name, including length and duplicates. An invalid name keeps
+   the screen open so you can correct it. No desktop click or `--flat` launch is needed.
+4. **B** backs out of name entry; another B returns from creation to the character
+   list. On the list, B opens the native exit confirmation; B cancels it.
+   Release each press between screens. A held accept cannot select the next
+   screen's default item. Physical keyboard input remains available through D2R's
+   normal text field when the keyboard is routed to the game.
 
 For the local lab simulator build: **I/K/J/L** = left stick up/down/left/right;
-**B** = A/confirm; **N** = B/back; **Escape** = Start/New; **Z/X** = X/Y;
-**Space/V** = right/left trigger.
+**B** = controller A/confirm; **N** = controller B/back; **Escape** = Start/New;
+**Z** = controller X/erase; **X** = controller Y/case; **Space/V** = right/left trigger.
 Keep the simulator frontmost while using these keys and release each press.
 **Tab** toggles right-hand mouse aim; press it again to reset the hand aim and
 return to mouse head look. The existing backtick toggle aims the left hand.
 These keyboard mappings are lab additions; the stock OXRSys app may differ.
-Stick + A works while the simulator has focus. Laser mouse clicks still require
-D2R focus. On Quest use the physical left thumbstick and A button.
+On Quest use the physical left thumbstick and A/B/X/Y buttons.
 
-The simulator path was live-tested on 2026-11-03: title → offline character
-selection → New → Paladin → keyboard name → creation → stereo gameplay, without
-`--flat`. The OXRSys menu now includes a black projection background so its runtime
-streams the world-space menu quads. The virtual pad stays connected with neutral
+The PC build's controller name field did not open an on-screen keyboard when
+selected or accepted in the lab. The mod supplies its own VR keyboard and routes
+its keys to the native name field; it does not create saves or bypass game validation.
+The simulator created the Necromancer `sojunecro` with controller input and entered
+stereo gameplay. An empty character list was also tested: New → Warlock →
+`sojufresh` → stereo gameplay, using only simulator controller keys. B was checked
+in the list exit confirmation, class selection, and name entry. Wait for class
+selection animations to finish before sending the next action. The OXRSys menu
+includes a black projection background so its runtime streams the menu quads. The virtual pad stays connected with neutral
 controls while loading pauses XR publication, avoiding the reconnect dialog.
 
 After restarting D2R, disconnect the simulator's old session and Search/Connect
