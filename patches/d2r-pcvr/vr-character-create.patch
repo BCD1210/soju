@@ -11,11 +11,59 @@ index f524503..eb293f4 100644
    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/compat)
  endif()
  set(CMAKE_CXX_STANDARD 20)
+diff --git a/steamvr/composition_layers.h b/steamvr/composition_layers.h
+index e074e34..303e64a 100644
+--- a/steamvr/composition_layers.h
++++ b/steamvr/composition_layers.h
+@@ -2,6 +2,22 @@
+ #include <openxr/openxr.h>
+ 
+ namespace framevr::composition {
++// Some streaming runtimes need a projection source before they can composite
++// quads. A black texel supplies an opaque background without flattening the
++// menu: the following quads retain their world-space pose and stereo depth.
++inline void BlackBackdrop(XrCompositionLayerProjection& layer,
++                          XrCompositionLayerProjectionView (&eyes)[2],
++                          const XrView* views,XrSpace space,XrSwapchain atlas,
++                          XrOffset2Di blackTexel) {
++    layer={XR_TYPE_COMPOSITION_LAYER_PROJECTION};layer.space=space;
++    layer.viewCount=2;layer.views=eyes;
++    for(int i=0;i<2;++i) {
++        eyes[i]={XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
++        eyes[i].pose=views[i].pose;eyes[i].fov=views[i].fov;
++        eyes[i].subImage.swapchain=atlas;
++        eyes[i].subImage.imageRect={blackTexel,{1,1}};
++    }
++}
+ // Proton Experimental's win64 layer-array converter (observed 2026-10-09)
+ // sizes EVERY output element from input[0]->type. Projection is 48 bytes;
+ // quad is 112. A projection followed by quads therefore overlaps outputs.
+diff --git a/steamvr/composition_layers_test.cpp b/steamvr/composition_layers_test.cpp
+index a95d936..1a25c41 100644
+--- a/steamvr/composition_layers_test.cpp
++++ b/steamvr/composition_layers_test.cpp
+@@ -39,5 +39,16 @@ int main(){
+     Check(!PrependQuadPadding(layers.data(),count,layers.size(),padding,space,atlas),"capacity respected");
+     count=1;layers[0]=base;
+     Check(!PrependQuadPadding(layers.data(),count,layers.size(),padding,space,atlas)&&count==1,"scene-only frame adds nothing");
++    XrView views[2]{{XR_TYPE_VIEW},{XR_TYPE_VIEW}};
++    views[0].pose.orientation.w=views[1].pose.orientation.w=1;
++    views[0].pose.position.x=-.032f;views[1].pose.position.x=.032f;
++    views[0].fov=views[1].fov={-.8f,.8f,.8f,-.8f};
++    XrCompositionLayerProjection backdrop{};XrCompositionLayerProjectionView backdropEyes[2]{};
++    BlackBackdrop(backdrop,backdropEyes,views,space,atlas,{1032,32});
++    Check(backdrop.viewCount==2&&backdrop.space==space&&backdrop.layerFlags==0,"opaque stereo backdrop");
++    Check(backdropEyes[0].pose.position.x<0&&backdropEyes[1].pose.position.x>0,"background keeps tracked stereo poses");
++    Check(backdropEyes[0].subImage.imageRect.extent.width==1&&backdropEyes[1].subImage.imageRect.offset.y==32,"background reads only reserved black texel");
++    count=2;layers[0]=reinterpret_cast<const XrCompositionLayerBaseHeader*>(&backdrop);layers[1]=reinterpret_cast<const XrCompositionLayerBaseHeader*>(&menu);
++    Check(PrependQuadPadding(layers.data(),count,layers.size(),padding,space,atlas)&&SurvivesBridge(layers.data(),count),"menu backdrop survives mixed-layer bridge");
+     std::puts("Composition: reproduced Wine quad overlap; padding preserves fields, order, capacity and native path");
+ }
 diff --git a/steamvr/menu_controls.h b/steamvr/menu_controls.h
-index 65285d6..2db3d16 100644
+index 65285d6..0e10b9e 100644
 --- a/steamvr/menu_controls.h
 +++ b/steamvr/menu_controls.h
-@@ -21,6 +21,11 @@ inline bool Tagged(uint32_t tag){return tag==uint32_t(Mode::World)||tag==uint32_
+@@ -21,6 +21,27 @@ inline bool Tagged(uint32_t tag){return tag==uint32_t(Mode::World)||tag==uint32_
  inline bool Allowed(uint32_t tag,uint32_t epoch,uint32_t current,bool native,bool settings) {
      return epoch==current&&!settings&&tag==uint32_t(native?Mode::Native:Mode::World);
  }
@@ -24,17 +72,69 @@ index 65285d6..2db3d16 100644
 +inline bool NavigationActive(bool uiActive,bool focused,bool frontend) {
 +    return uiActive&&(focused||frontend);
 +}
++// Wine's title panel accepts window key messages but can ignore native pad
++// events before its controller UI exists. Consume one fresh accept through the
++// transition so a held title press cannot also enter the selected character.
++class TitleAccept {
++    bool down=true,consumed=false;
++public:
++    bool Step(bool active,bool title,Pad& pad) {
++        const bool pressed=(pad.buttons&(A|Start))!=0;
++        const bool fire=active&&title&&pressed&&!down;
++        if(!pressed)consumed=false;
++        if(fire)consumed=true;
++        down=pressed||!active;
++        if(consumed)pad.buttons&=~(A|Start);
++        return fire;
++    }
++};
  inline bool Tilted(int16_t x,int16_t y){return std::max(std::abs(int(x)),std::abs(int(y)))>8000;}
  inline bool Busy(const Pad& p){return p.buttons||p.lt>25||p.rt>25||Tilted(p.lx,p.ly)||Tilted(p.rx,p.ry);}
  inline bool SettingsChord(const Pad& p,bool quickCastConsumed) {
 diff --git a/steamvr/native_panels_test.cpp b/steamvr/native_panels_test.cpp
-index b55d252..ebc969f 100644
+index b55d252..46f4177 100644
 --- a/steamvr/native_panels_test.cpp
 +++ b/steamvr/native_panels_test.cpp
-@@ -11,6 +11,26 @@
+@@ -2,6 +2,7 @@
+ #include "npc_dialogue.h"
+ #include "panel_input_mode.h"
+ #include "menu_controls.h"
++#include "pad_mirror_policy.h"
+ #include "quick_cast.h"
+ #include "journal.h"
+ #include "input.h"
+@@ -11,6 +12,54 @@
  using namespace framevr;
  static void Check(bool ok,const char* message){if(!ok){std::fprintf(stderr,"FAIL: %s\n",message);std::exit(1);}}
  int main(){
++    BWPadMirror source{};source.version=BW_PAD_MIRROR_VERSION;source.writer_pid=42;
++    source.counter=123;source.reserved[0]=uint32_t(menus::Mode::Native);source.reserved[1]=7;
++    source.buttons=menus::A;source.left_trigger=200;source.right_trigger=255;
++    source.thumb_lx=12000;source.thumb_ly=-15000;source.thumb_rx=22000;source.thumb_ry=-24000;
++    BWPadMirror copied{};
++    Check(menus::CopyMirror(source,true,42,copied)&&copied.buttons==menus::A,"fresh mirror preserves input");
++    Check(menus::CopyMirror(source,false,42,copied),"internal pad stays connected through loading");
++    Check(!copied.buttons&&!copied.left_trigger&&!copied.right_trigger&&!copied.thumb_lx&&!copied.thumb_ly&&!copied.thumb_rx&&!copied.thumb_ry,"loading releases every control");
++    Check(copied.counter==123&&copied.reserved[1]==7,"neutral mirror retains packet and epoch");
++    Check(!menus::CopyMirror(source,false,99,copied),"stale external pad disconnects");
++    Check(menus::CopyMirror(source,true,99,copied),"fresh external pad remains supported");
++    source.reserved[0]=0;
++    Check(!menus::CopyMirror(source,false,42,copied),"untagged writer retains timeout");
++    source.version=0;
++    Check(!menus::CopyMirror(source,true,42,copied),"unknown mirror version rejected");
++    menus::TitleAccept titleAccept;
++    menus::Pad accept;accept.buttons=menus::A;
++    Check(!titleAccept.Step(true,true,accept),"held input on attachment cannot skip title");
++    menus::Pad released;
++    titleAccept.Step(true,true,released);
++    Check(titleAccept.Step(true,true,accept)&&accept.buttons==0,"fresh title A becomes one window accept");
++    accept.buttons=menus::A;
++    Check(!titleAccept.Step(true,false,accept)&&accept.buttons==0,"held title A cannot play selected character");
++    titleAccept.Step(true,false,released);accept.buttons=menus::A;
++    Check(!titleAccept.Step(true,false,accept)&&accept.buttons==menus::A,"next A uses native character selection");
++    titleAccept.Step(false,true,released);accept.buttons=menus::Start;
++    Check(!titleAccept.Step(false,true,accept),"inactive VR cannot post a title key");
++
 +    // Simulator owns desktop focus while the anchored title/class picker consumes XInput.
 +    for(bool focused:{false,true})for(bool frontend:{false,true})for(bool placed:{false,true}) {
 +        menus::Navigation nav;
@@ -58,11 +158,85 @@ index b55d252..ebc969f 100644
      for(int preset=0;preset<3;++preset)for(bool main:{false,true}) {
          const float distance=panels::MenuDistance(preset,main);
          Check(std::fabs(distance-(main?.70f:.55f)-.30f*preset)<.00001f,"distance presets add 30 cm without changing canvas scale");
+diff --git a/steamvr/pad_mirror_policy.h b/steamvr/pad_mirror_policy.h
+new file mode 100644
+index 0000000..7e57d71
+--- /dev/null
++++ b/steamvr/pad_mirror_policy.h
+@@ -0,0 +1,18 @@
++#pragma once
++#include "../external/bodywalk/pad_mirror_shared.h"
++#include "menu_controls.h"
++
++namespace framevr::menus {
++// Internal XR publication can pause during loading. Keep that virtual device
++// connected, but release every control. External writers still time out.
++inline bool CopyMirror(const BWPadMirror& source,bool fresh,uint32_t owner,BWPadMirror& out) {
++    if(source.version!=BW_PAD_MIRROR_VERSION)return false;
++    if(!fresh&&(source.writer_pid!=owner||!Tagged(source.reserved[0])))return false;
++    out=source;
++    if(!fresh) {
++        out.buttons=0;out.left_trigger=out.right_trigger=0;
++        out.thumb_lx=out.thumb_ly=out.thumb_rx=out.thumb_ry=0;
++    }
++    return true;
++}
++}
 diff --git a/steamvr/transport.cpp b/steamvr/transport.cpp
-index 7710bd9..2eb4503 100644
+index 7710bd9..629af17 100644
 --- a/steamvr/transport.cpp
 +++ b/steamvr/transport.cpp
-@@ -1958,11 +1958,13 @@ void MenuPointer(const menus::Pad& controls) {
+@@ -120,7 +120,7 @@
+ 
+ namespace gamestate {uint32_t WeaponType();uint32_t HandsKey();uint32_t WeaponSet();uint32_t WeaponClass();uint32_t TwoHanded();uint64_t LocalPlayer();uint32_t MenuEpoch();}
+ namespace gamecmd {void RequestPotion(int slot);void CancelPotion();}
+-namespace gamestate {void MenuMap(bool wanted);uint32_t QuestNotices();bool NoticePanelOpen();bool NoticeText(int kind,char* out,uint32_t size);}
++namespace gamestate {void MenuMap(bool wanted);uint32_t QuestNotices();bool NoticePanelOpen();bool TitleScreenOpen();bool NoticeText(int kind,char* out,uint32_t size);}
+ namespace gamestate {bool LeftShield();bool RightThrowingPotion();uint32_t RightThrowingPotionCode();framevr::dualwield::Equipment MeleeEquipment();}
+ namespace combat {float GameVolume();}
+ namespace projectiles {int ObservedGait(uint64_t& at,bool* tired);void StickFullRun(bool on);}
+@@ -146,6 +146,7 @@ XR_FUNCTIONS(DECLARE)
+ PFN_xrGetInstanceProcAddr getProc=nullptr;
+ HMODULE loader=nullptr;
+ bool wineOpenXR=false;
++bool oxrsysRuntime=false;
+ // Frame generation (frame_generation.h): the settings now, packed as
+ // mode*100+preset*10+scale (-1 before the INI is read), how this instance
+ // started with OFXR Bridge and the layer's control API while it is loaded.
+@@ -835,6 +836,7 @@ elements::Scene elementalScene;
+ panels::MouseGate panelMouse;
+ menus::ReleaseGate menuControls;
+ menus::Navigation menuNavigation;
++menus::TitleAccept titleAccept;
+ menus::Pad nativeMenuPad;
+ menus::LaserClick laserClick;
+ panels::ScrollGate panelScroll;
+@@ -1084,7 +1086,7 @@ void ClearInput() {
+     wristHeading.Reset();compassFrame=false;mapZoom.Reset();wristMapLooked=false;
+     panelinput::WorldInput(false);
+     gamestate::MenuMap(false);
+-    menuControls.Suspend();menuNavigation.Reset();nativeMenuPad={};laserClick={};panelinput::UseController();
++    menuControls.Suspend();menuNavigation.Reset();titleAccept={};nativeMenuPad={};laserClick={};panelinput::UseController();
+     statsPress.Reset();statsShown=statsLit=false;menuDrop.Reset();
+     handControls.Suspend();
+     bodyCalibration.Suspend();
+@@ -1347,6 +1349,7 @@ bool LoadFunctions() {
+     XrInstanceProperties props{XR_TYPE_INSTANCE_PROPERTIES};pGetInstanceProperties(instance,&props);
+     char b[192];std::snprintf(b,sizeof b,"Frame OpenXR: runtime %s",props.runtimeName);Say(b);
+     runtimeVdxr.store(std::strstr(props.runtimeName,"VirtualDesktop")!=nullptr);
++    oxrsysRuntime=std::strstr(props.runtimeName,"OXRSys")!=nullptr;
+     XrSystemGetInfo si{XR_TYPE_SYSTEM_GET_INFO};si.formFactor=XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
+     if(!Check(pGetSystem(instance,&si,&system),"get headset system"))return false;
+     XrSystemProperties limits{XR_TYPE_SYSTEM_PROPERTIES};
+@@ -1617,6 +1620,7 @@ std::vector<uint8_t> PaintPointer() {
+         const float radius=std::hypot((x-31.5f)/30.f,(y-63.5f)/30.f);
+         p[3]=y<32?200:uint8_t(std::clamp((1-radius)*10,0.f,1.f)*255);
+     }
++    pixels[(32*64)*4]=pixels[(32*64)*4+1]=pixels[(32*64)*4+2]=0; // transparent black backdrop texel
+     return pixels;
+ }
+ // Static text atlas: painted once, never repainted in the frame loop; empty if
+@@ -1958,11 +1962,13 @@ void MenuPointer(const menus::Pad& controls) {
      if(settingsModel.open||bodyCalibration.Active()||calibrationRelease.blocked){panelinput::ItemHover(false);menuDrop.Reset();respecShown=false;respecButton.Hide();return;}
      const bool spatialReady=spatialMode&&SurfacePlaced()&&uiCrop[2]>0;
      const bool uiActive=(panelMode&&menuPlaced)||spatialReady;
@@ -77,12 +251,19 @@ index 7710bd9..2eb4503 100644
      XrSpaceLocation aim{XR_TYPE_SPACE_LOCATION};
      const auto flags=XR_SPACE_LOCATION_POSITION_VALID_BIT|XR_SPACE_LOCATION_ORIENTATION_VALID_BIT|
          XR_SPACE_LOCATION_POSITION_TRACKED_BIT|XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT;
-@@ -2047,10 +2049,10 @@ void MenuPointer(const menus::Pad& controls) {
+@@ -2047,10 +2053,17 @@ void MenuPointer(const menus::Pad& controls) {
      menus::Pad navigation=controls;
      if(leatherMode&&leatherShown.load())navigation.lx=navigation.ly=navigation.rx=navigation.ry=0;
      if(onButton||statsPress.Held()||respecPress.Held()||dropOwns)navigation.rt=0;   // a button's or the drop's trigger is never the game's RT
 -    nativeMenuPad=menuNavigation.Step(uiActive&&focused,navigation,pointerHit&&!onButton,hit.u,hit.v,mouseDown||rightMouseDown);
 +    nativeMenuPad=menuNavigation.Step(menus::NavigationActive(uiActive,focused,frontend),navigation,pointerHit&&!onButton,hit.u,hit.v,mouseDown||rightMouseDown);
++    if(titleAccept.Step(oxrsysRuntime&&frontend&&uiActive,gamestate::TitleScreenOpen(),nativeMenuPad)) {
++        if(gameWindow) {
++            PostMessageW(gameWindow,WM_KEYDOWN,VK_RETURN,0x001c0001);
++            PostMessageW(gameWindow,WM_KEYUP,VK_RETURN,0xc01c0001);
++            Say("Frame panels: title accept posted to game window; desktop focus unchanged");
++        }
++    }
      if(statsPress.Held())nativeMenuPad.buttons|=menus::Back;   // View: Advanced Stats (Start closes the menu)
      if(menuDrop.Down())nativeMenuPad.buttons|=menus::X;   // X: the controller menu's Drop for the item on the cursor
 -    if(wasNative!=menuNavigation.Native()&&uiActive&&focused)
@@ -90,3 +271,85 @@ index 7710bd9..2eb4503 100644
          Say(menuNavigation.Native()?"Frame panels: native controller navigation":"Frame panels: laser navigation");
      const bool laser=!menuNavigation.Native();
      if(!laser){panelinput::UseController();pointerVisible=pointerHit=false;}
+@@ -5889,9 +5902,18 @@ void EndPair() {
+     // [interactions] leather_world=0: the leather against the same black (a test fallback).
+     const bool blackMenu=((opaqueMenuMode&&workspacePlaced)||(leatherMode&&!leatherShown.load()&&leatherHolder.Placed()))&&
+         uiEye.copied&&uiCrop[2]>0&&!settingsModel.open&&!bodyCalibration.Active();
++    XrCompositionLayerProjection backdrop{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
++    XrCompositionLayerProjectionView backdropEyes[2]{};
++    const bool menuBackdrop=oxrsysRuntime&&pointerChain&&render&&valid&&
++        (blackMenu||(layer&&layer->type==XR_TYPE_COMPOSITION_LAYER_QUAD));
++    if(menuBackdrop) {
++        composition::BlackBackdrop(backdrop,backdropEyes,views.data(),space,pointerChain,{panelatlas::Pointer.x,panelatlas::Pointer.y+32});
++        layers[count++]=reinterpret_cast<const XrCompositionLayerBaseHeader*>(&backdrop);
++        static bool told=false;if(!told){told=true;Say("Frame OpenXR: black projection backdrop for OXRSys quad menus");}
++    }
+     if(layer&&!blackMenu)layers[count++]=layer;
+     const uint32_t capacity=std::min(uint32_t(layers.size()),layerLimit);
+-    const bool padQuads=composition::NeedsQuadPadding(wineOpenXR,layer,pointerChain);
++    const bool padQuads=composition::NeedsQuadPadding(wineOpenXR,count?layers[0]:nullptr,pointerChain);
+     const uint32_t contentLimit=padQuads&&capacity>1?capacity-1:capacity;
+     XrCompositionLayerQuad palette{XR_TYPE_COMPOSITION_LAYER_QUAD},bottle{XR_TYPE_COMPOSITION_LAYER_QUAD},chosen{XR_TYPE_COMPOSITION_LAYER_QUAD};
+     std::array<XrCompositionLayerQuad,2> arrow{{{XR_TYPE_COMPOSITION_LAYER_QUAD},{XR_TYPE_COMPOSITION_LAYER_QUAD}}};
+diff --git a/vr/gamestate.cpp b/vr/gamestate.cpp
+index 1251de1..f2960a9 100644
+--- a/vr/gamestate.cpp
++++ b/vr/gamestate.cpp
+@@ -337,6 +337,7 @@ std::atomic<bool> g_respecButton{false};  // its Character page alone: Reset Ski
+ std::atomic<uint32_t> g_panelChanges{0};   // every panel opened or closed (leather::Back)
+ std::atomic<bool> g_npcChoices{false};
+ std::atomic<uint32_t> g_questNotices{0};   // quest updates while the notification panel is hidden
++std::atomic<bool> g_titlePanel{false};
+ std::atomic<bool> g_noticePanel{false};     // the native NotificationPanel is open (hidden or not)
+ std::mutex noticeMutex;
+ char noticeTexts[framevr::notice::Kinds][256]{};
+@@ -899,6 +900,7 @@ SharedEvents::UiMessageAction __cdecl OnUiMessage(const PluginContext* ctx, cons
+             !strcmp(command, "UnloadPanel") || !strcmp(command, "UnloadAll") || !strcmp(command, "CloseAll")) g_panelChanges.fetch_add(1);
+         g_autoMap.store(g_panels.count("AutoMap") ? 1 : 0);
+         framevr::fullmap::g_panel.store(g_panels.count("AutoMap") != 0);
++        g_titlePanel.store(g_panels.count("TitleScreenPanel") != 0);
+         g_noticePanel.store(g_panels.count("NotificationPanel") != 0);
+         g_upperBandMenu.store(std::any_of(g_panels.begin(),g_panels.end(),
+             [](const auto& name){return framevr::panels::UpperBand(name);}));
+@@ -1122,6 +1124,7 @@ int ObjectLight(uint32_t txt, uint32_t mode, float rgb[3]) {
+ }
+ 
+ uint32_t QuestNotices(){return g_questNotices.load();}
++bool TitleScreenOpen(){return g_titlePanel.load();}
+ bool NoticePanelOpen(){return g_noticePanel.load();}
+ bool NoticeText(int kind,char* out,uint32_t size) {
+     if(kind<0||kind>=framevr::notice::Kinds||!out||!size)return false;
+diff --git a/vr/vrcam.cpp b/vr/vrcam.cpp
+index 6dcd253..7108603 100644
+--- a/vr/vrcam.cpp
++++ b/vr/vrcam.cpp
+@@ -114,6 +114,7 @@ namespace gamestate {bool RunOnUi(D2RL::Threads::Callback callback);}
+ #include "light_bounds.h"
+ #include "game_device_only.h"
+ #include "menu_controls.h"
++#include "pad_mirror_policy.h"
+ #include "xinput_rumble.h"
+ #include "native_panels.h"
+ #include "spell_aim.h"
+@@ -4451,9 +4452,18 @@ bool PadMirrorRead(BWPadMirror* out) {
+     static std::atomic<ULONGLONG> movedAt{0};
+     const BWPadMirror m = *p;
+     if (m.counter != seen.load()) { seen.store(m.counter); movedAt.store(GetTickCount64()); }
+-    if (m.version != BW_PAD_MIRROR_VERSION || GetTickCount64() - movedAt.load() > 1000) return false;
+-    *out = m;
+-    return true;
++    const bool fresh=GetTickCount64()-movedAt.load()<=1000;
++#ifdef D2RVR_NATIVE_OPENXR
++    const bool available=framevr::menus::CopyMirror(m,fresh,GetCurrentProcessId(),*out);
++    if(available&&!fresh) {
++        static std::atomic<bool> told{false};
++        if(!told.exchange(true))Log("Frame input: XR publication paused; virtual pad connected with neutral controls");
++    }
++    return available;
++#else
++    if(m.version!=BW_PAD_MIRROR_VERSION||!fresh)return false;
++    *out=m;return true;
++#endif
+ }
+ 
+ bool PadFromBodyWalk(XINPUT_STATE* s, BWPadMirror* report=nullptr) {
