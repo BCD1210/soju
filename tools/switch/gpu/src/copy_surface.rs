@@ -58,6 +58,18 @@ impl Layout {
 pub(crate) fn copy(r: &Registers, memory: &mut Memory, rect: [u32; 6], scale: u32) -> Result<()> {
     let [dx, dy, w, h, sx, sy] = rect.map(|v| v as usize);
     let scale = scale as usize;
+    let linear = if r.get(0x230) == 0xd6 && scale == 2 {
+        Some(std::array::from_fn::<_, 256, _>(|i| {
+            let v = i as f64 / 255.;
+            if v <= 0.04045 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            }
+        }))
+    } else {
+        None
+    };
     let src = Layout::new(r, 0x230)?;
     let dst = Layout::new(r, 0x200)?;
     let source = memory.read(r.address(0x250), src.size)?;
@@ -79,7 +91,22 @@ pub(crate) fn copy(r: &Registers, memory: &mut Memory, rect: [u32; 6], scale: u3
                 ];
                 for channel in 0..4 {
                     let sum: u16 = offsets.iter().map(|o| u16::from(source[o + channel])).sum();
-                    destination[to + channel] = ((sum + 2) / 4) as u8;
+                    destination[to + channel] = if let Some(table) = linear.as_ref().filter(|_| channel < 3)
+                    {
+                        let v = offsets
+                            .iter()
+                            .map(|o| table[source[o + channel] as usize])
+                            .sum::<f64>()
+                            / 4.;
+                        let encoded = if v <= 0.0031308 {
+                            v * 12.92
+                        } else {
+                            1.055 * v.powf(1. / 2.4) - 0.055
+                        };
+                        (encoded * 255.).round().clamp(0., 255.) as u8
+                    } else {
+                        ((sum + 2) / 4) as u8
+                    };
                 }
             }
         }

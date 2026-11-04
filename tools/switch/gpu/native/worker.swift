@@ -287,7 +287,7 @@ final class Worker {
         let newTarget = targets[key] == nil
         if newTarget {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:MTLPixelFormat(rawValue:UInt(Int(target.metal)))!,width:w,height:h,mipmapped:false)
-            descriptor.storageMode = samples > 1 ? .private : .shared; descriptor.usage = [.renderTarget,.shaderRead]
+            descriptor.storageMode = samples > 1 ? .private : .shared; descriptor.usage = samples > 1 ? [.renderTarget,.shaderRead,.pixelFormatView] : [.renderTarget,.shaderRead]
             if samples > 1 { descriptor.textureType = .type2DMultisample; descriptor.sampleCount = samples }
             guard let texture = device.makeTexture(descriptor:descriptor) else { throw Failure("color allocation") }; targets[key] = texture; targetBytes[key] = Int(target.bytes)
         }

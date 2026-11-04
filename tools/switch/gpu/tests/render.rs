@@ -3292,117 +3292,118 @@ fn depth_sampler_comparisons_cover_all_functions_and_cache_keys() {
 
 #[test]
 fn multisample_draw_preserves_edge_coverage_depth_and_stencil_samples() {
-    let mut h = Harness::new();
-    let (mut e, _) = h.engine("single setup", [0., 0., 0., 1.]);
-    let directory = std::env::temp_dir().join(format!("soju-msaa-{}", std::process::id()));
-    h.backend.execute_memory(&directory, &mut h.memory).unwrap();
-    let color = h.alloc(vec![0; 64 * 64 * 4]);
-    let depth = h.alloc(vec![0; 64 * 64 * 4]);
-    h.methods(
-        &mut e,
-        &[
-            (0x804, color as u32),
-            (0x808, 64),
-            (0x80c, 64),
-            (0x15d0, 2),
-            (0x1534, 1),
-            (0x11e0, 0xeaa26e26),
-            (0xfe0, 0),
-            (0xfe4, depth as u32),
-            (0xfe8, 0x14),
-            (0xfec, 0),
-            (0x1538, 1),
-            (0x1228, 64),
-            (0x122c, 64),
-            (0x1230, 1),
-            (0xd90, 1f32.to_bits()),
-            (0xda0, 0x5a),
-            (0x19d0, 63),
-            (0x12cc, 1),
-            (0x12e8, 1),
-            (0x130c, 0x203),
-        ],
-    );
-    h.vertices(
-        &mut e,
-        &[
-            [-0.8, -0.7, 0.5, 1., 1., 1., 1., 1., 0., 0., 0., 0.],
-            [0.8, -0.7, 0.5, 1., 1., 1., 1., 1., 0., 0., 0., 0.],
-            [-0.8, 0.83, 0.5, 1., 1., 1., 1., 1., 0., 0., 0., 0.],
-        ],
-        &[[0.; 4]],
-    );
-    h.draw(&mut e, 3, false, false);
-    h.backend.execute_memory(&directory, &mut h.memory).unwrap();
-    let surface = Surface {
-        width: 64,
-        height: 64,
-        depth: 1,
-        bytes_per_block: 4,
-        block_height_log2: 0,
-        block_depth_log2: 0,
-    };
-    let pixels = surface
-        .deswizzle(h.memory.read(color, surface.size()).unwrap())
-        .unwrap();
-    let z = surface
-        .deswizzle(h.memory.read(depth, surface.size()).unwrap())
-        .unwrap();
-    let mut partial = 0;
-    let mut covered = 0;
-    for y in 0..32 {
-        for x in 0..32 {
-            let mut coverage = 0;
-            for sample in 0..4 {
-                let offset = ((y * 2 + sample / 2) * 64 + x * 2 + sample % 2) * 4;
-                let p = &pixels[offset..offset + 4];
-                assert!(
-                    p == [0, 0, 0, 255] || p == [255; 4],
-                    "unexpected sample {p:?}"
-                );
-                let white = p[0] == 255;
-                coverage += usize::from(white);
-                let packed = u32::from_le_bytes(z[offset..offset + 4].try_into().unwrap());
-                assert_eq!(packed & 255, 0x5a, "stencil sample changed");
-                let expected = if white { 0x800000 } else { 0xffffff };
-                assert!(
-                    ((packed >> 8) as i64 - expected).abs() <= 1,
-                    "depth sample does not follow coverage"
-                );
-            }
-            if (1..4).contains(&coverage) {
-                partial += 1;
-            }
-            covered += coverage;
-        }
-    }
-    assert!(
-        partial > 20,
-        "edge samples collapsed into one value: {partial}"
-    );
-    assert!(
-        (1100..1500).contains(&covered),
-        "triangle area coverage: {covered}"
-    );
-    // Re-import the exact guest sample planes into a fresh native backend. A
-    // depth-only clear must preserve all previously stored color samples.
-    let mut fresh = Backend::default();
-    let snapshot = e.method(B197, 0x19d0, 1, &mut h.memory).unwrap().unwrap();
-    fresh.prepare(&snapshot, &h.memory).unwrap();
-    fresh.execute_memory(&directory, &mut h.memory).unwrap();
-    assert_eq!(
-        surface
+    for (format, level) in [(0xd5, 128), (0xd6, 188)] {
+        let mut h = Harness::new();
+        let (mut e, _) = h.engine("single setup", [0., 0., 0., 1.]);
+        let directory = std::env::temp_dir().join(format!("soju-msaa-{}", std::process::id()));
+        h.backend.execute_memory(&directory, &mut h.memory).unwrap();
+        let color = h.alloc(vec![0; 64 * 64 * 4]);
+        let depth = h.alloc(vec![0; 64 * 64 * 4]);
+        h.methods(
+            &mut e,
+            &[
+                (0x804, color as u32),
+                (0x810, format),
+                (0x808, 64),
+                (0x80c, 64),
+                (0x15d0, 2),
+                (0x1534, 1),
+                (0x11e0, 0xeaa26e26),
+                (0xfe0, 0),
+                (0xfe4, depth as u32),
+                (0xfe8, 0x14),
+                (0xfec, 0),
+                (0x1538, 1),
+                (0x1228, 64),
+                (0x122c, 64),
+                (0x1230, 1),
+                (0xd90, 1f32.to_bits()),
+                (0xda0, 0x5a),
+                (0x19d0, 63),
+                (0x12cc, 1),
+                (0x12e8, 1),
+                (0x130c, 0x203),
+            ],
+        );
+        h.vertices(
+            &mut e,
+            &[
+                [-0.8, -0.7, 0.5, 1., 0.5, 0.5, 0.5, 1., 0., 0., 0., 0.],
+                [0.8, -0.7, 0.5, 1., 0.5, 0.5, 0.5, 1., 0., 0., 0., 0.],
+                [-0.8, 0.83, 0.5, 1., 0.5, 0.5, 0.5, 1., 0., 0., 0., 0.],
+            ],
+            &[[0.; 4]],
+        );
+        h.draw(&mut e, 3, false, false);
+        h.backend.execute_memory(&directory, &mut h.memory).unwrap();
+        let surface = Surface {
+            width: 64,
+            height: 64,
+            depth: 1,
+            bytes_per_block: 4,
+            block_height_log2: 0,
+            block_depth_log2: 0,
+        };
+        let pixels = surface
             .deswizzle(h.memory.read(color, surface.size()).unwrap())
-            .unwrap(),
-        pixels
-    );
-    let reset = surface
-        .deswizzle(h.memory.read(depth, surface.size()).unwrap())
-        .unwrap();
-    assert!(
-        reset
+            .unwrap();
+        let z = surface
+            .deswizzle(h.memory.read(depth, surface.size()).unwrap())
+            .unwrap();
+        let mut partial = 0;
+        let mut covered = 0;
+        for y in 0..32 {
+            for x in 0..32 {
+                let mut coverage = 0;
+                for sample in 0..4 {
+                    let offset = ((y * 2 + sample / 2) * 64 + x * 2 + sample % 2) * 4;
+                    let p = &pixels[offset..offset + 4];
+                    assert!(
+                        p == [0, 0, 0, 255] || p == [level, level, level, 255],
+                        "unexpected sample {p:?}"
+                    );
+                    let white = p[0] != 0;
+                    coverage += usize::from(white);
+                    let packed = u32::from_le_bytes(z[offset..offset + 4].try_into().unwrap());
+                    assert_eq!(packed & 255, 0x5a, "stencil sample changed");
+                    let expected = if white { 0x800000 } else { 0xffffff };
+                    assert!(
+                        ((packed >> 8) as i64 - expected).abs() <= 1,
+                        "depth sample does not follow coverage"
+                    );
+                }
+                if (1..4).contains(&coverage) {
+                    partial += 1;
+                }
+                covered += coverage;
+            }
+        }
+        assert!(
+            partial > 20,
+            "edge samples collapsed into one value: {partial}"
+        );
+        assert!(
+            (1100..1500).contains(&covered),
+            "triangle area coverage: {covered}"
+        );
+        // Re-import the exact guest sample planes into a fresh native backend. A
+        // depth-only clear must preserve all previously stored color samples.
+        let mut fresh = Backend::default();
+        let snapshot = e.method(B197, 0x19d0, 1, &mut h.memory).unwrap().unwrap();
+        fresh.prepare(&snapshot, &h.memory).unwrap();
+        fresh.execute_memory(&directory, &mut h.memory).unwrap();
+        assert_eq!(
+            surface
+                .deswizzle(h.memory.read(color, surface.size()).unwrap())
+                .unwrap(),
+            pixels
+        );
+        let reset = surface
+            .deswizzle(h.memory.read(depth, surface.size()).unwrap())
+            .unwrap();
+        assert!(reset
             .chunks_exact(4)
-            .all(|p| u32::from_le_bytes(p.try_into().unwrap()) == 0xffffff5a)
-    );
-    std::fs::remove_dir_all(directory).unwrap();
+            .all(|p| u32::from_le_bytes(p.try_into().unwrap()) == 0xffffff5a));
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 }

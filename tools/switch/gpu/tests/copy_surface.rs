@@ -197,3 +197,48 @@ fn bilinear_half_texel_reduction_averages_four_samples_and_preserves_other_bytes
         }
     }
 }
+
+#[test]
+fn srgb_reduction_linearizes_rgb_but_keeps_alpha_linear() {
+    let mut m = Memory::default();
+    let mut e = Engine::default();
+    let mut source = vec![0; PITCH * HEIGHT];
+    // Each 2x2 group has two black and two white color samples; alpha is linear.
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            let value = if x % 2 == 0 { 0 } else { 255 };
+            source[y * PITCH + x * 4..y * PITCH + x * 4 + 4].fill(value);
+        }
+    }
+    m.map(0x1000, source).unwrap();
+    m.map(0x10000, vec![0x5a; PITCH * HEIGHT]).unwrap();
+    configure(&mut e, &mut m, None, None, false);
+    for (r, v) in [
+        (0x200, 0xd6),
+        (0x230, 0xd6),
+        (0x88c, 0x10),
+        (0x8b8, 9),
+        (0x8bc, 7),
+        (0x8c4, 2),
+        (0x8cc, 2),
+        (0x8d0, 0x80000000),
+        (0x8d4, 2),
+        (0x8d8, 0x80000000),
+        (0x8dc, 1),
+    ] {
+        e.method(TWOD, r, v, &mut m).unwrap();
+    }
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            let expected = if (5..14).contains(&x) && (3..10).contains(&y) {
+                [188, 188, 188, 128]
+            } else {
+                [0x5a; 4]
+            };
+            assert_eq!(
+                m.read(0x10000 + (y * PITCH + x * 4) as u64, 4).unwrap(),
+                expected
+            );
+        }
+    }
+}

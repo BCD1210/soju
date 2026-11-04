@@ -571,7 +571,7 @@ impl Backend {
             require(width.is_multiple_of(scale) && height.is_multiple_of(scale), "multisample storage dimensions")?;
             if samples == 4 {
                 require(u64::from(width) * u64::from(height) <= 16 * 1024 * 1024, "multisample storage budget")?;
-                require(!pitch && matches!(format, soju_switch_texture::format::Format::Rgba8Unorm | soju_switch_texture::format::Format::Bgra8Unorm), "multisample color format/layout")?;
+                require(!pitch && matches!(format, soju_switch_texture::format::Format::Rgba8Unorm | soju_switch_texture::format::Format::Bgra8Unorm | soju_switch_texture::format::Format::Rgba8Srgb | soju_switch_texture::format::Format::Bgra8Srgb), "multisample color format/layout")?;
             }
             let mut target = Target {
                 address: r.address(base),

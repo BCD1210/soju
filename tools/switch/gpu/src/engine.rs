@@ -267,7 +267,7 @@ impl Engine {
         }
         let r = &self.copy;
         require(
-            r.get(0x200) == 0xd5 && r.get(0x230) == 0xd5 && r.get(0x2ac) == 3,
+            matches!(r.get(0x200), 0xd5 | 0xd6) && r.get(0x230) == r.get(0x200) && r.get(0x2ac) == 3,
             "902D requires RGBA8 SRCCOPY",
         )?;
         let unity = r.get(0x88c) & !1 == 0

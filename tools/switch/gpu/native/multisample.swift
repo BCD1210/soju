@@ -75,7 +75,18 @@ final class MultisampleTransfer {
         try need([MTLPixelFormat.rgba8Unorm,.bgra8Unorm,.depth32Float,.depth32Float_stencil8].contains(texture.pixelFormat),
             "sample transfer format")
     }
+    func storageView(_ texture: MTLTexture) throws -> MTLTexture {
+        let format: MTLPixelFormat
+        switch texture.pixelFormat {
+        case .rgba8Unorm_srgb: format = .rgba8Unorm
+        case .bgra8Unorm_srgb: format = .bgra8Unorm
+        default: return texture
+        }
+        guard let view = texture.makeTextureView(pixelFormat: format) else { throw Failure("multisample storage view") }
+        return view
+    }
     func upload(_ texture: MTLTexture, bytes: Data, stencil: Data = Data()) throws {
+        let texture = try storageView(texture)
         try check(texture)
         let depth = texture.pixelFormat == .depth32Float || texture.pixelFormat == .depth32Float_stencil8
         let hasStencil = texture.pixelFormat == .depth32Float_stencil8
@@ -118,6 +129,7 @@ final class MultisampleTransfer {
         try need(cb.status == .completed, "sample upload failed: \(String(describing: cb.error))")
     }
     func download(_ texture: MTLTexture, stencil: Bool = false) throws -> Data {
+        let texture = try storageView(texture)
         try check(texture)
         let depth = texture.pixelFormat == .depth32Float || texture.pixelFormat == .depth32Float_stencil8
         try need(!stencil || texture.pixelFormat == .depth32Float_stencil8, "sample stencil format")

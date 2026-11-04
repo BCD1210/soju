@@ -190,3 +190,19 @@ combinations, preservation outside the rectangle, rounding, and invalid-filter
 atomicity. Example06 passes 921,600 source-derived pixel comparisons at tick
 zero, including exact coverage alpha for 1,580 partial edge pixels. Its native
 run uses Metal API validation. Four-sample sRGB storage is not yet enabled.
+
+## Four-sample sRGB storage and resolve
+
+sRGB attachment transfers use compatible linear-format Metal views to preserve
+encoded storage bytes exactly. Ordinary rendering keeps the sRGB attachment
+format. The 902D A8BL8GL8RL8 reduction decodes RGB before averaging and encodes
+afterward; alpha remains linear. The transfer functions are defined in:
+https://registry.khronos.org/OpenGL/extensions/EXT/EXT_texture_sRGB.txt
+https://registry.khronos.org/OpenGL/extensions/EXT/EXT_framebuffer_sRGB.txt
+
+Native validation now covers six formats / 7,752 samples, including every byte
+value, and compares sRGB native resolves with linear-light reference results.
+The backend pixel test checks linear 0.5 writes as 128 in UNORM and 188 in sRGB,
+with per-sample depth/stencil preservation. The CPU reduction oracle checks
+black/white averaging to RGB 188 and alpha 128. Example07 progresses to its
+independent inactive vertex-attribute boundary and is not counted as accepted.

@@ -2,8 +2,8 @@
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else { throw Failure("no Metal device") }
         let transfer = try MultisampleTransfer(device)
-        let w = 7, h = 5, count = w*h*4
-        for format: MTLPixelFormat in [.rgba8Unorm, .bgra8Unorm, .depth32Float, .depth32Float_stencil8] {
+        let w = 17, h = 19, count = w*h*4
+        for format: MTLPixelFormat in [.rgba8Unorm, .bgra8Unorm, .rgba8Unorm_srgb, .bgra8Unorm_srgb, .depth32Float, .depth32Float_stencil8] {
             let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: w, height: h, mipmapped: false)
             d.textureType = .type2DMultisample; d.sampleCount = 4; d.storageMode = .private
             d.usage = [.renderTarget,.shaderRead,.pixelFormatView]
@@ -43,11 +43,20 @@
                 resolved.getBytes(&output, bytesPerRow: w*4, from: MTLRegionMake2D(0,0,w,h), mipmapLevel: 0)
                 for y in 0..<h { for x in 0..<w { for channel in 0..<4 {
                     let sum = (0..<4).reduce(0) { result, s in result + Int(bytes[((y*2+s/2)*w*2+x*2+s%2)*4+channel]) }
-                    try need(abs(Int(output[(y*w+x)*4+channel])*4-sum) <= 2, "resolve sample average")
+                    if channel < 3 && (format == .rgba8Unorm_srgb || format == .bgra8Unorm_srgb) {
+                        let linear = (0..<4).reduce(0.0) { result, s in
+                            let c = Double(bytes[((y*2+s/2)*w*2+x*2+s%2)*4+channel])/255.0
+                            return result + (c <= 0.04045 ? c/12.92 : pow((c+0.055)/1.055,2.4))
+                        } / 4.0
+                        let encoded = linear <= 0.0031308 ? linear*12.92 : 1.055*pow(linear,1/2.4)-0.055
+                        try need(abs(Double(output[(y*w+x)*4+channel])-encoded*255) <= 1, "sRGB linear resolve")
+                    } else {
+                        try need(abs(Int(output[(y*w+x)*4+channel])*4-sum) <= 2, "resolve sample average")
+                    }
                 } } }
                 try need(try transfer.download(texture) == bytes, "resolve destroyed stored samples")
             }
         }
-        print("multisample_transfer formats=4 samples=560 round_trip=passed stencil=passed resolve=passed invalid_upload=passed")
+        print("multisample_transfer formats=6 samples=7752 round_trip=passed stencil=passed resolve=passed invalid_upload=passed")
     }
 }
