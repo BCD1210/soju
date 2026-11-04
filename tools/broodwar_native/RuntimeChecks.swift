@@ -20,6 +20,12 @@ func runtimeChecks()throws {
     }
     var passed=[String]()
     func require(_ ok:Bool,_ message:String)throws {if !ok {throw SceneError.invalid("Runtime check: "+message)};passed.append(message)}
+    let timing=XRFrameMetrics()
+    timing.completed(frame:1,eye:1,milliseconds:2)
+    timing.completed(frame:1,eye:0,milliseconds:3)
+    timing.completed(frame:2,eye:0,milliseconds:4)
+    timing.completed(frame:2,eye:1,milliseconds:5)
+    try require(timing.completedStereoSamples==2,"GPU timing pairs either completion callback order")
     commander.apply(state(1,[unit("a"),unit("b")]),[:])
     try require(commander.models.count==2,"two independent live models")
     let aMaterials=Set(commander.models["a"]!.source.materials.map{ObjectIdentifier($0)})
