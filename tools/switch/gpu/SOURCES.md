@@ -125,3 +125,17 @@ to private Metal depth textures; native samplers carry all eight comparisons.
 Comparison state participates in sampler-table identity, and depth/color views
 have separate texture identities. A Metal pixel oracle exercises all eight
 functions with references below, equal to and above the stored depth (24 draws).
+
+## 902D block-linear rectangle copies
+
+The pinned NVIDIA cl902d.h above defines source/destination memory layout,
+block height, pitch, dimensions and rectangle coordinates. Unity-derivative
+RGBA8 SRCCOPY now supports both pitch and block-linear surfaces using the
+existing texture GOB layout. Copies preserve outside pixels and padding and
+snapshot aliased inputs before publishing any output. Storage is bounded to
+64 MiB per surface. Scaling, fractional origins and filtering remain rejected;
+this is a resolve prerequisite, not multisample resolve acceptance.
+
+Validation: the copy-surface test exercises all 49 pitch/block-height pairs,
+with disjoint and overlapping storage, partial rectangles crossing GOBs, and
+invalid layouts/addresses without writes. The 13 GPU state tests also pass.

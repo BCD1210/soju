@@ -256,7 +256,7 @@ impl Engine {
         Ok(())
     }
     fn copy(&mut self, offset: u32, value: u32, memory: &mut Memory) -> Result<()> {
-        // Pitch RGBA8 SRCCOPY, integer source origin and unity derivatives.
+        // RGBA8 SRCCOPY, integer source origin and unity derivatives.
         require(
             matches!(offset,0x200..=0x224|0x230..=0x254|0x2ac|0x8b0..=0x8dc),
             "unsupported 902D method",
@@ -269,10 +269,8 @@ impl Engine {
         require(
             r.get(0x200) == 0xd5
                 && r.get(0x230) == 0xd5
-                && r.get(0x204) == 1
-                && r.get(0x234) == 1
                 && r.get(0x2ac) == 3,
-            "902D requires pitch RGBA8 SRCCOPY",
+            "902D requires RGBA8 SRCCOPY",
         )?;
         require(
             r.get(0x8c0) == 0
@@ -284,11 +282,7 @@ impl Engine {
             "902D scaling/fractional origins unsupported",
         )?;
         require(
-            r.get(0x208) == 0
-                && r.get(0x238) == 0
-                && r.get(0x20c) == 1
-                && r.get(0x23c) == 1
-                && r.get(0x210) == 0,
+            r.get(0x20c) == 1 && r.get(0x23c) == 1 && r.get(0x210) == 0,
             "902D requires nonlayered 2D surfaces",
         )?;
         let (dx, dy, w, h, sx, sy) = (
@@ -308,27 +302,6 @@ impl Engine {
                 && sy.checked_add(h).is_some_and(|v| v <= r.get(0x24c)),
             "902D rectangle bounds",
         )?;
-        require(
-            u64::from(r.get(0x214)) >= u64::from(r.get(0x218)) * 4
-                && u64::from(r.get(0x244)) >= u64::from(r.get(0x248)) * 4,
-            "902D pitch too small",
-        )?;
-        let mut rows = Vec::new();
-        for y in 0..h {
-            let src = r
-                .address(0x250)
-                .checked_add(u64::from(sy + y) * u64::from(r.get(0x244)) + u64::from(sx) * 4)
-                .ok_or_else(|| Error("copy source overflow".into()))?;
-            let dst = r
-                .address(0x220)
-                .checked_add(u64::from(dy + y) * u64::from(r.get(0x214)) + u64::from(dx) * 4)
-                .ok_or_else(|| Error("copy dest overflow".into()))?;
-            memory.read(dst, w as usize * 4)?;
-            rows.push((dst, memory.read(src, w as usize * 4)?.to_vec()));
-        }
-        for (dst, data) in rows {
-            memory.write(dst, &data)?;
-        }
-        Ok(())
+        super::copy_surface::copy(r, memory, [dx, dy, w, h, sx, sy])
     }
 }

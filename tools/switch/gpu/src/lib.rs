@@ -1,5 +1,6 @@
 //! B197 method state and headless Metal rendering. Public provenance: SOURCES.md.
 pub mod engine;
+mod copy_surface;
 pub mod memory;
 pub mod registers;
 pub mod texture;
