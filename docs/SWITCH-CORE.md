@@ -108,3 +108,20 @@ NRO layout references:
 [homebrew loader](https://github.com/switchbrew/nx-hbloader/blob/master/source/main.c),
 [Homebrew ABI](https://switchbrew.org/wiki/Homebrew_ABI), and
 [libnx](https://github.com/switchbrew/libnx).
+
+## Rust core: M0
+
+`tools/switch/core/` is a dependency-free Cargo workspace with a library and
+`soju-switch-core` validation-only binary. `nro.rs` ports the existing Python
+loader's bounded NRO header/segment checks and initial homebrew ABI mappings
+(image/BSS, stack, TLS, loader config, exception context and return stub).
+Appended assets are excluded from mapped image memory. The ABI is the existing
+Soju diagnostic profile, not a complete Horizon process implementation.
+
+```sh
+cargo test --offline --manifest-path tools/switch/core/Cargo.toml
+```
+
+Four synthetic unit tests cover image loading, malformed/truncated inputs,
+segment bounds and ABI bytes/zeroed memory. CI runs only pure Rust tests with
+no default features. The launcher still uses the Python runner.

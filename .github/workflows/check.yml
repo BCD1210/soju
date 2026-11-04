@@ -16,6 +16,8 @@ jobs:
           for script in scripts/*.sh scripts/soju; do bash -n "$script"; done
           python3 -m unittest discover -s tests -q
           node --test tests/test_steam_login.cjs
+      - name: Switch core pure unit tests
+        run: cargo test --offline --manifest-path tools/switch/core/Cargo.toml --no-default-features
       - name: Purchase link routing
         run: |
           swiftc app/PurchaseLinks.swift tests/test_purchase_links.swift -o /tmp/soju-purchase-tests
