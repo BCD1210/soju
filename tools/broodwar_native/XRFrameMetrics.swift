@@ -33,6 +33,21 @@ final class FrameDistribution {
     }
 }
 
+enum FrameCreation:Int,CaseIterable {
+    case commandBuffer,renderEncoder,blitEncoder,textureDescriptor,renderTexture,captureTexture,textureView,targetRebuild
+    var name:String {
+        switch self {
+        case .commandBuffer:return "metalCommandBufferRequests"
+        case .renderEncoder:return "metalRenderEncoderRequests"
+        case .blitEncoder:return "metalBlitEncoderRequests"
+        case .textureDescriptor:return "applicationTextureDescriptorCreations"
+        case .renderTexture:return "applicationRenderTextureRequests"
+        case .captureTexture:return "applicationCaptureTextureRequests"
+        case .textureView:return "applicationTextureViewRequests"
+        case .targetRebuild:return "applicationRenderTargetRebuilds"
+        }
+    }
+}
 final class XRFrameMetrics {
     static let log=OSLog(subsystem:"soju.broodwar",category:"PointsOfInterest")
     private let lock=NSLock()
@@ -49,6 +64,10 @@ final class XRFrameMetrics {
     private var eyeGPU=[Pair](repeating:Pair(),count:512)
     private var unitCount=0
     private var enabled=argument("--metrics-start-file")==nil
+    private let metricsStartFile=argument("--metrics-start-file")
+    private let traceCreations=CommandLine.arguments.contains("--trace-frame-creations")
+    private var creations=[UInt64](repeating:0,count:FrameCreation.allCases.count)
+    private var allCreations=[UInt64](repeating:0,count:FrameCreation.allCases.count)
     private var reporter:DispatchSourceTimer?
     init() {
         guard argument("--frame-metrics") != nil else {return}
@@ -59,6 +78,12 @@ final class XRFrameMetrics {
     }
     deinit {reporter?.cancel()}
     var completedStereoSamples:Int {lock.lock();defer{lock.unlock()};return Int(gpu.count)}
+    func created(_ kind:FrameCreation,_ count:Int=1) {
+        lock.lock();allCreations[kind.rawValue]+=UInt64(count)
+        if enabled {creations[kind.rawValue]+=UInt64(count)}
+        lock.unlock()
+        if traceCreations {os_signpost(.event,log:Self.log,name:"Frame creation request","kind=%d count=%d",kind.rawValue,count)}
+    }
     func beginFrameAllocationSample() {
         malloc_zone_statistics(nil,&allocationBefore)
     }
@@ -85,7 +110,7 @@ final class XRFrameMetrics {
     func begin(units:Int) {
         lock.lock();defer{lock.unlock()}
         if !enabled {
-            guard let path=argument("--metrics-start-file"),FileManager.default.fileExists(atPath:path) else {return}
+            guard let path=metricsStartFile,FileManager.default.fileExists(atPath:path) else {return}
             enabled=true
         }
         let now=CACurrentMediaTime();unitCount=units;start=now
@@ -116,6 +141,9 @@ final class XRFrameMetrics {
             "snapshotSource":argument("--snapshot") ?? "live","frameIntervals":intervals.summary(),
             "stereoCPUEncode":cpu.summary(),"stereoGPU":gpu.summary(),"stagesCPU":stages.mapValues{$0.summary()},
             "textureResidency":TextureResidency.shared.report(),
+            "frameOwnerCreationRequests":["measured":Dictionary(uniqueKeysWithValues:FrameCreation.allCases.map{($0.name,creations[$0.rawValue])}),
+                "includingWarmup":Dictionary(uniqueKeysWithValues:FrameCreation.allCases.map{($0.name,allCreations[$0.rawValue])}),
+                "method":"Instrumented creation requests issued by the native frame owner. Metal command buffers and encoders remain framework object requests. These counters are not malloc interception, exclude worker/UI creation, and do not prove zero transient allocations."],
             "frameAllocationDelta":["samples":allocationFrames,"positiveFrames":allocationPositive,"zeroNetFrames":allocationZero,
                 "minNetBlocks":allocationMin,"maxNetBlocks":allocationMax,"totalNetBlocks":allocationTotal,
                 "method":"All-zone blocks-in-use delta across each frame loop. Includes concurrent worker activity; frees can cancel allocations. Not a transient allocation count or proof of zero allocations."],

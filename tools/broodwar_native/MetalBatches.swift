@@ -52,6 +52,7 @@ final class MetalBatches {
         }
     }
     let device:MTLDevice,loader:MTKTextureLoader,queue:MTLCommandQueue
+    var frameMetrics:XRFrameMetrics?
     let pipelines:[MTLRenderPipelineState]
     let linePipelines:[MTLRenderPipelineState]
     let compositePipeline:MTLRenderPipelineState
@@ -298,10 +299,35 @@ final class MetalBatches {
                     let position=SIMD4<Float>(value(p,pi,pBytes),value(p,pi+pBytes,pBytes),value(p,pi+2*pBytes,pBytes),1)
                     let u=(coords==nil ? 0:value(t,ti,tBytes))*Float(uvTransform.m11)+Float(uvTransform.m41)
                     let v=(coords==nil ? 0:value(t,ti+tBytes,tBytes))*Float(uvTransform.m22)+Float(uvTransform.m42)
-                    vertices.append(Vertex(position:transform*position,uv:SIMD4<Float>(u,v,slice,0)))
+                    vertices.append(Vertex(position:position,uv:SIMD4<Float>(u,v,slice,0)))
                 }
             }
         }
+        // SceneKit primitive sources are normalized; their dimensions live in
+        // primitive parameters and are otherwise applied only by SceneKit.
+        if let plane=geometry as? SCNPlane {
+            let width=(vertices.map{$0.position.x}.max() ?? 0)-(vertices.map{$0.position.x}.min() ?? 0)
+            let height=(vertices.map{$0.position.y}.max() ?? 0)-(vertices.map{$0.position.y}.min() ?? 0)
+            for i in vertices.indices {
+                if width>0 {vertices[i].position.x *= Float(plane.width)/width}
+                if height>0 {vertices[i].position.y *= Float(plane.height)/height}
+            }
+        } else if let sphere=geometry as? SCNSphere {
+            let radius=vertices.map{simd_length(SIMD3<Float>($0.position.x,$0.position.y,$0.position.z))}.max() ?? 0
+            if radius>0 {for i in vertices.indices {vertices[i].position *= SIMD4<Float>(repeating:Float(sphere.radius)/radius);vertices[i].position.w=1}}
+        } else if let torus=geometry as? SCNTorus {
+            let radii=vertices.map{hypot($0.position.x,$0.position.z)}
+            let lower=radii.min() ?? 0,upper=radii.max() ?? 0,ring=(lower+upper)/2,tube=(upper-lower)/2
+            if tube>0 {for i in vertices.indices {
+                let radial=radii[i],scale=Float(torus.pipeRadius)/tube
+                if radial>0 {
+                    let requested=Float(torus.ringRadius)+(radial-ring)*scale
+                    vertices[i].position.x *= requested/radial;vertices[i].position.z *= requested/radial
+                }
+                vertices[i].position.y *= scale
+            }}
+        }
+        for i in vertices.indices {vertices[i].position=transform*vertices[i].position}
         for element in geometry.elements where element.primitiveType == .triangles || element.primitiveType == .line {
             element.data.withUnsafeBytes { bytes in
                 for i in 0..<element.primitiveCount*(element.primitiveType == .line ? 2:3) {
@@ -487,7 +513,9 @@ final class MetalBatches {
         }
     }
     func copyEye(command:MTLCommandBuffer,to output:MTLTexture,eye:Int) {
-        guard let source=stereoResolved,let blit=command.makeBlitCommandEncoder() else {return}
+        guard let source=stereoResolved else {return}
+        frameMetrics?.created(.blitEncoder)
+        guard let blit=command.makeBlitCommandEncoder() else {return}
         blit.copy(from:source,sourceSlice:eye,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:output.width,height:output.height,depth:1),to:output,destinationSlice:0,destinationLevel:0,destinationOrigin:MTLOrigin());blit.endEncoding()
     }
     func inheritedOpacity(_ node:SCNNode)->Float {
@@ -500,6 +528,8 @@ final class MetalBatches {
     }
     func render(command:MTLCommandBuffer,output:MTLTexture,camera:CameraPacket,eye:SIMD3<Float>,rightTransform:simd_float4x4,rightProjection:simd_float4x4)throws {
         if stereoResolved?.width != output.width || stereoResolved?.height != output.height {
+            frameMetrics?.created(.targetRebuild);frameMetrics?.created(.textureDescriptor)
+            frameMetrics?.created(.renderTexture,samples>1 ? 3:2);frameMetrics?.created(.textureView,2)
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm_srgb,width:output.width,height:output.height,mipmapped:false)
             d.textureType = .type2DArray;d.arrayLength=2;d.storageMode = .private;d.usage = [.renderTarget,.shaderRead]
             stereoResolved=TextureResidency.shared.make(device,d)
@@ -518,6 +548,7 @@ final class MetalBatches {
         stereoPass.stencilAttachment.texture=stereoDepth
         stereoPass.stencilAttachment.loadAction = .clear;stereoPass.stencilAttachment.storeAction = .store
         guard ready else {
+            frameMetrics?.created(.renderEncoder)
             command.makeRenderCommandEncoder(descriptor:stereoPass)?.endEncoding()
             return
         }
@@ -527,6 +558,7 @@ final class MetalBatches {
         let slot=ring;ring=(ring+1)%3
         let query=visibilityBuffers[slot];memset(query.contents(),0,batches.count*8)
         stereoPass.visibilityResultBuffer=query
+        frameMetrics?.created(.renderEncoder)
         guard let encoder=command.makeRenderCommandEncoder(descriptor:stereoPass) else {completionSlots[slot].available.signal();return}
         encoder.label="Instanced terrain, relief and shadows"
         // SceneKit projection uses OpenGL's [-1,1] depth. Metal requires [0,1].
@@ -556,7 +588,8 @@ final class MetalBatches {
         planes[0]=r3+r0;planes[1]=r3-r0;planes[2]=r3+r1;planes[3]=r3-r1;planes[4]=r2;planes[5]=r3-r2
         for index in 0..<6 {encoder.setFragmentTexture(white,index:index)}
         if let terrain=batches.first(where:{$0.terrain}) {encoder.setFragmentTexture(terrain.textures[0],index:6);encoder.setFragmentTexture(terrain.textures[1],index:7)}
-        for shadow in [false,true] {
+        for pass in 0..<2 {
+            let shadow=pass==1
             encoder.setDepthStencilState(shadow ? shadowDepth:depth)
             for (batchIndex,batch) in batches.enumerated() where batch.shadow==shadow {
                 if occlusionValid && !visibleNow[batchIndex] {occlusionSkipped+=1;continue}
@@ -579,7 +612,10 @@ final class MetalBatches {
                         let center=model*SIMD4<Float>(batch.bounds[index].0,1),radius=batch.bounds[index].1*stretch+simd_length(SIMD3<Float>(rightTransform.columns.3.x,rightTransform.columns.3.y,rightTransform.columns.3.z)-eye)
                         let p=vp*center
                         // Conservative sphere support against all six homogeneous planes.
-                        let outside=planes.contains { plane in simd_dot(plane,center) < -radius*simd_length(SIMD3<Float>(plane.x,plane.y,plane.z)) }
+                        var outside=false
+                        for plane in planes {
+                            if simd_dot(plane,center) < -radius*simd_length(SIMD3<Float>(plane.x,plane.y,plane.z)) {outside=true;break}
+                        }
                         if outside || p.w<=0 {culled+=1;continue}
                         let instance=Instance(model:model,parameters:SIMD4<Float>(batch.mode,node.opacity,0,0))
                         let pixels=batch.bounds[index].1*camera.projection.columns.1.y*Float(output.height)/max(p.w,0.001)

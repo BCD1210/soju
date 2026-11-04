@@ -17,21 +17,28 @@ final class MetalXRLoop {
     struct Body {let position:SIMD3<Float>,yaw:Float,scale:Float,tabletop:Bool}
     struct Feedback {let origin:SIMD3<Float>?,originYaw:Float,center:SIMD3<Float>?,camera:MetalBatches.CameraPacket?,image:CGImage?}
     private struct Status {
-        let frame:Int,generation:Int,nativeFrame:Double,publishedAt:Double,units:Int,draws:Int,visible:Int,culled:Int
+        let frame:Int,generation:Int,nativeFrame:Double,publishedAt:Double,units:Int,draws:Int,visible:Int,culled:Int,completionSlotsExhausted:Int
     }
     private let lock=NSLock(),ended=DispatchSemaphore(value:0)
     private var active=true,body=Body(position:.zero,yaw:0,scale:1,tabletop:false),reset=false
     private var feedback=Feedback(origin:nil,originYaw:0,center:nil,camera:nil,image:nil)
     private let inputs=XRInputQueue()
     private var failure=""
-    private let mailbox:SceneMailbox,batches:MetalBatches,metrics:XRFrameMetrics,captures:CaptureFrames,context:CIContext
+    private let mailbox:SceneMailbox,batches:MetalBatches,metrics:XRFrameMetrics,captures:CaptureFrames,completionPool:GPUCompletionPool
+    private var capturePool:FrameCapturePool!
     private var origin:SIMD3<Float>?,originYaw:Float=0,frameBody:Body?,framePacket:ScenePacket?
     private var outputs=[ObjectIdentifier:MTLTexture](),frame=0,lastMirror=0.0,captureIndex:Int?
     private let diagnostics=DispatchQueue(label:"soju.bw.xr-packet-diagnostics",qos:.utility)
     private var status:Status?,reporter:DispatchSourceTimer?
     private let stereoCapture=CommandLine.arguments.contains("--record-stereo")
     init(mailbox:SceneMailbox,batches:MetalBatches,metrics:XRFrameMetrics,captures:CaptureFrames,device:MTLDevice) {
-        self.mailbox=mailbox;self.batches=batches;self.metrics=metrics;self.captures=captures;context=CIContext(mtlDevice:device)
+        self.mailbox=mailbox;self.batches=batches;self.metrics=metrics;self.captures=captures;completionPool=GPUCompletionPool(metrics:metrics)
+        batches.frameMetrics=metrics
+        capturePool=FrameCapturePool(device:device,captures:captures,metrics:metrics) { [weak self] image in
+            guard let self=self else {return}
+            self.lock.lock();let old=self.feedback
+            self.feedback=Feedback(origin:old.origin,originYaw:old.originYaw,center:old.center,camera:old.camera,image:image);self.lock.unlock()
+        }
         let timer=DispatchSource.makeTimerSource(queue:diagnostics)
         timer.schedule(deadline:.now()+1,repeating:1)
         timer.setEventHandler { [weak self] in self?.report() };timer.resume();reporter=timer
@@ -40,10 +47,15 @@ final class MetalXRLoop {
     private func report() {
         lock.lock();let snapshot=status,error=failure;lock.unlock()
         guard let snapshot=snapshot else {return}
+        let capture=capturePool.statistics()
         let data:Obj=["xrFrame":snapshot.frame,"frame":snapshot.nativeFrame,"packetGeneration":snapshot.generation,
             "packetNativeFrame":snapshot.nativeFrame,"packetAgeMs":(CACurrentMediaTime()-snapshot.publishedAt)*1000,
             "unitCount":snapshot.units,"batchDraws":snapshot.draws,"batchVisible":snapshot.visible,"batchCulled":snapshot.culled,
-            "renderer":"native-metal-packet","sceneWorkerError":mailbox.error(),"xrOwnerError":error]
+            "renderer":"native-metal-packet","sceneWorkerError":mailbox.error(),"xrOwnerError":error,
+            "completionSlotsExhausted":snapshot.completionSlotsExhausted,"captureTexturesCreated":capture.textureCreations,
+            "capturePoolExhausted":capture.exhausted,"captureConverted":capture.completed,"captureConversionFailed":capture.failed,
+            "captureSaveFailed":capture.saveFailed,"mirrorFrame":capture.mirrorFrame,
+            "precreatedMetricHandlers":16,"precreatedCaptureHandlers":3]
         if let json=try? JSONSerialization.data(withJSONObject:data,options:.prettyPrinted) {try? json.write(to:runtime.appendingPathComponent("xr-view-diagnostics.json"),options:.atomic)}
     }
     func update(_ value:Body) {lock.lock();body=value;lock.unlock()}
@@ -61,6 +73,7 @@ final class MetalXRLoop {
     }
     private func run() {
         pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE,0)
+        pthread_setname_np("soju.bw.xr-frame")
         defer {soju_xr_close();ended.signal()}
         while true {
             lock.lock();let running=active;lock.unlock();if !running {return}
@@ -88,7 +101,9 @@ final class MetalXRLoop {
                 originYaw=atan2(-forward.x,-forward.z)
             }
         }
-        guard let body=frameBody,let command=queue.makeCommandBuffer() else {return}
+        guard let body=frameBody else {return}
+        metrics.created(.commandBuffer)
+        guard let command=queue.makeCommandBuffer() else {return}
         let rotation=simd_quatf(angle:body.yaw-originYaw,axis:SIMD3<Float>(0,1,0))*simd_quatf(angle:body.tabletop ? -0.75:0,axis:SIMD3<Float>(1,0,0))
         func camera(_ eye:SojuXREye)->MetalBatches.CameraPacket {
             let position=body.position+rotation.act((SIMD3<Float>(eye.px,eye.py,eye.pz)-(origin ?? .zero))*body.scale)
@@ -106,7 +121,7 @@ final class MetalXRLoop {
         if texture.pixelFormat == .bgra8Unorm {
             let key=ObjectIdentifier(texture)
             if let existing=outputs[key] {output=existing}
-            else {guard let view=texture.makeTextureView(pixelFormat:.bgra8Unorm_srgb) else {return};outputs[key]=view;output=view}
+            else {metrics.created(.textureView);guard let view=texture.makeTextureView(pixelFormat:.bgra8Unorm_srgb) else {return};outputs[key]=view;output=view}
         } else {output=texture}
         metrics.stage("eyeSetup",milliseconds:(CACurrentMediaTime()-start)*1000)
         let renderStart=CACurrentMediaTime()
@@ -127,29 +142,14 @@ final class MetalXRLoop {
         let mirrorDue=eye.eye==0 && start-lastMirror>=0.5
         if mirrorDue || index != nil {
             if mirrorDue {lastMirror=start}
-            let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:texture.pixelFormat,width:texture.width,height:texture.height,mipmapped:false)
-            descriptor.usage = .shaderRead;descriptor.storageMode = .private
-            if let copy=TextureResidency.shared.make(texture.device,descriptor),let blit=command.makeBlitCommandEncoder() {
-                blit.copy(from:texture,to:copy);blit.endEncoding()
-                let packet=framePacket,number=frame
-                command.addCompletedHandler { [weak self] completed in
-                    guard completed.status == .completed,let self=self,let ci=CIImage(mtlTexture:copy,options:nil),
-                        let image=self.context.createCGImage(ci.transformed(by:CGAffineTransform(translationX:0,y:CGFloat(copy.height)).scaledBy(x:1,y:-1)),from:ci.extent) else {return}
-                    if mirrorDue {self.lock.lock();let old=self.feedback;self.feedback=Feedback(origin:old.origin,originYaw:old.originYaw,center:old.center,camera:old.camera,image:image);self.lock.unlock()}
-                    if let index=index {
-                        var metadata=packet?.diagnostics ?? [:];metadata["xrFrame"]=number;metadata["eye"]=Int(eye.eye);metadata["source"]="OpenXR Metal scene packet"
-                        self.captures.save(image,index:index,metadata:metadata,suffix:eye.eye==0 ? "":"-right")
-                    }
-                }
-            }
+            capturePool.enqueue(command,source:texture,request:FrameCapturePool.Request(packet:framePacket,camera:left,frame:frame,eye:Int(eye.eye),index:index,mirror:mirrorDue,scale:body.scale))
         }
-        let measuredFrame=frame,measuredEye=Int(eye.eye)
-        command.addCompletedHandler { [metrics] completed in metrics.completed(frame:measuredFrame,eye:measuredEye,milliseconds:(completed.gpuEndTime-completed.gpuStartTime)*1000) }
+        completionPool.attach(command,frame:frame,eye:Int(eye.eye))
         command.commit()
         if eye.eye==1 {
             metrics.submitted()
             lock.lock();status=Status(frame:frame,generation:framePacket?.generation ?? -1,nativeFrame:framePacket?.nativeFrame ?? 0,
-                publishedAt:framePacket?.publishedAt ?? start,units:framePacket?.unitPositions.count ?? 0,draws:batches.draws,visible:batches.visible,culled:batches.culled);lock.unlock()
+                publishedAt:framePacket?.publishedAt ?? start,units:framePacket?.unitPositions.count ?? 0,draws:batches.draws,visible:batches.visible,culled:batches.culled,completionSlotsExhausted:completionPool.exhausted);lock.unlock()
         }
     }
 }
