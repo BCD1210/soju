@@ -50,13 +50,28 @@ final class ModelInstance {
             material.lightingModel = .physicallyBased
             let names=definition.raw["teamMaterials"] as? [String] ?? []
             if definition.teamMask != "none" && (names.isEmpty || names.contains(material.name ?? "")) {
-                let mask=definition.teamMask=="alpha" ? "texture2D(u_diffuseTexture, _surface.diffuseTexcoord).a":"texture2D(teamMaskTexture, _surface.diffuseTexcoord).r"
-                let textureUniform=definition.teamMask=="texture" ? "uniform sampler2D teamMaskTexture;":""
+                let mask=definition.teamMask=="alpha" ? "1.0 - texture2D(sourceTeamMask, _surface.diffuseTexcoord).a":"texture2D(teamMaskTexture, _surface.diffuseTexcoord).r"
+                let textureUniform=definition.teamMask=="texture" ? "uniform sampler2D teamMaskTexture;":"uniform sampler2D sourceTeamMask;"
+                if definition.teamMask=="alpha", let contents=material.diffuse.contents,
+                   CFGetTypeID(contents as CFTypeRef)==CGImage.typeID {
+                    let original=contents as! CGImage
+                    // PNG stores straight RGB. Remove alpha before SceneKit uploads the
+                    // colour texture so zero-mask paint survives premultiplication.
+                    let alpha:CGImageAlphaInfo = original.alphaInfo == .first ? .noneSkipFirst : .noneSkipLast
+                    let info=CGBitmapInfo(rawValue:(original.bitmapInfo.rawValue & ~CGBitmapInfo.alphaInfoMask.rawValue) | alpha.rawValue)
+                    guard let opaque=CGImage(width:original.width,height:original.height,bitsPerComponent:original.bitsPerComponent,
+                        bitsPerPixel:original.bitsPerPixel,bytesPerRow:original.bytesPerRow,space:original.colorSpace!,
+                        bitmapInfo:info,provider:original.dataProvider!,decode:nil,shouldInterpolate:true,intent:.defaultIntent) else {
+                        throw SceneError.invalid("Cannot separate team paint from diffuse alpha")
+                    }
+                    material.diffuse.contents=opaque
+                    material.setValue(SCNMaterialProperty(contents:original),forKey:"sourceTeamMask")
+                }
                 material.shaderModifiers=[.surface: """
                 uniform vec3 teamColor;
                 \(textureUniform)
                 #pragma body
-                float teamMask = \(mask);
+                float teamMask = clamp(\(mask), 0.0, 1.0);
                 _surface.diffuse.rgb = mix(_surface.diffuse.rgb, _surface.diffuse.rgb * teamColor, teamMask);
                 _surface.diffuse.a = 1.0;
                 """]
@@ -164,9 +179,10 @@ final class ModelInstance {
         guard rgba.count>=3,rgba != appliedTeamColor else {return};appliedTeamColor=rgba
         let names=Set(definition.raw["teamMaterials"] as? [String] ?? [])
         let color=NSColor(calibratedRed:CGFloat(rgba[0])/255,green:CGFloat(rgba[1])/255,blue:CGFloat(rgba[2])/255,alpha:1)
+        func linear(_ value:CGFloat)->CGFloat { value<=0.04045 ? value/12.92 : pow((value+0.055)/1.055,2.4) }
         for material in source.materials {
             if definition.teamMask != "none" && (names.isEmpty || names.contains(material.name ?? "")) {
-                material.setValue(NSValue(scnVector3:SCNVector3(color.redComponent,color.greenComponent,color.blueComponent)),forKey:"teamColor")
+                material.setValue(NSValue(scnVector3:SCNVector3(linear(color.redComponent),linear(color.greenComponent),linear(color.blueComponent))),forKey:"teamColor")
             } else if names.contains(material.name ?? "") {material.multiply.contents=color}
         }
     }
