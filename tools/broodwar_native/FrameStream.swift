@@ -13,7 +13,7 @@ final class FrameStream {
             init(_ contents:Any?) {
                 if let texture=contents as? MTLTexture {self = .texture(texture)}
                 else {
-                    let color=(contents as? NSColor)?.usingColorSpace(.sRGB) ?? .black
+                    let color=(contents as? NSColor)?.usingColorSpace(.sRGB) ?? NSColor(srgbRed:0,green:0,blue:0,alpha:1)
                     self = .color(SIMD4<Float>(Float(color.redComponent),Float(color.greenComponent),Float(color.blueComponent),Float(color.alphaComponent)))
                 }
             }

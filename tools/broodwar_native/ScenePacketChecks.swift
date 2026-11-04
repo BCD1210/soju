@@ -4,6 +4,11 @@ import SceneKit
 import simd
 
 func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws {
+    try require(SceneOverlay.tint(NSImage(size:NSSize(width:2,height:2))) == SIMD4<Float>(repeating:1),"textured wrist overlays use white RGB tint without querying grayscale components")
+    try require(SceneOverlay.tint(NSColor(calibratedWhite:0.5,alpha:0.25)).w == 0.25,"overlay grayscale colors convert to RGB while preserving alpha")
+    if case .color(let fallback)=FrameStream.Material.Map(nil) {
+        try require(fallback == SIMD4<Float>(0,0,0,1),"missing material maps use explicit RGB black")
+    } else {try require(false,"missing material maps use a color")}
     let vertices=[SIMD3<Float>(-1,-1,0),SIMD3<Float>(1,-1,0),SIMD3<Float>(0,1,0)]
     func mesh(_ target:ScenePickHit.Target,_ z:Float)->ScenePickMesh {
         var transform=matrix_identity_float4x4;transform.columns.3.z=z

@@ -24,6 +24,9 @@ extension Commander {
                     "selected":selected,"boxSelections":wrists.boxSelections,"doubleTaps":wrists.doubleTaps,
                     "grabs":wrists.grabs,"zoom":wrists.zoom,"camera":[camera.position.x,camera.position.y,camera.position.z],
                     "aimValid":input.aimValid,"leftValid":input.leftValid,"pendingSpell":wrists.pending?.title ?? "",
+                    "rightPosition":[input.px,input.py,input.pz],"rightOrientation":[input.qx,input.qy,input.qz,input.qw],
+                    "leftPosition":[input.leftX,input.leftY,input.leftZ],"leftOrientation":[input.leftQx,input.leftQy,input.leftQz,input.leftQw],
+                    "cardClicks":wrists.cardClicks,
                     "dragging":wrists.dragStart != nil]
                 record("xr-controller-diagnostics.json",sample)
                 if edge {
