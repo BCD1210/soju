@@ -1,0 +1,7 @@
+PASS|threadCreate(&thread, worker, NULL, NULL, 0x4000, 44, 0)|rc=00000000
+PASS|threadStart(&thread)|rc=00000000
+PASS|threadWaitForExit(&thread)|rc=00000000
+PASS|four-core repeated round trip resumes newest PC and TLS|rc=00000000
+PASS|threadClose(&thread)|rc=00000000
+TOTAL|checks=5|failures=0
+exit0|probe-complete

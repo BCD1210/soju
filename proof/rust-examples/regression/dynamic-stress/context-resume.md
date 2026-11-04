@@ -9,3 +9,8 @@ A thread returning after running on another core therefore reloads its newer sta
 The first corpus measurement before this optimization was 41 frames/17 stops/1 exit;
 es2gears exceeded 15 seconds. The isolated follow-up produced a frame in 7.46 seconds.
 Final corpus results are recorded separately, with the same default timeout.
+
+The separate context_roundtrip guest pins one worker and repeatedly moves it
+0→1→2→3→0 over sixteen steps while its parent waits for exit. It verifies the
+latest PC, core ID and TLS state after returning to a previously occupied core.
+All five checks pass (`context-roundtrip.txt`).
