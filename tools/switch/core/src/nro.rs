@@ -139,10 +139,12 @@ impl Nro {
         let mut config = vec![0; 0x1000];
         let argv = b"sdmc:/switch/soju-current.nro\0";
         config[0x200..0x200 + argv.len()].copy_from_slice(argv);
-        let entries: [(u32, u32, u64, u64); 4] = [
+        config[0x300] = 1; // Local offline user, matching account and player-selector services.
+        let entries: [(u32, u32, u64, u64); 5] = [
             (1, 0, 0x101, 0),
             (5, 0, 0, CONFIG + 0x200),
             (7, 0, 2, 0),
+            (15, 0, CONFIG + 0x300, 0),
             (0, 0, 0, 0),
         ];
         for (index, (key, flags, a, b)) in entries.into_iter().enumerate() {
@@ -326,7 +328,10 @@ mod tests {
         assert_eq!(&config[40..48], &(CONFIG + 0x200).to_le_bytes());
         assert_eq!(&config[48..52], &7u32.to_le_bytes());
         assert_eq!(&config[56..64], &2u64.to_le_bytes());
-        assert!(config[72..96].iter().all(|&b| b == 0));
+        assert_eq!(&config[72..76], &15u32.to_le_bytes());
+        assert_eq!(&config[80..88], &(CONFIG + 0x300).to_le_bytes());
+        assert_eq!(&config[0x300..0x310], &1u128.to_le_bytes());
+        assert!(config[96..120].iter().all(|&b| b == 0));
         assert_eq!(&config[0x200..0x21e], b"sdmc:/switch/soju-current.nro\0");
         assert_eq!(&boot.regions[5].bytes[..4], &0xd4000fc1u32.to_le_bytes());
         assert_eq!(boot.regions[5].permissions, 5);
