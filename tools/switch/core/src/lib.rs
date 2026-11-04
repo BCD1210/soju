@@ -20,3 +20,6 @@ pub mod program;
 
 #[cfg(all(feature = "hv", target_os = "macos", target_arch = "aarch64"))]
 pub mod headless;
+
+#[cfg(all(feature = "hv", target_os = "macos", target_arch = "aarch64"))]
+pub mod launch;

@@ -1,9 +1,5 @@
 //! Windowless guest execution and first-frame capture. Input never reaches the host UI.
-use crate::{
-    ipc::router::Hub,
-    nro::Nro,
-    runtime::{Runtime, Stop},
-};
+use crate::runtime::Stop;
 use serde::Deserialize;
 use std::{
     ffi::OsString,
@@ -93,14 +89,11 @@ pub fn run(args: &[OsString]) -> Result<(), Box<dyn std::error::Error>> {
             std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share/soju/switch"))
         })
         .ok_or("HOME is not set")?;
-    let nro = Nro::read(&mut std::fs::File::open(path)?)?;
-    let mut runtime = Runtime::new(&nro.protected_homebrew()?)?;
+    let (mut runtime, mut hub) = crate::launch::load(std::path::Path::new(path), &home)?;
     if let Some(tick) = capture_tick {
         runtime.process().set_capture_tick(tick);
         println!("capture-clock|tick={tick}|host-deadlines=real");
     }
-    let mut hub = Hub::new(std::path::Path::new(path), &home)?;
-    runtime.kernel_mut().program_id = hub.program_id();
     runtime.yield_on_frame = true;
     let start = Instant::now();
     let mut input = inputs.iter().peekable();

@@ -25,3 +25,7 @@ sha2 = "0.10.9"
 default = []
 hv = []
 desktop = ["hv"]
+
+[[example]]
+name = "test_title"
+required-features = ["hv"]

@@ -36,7 +36,7 @@ fn main() -> ExitCode {
     }
     if args.len() != 1 {
         eprintln!(
-            "usage: soju-switch-core <homebrew.nro> (validate); --headless <nro> --frames N --capture <png> [--inputs script.json] (hv); --play <nro> (desktop)"
+            "usage: soju-switch-core <homebrew.nro> (validate); --headless <nro|nsp|xci> --frames N --capture <png> [--inputs script.json] (hv); --play <nro|nsp|xci> (desktop)"
         );
         return ExitCode::from(2);
     }

@@ -1,8 +1,7 @@
 //! Main-thread host window; guest execution yields in bounded slices for event polling.
 use crate::{
-    ipc::{router::Hub, types::Frame},
-    nro::Nro,
-    runtime::{Runtime, Stop},
+    ipc::types::Frame,
+    runtime::Stop,
 };
 use soju_switch_input::{
     NpadState,
@@ -106,12 +105,7 @@ fn combine(keys: &[u16], p: &[f32; 22]) -> NpadState {
     state
 }
 pub fn play(path: &Path, home: &Path) -> Result<(), String> {
-    let nro = Nro::read(&mut std::fs::File::open(path).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
-    let boot = nro.protected_homebrew().map_err(|e| e.to_string())?;
-    let mut runtime = Runtime::new(&boot).map_err(|e| e.to_string())?;
-    let mut hub = Hub::new(path, home).map_err(|e| e.to_string())?;
-    runtime.kernel_mut().program_id = hub.program_id();
+    let (mut runtime, mut hub) = crate::launch::load(path, home)?;
     let window = Window::new()?;
     let mut audio = crate::host_audio::Audio::default();
     runtime.yield_on_frame = true;

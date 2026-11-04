@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+unset SOJU_SWITCH_KEY_DIR
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 OUT="$ROOT/dist/testtitles"
 CORE="$ROOT/tools/switch/core"
@@ -13,7 +14,9 @@ for probe in "$OUT"/*.nro; do
     mkdir -p "$OUT/home-$name"
     font="$HOME/.local/share/soju/switch/host-unicode-bmp.ttf"
     if [ -f "$font" ]; then cp "$font" "$OUT/home-$name/host-unicode-bmp.ttf"; fi
-    if "$OUT/runner" "$probe" "$OUT/home-$name" > "$OUT/$name.log" 2>&1; then
+    docked=0
+    if [ "$name" = media ]; then docked=1; fi
+    if SOJU_SWITCH_DOCKED="$docked" "$OUT/runner" "$probe" "$OUT/home-$name" > "$OUT/$name.log" 2>&1; then
         echo "PASS $name"
     else
         echo "FAIL $name"
@@ -21,4 +24,18 @@ for probe in "$OUT"/*.nro; do
     fi
     cat "$OUT/$name.log"
 done
+cargo run --offline --release --manifest-path "$CORE/Cargo.toml" --example package_title -- "$OUT"
+mkdir -p "$OUT/home-retail/keys"
+cp "$OUT/synthetic.keys" "$OUT/home-retail/keys/prod.keys"
+chmod 600 "$OUT/home-retail/keys/prod.keys"
+for round in 1 2; do
+    if "$OUT/runner" "$OUT/storage.nsp" "$OUT/home-retail" > "$OUT/retail-$round.log" 2>&1; then
+        echo "PASS retail-$round"
+    else
+        echo "FAIL retail-$round"
+        failed=1
+    fi
+    cat "$OUT/retail-$round.log"
+done
+if ! rg -q 'PASS\|previous committed save' "$OUT/retail-2.log"; then failed=1; fi
 exit "$failed"

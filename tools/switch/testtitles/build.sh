@@ -11,7 +11,10 @@ for source in "$ROOT"/tools/switch/testtitles/*.c; do
     aarch64-none-elf-gcc -O2 -g -Wall -Wextra -Werror -march=armv8-a+crc+crypto -mtp=soft -fPIE \
         -D__SWITCH__ -I"$DEVKITPRO/libnx/include" -specs="$DEVKITPRO/libnx/switch.specs" \
         "$source" -L"$DEVKITPRO/libnx/lib" -lnx -o "$OUT/$name.elf"
-    elf2nro "$OUT/$name.elf" "$OUT/$name.nro" --romfsdir="$ROOT/tools/switch/testtitles/romfs"
+    nacptool --create "Soju $name probe" "Soju" "1.0.0" "$OUT/$name.nacp"
+    elf2nro "$OUT/$name.elf" "$OUT/$name.nro" --nacp="$OUT/$name.nacp" --romfsdir="$ROOT/tools/switch/testtitles/romfs"
     elf2nso "$OUT/$name.elf" "$OUT/$name.nso"
     echo "built $name"
 done
+
+build_romfs "$ROOT/tools/switch/testtitles/romfs" "$OUT/probe.romfs"
