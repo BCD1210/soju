@@ -6,6 +6,7 @@ use std::{ffi::c_void, fs::OpenOptions, io::Write, net::UdpSocket,
 use bw_dat::structs::{Game, Unit};
 mod world;
 mod production;
+mod requirements;
 mod spells;
 mod commands;
 mod terrain;
@@ -17,6 +18,7 @@ type Getter = unsafe extern "C" fn() -> *mut c_void;
 type Order = unsafe extern "C" fn(*mut c_void, u32, u32, u32, *mut c_void, u32);
 const VARS: [u16; 3] = [VarId::IsMultiplayer as u16, VarId::IsReplay as u16, VarId::LocalPlayerId as u16];
 struct Runtime {
+    requirements: Option<unsafe extern "C" fn(u32,u32)->*const u16>,
     game: Getter, units: Getter, hidden: Getter, bullets: Getter, issue: Order,
     lone_sprites: Option<Getter>,
     sprite_position: Option<visuals::SpritePosition>,
@@ -166,6 +168,10 @@ pub unsafe extern "C" fn samase_plugin_init(api: *const PluginApi) {
     let dat=tech_dat(&mut dat_len);
     if dat.is_null() || dat_len<4 {log("tech DAT unavailable");return;}
     bw_dat::init_techdata(dat.cast(),dat_len);
+    let Some(upgrades_dat)=((*api).extended_dat)(3) else {log("upgrades DAT unavailable");return;};
+    let dat=upgrades_dat(&mut dat_len);
+    if dat.is_null() || dat_len<6 {log("upgrades DAT unavailable");return;}
+    bw_dat::init_upgrades(dat.cast(),dat_len);
     let Some(orders_dat)=((*api).extended_dat)(7) else {log("orders DAT unavailable");return;};
     let dat=orders_dat(&mut dat_len);
     if dat.is_null() || dat_len<15 {log("orders DAT unavailable");return;}
@@ -178,7 +184,7 @@ pub unsafe extern "C" fn samase_plugin_init(api: *const PluginApi) {
     let Ok(socket) = UdpSocket::bind("127.0.0.1:8795") else { log("bridge port unavailable"); return; };
     if socket.set_nonblocking(true).is_err() { log("nonblocking socket unavailable"); return; }
     let Some(tiles) = ((*api).map_tile_flags)() else { log("terrain flags unavailable"); return; };
-    let runtime = Runtime {game,units,hidden,bullets,issue,tiles,send,array,
+    let runtime = Runtime {requirements:((*api).dat_requirements)(),game,units,hidden,bullets,issue,tiles,send,array,
         lone_sprites: ((*api).first_lone_sprite)(),
         sprite_position: ((*api).get_sprite_position)(),
         history:Mutex::new(world::History::default()),

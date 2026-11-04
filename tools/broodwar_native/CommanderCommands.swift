@@ -9,9 +9,10 @@ extension Commander {
     func cardCommand(_ choice:CommandChoice,hit:ScenePickHit?) {
         guard !selected.isEmpty else {return}
         guard let unit=selected.first.flatMap({units[$0]}) else {return}
+        let choice=wrists.card.choices(unit).first{wrists.card.choiceKey($0.payload)==wrists.card.choiceKey(choice.payload)} ?? choice
         if let reason=choice.unavailable(state,unit) {notice=reason;return}
         if choice.payload["op"] as? String == "select_larvae" {
-            selected=Array(owned(35).filter{dist($0,unit)<128*128}.compactMap{$0["id"] as? String}.sorted().prefix(12));return
+            selected=Array(owned(35).filter{$0["parent"] as? String == unit["id"] as? String}.compactMap{$0["id"] as? String}.sorted().prefix(12));return
         }
         var payload=choice.payload
         payload["units"]=["move","attack_move","stop","hold","patrol","gather","repair"].contains(payload["op"] as? String ?? "") ? selected:Array(selected.prefix(1))
@@ -89,7 +90,11 @@ extension Commander {
             }
             return
         }
-        if key=="\u{1b}" {wrists.pending=nil;return}
+        if key=="\u{1b}" {
+            if wrists.pending != nil {wrists.pending=nil;return}
+            if let unit=selected.first.flatMap({units[$0]}),let cancel=wrists.card.choices(unit).first(where:{$0.payload["op"] as? String=="cancel"}) {cardCommand(cancel,hit:nil)}
+            return
+        }
         if key=="v" {toggleTabletop();return}
         if key=="q" {targetingOrder="attack_move";notice="Point at enemy or ground to attack"}
         if key=="h",!selected.isEmpty {command(["op":"hold","units":Array(selected.prefix(12))])}
@@ -136,7 +141,7 @@ extension Commander {
     func move(to p:NSPoint) {
         if sceneWorker != nil {
             if let choice=wrists.pending {
-                let hit=sceneHit(p,accept:{ target in if choice.target == .unit {if case .unit=target {return true};return false};return target == .terrain})
+                let hit=sceneHit(p,accept:{ target in if choice.target == .unit {if case .unit=target {return true};return false};if choice.target == .rally,case .unit=target {return true};return target == .terrain})
                 cardCommand(choice,hit:hit);return
             }
             if !placingDepot,let id=sceneHit(p,accept:{if case .unit=$0 {return true};return false})?.unitID,contextCommand(id) {return}
@@ -145,7 +150,7 @@ extension Commander {
         }
         let hits=view.hitTest(p,options:[SCNHitTestOption.categoryBitMask:5])
         if let choice=wrists.pending {
-            let hit=hits.first{choice.target == .unit ? unitID($0.node) != nil:$0.node.name=="terrain"}
+            let hit=hits.first{choice.target == .unit ? unitID($0.node) != nil:(choice.target == .rally && unitID($0.node) != nil) || $0.node.name=="terrain"}
             cardCommand(choice,hit:hit.flatMap{scenePick($0)});return
         }
         if !placingDepot,let hit=hits.first(where:{unitID($0.node) != nil}),let id=unitID(hit.node),contextCommand(id) {return}

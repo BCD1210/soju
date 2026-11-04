@@ -207,11 +207,15 @@ final class Commander: NSObject, NSApplicationDelegate {
         let regionWidth=min(tabletop || camera.camera?.usesOrthographicProjection == true ? 64:48,mapWidth),regionHeight=min(tabletop || camera.camera?.usesOrthographicProjection == true ? 64:48,mapHeight)
         let x=max(0,min(mapWidth-regionWidth,cx-regionWidth/2)),y=max(0,min(mapHeight-regionHeight,cy-regionHeight/2))
         let since=eventSequence,knownSession=session
+        let cardUnit=selected.first.flatMap{units[$0]}
+        let cardRequests=cardUnit.map{wrists.card.choices($0).map{$0.payload}} ?? []
+        let cardID=cardUnit?["id"] as? String
         bridge.queue.async {
             do {
                 var request:Obj=["op":"scene"]
                 if !knownSession.isEmpty {request["since"]=since}
                 let s=try self.bridge.request(request)
+                let availability=cardID.flatMap {id in try? self.bridge.request(["op":"availability","unit":id,"choices":cardRequests])}
                 let metadata=knownSession != s["session"] as? String ? try? self.bridge.request(["op":"unit_types"]):nil
                 guard s["truncated"] as? Bool != true else { throw SceneError.invalid("Visible unit limit exceeded; native snapshot was not applied") }
                 let loaded=s["map"] as? Obj ?? [:]
@@ -221,7 +225,7 @@ final class Commander: NSObject, NSApplicationDelegate {
                 let f=try self.bridge.request(["op":"terrain","x":x,"y":y,"width":regionWidth,"height":regionHeight])
                 let prepared=PreparedState(s,previous:self.bridge.previousState)
                 self.bridge.previousState=s
-                DispatchQueue.main.async { if let metadata=metadata {self.wrists.card.accept(metadata)};self.apply(s,f,prepared:prepared);if self.sceneWorker==nil {self.busy=false} }
+                DispatchQueue.main.async { self.wrists.card.acceptAvailability(availability ?? [:]);if let metadata=metadata {self.wrists.card.accept(metadata)};self.apply(s,f,prepared:prepared);if self.sceneWorker==nil {self.busy=false} }
             } catch {
                 DispatchQueue.main.async { self.notice="Connection: \(error)";self.busy=false }
             }

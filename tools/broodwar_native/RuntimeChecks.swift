@@ -264,7 +264,10 @@ func runtimeChecks()throws {
         try require(padded.width==original.width+16 && border==expected,"terrain mip gutter contains the real diagonal neighbor")
     }
     let card=CommandCard();card.accept(["types":[["id":7,"mineralCost":75,"gasCost":9]]])
-    let production=card.choices(["type":106,"building":true])
+    let waiting=card.choices(["id":"producer","type":106,"building":true]).first{$0.payload["op"] as? String == "train"}!
+    try require(waiting.unavailable(["minerals":1000,"gas":1000],[:])=="Checking native requirements","production fails closed until native requirements arrive")
+    card.acceptAvailability(["unit":"producer","choices":[["payload":["op":"train","type":7],"requirementsMet":true,"mineralCost":75,"gasCost":9]]])
+    let production=card.choices(["id":"producer","type":106,"building":true])
     try require(production.contains{$0.payload["op"] as? String == "train" && $0.title.hasSuffix("75/9")},"command card uses native DAT prices")
     let scvChoice=production.first{$0.payload["op"] as? String == "train"}!
     try require(scvChoice.unavailable(["minerals":74,"gas":9],[:])=="Not enough minerals","native price disables an unaffordable command")

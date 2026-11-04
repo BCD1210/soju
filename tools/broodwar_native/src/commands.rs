@@ -61,7 +61,11 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
             let tech=bw_dat::TechId(id);
             json!({"id":id,"mineralCost":tech.mineral_cost(),"gasCost":tech.gas_cost(),"energy":tech.energy_cost()})
         }).collect();
-        return Ok(json!({"technologies":technologies,"ok":true,"source":"native-units.dat/orders.dat/techdata.dat","supplyUnits":"half-supply","types":types,"spells":spells}));
+        let upgrades:Vec<_>=(0..61).map(|id| {
+            let upgrade=bw_dat::UpgradeId(id);
+            json!({"id":id,"mineralCost":upgrade.mineral_cost(),"gasCost":upgrade.gas_cost(),"mineralFactor":upgrade.mineral_factor(),"gasFactor":upgrade.gas_factor()})
+        }).collect();
+        return Ok(json!({"upgrades":upgrades,"technologies":technologies,"ok":true,"source":"native-units.dat/orders.dat/techdata.dat","supplyUnits":"half-supply","types":types,"spells":spells}));
     }
     if op == "terrain" {
         let region = super::terrain::Region::parse(req,[game.map_width_tiles,game.map_height_tiles])?;
@@ -74,6 +78,14 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         let mut result = region.snapshot(flags,usize::from(game.map_width_tiles),player)?;
         result["frame"] = json!(game.frame_count);
         return Ok(result);
+    }
+    if op == "availability" {
+        let id=req["unit"].as_str().ok_or("missing unit")?;
+        let ptr=all.iter().copied().find(|&u|handle(u)==id).ok_or("stale unit")?;
+        if (*ptr).player as usize!=player {return Err("unit is not owned");}
+        let choices=req["choices"].as_array().ok_or("missing choices")?;
+        if choices.len()>64 {return Err("too many choices");}
+        return Ok(super::requirements::query(r,bw_dat::Game::from_ptr(game as *const Game as *mut Game),bw_dat::Unit::from_ptr(ptr).unwrap(),choices));
     }
     let seq = req["seq"].as_u64().ok_or("missing seq")?;
     if seq <= r.sequence.load(Ordering::Relaxed) { return Err("stale command sequence"); }

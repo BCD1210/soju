@@ -62,6 +62,7 @@ pub unsafe fn unit_info(ptr:*mut Unit,all:&HashSet<usize>,player:usize,details:b
         "groundWeapon":UnitId((*turret).unit_id).ground_weapon().map(|w|w.0),"airWeapon":UnitId((*turret).unit_id).air_weapon().map(|w|w.0),
         "turret":{"type":(*turret).unit_id,"facing":(*turret).flingy.facing_direction,"image":image_info(ti)},
         "buildTimeRemaining":u.remaining_build_time,"buildQueue":u.build_queue,
+        "spellCooldown":u.spell_cooldown,"constructingAddon":native.is_building_addon(),
         "cargoCount":native.cargo_count(),"parent":target_id(u.related,all,player),
         "researching":native.tech_in_progress().map(|id|id.0),
         "upgrading":native.upgrade_in_progress().map(|id|id.0),
