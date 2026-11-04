@@ -11,6 +11,7 @@ def report():
     for name, filename in [("Frozen baseline", "baseline-final-metrics.json"),
                            ("Frozen instrumented", "instrumented-final-metrics.json"),
                            ("Live first map", "live-first/live-final-metrics.json"),
+                           ("Live residency failure", "live-residency-failure/live-metrics.json"),
                            ("Live land duel", "live-final-metrics.json")]:
         path = folder/filename
         if not path.exists():
