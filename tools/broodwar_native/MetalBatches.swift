@@ -10,6 +10,18 @@ final class MetalBatches {
     struct Vertex {var position:SIMD4<Float>;var uv:SIMD4<Float>}
     struct Instance {var model:simd_float4x4;var parameters:SIMD4<Float>}
     struct Uniforms {var left:simd_float4x4;var right:simd_float4x4;var leftEye:SIMD4<Float>;var rightEye:SIMD4<Float>}
+    struct CameraPacket {
+        let transform:simd_float4x4,projection:simd_float4x4
+        let orientation:simd_quatf
+        let orthographic:Bool
+        init(_ node:SCNNode) {
+            transform=node.simdWorldTransform;projection=simd_float4x4(node.camera!.projectionTransform)
+            orientation=node.simdWorldOrientation;orthographic=node.camera!.usesOrthographicProjection
+        }
+        init(transform:simd_float4x4,projection:simd_float4x4,orientation:simd_quatf,orthographic:Bool=false) {
+            self.transform=transform;self.projection=projection;self.orientation=orientation;self.orthographic=orthographic
+        }
+    }
     struct DrawNode {
         let transform:simd_float4x4,scale:SIMD3<Float>,opacity:Float,hidden:Bool,billboard:Bool
     }
@@ -426,6 +438,9 @@ final class MetalBatches {
         return value
     }
     func render(command:MTLCommandBuffer,output:MTLTexture,camera:SCNNode,eye:SIMD3<Float>,rightTransform:simd_float4x4,rightProjection:simd_float4x4)throws {
+        try render(command:command,output:output,camera:CameraPacket(camera),eye:eye,rightTransform:rightTransform,rightProjection:rightProjection)
+    }
+    func render(command:MTLCommandBuffer,output:MTLTexture,camera:CameraPacket,eye:SIMD3<Float>,rightTransform:simd_float4x4,rightProjection:simd_float4x4)throws {
         if stereoResolved?.width != output.width || stereoResolved?.height != output.height {
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm_srgb,width:output.width,height:output.height,mipmapped:false)
             d.textureType = .type2DArray;d.arrayLength=2;d.storageMode = .private;d.usage = [.renderTarget,.shaderRead]
@@ -458,7 +473,7 @@ final class MetalBatches {
         encoder.label="Instanced terrain, relief and shadows"
         // SceneKit projection uses OpenGL's [-1,1] depth. Metal requires [0,1].
         var clip=matrix_identity_float4x4;clip.columns.2.z=0.5;clip.columns.3.z=0.5
-        let vp=clip*simd_float4x4(camera.camera!.projectionTransform)*simd_inverse(camera.simdWorldTransform)
+        let vp=clip*camera.projection*simd_inverse(camera.transform)
         let rightVP=clip*rightProjection*simd_inverse(rightTransform)
         frame+=1
         visibilityLock.lock()
@@ -475,7 +490,7 @@ final class MetalBatches {
             for i in self.visibleLast.indices {self.visibleLast[i]=result[i]>0}
             self.visibleVP=vp;self.visibleRightVP=rightVP;self.lastVisibilityFrame=submittedFrame
         }
-        var uniforms=Uniforms(left:vp,right:rightVP,leftEye:SIMD4<Float>(eye,camera.camera!.usesOrthographicProjection ? 0:1),rightEye:rightTransform.columns.3)
+        var uniforms=Uniforms(left:vp,right:rightVP,leftEye:SIMD4<Float>(eye,camera.orthographic ? 0:1),rightEye:rightTransform.columns.3)
         encoder.setVertexBytes(&uniforms,length:MemoryLayout<Uniforms>.stride,index:2)
         encoder.setFragmentBytes(&uniforms,length:MemoryLayout<Uniforms>.stride,index:2)
         encoder.setVertexAmplificationCount(2,viewMappings:nil)
@@ -503,7 +518,7 @@ final class MetalBatches {
                         var model=node.transform
                         if node.billboard {
                             let translation=model.columns.3
-                            model=simd_float4x4(camera.simdWorldOrientation);model.columns.3=translation
+                            model=simd_float4x4(camera.orientation);model.columns.3=translation
                             model.columns.0 *= node.scale.x;model.columns.1 *= node.scale.y;model.columns.2 *= node.scale.z
                         }
                         let center=model*SIMD4<Float>(batch.bounds[index].0,1),radius=batch.bounds[index].1+simd_length(SIMD3<Float>(rightTransform.columns.3.x,rightTransform.columns.3.y,rightTransform.columns.3.z)-eye)
@@ -512,7 +527,7 @@ final class MetalBatches {
                         let outside=planes.contains { plane in simd_dot(plane,center) < -radius*simd_length(SIMD3<Float>(plane.x,plane.y,plane.z)) }
                         if outside || p.w<=0 {culled+=1;continue}
                         let instance=Instance(model:model,parameters:SIMD4<Float>(batch.mode,node.opacity,0,0))
-                        let pixels=batch.bounds[index].1*Float(camera.camera!.projectionTransform.m22)*Float(output.height)/max(p.w,0.001)
+                        let pixels=batch.bounds[index].1*camera.projection.columns.1.y*Float(output.height)/max(p.w,0.001)
                         if batch.flatVertices != nil && pixels<48 {
                             data[batch.drawNodes.count+farCount]=instance;farCount+=1
                         } else {data[count]=instance;count+=1}
