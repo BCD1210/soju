@@ -1,0 +1,12 @@
+scene|result|detail
+deko-example05|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 43 command 11: IPC: Message(\\\"Metal method 0xb197:0x320=0x201: unknown method b197:0320\\\")\")")
+deko-example06|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 43 command 11: IPC: Malformed(\\\"Metal CSAA, MSAA or linked TSC unsupported\\\")\")")
+deko-example07|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 43 command 11: IPC: Malformed(\\\"Metal CSAA, MSAA or linked TSC unsupported\\\")\")")
+deko-example08|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 43 command 11: IPC: Message(\\\"Metal setup field 0xe14=0x5000000\\\")\")")
+deko-example09|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 43 command 11: IPC: Message(\\\"Metal compute method 0x2b4=0x2000a20 unsupported\\\")\")")
+opengl-textured_cube|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 40 command 11: IPC: Message(\\\"Metal submission: unsupported depth format\\\")\")")
+opengl-es2gears|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 40 command 11: IPC: Message(\\\"Metal submission: unsupported depth format\\\")\")")
+opengl-dynamic_resolution|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 40 command 11: IPC: Message(\\\"Metal submission: unsupported depth format\\\")\")")
+opengl-gpu_console|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 40 command 11: IPC: Malformed(\\\"unsupported MME opcode\\\")\")")
+opengl-lenny|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 40 command 11: IPC: Message(\\\"Metal submission: unsupported depth format\\\")\")")
+sdl2-simple|not-accepted|soju-switch-core: Ipc("IPC: Message(\"Nv object 41 command 1: IPC: Message(\\\"NV ioctl 0xc0284106 fd=4: IPC: Message(\\\\\\\"GPU dynamic mapping parameters: [04, 00, 00, 00, 02, 00, 00, 00, 10, 00, 00, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00]\\\\\\\")\\\")\")")

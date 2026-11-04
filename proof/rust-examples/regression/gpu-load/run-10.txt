@@ -1,0 +1,14 @@
+
+running 5 tests
+test deko_example01_matches_source_rectangles ... ok
+test deko_example02_matches_source_triangle ... Example02: 912978 source-derived pixel checks
+ok
+test deko_example03_matches_source_cube ... Example03: 912096 source-derived pixel checks
+ok
+test deko_example04_matches_source_texture ... Example04: 912096 source-derived pixel checks
+ok
+test opengl_simple_triangle_matches_source ... OpenGL simple_triangle: 918400 source-derived pixel checks
+ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 52.19s
+

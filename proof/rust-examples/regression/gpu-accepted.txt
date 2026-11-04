@@ -1,0 +1,23 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling soju-switch-core v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/core)
+    Finished `release` profile [optimized] target(s) in 12.47s
+/Users/mikekim/Projects/soju-switch-core/dist/gpu-accepted/runner: replacing existing signature
+   Compiling soju-switch-core v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.15s
+     Running tests/gpu_examples.rs (tools/switch/core/target/debug/deps/gpu_examples-760641d739a9964a)
+
+running 6 tests
+test deko_basic_matches_source_vertex_id_triangle ... deko_basic: 912978 source-derived pixel checks
+ok
+test deko_example01_matches_source_rectangles ... ok
+test deko_example02_matches_source_triangle ... Example02: 912978 source-derived pixel checks
+ok
+test deko_example03_matches_source_cube ... Example03: 912096 source-derived pixel checks
+ok
+test deko_example04_matches_source_texture ... Example04: 912096 source-derived pixel checks
+ok
+test opengl_simple_triangle_matches_source ... OpenGL simple_triangle: 918400 source-derived pixel checks
+ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 59.87s
+

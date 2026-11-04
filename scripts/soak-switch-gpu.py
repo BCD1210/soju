@@ -48,6 +48,7 @@ if __name__ == '__main__':
     try:
         with (OUT / 'results.csv').open('w') as report:
             report.write('run,status,seconds,example04_sha256\n')
+            expected_digest = None
             for run in range(1, 11):
                 output = OUT / str(run)
                 output.mkdir(exist_ok=True)
@@ -58,6 +59,10 @@ if __name__ == '__main__':
                         stdout=log, stderr=subprocess.STDOUT, timeout=600).returncode
                 capture = output / 'deko-example04.png'
                 digest = hashlib.sha256(capture.read_bytes()).hexdigest() if capture.exists() else ''
+                if status == 0 and (not digest or expected_digest not in (None, digest)):
+                    print('Example04 capture bytes changed', flush=True)
+                    status = 1
+                expected_digest = digest
                 row = f'{run},{status},{time.monotonic()-start:.3f},{digest}\n'
                 report.write(row)
                 report.flush()

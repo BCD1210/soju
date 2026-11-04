@@ -15,7 +15,8 @@ args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 scenes = [(f'deko-example{i:02}', 'graphics__deko3d__deko_examples', i - 1) for i in range(1, 10)]
 scenes += [('deko-basic', 'graphics__deko3d__deko_basic', None)]
-scenes += [(f'opengl-{name}', f'graphics__opengl__{name}', None) for name in ('simple_triangle', 'textured_cube', 'es2gears')]
+scenes += [(f'opengl-{name}', f'graphics__opengl__{name}', None) for name in ('simple_triangle', 'textured_cube', 'es2gears', 'dynamic_resolution', 'gpu_console', 'lenny')]
+scenes += [('sdl2-simple', 'graphics__sdl2__sdl2-simple', None)]
 if args.scene:
     scenes = [scene for scene in scenes if scene[0] == args.scene]
     if not scenes:

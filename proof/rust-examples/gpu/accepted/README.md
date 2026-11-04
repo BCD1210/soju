@@ -110,7 +110,7 @@ intersects viewport clip and scissor, validates unused higher-viewport defaults
 attachments for color clears and draws with depth/stencil tests disabled.
 Enabled depth bounds, nonzero depth layers and unsupported raster modes stop.
 
-Run all five scenes with `bash scripts/test-switch-gpu-accepted.sh`.
+Run all six scenes with `bash scripts/test-switch-gpu-accepted.sh`.
 Native scenes run serially. Host load cannot advance the frozen guest animation
 counter. These tests remain initial-pose checks; they do not establish normal
 animation timing correctness. `python3 scripts/soak-switch-gpu.py` copies immutable
