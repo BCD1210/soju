@@ -612,3 +612,70 @@ fn compute_dispatch_stages_bounded_storage_writes_before_fence_publication() {
             .contains("multiple compute storage buffers")
     );
 }
+
+#[test]
+fn batched_clear_then_overlapping_constant_write_preserves_order() {
+    let mut f = Fixture::new();
+    let (fd, space, va) = f.setup();
+    let target = va + 0x10000;
+    let mut renderer = Renderer::default();
+    let setup = [
+        (0, 0xb197),
+        (0x800, (target >> 32) as u32),
+        (0x804, target as u32),
+        (0x808, 32),
+        (0x80c, 32),
+        (0x810, 0xd5),
+        (0x814, 0),
+        (0x818, 1),
+        (0x121c, 1),
+        (0xd7c, 1),
+        (0xd80, 1f32.to_bits()),
+        (0xd84, 0),
+        (0xd88, 0),
+        (0xd8c, 1f32.to_bits()),
+        (0x19d0, 60),
+        (0x2380, 4),
+        (0x2384, (target >> 32) as u32),
+        (0x2388, target as u32),
+        (0x238c, 0),
+        (0x2390, u32::from_le_bytes([0, 255, 0, 255])),
+    ];
+    let access = submit::Access {
+        space: &f.nv.spaces[&space],
+        memory: &f.memory,
+    };
+    let (writes, _) = renderer
+        .submit(&methods(&setup), fd, None, &access, &[])
+        .unwrap();
+    for write in writes {
+        f.memory.write(write.address, &write.bytes).unwrap();
+    }
+    let mut bytes = vec![0; 4096];
+    f.memory
+        .read(crate::kernel::HEAP + 0x10000, &mut bytes)
+        .unwrap();
+    assert_eq!(&bytes[..4], &[0, 255, 0, 255]);
+    assert!(bytes[4..].chunks_exact(4).all(|p| p == [255, 0, 0, 255]));
+    // Reuse the native worker on the next submission, then overwrite the same target.
+    let access = submit::Access {
+        space: &f.nv.spaces[&space],
+        memory: &f.memory,
+    };
+    let (writes, _) = renderer
+        .submit(
+            &methods(&[(0xd80, 0), (0xd88, 1f32.to_bits()), (0x19d0, 60)]),
+            fd,
+            None,
+            &access,
+            &[],
+        )
+        .unwrap();
+    for write in writes {
+        f.memory.write(write.address, &write.bytes).unwrap();
+    }
+    f.memory
+        .read(crate::kernel::HEAP + 0x10000, &mut bytes)
+        .unwrap();
+    assert!(bytes.chunks_exact(4).all(|p| p == [0, 0, 255, 255]));
+}

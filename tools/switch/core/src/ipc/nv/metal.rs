@@ -34,6 +34,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 #[derive(Default)]
 pub(super) struct Renderer {
     engine: Engine,
+    backend: Backend,
     copy: copy::CopyEngine,
     shadow_mode: u32,
     shadow: BTreeMap<u32, u32>,
@@ -111,7 +112,9 @@ impl Renderer {
             original.push((address, guest, bytes));
         }
         drop(snapshot_span);
-        let mut backend = Backend::default();
+        let mut backend = std::mem::take(&mut self.backend);
+        let mut pending = false;
+        let mut target_state = Vec::new();
         let mut increments = 0u32;
         let mut queue: std::collections::VecDeque<_> = methods.iter().copied().collect();
         let mut processed = 0usize;
@@ -153,6 +156,13 @@ impl Renderer {
             }
             // A06F L2_FLUSH_DIRTY: every prior action has synchronously read back.
             if method == 0x2c && matches!(value, 0x80000000 | 0x70000000) {
+                if pending {
+                    backend
+                        .execute(&self.directory()?, &mut memory)
+                        .map_err(gpu_error)?;
+                    pending = false;
+                    target_state.clear();
+                }
                 trace.accepted = true;
                 continue;
             }
@@ -160,6 +170,28 @@ impl Renderer {
                 .bindings
                 .get(&subchannel)
                 .ok_or(Error::Malformed("Metal unbound subchannel"))?;
+            // CPU engines and visibility operations must observe all preceding draws.
+            // Constant uploads may remain batched when they do not overlap outputs;
+            // prepare already owns the constants used by preceding draws.
+            let constant_write = class == 0xb197 && (0x2390..=0x23cc).contains(&method);
+            let constant_hazard = constant_write
+                && self
+                    .engine
+                    .registers
+                    .address(0x2384)
+                    .checked_add(u64::from(self.engine.registers.get(0x238c)))
+                    .is_none_or(|address| backend.pending_overlap(address, 4));
+            if pending
+                && (class != 0xb197
+                    || constant_hazard
+                    || matches!(method, 0x180..=0x1b4 | 0x1b0c | 0x2c8 | 0x2e0 | 0xf80))
+            {
+                backend
+                    .execute(&self.directory()?, &mut memory)
+                    .map_err(gpu_error)?;
+                pending = false;
+                target_state.clear();
+            }
             if class == 0xb197 && method == 0x124 {
                 if value > 3 {
                     return Err(Error::Malformed("MME shadow mode"));
@@ -514,6 +546,13 @@ impl Renderer {
                     if snapshot.registers.get(0x12cc) == 0 && snapshot.registers.get(0x1380) == 0 {
                         snapshot.registers.0.insert(0x1538, 0);
                     }
+                    if pending && backend.reads_pending(&snapshot) {
+                        backend
+                            .execute(&self.directory()?, &mut memory)
+                            .map_err(gpu_error)?;
+                        pending = false;
+                        target_state.clear();
+                    }
                     programs::register(&snapshot, &memory, &original, &mut backend)?;
                     // Hardware Y is scale * NDC + offset; Metal's viewport reverses NDC Y.
                     for index in 0..16 {
@@ -531,10 +570,22 @@ impl Renderer {
                                 | 0x74c | 0x16a8 | 0x1794 | 0xc00..=0xc0c)
                     });
                 }
+                let r = &snapshot.registers;
+                let targets: Vec<_> = (0x800..=0x9e0)
+                    .step_by(4)
+                    .chain([
+                        0x121c, 0xfe0, 0xfe4, 0xfe8, 0xfec, 0x1538, 0x1228, 0x122c, 0x1230,
+                    ])
+                    .map(|offset| r.get(offset))
+                    .collect();
+                if pending && (targets != target_state || backend.reads_pending(&snapshot)) {
+                    backend
+                        .execute(&self.directory()?, &mut memory)
+                        .map_err(gpu_error)?;
+                }
                 backend.prepare(&snapshot, &memory).map_err(gpu_error)?;
-                // Read back before any later transfer, upload, or texture read.
-                let dir = self.directory()?;
-                backend.execute(&dir, &mut memory).map_err(gpu_error)?;
+                pending = true;
+                target_state = targets;
             }
             trace.accepted = true;
         }
@@ -543,6 +594,12 @@ impl Renderer {
                 "Metal submission increment count mismatch",
             ));
         }
+        if pending {
+            backend
+                .execute(&self.directory()?, &mut memory)
+                .map_err(gpu_error)?;
+        }
+        self.backend = backend;
         let _commit_span = soju_switch_gpu::profile::span(soju_switch_gpu::profile::Stage::Commit);
         let mut writes = Vec::new();
         for (address, guest, bytes) in original {

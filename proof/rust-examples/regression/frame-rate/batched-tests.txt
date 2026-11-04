@@ -1,0 +1,19 @@
+   Compiling soju-switch-core v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/core)
+    Finished `release` profile [optimized] target(s) in 5.95s
+     Running unittests src/lib.rs (tools/switch/core/target/release/deps/soju_switch_core-d2c06ced546410a1)
+
+running 11 tests
+test ipc::nv::tests::metal::accepted_firmware_noops_count_without_memory_or_fence_effects ... ok
+test ipc::nv::tests::metal::batched_clear_then_overlapping_constant_write_preserves_order ... ok
+test ipc::nv::tests::metal::compute_dispatch_stages_bounded_storage_writes_before_fence_publication ... ok
+test ipc::nv::tests::metal::graphics_inline_upload_flush_profiles_stage_without_early_publication ... ok
+test ipc::nv::tests::metal::metal_clear_stages_native_pixels_without_publishing_guest_memory ... ok
+test ipc::nv::tests::metal::metal_compute_initial_upload_is_isolated_and_staged ... ok
+test ipc::nv::tests::metal::metal_initialization_has_no_invented_fence_and_checks_declared_increments ... ok
+test ipc::nv::tests::metal::metal_point_center_and_watchdog_validate_fields_without_completion ... ok
+test ipc::nv::tests::metal::metal_retained_setup_rejects_reserved_fields_and_unclassified_method ... ok
+test ipc::nv::tests::metal::metal_twod_copy_obeys_initialization_and_stages_pixels ... ok
+test ipc::nv::tests::metal::release_semaphore_stages_payload_after_counted_completion ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 109 filtered out; finished in 1.56s
+

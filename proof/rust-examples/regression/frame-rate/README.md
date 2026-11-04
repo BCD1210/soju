@@ -36,3 +36,24 @@ that option stalled with the child stopped and was terminated, not timed.
 `SOJU_PROFILE=1` enables cumulative counters and Instruments intervals. Headless
 completion prints the counters. `--frame-times <path>` records presentation
 intervals. Signposts use subsystem `org.soju.switch`, category PointsOfInterest.
+
+## Submission batching
+
+Persistent backend/worker state now survives IPC submissions. Compatible graphics
+commands are prepared together. CPU engines, semaphore/completion operations,
+attachment changes, overlapping constant writes and input hazards retain readback
+boundaries. Textured draws conservatively synchronize; no general texture hazard
+optimization is claimed. Captured attachment conversions are reused by identity,
+view and generation within the batch. Native readback only visits dirty targets,
+not every historical cached target.
+
+Ten presentations: first 616.093 ms; following nine mean 61.200 ms (16.34 fps).
+Totals: snapshot 73.765 ms, shader discovery 90.204 ms, prepare 178.139 ms,
+submit/wait 342.436 ms (includes cold native startup), readback 193.501 ms,
+commit diff 31.404 ms, display conversion 8.212 ms. Native executions fell from
+281/frame to 11 across the whole ten-frame run. The 60 fps requirement remains unmet.
+
+Validation: all ten existing scene tests passed; eleven NV Metal tests passed,
+including a new clear/overlapping constant write/next-submission clear test.
+The baseline Metal System Trace was saved under ignored `dist/frame-profile/`;
+it ran alongside validation and is for attribution only, not wall-time comparison.

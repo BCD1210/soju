@@ -32,6 +32,7 @@ pub struct Backend {
     variants: Vec<PreparedVariant>,
     prepared: Option<(Snapshot, (u64, u64), usize)>,
     file_cache: std::collections::HashMap<Vec<u8>, String>,
+    attachment_files: std::collections::HashMap<(String, u64), (String, String)>,
     pipeline_states: crate::lru::Lru<Vec<u8>, (MetalShader, MetalShader, String)>,
     shader_cache: crate::lru::Lru<(u64, u64, u64), (MetalShader, Header, Key)>,
     files: Vec<Vec<u8>>,
@@ -149,6 +150,56 @@ impl Target {
     }
 }
 impl Backend {
+    /// Whether a CPU access intersects output still owned by this batch.
+    pub fn pending_overlap(&self, address: u64, size: u64) -> bool {
+        let overlaps = |a: u64, n: u64| {
+            u128::from(address) < u128::from(a) + u128::from(n)
+                && u128::from(a) < u128::from(address) + u128::from(size)
+        };
+        self.targets
+            .values()
+            .chain(self.depth_targets.values())
+            .any(|t| overlaps(t.address, t.size() as u64))
+            || self.queries.values().any(|&(a, _, _)| overlaps(a, 4))
+            || self
+                .compute_targets
+                .values()
+                .any(|t| overlaps(t.address, t.size as u64))
+    }
+    /// Conservative input hazard check. Textured draws use a visibility boundary
+    /// until texture descriptors and their backing ranges are tracked here.
+    pub fn reads_pending(&self, s: &Snapshot) -> bool {
+        let r = &s.registers;
+        if s.constants
+            .iter()
+            .flatten()
+            .flatten()
+            .any(|cb| self.pending_overlap(cb.address, u64::from(cb.size)))
+        {
+            return true;
+        }
+        for offset in [0x2044, 0x2144] {
+            let Some(address) = r.address(0x1608).checked_add(u64::from(r.get(offset))) else {
+                return true;
+            };
+            let Some((_, options)) = self.programs.get(&address) else {
+                return true;
+            };
+            if self.pending_overlap(address, 1024 * 1024) || !options.texture_bindings.is_empty() {
+                return true;
+            }
+        }
+        for (start, end) in std::iter::once((r.address(0x17c8), r.address(0x17d0)))
+            .chain((0..16).map(|i| (r.address(0x1c04 + i * 16), r.address(0x1f00 + i * 8))))
+        {
+            if end >= start
+                && self.pending_overlap(start, end.saturating_sub(start).saturating_add(1))
+            {
+                return true;
+            }
+        }
+        false
+    }
     /// Opt-in phase timing: attachment/state validation, shader/key construction,
     /// and remaining resource capture. Cached repeats bypass all three.
     pub fn enable_profiling(&mut self) {
@@ -413,26 +464,34 @@ impl Backend {
                     "overlapping target views require a batch flush",
                 )?;
             }
-            let initial = if pitch {
-                initial.to_vec()
-            } else {
-                target.surface().deswizzle(initial).map_err(io)?
-            };
-            let initial = if format == soju_switch_texture::format::Format::A1Bgr5Unorm {
-                initial
-                    .chunks_exact(2)
-                    .flat_map(|p| {
-                        u16::from_le_bytes([p[0], p[1]])
-                            .rotate_left(1)
-                            .to_le_bytes()
-                    })
-                    .collect()
-            } else {
-                initial
-            };
-            let file = self.file(initial);
             let generation = memory.generation(target.address, target.size())?;
             target.generation = generation;
+            let upload_key = (key.clone(), generation);
+            let file = if let Some((file, _)) = self.attachment_files.get(&upload_key) {
+                file.clone()
+            } else {
+                let initial = if pitch {
+                    initial.to_vec()
+                } else {
+                    target.surface().deswizzle(initial).map_err(io)?
+                };
+                let initial = if format == soju_switch_texture::format::Format::A1Bgr5Unorm {
+                    initial
+                        .chunks_exact(2)
+                        .flat_map(|p| {
+                            u16::from_le_bytes([p[0], p[1]])
+                                .rotate_left(1)
+                                .to_le_bytes()
+                        })
+                        .collect()
+                } else {
+                    initial
+                };
+                let file = self.file(initial);
+                self.attachment_files
+                    .insert(upload_key, (file.clone(), String::new()));
+                file
+            };
             let metal = format.info().metal;
             target_commands.push(TargetCommand {
                 key: key.clone().into(),
@@ -506,30 +565,37 @@ impl Backend {
                     "overlapping attachment views require readback",
                 )?;
             }
-            let initial = t
-                .surface()
-                .deswizzle(capture(memory, &mut dependencies, t.address, t.size())?)
-                .map_err(io)?;
-            let mut z = Vec::new();
-            let mut stencil = Vec::new();
-            for p in initial.chunks_exact(format.info().bytes) {
-                match format {
-                    Format::Depth16Unorm => z.extend(&p[..2]),
-                    Format::Depth24UnormStencil8 => {
-                        let packed = u32::from_le_bytes([p[0], p[1], p[2], p[3]])
-                            .rotate_left(t.depth_rotation);
-                        z.extend(((packed >> 8) as f32 / 16777215.).to_le_bytes());
-                        stencil.push(packed.to_le_bytes()[0]);
+            // Record the dependency even when the packed attachment is already captured.
+            let initial_bytes = capture(memory, &mut dependencies, t.address, t.size())?;
+            let upload_key = (key.clone(), t.generation);
+            let (zfile, sfile) = if let Some(files) = self.attachment_files.get(&upload_key) {
+                files.clone()
+            } else {
+                let initial = t.surface().deswizzle(initial_bytes).map_err(io)?;
+                let mut z = Vec::new();
+                let mut stencil = Vec::new();
+                for p in initial.chunks_exact(format.info().bytes) {
+                    match format {
+                        Format::Depth16Unorm => z.extend(&p[..2]),
+                        Format::Depth24UnormStencil8 => {
+                            let packed = u32::from_le_bytes([p[0], p[1], p[2], p[3]])
+                                .rotate_left(t.depth_rotation);
+                            z.extend(((packed >> 8) as f32 / 16777215.).to_le_bytes());
+                            stencil.push(packed.to_le_bytes()[0]);
+                        }
+                        Format::Depth32FloatStencil8 => {
+                            z.extend(&p[..4]);
+                            stencil.push(p[4]);
+                        }
+                        _ => z.extend(&p[..4]),
                     }
-                    Format::Depth32FloatStencil8 => {
-                        z.extend(&p[..4]);
-                        stencil.push(p[4]);
-                    }
-                    _ => z.extend(&p[..4]),
                 }
-            }
-            let zfile = self.file(z);
-            let sfile = self.file(stencil);
+                let zfile = self.file(z);
+                let sfile = self.file(stencil);
+                self.attachment_files
+                    .insert(upload_key, (zfile.clone(), sfile.clone()));
+                (zfile, sfile)
+            };
             let command = DepthCommand {
                 key: key.clone().into(),
                 format: if r.get(0xfe8) == 0x16 {
@@ -1302,6 +1368,7 @@ impl Backend {
         self.variants.clear();
         self.files.clear();
         self.file_cache.clear();
+        self.attachment_files.clear();
         self.constant_upload.clear();
         self.uniform_offsets.clear();
         Ok(fence)
@@ -1432,6 +1499,7 @@ impl Backend {
         self.variants.clear();
         self.files.clear();
         self.file_cache.clear();
+        self.attachment_files.clear();
         self.constant_upload.clear();
         self.uniform_offsets.clear();
         self.compute_targets.clear();

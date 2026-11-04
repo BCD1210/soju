@@ -618,15 +618,15 @@ final class Worker {
                 }
             }
         }
-    for (key,t) in targets {
+    for (key,t) in targets where dirtyAttachments.contains(key) {
         var bytes=[UInt8](repeating:0,count:t.width*t.height*targetBytes[key]!)
         t.getBytes(&bytes,bytesPerRow:t.width*targetBytes[key]!,from:MTLRegionMake2D(0,0,t.width,t.height),mipmapLevel:0)
         try Data(bytes).write(to:root.appendingPathComponent("\(key).rgba"))
     }
-        if !depths.isEmpty {
+        if depths.keys.contains(where: { dirtyAttachments.contains($0) }) {
             guard let cb=queue.makeCommandBuffer(),let blit=cb.makeBlitCommandEncoder() else {throw Failure("depth readback encoder")}
             var planes=[(String,MTLBuffer,Int,Int,Int)]()
-            for (key,t) in depths {
+            for (key,t) in depths where dirtyAttachments.contains(key) {
                 for stencil in [false,true] {
                     if stencil && t.pixelFormat != .depth32Float_stencil8 {try Data().write(to:root.appendingPathComponent("\(key).stencil"));continue}
                     let bpp=stencil ? 1 : (t.pixelFormat == .depth16Unorm ? 2 : 4), row=((t.width*bpp+255)/256)*256
