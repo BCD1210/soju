@@ -1,0 +1,19 @@
+PASS|nifmInitialize(NifmServiceType_User)|rc=00000000
+PASS|nifmIsWirelessCommunicationEnabled(&enabled)|rc=00000000
+PASS|wireless offline|rc=00000000
+PASS|no IP while offline|rc=00000000
+PASS|sslInitialize(1)|rc=00000000
+PASS|sslCreateContext(&context, SslVersion_Auto)|rc=00000000
+PASS|sslGetContextCount(&count)|rc=00000000
+PASS|local TLS context|rc=00000000
+PASS|sslGetContextCount(&count)|rc=00000000
+PASS|TLS context released|rc=00000000
+PASS|friendsInitialize(FriendsServiceType_User)|rc=00000000
+PASS|pctlInitialize()|rc=00000000
+PASS|pctlIsRestrictionEnabled(&restricted)|rc=00000000
+PASS|local unrestricted profile|rc=00000000
+PASS|smGetService(&prepo, "prepo:u")|rc=00000000
+PASS|serviceDispatchOut(&prepo, 10300, status)|rc=00000000
+PASS|prepo not transmitting|rc=00000000
+TOTAL|checks=17|failures=0
+exit0|probe-complete

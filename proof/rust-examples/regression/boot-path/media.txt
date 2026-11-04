@@ -1,0 +1,28 @@
+PASS|appletInitialize()|rc=00000000
+PASS|docked operation mode|rc=00000000
+PASS|docked performance mode|rc=00000000
+PASS|nvInitialize()|rc=00000000
+PASS|viInitialize(ViServiceType_Application)|rc=00000000
+PASS|viOpenDefaultDisplay(&display)|rc=00000000
+PASS|viCreateLayer(&display, &layer)|rc=00000000
+PASS|nwindowCreateFromLayer(&native, &layer)|rc=00000000
+PASS|framebufferCreate(&fb, window, width, height, PIXEL_FORMAT_RGBA_8888, 2)|rc=00000000
+PASS|framebufferMakeLinear(&fb)|rc=00000000
+PASS|dequeue 1280x720|rc=00000000
+PASS|1280x720 all pixels|frame=1
+PASS|queue 1280x720|rc=00000000
+PASS|framebufferCreate(&fb, window, width, height, PIXEL_FORMAT_RGBA_8888, 2)|rc=00000000
+PASS|framebufferMakeLinear(&fb)|rc=00000000
+PASS|dequeue 1920x1080|rc=00000000
+PASS|1920x1080 all pixels|frame=2
+PASS|queue 1920x1080|rc=00000000
+PASS|audrenInitialize(&config)|rc=00000000
+PASS|audrvCreate(&driver, &config, 2)|rc=00000000
+PASS|audio stereo sink|rc=00000000
+PASS|audrvUpdate(&driver)|rc=00000000
+PASS|audrenStartAudioRenderer()|rc=00000000
+PASS|audrenStopAudioRenderer()|rc=00000000
+PASS|viCloseLayer(&layer)|rc=00000000
+PASS|viCloseDisplay(&display)|rc=00000000
+TOTAL|checks=24|failures=0
+exit0|probe-complete

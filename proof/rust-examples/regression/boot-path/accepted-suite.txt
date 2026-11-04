@@ -1,0 +1,48 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling soju-switch-core v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/core)
+    Finished `release` profile [optimized] target(s) in 7.21s
+/Users/mikekim/Projects/soju-switch-core/dist/gpu-accepted/runner: replacing existing signature
+   Compiling soju-switch-core v0.1.0 (/Users/mikekim/Projects/soju-switch-core/tools/switch/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.45s
+     Running tests/gpu_examples.rs (tools/switch/core/target/debug/deps/gpu_examples-df54184a82d12307)
+
+running 6 tests
+test deko_basic_matches_source_vertex_id_triangle ... deko_basic: 912978 source-derived pixel checks
+ok
+test deko_example01_matches_source_rectangles ... ok
+test deko_example02_matches_source_triangle ... Example02: 912978 source-derived pixel checks
+ok
+test deko_example03_matches_source_cube ... Example03: 912096 source-derived pixel checks
+ok
+test deko_example04_matches_source_texture ... Example04: 912096 source-derived pixel checks
+ok
+test opengl_simple_triangle_matches_source ... OpenGL simple_triangle: 918400 source-derived pixel checks
+ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.35s
+
+     Running tests/gpu_gears.rs (tools/switch/core/target/debug/deps/gpu_gears-d461c969b1415fc3)
+
+running 1 test
+test es2gears_front_faces_match_projected_geometry_and_lighting ... es2gears source-derived RGB checks: [33755, 3860, 1985, 823418]; sides and tooth edges excluded
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.50s
+
+     Running tests/gpu_lenny.rs (tools/switch/core/target/debug/deps/gpu_lenny-bf0a6cdfcfce3c31)
+
+running 2 tests
+test dynamic_resolution_geometry_and_lighting ... dynamic_resolution: source-derived pixel counts [0, 0, 10, 360, 477, 529, 372, 237, 102, 66, 14, 178, 60, 0, 2, 62, 35, 140, 173, 262, 629, 725, 948, 1356, 2496, 3112, 3145, 3305, 3476, 3504, 3631, 3754, 3797, 3844, 3947, 4201, 4390, 4499, 3841, 3705, 3819, 3251, 2143, 110, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1652199]; mismatches=0; first=None
+ok
+test lenny_geometry_and_lighting ... lenny: source-derived pixel counts [5720, 881588]; mismatches=0; first=None
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.68s
+
+     Running tests/gpu_sdl.rs (tools/switch/core/target/debug/deps/gpu_sdl-ab5e255e0bcb7919)
+
+running 1 test
+test sdl_rectangles_match_source ... sdl2-simple: 2073600 exact RGBA pixel checks
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.90s

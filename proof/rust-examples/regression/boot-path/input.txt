@@ -1,0 +1,21 @@
+PASS|hidInitialize()|rc=00000000
+PASS|hidSetSupportedNpadStyleSet(styles)|rc=00000000
+PASS|hidGetSupportedNpadStyleSet(&actual)|rc=00000000
+PASS|Npad styles roundtrip|rc=00000000
+PASS|hidSetSupportedNpadIdType(ids, 2)|rc=00000000
+PASS|hidSetNpadHandheldActivationMode(HidNpadHandheldActivationMode_Dual)|rc=00000000
+PASS|hidGetNpadHandheldActivationMode(&mode)|rc=00000000
+PASS|handheld dual|rc=00000000
+PASS|hidSetNpadJoyAssignmentModeDual(HidNpadIdType_No1)|rc=00000000
+PASS|hidInitializeVibrationDevices(vibrations, 2, HidNpadIdType_Handheld, HidNpadStyleTag_NpadHandheld)|rc=00000000
+PASS|hidSendVibrationValue(vibrations[0], &value)|rc=00000000
+PASS|hidGetSixAxisSensorHandles(&sensor, 1, HidNpadIdType_Handheld, HidNpadStyleTag_NpadHandheld)|rc=00000000
+sensor|style=4|player=32|device=2
+PASS|hidStartSixAxisSensor(sensor)|rc=00000000
+PASS|hidIsSixAxisSensorAtRest(sensor, &rest)|rc=00000000
+PASS|stationary sensor|rc=00000000
+PASS|six-axis sample published|rc=00000000
+PASS|stationary gravity and angular velocity|rc=00000000
+PASS|hidStopSixAxisSensor(sensor)|rc=00000000
+TOTAL|checks=18|failures=0
+exit0|probe-complete

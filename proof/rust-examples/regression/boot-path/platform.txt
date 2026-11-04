@@ -1,0 +1,17 @@
+PASS|setInitialize()|rc=00000000
+PASS|setGetLanguageCode(&language)|rc=00000000
+PASS|language=en-US|rc=00000000
+PASS|setGetRegionCode(&region)|rc=00000000
+PASS|region=USA|rc=00000000
+PASS|setsysInitialize()|rc=00000000
+PASS|setsysGetFirmwareVersion(&version)|rc=00000000
+PASS|firmware ABI=17|rc=00000000
+PASS|timeInitialize()|rc=00000000
+PASS|timeGetCurrentTime(TimeType_UserSystemClock, &user_time)|rc=00000000
+PASS|timeGetCurrentTime(TimeType_NetworkSystemClock, &network_time)|rc=00000000
+PASS|clocks nonzero and coherent|rc=00000000
+PASS|plInitialize(PlServiceType_User)|rc=00000000
+PASS|plGetSharedFontByType(&font, PlSharedFontType_Standard)|rc=00000000
+PASS|mapped font|rc=00000000
+TOTAL|checks=15|failures=0
+exit0|probe-complete

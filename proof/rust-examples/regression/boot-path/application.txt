@@ -1,0 +1,20 @@
+PASS|appletInitialize()|rc=00000000
+PASS|focus=in-focus|rc=00000000
+PASS|operation=handheld|rc=00000000
+PASS|performance=normal|rc=00000000
+PASS|appletGetDesiredLanguage(&language)|rc=00000000
+PASS|desired language|rc=00000000
+PASS|accountInitialize(AccountServiceType_Application)|rc=00000000
+PASS|accountGetPreselectedUser(&uid)|rc=00000000
+PASS|preselected local user|rc=00000000
+PASS|accountGetProfile(&profile, uid)|rc=00000000
+PASS|accountProfileGet(&profile, &data, &base)|rc=00000000
+PASS|profile name|rc=00000000
+PASS|launch parameter consumed once|rc=00000000
+PASS|smGetService(&arp, "arp:r")|rc=00000000
+PASS|svcGetProcessId(&process, CUR_PROCESS_HANDLE)|rc=00000000
+PASS|serviceDispatchInOut(&arp, 3, process, instance)|rc=00000000
+PASS|serviceDispatchIn(&arp, 1, instance, .buffer_attrs = { SfBufferAttr_HipcMapAlias | SfBufferAttr_Out }, .buffers = { { &control, sizeof(control) } })|rc=00000000
+PASS|GetApplicationControlProperty title|rc=00000000
+TOTAL|checks=18|failures=0
+exit0|probe-complete

@@ -1,0 +1,26 @@
+PASS|fsInitialize()|rc=00000000
+PASS|fsdevMountSdmc()|rc=00000000
+PASS|fsCreateSaveDataFileSystem(&attr, &creation, &meta)|rc=00000000
+PASS|fsOpen_SaveData(&save, 0, attr.uid)|rc=00000000
+PASS|fsFileRead(&file, 0, previous, sizeof(previous), FsReadOption_None, &count)|rc=00000000
+PASS|previous committed save|rc=00000000
+PASS|open save file|rc=00000000
+PASS|fsFileWrite(&file, 0, "persist!", 8, FsWriteOption_Flush)|rc=00000000
+PASS|fsFileRead(&file, 0, bytes, sizeof(bytes), FsReadOption_None, &count)|rc=00000000
+PASS|save readback|rc=00000000
+PASS|fsFsCommit(&save)|rc=00000000
+PASS|fsCreateSaveDataFileSystem(&attr, &creation, &meta)|rc=00000000
+PASS|BCAT mount|rc=00000000
+PASS|fsFsCommit(&volume)|rc=00000000
+PASS|fsCreateSaveDataFileSystem(&attr, &creation, &meta)|rc=00000000
+PASS|cache mount|rc=00000000
+PASS|fsFsCommit(&volume)|rc=00000000
+PASS|RomFS mount|rc=00000000
+PASS|RomFS content|rc=00000000
+PASS|smGetService(&arp, "arp:r")|rc=00000000
+PASS|svcGetProcessId(&process, CUR_PROCESS_HANDLE)|rc=00000000
+PASS|serviceDispatchInOut(&arp, 3, process, instance)|rc=00000000
+PASS|serviceDispatchIn(&arp, 1, instance, .buffer_attrs = { SfBufferAttr_HipcMapAlias | SfBufferAttr_Out }, .buffers = { { &control, sizeof(control) } })|rc=00000000
+PASS|control title from container|rc=00000000
+TOTAL|checks=24|failures=0
+exit0|probe-complete
