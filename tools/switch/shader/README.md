@@ -1,187 +1,164 @@
 # soju-switch-shader
 
-A dependency-free Rust crate for Soju's own GM20B (Tegra X1, Maxwell SM 5.3)
-graphics shader path: SPH parser → instruction decoder → basic blocks and
-structured control flow → Metal Shading Language.
+Dependency-free, clean-room GM20B/Maxwell shader translation:
+graphics SPH or compute QMD → decoder → structured IR → Metal source.
 
-**This is a foundation, not a complete translator for arbitrary commercial
-shaders.** It recognizes 61 requested instruction classes in 145 encodings;
-46 classes have partial lowering, including control flow handled by the IR.
-Unsupported reachable operations/modes produce errors, not placeholder code.
-All fixtures are original; no games, firmware, keys or commercial shaders are
-used. [SOURCES.md](SOURCES.md) records every reference URL consulted.
+**This does not translate arbitrary commercial shaders.** There are 61 recognized
+classes in 146 encodings (including S2R normalized to MOV). **60 classes have
+partial lowering; 14 of the previous 15 decode-only classes are now lowered.**
+`OUT` remains unsupported: correct geometry export-handle/stream behavior has
+not been established from the permitted sources. Unsupported reachable modes
+return errors. No games, firmware, keys or extracted shaders are used.
+[SOURCES.md](SOURCES.md) records the reference ledger.
 
-## API
+## APIs
 
 ```rust,ignore
-let shader = soju_switch_shader::translate(
-    &binary, // 80-byte little-endian SPH, then control/instruction bundles
-    &soju_switch_shader::msl::Options::default(),
-)?;
-// shader.source: MSL
-// shader.entry_point: soju_vertex or soju_fragment
-// shader.constant_buffers: required cbuf slots
+let graphics = soju_switch_shader::translate(&sph_and_code, &options)?;
+let launch = soju_switch_shader::compute::Launch::parse(&qmd)?;
+let compute = soju_switch_shader::compute::translate(&code, &launch, &options)?;
+// source, entry_point, constant_buffers, uses_texture_table, texture_bindings
 ```
 
-The stages are independently accessible as `header::Header::parse`,
-`decoder::decode`, `decoder::decode_instruction`, `ir::Program::build`, and
-`msl::generate`. There is no CLI or runner integration yet. Translation performs
-no file/network access or compiler invocation; compiler checks live in tests.
+Graphics supports standalone Vertex B and Fragment. Compute takes scheduling
+bundles without a graphics header. QMD 0.6/1.7 parsing exposes local x/y/z size,
+shared bytes, positive/negative local allocations and all 64 raw words. The host
+resolves program start/cbuf addresses and dispatches the parsed local size.
+No CLI, runner integration or native descriptor-memory reader is implemented.
+Translation itself invokes no compiler and performs no I/O.
 
-## Header and decoding
+The graphics parser preserves all 20 SPH words, stage/version/allocation fields,
+attribute maps, fragment interpolation and color/depth flags. Code bundles have
+one scheduling word followed by up to three instructions. The decoder retains
+operand associations and raw mode fields. Recognizing an encoding does not mean
+all its modes are supported. Structuring accepts lexical forward selections and
+single-latch loops with consistent SSY/PBK stacks; indirect targets, crossed
+stacks, nonlexical exits and irreducible flow are rejected.
 
-The 0x50-byte graphics header parser exposes stage IDs 0–5 (Vertex A/B,
-tessellation control/evaluation, geometry, fragment), version fields, positive
-and negative local allocations, warp-stack allocation, input/output maps,
-fragment interpolation, color masks and depth-output enable. All 20 raw words
-are preserved. The public header reference predates GM20B; complete extension
-validation is not claimed. Special fragment color/point fields and unknown
-fields remain in raw maps without invented attribute meanings.
+## Lowered subset
 
-Code offsets start at zero after the SPH. Each 32-byte bundle begins with one
-control word followed by three instructions. A partial final bundle is accepted;
-a lone control word, partial 64-bit word, or reserved high control bit is an
-error. The decoder exposes stall/yield, read/write dependency barriers, wait
-masks and register reuse. Signed branch offsets are relative to the next word
-and include scheduling-word space.
-
-Operands include registers, integer/float-bit immediates, cbuf addresses, memory
-addresses, predicates and branch targets. Single-bit modifiers carry operand
-associations. Multi-bit modes are retained as named subtable IDs, masks and raw
-encoded bits; **these are not fully normalized semantic enums**. Not every
-reserved mode is rejected by the decoder; the backend validates supported
-modes before lowering. Unknown opcodes report the byte address and raw word.
-
-| Family | Classes recognized and covered by reference-based classification tests |
+| Classes | Supported subset |
 | --- | --- |
-| Float | FFMA FADD FMUL FMNMX FSET FSETP MUFU F2F F2I I2F I2I |
-| Integer/logic | IADD IADD3 ISCADD IMAD XMAD ISET ISETP IMNMX LOP LOP3 SHL SHR BFE BFI POPC FLO SEL MOV PSETP P2R R2P |
-| Memory | LD ST LDG STG LDS STS LDL STL LDC |
-| Attributes | IPA ALD AST OUT |
-| Textures | TEX TEXS TLD TLDS TLD4 TXQ |
-| Control | BRA SSY SYNC PBK BRK EXIT KIL NOP DEPBAR BAR |
+| MOV | Register/immediate/cbuf; S2R thread and CTA x/y/z IDs in compute |
+| FADD FMUL FFMA | f32 nearest rounding, supported abs/neg/sat and explicit FTZ |
+| FMNMX FSET FSETP | f32 min/max and ordered/unordered comparisons |
+| MUFU | EX2/LG2/RCP/RSQ/SQRT; approximations are not Maxwell bit-exact |
+| F2F F2I I2F I2I | 32-bit conversions; supported rounding only |
+| IADD IADD3 ISCADD IMAD XMAD | Wrapping 32-bit arithmetic; XMAD low unsigned 16-bit products |
+| ISET ISETP IMNMX SEL PSETP | Comparisons, selections and predicate combinations |
+| LOP LOP3 SHL SHR BFE BFI POPC FLO | Basic 32-bit forms; no carry/reversal/extended modes |
+| P2R R2P | PR mask transfers, all four byte selectors; CC rejected |
+| LD ST LDG STG | b32 accesses into one configured address window, optional extended register-pair addresses; generic LD/ST global-only with PT |
+| LDS STS BAR | b32 threadgroup storage and unconditional full-CTA BAR.SYNC 0; conservative convergence validation |
+| LDL STL LDC | Static aligned b32 local/cbuf accesses |
+| ALD AST IPA | SPH-enabled direct vertex attributes and fragment PASS/CONSTANT inputs |
+| TEX | Typed float/depth resources, implicit fragment LOD or level zero |
+| TEXS TLDS | 2D, single/two-component output masks; TEXS implicit/zero LOD, TLDS zero LOD |
+| TLD TLD4 TXQ | Level-zero integer reads; 2D component gather without offsets; bound 2D dimension queries |
+| BRA SSY SYNC PBK BRK EXIT KIL | Structured per-invocation flow; KIL is fragment-only |
+| NOP DEPBAR | Validated and elided |
 
-Applicable register, short/full immediate and cbuf forms from the pinned
-reference are included; not every class has every form. Envytools' address-space
-LD/ST spellings are normalized to ALD/AST, LDS/STS, LDL/STL and LDC. System-register
-MOV/S2R, atomics, half/double arithmetic, indirect jumps/calls and other unlisted
-classes are not recognized.
+`OUT` is decoded but not lowered. Geometry/tessellation, Vertex A/B composition,
+fragment depth, atomics, half/double arithmetic, carry flags, general CFGs and
+many operand modes remain unsupported. Limits include 65,536 instructions,
+16 control tokens, 64 nesting levels, 64 KiB local and 48 KiB shared memory.
+Resources are discovered from reachable IR, excluding constant-false instructions.
 
-## Supported Metal subset
+## Resource ABI
 
-Every emitted instruction retains its execution predicate. R0–R254 are uint
-locals with float bit casts; RZ reads zero and discards writes. P0–P6 are bools,
-PT is true. Register/local/output initialization is deterministic zero, not a
-claim about hardware reads before writes.
+- Cbuf slot N uses `constant uint* cbN [[buffer(N)]]`; slots must fit 0–30.
+- `Options::global_memory` describes a buffer binding, guest base address and
+  byte size. Loads outside the aligned window return zero; stores are dropped.
+  This is robust host behavior, not guest fault emulation.
+- `Options::texture_bindings` maps `Bound(immediate)` / `Bindless(register_value)`
+  to separate texture and sampler indices and a `TextureType`. Conflicts are
+  errors; output metadata is sorted and deduplicated. The host resolves native
+  descriptors. Empty mappings preserve the legacy paired-index ABI.
+- Texture groups are 2D, 1D, 3D, cube, 1D array, 2D array, cube array, 2D shadow,
+  2D array shadow, numbered 0–8. Argument ID is `group * texture_count + index`;
+  sampler IDs start at `9 * texture_count`. Only used image groups are declared.
+  The argument-buffer binding defaults to 30. **This changes the old sampler ABI.**
+- Texture count is 1–4096; actual device limits are the caller's responsibility.
+  Unknown explicit handles return zero. Binding collisions are errors. Metal
+  1D resources are single-level; mipmapped native 1D textures need another ABI.
 
-| Lowered classes | Accepted forms and limits |
-| --- | --- |
-| MOV | Register/cbuf/short/full immediate, component mask 0xf |
-| FADD FMUL FFMA | f32 nearest rounding, applicable negate/abs/saturate and FTZ; no FMZ/scaling/condition-code writes |
-| FMNMX | Predicate-selected f32 min/max, no FTZ |
-| FSET FSETP ISET ISETP PSETP | Ordered/unordered f32 and signed/unsigned 32-bit comparisons; AND/OR/XOR predicate combinations; no carry or FTZ |
-| MUFU | EX2/LG2/RCP/RSQ/SQRT using Metal functions; no COS/SIN/FP64 helpers |
-| F2F F2I I2F I2I | 32-bit types; integral F2F/F2I rounding; no integer neg/abs or integer saturation |
-| IADD IADD3 ISCADD IMAD | Wrapping 32-bit arithmetic, full-width operands and low products; no carry/saturation/high products/subword modes |
-| XMAD | Unsigned low-16 × low-16 plus full-width addend |
-| IMNMX SEL | Predicate-selected 32-bit operands, no extended min/max modes |
-| LOP LOP3 | Basic binary logic and register-form ternary LUT; predicate destination must be PT; no extended modes |
-| SHL SHR BFE BFI POPC FLO | Basic 32-bit operations, signed/unsigned SHR/BFE/FLO and shift wrapping; no reversal/carry/FLO.SH |
-| LDC | Direct aligned nonnegative 32-bit cbuf access |
-| LDL STL | Static aligned 32-bit accesses within SPH allocation, maximum 64 KiB |
-| ALD AST | Vertex B direct 1–4-component accesses, RZ index registers, SPH-enabled addresses |
-| IPA | Direct fragment PASS/CONSTANT inputs already interpolated by Metal; RZ arithmetic operands, PT sample predicate, center interpolation |
-| TEX | Float 2D, component mask, implicit fragment LOD or level zero; bound/normalized bindless table indices |
-| BRA SSY SYNC PBK BRK | Direct targets, condition 0xf, lexical forward selections/single-latch loops, consistent token stacks |
-| EXIT KIL | Predicated termination; KIL requires fragment stage |
-| NOP DEPBAR | Omitted after validation; lowered operations expose no Maxwell asynchronous dependency state |
+Compile with `-std=metal3.0 -fno-fast-math -ffp-contract=off`.
+[SEMANTICS.md](SEMANTICS.md) defines numerical behavior, address bounds,
+barrier restrictions, initialization and intentional differences.
 
-**Decoded but not lowered:** P2R R2P LD ST LDG STG LDS STS OUT TEXS TLD TLDS TLD4
-TXQ BAR. Unsupported modes of otherwise lowered classes also fail. Unreachable
-instructions are decoded but do not require lowering.
+## Reference execution and verification
 
-Vertex B and fragment entry points use SPH-derived structs. Generic vertex
-inputs 0–30 use `attribute(N)`; position uses `position`; generic varying
-components use matching `user(locnN)` names. Fragment interpolation follows the
-SPH. Special attributes, fragment depth, Vertex A/B composition, geometry and
-tessellation are unsupported. Fragment colors use consecutive registers in
-target/component-mask order; that ABI still needs independent hardware validation.
+`reference::Machine` independently interprets validated IR; `run_group` schedules
+lanes cooperatively at barriers. Integer operations are bit-exact for the stated
+contract. Floating operations use Rust f32, separate add/multiply and fused FMA.
+The oracle is **not NVIDIA hardware** and does not establish native SASS behavior
+where the public documentation is incomplete.
 
-The structurizer rejects indirect/invalid targets, inconsistent/underflowed
-stacks, crossed SSY/PBK tokens, loop-interior entries, multiple latches and
-nonlexical exits. Some otherwise reducible graphs are deliberately rejected.
-Limits: 65,536 instructions, 16 tokens and 64 nesting levels. Reachable code
-fallthrough is an error. There is no state-machine fallback or iteration cap.
+The tests compile Swift harnesses with `xcrun swiftc`, compile generated MSL to
+metallibs, dispatch real Metal kernels or render offscreen, check command status,
+and compare readback. There are **43 Rust tests** on this Mac:
 
-## Resource ABI and numerical contract
+| Executed GPU fixtures | Compared cases |
+| --- | ---: |
+| 30 arithmetic programs × 256 input combinations | 7,680 |
+| Shared reduction/predicate transfers, 32 lanes; independent sum = 528 | 32 |
+| Five memory/predicate/scheduling programs × 32 lanes | 160 |
+| Reconvergence/break loop, 32 inputs | 32 |
+| Three explicit FTZ programs × 32 inputs | 96 |
+| Negative local-address bias, 32 inputs | 32 |
+| Nine fragment programs × 16 pixels, including two textures and predicated discard | 144 |
+| **Total GPU/reference comparisons** | **8,176** |
 
-Cbuf slot N is `constant uint* cbN [[buffer(N)]]`. Callers supply sufficiently
-large aligned storage. Slots above Metal's 0–30 binding range are rejected.
-Guest GPU virtual addresses are not mapped.
+A separate 32-case denormal probe is **not counted as equivalence**: 12 results
+on this Mac differ from IEEE and match the documented FTZ alternative. NaN
+payloads are ignored when both results are NaN; integer results and tested
+signed-zero ties are compared exactly. Arithmetic coverage includes edge values,
+overflow, shift/bitfield boundaries, infinities and NaNs.
 
-TEX uses a Metal argument buffer at binding 30 by default, configurable through
-`Options::texture_buffer`. It contains `texture_count` float 2D images at IDs
-starting at 0, and the same number of samplers starting at `texture_count`.
-Default count is 128; configurable count is 1–4096. Cbuf/table binding collisions
-are errors; actual device/resource limits remain the caller's responsibility.
-
-**Texture handles must already be normalized to texture/sampler-pair table
-indices.** Bound TEX uses its 13-bit immediate; TEX.B uses its handle register.
-Both arrays use the same index. Dynamic indices must be in range. Native packed
-TIC/TSC descriptors and cbuf-based handle resolution are not implemented; this
-is a provisional integration ABI, not transparent native-handle compatibility.
-
-Compile with `-fno-fast-math -ffp-contract=off`. FADD/FMUL stay separate, FFMA
-uses explicit `fma`, and FTZ/saturation have explicit helpers. This is not a
-bit-exact IEEE/GM20B implementation: Metal denormals, NaN payloads, signed-zero
-min/max ties, special functions, exceptional conversions and derivatives under
-divergent control flow remain limitations. [SEMANTICS.md](SEMANTICS.md) details
-the behavior and deviations. No GPU execution conformance is claimed.
-
-## Verification
-
-From this directory:
+All 60 lowered classes occur across the executed fixtures, including the five
+structurized control classes. ALD/AST are exercised by the translated vertex
+shader's rasterization; their register results are not directly read back.
+Non-2D texture types have compilation checks only (18 implicit/level-zero type
+variants). The eight original graphics compilation fixtures are also retained.
+No claim of all-mode coverage, native Maxwell equivalence or real-game coverage
+is made. GPU execution tests skip on non-macOS; missing/broken Metal on macOS is
+a failure. Generated evidence stays under ignored `target/`.
 
 ```sh
 cargo test --offline
-cargo clippy --all-targets -- -D warnings
+cargo clippy --offline --all-targets -- -D warnings
 cargo fmt --check
+# Show individual GPU case counts:
+cargo test --offline --test equivalence --test textures -- --nocapture
 ```
 
-There are 27 tests: header/operand/scheduling tests, classification coverage for
-all 61 classes, rejection tests, and eight hand-assembled programs translated
-and compiled using:
+## Source cache
 
-```sh
-xcrun -sdk macosx metal -std=metal3.0 -fno-fast-math -ffp-contract=off \
-  -c target/metal-fixtures/passthrough_vertex.metal \
-  -o target/metal-fixtures/passthrough_vertex.air
-```
+`cache::Key::for_shader` computes a stable 128-bit, length-framed multiply/XOR
+hash over exact code/scheduling bytes, exact SPH/QMD bytes, translator ABI,
+options, normalized mappings and caller-supplied canonical render state. Include
+external vertex/resource layouts, compiler identity and target features in that
+state. `Key::new` is the lower-level explicitly framed hash. Neither is a
+cryptographic authentication mechanism.
 
-Fixtures cover position passthrough, texture × cbuf color, bindless level-zero
-TEX, SSY/SYNC and PBK/BRK loops, predicated EXIT/KIL, arithmetic/conversions/local
-memory, and comparisons/predicate logic. Generated `.metal`/`.air` evidence stays
-in ignored `target/metal-fixtures`. Compilation skips only when `xcrun` itself
-is absent; an installed but broken/missing Metal toolchain is a failure.
-Compilation proves source acceptance, not rendering or numerical equivalence.
+`cache::encode`/`decode` implement format version 1: 8-byte magic, u32 version,
+16-byte key, u64 source length, 16-byte payload checksum, UTF-8 MSL. Integers are
+little-endian; source is limited to 16 MiB. Wrong keys/versions, corruption,
+truncation and trailing bytes are rejected. Callers own file paths and atomic
+publication. No compiled binaries or cache files are committed.
 
-The declarative ISA facts come from pinned MIT envytools, with its notice in
-[LICENSE.envytools](LICENSE.envytools). `scripts/import_isa.py` accepts only the
-pinned file SHA-256, performs no network access, and is not required by the build.
-The parser/structurizer/backend implementation and shader programs are original.
+## Remaining work
 
-## Next steps
+1. Establish OUT's geometry stream/handle semantics using allowed evidence,
+   then implement geometry export passes and tests.
+2. Resolve native texture/cbuf descriptors in the runner; extend texture masks,
+   query modes, explicit LOD/offsets and numerical tests beyond nearest 2D.
+3. Validate undocumented Maxwell floating-point, interpolation/export and
+   reconvergence behavior against lawful original hardware tests.
+4. Add missing arithmetic modes/types, atomics, memory widths, general CFG and
+   barrier uniformity analysis; integrate launch and resource metadata with Soju.
 
-1. Establish hardware-backed tests for operand modes, exceptional arithmetic,
-   interpolation/export registers and reconvergence/helper lanes.
-2. Resolve native texture handles/descriptors, implement remaining texture and
-   memory operations, and connect the resource ABI to the runner.
-3. Add carry/condition codes, predicate transfers, missing types/modifiers and
-   more general reducible-CFG structuring with uniformity analysis.
-4. Add compute entry points, shared/global address mapping, barriers and atomics;
-   compute requires its own launch metadata rather than this graphics SPH.
-5. Emulate geometry/tessellation and Vertex A/B composition with explicit passes
-   and intermediate buffers.
-6. Design shader cache keys from exact header/code bytes, translator/ABI version,
-   options, resource/vertex layouts, compiler settings and target GPU features.
-   No shader cache or compiled-library persistence is implemented yet.
+ISA facts are derived from pinned MIT envytools, with its notice in
+[LICENSE.envytools](LICENSE.envytools). Importing the declarative table is an
+optional offline step guarded by the pinned file SHA-256. Implementation and
+hand-assembled fixtures are original.

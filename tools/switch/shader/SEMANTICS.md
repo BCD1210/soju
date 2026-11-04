@@ -1,120 +1,126 @@
-# Backend contract and numerical limits
+# Execution contract and limits
 
-Compile generated MSL with `-fno-fast-math -ffp-contract=off`. The source also
-turns contraction off. R0–R254 are uint locals; float operands use `as_type`,
-RZ reads zero, and RZ writes are discarded. P0–P6 are bool locals; PT is true.
-Registers, local memory and outputs start at zero for deterministic fixtures;
-this does not establish hardware behavior for reads before writes.
+This document distinguishes a testable backend contract from claims about
+undocumented native GM20B behavior. The Rust interpreter is an independent
+implementation of this contract, not NVIDIA hardware. Translate first to
+validate instruction modes before running `reference::Machine`/`run_group`.
 
-FADD and FMUL are separate f32 operations; FFMA uses explicit `fma`. Only
-round-to-nearest arithmetic is accepted. FTZ on FADD/FMUL/FFMA is implemented
-with sign-preserving bit operations before and after the operation. Other
-FTZ forms, FMZ, scale modes and carry/condition-code writes are rejected.
-Saturation maps NaN to +0 and clamps to [0,1]. Ordered/unordered comparisons
-check NaNs explicitly. Integer addition/multiplication wrap modulo 2^32;
-shifts and bitfields guard against undefined shift counts.
+## Registers and floating point
 
-This is not a bit-exact floating-point implementation. Metal devices may flush
-subnormals even when Maxwell's FTZ bit is clear. NaN payloads, signaling NaNs,
-min/max signed-zero ties, and special-function approximation errors are not
-proven equivalent to GM20B. MUFU EX2/LG2/RCP/RSQ/SQRT use Metal functions; COS,
-SIN and FP64 helper variants are rejected. F2I uses the requested integral
-rounding, clamps overflow, and maps NaN to zero (PTX-style); GM20B exceptional
-conversion results have not been validated on hardware. F2F/I2F/I2I currently
-accept only 32-bit types. No GPU execution oracle or hardware conformance
-claim is made by successful source compilation.
+R0–R254 contain uint bits; RZ reads zero and discards writes. P0–P6 are bools;
+PT reads true and discards writes. Registers, local memory and stage outputs
+start at zero for deterministic behavior. Hardware reads before writes are not
+specified here. Shared memory is uninitialized until written by the program.
 
-Control flow preserves per-invocation branches and termination. The supported
-subset has lexical forward selections and single-latch loops with consistent
-SSY/PBK stacks. It does not emulate warp execution masks, helper invocations,
-or Maxwell reconvergence scheduling. Implicit texture derivatives in divergent
-control flow are therefore not guaranteed equivalent. KIL emits Metal discard
-and returns immediately. DEPBAR is elided because lowered operations expose no
-Maxwell asynchronous work; BAR and shared memory require a future backend.
+Compile with `-std=metal3.0 -fno-fast-math -ffp-contract=off`. FADD/FMUL are
+separate f32 operations; FFMA uses explicit `fma`/Rust `mul_add`. Accepted
+arithmetic rounding is nearest. Explicit FTZ flushes input and output subnormals
+with sign-preserving bit operations. FMZ, scales, carry/CC writes and unsupported
+rounding/type modes are errors. Saturation maps NaN to +0 and clamps to [0,1].
+Comparisons explicitly distinguish ordered/unordered NaNs. Integer arithmetic
+wraps modulo 2^32; shifts and bitfields guard zero widths and oversized counts.
 
-Vertex attribute addressing follows SPH byte addresses. Fragment outputs use
-consecutive registers for enabled components in target/component order; this
-ABI is an implementation assumption to validate against original shaders on
-hardware. Vertex A/B chaining, special varyings and fragment depth are rejected.
+FMNMX orders −0 below +0 for minimum and +0 above −0 for maximum, using explicit
+helpers instead of Metal's device-dependent zero ties. This PTX-style behavior
+fixed an observed GPU/reference mismatch; native GM20B ties remain unvalidated.
+MUFU EX2/LG2/RCP/RSQ/SQRT use Metal functions; COS/SIN and FP64 helpers are rejected.
+Only SQRT is represented in the current arithmetic grid. General approximation
+bounds and bit-exact native MUFU equivalence are not established.
 
-The current TEX ABI requires the caller to normalize descriptors to one table
-index per texture/sampler pair. Bound TEX's 13-bit immediate is that table
-index; TEX.B reads the normalized index from its handle register. The host must
-provide valid in-range indices and populate both argument arrays. Packed native
-TIC/TSC handles and handle loads from a configured cbuf are not resolved here.
-This is an explicit runner integration boundary, not transparent compatibility
-with arbitrary native texture handles. Only float 2D TEX, implicit fragment LOD
-or explicit level zero, is lowered. Texture reads preserve the component mask
-and pack selected components into consecutive destination registers.
+F2I rounds as requested, clamps overflow and maps NaN to zero. Rust's saturating
+casts implement the reference result. This is a PTX-style contract; exceptional
+native GM20B results remain unvalidated. F2F/I2F/I2I accept only 32-bit types.
 
-## Compute and execution oracle
+**Observed intentional difference:** Metal may flush subnormal operands even
+with Maxwell FTZ clear. A 32-case comparison probe on this Mac produced 12
+results differing from the IEEE reference and matching an FTZ reference. Those
+cases are reported separately from equivalence passes. Signaling NaNs, payload
+propagation and general denormal preservation are not guaranteed. Equivalence
+tests permit differing NaN payloads only when both results classify as NaN.
 
-`compute::Launch::parse` accepts the documented 256-byte NVIDIA Maxwell QMD
-0.6/1.7 fields, preserving all raw words. The caller selects the program start,
-resolves constant buffers, and dispatches exactly the parsed local dimensions;
-those surrounding launch fields are not executed by this crate. Allocation is
-limited to 48 KiB shared and 64 KiB per-thread local storage. S2R/MOV exposes
-thread and CTA x/y/z IDs; other system registers are rejected.
+## Predicates, control and memory
 
-LD/ST/LDG/STG accept aligned b32 accesses into one explicitly configured guest
-address window. Extended addresses use a register pair. Invalid or unaligned
-reads return zero and stores are dropped: this is a robust host boundary, not
-Maxwell fault emulation. Generic LD/ST require PT and are global-only. Cache
-policy modifiers other than the default remain rejected. LDS/STS use b32
-threadgroup memory, which is uninitialized until the shader writes it.
-BAR.SYNC accepts only barrier zero with a full-CTA count. Programs containing
-barriers must have straight-line control flow with no conditional termination;
-predicated arithmetic and disjoint memory operations remain allowed. This
-conservative restriction prevents emitting a divergent Metal barrier.
+P2R/R2P consume PR masks over P0–P6 and a byte selector; CC is rejected. P2R
+preserves unselected source bits. Predicate instructions capture their sources
+before writing destinations, including overlapping predicate registers.
 
-P2R/R2P accept PR masks (P0–P6) and byte selectors; CC transfers are rejected.
-P2R preserves unselected destination-source bits. Source values are captured
-before predicate/register destinations are changed.
+The IR preserves per-invocation branches and termination for lexical forward
+selections and single-latch loops. It does not emulate warp execution masks,
+helper lanes or native reconvergence scheduling. Implicit derivatives under
+divergence remain a limitation. KIL discards and returns in fragment shaders.
+NOP/DEPBAR are validated and omitted because the backend exposes no Maxwell
+asynchronous dependency state. The reference interpreter has instruction budgets
+to stop runaway fixtures; generated MSL has no artificial loop cap.
 
-The Rust `reference` module interprets validated IR with wrapping integer
-operations, separate f32 add/multiply and explicit fused multiply-add. It has a
-bounded cooperative CTA scheduler for barrier tests. Callers must first validate
-supported modes using translation. It is an independent implementation of the
-backend contract, not a Maxwell hardware reference. Execution budgets are
-oracle safeguards and do not affect generated MSL. The Swift test runner loads
-an offline-compiled metallib, dispatches Metal, checks command completion, and
-reads shared-buffer results. GPU tests skip only on non-macOS platforms.
+LD/ST/LDG/STG accept b32 accesses within one configured guest address window.
+Extended addresses use a register pair; ordinary addresses wrap at 32 bits.
+Invalid/unaligned reads return zero and stores are dropped. This is a robust host
+boundary, not Maxwell fault emulation. Generic LD/ST require PT and support
+only global addresses; nondefault cache policies are rejected. LDL/STL require
+static aligned addresses within positive/negative local allocations, with the
+negative allocation used as the storage bias. LDC requires direct aligned cbuf
+access. Cbuf sizes remain the caller's responsibility.
 
-FMNMX now explicitly orders −0 below +0 for minimum and +0 above −0 for maximum.
-This fixes an observed CPU/Metal discrepancy; it is a PTX-style contract, not a
-claim about undocumented GM20B tie behavior. Tests compare NaNs by classification,
-not payload. Arithmetic-grid tests do not establish denormal preservation or
-MUFU approximation bounds outside their tested inputs.
+QMD parsing accepts the public Maxwell 0.6/1.7 256-byte layouts, exposes local
+x/y/z size, shared/local allocation fields and preserves every raw word. The
+caller resolves program start and cbuf addresses, and dispatches exactly the
+parsed local dimensions. Threadgroup size is limited to 1–1024 threads, shared
+storage to 48 KiB, local storage to 64 KiB. Actual device limits must also hold.
+S2R/MOV supports thread and CTA x/y/z only. Compute textures are still rejected.
 
-## Texture binding normalization and tests
+LDS/STS use aligned b32 threadgroup memory. BAR accepts unconditional
+full-CTA SYNC barrier zero, with zero/implicit count. A program containing BAR
+must have straight-line control flow and no conditional termination; predicated
+arithmetic and disjoint memory operations are allowed. This conservative check
+prevents divergent Metal barriers. `run_group` requires every lane to reach the
+same barrier or terminate together. Neither execution path repairs data races.
+The reduction fixture initializes every shared cell and synchronizes all lanes.
 
-`Options::texture_bindings` accepts explicit `Bound(immediate)` or
-`Bindless(register_value)` mappings to independent texture/sampler indices and a
-texture type. Duplicate identical mappings are deduplicated and conflicts are
-errors. `MetalShader::texture_bindings` returns the canonical sorted table. The
-caller must resolve native descriptor memory to this table; the translator does
-not silently reinterpret packed native handles as table indices. Empty mappings
-retain the earlier paired-index ABI. Dynamic handles not present in an explicit
-table return zero. Both resource indices are bounds-checked before access.
+## Graphics and textures
 
-Texture argument IDs are `type_group * texture_count + texture_index`; groups
-0–8 are 2D, 1D, 3D, cube, 1D array, 2D array, cube array, 2D shadow, 2D array
-shadow. Samplers start at ID `9 * texture_count`. Only used image types are
-declared. The Metal buffer binding is still configurable (default 30). This is
-an ABI change; callers must rebuild argument buffers and invalidate old caches.
+ALD/AST use direct SPH-enabled vertex addresses. IPA supports PASS/CONSTANT inputs
+already interpolated by Metal, with RZ arithmetic operands and center sampling.
+Fragment colors consume consecutive registers in target/component-mask order;
+this export ABI remains an integration assumption requiring native validation.
+Special varyings, fragment depth, Vertex A/B chaining, geometry and tessellation
+remain errors. OUT is decoded only: public opcode/mode names do not establish
+its export-handle updates, allocation or geometry-stream behavior.
 
-TEX supports these declared float/depth types, implicit fragment LOD and level
-zero. Array-layer and shadow-reference values occupy the corresponding
-coordinate-register tuple. TEXS/TLDS support 2D single/two-component output
-masks only; three/four-component split destinations are rejected. TLD/TLDS use
-integer coordinates at level zero. TLD4 supports 2D component gather without
-offsets. TXQ supports bound 2D dimension queries only. Explicit LOD, bias,
-multisampling, packed offsets, other query modes and bindless TXQ remain errors.
+`Options::texture_bindings` maps bound immediates and bindless register values
+to independent texture/sampler indices and types. The returned table is sorted
+and deduplicated; conflicting mappings are rejected. The host resolves native
+descriptor memory. Empty mappings retain the older paired-index contract, not
+transparent packed-handle compatibility. Unknown explicit handles and out-of-range
+indices return zero; bindings must fit the configured count.
 
-The CPU texture oracle implements 2D nearest clamp/repeat, level-zero reads,
-component gather and dimension queries. The GPU suite renders an original
-translated ALD/AST vertex shader plus seven fragment programs. A two-texture
-fixture uses separate clamp/repeat samplers and nonuniform texels; gather uses
-all four texels. Other texture types have compiler checks, not numerical GPU
-conformance tests. This distinction is intentional and must not be read as
-hardware-validated native coordinate packing or descriptor compatibility.
+Argument IDs are `type_group * texture_count + texture_index`. Groups 0–8 are
+2D, 1D, 3D, cube, 1D array, 2D array, cube array, 2D shadow, 2D array shadow.
+Samplers begin at ID `9 * texture_count`. Only used image groups are declared.
+The buffer binding defaults to 30; callers must invalidate the earlier sampler
+ABI. Hardware resource limits remain host responsibilities.
+
+TEX supports declared float/depth types, implicit fragment LOD and level zero.
+Array layers precede coordinates; comparison references follow them in the
+coordinate tuple. Native tuple semantics beyond the tested 2D subset are not
+hardware-validated. Metal 1D/1D-array images have one level: level-zero sampling
+uses their ordinary sample overload; mipmapped native 1D resources are outside
+this ABI. TEXS/TLDS support single/two-component 2D outputs; split three/four
+component destinations are rejected. TLD/TLDS use level-zero integer reads;
+TLD4 supports 2D component gather without offsets; TXQ supports bound 2D dimensions.
+Other query modes, bindless TXQ, explicit LOD/bias, multisampling and packed
+offsets remain errors. Selected components are packed into destination registers.
+
+The CPU texture oracle covers nearest clamp/repeat 2D, level-zero reads, component
+gather and dimension queries. Nine offscreen fragment fixtures compare 144
+pixels, using original translated vertex code and nonuniform texture data.
+Other declared texture types have compiler checks only. ALD/AST register results
+are not captured directly; their generated vertex positions are raster-tested.
+
+## Evidence boundary
+
+There are 8,176 passing GPU/reference comparisons plus a separate 32-case
+allowed-denormal-difference probe. Every partially lowered class is represented
+in the GPU fixtures, but not every mode. The harness compiles Swift and generated
+MSL at test time, loads metallibs, checks Metal command completion and reads back
+results. Missing Metal on macOS fails; GPU tests skip on other platforms. No
+native Maxwell hardware, commercial shaders or Nintendo data are involved.

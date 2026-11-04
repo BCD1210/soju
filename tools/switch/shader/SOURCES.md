@@ -49,3 +49,14 @@ No external reference is required by the build or tests.
 The Apple MSL PDF was subsequently downloaded and inspected locally for texture
 sample/read/gather/query types, argument-buffer IDs, and threadgroup barriers.
 All downloaded reference files remain under ignored `target/reference`.
+
+- https://api.github.com/repos/envytools/envytools/git/trees/f102b82381f3f11cee113d16374c87091db039d9?recursive=1
+  Located compute documentation within the already pinned allowed repository.
+
+Downloaded public-reference SHA-256 fingerprints for this extension:
+
+| File | SHA-256 |
+| --- | --- |
+| NVIDIA `clb1c0qmd.h` | `0041719fd1619035e58eb882e04196743dc1475af65147ff851fdf9f81dd672c` |
+| NVIDIA `clb197.h` | `175c50f29798b39c6858cafe31497e9e9798c70ca068a64856719003b5d088d7` |
+| Apple MSL PDF, dated 2026-06-04 | `41538b30d2f1140a5b2a0c84ce0a9f7b67bf0c707e224cfea0bfe5a44aa26cf5` |
