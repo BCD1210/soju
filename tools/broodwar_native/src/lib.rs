@@ -5,6 +5,7 @@ use std::{ffi::c_void, fs::OpenOptions, io::Write, net::UdpSocket,
     sync::{Mutex, OnceLock, atomic::{AtomicU64, Ordering}}};
 use bw_dat::{structs::{Game, Unit}, UnitId};
 mod world;
+mod production;
 use samase_plugin::{PluginApi, VarId};
 use serde_json::{json, Value};
 
@@ -91,6 +92,26 @@ unsafe fn image_chain(sprite: *mut bw_dat::structs::Sprite) -> Value {
     }
     json!({"images":images,"truncated":!ptr.is_null()})
 }
+// SAFETY: caller runs on the game thread and passes an owned live unit from
+// active_units. send_command consumes the byte slices before returning.
+unsafe fn send_one(r: &Runtime, producer: *mut Unit, command: &[u8]) -> Result<(), &'static str> {
+        let mut base = std::ptr::null_mut();
+        let mut count = 0;
+        (r.array)(&mut base,&mut count);
+        let stride = std::mem::size_of::<Unit>();
+        let delta = (producer as usize).checked_sub(base as usize).ok_or("invalid unit array")?;
+        if base.is_null() || delta % stride != 0 || delta / stride >= count { return Err("unit array layout mismatch"); }
+        let index = delta / stride;
+        let bits = if count > 1700 {13} else {11};
+        if index+1 >= (1<<bits) { return Err("unit index overflow"); }
+        let uid = (index as u32+1) | (((*producer).minor_unique_index as u32)<<bits);
+        let mut select = vec![0x63,1];
+        select.extend(uid.to_le_bytes());
+        (r.send)(select.as_ptr().cast(),select.len() as u32);
+        (r.send)(command.as_ptr().cast(),command.len() as u32);
+    Ok(())
+}
+
 unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static str> {
     if req.get("token").and_then(Value::as_str) != Some(r.token.as_str()) { return Err("unauthorized"); }
     let mut vars = [usize::MAX; 3];
@@ -136,21 +157,27 @@ unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static str> {
         if (*ptr).player as usize != player || (*ptr).flingy.hitpoints <= 0 { return Err("unit is not owned or alive"); }
         if !selected.contains(&ptr) { selected.push(ptr); }
     }
-    if op == "build" || op == "train" {
+    if let Some(command) = production::packet(req, UnitId((*selected[0]).unit_id).is_building())? {
+        if selected.len() != 1 {return Err("select one producer or ability user");}
+        send_one(r,selected[0],&command)?;
+        r.sequence.store(seq,Ordering::Relaxed);
+        return Ok(json!({"ok":true,"seq":seq,"frame":game.frame_count,"queued":true}));
+    }
+    if op == "build" || op == "train" || op == "addon" {
         if selected.len() != 1 { return Err("select one producer"); }
         let producer = selected[0];
         let kind = req["type"].as_u64().ok_or("missing unit type")?;
         let kind_id = u32::try_from(kind).ok().and_then(UnitId::optional).ok_or("invalid unit type")?;
         let mut command = Vec::new();
-        if op == "build" {
-            if !UnitId((*producer).unit_id).is_worker() || !kind_id.is_building() || kind_id.is_addon() {
+        if op == "build" || op == "addon" {
+            if (op == "build" && (!UnitId((*producer).unit_id).is_worker() || kind_id.is_addon())) || (op == "addon" && (!UnitId((*producer).unit_id).is_building() || !kind_id.is_addon())) || !kind_id.is_building() {
                 return Err("select a worker and a non-addon building");
             }
             if kind_id.primary_race() != UnitId((*producer).unit_id).primary_race() { return Err("builder race mismatch"); }
             let x = req["tileX"].as_u64().ok_or("invalid tileX")?;
             let y = req["tileY"].as_u64().ok_or("invalid tileY")?;
             if x >= game.map_width_tiles as u64 || y >= game.map_height_tiles as u64 { return Err("outside map"); }
-            let build_order=match (*producer).unit_id { 7=>30,41=>25,64=>31,_=>return Err("unsupported builder") };
+            let build_order=if op == "addon" {36} else {match (*producer).unit_id { 7=>30,41=>25,64=>31,_=>return Err("unsupported builder") }};
             command.extend([0x0c,build_order]);
             command.extend((x as u16).to_le_bytes());
             command.extend((y as u16).to_le_bytes());
@@ -161,20 +188,7 @@ unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static str> {
             command.push(0x1f);
             command.extend((kind as u16).to_le_bytes());
         }
-        let mut base = std::ptr::null_mut();
-        let mut count = 0;
-        (r.array)(&mut base,&mut count);
-        let stride = std::mem::size_of::<Unit>();
-        let delta = (producer as usize).checked_sub(base as usize).ok_or("invalid unit array")?;
-        if base.is_null() || delta % stride != 0 || delta / stride >= count { return Err("unit array layout mismatch"); }
-        let index = delta / stride;
-        let bits = if count > 1700 {13} else {11};
-        if index+1 >= (1<<bits) { return Err("unit index overflow"); }
-        let uid = (index as u32+1) | (((*producer).minor_unique_index as u32)<<bits);
-        let mut select = vec![0x63,1];
-        select.extend(uid.to_le_bytes());
-        (r.send)(select.as_ptr().cast(),select.len() as u32);
-        (r.send)(command.as_ptr().cast(),command.len() as u32);
+        send_one(r,producer,&command)?;
         r.sequence.store(seq,Ordering::Relaxed);
         log(&format!("command seq={seq} op={op} type={kind} frame={}",game.frame_count));
         return Ok(json!({"ok":true,"seq":seq,"frame":game.frame_count,"queued":true}));
@@ -209,6 +223,27 @@ unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static str> {
         "attack" => {
             if target.is_null() || (*target).player as usize == player || game.alliances[player][(*target).player as usize] != 0 { return Err("select a visible enemy"); }
             (10, (*target).flingy.position.x as u32, (*target).flingy.position.y as u32)
+        },
+        "repair" => {
+            if target.is_null() || (*target).player as usize != player || !UnitId((*target).unit_id).is_mechanical() || selected.iter().any(|&u| (*u).unit_id != 7) {return Err("repair requires SCVs and an owned mechanical target");}
+            (34,u32::try_from((*target).flingy.position.x).map_err(|_| "target outside map")?,u32::try_from((*target).flingy.position.y).map_err(|_| "target outside map")?)
+        },
+        "load" => {
+            if target.is_null() || (*target).player as usize != player || selected.len()!=1 {return Err("load requires one transport and an owned target");}
+            let kind=UnitId((*selected[0]).unit_id);
+            if kind.cargo_space_provided()==0 {return Err("selected unit is not a transport");}
+            (if kind.0==125 {95} else {94},u32::try_from((*target).flingy.position.x).map_err(|_| "target outside map")?,u32::try_from((*target).flingy.position.y).map_err(|_| "target outside map")?)
+        },
+        "rally" => {
+            if selected.iter().any(|&u| !UnitId((*u).unit_id).is_building()) {return Err("rally requires a production building");}
+            if !target.is_null() {
+                (39,u32::try_from((*target).flingy.position.x).map_err(|_| "target outside map")?,u32::try_from((*target).flingy.position.y).map_err(|_| "target outside map")?)
+            } else {
+                let x=req["x"].as_u64().ok_or("invalid x")?;
+                let y=req["y"].as_u64().ok_or("invalid y")?;
+                if x>=u64::from(game.map_width_tiles)*32 || y>=u64::from(game.map_height_tiles)*32 {return Err("outside map");}
+                (40,u32::try_from(x).map_err(|_| "x overflow")?,u32::try_from(y).map_err(|_| "y overflow")?)
+            }
         },
         "hold" => (107,0,0),
         "stop" => (1,0,0),
