@@ -1,5 +1,4 @@
-//! Bounded straight-line shader discovery inside the submitted GPU mapping.
-//! Control-flow shaders require explicit extent discovery rather than scanning past EXIT.
+//! Bounded shader discovery inside the submitted GPU mapping.
 use super::*;
 use soju_switch_shader::{
     decoder::{Opcode, decode_instruction},
@@ -24,7 +23,7 @@ pub(super) fn register(
             .ok_or(Error::Malformed("shader outside GPU mappings"))?;
         let available = (allocation.len() - (address - base) as usize).min(1024 * 1024);
         let bytes = memory.read(address, available).map_err(gpu_error)?;
-        let size = straight_line_extent(bytes)?;
+        let size = shader_extent(bytes)?;
         if std::env::var_os("SOJU_SWITCH_TRACE_GPU").is_some() {
             eprintln!(
                 "gpu-shader|{address:#x}|{size}|{:?}",
@@ -108,8 +107,9 @@ pub(super) fn register(
     Ok(())
 }
 
-fn straight_line_extent(bytes: &[u8]) -> Result<usize, Error> {
+fn shader_extent(bytes: &[u8]) -> Result<usize, Error> {
     soju_switch_shader::header::Header::parse(bytes).map_err(|e| Error::Message(e.to_string()))?;
+    let mut furthest_target = 0;
     for (slot, word) in bytes[80..].chunks_exact(8).enumerate() {
         if slot % 4 == 0 {
             continue;
@@ -119,19 +119,33 @@ fn straight_line_extent(bytes: &[u8]) -> Result<usize, Error> {
             u64::from_le_bytes(word.try_into().unwrap()),
         )
         .map_err(|e| Error::Message(format!("shader extent: {e}")))?;
-        if matches!(
-            instruction.opcode,
-            Opcode::BRA | Opcode::SSY | Opcode::SYNC | Opcode::PBK | Opcode::BRK
-        ) {
-            return Err(Error::Malformed(
-                "control-flow shader extent discovery unsupported",
-            ));
+        if matches!(instruction.opcode, Opcode::BRA | Opcode::SSY | Opcode::PBK) {
+            let target = instruction
+                .target()
+                .ok_or(Error::Malformed("indirect shader target"))?;
+            let target = if target.is_multiple_of(32) {
+                target
+                    .checked_add(8)
+                    .ok_or(Error::Malformed("shader target overflow"))?
+            } else {
+                target
+            };
+            if !target.is_multiple_of(8) || u64::from(target) + 88 > bytes.len() as u64 {
+                return Err(Error::Malformed("shader target outside mapped bound"));
+            }
+            furthest_target = furthest_target.max(target);
         }
         if instruction.opcode == Opcode::EXIT
             && instruction.predicate.is_always()
             && instruction.raw & 31 == 15
+            && instruction.address >= furthest_target
         {
-            return Ok(80 + (slot + 1) * 8);
+            let size = 80 + (slot + 1) * 8;
+            let decoded = soju_switch_shader::decoder::decode(&bytes[80..size])
+                .map_err(|e| Error::Message(e.to_string()))?;
+            soju_switch_shader::ir::Program::build(&decoded)
+                .map_err(|e| Error::Message(format!("shader extent: {e}")))?;
+            return Ok(size);
         }
     }
     Err(Error::Malformed(
@@ -153,10 +167,41 @@ mod tests {
     #[test]
     fn extent_stops_at_exit_and_never_scans_padding() {
         let bytes = program(&[0, 0xe30000000007000f, u64::MAX]);
-        assert_eq!(straight_line_extent(&bytes).unwrap(), 96);
-        assert!(straight_line_extent(&bytes[..95]).is_err());
-        assert!(straight_line_extent(&program(&[0, 0xe24000000007000f])).is_err());
-        assert!(straight_line_extent(&program(&[0, 0xe30000000000000f])).is_err());
-        assert!(straight_line_extent(&program(&[0, u64::MAX])).is_err());
+        assert_eq!(shader_extent(&bytes).unwrap(), 96);
+        assert!(shader_extent(&bytes[..95]).is_err());
+        assert!(shader_extent(&program(&[0, 0xe24000000007000f])).is_err());
+        assert!(shader_extent(&program(&[0, 0xe30000000000000f])).is_err());
+        assert!(shader_extent(&program(&[0, u64::MAX])).is_err());
+    }
+
+    #[test]
+    fn extent_includes_forward_target_beyond_early_exit() {
+        // @P0 BRA from 8 to 24; the EXIT at 16 is only the other path.
+        let bytes = program(&[
+            0,
+            0xe24000000080000f,
+            0xe30000000007000f,
+            0xe30000000007000f,
+            u64::MAX,
+        ]);
+        assert_eq!(shader_extent(&bytes).unwrap(), 112);
+        assert!(shader_extent(&bytes[..104]).is_err());
+    }
+
+    #[test]
+    fn extent_validates_reconvergent_loop_before_padding() {
+        let bytes = program(&[
+            0,
+            0xe290000002800000,
+            0x50b0000000070f00,
+            0xe2400fffff00000f,
+            0,
+            0xf0f800000007000f,
+            0x50b0000000070f00,
+            0xe30000000007000f,
+            u64::MAX,
+        ]);
+        assert_eq!(shader_extent(&bytes).unwrap(), 144);
+        assert!(shader_extent(&program(&[0, 0xf0f800000007000f, 0xe30000000007000f])).is_err());
     }
 }
