@@ -126,12 +126,12 @@ Four synthetic unit tests cover image loading, malformed/truncated inputs,
 segment bounds and ABI bytes/zeroed memory. CI runs only pure Rust tests with
 no default features. The launcher still uses the Python runner.
 
-## Apple Hypervisor CPU: M1 bring-up
+## Apple Hypervisor CPU: bring-up
 
 The optional `hv` feature uses Apple's installed Hypervisor.framework SDK,
-without external crates. It creates one VM, a 64 KiB aligned host arena and one
-thread-affine vCPU. A synthetic AArch64 program runs at EL0 with stage-1
-translation disabled. Synchronous exceptions enter the EL1 vector; its HVC
+without external crates. It creates one VM, a 16 KiB aligned host arena and one
+thread-affine vCPU. AArch64 programs run at EL0 with 4 KiB stage-1
+translation enabled. Synchronous exceptions enter the EL1 vector; its HVC
 returns to the host, which reads ESR_EL1 and the preserved guest registers.
 Handled timer reads resume through ERET. CNTKCTL_EL1 disables direct EL0 timer
 access: CNTFRQ returns 19,200,000 Hz and CNTVCT is host monotonic elapsed time
@@ -144,10 +144,11 @@ cargo test --offline --manifest-path tools/switch/core/Cargo.toml --features hv
 bash scripts/test-switch-hv.sh
 ```
 
-The first command runs five pure tests, leaving three hardware integration
+The first command runs seven pure tests, leaving five hardware integration
 tests ignored. The script builds just the integration test executable, signs
 it ad-hoc with `com.apple.security.hypervisor`, verifies its signature and runs
-all three tests serially. It does not install or launch Soju, download anything,
+all five tests serially (the local NRO case requires the environment variable
+below). It does not install or launch Soju, download anything,
 or change services. CI does not run hardware tests.
 
 Observed results:
@@ -159,12 +160,35 @@ Observed results:
 - A looping guest is canceled by the two-second host watchdog. An undefined
   instruction stops with an unsupported guest exception.
 
-This milestone does **not** connect the Rust NRO loader to the hypervisor,
-implement Horizon SVC services, stage-1 page tables, segment permissions,
-thread scheduling, GPU/Metal, audio or retail support. The small identity
-mapping is RWX at guest stage 2 and is only intended for trusted synthetic
-CPU tests. No game has been tested on this Rust backend. The existing Python
-runner and its established limitations remain the launcher execution path.
+### Guest-memory milestone (step 1 of the Rust runner)
+
+`Nro::protected_homebrew` connects the loader to `Cpu::from_homebrew`.
+The three-level stage-1 tables use a 39-bit virtual address space and 4 KiB
+pages backed by a compact host arena. Text is RX, rodata R, and data/BSS,
+stack, TLS and loader config RW. User mappings are privileged-execute-never;
+the EL1 HVC/ERET bridge is inaccessible to EL0 and table pages have no user
+mapping. Stage 2 permits RWX; stage 1 enforces guest permissions. NROs with
+segments sharing a page are rejected instead of merging incompatible permissions.
+The homebrew config retains the Python runner's main-thread handle, argv,
+applet type and end marker.
+
+Signed synthetic tests execute from NRO text, read config/TLS, write and read
+zero-initialized BSS, and verify actual permission faults for text/rodata
+writes and execution of rodata, data, BSS, TLS and private EL1/table addresses.
+The existing SVC-resume, virtual-timer and watchdog tests still pass.
+
+```sh
+SOJU_SWITCH_TEST_NRO="$HOME/.local/share/soju/switch/demo/2048-1.1.0.nro" \
+  bash scripts/test-switch-hv.sh
+```
+
+With the local 2048 1.1.0 NRO this reaches its first SVC, `0x2`
+(`SetMemoryPermission`), at PC `0x100006fcc`. This is a boot smoke test,
+**not** a frame-change or gameplay test. No instructions/second comparison
+has been measured. There is no Rust HLE kernel, guest-thread scheduler, IPC
+service implementation, window/input path or save persistence yet; M1 is
+not complete. The binary remains validation-only and the launcher still
+uses the Python runner. No retail support has been established.
 
 Validation on 2026-11-03: the full Python suite ran 320 tests with 21 skips
 and only the known `test_only_attributed_commits_fail` failure. The Switch

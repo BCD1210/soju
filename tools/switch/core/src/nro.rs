@@ -19,6 +19,7 @@ pub enum Error {
     Size,
     Segment,
     Text,
+    PageAlignment,
 }
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -28,6 +29,9 @@ impl fmt::Display for Error {
             Self::Size => f.write_str("unsupported NRO version or image size"),
             Self::Segment => f.write_str("invalid NRO segment layout"),
             Self::Text => f.write_str("invalid NRO text segment"),
+            Self::PageAlignment => {
+                f.write_str("NRO segments sharing a 4 KiB page cannot have distinct permissions")
+            }
         }
     }
 }
@@ -53,6 +57,34 @@ fn word(header: &[u8; 0x80], offset: usize) -> usize {
     u32::from_le_bytes(header[offset..offset + 4].try_into().unwrap()) as usize
 }
 impl Nro {
+    /// Build page-separated text, rodata and data/BSS for the hardware MMU.
+    pub fn protected_homebrew(&self) -> Result<Homebrew, Error> {
+        let mut boot = self.homebrew();
+        let image = boot.regions.remove(0).bytes;
+        let mut regions = Vec::new();
+        for (index, segment) in self.segments.iter().enumerate() {
+            let end = if index == 2 {
+                image.len()
+            } else {
+                segment.offset + segment.size
+            };
+            if end == segment.offset {
+                continue;
+            }
+            if !segment.offset.is_multiple_of(0x1000) || !end.is_multiple_of(0x1000) {
+                return Err(Error::PageAlignment);
+            }
+            regions.push(Region {
+                address: BASE + u64::try_from(segment.offset).map_err(|_| Error::Size)?,
+                bytes: image[segment.offset..end].to_vec(),
+                permissions: [5, 1, 3][index],
+            });
+        }
+        regions.extend(boot.regions);
+        boot.regions = regions;
+        Ok(boot)
+    }
+
     pub fn read(source: &mut (impl Read + Seek)) -> Result<Self, Error> {
         source.seek(SeekFrom::Start(0))?;
         let mut header = [0; 0x80];
@@ -298,5 +330,51 @@ mod tests {
         assert_eq!(&config[0x200..0x21e], b"sdmc:/switch/soju-current.nro\0");
         assert_eq!(&boot.regions[5].bytes[..4], &0xd4000fc1u32.to_le_bytes());
         assert_eq!(boot.regions[5].permissions, 5);
+    }
+
+    #[test]
+    fn protected_segments_reject_shared_pages_and_preserve_bss() {
+        let unaligned = Nro::read(&mut Cursor::new(fixture())).unwrap();
+        assert!(matches!(
+            unaligned.protected_homebrew(),
+            Err(Error::PageAlignment)
+        ));
+        let mut bytes = fixture();
+        bytes.resize(0x3000, 0);
+        for (offset, value) in [
+            (0x18, 0x3000),
+            (0x24, 0x1000),
+            (0x28, 0x1000),
+            (0x2c, 0x1000),
+            (0x30, 0x2000),
+            (0x34, 0x1000),
+            (0x38, 0x1001),
+        ] {
+            put(&mut bytes, offset, value);
+        }
+        bytes[0x1000] = 0x42;
+        bytes[0x2000] = 0x73;
+        let boot = Nro::read(&mut Cursor::new(bytes))
+            .unwrap()
+            .protected_homebrew()
+            .unwrap();
+        assert_eq!(
+            boot.regions[..3]
+                .iter()
+                .map(|r| (r.address, r.bytes.len(), r.permissions))
+                .collect::<Vec<_>>(),
+            [
+                (BASE, 0x1000, 5),
+                (BASE + 0x1000, 0x1000, 1),
+                (BASE + 0x2000, 0x3000, 3)
+            ]
+        );
+        assert_eq!(boot.regions[1].bytes[0], 0x42);
+        assert_eq!(boot.regions[2].bytes[0], 0x73);
+        assert!(
+            boot.regions[2].bytes[0x1000..]
+                .iter()
+                .all(|&byte| byte == 0)
+        );
     }
 }

@@ -24,6 +24,11 @@ pub const ESR_EL1: u32 = 0xc290;
 pub const VBAR_EL1: u32 = 0xc600;
 pub const CNTKCTL_EL1: u32 = 0xc708;
 pub const SP_EL1: u32 = 0xe208;
+pub const TTBR0_EL1: u32 = 0xc100;
+pub const TCR_EL1: u32 = 0xc102;
+pub const MAIR_EL1: u32 = 0xc510;
+pub const TPIDRRO_EL0: u32 = 0xde83;
+pub const CPACR_EL1: u32 = 0xc082;
 
 #[link(name = "Hypervisor", kind = "framework")]
 unsafe extern "C" {

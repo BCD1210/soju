@@ -1,6 +1,8 @@
-//! Apple Silicon CPU bring-up for synthetic EL0 programs, not an NRO runner.
-//! Stage-1 translation is disabled; the small arena is identity mapped and RWX.
+//! Apple Silicon EL0 execution with 4 KiB stage-1 permissions and an EL1 bridge.
 mod ffi;
+
+use crate::memory::{MemoryImage, PHYSICAL_BASE, ROOT};
+use crate::nro::{Homebrew, Region};
 
 use std::alloc::{Layout, alloc_zeroed, dealloc};
 use std::fmt;
@@ -11,9 +13,7 @@ use std::sync::{Mutex, MutexGuard, mpsc};
 use std::time::{Duration, Instant};
 
 pub const TIMER_HZ: u64 = 19_200_000;
-const ARENA_SIZE: usize = 0x10000;
 const GUEST: u64 = 0x10000;
-const ENTRY: usize = 0x4000;
 const VECTOR_SYNC: u64 = GUEST + 0x400;
 static VM_LOCK: Mutex<()> = Mutex::new(());
 
@@ -22,6 +22,7 @@ pub enum Error {
     Hypervisor(&'static str, i32),
     Allocation,
     InvalidProgram,
+    Memory(crate::memory::Error),
     UnexpectedExit { reason: u32, syndrome: u64 },
     UnexpectedGuestException(u64),
     Timeout,
@@ -73,8 +74,36 @@ impl Cpu {
         if program.is_empty() || program.len() > 0x1000 / 4 {
             return Err(Error::InvalidProgram);
         }
+        let mut bytes = vec![0; 0x1000];
+        for (index, instruction) in program.iter().enumerate() {
+            bytes[index * 4..index * 4 + 4].copy_from_slice(&instruction.to_le_bytes());
+        }
+        Self::from_homebrew(&Homebrew {
+            regions: vec![
+                Region {
+                    address: 0x14000,
+                    bytes,
+                    permissions: 5,
+                },
+                Region {
+                    address: 0x18000,
+                    bytes: vec![0; 0x1000],
+                    permissions: 3,
+                },
+            ],
+            pc: 0x14000,
+            sp: 0x19000,
+            x0: 0,
+            x1: 0,
+            x30: 0,
+            tpidrro_el0: 0,
+        })
+    }
+    pub fn from_homebrew(boot: &Homebrew) -> Result<Self, Error> {
+        let image = MemoryImage::new(boot).map_err(Error::Memory)?;
         let lock = VM_LOCK.lock().map_err(|_| Error::Lock)?;
-        let layout = Layout::from_size_align(ARENA_SIZE, 0x4000).map_err(|_| Error::Allocation)?;
+        let layout =
+            Layout::from_size_align(image.bytes.len(), 0x4000).map_err(|_| Error::Allocation)?;
         // SAFETY: nonzero valid layout, retained until the VM mapping is removed.
         let arena = NonNull::new(unsafe { alloc_zeroed(layout) }).ok_or(Error::Allocation)?;
         let mut cpu = Self {
@@ -88,14 +117,10 @@ impl Cpu {
             _lock: lock,
             _thread: PhantomData,
         };
-        // Every vector exits through HVC; only lower-EL AArch64 synchronous exits
-        // are accepted by the host. ERET resumes after a handled timer read.
-        for vector in (0..0x800).step_by(0x80) {
-            cpu.write_word(vector, 0xd4000002); // hvc #0
-            cpu.write_word(vector + 4, 0xd69f03e0); // eret
-        }
-        for (index, &instruction) in program.iter().enumerate() {
-            cpu.write_word(ENTRY + index * 4, instruction);
+        // SAFETY: arena was allocated for exactly image.bytes.len() bytes;
+        // allocations do not overlap and no vCPU or mapping exists yet.
+        unsafe {
+            ptr::copy_nonoverlapping(image.bytes.as_ptr(), cpu.arena.as_ptr(), image.bytes.len());
         }
         // SAFETY: SDK calls receive valid pointers; Cpu tracks successful acquisition
         // so every early return destroys vCPU, mapping, and VM in that order.
@@ -104,7 +129,12 @@ impl Cpu {
             cpu.vm = true;
             check(
                 "hv_vm_map",
-                ffi::hv_vm_map(cpu.arena.as_ptr().cast(), GUEST, ARENA_SIZE, 7),
+                ffi::hv_vm_map(
+                    cpu.arena.as_ptr().cast(),
+                    PHYSICAL_BASE,
+                    cpu.layout.size(),
+                    7,
+                ),
             )?;
             cpu.mapped = true;
             let mut id = 0;
@@ -114,25 +144,28 @@ impl Cpu {
             )?;
             cpu.vcpu = Some(id);
         }
-        cpu.set_sys(ffi::SCTLR_EL1, 0x30d00800)?; // architectural RES1 bits; MMU off
+        cpu.set_sys(ffi::MAIR_EL1, 0xff)?; // normal write-back memory, AttrIndx=0
+        // T0SZ=25 (39 bits), 4 KiB, inner-shareable WB walks, TTBR1 disabled,
+        // IPS=40 bits. The stage-2 arena contains only low physical addresses.
+        cpu.set_sys(
+            ffi::TCR_EL1,
+            25 | (1 << 8) | (1 << 10) | (3 << 12) | (1 << 23) | (2 << 32),
+        )?;
+        cpu.set_sys(ffi::TTBR0_EL1, ROOT)?;
+        cpu.set_sys(ffi::SCTLR_EL1, 0x30d00801)?;
+        cpu.set_sys(ffi::CPACR_EL1, 3 << 20)?; // guest SIMD/FP
         cpu.set_sys(ffi::VBAR_EL1, GUEST)?;
         cpu.set_sys(ffi::CNTKCTL_EL1, 0)?; // trap EL0 CNTFRQ/CNTVCT reads to EL1
-        cpu.set_sys(ffi::SP_EL0, GUEST + ARENA_SIZE as u64 - 0x1000)?;
-        cpu.set_sys(ffi::SP_EL1, GUEST + ARENA_SIZE as u64)?;
-        cpu.set_reg(ffi::PC, GUEST + ENTRY as u64)?;
+        cpu.set_sys(ffi::SP_EL0, boot.sp)?;
+        // The register-preserving EL1 bridge uses no stack.
+        cpu.set_sys(ffi::SP_EL1, 0)?;
+        cpu.set_sys(ffi::TPIDRRO_EL0, boot.tpidrro_el0)?;
+        cpu.set_reg(ffi::PC, boot.pc)?;
+        cpu.set_reg(0, boot.x0)?;
+        cpu.set_reg(1, boot.x1)?;
+        cpu.set_reg(30, boot.x30)?;
         cpu.set_reg(ffi::CPSR, 0x3c0)?; // EL0t, asynchronous exceptions masked
         Ok(cpu)
-    }
-    fn write_word(&mut self, offset: usize, word: u32) {
-        assert!(offset <= ARENA_SIZE - 4);
-        // SAFETY: exclusive initialization, bounds checked, no guest is running.
-        unsafe {
-            ptr::copy_nonoverlapping(
-                word.to_le_bytes().as_ptr(),
-                self.arena.as_ptr().add(offset),
-                4,
-            );
-        }
     }
     fn id(&self) -> u64 {
         self.vcpu.expect("initialized vCPU")
@@ -264,7 +297,7 @@ impl Drop for Cpu {
             {
                 std::process::abort();
             }
-            if self.mapped && ffi::hv_vm_unmap(GUEST, ARENA_SIZE) != 0 {
+            if self.mapped && ffi::hv_vm_unmap(PHYSICAL_BASE, self.layout.size()) != 0 {
                 std::process::abort();
             }
             if self.vm && ffi::hv_vm_destroy() != 0 {
