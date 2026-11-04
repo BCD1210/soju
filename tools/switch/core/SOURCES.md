@@ -185,3 +185,11 @@ TEXS array discovery preserves the shader crate's existing public-ISA type
 decoding (mode 7) while resolving the packed cbuf texture/sampler handle. The
 GPU backend validates the resolved type against the TIC and uploads all layers.
 The gpu_console probe advances past its type mismatch to integer vertex input.
+
+IR absent-camera profile: [HID services](https://switchbrew.org/wiki/HID_services#irs)
+and [result codes](https://switchbrew.org/wiki/Error_codes) define the lifecycle,
+read-only 0x8000 status memory, nine 0xe30 camera slots, disconnected status 2,
+and IrsensorNotReady (0xf0cd). The desktop has no IR camera: sample rings stay
+empty and image/MCU queries fail without output writes. PID/resource ownership,
+camera handles, output bounds and image-transfer memory handles are validated.
+Other processor configurations remain explicit unsupported commands.

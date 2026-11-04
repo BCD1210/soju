@@ -116,6 +116,7 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
         }
         Kind::Hid => HID,
         Kind::HidSystem => hid_system::COMMANDS,
+        Kind::Infrared => infrared::COMMANDS,
         Kind::HidResource => const { &[c(0, 0, Platform::hid_shared)] },
         Kind::Vibration => const { &[c(0, 4, success)] },
         Kind::Time => {

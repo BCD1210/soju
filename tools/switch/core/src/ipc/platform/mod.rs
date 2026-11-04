@@ -9,6 +9,7 @@ mod error_tests;
 mod exit_tests;
 mod fonts;
 mod hid_system;
+mod infrared;
 mod network;
 mod ns;
 mod play_history;
@@ -54,6 +55,7 @@ enum Kind {
     Hid,
     HidResource,
     HidSystem,
+    Infrared,
     Vibration,
     Time,
     Clock,
@@ -96,6 +98,7 @@ struct Player {
 pub struct Platform {
     objects: BTreeMap<ObjectId, Object>,
     usb: BTreeMap<ObjectId, usb::Session>,
+    infrared: BTreeMap<ObjectId, infrared::Session>,
     storage: BTreeMap<ObjectId, Rc<RefCell<Vec<u8>>>>,
     players: BTreeMap<ObjectId, Player>,
     messages: VecDeque<u32>,
@@ -128,6 +131,7 @@ impl Platform {
         Ok(Self {
             objects: BTreeMap::new(),
             usb: BTreeMap::new(),
+            infrared: BTreeMap::new(),
             storage: BTreeMap::new(),
             players: BTreeMap::new(),
             messages: VecDeque::new(),
@@ -181,6 +185,7 @@ impl Platform {
             "appletOE" => Kind::Oe,
             "hid" => Kind::Hid,
             "hid:sys" => Kind::HidSystem,
+            "irs" => Kind::Infrared,
             "time:u" | "time:s" => Kind::Time,
             "acc:u0" | "acc:u1" => Kind::Account,
             "apm:p" | "apm" => Kind::Apm,
@@ -227,6 +232,9 @@ impl Platform {
     pub fn close_object(&mut self, id: ObjectId) {
         self.objects.remove(&id);
         self.usb.remove(&id);
+        if let Some(session) = self.infrared.remove(&id) {
+            self.retired_events.extend(session.shared);
+        }
         self.storage.remove(&id);
         self.players.remove(&id);
         if let Some(events) = self.owned_events.remove(&id) {
