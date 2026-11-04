@@ -14,6 +14,7 @@ extension Worker {
         func resource(_ r: MTLResource) {
             if seen.insert(ObjectIdentifier(r)).inserted { bytes += r.allocatedSize }
         }
+        for buffer in readbackBuffers { resource(buffer) }
         for t in targets.values { resource(t) }
         for t in depths.values { resource(t) }
         for t in textureCache.values { resource(t.parent ?? t) }
@@ -32,6 +33,7 @@ extension Worker {
     func trimCaches() throws -> String {
         let limit = pressure.budget(cacheBudget)
         var evicted = 0
+        if cacheBytes() > limit { readbackBuffers.removeAll() }
         if cacheBytes() > limit {
             let candidates = lastUse.sorted { $0.value.tick < $1.value.tick }
             var spilled = false

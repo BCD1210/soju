@@ -79,6 +79,40 @@
         passes.computeGenerations["old-buffer"] = 1
         passes.finishReadback()
         try need(passes.queryValues.isEmpty && passes.computeBuffers.isEmpty && passes.computeGenerations.isEmpty, "readback retained delivered resources")
+        setenv("SOJU_GPU_CACHE_BYTES", "67108864", 1)
+        let staging = try Worker(device: device)
+        let depthDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: 17, height: 9, mipmapped: false)
+        depthDescriptor.storageMode = .private; depthDescriptor.usage = .renderTarget
+        let depth = device.makeTexture(descriptor: depthDescriptor)!
+        staging.depths["probe"] = depth; staging.dirtyAttachments.insert("probe")
+        func captureDepth(_ value: Double) throws -> Data {
+            let pass = MTLRenderPassDescriptor()
+            pass.depthAttachment.texture = depth; pass.depthAttachment.loadAction = .clear
+            pass.depthAttachment.storeAction = .store; pass.depthAttachment.clearDepth = value
+            let command = staging.queue.makeCommandBuffer()!
+            command.makeRenderCommandEncoder(descriptor: pass)!.endEncoding()
+            command.commit(); command.waitUntilCompleted()
+            var result = Data()
+            _ = try staging.readback(staging.spillRoot.path) { name, bytes in
+                if name == "probe.depth" { result = bytes }
+            }
+            try need(result.count == 17*9*4, "padded depth rows escaped readback")
+            try result.withUnsafeBytes { bytes in
+                for offset in stride(from: 0, to: bytes.count, by: 4) {
+                    try need(bytes.loadUnaligned(fromByteOffset: offset, as: Float.self) == Float(value), "depth capture contents")
+                }
+            }
+            return result
+        }
+        let first = try captureDepth(0.25)
+        try need(staging.readbackBuffers.count == 1, "missing reusable depth scratch")
+        let identity = ObjectIdentifier(staging.readbackBuffers[0])
+        let second = try captureDepth(0.75)
+        try need(ObjectIdentifier(staging.readbackBuffers[0]) == identity, "depth scratch was reallocated")
+        try need(first != second && first.withUnsafeBytes { $0.loadUnaligned(as: Float.self) } == 0.25, "capture aliases reused scratch")
+        staging.readbackBuffers.append(device.makeBuffer(length: 67108864, options: .storageModeShared)!)
+        _ = try staging.trimCaches()
+        try need(staging.readbackBuffers.isEmpty, "scratch escaped cache budget")
         try plannerChecks()
         print("native_checks archive_corruption=passed archive_truncation=passed disk_bytes=\(size) async_saturation=passed compile_error=passed lru=passed pressure=passed")
     }
