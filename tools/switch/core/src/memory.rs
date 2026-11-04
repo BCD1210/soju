@@ -132,6 +132,7 @@ impl MemoryImage {
                 image.bytes_mut()[at..at + PAGE].copy_from_slice(page);
             }
         }
+        image.flush_code(PHYSICAL_BASE);
         image.publish();
         Ok(image)
     }
