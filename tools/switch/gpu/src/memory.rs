@@ -60,6 +60,15 @@ impl Memory {
         self.writes.insert(range.end, after);
     }
 
+    pub fn available(&self, address: u64) -> Result<usize> {
+        self.regions
+            .iter()
+            .find_map(|(a, b)| {
+                (address >= *a && address - *a < b.len() as u64)
+                    .then(|| b.len() - (address - *a) as usize)
+            })
+            .ok_or_else(|| Error("unmapped GPU address".into()))
+    }
     pub fn read(&self, address: u64, size: usize) -> Result<&[u8]> {
         let end = address
             .checked_add(size as u64)

@@ -126,21 +126,30 @@ impl Renderer {
             let size = usize::try_from(mapping.size)
                 .map_err(|_| Error::Malformed("Metal mapping size"))?;
             let (guest, _) = access.space.resolve(address, size)?;
-            let owned;
-            let bytes = if let Some(bytes) = access.memory.contiguous(guest, size)? {
-                bytes
+            if let Some(slices) = access.memory.segments(guest, size)? {
+                if reset {
+                    let mut bytes = Vec::with_capacity(size);
+                    for slice in slices {
+                        bytes.extend_from_slice(slice);
+                    }
+                    memory.map(address, bytes).map_err(gpu_error)?;
+                } else {
+                    let mut offset = 0;
+                    for slice in slices {
+                        memory
+                            .synchronize(address + offset, slice)
+                            .map_err(gpu_error)?;
+                        offset += slice.len() as u64;
+                    }
+                }
             } else {
-                owned = {
-                    let mut bytes = vec![0; size];
-                    access.memory.read(guest, &mut bytes)?;
-                    bytes
-                };
-                &owned
-            };
-            if reset {
-                memory.map(address, bytes.to_vec()).map_err(gpu_error)?;
-            } else {
-                memory.synchronize(address, bytes).map_err(gpu_error)?;
+                let mut bytes = vec![0; size];
+                access.memory.read(guest, &mut bytes)?;
+                if reset {
+                    memory.map(address, bytes).map_err(gpu_error)?;
+                } else {
+                    memory.synchronize(address, &bytes).map_err(gpu_error)?;
+                }
             }
             original.push((address, guest, size));
         }

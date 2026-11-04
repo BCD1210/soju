@@ -26,7 +26,7 @@ impl Fence {
         self.0.recv().map_err(error)?
     }
 }
-type Batch = (Vec<DrawCommand>, Vec<Vec<u8>>, Vec<u8>);
+type Batch = (Vec<DrawCommand>, Vec<crate::upload::Upload>, Vec<u8>);
 struct Job {
     directory: PathBuf,
     batch: Option<Batch>,
@@ -148,7 +148,7 @@ impl Worker {
         &mut self,
         directory: PathBuf,
         commands: Vec<DrawCommand>,
-        files: Vec<Vec<u8>>,
+        files: Vec<crate::upload::Upload>,
         constants: Vec<u8>,
     ) -> Result<Fence> {
         self.enqueue(directory, Some((commands, files, constants)))

@@ -582,6 +582,9 @@ pub trait GuestMemory {
     fn attribute(&mut self, address: u64, size: usize, mask: u32, value: u32) -> Result<(), Error>;
     /// Borrow only while the caller holds exclusive host access to the guest arena.
     /// Noncontiguous physical mappings fall back to the checked copy interface.
+    fn segments(&self, _address: u64, _size: usize) -> Result<Option<Vec<&[u8]>>, Error> {
+        Ok(None)
+    }
     fn contiguous(&self, _address: u64, _size: usize) -> Result<Option<&[u8]>, Error> {
         Ok(None)
     }
@@ -607,6 +610,46 @@ impl GuestMemory for MemoryImage {
     }
     fn attribute(&mut self, a: u64, n: usize, m: u32, v: u32) -> Result<(), Error> {
         Self::attribute(self, a, n, m, v)
+    }
+    fn segments(&self, address: u64, size: usize) -> Result<Option<Vec<&[u8]>>, Error> {
+        let end = address
+            .checked_add(size as u64)
+            .filter(|&end| end <= LIMIT)
+            .ok_or(Error::Address)?;
+        if size == 0 {
+            return Ok(Some(Vec::new()));
+        }
+        let mut expected = address & !4095;
+        let mut start = 0;
+        let mut length = 0;
+        let mut slices = Vec::new();
+        for (&page, mapping) in self.pages.range(expected..end) {
+            if page != expected {
+                return Err(Error::Unmapped);
+            }
+            if mapping.permissions & 1 == 0 {
+                return Err(Error::Access);
+            }
+            let begin = page.max(address);
+            let n = (end.min(page + PAGE as u64) - begin) as usize;
+            let physical = (mapping.physical - PHYSICAL_BASE + begin - page) as usize;
+            if length != 0 && physical != start + length {
+                slices.push(&self.bytes()[start..start + length]);
+                length = 0;
+            }
+            if length == 0 {
+                start = physical;
+            }
+            length += n;
+            expected += PAGE as u64;
+        }
+        if expected < end {
+            return Err(Error::Unmapped);
+        }
+        if length != 0 {
+            slices.push(&self.bytes()[start..start + length]);
+        }
+        Ok(Some(slices))
     }
     fn contiguous(&self, address: u64, size: usize) -> Result<Option<&[u8]>, Error> {
         self.access(address, size, 1)?;
@@ -692,10 +735,19 @@ mod tests {
         let mut m = MemoryImage::new(&boot()).unwrap();
         m.map_zeroed(0x20000, PAGE * 2, 3).unwrap();
         m.write(0x20ffe, &[1, 2, 3, 4]).unwrap();
-        assert_eq!(m.contiguous(0x20ffe, 4).unwrap(), Some([1, 2, 3, 4].as_slice()));
+        assert_eq!(
+            m.contiguous(0x20ffe, 4).unwrap(),
+            Some([1, 2, 3, 4].as_slice())
+        );
         m.alias(0x30000, 0x21000, PAGE, 3).unwrap();
         m.alias(0x31000, 0x20000, PAGE, 3).unwrap();
         assert!(m.contiguous(0x30000, PAGE * 2).unwrap().is_none());
+        let segments = m.segments(0x30000, PAGE * 2).unwrap().unwrap();
+        assert_eq!(segments.len(), 2);
+        let mut copied = vec![0; PAGE * 2];
+        m.read(0x30000, &mut copied).unwrap();
+        assert_eq!(segments.concat(), copied);
+        assert!(m.segments(0x30000, PAGE * 3).is_err());
         m.protect(0x20000, PAGE, 0).unwrap();
         assert_eq!(m.contiguous(0x20000, 1), Err(Error::Access));
         assert!(m.contiguous((1 << 39) - 1, 2).is_err());

@@ -173,16 +173,23 @@ final class Worker {
         if cb==nil {cb=queue.makeCommandBuffer();bufferCount += 1}
         guard let buffer=cb else {throw Failure("command buffer")};return buffer
     }
-    func file(_ name: String) throws -> Data {
+    func resource(_ name: String) throws -> SpanByte {
         guard name.hasPrefix("resource-"), name.hasSuffix(".bin"), let index = Int(name.dropFirst(9).dropLast(4)), resources.indices.contains(index) else { throw Failure("invalid resource reference") }
-        let resource = resources[index]
+        return resources[index]
+    }
+    func file(_ name: String) throws -> Data {
+        let resource = try resource(name)
         return Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: resource.pointer!), count: resource.length, deallocator: .none)
     }
     var buffers = [String: MTLBuffer](), fileFunctions = [String: MTLFunction]()
     func buffer(_ name: String) throws -> MTLBuffer {
         if let b = buffers[name] { return b }
-        let bytes = try file(name)
-        guard !bytes.isEmpty, let b = bytes.withUnsafeBytes({ p in device.makeBuffer(bytes:p.baseAddress!,length:p.count,options:.storageModeShared) }) else { throw Failure("buffer allocation") }; buffers[name] = b; return b
+        let span = try resource(name)
+        // Rust captures are page-aligned, padded, immutable, and owned until GPU completion.
+        guard span.length > 0, let pointer = span.pointer,
+              let b = device.makeBuffer(bytesNoCopy: UnsafeMutableRawPointer(mutating: pointer), length: ((span.length + 16383) / 16384) * 16384, options: .storageModeShared, deallocator: nil)
+        else { throw Failure("shared capture buffer allocation") }
+        buffers[name] = b; return b
     }
     func function(_ path: String, _ entry: String) throws -> MTLFunction {
         if let f = fileFunctions[path] { return f }

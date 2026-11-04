@@ -35,7 +35,8 @@ pub struct Backend {
     attachment_files: std::collections::HashMap<(String, u64), (String, String)>,
     pipeline_states: crate::lru::Lru<Vec<u8>, (MetalShader, MetalShader, String)>,
     shader_cache: crate::lru::Lru<(u64, u64, u64), (MetalShader, Header, Key)>,
-    files: Vec<Vec<u8>>,
+    resource_files: std::collections::HashMap<(u64, u64, usize, u64), String>,
+    files: Vec<crate::upload::Upload>,
     constant_upload: Vec<u8>,
     uniform_offsets: std::collections::HashMap<(u64, u64, u32), (u64, usize)>,
     targets: BTreeMap<String, Target>,
@@ -249,8 +250,28 @@ impl Backend {
         }
         let name = format!("resource-{}.bin", self.files.len());
         self.file_cache.insert(bytes.clone(), name.clone());
-        self.files.push(bytes);
+        self.files.push(crate::upload::Upload::copy(&bytes));
         name
+    }
+    fn resource_file(
+        &mut self,
+        memory: &Memory,
+        dependencies: &mut Vec<(u64, usize, u64)>,
+        address: u64,
+        length: usize,
+    ) -> Result<String> {
+        let generation = memory.generation(address, length)?;
+        dependencies.push((address, length, generation));
+        let key = (memory.identity, address, length, generation);
+        if let Some(file) = self.resource_files.get(&key) {
+            return Ok(file.clone());
+        }
+        // Address/generation identity already proves reuse; no full-buffer content hash.
+        let name = format!("resource-{}.bin", self.files.len());
+        self.files
+            .push(crate::upload::Upload::copy(memory.read(address, length)?));
+        self.resource_files.insert(key, name.clone());
+        Ok(name)
     }
     fn shader(
         &mut self,
@@ -1131,9 +1152,18 @@ impl Backend {
                         end > address && end - 1 <= r.address(0x1f00 + stream * 8),
                         "vertex stream limit exceeded",
                     )?;
-                    let file = self.file(
-                        capture(memory, &mut dependencies, address, length as usize)?.to_vec(),
-                    );
+                    // Geometric capture sizes share a buffer across adjacent draws without
+                    // reading beyond either the guest-declared limit or the mapped region.
+                    let available = memory.available(address)?;
+                    let limit = r
+                        .address(0x1f00 + stream * 8)
+                        .saturating_sub(address)
+                        .saturating_add(1);
+                    let captured = (length as usize)
+                        .next_power_of_two()
+                        .min(available)
+                        .min(limit.min(usize::MAX as u64) as usize);
+                    let file = self.resource_file(memory, &mut dependencies, address, captured)?;
                     buffers.push(BufferCommand {
                         slot: i64::from(stream_slots[&stream]),
                         file: file.into(),
@@ -1370,6 +1400,7 @@ impl Backend {
         self.variants.clear();
         self.files.clear();
         self.file_cache.clear();
+        self.resource_files.clear();
         self.attachment_files.clear();
         self.constant_upload.clear();
         self.uniform_offsets.clear();
@@ -1508,6 +1539,7 @@ impl Backend {
         self.variants.clear();
         self.files.clear();
         self.file_cache.clear();
+        self.resource_files.clear();
         self.attachment_files.clear();
         self.constant_upload.clear();
         self.uniform_offsets.clear();

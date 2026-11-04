@@ -88,3 +88,20 @@ consumes typed readback results. No normal frame readback files are written/read
 measurement; final timing must use an otherwise idle test session. All 28 GPU
 render tests passed with Metal validation. This removes file I/O, not the remaining
 attachment copies or the synchronous guest visibility boundary.
+
+## Shared capture buffers
+
+Vertex captures reuse bounded geometric ranges by address and generation within a
+batch. They use owned 16 KiB-aligned, zero-padded storage; native vertex/index
+buffers borrow this storage with Metal shared/no-copy buffers. Native requests
+complete all command buffers before the batch owner releases those allocations.
+Compute storage remains separately owned because it can outlive a request.
+Guest arena mappings are borrowed as checked contiguous segments, avoiding a
+whole-mapping copy fallback when physical pages are fragmented. Live guest memory
+is still isolated from GPU captures; this is not asynchronous arena sharing.
+
+Idle 120-frame run: 5.201 seconds overall. Stage totals: snapshot 328.768 ms,
+prepare 1879.291 ms, submit/wait 926.043 ms, readback 1080.965 ms. This is still
+below the requested sustained throughput. GPU tests passed with Metal validation;
+121 core library checks passed. New tests cover aligned capture ownership/padding,
+fragmented aliases, unmapped holes, permissions and unchanged range generations.
