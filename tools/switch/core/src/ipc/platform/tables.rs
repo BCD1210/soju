@@ -16,6 +16,7 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
         Kind::PlayHistory => play_history::COMMANDS,
         Kind::Ns => const { &[c(7989, 0, |s, _, x| s.child(Kind::ControlData, x))] },
         Kind::ControlData => ns::CONTROL,
+        Kind::Notification => notification::COMMANDS,
         Kind::Usb => usb::COMMANDS,
         // The desktop profile is permanently on mains power with full charge.
         Kind::Power => {

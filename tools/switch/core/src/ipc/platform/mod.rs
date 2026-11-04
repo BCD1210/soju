@@ -12,6 +12,7 @@ mod hid_system;
 mod infrared;
 mod network;
 mod ns;
+mod notification;
 mod play_history;
 mod settings;
 mod seven_axis;
@@ -83,6 +84,7 @@ enum Kind {
     PlayHistory,
     Ns,
     ControlData,
+    Notification,
     Usb,
 }
 struct Object {
@@ -99,6 +101,7 @@ struct Player {
 pub struct Platform {
     objects: BTreeMap<ObjectId, Object>,
     usb: BTreeMap<ObjectId, usb::Session>,
+    notifications: notification::Notifications,
     infrared: BTreeMap<ObjectId, infrared::Session>,
     storage: BTreeMap<ObjectId, Rc<RefCell<Vec<u8>>>>,
     players: BTreeMap<ObjectId, Player>,
@@ -134,6 +137,7 @@ impl Platform {
         Ok(Self {
             objects: BTreeMap::new(),
             usb: BTreeMap::new(),
+            notifications: Default::default(),
             infrared: BTreeMap::new(),
             storage: BTreeMap::new(),
             players: BTreeMap::new(),
@@ -183,6 +187,7 @@ impl Platform {
     pub fn open(&mut self, name: &str, ctx: &mut Context<'_>) -> Result<Handle, Error> {
         let kind = match name {
             "ns:am2" => Kind::Ns,
+            "notif:a" => Kind::Notification,
             "psm" => Kind::Power,
             "set" => Kind::Settings,
             "set:sys" => Kind::Firmware,
@@ -237,6 +242,7 @@ impl Platform {
     pub fn close_object(&mut self, id: ObjectId) {
         self.objects.remove(&id);
         self.usb.remove(&id);
+        self.notifications.close(id);
         if let Some(sensor) = self.seven_axis.remove(&id) {
             self.retired_events.extend(sensor.handles);
         }

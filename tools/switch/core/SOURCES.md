@@ -205,3 +205,12 @@ there is no physical panel/backlight transition on the desktop.
 HIPC's PID descriptor is supplied by the sender process at the service boundary,
 independent of the client placeholder bytes ([HIPC](https://switchbrew.org/wiki/HIPC)).
 The runner uses process 1 consistently with its GetProcessId SVC.
+
+Notification record ABI: [Glue services](https://switchbrew.org/wiki/Glue_services#notif:a).
+Application sessions share a bounded eight-record alarm store with 0x40-byte
+weekly schedules and at most 0x400 parameter bytes. CRUD validates identity,
+schedule fields, buffer bounds and capacity. The normal desktop launch has an
+unsignaled AM notification channel. Records currently live for the runner's
+lifetime; host wake/relaunch scheduling and cross-run alarm persistence are
+not implemented. Undocumented error cases fail explicitly rather than returning
+invented notification-module result values.

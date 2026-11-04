@@ -53,6 +53,7 @@ const SERVICES: &[(&str, Family)] = &[
     ("csrng", Family::Platform),
     ("nifm:u", Family::Platform),
     ("ns:am2", Family::Platform),
+    ("notif:a", Family::Platform),
     ("psm", Family::Platform),
     ("pdm:qry", Family::Platform),
     ("usb:hs", Family::Platform),
