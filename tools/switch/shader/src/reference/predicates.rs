@@ -28,7 +28,15 @@ impl Machine {
         let test = if x.opcode == PSETP {
             combine(self.p(x, 2)?, self.p(x, 3)?, bits(x.raw, 24, 2))?
         } else if float {
-            let (a, b) = (self.float(x, i, m)?, self.float(x, i + 1, m)?);
+            let (mut a, mut b) = (self.float(x, i, m)?, self.float(x, i + 1, m)?);
+            if x.modified("ftz", None) {
+                if a.is_subnormal() {
+                    a = 0.0f32.copysign(a);
+                }
+                if b.is_subnormal() {
+                    b = 0.0f32.copysign(b);
+                }
+            }
             let mode = bits(x.raw, 48, 4);
             if a.is_nan() || b.is_nan() {
                 mode & 8 != 0

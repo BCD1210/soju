@@ -27,6 +27,17 @@ impl Emitter<'_> {
                     self.nodes(body, s)?;
                     s.push_str("}\n");
                 }
+                Node::IfElse {
+                    condition,
+                    then_body,
+                    else_body,
+                } => {
+                    writeln!(s, "if ({}) {{", pred(*condition)).unwrap();
+                    self.nodes(then_body, s)?;
+                    s.push_str("} else {\n");
+                    self.nodes(else_body, s)?;
+                    s.push_str("}\n");
+                }
                 Node::Loop { body } => {
                     s.push_str("while (true) {\n");
                     self.nodes(body, s)?;

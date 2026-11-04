@@ -42,7 +42,7 @@ impl Emitter<'_> {
                     x.opcode,
                     FADD | FMUL | FFMA | ReducedSin | ReducedCos | ReducedExp2 | MUFU | F2F | IPA
                 ),
-                "ftz" => matches!(x.opcode, FADD | FMNMX),
+                "ftz" => matches!(x.opcode, FADD | FMNMX | FSET | FSETP),
                 "bf" => matches!(x.opcode, FSET | ISET),
                 "w" => matches!(x.opcode, SHL | SHR),
                 "nodep" => matches!(x.opcode, TEX | TEXS | TLD | TLDS | TLD4 | TXQ),

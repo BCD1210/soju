@@ -15,6 +15,18 @@ pub(super) fn instructions(program: &Program) -> Vec<&Instruction> {
                         visit(program, body, out);
                     }
                 }
+                Node::IfElse {
+                    condition,
+                    then_body,
+                    else_body,
+                } => {
+                    if condition.index != 7 || !condition.inverted {
+                        visit(program, then_body, out);
+                    }
+                    if condition.index != 7 || condition.inverted {
+                        visit(program, else_body, out);
+                    }
+                }
                 Node::Loop { body } => visit(program, body, out),
                 Node::Break(_) | Node::Continue(_) => (),
             }

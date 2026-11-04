@@ -17,6 +17,11 @@ pub enum Node {
         condition: Predicate,
         body: Vec<Node>,
     },
+    IfElse {
+        condition: Predicate,
+        then_body: Vec<Node>,
+        else_body: Vec<Node>,
+    },
     Loop {
         body: Vec<Node>,
     },
@@ -294,6 +299,24 @@ impl Builder<'_> {
                     inverted: !x.predicate.inverted,
                     ..x.predicate
                 };
+                // A diamond's fallthrough arm ends in an unconditional jump
+                // over the taken arm to their common lexical continuation.
+                if !x.predicate.is_always() && t > i + 1 {
+                    let tail = t - 1;
+                    if self.ins[tail].predicate.is_always() {
+                        if let Some(join) = self.jumps[tail] {
+                            if join > t && join <= end {
+                                result.push(Node::IfElse {
+                                    condition: p,
+                                    then_body: self.range(i + 1, tail, active, depth + 1)?,
+                                    else_body: self.range(t, join, active, depth + 1)?,
+                                });
+                                i = join;
+                                continue;
+                            }
+                        }
+                    }
+                }
                 result.push(Node::If {
                     condition: p,
                     body: self.range(i + 1, t, active, depth + 1)?,

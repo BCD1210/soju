@@ -10,6 +10,10 @@ impl Emitter<'_> {
                 let first = if setp { 2 } else { 1 };
                 let mut left = source(x, first, float)?;
                 let mut right = source(x, first + 1, float)?;
+                if float && x.modified("ftz", None) {
+                    left = format!("soju_ftz({left})");
+                    right = format!("soju_ftz({right})");
+                }
                 if !float && bits(x.raw, 48, 1) != 0 {
                     left = format!("as_type<int>({left})");
                     right = format!("as_type<int>({right})");

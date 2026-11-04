@@ -234,3 +234,67 @@ fn reduced_functions_match_native_math() {
         }
     }
 }
+
+#[test]
+fn reconverging_diamond_keeps_mutated_condition_in_its_arm() {
+    let dir = gpu::setup();
+    let (binary, p) = program_with(
+        |a| {
+            a.emit(alu(0x5b60000000000000, 7, 0, 1) | 7 << 39 | 1 << 49);
+            a.branch(0xe290000000000000, "join");
+            a.branch(0xe24000000000000f, "taken");
+            a.emit(mov32(2, 123));
+            a.emit(alu(0x5b60000000000000, 7, 255, 1) | 7 << 39 | 1 << 49);
+            a.emit(0xf0f800000000000f | PT);
+            a.label("taken");
+            a.emit(mov32(2, 456));
+            a.emit(0xf0f800000000000f | PT);
+            a.label("join");
+        },
+        32,
+    );
+    let input: Vec<_> = (0..32).flat_map(|i| [i, 16, 0, 0, 0, 0, 0, 0]).collect();
+    let shader = compute::translate(
+        &binary[80..],
+        &gpu::launch(32, 0),
+        &gpu::options(input.len()),
+    )
+    .unwrap();
+    let expected = cpu(&p, &input, 0, 32);
+    for (i, lane) in expected.chunks_exact(8).enumerate() {
+        assert_eq!(lane[6], if i < 16 { 456 } else { 123 });
+    }
+    assert_eq!(
+        gpu::execute(&dir, "diamond", &shader.source, &input, 32),
+        expected
+    );
+}
+
+#[test]
+fn flush_to_zero_comparisons_handle_signed_subnormals() {
+    let dir = gpu::setup();
+    let input: Vec<_> = (0..32)
+        .flat_map(|i| [if i % 2 == 0 { 1 } else { 0x80000001 }, 0, 0, 0, 0, 0, 0, 0])
+        .collect();
+    let (binary, p) = program(
+        &[
+            alu(0x5bb0000000000000, 7, 0, 1) | 7 << 39 | 2 << 48 | 1 << 47,
+            0x38e8000000000000 | PT | 2 | 255 << 8 | 127 << 20,
+        ],
+        32,
+    );
+    let shader = compute::translate(
+        &binary[80..],
+        &gpu::launch(32, 0),
+        &gpu::options(input.len()),
+    )
+    .unwrap();
+    let expected = cpu(&p, &input, 0, 32);
+    for lane in expected.chunks_exact(8) {
+        assert_eq!(lane[6] & 1, 1);
+    }
+    assert_eq!(
+        gpu::execute(&dir, "ftz_compare", &shader.source, &input, 32),
+        expected
+    );
+}
