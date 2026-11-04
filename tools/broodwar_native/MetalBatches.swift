@@ -10,9 +10,17 @@ final class MetalBatches {
     struct Vertex {var position:SIMD4<Float>;var uv:SIMD4<Float>}
     struct Instance {var model:simd_float4x4;var parameters:SIMD4<Float>}
     struct Uniforms {var left:simd_float4x4;var right:simd_float4x4;var leftEye:SIMD4<Float>;var rightEye:SIMD4<Float>}
+    struct DrawNode {
+        let transform:simd_float4x4,scale:SIMD3<Float>,opacity:Float,hidden:Bool,billboard:Bool
+    }
+    struct Input {
+        let sceneRevision:Int,terrainRevision:Int,terrainFogRevision:Int
+        let terrain:[Int:SCNNode],billboards:[UnitBillboard],overlays:[SCNNode],objectCount:Int
+    }
     struct Batch {
         var vertices:MTLBuffer;var indices:MTLBuffer;var count:Int;var flatVertices:MTLBuffer?
         var instances:[MTLBuffer];var nodes:[SCNNode];var textures:[MTLTexture]
+        var drawNodes=[DrawNode]()
         var terrain:Bool;var shadow:Bool;var mode:Float;var depthDisabled:Bool;var bounds:[(SIMD3<Float>,Float)]
     }
     let device:MTLDevice,loader:MTKTextureLoader,queue:MTLCommandQueue
@@ -24,10 +32,80 @@ final class MetalBatches {
     let samples:Int
     let depth:MTLDepthStencilState,shadowDepth:MTLDepthStencilState,overlayDepth:MTLDepthStencilState
     var batches=[Batch]()
+    private let preparationQueue=DispatchQueue(label:"soju.bw.batch-prepare",qos:.userInitiated)
+    private var builder:MetalBatches?
+    private var preparing=false
+    private var capturedTerrain=[Int:(SCNGeometry,AnyObject,SCNNode)]()
+    private var submittedRevision = -1
+    private var submittedGeometry=[(UnitBillboard,Int)]()
+
+    private func input(_ commander:Commander)->Input {
+        func detached(_ node:SCNNode)->SCNNode {
+            let copy=SCNNode()
+            copy.simdTransform=node.simdWorldTransform;copy.isHidden=node.isHidden || node.parent?.isHidden==true
+            copy.opacity=CGFloat(inheritedOpacity(node));copy.constraints=node.constraints
+            if let geometry=node.geometry?.copy() as? SCNGeometry {
+                geometry.materials=node.geometry!.materials.map{$0.copy() as! SCNMaterial};copy.geometry=geometry
+            }
+            node.categoryBitMask=4
+            return copy
+        }
+        var terrain=[Int:SCNNode]()
+        terrain.reserveCapacity(commander.terrain.count)
+        for (index,node) in commander.terrain {
+            guard let geometry=node.geometry else {continue}
+            let mask=geometry.firstMaterial?.multiply.contents as AnyObject
+            if let cached=capturedTerrain[index],cached.0 === geometry,cached.1 === mask {terrain[index]=cached.2}
+            else {
+                let copy=detached(node);capturedTerrain[index]=(geometry,mask,copy);terrain[index]=copy
+            }
+        }
+        for index in capturedTerrain.keys where commander.terrain[index]==nil {capturedTerrain.removeValue(forKey:index)}
+        let billboards=commander.billboards.values.map { original -> UnitBillboard in
+            let copy=UnitBillboard(id:original.root.name ?? "")
+            copy.root.isHidden=original.root.isHidden
+            copy.nativeLayers=original.nativeLayers;copy.shown=original.shown;copy.shownImages=original.shownImages
+            copy.shownColors=original.shownColors;copy.team=original.team;copy.geometryRevision=original.geometryRevision
+            copy.layers=original.layers.mapValues{detached($0)}
+            return copy
+        }
+        return Input(sceneRevision:commander.sceneRevision,terrainRevision:commander.terrainRevision,
+            terrainFogRevision:commander.terrainFogRevision,terrain:terrain,
+            billboards:billboards,overlays:(Array(commander.creepNodes.values)+Array(commander.worldSprites.nodes.values)).map{detached($0)},objectCount:commander.nodes.count)
+    }
+    func prepareAsync(_ commander:Commander) {
+        guard !preparing else {return}
+        if ready,submittedRevision==commander.sceneRevision,submittedGeometry.count==commander.billboards.count,
+           submittedGeometry.allSatisfy({$0.0.poseRevision==$0.1}) {return}
+        os_signpost(.begin,log:XRFrameMetrics.log,name:"Snapshot capture")
+        let snapshot=input(commander)
+        os_signpost(.end,log:XRFrameMetrics.log,name:"Snapshot capture")
+        submittedRevision=commander.sceneRevision;submittedGeometry=commander.billboards.values.map{($0,$0.poseRevision)}
+        preparing=true
+        preparationQueue.async { [self] in
+            autoreleasepool {
+                do {
+                    if builder==nil {builder=try MetalBatches(device:device)}
+                    try builder!.prepare(snapshot)
+                    let completed=builder!.batches
+                    DispatchQueue.main.async { [self] in
+                        let retired=batches
+                        batches=completed;resetVisibility();ready=true;preparing=false
+                        preparationQueue.async {withExtendedLifetime(retired) {}}
+                    }
+                } catch {
+                    DispatchQueue.main.async { [self] in preparing=false;submittedRevision = -1;commander.notice="Batch preparation: \(error)" }
+                }
+            }
+        }
+    }
+
     private let groupCache=ResidentCache<(SCNGeometrySource,Batch)>(limit:128*1024*1024)
     let textures=ResidentCache<(NSImage,MTLTexture)>(limit:512*1024*1024)
     var ready=false,draws=0,visible=0,culled=0,lodCount=0
-    var sourceRevision = -1,terrainRevision = -1
+    var sourceRevision = -1,terrainRevision = -1,terrainFogRevision = -1
+    private var terrainPages=[([SCNNode],Int)]()
+    private var terrainMasks=[ObjectIdentifier]()
     var revisions=[(UnitBillboard,Int)]()
     lazy var flatIndices=buffer([UInt32(0),1,2,2,1,3])
     var stereoColor:MTLTexture?,stereoDepth:MTLTexture?,stereoResolved:MTLTexture?
@@ -146,13 +224,15 @@ final class MetalBatches {
     }
     func buffer<T>(_ values:[T])->MTLBuffer {values.withUnsafeBytes{device.makeBuffer(bytes:$0.baseAddress!,length:$0.count,options:.storageModeShared)!}}
     func prepare(_ commander:Commander)throws {
+        try prepare(input(commander))
+    }
+    private func prepare(_ commander:Input)throws {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"Batch prepare")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Batch prepare")}
-        if ready,sourceRevision==commander.sceneRevision,revisions.count==commander.billboards.count,revisions.allSatisfy({$0.0.geometryRevision==$0.1}) {return}
-        if terrainRevision != commander.terrainRevision {ready=false;batches.removeAll()}
+        if terrainRevision != commander.terrainRevision {ready=false;batches.removeAll();terrainPages.removeAll();terrainMasks.removeAll()}
         else if ready {batches.removeAll{!$0.terrain}}
         sourceRevision=commander.sceneRevision;terrainRevision=commander.terrainRevision
-        revisions=commander.billboards.values.map{($0,$0.geometryRevision)}
+        revisions=commander.billboards.map{($0,$0.geometryRevision)}
         // Array pages retain each tile's own gutter and mip chain. No cross-tile
         // filtering can bleed unrelated tiles into one another.
         let tiles=commander.terrain.sorted{$0.key<$1.key}.map{$0.value}
@@ -180,12 +260,53 @@ final class MetalBatches {
                 let base=UInt32(vertices.count);vertices+=v;indices+=ind.map{$0+base}
             }
             blit.endEncoding();command.commit();command.waitUntilCompleted()
+            terrainPages.append((nodes,batches.count))
+            terrainMasks += nodes.map{ObjectIdentifier($0.geometry!.firstMaterial!.multiply.contents as AnyObject)}
             let instance=Instance(model:matrix_identity_float4x4,parameters:SIMD4<Float>(2,1,Float(first.width),Float(first.height)))
             batches.append(Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:nil,instances:(0..<3).map{_ in buffer([instance])},nodes:[],textures:[array,fog],terrain:true,shadow:false,mode:2,depthDisabled:false,bounds:[]))
         }
         }
+        if ready {
+            var offset=0
+            for i in terrainPages.indices {
+                let count=terrainPages[i].0.count
+                terrainPages[i].0=Array(tiles[offset..<offset+count]);offset+=count
+            }
+        }
+        if ready && terrainFogRevision != commander.terrainFogRevision {
+            os_signpost(.begin,log:XRFrameMetrics.log,name:"Fog slices")
+            let command=queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
+            var offset=0
+            for (nodes,batchIndex) in terrainPages {
+                let previous=batches[batchIndex].textures[1]
+                let changed=nodes.enumerated().contains { slice,node in
+                    ObjectIdentifier(node.geometry?.firstMaterial?.multiply.contents as AnyObject) != terrainMasks[offset+slice]
+                }
+                if !changed {offset+=nodes.count;continue}
+                let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:previous.pixelFormat,width:previous.width,height:previous.height,mipmapped:false)
+                descriptor.textureType = .type2DArray;descriptor.arrayLength=previous.arrayLength;descriptor.storageMode = .private;descriptor.usage = .shaderRead
+                guard let fog=TextureResidency.shared.make(device,descriptor) else {throw SceneError.invalid("Fog texture residency limit")}
+                blit.copy(from:previous,sourceSlice:0,sourceLevel:0,to:fog,destinationSlice:0,destinationLevel:0,sliceCount:previous.arrayLength,levelCount:1)
+                batches[batchIndex].textures[1]=fog
+                for (slice,node) in nodes.enumerated() {
+                    let contents=node.geometry?.firstMaterial?.multiply.contents
+                    let identity=ObjectIdentifier(contents as AnyObject)
+                    if identity != terrainMasks[offset+slice] {
+                        let mask=try texture(contents,fallback:white)
+                        if mask.width==fog.width && mask.height==fog.height {
+                            blit.copy(from:mask,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:mask.width,height:mask.height,depth:1),to:fog,destinationSlice:slice,destinationLevel:0,destinationOrigin:MTLOrigin())
+                        }
+                        terrainMasks[offset+slice]=identity
+                    }
+                }
+                offset+=nodes.count
+            }
+            blit.endEncoding();command.commit();command.waitUntilCompleted()
+            os_signpost(.end,log:XRFrameMetrics.log,name:"Fog slices")
+        }
+        terrainFogRevision=commander.terrainFogRevision
         var groups=[String:[SCNNode]]()
-        for billboard in commander.billboards.values where !billboard.root.isHidden {
+        for billboard in commander.billboards where !billboard.root.isHidden {
             for (index,native) in billboard.nativeLayers {
                 guard let node=billboard.layers[index],let frame=billboard.shown[index] else {continue}
                 node.categoryBitMask=4
@@ -230,7 +351,7 @@ final class MetalBatches {
             }
         }
         // Preserve creep edges and independent native sprite chains as overlays.
-        for node in Array(commander.creepNodes.values)+Array(commander.worldSprites.nodes.values) {
+        for node in commander.overlays {
             guard let geometry=node.geometry,let material=geometry.firstMaterial else {continue}
             node.categoryBitMask=4
             let (vertices,indices)=mesh(geometry,uvTransform:material.diffuse.contentsTransform)
@@ -242,13 +363,21 @@ final class MetalBatches {
             let radius=simd_length(SIMD3<Float>(Float(hi.x-lo.x),Float(hi.y-lo.y),Float(hi.z-lo.z)))*0.5
             batches.append(Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:nil,instances:(0..<3).map{_ in buffer([instance])},nodes:[node],textures:[diffuse,normal,black,black,black,white],terrain:false,shadow:true,mode:(material.multiply.contents as? NSColor)==NSColor.black ? 3:0,depthDisabled:!material.readsFromDepthBuffer,bounds:[(center,radius)]))
         }
+        for i in batches.indices {
+            batches[i].drawNodes=batches[i].nodes.map { node in
+                DrawNode(transform:node.simdWorldTransform,scale:node.simdScale,opacity:inheritedOpacity(node),hidden:node.isHidden,
+                    billboard:node.constraints?.contains(where:{$0 is SCNBillboardConstraint})==true)
+            }
+        }
+        resetVisibility()
+        ready=true
+    }
+    private func resetVisibility() {
         visibilityLock.lock()
         visibilityEpoch+=1;lastVisibilityFrame = -1
         visibleLast=[Bool](repeating:true,count:batches.count);visibleNow=visibleLast
         visibilityBuffers=(0..<3).map{_ in device.makeBuffer(length:max(8,batches.count*8),options:.storageModeShared)!}
         visibilityLock.unlock()
-        ready=true
-        fputs("Metal batches ready: \(batches.count) draws, \(commander.nodes.count) objects\n",stderr)
     }
     func renderOverlay(renderer:SCNRenderer,command:MTLCommandBuffer,output:MTLTexture,camera:SCNNode,eye:Int,time:Double)throws {
         guard depthViews.indices.contains(eye) else {return}
@@ -353,24 +482,24 @@ final class MetalBatches {
                 var count=1,farCount=0
                 if !batch.terrain {
                     count=0
-                    let data=batch.instances[slot].contents().bindMemory(to:Instance.self,capacity:batch.nodes.count*2)
-                    for (index,node) in batch.nodes.enumerated() {
-                        if node.isHidden {continue}
-                        var model=node.simdWorldTransform
-                        if node.constraints?.contains(where:{$0 is SCNBillboardConstraint}) == true {
+                    let data=batch.instances[slot].contents().bindMemory(to:Instance.self,capacity:batch.drawNodes.count*2)
+                    for (index,node) in batch.drawNodes.enumerated() {
+                        if node.hidden {continue}
+                        var model=node.transform
+                        if node.billboard {
                             let translation=model.columns.3
                             model=simd_float4x4(camera.simdWorldOrientation);model.columns.3=translation
-                            model.columns.0 *= node.simdScale.x;model.columns.1 *= node.simdScale.y;model.columns.2 *= node.simdScale.z
+                            model.columns.0 *= node.scale.x;model.columns.1 *= node.scale.y;model.columns.2 *= node.scale.z
                         }
                         let center=model*SIMD4<Float>(batch.bounds[index].0,1),radius=batch.bounds[index].1+simd_length(SIMD3<Float>(rightTransform.columns.3.x,rightTransform.columns.3.y,rightTransform.columns.3.z)-eye)
                         let p=vp*center
                         // Conservative sphere support against all six homogeneous planes.
                         let outside=planes.contains { plane in simd_dot(plane,center) < -radius*simd_length(SIMD3<Float>(plane.x,plane.y,plane.z)) }
                         if outside || p.w<=0 {culled+=1;continue}
-                        let instance=Instance(model:model,parameters:SIMD4<Float>(batch.mode,inheritedOpacity(node),0,0))
+                        let instance=Instance(model:model,parameters:SIMD4<Float>(batch.mode,node.opacity,0,0))
                         let pixels=batch.bounds[index].1*Float(camera.camera!.projectionTransform.m22)*Float(output.height)/max(p.w,0.001)
                         if batch.flatVertices != nil && pixels<48 {
-                            data[batch.nodes.count+farCount]=instance;farCount+=1
+                            data[batch.drawNodes.count+farCount]=instance;farCount+=1
                         } else {data[count]=instance;count+=1}
                     }
                     visible+=count+farCount;lodCount+=farCount
@@ -382,7 +511,7 @@ final class MetalBatches {
                 if count>0 {encoder.drawIndexedPrimitives(type:.triangle,indexCount:batch.count,indexType:.uint32,indexBuffer:batch.indices,indexBufferOffset:0,instanceCount:count);draws+=1}
                 if farCount>0,let flat=batch.flatVertices {
                     encoder.setVertexBuffer(flat,offset:0,index:0)
-                    encoder.setVertexBuffer(batch.instances[slot],offset:batch.nodes.count*MemoryLayout<Instance>.stride,index:1)
+                    encoder.setVertexBuffer(batch.instances[slot],offset:batch.drawNodes.count*MemoryLayout<Instance>.stride,index:1)
                     encoder.drawIndexedPrimitives(type:.triangle,indexCount:6,indexType:.uint32,indexBuffer:flatIndices,indexBufferOffset:0,instanceCount:farCount);draws+=1
                 }
             }

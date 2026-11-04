@@ -12,11 +12,12 @@ final class UnitBillboard {
     var shownColors=[Int:[Int]](),contacts=[Int:Float]()
     var layerOrder=[Int]()
     var lastNativeChain=[Obj]()
-    var geometryRevision=0
+    var geometryRevision=0,poseRevision=0
+    var capturedEye:SIMD3<Float>?,capturedRotation:SIMD4<Float>?,capturedPerspective:Bool?
     var lastEye:SIMD3<Float>?,lastRotation:SIMD4<Float>?,lastPerspective:Bool?
     init(id:String) {root.name=id}
     func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites,color:[Int]=[255,255,255]) {
-        lastEye=nil
+        lastEye=nil;poseRevision &+= 1
         let sameTeam=team==color
         self.unit=unit;team=color
         let x=number(unit,"x")/32,z=number(unit,"y")/32
@@ -86,6 +87,12 @@ final class UnitBillboard {
     }
     func updateView(eye:SIMD3<Float>,orientation:simd_quatf,perspective:Bool,art:WorldSprites,recordEvidence:Bool=true) {
         if lastEye==eye && lastRotation==orientation.vector && lastPerspective==perspective {return}
+        let beforeGeometry=geometryRevision
+        let changedView=capturedEye != eye || capturedRotation != orientation.vector || capturedPerspective != perspective
+        defer {
+            if changedView || beforeGeometry != geometryRevision {poseRevision &+= 1}
+            capturedEye=eye;capturedRotation=orientation.vector;capturedPerspective=perspective
+        }
         lastEye=eye;lastRotation=orientation.vector;lastPerspective=perspective
         let delta=eye-root.simdWorldPosition,azimuth=atan2(Double(delta.x),Double(delta.z))
         let rotation=perspective ? simd_quatf(angle:Float(azimuth),axis:SIMD3<Float>(0,1,0))*simd_quatf(angle:-Float(Terrain3D.canonicalElevation),axis:SIMD3<Float>(1,0,0)):orientation

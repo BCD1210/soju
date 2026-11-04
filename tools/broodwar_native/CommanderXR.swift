@@ -134,7 +134,7 @@ extension Commander {
         if useMetalBatches {
             do {
                 if metalBatches==nil {metalBatches=try MetalBatches(device:art.device)}
-                try metalBatches!.prepare(self)
+                if eye.eye==0 {metalBatches!.prepareAsync(self)}
                 if eye.eye==0 {
                     var right=SojuXREye();_ = soju_xr_eye(1,&right)
                     let rightPosition=base+body.act((SIMD3<Float>(right.px,right.py,right.pz)-(xrOrigin ?? .zero))*worldUnitsPerMeter)

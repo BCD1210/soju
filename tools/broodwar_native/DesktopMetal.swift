@@ -44,7 +44,7 @@ final class DesktopMetal:NSObject,MTKViewDelegate {
         }
         camera.camera!.projectionTransform=SCNMatrix4(projection)
         do {
-        try batches.prepare(commander)
+        batches.prepareAsync(commander)
         try batches.render(command:command,output:drawable.texture,camera:camera,eye:camera.simdWorldPosition,rightTransform:camera.simdWorldTransform,rightProjection:projection)
         batches.copyEye(command:command,to:drawable.texture,eye:0)
         try batches.renderOverlay(renderer:overlay,command:command,output:drawable.texture,camera:camera,eye:0,time:CACurrentMediaTime())

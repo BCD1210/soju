@@ -7,7 +7,7 @@ import CoreImage
 import Darwin
 import simd
 extension Commander {
-    func apply(_ s:Obj,_ f:Obj) {
+    func apply(_ s:Obj,_ f:Obj,prepared preparedState:PreparedState?=nil) {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"State apply")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"State apply")}
         let liveMap=s["map"] as? Obj ?? [:]
@@ -39,8 +39,8 @@ extension Commander {
         if s["eventsLost"] as? Bool == true {lostEvents+=1}
         sceneRevision &+= 1
         state=s
-        let list=s["units"] as? [Obj] ?? []
-        units=Dictionary(uniqueKeysWithValues:list.compactMap { u in (u["id"] as? String).map { ($0,u) } })
+        let list=preparedState?.list ?? (s["units"] as? [Obj] ?? [])
+        units=preparedState?.units ?? Dictionary(uniqueKeysWithValues:list.compactMap { u in (u["id"] as? String).map { ($0,u) } })
         if !initialized,let base=list.first(where:{($0["townHall"] as? Bool == true || number($0,"type")==106) && number($0,"owner")==number(s,"player")}) {
             camera.position=SCNVector3(number(base,"x")/32-3,1.65,number(base,"y")/32+5)
             if let value=argument("--camera"),let a=Double(value.split(separator:",").first ?? ""),let b=Double(value.split(separator:",").last ?? "") {camera.position.x=CGFloat(a);camera.position.z=CGFloat(b)}
@@ -60,12 +60,29 @@ extension Commander {
             center:SIMD3<Int32>(Int32(terrainCenter.x),Int32(terrainCenter.z),Int32(radius)),
             fog:f["fog"] as? String ?? "",creep:f["creep"] as? String ?? "")
         if packet != lastTerrainUpdate {
-            for (i,c) in packet.fog.utf8.enumerated() {fog[(y+i/w)*mapWidth+x+i%w]=c}
-            for (i,c) in packet.creep.utf8.enumerated() {
-                let index=(y+i/w)*mapWidth+x+i%w
-                if c==49 {creepTiles.insert(index)}else {creepTiles.remove(index)}
+            var dirty=Set<Int>()
+            func changed(_ index:Int) {
+                let tx=index%mapWidth,ty=index/mapWidth
+                for dy in -1...1 {for dx in -1...1 {
+                    let nx=tx+dx,ny=ty+dy
+                    if nx>=0 && nx<mapWidth && ny>=0 && ny<mapHeight {dirty.insert(ny*mapWidth+nx)}
+                }}
             }
-            updateTerrain();lastTerrainUpdate=packet
+            if w>0 {
+                for (i,c) in packet.fog.utf8.enumerated() {
+                    let index=(y+i/w)*mapWidth+x+i%w
+                    if fog[index] != c {fog[index]=c;changed(index)}
+                }
+                for (i,c) in packet.creep.utf8.enumerated() {
+                    let index=(y+i/w)*mapWidth+x+i%w
+                    if creepTiles.contains(index) != (c==49) {
+                        if c==49 {creepTiles.insert(index)}else {creepTiles.remove(index)}
+                        changed(index)
+                    }
+                }
+            }
+            let sameRegion=lastTerrainUpdate?.region==packet.region && lastTerrainUpdate?.center==packet.center
+            updateTerrain(dirty:sameRegion ? dirty:nil);lastTerrainUpdate=packet
         }
         selected=selected.filter { units[$0] != nil }
         for e in events where e["kind"] as? String == "death" {
@@ -83,6 +100,9 @@ extension Commander {
         var unsupported=Set<Int>()
         for (id,u) in units {
             let kind=Int(number(u,"type"))
+            if preparedState?.dirty.contains(id)==false,models[id]==nil,billboards[id] != nil,!modelLibrary.approvedForLive(kind) {
+                unsupported.insert(kind);continue
+            }
             do {
                 if requireFidelity && !modelLibrary.approvedForLive(kind) {
                     models.removeValue(forKey:id)?.root.removeFromParentNode()
@@ -137,18 +157,26 @@ extension Commander {
         #endif
         return cameraMapPosition
     }
-    func updateTerrain() {
+    func updateTerrain(dirty:Set<Int>?=nil) {
         let tiles=art.tileCatalog
         let cx=Int(terrainCenter.x),cy=Int(terrainCenter.z),radius=tabletop || camera.camera?.usesOrthographicProjection == true ? 44:20
-        var keep=Set<Int>()
-        for y in max(0,cy-radius)..<max(0,min(mapHeight,cy+radius+1)) {
-            for x in max(0,cx-radius)..<max(0,min(mapWidth,cx+radius+1)) {
-                let index=y*mapWidth+x
-                guard let visibility=fog[index],visibility != 48 else { continue }
+        var keep=dirty==nil ? Set<Int>():Set(terrain.keys)
+        let candidates:Set<Int>
+        if let dirty=dirty {candidates=dirty}
+        else {
+            var region=Set<Int>()
+            for y in max(0,cy-radius)..<max(0,min(mapHeight,cy+radius+1)) {
+                for x in max(0,cx-radius)..<max(0,min(mapWidth,cx+radius+1)) {region.insert(y*mapWidth+x)}
+            }
+            candidates=region
+        }
+        for index in candidates {
+                let x=index%mapWidth,y=index/mapWidth
+                guard abs(x-cx)<=radius,abs(y-cy)<=radius,let visibility=fog[index],visibility != 48 else {keep.remove(index);continue}
                 keep.insert(index)
                 if let n=terrain[index] {
                     let mask=fogPresentation.texture(x:x,y:y,width:mapWidth,fog:fog)
-                    if (n.geometry?.firstMaterial?.multiply.contents as? NSImage) !== mask {terrainRevision &+= 1;n.geometry?.firstMaterial?.multiply.contents=mask}
+                    if (n.geometry?.firstMaterial?.multiply.contents as? NSImage) !== mask {terrainFogRevision &+= 1;n.geometry?.firstMaterial?.multiply.contents=mask}
                     continue
                 }
                 guard let a=tiles[String(mapTiles[index])],let file=a["file"] as? String else { continue }
@@ -168,13 +196,13 @@ extension Commander {
                     p.firstMaterial?.multiply.contents=fogPresentation.texture(x:x,y:y,width:mapWidth,fog:fog)
                     world.rootNode.addChildNode(n);terrain[index]=n;terrainRevision &+= 1
                 } catch { notice="Terrain: \(error)" }
-            }
         }
         for (i,n) in terrain where !keep.contains(i) { n.removeFromParentNode();terrain.removeValue(forKey:i);terrainRevision &+= 1 }
         let tileset=(art.manifest["map"] as? Obj)?["tileset"] as? String ?? "badlands"
         let visibleCreep=creepTiles.filter{fog[$0]==50}
-        var creepKeep=Set<Int>()
-        for index in keep where fog[index]==50 {
+        var creepKeep=dirty==nil ? Set<Int>():Set(creepNodes.keys)
+        for index in candidates {
+            guard keep.contains(index),fog[index]==50 else {creepKeep.remove(index);continue}
             let x=index%mapWidth,y=index/mapWidth
             let interior=visibleCreep.contains(index)
             var neighbors=0
@@ -183,7 +211,7 @@ extension Commander {
                 if nx>=0 && nx<mapWidth && ny>=0 && ny<mapHeight && visibleCreep.contains(ny*mapWidth+nx) {neighbors |= 1<<bit}
             }
             let edge=interior ? 0:worldSprites.creepEdgeFrame(tileset:tileset,neighbors:neighbors)
-            if !interior && edge==0 {continue}
+            if !interior && edge==0 {creepKeep.remove(index);continue}
             creepKeep.insert(index)
             let signature=interior ? "creep":"creep-edge-\(edge)"
             if creepNodes[index]?.name==signature {continue}
