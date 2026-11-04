@@ -30,3 +30,12 @@ values are facts transcribed from the following allowed references.
 The decoder's declarative encoding facts are extracted from the pinned MIT
 source with `scripts/import_isa.py`. `LICENSE.envytools` retains its notice.
 No external reference is required by the build or tests.
+
+- https://raw.githubusercontent.com/NVIDIA/open-gpu-doc/master/classes/compute/clb1c0qmd.h
+  NVIDIA public Maxwell QMD 0.6/1.7 definitions: shared-memory size bits
+  544–561, version 576–583, CTA dimensions 592–639, local allocations
+  1440–1463 and 1472–1495. Only these fields are interpreted.
+- https://raw.githubusercontent.com/envytools/envytools/f102b82381f3f11cee113d16374c87091db039d9/rnndb/graph/gk104_compute.xml
+  Cross-check of launch fields; the NVIDIA Maxwell header takes precedence.
+- https://raw.githubusercontent.com/envytools/envytools/f102b82381f3f11cee113d16374c87091db039d9/docs/hw/graph/maxwell/compute.rst
+  Examined; placeholder documentation, no semantic facts taken.

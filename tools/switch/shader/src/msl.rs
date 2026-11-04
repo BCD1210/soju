@@ -6,8 +6,16 @@ use crate::{Error, Result};
 use std::collections::BTreeSet;
 use std::fmt::Write;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GlobalMemory {
+    pub buffer: u8,
+    pub base_address: u64,
+    pub bytes: u32,
+}
+
 #[derive(Debug, Clone)]
 pub struct Options {
+    pub global_memory: Option<GlobalMemory>,
     /// Metal argument buffer binding. Must not collide with a used cbuf slot.
     pub texture_buffer: u8,
     /// Host provides a normalized descriptor table; see README for the ABI.
@@ -16,6 +24,7 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
+            global_memory: None,
             texture_buffer: 30,
             texture_count: 128,
         }
@@ -169,6 +178,7 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
         )
         .unwrap();
     }
+    memory::parameters(program, options, &cb, textures, &mut s)?;
     s.push_str(") {\nuint r[255] = {};\nbool p[7] = {};\nStageOut out = {};\n");
     let local = header
         .local_positive
@@ -187,6 +197,7 @@ pub fn generate(header: &Header, program: &Program, options: &Options) -> Result
         program,
         options,
         local_bytes: local,
+        compute: None,
     };
     emitter.nodes(&program.body, &mut s)?;
     s.push_str(&emitter.finish());
@@ -203,6 +214,7 @@ struct Emitter<'a> {
     program: &'a Program,
     options: &'a Options,
     local_bytes: u32,
+    compute: Option<&'a crate::compute::Launch>,
 }
 
 mod flow;
@@ -216,3 +228,7 @@ use helpers::HELPERS;
 use operands::*;
 #[cfg(test)]
 mod tests;
+
+mod compute;
+mod memory;
+pub use compute::generate_compute;

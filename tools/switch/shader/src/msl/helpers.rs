@@ -3,6 +3,14 @@ inline float soju_ftz(float v) {
     uint b = as_type<uint>(v);
     return as_type<float>((b & 0x7f800000u) == 0u ? b & 0x80000000u : b);
 }
+inline float soju_min(float a, float b) {
+    if (a == 0.0f && b == 0.0f) return as_type<float>(as_type<uint>(a) | as_type<uint>(b));
+    return fmin(a, b);
+}
+inline float soju_max(float a, float b) {
+    if (a == 0.0f && b == 0.0f) return as_type<float>(as_type<uint>(a) & as_type<uint>(b));
+    return fmax(a, b);
+}
 inline float soju_sat(float v) { return isnan(v) ? 0.0f : clamp(v, 0.0f, 1.0f); }
 inline uint soju_lop3(uint a, uint b, uint c, uint lut) {
     uint out = 0u;

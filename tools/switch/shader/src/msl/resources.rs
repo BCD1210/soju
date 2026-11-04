@@ -1,6 +1,9 @@
 use super::*;
 impl Emitter<'_> {
     pub(super) fn attribute(&self, x: &Instruction) -> Result<String> {
+        if self.compute.is_some() {
+            return Err(x.error("graphics attribute in compute program"));
+        }
         let store = x.opcode == Opcode::AST;
         let index = if store { 0 } else { 1 };
         let Some(Operand::Memory {
@@ -111,6 +114,9 @@ impl Emitter<'_> {
         }
     }
     pub(super) fn texture(&self, x: &Instruction) -> Result<String> {
+        if self.compute.is_some() {
+            return Err(x.error("compute textures not implemented"));
+        }
         let bindless = x.encoding == 0xdeb8000000000000;
         if !bindless && x.encoding != 0xc038000000000000 {
             return Err(x.error("unsupported TEX encoding"));

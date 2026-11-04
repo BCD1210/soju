@@ -26,3 +26,7 @@ pub fn translate(binary: &[u8], options: &msl::Options) -> Result<msl::MetalShad
 }
 
 pub mod cache;
+
+pub mod compute;
+
+pub mod reference;

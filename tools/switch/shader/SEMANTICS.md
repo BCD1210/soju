@@ -46,3 +46,42 @@ This is an explicit runner integration boundary, not transparent compatibility
 with arbitrary native texture handles. Only float 2D TEX, implicit fragment LOD
 or explicit level zero, is lowered. Texture reads preserve the component mask
 and pack selected components into consecutive destination registers.
+
+## Compute and execution oracle
+
+`compute::Launch::parse` accepts the documented 256-byte NVIDIA Maxwell QMD
+0.6/1.7 fields, preserving all raw words. The caller selects the program start,
+resolves constant buffers, and dispatches exactly the parsed local dimensions;
+those surrounding launch fields are not executed by this crate. Allocation is
+limited to 48 KiB shared and 64 KiB per-thread local storage. S2R/MOV exposes
+thread and CTA x/y/z IDs; other system registers are rejected.
+
+LD/ST/LDG/STG accept aligned b32 accesses into one explicitly configured guest
+address window. Extended addresses use a register pair. Invalid or unaligned
+reads return zero and stores are dropped: this is a robust host boundary, not
+Maxwell fault emulation. Generic LD/ST require PT and are global-only. Cache
+policy modifiers other than the default remain rejected. LDS/STS use b32
+threadgroup memory, which is uninitialized until the shader writes it.
+BAR.SYNC accepts only barrier zero with a full-CTA count. Programs containing
+barriers must have straight-line control flow with no conditional termination;
+predicated arithmetic and disjoint memory operations remain allowed. This
+conservative restriction prevents emitting a divergent Metal barrier.
+
+P2R/R2P accept PR masks (P0–P6) and byte selectors; CC transfers are rejected.
+P2R preserves unselected destination-source bits. Source values are captured
+before predicate/register destinations are changed.
+
+The Rust `reference` module interprets validated IR with wrapping integer
+operations, separate f32 add/multiply and explicit fused multiply-add. It has a
+bounded cooperative CTA scheduler for barrier tests. Callers must first validate
+supported modes using translation. It is an independent implementation of the
+backend contract, not a Maxwell hardware reference. Execution budgets are
+oracle safeguards and do not affect generated MSL. The Swift test runner loads
+an offline-compiled metallib, dispatches Metal, checks command completion, and
+reads shared-buffer results. GPU tests skip only on non-macOS platforms.
+
+FMNMX now explicitly orders −0 below +0 for minimum and +0 above −0 for maximum.
+This fixes an observed CPU/Metal discrepancy; it is a PTX-style contract, not a
+claim about undocumented GM20B tie behavior. Tests compare NaNs by classification,
+not payload. Arithmetic-grid tests do not establish denormal preservation or
+MUFU approximation bounds outside their tested inputs.

@@ -17,7 +17,47 @@ impl Emitter<'_> {
                     Err(x.error("KIL requires fragment stage"))
                 }
             }
-            MOV => dst(a(1)?),
+            MOV => match x.operands.get(1) {
+                Some(Operand::SystemRegister(id)) => {
+                    if self.compute.is_none() {
+                        return Err(x.error("system registers require compute stage"));
+                    }
+                    let value = match id {
+                        0x21 => "local_id.x",
+                        0x22 => "local_id.y",
+                        0x23 => "local_id.z",
+                        0x25 => "group_id.x",
+                        0x26 => "group_id.y",
+                        0x27 => "group_id.z",
+                        _ => return Err(x.error("unsupported system register")),
+                    };
+                    dst(value.into())
+                }
+                _ => dst(a(1)?),
+            },
+            P2R | R2P => self.predicate_transfer(x),
+            LD | ST | LDG | STG | LDS | STS => self.memory(x),
+            BAR => {
+                if self.compute.is_none() {
+                    return Err(x.error("BAR requires compute stage"));
+                }
+                if !x.predicate.is_always()
+                    || !matches!(x.operands.first(), Some(Operand::Immediate(0)))
+                    || !matches!(
+                        x.operands.get(1),
+                        Some(Operand::Immediate(0)) | Some(Operand::Register(255))
+                    )
+                    || predicate_operand(x, 2)? != "true"
+                {
+                    return Err(
+                        x.error("only unconditional full-threadgroup BAR.SYNC 0 is supported")
+                    );
+                }
+                Ok(
+                    "threadgroup_barrier(mem_flags::mem_threadgroup | mem_flags::mem_device);\n"
+                        .into(),
+                )
+            }
             FADD | FMUL | FFMA => {
                 let ftz = x.modified("ftz", None)
                     || x.options.iter().any(|o| {
@@ -36,7 +76,7 @@ impl Emitter<'_> {
                 fdst(if ftz { format!("soju_ftz({v})") } else { v })
             }
             FMNMX => fdst(format!(
-                "({} ? fmin({}, {}) : fmax({}, {}))",
+                "({} ? soju_min({}, {}) : soju_max({}, {}))",
                 predicate_operand(x, 3)?,
                 f(1)?,
                 f(2)?,

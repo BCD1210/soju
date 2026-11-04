@@ -90,6 +90,7 @@ pub enum Space {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Operand {
     Register(u8),
+    SystemRegister(u8),
     Predicate(Predicate),
     Immediate(u32),
     FloatBits(u32),
@@ -162,6 +163,24 @@ fn signed(value: u32, width: u32) -> i32 {
 
 /// Decode one instruction. Scheduling words must be removed by the caller or `decode`.
 pub fn decode_instruction(address: u32, raw: u64) -> Result<Instruction> {
+    if raw & 0xfff8000000000000 == 0xf0c8000000000000 {
+        return Ok(Instruction {
+            address,
+            raw,
+            opcode: Opcode::MOV,
+            predicate: Predicate {
+                index: bits(raw, 16, 3) as u8,
+                inverted: bits(raw, 19, 1) != 0,
+            },
+            operands: vec![
+                Operand::Register(bits(raw, 0, 8) as u8),
+                Operand::SystemRegister(bits(raw, 20, 8) as u8),
+            ],
+            modifiers: vec![],
+            options: vec![],
+            encoding: 0xf0c8000000000000,
+        });
+    }
     let e = encodings::ENCODINGS
         .iter()
         .find(|e| raw & e.mask == e.value)

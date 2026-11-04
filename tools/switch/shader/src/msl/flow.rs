@@ -1,6 +1,9 @@
 use super::*;
 impl Emitter<'_> {
     pub(super) fn finish(&self) -> String {
+        if self.compute.is_some() {
+            return "return;\n".into();
+        }
         let mut s = String::new();
         if self.header.stage == Stage::Fragment {
             let mut r = 0;

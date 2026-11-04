@@ -26,6 +26,7 @@ impl Emitter<'_> {
                 "bf" => matches!(x.opcode, FSET | ISET),
                 "w" => matches!(x.opcode, SHL | SHR),
                 "nodep" => x.opcode == TEX,
+                "e" => matches!(x.opcode, LD | ST | LDG | STG),
                 _ => false,
             };
             if !allowed {
@@ -34,9 +35,16 @@ impl Emitter<'_> {
         }
         for o in &x.options {
             let allowed = match o.name {
+                "5cf0_0" => o.bits == 0,
+                "5cf0_1" => true,
+                "eed0sz" => o.bits == 4 << 48,
+                "a000_1" => o.bits == 4 << 53,
+                "eed0_0" | "eed8_0" | "8000_0" | "a000_0" => o.bits == 0,
+                "f0a8_0" => o.bits == 1 << 39,
+                "f0a8_1" => true,
                 "5cb8_2" | "5980_1" | "5c68_1" | "5cc0_0" | "5cc0_1" | "5cc0_2" | "5cc0_3"
-                | "5b00_0" | "5b00_1" | "5100_0" | "5c20_0" | "5c40_1" | "5cf0_1" | "5be0_0"
-                | "ef90_0" | "ef40_0" | "ef50_0" => o.bits == 0,
+                | "5b00_0" | "5b00_1" | "5100_0" | "5c20_0" | "5c40_1" | "5be0_0" | "ef90_0"
+                | "ef40_0" | "ef50_0" => o.bits == 0,
                 "5c68_0" => o.bits == 0 || o.bits == 1 << 44,
                 "5980_0" => o.bits == 0 || o.bits == 1 << 53,
                 "5bb0_0" | "5b60_0" | "5c30_0" | "5a00_0" | "5a00_1" | "5c40_0" | "5cb0_1"
