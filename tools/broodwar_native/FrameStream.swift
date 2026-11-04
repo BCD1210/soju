@@ -11,7 +11,7 @@ final class FrameStream {
     }
     let queue=DispatchQueue(label:"soju.bw.hd-stream",qos:.userInitiated)
     private let lock=NSLock()
-    private let resident=ResidentCache<Prepared>(limit:384*1024*1024)
+    private let resident=ResidentCache<Prepared>(limit:192*1024*1024)
     private var pending=Set<String>(),failed=Set<String>()
     private lazy var source=WorldSprites(streaming:false)
     private lazy var loader=MTKTextureLoader(device:source.relief.device)

@@ -11,7 +11,7 @@ final class EffectSprites {
     var textures=[String:NSImage]()
     private let queue=DispatchQueue(label:"soju.bw.effect-stream",qos:.userInitiated)
     private let lock=NSLock()
-    private let resident=ResidentCache<MTLTexture>(limit:64*1024*1024)
+    private let resident=ResidentCache<MTLTexture>(limit:32*1024*1024)
     private var pending=Set<String>(),failed=Set<String>()
     private lazy var loader=MTKTextureLoader(device:MTLCreateSystemDefaultDevice()!)
     private let streaming=useMetalBatches && !CommandLine.arguments.contains("--runtime-check") && !CommandLine.arguments.contains("--effect-proof")

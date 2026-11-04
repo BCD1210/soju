@@ -103,7 +103,7 @@ final class Art {
     let device: MTLDevice
     let manifest: Obj
     lazy var tileCatalog=manifest["tiles"] as? [String:Obj] ?? [:]
-    let textures=ResidentCache<MTLTexture>(limit:256*1024*1024)
+    let textures=ResidentCache<MTLTexture>(limit:128*1024*1024)
     init(device preferred:MTLDevice? = nil) throws {
         guard let d=preferred ?? MTLCreateSystemDefaultDevice(),d.supportsBCTextureCompression else { throw SceneError.invalid("Metal BC texture support required") }
         device=d;manifest=try loadObject(assets.appendingPathComponent("manifest.json"))

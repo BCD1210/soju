@@ -6,8 +6,8 @@ import simd
 // Source depth is an artistic relief, not recovered hidden-side geometry.
 final class SpriteRelief {
     let device=MTLCreateSystemDefaultDevice()!
-    let dataTextures=ResidentCache<MTLTexture>(limit:256*1024*1024)
-    let materials=ResidentCache<SCNMaterial>(limit:64*1024*1024)
+    let dataTextures=ResidentCache<MTLTexture>(limit:96*1024*1024)
+    let materials=ResidentCache<SCNMaterial>(limit:32*1024*1024)
     var meshes=[String:SCNGeometry](),depthAtlases=[String:NSBitmapImageRep]()
     var contactHeights=[String:Float]()
     let alphaAtlases=ResidentCache<NSBitmapImageRep>(limit:128*1024*1024)
