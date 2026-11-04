@@ -149,6 +149,24 @@ final class Commander: NSObject, NSApplicationDelegate {
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender:NSApplication)->Bool { true }
     func refresh() {
+        if let path=argument("--snapshot") {
+            guard !initialized else {return}
+            do {
+                let capture=try loadObject(URL(fileURLWithPath:path))
+                guard let snapshot=capture["state"] as? Obj,
+                    let capturedFog=capture["fog"] as? [String:Int],
+                    let capturedCreep=capture["creepTiles"] as? [Int] else {
+                    throw SceneError.invalid("Snapshot requires native state, fog and creep")
+                }
+                apply(snapshot,[:])
+                fog=Dictionary(uniqueKeysWithValues:capturedFog.compactMap { key,value in
+                    guard let index=Int(key),let byte=UInt8(exactly:value) else {return nil}
+                    return (index,byte)
+                })
+                creepTiles=Set(capturedCreep);updateTerrain();initialized=true
+            } catch {notice="Snapshot: \(error)"}
+            return
+        }
         guard !busy else { return };busy=true
         let center=terrainCenter
         let cx=max(0,min(mapWidth-1,Int(center.x))),cy=max(0,min(mapHeight-1,Int(center.z)))

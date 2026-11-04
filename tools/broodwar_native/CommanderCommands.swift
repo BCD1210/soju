@@ -161,6 +161,7 @@ extension Commander {
         if let data=try? JSONSerialization.data(withJSONObject:object,options:.prettyPrinted) { try? data.write(to:runtime.appendingPathComponent(file),options:.atomic) }
     }
     func command(_ c:Obj) {
+        guard argument("--snapshot")==nil else {notice="Recorded snapshot is read-only";return}
         bridge.queue.async {
             do { let ack=try self.bridge.request(c);DispatchQueue.main.async { self.notice="\(c["op"]!) sent at game frame \(Int(number(ack,"frame")))";self.record("scene-last-command.json",["command":c,"ack":ack,"time":Date().timeIntervalSince1970]) } }
             catch { DispatchQueue.main.async { self.notice="Command: \(error)" } }
