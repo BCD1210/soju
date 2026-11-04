@@ -805,3 +805,51 @@ fn guest_cache_maintenance_reaches_other_vcpu() {
         join.join().unwrap();
     }
 }
+
+#[test]
+#[ignore = "requires ad-hoc hypervisor entitlement; use scripts/test-switch-hv.sh"]
+fn cache_loop_batch_preserves_registers_flags_and_faults() {
+    // DC CIVAC x0; ADD x0,x0,x1; CMP x0,x2; B.LO loop; MRS x3,NZCV; SVC.
+    for (stride, end, expected_traps) in [(64, 256, 1), (32, 256, 8), (64, 257, 1)] {
+        let mut boot = image(&[
+            0xd50b7e20, 0x8b010000, 0xeb02001f, 0x54ffffa3, 0xd53b4203, 0xd4000401,
+        ])
+        .protected_homebrew()
+        .unwrap();
+        boot.x0 = BASE + 0x2000;
+        boot.x1 = stride;
+        let process = soju_switch_core::hv::Process::new(&boot).unwrap();
+        let mut state = soju_switch_core::hv::ThreadState::from_homebrew(&boot);
+        state.registers[2] = boot.x0 + end;
+        let mut cpu = Cpu::attach(process.clone(), state).unwrap();
+        let exit = cpu.run_until_svc().unwrap();
+        assert_eq!(exit.registers[0], boot.x0 + end.div_ceil(stride) * stride);
+        assert_eq!(exit.registers[1], stride);
+        assert_eq!(exit.registers[2], boot.x0 + end);
+        assert_eq!(
+            exit.registers[3],
+            if end % stride == 0 {
+                0x60000000
+            } else {
+                0x20000000
+            }
+        );
+        assert_eq!(
+            process
+                .profile
+                .cache
+                .load(std::sync::atomic::Ordering::Relaxed),
+            expected_traps
+        );
+    }
+    let mut boot = image(&[0xd50b7e20, 0x8b010000, 0xeb02001f, 0x54ffffa3, 0xd4000401])
+        .protected_homebrew()
+        .unwrap();
+    boot.x0 = BASE + 0x3fc0;
+    boot.x1 = 64;
+    let process = soju_switch_core::hv::Process::new(&boot).unwrap();
+    let mut state = soju_switch_core::hv::ThreadState::from_homebrew(&boot);
+    state.registers[2] = BASE + 0x4040;
+    let mut cpu = Cpu::attach(process, state).unwrap();
+    assert!(matches!(cpu.run_until_svc(), Err(Error::Memory(_))));
+}

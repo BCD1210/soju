@@ -54,6 +54,9 @@ pub enum IpcReply {
 /// Handlers use the borrow-only interface, never ownership of the mapped arena.
 /// Deferred requests must eventually call Kernel::complete_ipc from poll().
 pub trait IpcHandler {
+    fn frame_ready(&self) -> bool {
+        false
+    }
     fn dispatch(
         &mut self,
         request: &IpcRequest,
@@ -159,7 +162,17 @@ impl Drop for Worker {
         }
     }
 }
+#[derive(Debug, Default)]
+pub struct RuntimeProfile {
+    pub worker: Duration,
+    pub svc: Duration,
+    pub ipc: Duration,
+    pub poll: Duration,
+    pub sleep: Duration,
+}
 pub struct Runtime {
+    pub profile: RuntimeProfile,
+    pub yield_on_frame: bool,
     process: Arc<Process>,
     kernel: Kernel,
     workers: BTreeMap<ThreadId, Worker>,
@@ -176,6 +189,8 @@ impl Runtime {
             Worker::new(Arc::clone(&process), ThreadState::from_homebrew(boot))?,
         );
         Ok(Self {
+            profile: RuntimeProfile::default(),
+            yield_on_frame: false,
             process,
             kernel: Kernel::new(boot),
             workers,
@@ -237,10 +252,12 @@ impl Runtime {
         request: IpcRequest,
     ) -> Result<Option<Stop>, Error> {
         let mut guard = self.process.lock()?;
-        match handler
+        let started = Instant::now();
+        let reply = handler
             .dispatch(&request, &mut self.kernel, guard.memory())
-            .map_err(Error::Ipc)?
-        {
+            .map_err(Error::Ipc)?;
+        self.profile.ipc += started.elapsed();
+        match reply {
             IpcReply::Complete(results) => {
                 self.kernel
                     .complete_ipc(request.thread, results)
@@ -269,10 +286,14 @@ impl Runtime {
             return Ok(stop);
         }
         loop {
-            if Instant::now() >= deadline || quanta >= max_quanta {
+            if Instant::now() >= deadline
+                || quanta >= max_quanta
+                || (self.yield_on_frame && handler.frame_ready())
+            {
                 return Ok(Stop::BudgetExpired);
             }
             let now = self.now();
+            let poll_started = Instant::now();
             {
                 let mut guard = self.process.lock()?;
                 handler
@@ -282,6 +303,7 @@ impl Runtime {
                     .advance(guard.memory(), now)
                     .map_err(Error::Kernel)?;
             }
+            self.profile.poll += poll_started.elapsed();
             self.sync_workers()?;
             if self.kernel.all_exited() {
                 return Ok(Stop::AllThreadsExited);
@@ -291,7 +313,9 @@ impl Runtime {
                     .kernel
                     .next_deadline()
                     .map_or(1_000_000, |d| d.saturating_sub(now).min(1_000_000));
+                let started = Instant::now();
                 thread::sleep(Duration::from_nanos(wait.max(1)));
+                self.profile.sleep += started.elapsed();
                 continue;
             };
             let results = self.kernel.take_results(id);
@@ -305,15 +329,18 @@ impl Runtime {
                 max_duration: self.quantum.max_duration.min(remaining),
                 max_exits: self.quantum.max_exits,
             };
-            match self
+            let started = Instant::now();
+            let outcome = self
                 .workers
                 .get(&id)
                 .ok_or(Error::Worker)?
-                .run(results, budget)?
-            {
+                .run(results, budget)?;
+            self.profile.worker += started.elapsed();
+            match outcome {
                 RunOutcome::Yield(_) => self.kernel.requeue(id),
                 RunOutcome::Svc(exit) => {
                     let now = self.now();
+                    let started = Instant::now();
                     let dispatch = {
                         let mut guard = self.process.lock()?;
                         self.kernel.dispatch(
@@ -325,6 +352,7 @@ impl Runtime {
                             now,
                         )
                     };
+                    self.profile.svc += started.elapsed();
                     match dispatch {
                         Dispatch::Return(results) => {
                             self.kernel

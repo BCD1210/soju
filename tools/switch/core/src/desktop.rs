@@ -114,9 +114,22 @@ pub fn play(path: &Path, home: &Path) -> Result<(), String> {
     runtime.kernel_mut().program_id = hub.program_id();
     let window = Window::new()?;
     let mut audio = crate::host_audio::Audio::default();
+    runtime.yield_on_frame = true;
     let mut closing = None;
+    let period = Duration::from_nanos(16_666_667);
+    let mut next_frame = Instant::now();
+    let mut first_frame = None;
+    let mut presented = 0u64;
+    let benchmark = std::env::var("SOJU_SWITCH_BENCH_FRAMES")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .filter(|n| *n > 1);
     loop {
+        if closing.is_none() {
+            std::thread::sleep(next_frame.saturating_duration_since(Instant::now()));
+        }
         let (quit, input) = window.poll();
+        let quit = quit || benchmark.is_some_and(|n| presented >= n);
         hub.set_input(input);
         if quit && closing.is_none() {
             let handled = hub
@@ -138,10 +151,26 @@ pub fn play(path: &Path, home: &Path) -> Result<(), String> {
         audio.pump(&mut hub)?;
         if let Some(frame) = hub.take_frame() {
             window.present(&frame)?;
+            let now = Instant::now();
+            first_frame.get_or_insert(now);
+            presented += 1;
+            next_frame += period;
+            if now.saturating_duration_since(next_frame) > period {
+                next_frame = now;
+            }
         }
         if closing.is_some_and(|start| start.elapsed() > Duration::from_secs(5)) {
             return Err("guest did not respond to exit request within five seconds".into());
         }
+    }
+    if benchmark.is_some() {
+        let elapsed = first_frame.map_or(0., |start| start.elapsed().as_secs_f64());
+        eprintln!("Framebuffer conversion: {:?}", hub.frame_conversion_time());
+        eprintln!(
+            "Desktop: {presented} frames in {elapsed:.6}s; {:?}; {:?}",
+            runtime.process().profile,
+            runtime.profile
+        );
     }
     hub.finish().map_err(|e| e.to_string())
 }

@@ -26,6 +26,7 @@ pub struct Media {
     audio: BTreeMap<ObjectId, audio::Output>,
     retired_events: Vec<Handle>,
     frame: Option<Frame>,
+    pub frame_conversion_time: std::time::Duration,
 }
 impl Media {
     pub fn open(&mut self, name: &str, ctx: &mut Context<'_>) -> Result<Handle, Error> {
@@ -92,6 +93,9 @@ impl Media {
             output.poll(kernel, now_ns)?;
         }
         Ok(())
+    }
+    pub fn frame_ready(&self) -> bool {
+        self.frame.is_some()
     }
     pub fn take_frame(&mut self) -> Option<Frame> {
         self.frame.take()

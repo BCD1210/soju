@@ -100,23 +100,55 @@ human listening check was performed; real-homebrew music remains unverified.
 
 ## Measured speed
 
-`scripts/test-switch-homebrew.sh` measures first converted frame and the next
-60 headless frames, then runs the same frame count on Unicorn. Two runs:
+The cache-maintenance path was the steady-state bottleneck. A signed release
+baseline on 2026-11-03 measured 60 frames in 6.559738 s (**9.147 fps**) against
+Unicorn's 18.918 fps. It generated 3,686,700 system-register exits (3,686,400
+cache operations), 241 SVC exits and 13 canceled exits: **562,058 exits/s**.
+`sample <pid> 3 1` captured the worker/Hypervisor path and watchdog thread churn;
+the guest flushed 61,440 individual 64-byte cache lines per frame.
 
-| Runner | First frame | Next 60 frames | Frames/s |
-| --- | --- | --- | --- |
-| Rust release, run 1 | 0.312 s | 7.876 s | 7.62 |
-| Unicorn 2.1.4, run 1 | 0.456 s | 3.628 s | 16.54 |
-| Rust release, run 2 | 0.186 s | 6.454 s | 9.30 |
-| Unicorn 2.1.4, run 2 | 0.347 s | 2.141 s | 28.03 |
+The runner now coalesces a recognized data-cache loop (DC, ADD by 64, CMP,
+B.LO) into at most 256 KiB per trap. It validates executable loop instructions
+and every readable operand page, flushes each host backing page, and leaves
+the final ADD/CMP/branch to the guest to preserve flags. Unrecognized loops,
+non-64-byte strides, inaccessible ranges and instruction-cache operations retain
+the scalar path. No guest code is patched. Synthetic signed tests check registers,
+NZCV, fallback strides and faults, alongside existing cross-vCPU code-publication
+tests. The watchdog remains bounded and unchanged.
 
-Both paths include service handling and RGBA conversion on every measured frame,
-without PNG encoding or a host window. Python uses the installed native frame
-converter. Each starts with an empty save home and no input during measurement.
-Rust is **slower in steady state** here: 0.33–0.46× Unicorn's throughput, despite
-a faster first frame. Host load was not controlled; the spread is substantial.
-These are observations, not a performance guarantee. Hypervisor guest instruction
-counts are not available, so this is a frames/second comparison.
+Afterward, with the runtime yielding on each completed frame, 60 headless frames
+took **0.095226 s (630.08 fps)**: 1,200 system-register exits (900 cache operations),
+241 SVC exits and zero canceled exits, or **15,132 exits/s**. This measures guest
+frames plus conversion without PNG encoding. Unicorn in that run measured
+15.456 fps; host load was not controlled. Earlier optimized samples without
+immediate frame yielding measured 409–427 observed frames/s and dropped some
+intermediate frames. The automated input test now allows wall-clock time for
+animation/debounce, retaining three distinct input changes and exact save restore.
+
+The desktop yields as soon as Binder queues a frame, requests SDL presentation
+vsync, and uses absolute 60 Hz deadlines. It does not run extra guest frames while
+waiting. A 600-frame window run took 9.976383 s from first presentation through
+teardown, approximately **60 fps**. Full process `/usr/bin/time -l`: 10.55 s real,
+1.56 s user, 0.73 s system (about **22% of one core**, including startup/teardown).
+Its 14,639 total VM exits over the full process duration average **1,388 exits/s**.
+Totals include startup: 12,008 system exits (9,000 cache), 2,607 SVC, 24 translation
+maintenance, zero canceled. Conversion/copy took 648.64 ms; total IPC 669.36 ms
+(includes conversion); worker round trips 583.65 ms; SVC 22.41 ms; service polling
+8.94 ms; process-lock acquisition 0.788 ms. Kernel idle sleeps were zero for this
+workload; pacing sleeps and presentation account for most remaining wall time.
+This is one window measurement, not a guarantee under every host load.
+
+Reproduce the window benchmark with a signed desktop release and an isolated home:
+
+```sh
+SOJU_SWITCH_HOME="$PWD/dist/perf-home" SOJU_SWITCH_BENCH_FRAMES=600 \
+  /usr/bin/time -l tools/switch/core/target/release/soju-switch-core \
+  --play "$HOME/.local/share/soju/switch/demo/2048-1.1.0.nro"
+```
+
+`SOJU_SWITCH_BENCH_FRAMES` requests graceful exit after the selected presentation
+count and prints exit categories, lock wait, service and conversion timing.
+Local raw evidence is under `~/.local/share/soju/switch/proof/performance/`.
 
 ## Architecture and boundaries
 

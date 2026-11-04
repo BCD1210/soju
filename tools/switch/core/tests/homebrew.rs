@@ -19,7 +19,9 @@ fn boot(path: &Path, home: &Path) -> (Runtime, Hub) {
 fn frame(rt: &mut Runtime, hub: &mut Hub) -> Frame {
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {
+        rt.yield_on_frame = true;
         let stop = rt.run(hub, Duration::from_millis(2), 10000).unwrap();
+        rt.yield_on_frame = false;
         if let Some(frame) = hub.take_frame() {
             return frame;
         }
@@ -58,6 +60,7 @@ fn three_moves_save_restart_and_exit() {
         first.height
     );
     let mut last = first;
+    println!("Profile before: {:?}", rt.process().profile);
     let start = Instant::now();
     for _ in 0..60 {
         last = frame(&mut rt, &mut hub);
@@ -67,6 +70,16 @@ fn three_moves_save_restart_and_exit() {
         start.elapsed().as_secs_f64(),
         60. / start.elapsed().as_secs_f64()
     );
+    println!(
+        "Profile after: {:?}; timing: {:?}",
+        rt.process().profile,
+        rt.profile
+    );
+    // Input debounce and animation use wall-clock time, not frame counts.
+    for _ in 0..60 {
+        std::thread::sleep(Duration::from_nanos(16_666_667));
+        last = frame(&mut rt, &mut hub);
+    }
     for key in [
         soju_switch_input::mapping::keys::LEFT,
         soju_switch_input::mapping::keys::DOWN,
@@ -75,13 +88,15 @@ fn three_moves_save_restart_and_exit() {
         hub.set_input(soju_switch_input::mapping::from_keyboard(&[key]));
         let before = last.pixels.clone();
         for _ in 0..4 {
+            std::thread::sleep(Duration::from_nanos(16_666_667));
             last = frame(&mut rt, &mut hub);
         }
         hub.set_buttons(0);
         for _ in 0..4 {
+            std::thread::sleep(Duration::from_nanos(16_666_667));
             last = frame(&mut rt, &mut hub);
         }
-        assert_ne!(before, last.pixels, "input {key} did not change board");
+        assert!(before != last.pixels, "input {key} did not change board");
     }
     exit(&mut rt, &mut hub);
     drop(hub);
@@ -100,8 +115,8 @@ fn three_moves_save_restart_and_exit() {
     );
     let (mut rt, mut hub) = boot(path, &home);
     let restored = frame(&mut rt, &mut hub);
-    assert_eq!(
-        restored.pixels, last.pixels,
+    assert!(
+        restored.pixels == last.pixels,
         "saved board did not restore exactly"
     );
     exit(&mut rt, &mut hub);

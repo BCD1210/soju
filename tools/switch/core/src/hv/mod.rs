@@ -8,6 +8,7 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::ptr;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, mpsc};
 use std::time::{Duration, Instant};
 
@@ -65,9 +66,21 @@ pub struct SvcExit {
     pub timer_reads: usize,
 }
 
+/// VM exits; cache is a subset of system-register exits.
+#[derive(Debug, Default)]
+pub struct ExitProfile {
+    pub canceled: AtomicU64,
+    pub svc: AtomicU64,
+    pub system: AtomicU64,
+    pub cache: AtomicU64,
+    pub maintenance: AtomicU64,
+    pub lock_wait_ns: AtomicU64,
+}
+
 /// The single VM and its memory. The mutex serializes ALL guest execution and
 /// host memory access; vCPUs hold an Arc until their thread-affine destruction.
 pub struct Process {
+    pub profile: ExitProfile,
     memory: Mutex<MemoryImage>,
     start: Instant,
     mapped: bool,
@@ -89,6 +102,7 @@ impl Process {
         *lease = true;
         drop(lease);
         let mut process = Self {
+            profile: ExitProfile::default(),
             memory: Mutex::new(memory),
             start: Instant::now(),
             mapped: false,
@@ -107,9 +121,14 @@ impl Process {
         Ok(Arc::new(process))
     }
     pub fn lock(&self) -> Result<ProcessGuard<'_>, Error> {
+        let started = Instant::now();
+        let memory = self.memory.lock().map_err(|_| Error::Lock)?;
+        self.profile
+            .lock_wait_ns
+            .fetch_add(started.elapsed().as_nanos() as u64, Ordering::Relaxed);
         Ok(ProcessGuard {
             process: self,
-            memory: self.memory.lock().map_err(|_| Error::Lock)?,
+            memory,
         })
     }
     pub fn elapsed_ns(&self) -> u64 {
@@ -365,8 +384,16 @@ impl Cpu {
             // SAFETY: exit storage is valid while this CPU is live.
             let exit = unsafe { *self.exit };
             if exit.reason == 0 {
+                self.process
+                    .profile
+                    .canceled
+                    .fetch_add(1, Ordering::Relaxed);
                 continue;
             }
+            self.process
+                .profile
+                .maintenance
+                .fetch_add(1, Ordering::Relaxed);
             if exit.reason != 1
                 || exit.exception.syndrome >> 26 != 0x16
                 || exit.exception.syndrome & 0xffff != 1
@@ -442,6 +469,60 @@ impl Cpu {
             RunOutcome::Yield(YieldReason::ExitBudget) => Err(Error::ExitBudget),
         }
     }
+    /// Coalesce a bounded, side-effect-free data-cache maintenance loop. The
+    /// final ADD/CMP/branch execute in the guest, retaining exact NZCV semantics.
+    /// Other instruction sequences and inaccessible ranges take the scalar path.
+    fn batch_cache_loop(
+        &mut self,
+        guard: &mut ProcessGuard<'_>,
+        pc: u64,
+        rt: u32,
+        address: u64,
+    ) -> Result<bool, Error> {
+        let mut code = [0; 12];
+        if guard.memory.check_access(pc + 4, 12, 5).is_err()
+            || guard.memory.read(pc + 4, &mut code).is_err()
+        {
+            return Ok(false);
+        }
+        let words: Vec<u32> = code
+            .chunks_exact(4)
+            .map(|v| u32::from_le_bytes(v.try_into().unwrap()))
+            .collect();
+        let (add, cmp, branch) = (words[0], words[1], words[2]);
+        if add & 0xffe0fc00 != 0x8b000000
+            || add & 31 != rt
+            || (add >> 5) & 31 != rt
+            || (add >> 16) & 31 == rt
+            || cmp & 0xffe0fc1f != 0xeb00001f
+            || (cmp >> 5) & 31 != rt
+            || (cmp >> 16) & 31 == rt
+            || branch != 0x54ffffa3
+        {
+            return Ok(false);
+        }
+        let operand = |r| if r == 31 { Ok(0) } else { self.reg(r) };
+        if operand((add >> 16) & 31)? != 64 {
+            return Ok(false);
+        }
+        let end = operand((cmp >> 16) & 31)?;
+        let count = end.saturating_sub(address).div_ceil(64).clamp(1, 4096);
+        let Some(last) = address.checked_add((count - 1) * 64) else {
+            return Ok(false);
+        };
+        if count < 2 || last.checked_add(64).is_none() {
+            return Ok(false);
+        }
+        if !guard
+            .memory
+            .cache_data_range(address & !63, count as usize * 64)
+            .map_err(Error::Memory)?
+        {
+            return Ok(false);
+        }
+        self.set_reg(rt, last)?;
+        Ok(true)
+    }
     fn run_exits(
         &mut self,
         guard: &mut ProcessGuard<'_>,
@@ -458,6 +539,10 @@ impl Cpu {
             // SAFETY: framework-provided exit storage lives until vCPU destruction.
             let exit = unsafe { *self.exit };
             if exit.reason == 0 {
+                self.process
+                    .profile
+                    .canceled
+                    .fetch_add(1, Ordering::Relaxed);
                 return Ok(RunOutcome::Yield(YieldReason::Deadline));
             }
             if exit.reason != 1 || exit.exception.syndrome >> 26 != 0x16 {
@@ -477,6 +562,7 @@ impl Cpu {
             let elr = self.sys(ffi::ELR_EL1)?;
             match syndrome >> 26 {
                 0x15 => {
+                    self.process.profile.svc.fetch_add(1, Ordering::Relaxed);
                     let mut registers = [0; 31];
                     for (index, value) in registers.iter_mut().enumerate() {
                         *value = self.reg(index as u32)?;
@@ -491,6 +577,7 @@ impl Cpu {
                     })));
                 }
                 0x18 => {
+                    self.process.profile.system.fetch_add(1, Ordering::Relaxed);
                     // ESR system-register ISS: Op0[21:20], Op2[19:17], Op1[16:14],
                     // CRn[13:10], Rt[9:5], CRm[4:1], direction[0].
                     let iss = syndrome & 0x1ffffff;
@@ -523,11 +610,19 @@ impl Cpu {
                         // DC CVAC/CVAU/CIVAC and IC IVAU. The virtual operand is
                         // translated through checked metadata, never a host pointer.
                         (1, 3, 7, 10 | 11 | 14 | 5, 1, 0) => {
+                            self.process.profile.cache.fetch_add(1, Ordering::Relaxed);
                             let address = if rt == 31 { 0 } else { self.reg(rt)? };
-                            guard
-                                .memory
-                                .cache_line(address, crm == 5)
-                                .map_err(Error::Memory)?;
+                            let batched = if crm != 5 && rt != 31 {
+                                self.batch_cache_loop(guard, elr, rt, address)?
+                            } else {
+                                false
+                            };
+                            if !batched {
+                                guard
+                                    .memory
+                                    .cache_line(address, crm == 5)
+                                    .map_err(Error::Memory)?;
+                            }
                         }
                         (1, 3, 7, 4, 1, 0) => {
                             let address = if rt == 31 { 0 } else { self.reg(rt)? };

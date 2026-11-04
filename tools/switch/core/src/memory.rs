@@ -301,6 +301,28 @@ impl MemoryImage {
         }
         Ok(())
     }
+    /// Validate the entire batch before any effect; inaccessible ranges fall
+    /// back to scalar maintenance so the first failing guest operand is retained.
+    #[cfg(all(feature = "hv", target_os = "macos", target_arch = "aarch64"))]
+    pub(crate) fn cache_data_range(&mut self, address: u64, size: usize) -> Result<bool, Error> {
+        if self.access(address, size, 1).is_err() {
+            return Ok(false);
+        }
+        unsafe extern "C" {
+            fn sys_dcache_flush(start: *mut std::ffi::c_void, len: usize);
+        }
+        let mut at = address;
+        let end = address + size as u64;
+        while at < end {
+            let physical = self.pages[&(at & !4095)].physical;
+            let offset = (physical - PHYSICAL_BASE + (at & 4095)) as usize;
+            let len = (end - at).min(4096 - (at & 4095)) as usize;
+            // SAFETY: checked readable pages, with exclusive process ownership.
+            unsafe { sys_dcache_flush(self.arena.as_ptr().add(offset).cast(), len) };
+            at += len as u64;
+        }
+        Ok(true)
+    }
     pub(crate) fn publish(&mut self) {
         for (at, value) in std::mem::take(&mut self.pending) {
             if value != 0 && value & (1 << 54) == 0 {

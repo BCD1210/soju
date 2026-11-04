@@ -81,6 +81,9 @@ impl Hub {
     pub fn request_exit(&mut self, kernel: &mut Kernel) -> Result<bool, Error> {
         self.platform.request_exit(kernel)
     }
+    pub fn frame_conversion_time(&self) -> std::time::Duration {
+        self.media.frame_conversion_time
+    }
     pub fn take_frame(&mut self) -> Option<Frame> {
         self.media.take_frame()
     }
@@ -483,6 +486,9 @@ fn apply(memory: &mut dyn GuestMemory, writes: Vec<MemoryWrite>) -> Result<(), A
 }
 #[cfg(all(feature = "hv", target_os = "macos", target_arch = "aarch64"))]
 impl crate::runtime::IpcHandler for Hub {
+    fn frame_ready(&self) -> bool {
+        self.media.frame_ready()
+    }
     fn dispatch(
         &mut self,
         request: &IpcRequest,

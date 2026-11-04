@@ -111,12 +111,15 @@ fn queue(media: &mut Media, req: &Request, ctx: &mut Context<'_>) -> Result<Repl
         .get(&slot)
         .ok_or(Error::Malformed("buffer slot"))?;
     let reply = reply(req, ctx, &words(&[buffer.width, buffer.height, 0, 0, 0]))?;
+    let started = std::time::Instant::now();
     let frame = buffer.pixels(ctx)?;
+    let conversion_time = started.elapsed();
     display.dequeued.remove(&slot);
     display.available.insert(slot);
     if let Some(event) = display.event {
         ctx.kernel.signal_event(event).map_err(Error::Kernel)?;
     }
+    media.frame_conversion_time += conversion_time;
     media.frame = Some(frame);
     Ok(reply)
 }
