@@ -6,6 +6,7 @@ mod error_tests;
 #[cfg(test)]
 mod exit_tests;
 mod fonts;
+mod network;
 mod settings;
 mod shared;
 #[cfg(test)]
@@ -54,6 +55,11 @@ enum Kind {
     Apm,
     Fonts,
     Bsd,
+    Ssl,
+    Dns,
+    Random,
+    Nifm,
+    Network,
 }
 struct Object {
     kind: Kind,
@@ -124,6 +130,10 @@ impl Platform {
             "apm:p" => Kind::Apm,
             "pl:u" => Kind::Fonts,
             "bsd:s" | "bsd:u" => Kind::Bsd,
+            "ssl" => Kind::Ssl,
+            "sfdnsres" => Kind::Dns,
+            "csrng" => Kind::Random,
+            "nifm:u" => Kind::Nifm,
             _ => return Err(Error::Malformed("unknown platform service")),
         };
         self.session(kind, ctx)

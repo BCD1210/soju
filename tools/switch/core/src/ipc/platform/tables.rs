@@ -129,7 +129,29 @@ pub(super) fn table(kind: Kind) -> &'static [CommandSpec<Platform>] {
                 ]
             }
         }
-        Kind::Bsd => const { &[c(0, 0, success), c(1, 0, success)] },
+        Kind::Bsd => network::BSD,
+        Kind::Ssl => network::SSL,
+        Kind::Dns => network::DNS,
+        Kind::Nifm => {
+            const {
+                &[
+                    c(4, 0, |s, _, c| s.child(Kind::Network, c)),
+                    c(5, 8, |s, _, c| s.child(Kind::Network, c)),
+                ]
+            }
+        }
+        Kind::Network => {
+            const {
+                &[
+                    c(5, 0, network::unavailable),
+                    c(12, 0, network::unavailable),
+                    c(18, 0, zero),
+                    c(21, 0, zero),
+                    c(22, 0, zero),
+                ]
+            }
+        }
+        Kind::Random => const { &[c(0, 0, network::random)] },
     }
 }
 fn clock_child(s: &mut Platform, _: &Request, x: &mut Context<'_>) -> Result<Reply, Error> {
