@@ -111,6 +111,35 @@ attachments for color clears and draws with depth/stencil tests disabled.
 Enabled depth bounds, nonzero depth layers and unsupported raster modes stop.
 
 Run all six scenes with `bash scripts/test-switch-gpu-accepted.sh`.
+
+## OpenGL es2gears
+
+The suite now runs **seven scenes**. `opengl-es2gears.png` is the first native
+Metal presentation of the unmodified local sample, with a fixed capture clock
+and synchronous pipeline compilation. The probe's 30-second timeout is not used
+as acceptance; `gpu_gears.rs` requires successful process completion and checks
+the captured image.
+
+The oracle independently intersects camera rays with the three gear front
+planes using the source's 60-degree projection, view rotations (20,30,0), gear
+centers, radii and widths. Samples inside the front annuli avoid teeth and edges;
+front colors use the source materials and transformed normal dotted with the
+normalized (5,5,10) light. Rays missing every bounded gear cylinder check the
+black clear color. It checks **33,755 red + 3,860 green + 1,985 blue + 823,418
+background = 863,018 RGB pixels**, tolerance two channel units. Side faces,
+tooth edges and alpha are not validated by this oracle.
+
+Required fixes: S8Z24 depth import/writeback, bounded control-flow shader extent
+discovery, FMNMX.FTZ, and separate host bindings for vertex streams and constants.
+The native depth and vertex-binding regressions failed before their fixes.
+The control-flow tests also failed under a target-bound mutation and passed
+after restoring the implementation. The FMNMX test failed before lowering.
+
+- Capture SHA-256: `e18f109428a3b7bfe621184f8e466c003917d8fb85f09b901ddd0489f143176e`
+- Local `es2gears/source/main.c`: `7a0208e4776261081c78c98dd4d3b8e8b3b0aa4de3cf690bfbda48a8e3fe47af`
+- Local NRO: `e5f1f9140bd86ffe8fa77feaf421d93c6b89c40d5292680675672636b8ab2952`
+
+Run `bash scripts/test-switch-gpu-accepted.sh`. No input NRO is committed.
 Native scenes run serially. Host load cannot advance the frozen guest animation
 counter. These tests remain initial-pose checks; they do not establish normal
 animation timing correctness. `python3 scripts/soak-switch-gpu.py` copies immutable
