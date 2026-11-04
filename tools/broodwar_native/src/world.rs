@@ -38,7 +38,13 @@ pub unsafe fn unit_info(ptr:*mut Unit,all:&HashSet<usize>,player:usize,details:b
     let ti=if (*turret).flingy.sprite.is_null(){std::ptr::null_mut()}else{(*(*turret).flingy.sprite).version_specific.scr.main_image};
     let dead=u.order==bw_dat::order::DIE.0;
     let hidden=sprite.is_null() || (*sprite).flags&0x20!=0 || u.flags&0x60!=0;
-    json!({"id":handle(ptr),"type":u.unit_id,"owner":u.player,
+    // The rally union is a pylon linked list for type156; expose only owned
+    // building rally state, matching bw_dat Unit::rally_unit's layout guard.
+    let rally=if u.player as usize==player && kind.is_building() && kind!=bw_dat::unit::PYLON {
+        let rally=u.rally_pylon.rally;
+        json!({"x":rally.pos.x,"y":rally.pos.y,"target":target_id(rally.unit,all,player)})
+    } else {Value::Null};
+    json!({"id":handle(ptr),"type":u.unit_id,"owner":u.player,"rally":rally,
         "x":u.flingy.position.x,"y":u.flingy.position.y,"facing":u.flingy.facing_direction,
         "movementDirection":u.flingy.movement_direction,"speed":u.flingy.current_speed,
         "hp":u.flingy.hitpoints as f64/256.0,"maxHP":kind.hitpoints() as f64/256.0,

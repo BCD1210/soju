@@ -4,9 +4,9 @@ use bw_dat::{structs::{Game, Unit}, UnitId};
 use serde_json::{json, Value};
 use super::{Runtime, VARS, active_units, handle, visible, log, world, production};
 
-// SAFETY: caller runs on the game thread and passes an owned live unit from
-// active_units. send_command consumes the byte slices before returning.
-unsafe fn send_one(r: &Runtime, producer: *mut Unit, command: &[u8]) -> Result<(), &'static str> {
+// SAFETY: caller runs on the game thread and passes a live unit from
+// active_units. The pool getter and unit remain valid during tag encoding.
+unsafe fn unit_tag(r: &Runtime, producer: *mut Unit) -> Result<u32, &'static str> {
         let mut base = std::ptr::null_mut();
         let mut count = 0;
         (r.array)(&mut base,&mut count);
@@ -16,7 +16,13 @@ unsafe fn send_one(r: &Runtime, producer: *mut Unit, command: &[u8]) -> Result<(
         let index = delta / stride;
         let bits = if count > 1700 {13} else {11};
         if index+1 >= (1<<bits) { return Err("unit index overflow"); }
-        let uid = (index as u32+1) | (((*producer).minor_unique_index as u32)<<bits);
+        Ok((index as u32+1) | (((*producer).minor_unique_index as u32)<<bits))
+}
+
+// SAFETY: selected unit is live and owned; the original handler consumes bytes
+// synchronously on the game thread. Unit tags are checked against the pool.
+unsafe fn send_one(r: &Runtime, producer: *mut Unit, command: &[u8]) -> Result<(), &'static str> {
+        let uid = unit_tag(r,producer)?;
         let mut select = vec![0x63,1];
         select.extend(uid.to_le_bytes());
         (r.send)(select.as_ptr().cast(),select.len() as u32);
@@ -114,6 +120,26 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         },
         None => std::ptr::null_mut()
     };
+    if op == "rally" {
+        if selected.iter().any(|&u| !UnitId((*u).unit_id).is_building()) {
+            return Err("rally requires a production building");
+        }
+        let (x,y,tag) = if target.is_null() {
+            let x=req["x"].as_u64().ok_or("invalid x")?;
+            let y=req["y"].as_u64().ok_or("invalid y")?;
+            if x>=u64::from(game.map_width_tiles)*32 || y>=u64::from(game.map_height_tiles)*32 {
+                return Err("outside map");
+            }
+            (u16::try_from(x).map_err(|_| "x overflow")?,u16::try_from(y).map_err(|_| "y overflow")?,0)
+        } else {
+            (u16::try_from((*target).flingy.position.x).map_err(|_| "target outside map")?,
+             u16::try_from((*target).flingy.position.y).map_err(|_| "target outside map")?,unit_tag(r,target)?)
+        };
+        let packet=production::rally_packet(x,y,tag);
+        for &producer in &selected {send_one(r,producer,&packet)?;}
+        r.sequence.store(seq,Ordering::Relaxed);
+        return Ok(json!({"ok":true,"seq":seq,"frame":game.frame_count,"queued":true}));
+    }
     let (order, x, y) = match op {
         "move" | "attack_move" | "patrol" => {
             let x = req["x"].as_u64().ok_or("invalid x")?;
@@ -146,17 +172,6 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
             let kind=UnitId((*selected[0]).unit_id);
             if kind.cargo_space_provided()==0 {return Err("selected unit is not a transport");}
             (if kind.0==125 {95} else {94},u32::try_from((*target).flingy.position.x).map_err(|_| "target outside map")?,u32::try_from((*target).flingy.position.y).map_err(|_| "target outside map")?)
-        },
-        "rally" => {
-            if selected.iter().any(|&u| !UnitId((*u).unit_id).is_building()) {return Err("rally requires a production building");}
-            if !target.is_null() {
-                (39,u32::try_from((*target).flingy.position.x).map_err(|_| "target outside map")?,u32::try_from((*target).flingy.position.y).map_err(|_| "target outside map")?)
-            } else {
-                let x=req["x"].as_u64().ok_or("invalid x")?;
-                let y=req["y"].as_u64().ok_or("invalid y")?;
-                if x>=u64::from(game.map_width_tiles)*32 || y>=u64::from(game.map_height_tiles)*32 {return Err("outside map");}
-                (40,u32::try_from(x).map_err(|_| "x overflow")?,u32::try_from(y).map_err(|_| "y overflow")?)
-            }
         },
         "hold" => (107,0,0),
         "stop" => (1,0,0),
