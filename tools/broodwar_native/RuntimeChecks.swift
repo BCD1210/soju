@@ -434,6 +434,14 @@ func runtimeChecks()throws {
         exactCorners = exactCorners && g.corner(x,y,x,y)==expected
     }}
     try require(exactCorners,"immutable terrain corners match original height sampling inside and outside the map")
+    var exactElevation=true
+    for row in -8...footprintGround.height*8+8 {for column in -8...footprintGround.width*8+8 {
+        let x=Double(column)/32,z=Double(row)/32,sx=x*16,sy=z*16,ix=floor(sx),iy=floor(sy),fx=sx-ix,fy=sy-iy,g=footprintGround
+        let a=g.profile(ix/16,iy/16),b=g.profile(ix/16,(iy+1)/16),c=g.profile((ix+1)/16,(iy+1)/16),d=g.profile((ix+1)/16,iy/16)
+        let expected=fy>=fx ? a*(1-fy)+b*(fy-fx)+c*fx:a*(1-fx)+c*fy+d*(fx-fy)
+        exactElevation = exactElevation && g.elevation(x,z)==expected
+    }}
+    try require(exactElevation,"cached contact grid matches original interpolation across slopes, triangles and map edges")
     let footprintUnit:Obj=["x":64,"y":64,"building":true,"footprintWidth":64,"footprintHeight":64]
     try require(footprintGround.elevation(2,2)==0 && footprintGround.buildingElevation(footprintUnit)==2,"building support includes elevated footprint corners beyond its center")
     let foundationSource=SpriteRelief.Mesh(vertices:[SCNVector3(-1,0,0),SCNVector3(1,0,0),SCNVector3(-1,1,0),SCNVector3(1,1,0)],uv:[CGPoint](repeating:.zero,count:4),indices:[0,1,2,1,3,2],baseHeights:[0,0,0,0],baseSamples:[0,1])

@@ -4,7 +4,7 @@ import simd
 
 final class Terrain3D {
     let width:Int,height:Int,flags:[Int],heights:[Double],ramps:Set<Int>
-    private let cornerHeights:[Double]
+    private let cornerHeights:[Double],elevationSamples:[Double]
     init(url:URL)throws {
         let data=try loadObject(url)
         width=Int(number(data,"width"));height=Int(number(data,"height"))
@@ -18,6 +18,18 @@ final class Terrain3D {
             corners.append((sample(x-1,y-1)+sample(x,y-1)+sample(x-1,y)+sample(x,y))/4)
         }}
         cornerHeights=corners
+        func corner(_ x:Int,_ y:Int)->Double {
+            if x>=0 && x<=columns && y>=0 && y<=rows {return corners[y*(columns+1)+x]}
+            return (sample(x-1,y-1)+sample(x,y-1)+sample(x-1,y)+sample(x,y))/4
+        }
+        var samples=[Double]();samples.reserveCapacity((columns*4+1)*(rows*4+1))
+        for y in 0...rows*4 {for x in 0...columns*4 {
+            let ix=x/4,iy=y/4,a=corner(ix,iy),b=corner(ix,iy+1),c=corner(ix+1,iy+1),d=corner(ix+1,iy)
+            var fx=Double(x%4)/4,fy=Double(y%4)/4
+            fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy)
+            samples.append(a*(1-fx)*(1-fy)+b*(1-fx)*fy+c*fx*fy+d*fx*(1-fy))
+        }}
+        elevationSamples=samples
     }
     func index(_ x:Int,_ y:Int)->Int { max(0,min(height-1,y))*width+max(0,min(width-1,x)) }
     // Height never shifts the native horizontal map domain. A height-dependent
@@ -51,8 +63,15 @@ final class Terrain3D {
     }
     func elevation(_ x:Double,_ z:Double)->Double {
         let sx=x*16,sy=z*16,ix=floor(sx),iy=floor(sy),fx=sx-ix,fy=sy-iy
-        let a=profile(ix/16,iy/16),b=profile(ix/16,(iy+1)/16)
-        let c=profile((ix+1)/16,(iy+1)/16),d=profile((ix+1)/16,iy/16)
+        let a:Double,b:Double,c:Double,d:Double
+        if ix>=0 && iy>=0 && ix<Double(width*4) && iy<Double(height*4) {
+            let stride=width*4+1,index=Int(iy)*stride+Int(ix)
+            a=elevationSamples[index];b=elevationSamples[index+stride]
+            c=elevationSamples[index+stride+1];d=elevationSamples[index+1]
+        } else {
+            a=profile(ix/16,iy/16);b=profile(ix/16,(iy+1)/16)
+            c=profile((ix+1)/16,(iy+1)/16);d=profile((ix+1)/16,iy/16)
+        }
         return fy>=fx ? a*(1-fy)+b*(fy-fx)+c*fx:a*(1-fx)+c*fy+d*(fx-fy)
     }
     func buildingElevation(_ unit:Obj)->Double {
