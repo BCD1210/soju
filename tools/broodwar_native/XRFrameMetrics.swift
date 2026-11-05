@@ -65,6 +65,10 @@ final class XRFrameMetrics {
         guard enabled,timing.native>0,timing.bridgeRead>0,timing.published>0 else {return}
         if timing.native != lastLatencyNative {
             lastLatencyNative=timing.native
+            if timing.bridgeWireRead>0 {
+                stages["nativeToWire"]?.add((timing.bridgeWireRead-timing.native)*1000)
+                stages["bridgeJSONDecode"]?.add((timing.bridgeRead-timing.bridgeWireRead)*1000)
+            }
             for (key,value) in [("bridgeRoundTrip",timing.bridgeRead-timing.bridgeStarted),("nativeToBridge",timing.bridgeRead-timing.native),("bridgeToWorker",timing.workerStarted-timing.bridgeRead),("workerToPacket",timing.published-timing.workerStarted)] {latency[key]?.add(value*1000)}
         }
         latency["nativeToPacket"]?.add((timing.published-timing.native)*1000)
@@ -78,7 +82,7 @@ final class XRFrameMetrics {
     }
     private let intervals=FrameDistribution(),cpu=FrameDistribution(),gpu=FrameDistribution()
     private let stages: [String:FrameDistribution]=Dictionary(uniqueKeysWithValues:
-        ["billboardUpdate","eyeSetup","renderEncodeEye","eyePostRender"].map{($0,FrameDistribution())})
+        ["billboardUpdate","eyeSetup","renderEncodeEye","eyePostRender","desktopDrawableWait","desktopSubmitToPresented","nativeToWire","bridgeJSONDecode"].map{($0,FrameDistribution())})
     private let waitTiming=FrameDistribution(),acquireTiming=FrameDistribution(),endTiming=FrameDistribution(),afterWaitTiming=FrameDistribution()
     private var periodMs=0.0,lateSubmissions:UInt64=0,lifecycleSamples:UInt64=0
     private var allocationBefore=malloc_statistics_t()

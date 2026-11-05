@@ -51,6 +51,17 @@ for size in [10000,100000,2*1024*1024] {
     require(result==Data(input))
 }
 let input=[UInt8](repeating:1,count:10000)
+var reused=SnapshotWire();var reusedResult:Data?
+for i in 0..<2 {
+    let datagram=packet(input,i)
+    var receiveBuffer=[UInt8](repeating:255,count:65535)
+    receiveBuffer.replaceSubrange(0..<datagram.count,with:datagram)
+    reusedResult=try reused.accept(receiveBuffer,count:datagram.count)
+}
+require(reusedResult==Data(input))
+var invalidLength=SnapshotWire()
+do { _=try invalidLength.accept([1,2],count:3);fatalError("oversized datagram accepted") } catch {}
+do { _=try invalidLength.accept([1,2],count:-1);fatalError("negative datagram accepted") } catch {}
 var partial=SnapshotWire();require(try partial.accept(packet(input,0))==nil)
 do { _=try partial.accept(packet(input,0));fatalError("duplicate accepted") } catch {}
 var mixed=SnapshotWire();_=try mixed.accept(packet(input,0))

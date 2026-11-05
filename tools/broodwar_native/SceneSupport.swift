@@ -25,21 +25,29 @@ func u32(_ b: [UInt8], _ p: Int) -> UInt32 {
 }
 // A snapshot is applied only after every bounded chunk of the same response arrives.
 struct SnapshotWire {
-    var parts=[Int:[UInt8]]();var identity:[UInt32]?
-    mutating func accept(_ bytes:[UInt8]) throws -> Data? {
-        if !bytes.starts(with:[83,66,87,49]) {
+    private var received=Set<Int>(),storage=Data()
+    var identity:[UInt32]?
+    mutating func accept(_ bytes:[UInt8],count length:Int?=nil) throws -> Data? {
+        let length=length ?? bytes.count
+        guard length>=0,length<=bytes.count else {throw SceneError.invalid("Invalid datagram length")}
+        if length<4 || !bytes.starts(with:[83,66,87,49]) {
             guard identity==nil else { throw SceneError.invalid("Mixed snapshot response") }
-            return Data(bytes)
+            return Data(bytes.prefix(length))
         }
-        guard bytes.count>=16 else { throw SceneError.invalid("Short snapshot chunk") }
+        guard length>=16 else { throw SceneError.invalid("Short snapshot chunk") }
         let response=u32(bytes,4),index=Int(bytes[8])|Int(bytes[9])<<8
         let count=Int(bytes[10])|Int(bytes[11])<<8,total=Int(u32(bytes,12)),chunk=8176
         guard total>0,total<=2*1024*1024,count==(total+chunk-1)/chunk,index<count else { throw SceneError.invalid("Invalid snapshot bounds") }
         let current=[response,UInt32(count),UInt32(total)]
-        if identity==nil { identity=current }
-        guard identity==current,parts[index]==nil,bytes.count-16==min(chunk,total-index*chunk) else { throw SceneError.invalid("Mixed, duplicate or malformed snapshot chunk") }
-        parts[index]=Array(bytes.dropFirst(16))
-        if parts.count==count { return Data((0..<count).flatMap{parts[$0]!}) }
+        guard (identity==nil || identity==current),!received.contains(index),length-16==min(chunk,total-index*chunk) else { throw SceneError.invalid("Mixed, duplicate or malformed snapshot chunk") }
+        if identity==nil {identity=current;storage=Data(count:total)}
+        storage.withUnsafeMutableBytes { destination in
+            bytes.withUnsafeBytes { source in
+                destination.baseAddress!.advanced(by:index*chunk).copyMemory(from:source.baseAddress!.advanced(by:16),byteCount:length-16)
+            }
+        }
+        received.insert(index)
+        if received.count==count {return storage}
         return nil
     }
 }
@@ -78,12 +86,13 @@ final class Bridge {
         while complete==nil && CACurrentMediaTime()<deadline {
             let n=buffer.withUnsafeMutableBytes { recv(fd,$0.baseAddress,$0.count,0) }
             guard n>0 else { throw SceneError.invalid("Game is paused, in menus, or snapshot is incomplete") }
-            complete=try wire.accept(Array(buffer.prefix(n)))
+            complete=try wire.accept(buffer,count:n)
         }
+        let wireRead=CACurrentMediaTime()
         guard let data=complete,var result=try JSONSerialization.jsonObject(with:data) as? Obj else { throw SceneError.invalid("Incomplete snapshot") }
         guard result["ok"] as? Bool == true else { throw SceneError.invalid(result["error"] as? String ?? "Rejected") }
         let read=CACurrentMediaTime()
-        result["bridgeStartedAt"]=started;result["bridgeReadAt"]=read
+        result["bridgeStartedAt"]=started;result["bridgeReadAt"]=read;result["bridgeWireReadAt"]=wireRead
         if number(result,"nativeFrameUnixMs")>0 {
             result["nativeAt"]=read-(Date().timeIntervalSince1970*1000-number(result,"nativeFrameUnixMs"))/1000
         }
