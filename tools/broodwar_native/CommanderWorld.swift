@@ -13,11 +13,12 @@ struct PreparedState {
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"State diff")}
         list=state["units"] as? [Obj] ?? []
         units=Dictionary(uniqueKeysWithValues:list.compactMap {unit in (unit["id"] as? String).map{($0,unit)}})
-        let old=Dictionary(uniqueKeysWithValues:(previous["units"] as? [Obj] ?? []).compactMap {unit in (unit["id"] as? String).map{($0,unit)}})
+        let old=Dictionary(uniqueKeysWithValues:(previous["units"] as? [NSDictionary] ?? []).compactMap {unit in (unit["id"] as? String).map{($0,unit)}})
         let reset=state["session"] as? String != previous["session"] as? String ||
             !NSArray(array:state["playerColors"] as? [[Int]] ?? []).isEqual(to:previous["playerColors"] as? [[Int]] ?? [])
-        dirty=Set(units.compactMap {id,unit in
-            reset || old[id]==nil || !NSDictionary(dictionary:unit).isEqual(to:old[id]!) ? id:nil
+        dirty=Set((state["units"] as? [NSDictionary] ?? []).compactMap {unit in
+            guard let id=unit["id"] as? String else {return nil}
+            return reset || old[id]==nil || !unit.isEqual(old[id]!) ? id:nil
         })
     }
 }

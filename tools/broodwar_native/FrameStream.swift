@@ -55,7 +55,7 @@ final class FrameStream {
     var onReady:(()->Void)?
     private lazy var source=WorldSprites(streaming:false)
     private lazy var loader=MTKTextureLoader(device:source.relief.device)
-    private func key(_ id:Int,_ frame:Int,_ color:[Int])->String {"\(id)/\(frame)/\(color)"}
+    private func key(_ id:Int,_ frame:Int,_ color:[Int])->String {"\(id)/\(frame)/\(WorldSprites.colorKey(color))"}
     func get(_ id:Int,frame:Int,color:[Int])->Prepared? {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"Stream lookup")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Stream lookup")}

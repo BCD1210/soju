@@ -285,3 +285,22 @@ and runs at approximately 50 Hz; its intervals are not a 90 Hz XR cadence gate.
 34.80 ms packet age p95, **11.91 ms cadence p95, zero missed slots and zero
 rejections** over 45.30 seconds. Neither latency result meets 70 ms. CPU samples
 were collected after the metric windows, and are excluded from qualification.
+
+## Packet preparation costs
+
+The worker now stores typed projected bounds and serializes pick/capture
+metadata when a diagnostic consumer requests it. Cache color keys avoid array
+debug formatting. Native state comparison reuses decoded dictionaries while
+still comparing every field; independently decoded snapshots measured about
+5.6 ms versus 1.63 ms per comparison with identical dirty sets. Streamed unit
+layers construct the known observer-facing frame directly, avoiding an
+immediate second geometry replacement. Runtime checks verify JSON metadata,
+nonvisual state changes, tint-key separation and observer-frame construction.
+Desktop/XR/fallback runtime checks pass **241/246/246**.
+
+`stress-desktop-packet-cost/` reports **78.38 ms native-to-presented p95** over
+45.03 seconds, using default settings and actual compositor timestamps.
+This improves the original 97.63 ms result but still fails the 70 ms target.
+`xr-live/build-packet-cost-evidence.json` records binary and source hashes.
+The intermediate `stress-desktop-deferred/` experiment and all post-measurement
+CPU samples remain available; neither is substituted for final qualification.

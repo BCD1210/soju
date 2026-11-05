@@ -45,6 +45,12 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
         ScenePacket(generation:generation,session:session,batches:[],picks:picks,nativeFrame:Double(generation),publishedAt:0,unitPositions:[:],diagnostics:[:])
     }
     let pickPacket=packet(1,"pick",[mesh(.card(2),1),mesh(.unit("far"),-1),mesh(.unit("near"),0)])
+    let projected=SceneSpriteBounds(image:239,frame:68,shadow:false,left:1,top:2,right:3,bottom:4)
+    let diagnosticPacket=ScenePacket(generation:1,session:"diagnostic",batches:[],picks:pickPacket.picks,nativeFrame:5,publishedAt:0,unitPositions:[:],diagnostics:["frame":5],spriteBounds:["near":[projected]])
+    let decoded=try JSONSerialization.jsonObject(with:JSONSerialization.data(withJSONObject:diagnosticPacket.diagnostics)) as! Obj
+    try require(number(decoded,"frame")==5 && ((decoded["spriteBounds"] as? [String:[Obj]])?["near"]?.first).map{number($0,"frame")==68 && number($0,"left")==1}==true,"deferred diagnostics serialize immutable native frame and projected sprite values")
+    try require((decoded["unitPickBounds"] as? [Obj])?.count==2 && (decoded["cardPickBounds"] as? [Obj])?.count==1,"deferred diagnostics retain unit and card picking bounds")
+    try require(WorldSprites.colorKey([1,23,4]) != WorldSprites.colorKey([12,3,4]) && WorldSprites.colorKey([]) != WorldSprites.colorKey([0,0,0]),"texture keys preserve channel boundaries and untinted identity")
     let filtered=pickPacket.hit(origin:SIMD3<Float>(0,0,3),direction:SIMD3<Float>(0,0,-1),accept:{if case .unit=$0 {return true};return false})
     try require(filtered?.unitID=="near" && filtered?.distance==3,"pure picking filters eligibility before choosing nearest intersection")
     try require(pickPacket.hit(origin:SIMD3<Float>(3,0,3),direction:SIMD3<Float>(0,0,-1),accept:{_ in true})==nil,"pure picking rejects a ray outside triangle bounds")

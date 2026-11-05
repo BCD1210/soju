@@ -103,7 +103,9 @@ extension Commander {
 
 extension UnitBillboard {
     func projectedLayers(camera:MetalBatches.CameraPacket,viewport:SIMD2<Float>,art:WorldSprites)->[Obj] {
-        let projection=camera.projection*simd_inverse(camera.transform)
+        projectedSpriteBounds(projection:camera.projection*simd_inverse(camera.transform),viewport:viewport,art:art).map{$0.object}
+    }
+    func projectedSpriteBounds(projection:simd_float4x4,viewport:SIMD2<Float>,art:WorldSprites)->[SceneSpriteBounds] {
         return nativeLayers.keys.sorted().compactMap {index in
             guard !root.isHidden,let native=nativeLayers[index],let node=layers[index],!node.isHidden,
                   let entry=art.images[String(Int(number(native,"id")))],let records=art.frameRecords(Int(number(native,"id"))),
@@ -111,12 +113,13 @@ extension UnitBillboard {
             let record=records[frame],scale=number(entry,"scale"),width=number(entry,"grpWidth"),height=number(entry,"grpHeight")
             let left=number(record,"ox")/(width*scale)-0.5,top=0.5-number(record,"oy")/(height*scale)
             let right=left+number(record,"w")/(width*scale),bottom=top-number(record,"h")/(height*scale)
+            let transform=projection*node.simdWorldTransform
             let points=[(left,top),(right,top),(right,bottom),(left,bottom)].map {x,y -> SIMD2<Float> in
-                let clip=projection*node.simdWorldTransform*SIMD4<Float>(Float(x*width/32),Float(y*height/32),0,1)
+                let clip=transform*SIMD4<Float>(Float(x*width/32),Float(y*height/32),0,1)
                 return SIMD2<Float>((clip.x/clip.w+1)*viewport.x/2,(1-clip.y/clip.w)*viewport.y/2)
             }
-            return ["image":number(native,"id"),"frame":frame,"shadow":number(native,"drawfunc")==10,
-                    "left":points.map{$0.x}.min()!,"top":points.map{$0.y}.min()!,"right":points.map{$0.x}.max()!,"bottom":points.map{$0.y}.max()!]
+            return SceneSpriteBounds(image:number(native,"id"),frame:frame,shadow:number(native,"drawfunc")==10,
+                left:points.map{$0.x}.min()!,top:points.map{$0.y}.min()!,right:points.map{$0.x}.max()!,bottom:points.map{$0.y}.max()!)
         }
     }
 }
