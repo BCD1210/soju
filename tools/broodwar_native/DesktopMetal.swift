@@ -7,7 +7,7 @@ import CoreImage
 final class DesktopSurface:MTKView {
     override func hitTest(_ point:NSPoint)->NSView? {nil}
 }
-final class DesktopMetal:NSObject,MTKViewDelegate,CAMetalDisplayLinkDelegate {
+final class DesktopMetal:NSObject,MTKViewDelegate {
     unowned let commander:Commander
     let surface:DesktopSurface,queue:MTLCommandQueue
     init(commander:Commander)throws {
@@ -21,19 +21,6 @@ final class DesktopMetal:NSObject,MTKViewDelegate,CAMetalDisplayLinkDelegate {
         surface.delegate=self
         commander.view.isPlaying=false;commander.view.rendersContinuously=false;commander.view.scene=nil
         commander.view.addSubview(surface,positioned:.below,relativeTo:commander.label)
-        if let layer=surface.layer as? CAMetalLayer {
-            surface.isPaused=true
-            let link=CAMetalDisplayLink(metalLayer:layer)
-            link.delegate=self;link.preferredFrameLatency=1
-            let rate=Float(commander.view.window?.screen?.maximumFramesPerSecond ?? NSScreen.main?.maximumFramesPerSecond ?? 60)
-            link.preferredFrameRateRange=CAFrameRateRange(minimum:rate,maximum:rate,preferred:rate)
-            link.add(to:.main,forMode:.common);displayLink=link
-        }
-    }
-    private var displayLink:CAMetalDisplayLink?
-    deinit {displayLink?.invalidate()}
-    func metalDisplayLink(_ link:CAMetalDisplayLink,needsUpdate update:CAMetalDisplayLink.Update) {
-        draw(in:surface,drawable:update.drawable)
     }
     func mtkView(_ view:MTKView,drawableSizeWillChange size:CGSize) {}
     var requestedCapture:URL?
@@ -42,11 +29,9 @@ final class DesktopMetal:NSObject,MTKViewDelegate,CAMetalDisplayLinkDelegate {
     private(set) var presentation:Presentation?
     let captureContext=CIContext()
     func draw(in view:MTKView) {
-        guard let drawable=view.currentDrawable else {return}
-        draw(in:view,drawable:drawable)
-    }
-    private func draw(in view:MTKView,drawable:CAMetalDrawable) {
-        guard commander.initialized,let command=queue.makeCommandBuffer(),let batches=commander.metalBatches else {return}
+        let started=CACurrentMediaTime()
+        guard commander.initialized,let drawable=view.currentDrawable,let command=queue.makeCommandBuffer(),let batches=commander.metalBatches else {return}
+        commander.frameMetrics.stage("desktopDrawableWait",milliseconds:(CACurrentMediaTime()-started)*1000)
         commander.sceneWorker?.mailbox.acquire(into:&framePacket)
         guard let camera=commander.desktopCameraPacket else {return}
         let position=camera.transform.columns.3
@@ -62,7 +47,7 @@ final class DesktopMetal:NSObject,MTKViewDelegate,CAMetalDisplayLinkDelegate {
             let metadata=commander.desktopCaptureMetadata()
             let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:drawable.texture.pixelFormat,width:drawable.texture.width,height:drawable.texture.height,mipmapped:false)
             descriptor.usage = .shaderRead;descriptor.storageMode = .private
-            guard let texture=TextureResidency.shared.make(commander.art.device,descriptor,owner:"captures"),let blit=command.makeBlitCommandEncoder() else {command.present(drawable);command.commit();return}
+            guard let texture=TextureResidency.shared.make(commander.art.device,descriptor,owner:"captures"),let blit=command.makeBlitCommandEncoder() else {present(command,drawable);return}
             blit.copy(from:drawable.texture,to:texture);blit.endEncoding()
             command.addCompletedHandler { [weak self] completed in
                 guard completed.status == .completed,let self=self,
@@ -82,9 +67,14 @@ final class DesktopMetal:NSObject,MTKViewDelegate,CAMetalDisplayLinkDelegate {
         command.addCompletedHandler { completed in
             if completed.status == .completed {metrics.latencySample(timing,completed:completed.gpuEndTime)}
         }
+        let submitted=CACurrentMediaTime()
         drawable.addPresentedHandler { shown in
             metrics.presented(timing,at:shown.presentedTime)
+            metrics.stage("desktopSubmitToPresented",milliseconds:(shown.presentedTime-submitted)*1000)
         }
+        present(command,drawable)
+    }
+    private func present(_ command:MTLCommandBuffer,_ drawable:CAMetalDrawable) {
         command.present(drawable);command.commit()
     }
 }
