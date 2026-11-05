@@ -297,3 +297,36 @@ The Dots conversation was read directly: Blender export testing is complete and
 Marine/SCV geometry and new rigs are in progress. No final replacement GLBs had
 been delivered at the last check. Asset production and visual acceptance remain
 separate from the completed model-loading integration.
+
+## M19 command table and unit view
+
+The command table frames the whole map at an initial width of 1.8 metres.
+Fog retains the original game's visibility. Picking and orders use native map
+coordinates in all views. Leaving the table restores the saved ground pose.
+
+| Action | Controller | Desktop |
+|---|---|---|
+| Ground / command table | Left grip | V |
+| Table scale | Hold right grip + left stick vertical | [ / ] |
+| Table height | Hold right grip + left stick horizontal | - / = |
+| Rotate table | Right stick horizontal | , / . |
+| Recenter table | Hold right grip, press left grip | R |
+| Possess owned unit under pointer | Hold right grip, press right trigger | Tab (pointer, then selected unit) |
+| Exit unit view | Right grip | Escape or Tab |
+| Move possessed unit | Left stick, relative to gaze | WASD, relative to view |
+| Attack from unit view | Right trigger | Right-click |
+| Snap turn in unit view | Right stick horizontal | Option-drag to look |
+
+Action cards remain available while possessing; a pending card target takes
+precedence over the normal attack action. Movement and attacks call the original
+native command handlers. No direct unit movement is performed by the viewer.
+The camera follows position smoothly without following subsequent unit turns.
+Entering a transport, burrowing, death, loss of ownership or disappearance ends
+possession and restores the previous ground or table view. Buildings and hidden,
+transported, burrowed or dead units cannot be entered. Air units use an elevated
+viewpoint. Metal rendering fades in after a view change and adds a peripheral
+vignette during rapid follow movement.
+
+Qualification status and remaining limits are tracked in
+[BROODWAR-M19-CHECKPOINT.md](BROODWAR-M19-CHECKPOINT.md). Offline runtime checks
+are separate from simulator controller and physical-headset qualification.
