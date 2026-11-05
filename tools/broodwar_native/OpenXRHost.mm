@@ -2,6 +2,9 @@
 #include <chrono>
 // OpenXR frame lifecycle and Metal swapchains. No game simulation runs here.
 #define XR_USE_GRAPHICS_API_METAL
+#define XR_USE_TIMESPEC
+#include <time.h>
+#import <QuartzCore/QuartzCore.h>
 #import <Metal/Metal.h>
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
@@ -15,6 +18,7 @@
 
 namespace {
 XrInstance instance=XR_NULL_HANDLE;
+PFN_xrConvertTimeToTimespecTimeKHR timeToHost=nullptr;
 XrSystemId systemId=0;
 XrSession session=XR_NULL_HANDLE;
 XrSpace localSpace=XR_NULL_HANDLE;
@@ -138,12 +142,20 @@ void input(XrTime time,void* context,SojuXRControls callback) {
 }
 extern "C" int soju_xr_init() {
     if(instance!=XR_NULL_HANDLE)return 1;
-    const char* extensions[]={XR_KHR_METAL_ENABLE_EXTENSION_NAME};
+    std::vector<const char*> extensions{XR_KHR_METAL_ENABLE_EXTENSION_NAME};
+    uint32_t extensionCount=0;
+    if(XR_SUCCEEDED(xrEnumerateInstanceExtensionProperties(nullptr,0,&extensionCount,nullptr))) {
+        std::vector<XrExtensionProperties> supported(extensionCount,{XR_TYPE_EXTENSION_PROPERTIES});
+        if(XR_SUCCEEDED(xrEnumerateInstanceExtensionProperties(nullptr,extensionCount,&extensionCount,supported.data()))) {
+            for(const auto& extension:supported) if(!std::strcmp(extension.extensionName,XR_KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME)) extensions.push_back(XR_KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME);
+        }
+    }
     XrInstanceCreateInfo create{XR_TYPE_INSTANCE_CREATE_INFO};
     std::strcpy(create.applicationInfo.applicationName,"Soju Brood War Commander");
     create.applicationInfo.apiVersion=XR_MAKE_VERSION(1,0,0);
-    create.enabledExtensionCount=1;create.enabledExtensionNames=extensions;
+    create.enabledExtensionCount=uint32_t(extensions.size());create.enabledExtensionNames=extensions.data();
     CHECK(xrCreateInstance(&create,&instance));
+    if(extensions.size()>1) xrGetInstanceProcAddr(instance,"xrConvertTimeToTimespecTimeKHR",reinterpret_cast<PFN_xrVoidFunction*>(&timeToHost));
     XrSystemGetInfo get{XR_TYPE_SYSTEM_GET_INFO};get.formFactor=XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
     CHECK(xrGetSystem(instance,&get,&systemId));
     PFN_xrGetMetalGraphicsRequirementsKHR requirementsFn=nullptr;
@@ -222,6 +234,12 @@ extern "C" int soju_xr_step(void* context,SojuXRDraw draw,SojuXRControls control
     struct FrameGuard { XrTime time;bool ended=false;~FrameGuard(){if(!ended){XrFrameEndInfo info{XR_TYPE_FRAME_END_INFO};info.displayTime=time;info.environmentBlendMode=XR_ENVIRONMENT_BLEND_MODE_OPAQUE;xrEndFrame(session,&info);}} } frameGuard{state.predictedDisplayTime};
     std::array<XrView,2> views{{{XR_TYPE_VIEW},{XR_TYPE_VIEW}}};
     XrViewLocateInfo locate{XR_TYPE_VIEW_LOCATE_INFO};locate.viewConfigurationType=XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
+    double predictedHostTime=0;
+    if(timeToHost) {
+        timespec predicted{},now{};
+        if(XR_SUCCEEDED(timeToHost(instance,state.predictedDisplayTime,&predicted)) && clock_gettime(CLOCK_MONOTONIC,&now)==0)
+            predictedHostTime=CACurrentMediaTime()+double(predicted.tv_sec-now.tv_sec)+double(predicted.tv_nsec-now.tv_nsec)/1e9;
+    }
     locate.displayTime=state.predictedDisplayTime;locate.space=localSpace;
     XrViewState viewState{XR_TYPE_VIEW_STATE};uint32_t count=0;
     XrResult located=xrLocateViews(session,&locate,&viewState,2,&count,views.data());
@@ -239,7 +257,7 @@ extern "C" int soju_xr_step(void* context,SojuXRDraw draw,SojuXRControls control
                 (views[0].pose.position.x+views[1].pose.position.x)*0.5f,
                 (views[0].pose.position.y+views[1].pose.position.y)*0.5f,
                 (views[0].pose.position.z+views[1].pose.position.z)*0.5f,
-                e.width,e.height,uint32_t(i),uint32_t((viewState.viewStateFlags&XR_VIEW_STATE_POSITION_TRACKED_BIT)!=0),state.predictedDisplayTime};
+                e.width,e.height,uint32_t(i),uint32_t((viewState.viewStateFlags&XR_VIEW_STATE_POSITION_TRACKED_BIT)!=0),state.predictedDisplayTime,predictedHostTime};
         }
         for(size_t i=0;i<2;i++) {
             Eye& e=eyes[i];uint32_t index=0;XrSwapchainImageAcquireInfo acquire{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};

@@ -113,16 +113,18 @@ unsafe extern "C" fn frame() {
     if vars[0]==0 && vars[1]==0 && vars[2]<8 && !game.is_null() && (*game).map_width_tiles>0 {
         world::observe(r,&*game,&active_units(r),vars[2]);
     }
+    let frame_unix_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs_f64()*1000.0;
     let mut buffer = [0u8; 4096];
     // Bounded input work keeps the original simulation responsive.
     for _ in 0..16 {
         match r.socket.recv_from(&mut buffer) {
             Ok((size, addr)) => {
                 if !addr.ip().is_loopback() { continue; }
-                let result = match serde_json::from_slice::<Value>(&buffer[..size]) {
+                let mut result = match serde_json::from_slice::<Value>(&buffer[..size]) {
                     Ok(req) => commands::request(r, &req).unwrap_or_else(|e| json!({"ok":false,"error":e})),
                     Err(_) => json!({"ok":false,"error":"invalid JSON"})
                 };
+                result["nativeFrameUnixMs"] = json!(frame_unix_ms);
                 if let Ok(data) = serde_json::to_vec(&result) {
                     send_response(&r.socket, addr, &data);
                 }

@@ -57,6 +57,7 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     let line=SceneOverlay(transform:matrix_identity_float4x4,vertices:[SCNVector3(-1,0.8,0),SCNVector3(1,0.8,0)],uv:[],indices:[0,1],image:nil,color:SIMD4<Float>(0,1,0,1),opacity:1,depth:false,order:100,line:true,name:"target-ray")
     let card=SceneOverlay(transform:matrix_identity_float4x4,vertices:vertices.map{SCNVector3($0)},uv:[],indices:[0,1,2],image:nil,color:SIMD4<Float>(1,0,0,1),opacity:1,depth:false,order:100,line:false,name:"card-7")
     func view(_ session:String)->SceneView {SceneView(session:session,viewport:SIMD2<Float>(32,32),camera:camera,center:SIMD2<Int>(1,1),radius:20,selected:["native"],overlays:[line,card])}
+    try require(view("same").equivalent(to:view("same")) && !view("same").equivalent(to:view("other")) && !line.equivalent(to:card),"view coalescing preserves session and overlay changes")
     let unit:Obj=["id":"native","x":100,"y":100,"type":7,"owner":0,"hp":40,"maxHP":40,"image":["id":239,"frame":68,"flags":0]]
     func state(_ frame:Int,_ events:[Obj],_ session:String="native-check")->Obj {
         ["session":session,"frame":frame,"units":[unit],"events":events,"eventSeq":events.map{number($0,"seq")}.max() ?? 0,
@@ -111,6 +112,13 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     let packed=page.vertices.contents().bindMemory(to:MetalBatches.Vertex.self,capacity:page.vertices.length/MemoryLayout<MetalBatches.Vertex>.stride)
     let tileVertices=Array(UnsafeBufferPointer(start:packed,count:page.vertices.length/MemoryLayout<MetalBatches.Vertex>.stride))
     try require(Set(tileVertices.map{$0.uv.z})==[0] && Set(tileVertices.map{$0.uv.w})==[0,1],"terrain vertex indices distinguish shared artwork from per-tile visibility")
+    var deltaState=terrainState;deltaState["frame"]=2
+    failedTerrain.apply(NativeSceneWorker.Update(state:deltaState,fog:[:],creep:[]))
+    let delta=try failedTerrain.packet(view("terrain-retry"),includeTerrain:false)
+    try require(delta.nativeFrame==2 && delta.picks.contains(where:{$0.target == .terrain}),"native delta publishes before terrain removal rebuild")
+    let refined=try failedTerrain.packet(view("terrain-retry"))
+    try require(!refined.picks.contains(where:{$0.target == .terrain}) && delta.picks.contains(where:{$0.target == .terrain}),"terrain refinement retires picks without mutating the displayed delta")
+
     #if SOJU_OPENXR
     let inputQueue=XRInputQueue()
     var allAccepted=true,motion=SojuXRInput()

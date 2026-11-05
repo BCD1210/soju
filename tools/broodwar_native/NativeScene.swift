@@ -139,7 +139,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         window.center();window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(view);NSApp.activate(ignoringOtherApps:true)
         tick=Timer.scheduledTimer(withTimeInterval:1/60,repeats:true) { [weak self] _ in self?.step() }
-        poll=Timer.scheduledTimer(withTimeInterval:0.1,repeats:true) { [weak self] _ in self?.refresh() }
+        poll=Timer.scheduledTimer(withTimeInterval:0.005,repeats:true) { [weak self] _ in self?.refresh() }
         if useMetalBatches {
             sceneWorker=NativeSceneWorker(device:art.device)
             if metalBatches==nil {
@@ -215,17 +215,18 @@ final class Commander: NSObject, NSApplicationDelegate {
         let cardSelection=selected,cardMenu=wrists.card.nativeMenu
         bridge.queue.async {
             do {
-                var request:Obj=["op":"scene"]
+                var request:Obj=["op":"scene","terrainRegion":["x":x,"y":y,"width":regionWidth,"height":regionHeight]]
+                if !cardSelection.isEmpty {request["cardSelection"]=["units":cardSelection,"menu":cardMenu]}
                 if !knownSession.isEmpty {request["since"]=since}
                 let s=try self.bridge.request(request)
-                let original=cardSelection.isEmpty ? nil:try? self.bridge.request(["op":"evaluated_buttons","units":cardSelection,"menu":cardMenu])
+                let original=s["cardSelection"] as? Obj
                 let metadata=knownSession != s["session"] as? String ? try? self.bridge.request(["op":"unit_types"]):nil
                 guard s["truncated"] as? Bool != true else { throw SceneError.invalid("Visible unit limit exceeded; native snapshot was not applied") }
                 let loaded=s["map"] as? Obj ?? [:]
                 if Int(number(loaded,"width")) != self.mapWidth*32 || Int(number(loaded,"height")) != self.mapHeight*32 {
                     DispatchQueue.main.async {self.apply(s,[:]);self.busy=false};return
                 }
-                let f=try self.bridge.request(["op":"terrain","x":x,"y":y,"width":regionWidth,"height":regionHeight])
+                let f=s["terrainRegion"] as? Obj ?? [:]
                 let prepared=PreparedState(s,previous:self.bridge.previousState)
                 self.bridge.previousState=s
                 DispatchQueue.main.async { self.wrists.card.acceptOriginal(original ?? [:],selection:cardSelection,menu:cardMenu);if let metadata=metadata {self.wrists.card.accept(metadata)};self.apply(s,f,prepared:prepared);if self.sceneWorker==nil {self.busy=false} }

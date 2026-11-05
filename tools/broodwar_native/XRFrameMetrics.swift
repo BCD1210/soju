@@ -51,6 +51,26 @@ enum FrameCreation:Int,CaseIterable {
 final class XRFrameMetrics {
     static let log=OSLog(subsystem:"soju.broodwar",category:"PointsOfInterest")
     private let lock=NSLock()
+    private let latency=Dictionary(uniqueKeysWithValues:["bridgeRoundTrip","nativeToBridge","bridgeToWorker","workerToPacket","packetAge","nativeToGPUComplete","nativeToPresented","nativeToPredictedDisplay","nativeToDisplayEstimate"].map{($0,FrameDistribution())})
+    private var lastLatencyNative=0.0
+    func presented(_ timing:SceneTiming,at time:Double) {
+        lock.lock();defer{lock.unlock()}
+        if enabled,timing.native>0,time>0 {latency["nativeToPresented"]?.add((time-timing.native)*1000)}
+    }
+    func latencySample(_ timing:SceneTiming,completed:Double) {
+        lock.lock();defer{lock.unlock()}
+        guard enabled,timing.native>0,timing.bridgeRead>0,timing.published>0 else {return}
+        if timing.native != lastLatencyNative {
+            lastLatencyNative=timing.native
+            for (key,value) in [("bridgeRoundTrip",timing.bridgeRead-timing.bridgeStarted),("nativeToBridge",timing.bridgeRead-timing.native),("bridgeToWorker",timing.workerStarted-timing.bridgeRead),("workerToPacket",timing.published-timing.workerStarted)] {latency[key]?.add(value*1000)}
+        }
+        latency["packetAge"]?.add((completed-timing.published)*1000)
+        latency["nativeToGPUComplete"]?.add((completed-timing.native)*1000)
+        if timing.predictedDisplay>0 {
+            latency["nativeToPredictedDisplay"]?.add((timing.predictedDisplay-timing.native)*1000)
+            latency["nativeToDisplayEstimate"]?.add((max(completed,timing.predictedDisplay)-timing.native)*1000)
+        }
+    }
     private let intervals=FrameDistribution(),cpu=FrameDistribution(),gpu=FrameDistribution()
     private let stages: [String:FrameDistribution]=Dictionary(uniqueKeysWithValues:
         ["billboardUpdate","eyeSetup","renderEncodeEye","eyePostRender"].map{($0,FrameDistribution())})
@@ -140,7 +160,8 @@ final class XRFrameMetrics {
             "targetHz":90,"budgetMs":1000.0/90,"unitCount":unitCount,"elapsedSeconds":first>0 ? previous-first:0,
             "snapshotSource":argument("--snapshot") ?? "live","frameIntervals":intervals.summary(),
             "stereoCPUEncode":cpu.summary(),"stereoGPU":gpu.summary(),"stagesCPU":stages.mapValues{$0.summary()},
-            "textureResidency":TextureResidency.shared.report(),
+            "textureResidency":TextureResidency.shared.report(),"latencyMs":latency.mapValues{$0.summary()},
+            "latencyScope":"Native frame hook to GPU completion and display estimate (later of GPU readiness and runtime predicted display via CLOCK_MONOTONIC). Desktop uses compositor presentedTime. Physical photon telemetry is unavailable.",
             "frameOwnerCreationRequests":["measured":Dictionary(uniqueKeysWithValues:FrameCreation.allCases.map{($0.name,creations[$0.rawValue])}),
                 "includingWarmup":Dictionary(uniqueKeysWithValues:FrameCreation.allCases.map{($0.name,allCreations[$0.rawValue])}),
                 "method":"Instrumented creation requests issued by the native frame owner. Metal command buffers and encoders remain framework object requests. These counters are not malloc interception, exclude worker/UI creation, and do not prove zero transient allocations."],

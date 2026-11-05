@@ -60,6 +60,14 @@ final class DesktopMetal:NSObject,MTKViewDelegate {
                 }
             }
         }
+        let timing=framePacket?.timing ?? SceneTiming(),metrics=commander.frameMetrics
+        metrics.begin(units:framePacket?.unitPositions.count ?? 0)
+        command.addCompletedHandler { completed in
+            if completed.status == .completed {metrics.latencySample(timing,completed:completed.gpuEndTime)}
+        }
+        drawable.addPresentedHandler { shown in
+            metrics.presented(timing,at:shown.presentedTime)
+        }
         command.present(drawable);command.commit()
     }
 }

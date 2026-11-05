@@ -49,6 +49,7 @@ final class Bridge {
     func request(_ payload: Obj) throws -> Obj {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"Bridge read")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Bridge read")}
+        let started=CACurrentMediaTime()
         var o=payload
         o["token"]=try String(contentsOf:runtime.appendingPathComponent("session-token"),encoding:.utf8)
         if o["op"] as? String != "state" && o["op"] as? String != "scene" && o["op"] as? String != "terrain" {
@@ -79,8 +80,13 @@ final class Bridge {
             guard n>0 else { throw SceneError.invalid("Game is paused, in menus, or snapshot is incomplete") }
             complete=try wire.accept(Array(buffer.prefix(n)))
         }
-        guard let data=complete,let result=try JSONSerialization.jsonObject(with:data) as? Obj else { throw SceneError.invalid("Incomplete snapshot") }
+        guard let data=complete,var result=try JSONSerialization.jsonObject(with:data) as? Obj else { throw SceneError.invalid("Incomplete snapshot") }
         guard result["ok"] as? Bool == true else { throw SceneError.invalid(result["error"] as? String ?? "Rejected") }
+        let read=CACurrentMediaTime()
+        result["bridgeStartedAt"]=started;result["bridgeReadAt"]=read
+        if number(result,"nativeFrameUnixMs")>0 {
+            result["nativeAt"]=read-(Date().timeIntervalSince1970*1000-number(result,"nativeFrameUnixMs"))/1000
+        }
         return result
     }
 }
