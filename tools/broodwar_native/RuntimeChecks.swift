@@ -322,8 +322,7 @@ func runtimeChecks()throws {
     for height in [0.0,1.0,2.0,4.0] {
         let placed=Terrain3D.worldPosition(7,height,11),native=Terrain3D.mapPosition(placed)
         try require(abs(native.x-7)<0.00001 && abs(native.z-11)<0.00001,"relief hit returns native map coordinates at height \(height)")
-        let screenY=Double(placed.z)*sin(Terrain3D.canonicalElevation)-Double(placed.y)*cos(Terrain3D.canonicalElevation)
-        try require(abs(screenY-11*sin(Terrain3D.canonicalElevation))<0.00001,"relief preserves native projected ground anchor at height \(height)")
+        try require(abs(placed.z-11)<0.00001,"terrain height preserves its horizontal map domain at height \(height)")
     }
     let footprintURL=runtime.appendingPathComponent("runtime-footprint-terrain.json")
     let footprintData:Obj=["width":16,"height":16,"flags":[Int](repeating:1,count:256),"heights":(0..<256).map{$0%16>=10 ? 2.0:0.0}]
@@ -331,6 +330,15 @@ func runtimeChecks()throws {
     let footprintGround=try Terrain3D(url:footprintURL)
     let footprintUnit:Obj=["x":64,"y":64,"building":true,"footprintWidth":64,"footprintHeight":64]
     try require(footprintGround.elevation(2,2)==0 && footprintGround.buildingElevation(footprintUnit)==2,"building support includes elevated footprint corners beyond its center")
+    let foundationSource=SpriteRelief.Mesh(vertices:[SCNVector3(-1,0,0),SCNVector3(1,0,0),SCNVector3(-1,1,0),SCNVector3(1,1,0)],uv:[CGPoint](repeating:.zero,count:4),indices:[0,1,2,1,3,2],baseHeights:[0,0,0,0],baseSamples:[0,1])
+    var foundationTransform=simd_float4x4(simd_quatf(angle:-Float(Terrain3D.canonicalElevation),axis:SIMD3<Float>(1,0,0)))
+    foundationTransform.columns.3=SIMD4<Float>(2,2,2,1)
+    let foundation=SpriteRelief.conform(foundationSource,ground:footprintGround,transform:foundationTransform)
+    let lowBase=foundationTransform*SIMD4<Float>(SIMD3<Float>(foundation.vertices[0]),1)
+    let highBase=foundationTransform*SIMD4<Float>(SIMD3<Float>(foundation.vertices[1]),1)
+    try require(abs(lowBase.y)<0.0001 && abs(highBase.y-2)<0.0001,"building base follows both low and high footprint samples")
+    try require(foundation.vertices[2].y==foundationSource.vertices[2].y && foundation.vertices[3].y==foundationSource.vertices[3].y,"footprint conformance preserves the upper relief structure")
+    try require(foundationSource.vertices[0].y==0,"footprint conformance cannot mutate a shared source mesh")
     var flyingFootprint=footprintUnit;flyingFootprint["airborne"]=true
     try require(footprintGround.buildingElevation(flyingFootprint)==0,"lifted buildings do not inherit landed footprint support")
     var continuous=true

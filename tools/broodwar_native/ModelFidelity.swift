@@ -51,7 +51,8 @@ func buildingGroundingProof()throws {
     guard let input=argument("--grounding-job") else {throw SceneError.invalid("Missing grounding job")}
     let job=try loadObject(URL(fileURLWithPath:input))
     guard let state=job["state"] as? Obj,let units=state["units"] as? [Obj],let output=job["output"] as? String else {throw SceneError.invalid("Invalid grounding job")}
-    let folder=URL(fileURLWithPath:output),art=try Art(),ground=try Terrain3D(url:(job["terrain"] as? String).map{URL(fileURLWithPath:$0)} ?? assets.appendingPathComponent("terrain3d.json"))
+    let assetFolder=(job["assets"] as? String).map{URL(fileURLWithPath:$0)} ?? assets
+    let folder=URL(fileURLWithPath:output),art=try Art(folder:assetFolder),ground=try Terrain3D(url:(job["terrain"] as? String).map{URL(fileURLWithPath:$0)} ?? assetFolder.appendingPathComponent("terrain3d.json"))
     let metal=job["renderer"] as? String == "metal"
     try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
     let manifest=art.manifest["map"] as! Obj,tiles=manifest["tiles"] as! [Int],width=Int(number(manifest,"width")),height=Int(number(manifest,"height"))

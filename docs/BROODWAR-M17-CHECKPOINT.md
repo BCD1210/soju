@@ -1,6 +1,6 @@
 # Brood War M17 checkpoint
 
-M17 is **partial; controller and native action-card gates have passed**. Started from
+M17 is **partial; controller, native action-card, and rendered gates have passed**. Started from
 `6b7b387` on `feat/broodwar-3d`. Evidence lives outside the repository at
 `~/.local/share/soju/broodwar-native/3d-proof/m17/`. No push was performed.
 
@@ -103,12 +103,47 @@ Spawning Pool (`native-ui-zerg-build-menu.json`,
 builds ran concurrently; after reconnecting the private stream, the training
 retry passed. Those failed attempts are retained and are not passes.
 
+## Rendered cliff and contact gates
+
+Terrain height now changes Y only. Removing the height-dependent Z shear keeps
+steep descending cliffs from folding across their native map domain. Landed
+buildings use a continuous bottom-band adjustment against the sampled terrain;
+the upper relief remains unchanged, shared source meshes remain immutable, and
+lifting off restores the source geometry. An earlier per-column deformation
+visibly stretched side silhouettes and was rejected.
+
+`--rendered-gates` renders through the Metal stereo pipeline and reads back the
+left eye. Jobs explicitly pin the owned terrain release, avoiding the currently
+loaded flat command fixture. The cliff job uses native VF4 heights; the slope
+job uses the same M15 linear slope fixture as the earlier contact investigation.
+Command Center, Hatchery, and Nexus are checked from four directions.
+
+The normal cases require visible building pixels, depth-tested opaque-base
+contact probes matching ground-reference pixels, complete top-down terrain
+coverage, and the expected perspective terrain silhouette. Controls remove the
+building, raise or bury it by 0.75 map units, reintroduce the old terrain shear,
+or flatten terrain height. Probe comparisons use a two-pixel raster tolerance;
+terrain comparisons use one pixel. A flattened slope initially escaped a loose
+silhouette threshold; the final threshold is 0.999. A terrain cache bug exposed
+by these controls also now invalidates batches when textures or transforms change.
+
+Final release-build evidence: `rendered-cliff/acceptance.json` and
+`rendered-slope/acceptance.json`, with colored views, contact readbacks, and
+terrain masks beside them. Across both jobs, **16 normal views pass and all 80
+negative controls are rejected**. Normal contact and terrain-coverage overlap
+are 1.0. `rendered-build.json` records the release binary hash. The earlier debug
+runs remain under `rendered-*-debug/` and are not final acceptance evidence.
+
+These gates establish the tested contact/terrain behavior, not hidden-side model
+fidelity: native sprite relief still has view-dependent silhouettes and baked
+artwork. They are not a claim that every building has a complete solid model.
+
 ## Validation
 
-- Python: **286 passed, 60 subtests passed**, `tests-python-buttons.log`.
-- Rust: **17 passed**, `tests-rust-buttons.log`.
-- Runtime: **182 desktop / 187 XR / 187 fallback**, corresponding
-  `runtime-*-buttons.json` and `runtime-*-buttons.log`; all report passed.
+- Python: **286 passed, 60 subtests passed**, `tests-python-visual.log`.
+- Rust: **17 passed**, `tests-rust-visual.log`.
+- Runtime: **185 desktop / 190 XR / 190 fallback**, corresponding
+  `runtime-*-visual.json` and `runtime-*-visual.log`; all report passed.
 - Both desktop and XR viewer builds succeeded. The live simulator connection
   survived the formerly crashing wrist-panel path.
 
@@ -120,8 +155,8 @@ No new final stress result is claimed.
 1. Controller gate complete: all three races passed the five command chains.
 2. Native action-card gate complete: 0 structural mismatches across 76 fixture
    types, six build submenus, and shared-selection checks.
-3. Fix and pass rendered cliff/footprint rejection gates.
+3. Rendered gate complete: 16 accepted normal views, 80 rejected controls.
 4. Rerun the 125-unit stress after the preceding gates pass.
 
-Steps 3–4 remain pending at this action-card checkpoint. No game assets or
+Step 4 remains pending at this visual checkpoint. No game assets or
 `tools/broodwar_native/target/` were staged. `asset-upgrades/` was not modified.

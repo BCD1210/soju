@@ -7,6 +7,9 @@ import simd
 final class UnitBillboard {
     let root=SCNNode()
     var layers=[Int:SCNNode](),evidence=[Obj]()
+    var contactGround:Terrain3D?
+    var sourceMeshes=[Int:SpriteRelief.Mesh](),contactMeshes=[Int:SpriteRelief.Mesh]()
+    var contactPoses=[Int:[SIMD4<Float>]]()
     var nativeLayers=[Int:Obj](),unit:Obj=[:],team=[255,255,255]
     var shown=[Int:Int](),shownImages=[Int:Int]()
     var shownColors=[Int:[Int]](),contacts=[Int:Float]()
@@ -19,7 +22,7 @@ final class UnitBillboard {
     func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites,color:[Int]=[255,255,255]) {
         lastEye=nil;poseRevision &+= 1
         let sameTeam=team==color
-        self.unit=unit;team=color
+        self.unit=unit;team=color;contactGround=ground
         let x=number(unit,"x")/32,z=number(unit,"y")/32
         root.position=Terrain3D.worldPosition(x,ground.buildingElevation(unit)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
         root.isHidden=unit["renderHidden"] as? Bool == true || unit["transported"] as? Bool == true
@@ -54,7 +57,9 @@ final class UnitBillboard {
             let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
             material.diffuse.contents=image;material.diffuse.wrapS = .clamp;material.diffuse.wrapT = .clamp
             material.readsFromDepthBuffer=false;material.writesToDepthBuffer=false;plane.materials=[material];node.geometry=plane
-            if !shadow,let mesh=prepared?.geometry?.geometry() ?? (art.stream==nil ? art.relief.geometry(id,frame:frame,art:art):nil) {
+            if !shadow,let data=prepared?.geometry ?? (art.stream==nil ? art.relief.meshData(id,frame:frame,art:art):nil) {
+                sourceMeshes[index]=data;contactPoses.removeValue(forKey:index);contactMeshes.removeValue(forKey:index)
+                let mesh=data.geometry()
                 mesh.materials=[prepared?.material.material() ?? art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
             }
             node.isHidden=false;node.castsShadow=false;node.renderingOrder=node.geometry is SCNPlane ? 1000+Int(number(unit,"y"))*32+chain.count-index:0
@@ -72,6 +77,7 @@ final class UnitBillboard {
         }
         nativeLayers=nativeLayers.filter{keep.contains($0.key)};shown=shown.filter{keep.contains($0.key)}
         shownImages=shownImages.filter{keep.contains($0.key)};shownColors=shownColors.filter{keep.contains($0.key)};contacts=contacts.filter{keep.contains($0.key)}
+        sourceMeshes=sourceMeshes.filter{keep.contains($0.key)};contactMeshes=contactMeshes.filter{keep.contains($0.key)};contactPoses=contactPoses.filter{keep.contains($0.key)}
         layerOrder=nativeLayers.keys.sorted()
         for (index,node) in layers where !keep.contains(index) {node.removeFromParentNode();layers.removeValue(forKey:index)}
     }
@@ -130,7 +136,9 @@ final class UnitBillboard {
                     stream.request(id,frame:frame,color:team);lastEye=nil;continue
                 }
                 geometryRevision &+= 1
-                if !shadow,let mesh=prepared?.geometry?.geometry() ?? (art.stream==nil ? art.relief.geometry(id,frame:frame,art:art):nil) {
+                if !shadow,let data=prepared?.geometry ?? (art.stream==nil ? art.relief.meshData(id,frame:frame,art:art):nil) {
+                    sourceMeshes[index]=data;contactPoses.removeValue(forKey:index);contactMeshes.removeValue(forKey:index)
+                    let mesh=data.geometry()
                     mesh.materials=[prepared?.material.material() ?? art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh;node.renderingOrder=0
                 } else {node.geometry?.firstMaterial?.diffuse.contents=prepared?.image ?? art.texture(id,frame:frame,color:team) as Any?}
                 shown[index]=frame;shownImages[index]=id;shownColors[index]=team;node.isHidden=false
@@ -153,7 +161,7 @@ final class UnitBillboard {
                 (node.geometry as? SCNPlane)?.height=number(entry,"grpHeight")/32/sin(Terrain3D.canonicalElevation)
                 node.eulerAngles=SCNVector3(-Double.pi/2,0,0)
                 let flight=unit["airborne"] as? Bool == true ? 1.5:0
-                node.position=SCNVector3(ox,0.002-flight,oy/sin(Terrain3D.canonicalElevation)-flight*Terrain3D.reliefDepth)
+                node.position=SCNVector3(ox,0.002-flight,oy/sin(Terrain3D.canonicalElevation))
                 node.renderingOrder=1
             } else {
                 node.simdOrientation=rotation
@@ -161,6 +169,18 @@ final class UnitBillboard {
                 node.simdPosition=offset+SIMD3<Float>(0,node.geometry is SCNPlane ? Float(contact):buildingLift,0)
             }
             node.scale.x=mirrored ? -1:1
+            if perspective,!shadow,id==Int(number(main,"id")),unit["building"] as? Bool == true,unit["airborne"] as? Bool != true,
+               let ground=contactGround,let source=sourceMeshes[index] {
+                let transform=node.simdWorldTransform,pose=[transform.columns.0,transform.columns.1,transform.columns.2,transform.columns.3]
+                if contactPoses[index] != pose {
+                    let warped=SpriteRelief.conform(source,ground:ground,transform:transform)
+                    let geometry=warped.geometry();geometry.materials=node.geometry?.materials ?? []
+                    node.geometry=geometry;contactMeshes[index]=warped;contactPoses[index]=pose;geometryRevision &+= 1
+                }
+            } else if contactMeshes.removeValue(forKey:index) != nil,let source=sourceMeshes[index] {
+                let geometry=source.geometry();geometry.materials=node.geometry?.materials ?? []
+                node.geometry=geometry;contactPoses.removeValue(forKey:index);geometryRevision &+= 1
+            }
             if !useMetalBatches,!(node.geometry is SCNPlane),let material=node.geometry?.firstMaterial {
                 var light=rotation.inverse.act(SpriteRelief.sun)
                 var view=rotation.inverse.act(simd_normalize(delta))

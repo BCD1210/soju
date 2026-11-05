@@ -159,7 +159,7 @@ final class MetalBatches {
     var ready=false,draws=0,visible=0,culled=0,lodCount=0
     var sourceRevision = -1,terrainRevision = -1,terrainFogRevision = -1
     private struct TerrainPage {
-        let keys:[Int],sources:[SCNGeometrySource],masks:[AnyObject],batch:Batch
+        let keys:[Int],sources:[SCNGeometrySource],masks:[AnyObject],diffuse:[AnyObject],poses:[[SIMD4<Float>]],batch:Batch
     }
     private var terrainPageCache=[Int:TerrainPage]()
     var revisions=[(UnitBillboard,Int)]()
@@ -429,8 +429,10 @@ final class MetalBatches {
             let sources=nodes.compactMap{$0.geometry?.sources(for:.vertex).first}
             let masks=nodes.map{$0.geometry!.firstMaterial!.multiply.contents as AnyObject}
             guard sources.count==nodes.count,let first=nodes.first?.geometry?.firstMaterial?.diffuse.contents as? MTLTexture else {continue}
+            let diffuseSources=nodes.map{$0.geometry!.firstMaterial!.diffuse.contents as AnyObject}
+            let poses=nodes.map{node in let t=node.simdWorldTransform;return [t.columns.0,t.columns.1,t.columns.2,t.columns.3]}
             let previous=terrainPageCache[page]
-            let reuse=previous?.keys==keys && previous!.sources.count==sources.count && zip(previous!.sources,sources).allSatisfy{$0 === $1}
+            let reuse=previous?.keys==keys && previous!.sources.count==sources.count && zip(previous!.sources,sources).allSatisfy{$0 === $1} && previous!.poses==poses && zip(previous!.diffuse,diffuseSources).allSatisfy{$0 === $1}
             if reuse,zip(previous!.masks,masks).allSatisfy({$0 === $1}) {
                 next[page]=previous!;result.append(previous!.batch);continue
             }
@@ -475,7 +477,7 @@ final class MetalBatches {
                 batch=Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:nil,
                     instances:(0..<3).map{_ in buffer([instance])},nodes:[],textures:[diffuse,fog],terrain:true,shadow:false,mode:2,depthDisabled:false,bounds:[])
             }
-            next[page]=TerrainPage(keys:keys,sources:sources,masks:masks,batch:batch);result.append(batch)
+            next[page]=TerrainPage(keys:keys,sources:sources,masks:masks,diffuse:diffuseSources,poses:poses,batch:batch);result.append(batch)
         }
         terrainPageCache=next
         return result

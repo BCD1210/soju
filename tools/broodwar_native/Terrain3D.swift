@@ -12,16 +12,15 @@ final class Terrain3D {
         flags=f;heights=h;ramps=Set(data["rampCells"] as? [Int] ?? [])
     }
     func index(_ x:Int,_ y:Int)->Int { max(0,min(height-1,y))*width+max(0,min(width-1,x)) }
-    // Lift HD map samples along the canonical 32-degree comparison ray.
-    // This is a reconstruction convention, not recovered source geometry.
-    // Perspective views retain VF4 relief; native map footprints stay fixed.
+    // Height never shifts the native horizontal map domain. A height-dependent
+    // Z shear reverses steep descending cliff faces and creates folded surfaces.
     static let canonicalElevation=32.0 * Double.pi/180
     static let reliefDepth=1/tan(canonicalElevation)
     static func worldPosition(_ x:Double,_ height:Double,_ z:Double)->SCNVector3 {
-        SCNVector3(x,height,z+height*reliefDepth)
+        SCNVector3(x,height,z)
     }
     static func mapPosition(_ point:SCNVector3)->SCNVector3 {
-        SCNVector3(point.x,0,point.z-point.y*CGFloat(reliefDepth))
+        SCNVector3(point.x,0,point.z)
     }
     // Shared corners give every cliff texel real surface area. Extra extruded
     // walls duplicated the baked cliff artwork and had zero-area texture UVs.
@@ -71,7 +70,7 @@ final class Terrain3D {
     func geometry(tileX:Int,tileY:Int,material:SCNMaterial)->SCNGeometry {
         var vertices=[SCNVector3](),normals=[SCNVector3](),uv=[CGPoint](),indices=[Int32]()
         func quad(_ p:[SIMD3<Float>],_ t:[CGPoint]) {
-            let lifted=p.map{SIMD3<Float>($0.x,$0.y,$0.z+$0.y*Float(Self.reliefDepth))}
+            let lifted=p
             let base=Int32(vertices.count),first=simd_cross(lifted[1]-lifted[0],lifted[2]-lifted[0]),second=simd_cross(lifted[2]-lifted[0],lifted[3]-lifted[0])
             let normal=simd_normalize(simd_length_squared(first)>simd_length_squared(second) ? first:second)
             for i in 0..<4 { vertices.append(Self.worldPosition(Double(p[i].x),Double(p[i].y),Double(p[i].z)));normals.append(SCNVector3(normal.x,normal.y,normal.z));uv.append(t[i]) }
