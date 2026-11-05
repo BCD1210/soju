@@ -4,6 +4,7 @@ import Metal
 import simd
 
 final class NativeSceneWorker {
+    enum RefinementYield:Error {case nativePending}
     struct Update {let state:Obj,fog:[Int:UInt8],creep:Set<Int>;var prepared:PreparedState?=nil;var region:Obj?=nil}
     let mailbox=SceneMailbox()
     private let queue=DispatchQueue(label:"soju.bw.scene-owner",qos:.userInitiated)
@@ -84,9 +85,14 @@ final class NativeSceneWorker {
         guard let builder=builder,let view=view,view.session==builder.session else {return}
         if includeTerrain,publishedView?.equivalent(to:view)==true,publishedResources==resources,!builder.needsTerrain(view) {return}
         do {
-            mailbox.publish(try builder.packet(view,includeTerrain:includeTerrain || builder.terrain.session != builder.session))
+            mailbox.publish(try builder.packet(view,includeTerrain:includeTerrain || builder.terrain.session != builder.session,yieldToNative:{ [self] in
+                guard includeTerrain else {return false}
+                viewLock.lock();defer{viewLock.unlock()}
+                return pendingNative>0
+            }))
             publishedView=view;publishedResources=resources
         }
+        catch RefinementYield.nativePending {return}
         catch {mailbox.fail(String(describing:error));fputs("Native scene packet: \(error)\n",stderr)}
     }
     final class Builder {
@@ -160,7 +166,7 @@ final class NativeSceneWorker {
         func needsTerrain(_ view:SceneView)->Bool {
             terrainDirty || lastCenter != view.center || lastRadius != view.radius || terrain.session != session
         }
-        func packet(_ view:SceneView,includeTerrain:Bool=true)throws->ScenePacket {
+        func packet(_ view:SceneView,includeTerrain:Bool=true,yieldToNative:()->Bool={false})throws->ScenePacket {
             trimTextureCaches()
             if includeTerrain && needsTerrain(view) {
                 let terrainResult=terrain.apply(TerrainWorker.Request(session:session,center:view.center,radius:view.radius,fog:fog,creep:creep))
@@ -169,6 +175,7 @@ final class NativeSceneWorker {
                 terrainDirty=false;lastCenter=view.center;lastRadius=view.radius
             }
             trimTextureCaches()
+            if yieldToNative() {throw RefinementYield.nativePending}
             let column=view.camera.transform.columns.3,eye=SIMD3<Float>(column.x,column.y,column.z)
             for billboard in billboards.values {billboard.updateView(eye:eye,orientation:view.camera.orientation,perspective:!view.camera.orthographic,art:sprites)}
             var overlays=Array(terrain.creepNodes.values)+Array(sprites.nodes.values)
@@ -195,6 +202,7 @@ final class NativeSceneWorker {
             }
             overlays += overlayCache.nodes(view.overlays)
             overlays.sort{$0.renderingOrder<$1.renderingOrder}
+            if yieldToNative() {throw RefinementYield.nativePending}
             generation &+= 1
             try batches.prepare(MetalBatches.Input(sceneRevision:generation,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,
                 terrain:terrain.terrain,billboards:billboards.filter{$0.key != view.hiddenUnit}.map{$0.value},overlays:overlays,objectCount:units.count,retireTerrainSources:true,reuseUnitPoses:true))
@@ -247,6 +255,7 @@ final class NativeSceneWorker {
             let bounds=billboards.mapValues{$0.projectedSpriteBounds(projection:projection,viewport:view.viewport,art:sprites)}
             var packet=ScenePacket(generation:generation,session:session,batches:batches.batches,picks:picks,nativeFrame:number(state,"frame"),publishedAt:CACurrentMediaTime(),unitPositions:positions,diagnostics:diagnostics,spriteBounds:bounds)
             packet.timing=SceneTiming(native:number(state,"nativeAt"),bridgeStarted:number(state,"bridgeStartedAt"),bridgeRead:number(state,"bridgeReadAt"),workerStarted:workerStartedAt,published:packet.publishedAt)
+            packet.timing.bridgeWireRead=number(state,"bridgeWireReadAt")
             return packet
         }
     }

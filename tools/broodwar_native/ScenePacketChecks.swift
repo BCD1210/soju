@@ -143,7 +143,15 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     let failedTerrain=try NativeSceneWorker.Builder(device:device)
     let terrainState:Obj=["session":"terrain-retry","frame":1,"units":[],"events":[]]
     failedTerrain.apply(NativeSceneWorker.Update(state:terrainState,fog:[:],creep:[]))
+    var yielded=false
+    do {_ = try failedTerrain.packet(view("terrain-retry"),yieldToNative:{true})}
+    catch NativeSceneWorker.RefinementYield.nativePending {yielded=true}
+    try require(yielded && failedTerrain.generation==0 && !failedTerrain.needsTerrain(view("terrain-retry")),"view refinement can yield after terrain preparation without publishing a stale native frame")
     let beforeFailure=try failedTerrain.packet(view("terrain-retry"))
+    var yieldChecks=0
+    do {_ = try failedTerrain.packet(view("terrain-retry"),yieldToNative:{yieldChecks+=1;return yieldChecks==2})}
+    catch NativeSceneWorker.RefinementYield.nativePending {}
+    try require(yieldChecks==2 && failedTerrain.generation==beforeFailure.generation,"a native arrival during view preparation cancels redundant batch construction")
     let tileKey=String(failedTerrain.terrain.mapTiles[0]),originalTile=failedTerrain.terrain.art.tileCatalog[tileKey]!
     failedTerrain.terrain.art.tileCatalog[tileKey]?["file"]="runtime-check-missing-terrain.dds"
     failedTerrain.apply(NativeSceneWorker.Update(state:terrainState,fog:[0:50],creep:[]))
