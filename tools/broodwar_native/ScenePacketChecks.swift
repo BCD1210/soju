@@ -7,6 +7,19 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     try require(!ScenePickHit.Target.unit("blocking").accepts(command:.ground) && ScenePickHit.Target.terrain.accepts(command:.ground),"ground targeting ignores intervening unit geometry")
     try require(!ScenePickHit.Target.terrain.accepts(command:.unit) && ScenePickHit.Target.unit("target").accepts(command:.unit),"unit targeting excludes terrain")
     try require(ScenePickHit.Target.card(-3).accepts(command:.ground) && ScenePickHit.Target.unit("rally").accepts(command:.rally),"pending targets retain cancel cards and unit rally targets")
+    let raster=WristMapRaster(),fog:[Int:UInt8]=[0:50,1:48,2:49]
+    let minimap=raster.image(width:2,height:2,fog:fog)
+    try require(minimap === raster.image(width:2,height:2,fog:fog),"unchanged minimap fog retains the raster image")
+    let bitmap=minimap.representations[0] as! NSBitmapImageRep
+    try require(bitmap.colorAt(x:0,y:0)!.alphaComponent==1 && bitmap.colorAt(x:1,y:0)!.alphaComponent==0 && bitmap.colorAt(x:0,y:1)!.redComponent<bitmap.colorAt(x:0,y:0)!.redComponent,"minimap preserves visible, unseen and explored tile states in native row order")
+    let changedMap=raster.image(width:2,height:2,fog:[0:49])
+    try require(changedMap !== minimap,"changed minimap fog replaces the immutable raster")
+    let imageCache=SceneOverlayImageCache();imageCache.begin()
+    let image=imageCache.capture(minimap);imageCache.end();imageCache.begin()
+    try require(image != nil && image === imageCache.capture(minimap),"pose-only captures retain converted panel image identity")
+    _=imageCache.capture(changedMap);imageCache.end();imageCache.begin();_=imageCache.capture(changedMap);imageCache.end()
+    try require(imageCache.count==1,"panel image cache retires unused images")
+
     let overlayCache=SceneOverlayCache()
     func overlay(_ x:Float,_ color:SIMD4<Float>)->SceneOverlay {
         var transform=matrix_identity_float4x4;transform.columns.3.x=x

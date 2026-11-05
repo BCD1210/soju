@@ -146,3 +146,19 @@ final class SceneOverlayCache {
         return next.map{$0.1}
     }
 }
+
+// The main owner replaces panel images instead of mutating them. Keep each
+// immutable conversion stable across pose-only captures and retire unused images.
+final class SceneOverlayImageCache {
+    private var images=[ObjectIdentifier:(NSImage,CGImage)](),used=Set<ObjectIdentifier>()
+    var count:Int {images.count}
+    func begin() {used.removeAll(keepingCapacity:true)}
+    func capture(_ image:NSImage?)->CGImage? {
+        guard let image=image else {return nil}
+        let key=ObjectIdentifier(image);used.insert(key)
+        if let cached=images[key] {return cached.1}
+        guard let converted=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {return nil}
+        images[key]=(image,converted);return converted
+    }
+    func end() {images=images.filter{used.contains($0.key)}}
+}

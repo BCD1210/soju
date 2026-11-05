@@ -4,7 +4,7 @@ import simd
 
 final class WristPanels {
     let commands=SCNNode(),resources=SCNNode(),ray=SCNNode(),box=SCNNode()
-    let card=CommandCard()
+    let card=CommandCard(),overlayImages=SceneOverlayImageCache(),mapRaster=WristMapRaster()
     var selection=[String]()
     var choices=[CommandChoice](),page=0,signature="",lastMap=0.0
     var dragUnit:String?
@@ -54,10 +54,10 @@ final class WristPanels {
         let supplies=(commander.state["supplies"] as? [Obj] ?? []).map{"\(Int(number($0,"used"))/2)/\(Int(number($0,"provided"))/2)"}.joined(separator:"   ")
         ("Supply Z / T / P: "+supplies as NSString).draw(at:NSPoint(x:15,y:514),withAttributes:[.font:NSFont.systemFont(ofSize:21),.foregroundColor:NSColor.white])
         let width=max(1,commander.mapWidth),height=max(1,commander.mapHeight)
-        for (index,visibility) in commander.fog where visibility != 48 {
-            NSColor(calibratedWhite:visibility==50 ? 0.23:0.10,alpha:1).setFill()
-            NSRect(x:Double(index%width)*480/Double(width)+16,y:Double(height-1-index/width)*480/Double(height)+16,width:480/Double(width)+1,height:480/Double(height)+1).fill()
-        }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current?.imageInterpolation = .none
+        mapRaster.image(width:width,height:height,fog:commander.fog).draw(in:NSRect(x:16,y:16,width:480,height:480))
+        NSGraphicsContext.restoreGraphicsState()
         for unit in commander.units.values where unit["renderHidden"] as? Bool != true {
             (number(unit,"owner")==number(commander.state,"player") ? NSColor.green:NSColor.red).setFill()
             NSRect(x:number(unit,"x")/32/Double(width)*480+14,y:(1-number(unit,"y")/32/Double(height))*480+14,width:5,height:5).fill()
@@ -70,5 +70,21 @@ final class WristPanels {
         let geometry=SCNGeometry(sources:[SCNGeometrySource(vertices:[from,to])],elements:[SCNGeometryElement(indices:[Int32(0),1],primitiveType:.line)])
         let material=SCNMaterial();material.lightingModel = .constant;material.diffuse.contents=color
         geometry.materials=[material];ray.geometry=geometry
+    }
+}
+
+final class WristMapRaster {
+    private var width=0,height=0,fog=[Int:UInt8](),cached:NSImage?
+    func image(width:Int,height:Int,fog:[Int:UInt8])->NSImage {
+        if let cached=cached,self.width==width,self.height==height,self.fog==fog {return cached}
+        let bitmap=NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:width,pixelsHigh:height,bitsPerSample:8,
+            samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:width*4,bitsPerPixel:32)!
+        let pixels=bitmap.bitmapData!;pixels.initialize(repeating:0,count:width*height*4)
+        for (index,visibility) in fog where index>=0 && index<width*height && visibility != 48 {
+            let offset=index*4,value:UInt8=visibility==50 ? 59:26
+            pixels[offset]=value;pixels[offset+1]=value;pixels[offset+2]=value;pixels[offset+3]=255
+        }
+        let image=NSImage(size:NSSize(width:width,height:height));image.addRepresentation(bitmap)
+        self.width=width;self.height=height;self.fog=fog;cached=image;return image
     }
 }
