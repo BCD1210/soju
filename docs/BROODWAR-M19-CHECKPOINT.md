@@ -4,6 +4,15 @@ M19 and the remaining M18 XR gates are **not qualified**. Work starts at
 `da30dbb` on `feat/broodwar-3d`. Private evidence is under
 `~/.local/share/soju/broodwar-native/3d-proof/m19/`.
 
+Latest results (`b42d576`, 2026-11-05 America/Los_Angeles): three-race XR
+controller chains, table/ground/air possession, manual/death exits and combat
+captures are verified. The default ten-minute duel passes sustained combat,
+residency and the 70 ms XR display-estimate gate. All three 125-unit XR views
+pass cadence and residency. **Open performance gates:** possession latency
+76.45 ms, desktop actual presentation latency 78.45 ms, and ten-minute duel
+cadence 12.40 ms. These exceed 70 ms / 70 ms / 12 ms respectively. No overall
+qualification is claimed. Physical-headset presentation remains unverified.
+
 ## Implementation
 
 The table now frames the full map at an initial width of 1.8 metres. Camera and
@@ -26,7 +35,7 @@ Metal output fades in after switching and adds a peripheral motion vignette.
 
 - Python: 286 passed, 60 subtests passed (`tests-python.log`).
 - Rust: 18 passed, including full-map terrain bounds (`tests-rust.log`).
-- Final-source runtime suites: **209 desktop / 214 offline XR / 214 fallback**
+- Initial implementation runtime suites: **209 desktop / 214 offline XR / 214 fallback**
   checks passed (`runtime-*.json`). Both viewer builds and the native module build
   succeeded. `build-evidence.json` records hashes and zero staged-source mismatches.
 - Live Terran desktop table captures exist in `desktop-terran/`. The full map and
@@ -342,3 +351,87 @@ and 35.14 ms packet age p95. It still fails 70 ms. Its moving-camera CPU sample
 was collected only after freezing `live-final-metrics.json`.
 `stress-desktop-native-priority/` measured **78.55 ms actual presentation p95**
 over 45.05 seconds; the desktop latency gate also remains open.
+
+## Contact and streamed-layer preparation
+
+Immutable terrain corner heights now avoid repeated four-height averaging.
+The contact interpolation grid additionally retains the exact sampled values
+used by the original triangular interpolation. Runtime checks compare slopes,
+triangle boundaries and outside-map coordinates. On the 128×112 map, the grid
+uses about 28 MiB of CPU memory per terrain instance; the 1,536 MiB texture
+budget is unchanged. Sprite layers retain geometry when their displayed image,
+frame, team color and draw function are unchanged. Relief construction no longer
+allocates a discarded plane. Streamed Metal materials share read-only frame
+properties; fallback materials retain independent mutable properties.
+
+Runtime checks on `b42d576` pass **251 desktop / 256 XR / 256 fallback**
+(`xr-live/runtime-shared-material-*.json`). Python and Rust rechecks pass
+**286 tests + 60 subtests / 18 tests** (`xr-live/final-python.log`,
+`xr-live/final-rust.log`).
+
+| Possession run | XR latency p95 | Cadence p95 | Missed slots |
+|---|---:|---:|---:|
+| `stress-possess-layer-reuse/` | 78.21 ms | 11.91 ms | 0 |
+| `stress-possess-contact-grid/` | 75.24 ms | 11.89 ms | 0 |
+| `stress-possess-shared-material/` | 76.45 ms | 11.87 ms | 0 |
+
+All three retained implementations preserved native movement acknowledgements,
+actual movement, tracking freshness and zero texture rejections. The final
+shared-material run measured 41.56 seconds and packet age p95 35.01 ms.
+Possession still fails the 70 ms latency gate. XR latency remains a display
+estimate; compositor presentation timestamps are unavailable in this runtime.
+
+Two experiments were removed: merging pending terrain refinement into native
+publication measured 86.20 ms, and a ground-pose cache measured 81.22 ms with
+one missed slot. Their run directories remain under the M19 proof root; patches are in `xr-live/`.
+Earlier successful runs are not substituted for the final binary's measurements.
+
+## Optimized default ten-minute duel
+
+`duel-xr-optimized/qualification.json` verifies **613.89 measured
+seconds**, 609.72 seconds between native samples, and
+14,516 original frames advanced on `b42d576`. The run recorded
+**217 attacks, 194 damage events and 24 deaths**. Every sampled scene and tracking
+state stayed fresh and the owned army survived. Defaults were unchanged, captures
+were disabled, peak texture residency was **1309.58 MiB**, and there were
+**zero rejections and zero missed slots**.
+
+Latency p95 improved to **68.30 ms**, passing the
+70 ms XR display-estimate threshold for this duel. Packet age p95 was
+**40.59 ms**. Cadence p95 was **12.40 ms**, which
+still fails the 12 ms limit. The sustained combat/residency gate passes; the
+combined performance gate does not. Post-`xrWaitFrame` work p95 was
+0.78 ms and wait duration p95 was
+11.70 ms. These durations identify where the
+measured time is spent, without establishing the cause of scheduling variation.
+Shared runtime source and services were not changed.
+
+## Final same-binary stress and evidence
+
+`xr-live/xr-stress-final.json` verifies matching XR binary hashes, 125 owned
+units, native move acknowledgements, actual movement, fresh scene/tracking
+samples, default settings, disabled captures and zero texture rejections.
+
+| XR view | Measured seconds | Cadence p95 | Missed slots | Packet age p95 | Display-estimate p95 |
+|---|---:|---:|---:|---:|---:|
+| Table | 45.35 | 11.91 ms | 0 | 35.16 ms | 63.27 ms |
+| Ground | 42.96 | 11.92 ms | 0 | 34.67 ms | 64.91 ms |
+| Possession | 41.56 | 11.87 ms | 0 | 35.01 ms | 76.45 ms |
+
+`stress-desktop-final/` measured **78.45 ms actual compositor presentation p95**
+over 45.05 seconds, packet age p95 **33.35 ms**, and zero texture rejections.
+The original 97.63 ms desktop baseline improved, but 70 ms remains unmet.
+Desktop's approximately 50 Hz intervals are not a 90 Hz XR cadence result.
+
+`xr-live/build-final-evidence.json` records both binary hashes and zero staged
+Swift-source mismatches. Final Python/Rust checks passed again after the last
+source commit. Saved three-race controller/mode evidence was revalidated by
+`chains-verification-final.log` and `modes-verification-final.log`; those live
+functional sessions predate the packet optimizations, as identified by their
+launch evidence. The same-binary stress and duel results above use `b42d576`.
+
+`xr-live/user-media-verification.json` verifies all six named screenshots against
+their raw-source hashes and the **13.6-second** first-person combat video. They
+remain in `user-shots/`; no game imagery, video, native assets or build output is
+tracked. Work is committed locally without pushing. The existing model-queue
+edit belongs to the separate asset work and remains untouched.
