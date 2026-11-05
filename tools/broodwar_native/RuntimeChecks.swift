@@ -108,6 +108,26 @@ func runtimeChecks()throws {
     try require(prepared?.geometry != nil,"background stream publishes a complete relief frame")
     try require(prepared?.image.pixelFormat == .rgba8Unorm_srgb || prepared?.image.pixelFormat == .bgra8Unorm_srgb,"streamed color is explicitly sRGB")
     if let prepared=prepared,let payload=prepared.geometry {
+        let referenceArt=WorldSprites()
+        let referenceMaterial=referenceArt.relief.material(239,frame:68,color:[244,4,4],art:referenceArt)
+        func pixels(_ texture:MTLTexture)->Data {
+            let stride=(texture.width*4+255)/256*256
+            let storage=commander.art.device.makeBuffer(length:stride*texture.height,options:.storageModeShared)!
+            let command=batchCheck.queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
+            blit.copy(from:texture,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:texture.width,height:texture.height,depth:1),to:storage,destinationOffset:0,destinationBytesPerRow:stride,destinationBytesPerImage:stride*texture.height)
+            blit.endEncoding();command.commit();command.waitUntilCompleted()
+            var result=Data()
+            for row in 0..<texture.height {result.append(storage.contents().advanced(by:row*stride).assumingMemoryBound(to:UInt8.self),count:texture.width*4)}
+            return result
+        }
+        var equalMaps=true
+        for name in ["normal","bright","specular","emissive","ao_depth"] {
+            let fallback=name=="normal" ? batchCheck.normal:name=="ao_depth" ? batchCheck.white:batchCheck.black
+            let original=try batchCheck.texture((referenceMaterial.value(forKey:"relief_"+name) as? SCNMaterialProperty)?.contents,fallback:fallback)
+            let streamed=try batchCheck.texture(prepared.material.maps[name]?.contents,fallback:fallback)
+            equalMaps = equalMaps && original.width==streamed.width && original.height==streamed.height && original.pixelFormat==streamed.pixelFormat && pixels(original)==pixels(streamed)
+        }
+        try require(equalMaps,"streamed lighting maps preserve reference pixels, dimensions and color formats")
         let first=payload.geometry(),second=payload.geometry()
         let expected=batchCheck.mesh(second)
         try require(first.sources[0] !== second.sources[0] && first.elements[0] !== second.elements[0],"streamed relief reconstruction owns distinct SceneKit sources and elements")
