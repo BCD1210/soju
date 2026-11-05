@@ -22,6 +22,7 @@
 
 namespace {
 void scheduleFrameThread(XrDuration period) {
+    if(pthread_main_np())return;
     static thread_local XrDuration configured=0;
     if(period==configured || period<1000000 || period>1000000000)return;
     configured=period;
