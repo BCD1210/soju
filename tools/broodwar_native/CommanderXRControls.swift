@@ -19,6 +19,9 @@ extension Commander {
             if edge || now-lastControllerLog>1 {
                 lastControllerLog=now
                 let sample:Obj=["time":Date().timeIntervalSince1970,"frame":number(state,"frame"),
+                    "viewMode":possessedUnit != nil ? "possess":tabletop ? "tabletop":"ground",
+                    "bodyYaw":yaw,"originYaw":xrOriginYaw,"origin":[xrOrigin?.x ?? 0,xrOrigin?.y ?? 0,xrOrigin?.z ?? 0],
+                    "worldUnitsPerMeter":worldUnitsPerMeter,"moveStick":[input.moveX,input.moveY],"turnStick":input.turnX,
                     "leftPressed":input.leftPressed,"leftReleased":input.leftReleased,"rightPressed":input.rightPressed,
                     "leftHeld":input.leftHeld,"rightHeld":input.rightHeld,"leftGrip":input.leftGripHeld,"rightGrip":input.rightGripHeld,
                     "selected":selected,"boxSelections":wrists.boxSelections,"doubleTaps":wrists.doubleTaps,
@@ -66,9 +69,13 @@ extension Commander {
         guard input.aimValid != 0 else {reticle.isHidden=true;wrists.ray.isHidden=true;wrists.dragStart=nil;wrists.box.geometry=nil;return}
         let from=handPosition(raw),direction=(xrBody*simd_quatf(ix:input.qx,iy:input.qy,iz:input.qz,r:input.qw)).act(SIMD3<Float>(0,0,-1))
         let end=from+direction*(100*worldUnitsPerMeter)
+        func accepts(_ target:ScenePickHit.Target)->Bool {
+            if case .unit(let id)=target,id==possessedUnit {return false}
+            return target.accepts(command:wrists.pending?.target)
+        }
         let hit:ScenePickHit?
-        if let worker=sceneWorker {hit=worker.mailbox.presented()?.hit(origin:from,direction:direction,accept:{if case .unit(let id)=$0 {return id != self.possessedUnit};return true})}
-        else {hit=world.rootNode.hitTestWithSegment(from:SCNVector3(from),to:SCNVector3(end),options:[SCNHitTestOption.searchMode.rawValue:SCNHitTestSearchMode.all.rawValue,SCNHitTestOption.categoryBitMask.rawValue:5]).compactMap{scenePick($0,origin:from)}.min(by:{$0.distance<$1.distance})}
+        if let worker=sceneWorker {hit=worker.mailbox.presented()?.hit(origin:from,direction:direction,accept:accepts)}
+        else {hit=world.rootNode.hitTestWithSegment(from:SCNVector3(from),to:SCNVector3(end),options:[SCNHitTestOption.searchMode.rawValue:SCNHitTestSearchMode.all.rawValue,SCNHitTestOption.categoryBitMask.rawValue:5]).compactMap{scenePick($0,origin:from)}.filter{accepts($0.target)}.min(by:{$0.distance<$1.distance})}
         wrists.ray.isHidden=false
         wrists.line(from:SCNVector3(from.x,from.y,from.z),to:hit?.worldCoordinates ?? SCNVector3(end.x,end.y,end.z),color:wrists.pending==nil ? .cyan:.orange)
         guard let hit=hit else {

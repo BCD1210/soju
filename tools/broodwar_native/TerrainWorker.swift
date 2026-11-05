@@ -74,8 +74,8 @@ final class TerrainWorker {
         if let dirty=dirty {candidates=dirty}
         else {
             var region=Set<Int>()
-            for y in max(0,cy-radius)..<max(0,min(mapHeight,cy+radius+1)) {
-                for x in max(0,cx-radius)..<max(0,min(mapWidth,cx+radius+1)) {region.insert(y*mapWidth+x)}
+            for y in min(mapHeight,max(0,cy-radius))..<max(0,min(mapHeight,cy+radius+1)) {
+                for x in min(mapWidth,max(0,cx-radius))..<max(0,min(mapWidth,cx+radius+1)) {region.insert(y*mapWidth+x)}
             }
             candidates=region
         }

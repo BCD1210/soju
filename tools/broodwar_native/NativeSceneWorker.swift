@@ -64,6 +64,7 @@ final class NativeSceneWorker {
     }
     final class Builder {
         let terrain:TerrainWorker.Builder,sprites=WorldSprites(streaming:true),effects:CombatEffects,batches:MetalBatches
+        private let overlayCache=SceneOverlayCache()
         var units=[String:Obj](),billboards=[String:UnitBillboard](),bars=[String:UnitBars](),rings=[String:SCNNode]()
         var state:Obj=[:],fog=[Int:UInt8](),creep=Set<Int>(),session="",eventSequence=0.0,generation=0
         var terrainRevision=0,fogRevision=0
@@ -125,7 +126,7 @@ final class NativeSceneWorker {
                 }
                 ring.simdPosition=billboard.root.simdPosition+SIMD3<Float>(0,0.035,0);overlays.append(ring)
             }
-            overlays += view.overlays.map{$0.node()}
+            overlays += overlayCache.nodes(view.overlays)
             overlays.sort{$0.renderingOrder<$1.renderingOrder}
             generation &+= 1
             try batches.prepare(MetalBatches.Input(sceneRevision:generation,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,

@@ -4,7 +4,16 @@ import SceneKit
 import simd
 
 struct ScenePickHit {
-    enum Target:Equatable {case unit(String),terrain,card(Int)}
+    enum Target:Equatable {
+        case unit(String),terrain,card(Int)
+        func accepts(command:CommandTarget?)->Bool {
+            switch self {
+            case .card:return true
+            case .unit:return command != .ground
+            case .terrain:return command != .unit
+            }
+        }
+    }
     let target:Target,position:SIMD3<Float>,distance:Float
     var worldCoordinates:SCNVector3 {SCNVector3(position)}
     var unitID:String? {if case .unit(let id)=target {return id};return nil}
@@ -103,10 +112,13 @@ struct SceneOverlay {
     }
     let transform:simd_float4x4,vertices:[SCNVector3],uv:[CGPoint],indices:[Int32]
     let image:CGImage?,color:SIMD4<Float>,opacity:Float,depth:Bool,order:Int,line:Bool,name:String?
-    func equivalent(to other:SceneOverlay)->Bool {
+    func sameContents(as other:SceneOverlay)->Bool {
         image === other.image && color==other.color && opacity==other.opacity && depth==other.depth && order==other.order && line==other.line && name==other.name &&
-        simd_equal(transform,other.transform) && uv==other.uv && indices==other.indices && vertices.count==other.vertices.count &&
+        uv==other.uv && indices==other.indices && vertices.count==other.vertices.count &&
         zip(vertices,other.vertices).allSatisfy{$0.x==$1.x && $0.y==$1.y && $0.z==$1.z}
+    }
+    func equivalent(to other:SceneOverlay)->Bool {
+        sameContents(as:other) && simd_equal(transform,other.transform)
     }
     func node()->SCNNode {
         var sources=[SCNGeometrySource(vertices:vertices)]
@@ -117,5 +129,20 @@ struct SceneOverlay {
         material.readsFromDepthBuffer=depth;material.writesToDepthBuffer=false;geometry.materials=[material]
         let node=SCNNode(geometry:geometry);node.simdTransform=transform;node.opacity=CGFloat(opacity);node.renderingOrder=order;node.name=name
         return node
+    }
+}
+
+// Worker-owned nodes retain image identity while tracked poses change. Packets
+// still capture immutable geometry and transforms before the next mutation.
+final class SceneOverlayCache {
+    private var entries=[(SceneOverlay,SCNNode)]()
+    func nodes(_ overlays:[SceneOverlay])->[SCNNode] {
+        let next=overlays.enumerated().map {index,overlay -> (SceneOverlay,SCNNode) in
+            let node=entries.indices.contains(index) && entries[index].0.sameContents(as:overlay) ? entries[index].1:overlay.node()
+            node.simdTransform=overlay.transform
+            return (overlay,node)
+        }
+        entries=next
+        return next.map{$0.1}
     }
 }

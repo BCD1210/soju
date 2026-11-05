@@ -98,3 +98,24 @@ view. Game assets and build outputs remain private and untracked.
 
 - `c3f3ee2`: full-map command table, possession, native terrain bounds and tests.
 - The documentation checkpoint is a separate local commit. No push was performed.
+
+## XR continuation: first repair step
+
+The simulator became available for this continuation. A private simulator copy
+under `m19/simulator-source/` adds replay head orientation and both thumbsticks;
+shared OXRSys sources and services remain unchanged. Controller inputs traverse
+its tracking transport and the viewer's OpenXR actions.
+
+Live switching exposed a terrain range trap when a camera lies beyond the upper
+map edge. Both terrain range endpoints now clamp to the map. Ground-targeted
+cards also exclude intervening unit meshes. Worker-owned wrist overlay nodes
+retain their geometry/materials when only the tracked transform changes, avoiding
+repeated image conversions. Runtime checks cover these three changes.
+
+Validation in `xr-live/`: 286 Python tests plus 60 subtests, 18 Rust tests,
+217 desktop / 222 XR / 222 SceneKit fallback runtime checks passed. The earlier
+trap is retained in `table-switch-crash.ips`. Subsequent controller trials reached
+ground/table switching, Marine possession and stick movement, but did not finish:
+the simulator connection lost tracking during later input. These partial trials
+and mixed timing samples are not acceptance results. Tracking diagnostics and
+fresh connected runs are required before closing the gates below.

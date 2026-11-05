@@ -4,6 +4,20 @@ import SceneKit
 import simd
 
 func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws {
+    try require(!ScenePickHit.Target.unit("blocking").accepts(command:.ground) && ScenePickHit.Target.terrain.accepts(command:.ground),"ground targeting ignores intervening unit geometry")
+    try require(!ScenePickHit.Target.terrain.accepts(command:.unit) && ScenePickHit.Target.unit("target").accepts(command:.unit),"unit targeting excludes terrain")
+    try require(ScenePickHit.Target.card(-3).accepts(command:.ground) && ScenePickHit.Target.unit("rally").accepts(command:.rally),"pending targets retain cancel cards and unit rally targets")
+    let overlayCache=SceneOverlayCache()
+    func overlay(_ x:Float,_ color:SIMD4<Float>)->SceneOverlay {
+        var transform=matrix_identity_float4x4;transform.columns.3.x=x
+        return SceneOverlay(transform:transform,vertices:[SCNVector3(0,0,0),SCNVector3(1,0,0),SCNVector3(0,1,0)],uv:[],indices:[0,1,2],image:nil,color:color,opacity:1,depth:false,order:1,line:false,name:"card-0")
+    }
+    let originalOverlay=overlayCache.nodes([overlay(0,SIMD4<Float>(1,1,1,1))])[0]
+    let movedOverlay=overlayCache.nodes([overlay(2,SIMD4<Float>(1,1,1,1))])[0]
+    try require(originalOverlay === movedOverlay && movedOverlay.simdPosition.x==2,"tracked overlay pose reuses worker geometry and material")
+    let changedOverlay=overlayCache.nodes([overlay(2,SIMD4<Float>(1,0,0,1))])[0]
+    try require(changedOverlay !== originalOverlay,"overlay content change replaces worker material")
+    try require(overlayCache.nodes([]).isEmpty,"removed overlays release worker cache entries")
     try require(SceneOverlay.tint(NSImage(size:NSSize(width:2,height:2))) == SIMD4<Float>(repeating:1),"textured wrist overlays use white RGB tint without querying grayscale components")
     try require(SceneOverlay.tint(NSColor(calibratedWhite:0.5,alpha:0.25)).w == 0.25,"overlay grayscale colors convert to RGB while preserving alpha")
     if case .color(let fallback)=FrameStream.Material.Map(nil) {
@@ -87,6 +101,12 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     worker.view(view("next-session"))
     try require(wait{worker.mailbox.latest()?.session=="next-session"},"matching new-session view resumes publication")
     try require((worker.mailbox.latest()?.diagnostics["combatEvents"] as? [String:Int])?.isEmpty==true,"new worker session clears prior combat events")
+
+    let boundedTerrain=try TerrainWorker.Builder()
+    for center in [SIMD2<Int>(-1000,-1000),SIMD2<Int>(1000,1000)] {
+        let result=boundedTerrain.apply(TerrainWorker.Request(session:"outside-map",center:center,radius:20,fog:[:],creep:[]))
+        try require(result.terrain.isEmpty && result.error.isEmpty,"terrain camera outside either map edge produces an empty region")
+    }
 
     let failedTerrain=try NativeSceneWorker.Builder(device:device)
     let terrainState:Obj=["session":"terrain-retry","frame":1,"units":[],"events":[]]
