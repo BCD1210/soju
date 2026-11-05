@@ -1,21 +1,12 @@
 import Cocoa
-import Metal
+import MetalKit
 import SceneKit
 import simd
 import CoreImage
 
-final class DesktopSurface:NSView {
-    override func makeBackingLayer()->CALayer {CAMetalLayer()}
+final class DesktopSurface:MTKView {
     var metalLayer:CAMetalLayer {layer as! CAMetalLayer}
-    override func layout() {super.layout();updateDrawableSize()}
-    override func setFrameSize(_ size:NSSize) {super.setFrameSize(size);updateDrawableSize()}
-    override func viewDidChangeBackingProperties() {super.viewDidChangeBackingProperties();updateDrawableSize()}
-    func updateDrawableSize() {
-        guard layer != nil else {return}
-        let scale=window?.backingScaleFactor ?? 1
-        metalLayer.contentsScale=scale
-        metalLayer.drawableSize=CGSize(width:bounds.width*scale,height:bounds.height*scale)
-    }
+    override func draw() {}
     override func hitTest(_ point:NSPoint)->NSView? {nil}
 }
 final class DesktopMetal:NSObject,CAMetalDisplayLinkDelegate {
@@ -23,13 +14,12 @@ final class DesktopMetal:NSObject,CAMetalDisplayLinkDelegate {
     let surface:DesktopSurface,queue:MTLCommandQueue
     init(commander:Commander)throws {
         self.commander=commander
-        surface=DesktopSurface(frame:commander.view.bounds)
+        surface=DesktopSurface(frame:commander.view.bounds,device:commander.art.device)
         queue=commander.art.device.makeCommandQueue()!
         super.init()
         commander.metalBatches=try MetalBatches(device:commander.art.device)
-        surface.wantsLayer=true
-        surface.metalLayer.device=commander.art.device
-        surface.metalLayer.pixelFormat = .bgra8Unorm_srgb;surface.metalLayer.framebufferOnly=false
+        surface.isPaused=true;surface.enableSetNeedsDisplay=false
+        surface.colorPixelFormat = .bgra8Unorm_srgb;surface.framebufferOnly=false
         surface.autoresizingMask=[.width,.height]
         if let layer=surface.layer as? CAMetalLayer {
             layer.maximumDrawableCount=2
@@ -38,7 +28,6 @@ final class DesktopMetal:NSObject,CAMetalDisplayLinkDelegate {
         }
         commander.view.isPlaying=false;commander.view.rendersContinuously=false;commander.view.scene=nil
         commander.view.addSubview(surface,positioned:.below,relativeTo:commander.label)
-        surface.updateDrawableSize()
         DispatchQueue.main.async { [weak self] in self?.configureDisplayLink() }
     }
     private var displayLink:CAMetalDisplayLink?
@@ -57,14 +46,14 @@ final class DesktopMetal:NSObject,CAMetalDisplayLinkDelegate {
         guard let screen=surface.window?.screen,let link=displayLink else {return}
         let rate=max(1,screen.maximumFramesPerSecond)
         guard rate != refreshRate else {return}
-        refreshRate=rate
+        refreshRate=rate;surface.preferredFramesPerSecond=rate
         link.preferredFrameRateRange=CAFrameRateRange(minimum:Float(rate),maximum:Float(rate),preferred:Float(rate))
         fputs("Desktop display link: \(rate) Hz, two drawables, vsync enabled\n",stderr)
     }
-    private let renderQueue=DispatchQueue(label:"soju.bw.desktop-frame",qos:.userInteractive)
+    private let renderQueue=DispatchQueue.main
     private let frameAdmission=DispatchSemaphore(value:1)
     private struct Input {
-        let camera:MetalBatches.CameraPacket,viewport:SIMD2<Float>,mailbox:SceneMailbox?
+        let camera:MetalBatches.CameraPacket,mailbox:SceneMailbox?
         let fade:Float,vignette:Float,manual:URL?,metadata:Obj
     }
     func metalDisplayLink(_ link:CAMetalDisplayLink,needsUpdate update:CAMetalDisplayLink.Update) {
@@ -77,10 +66,10 @@ final class DesktopMetal:NSObject,CAMetalDisplayLinkDelegate {
         let viewport=SIMD2<Float>(Float(surface.bounds.width),Float(surface.bounds.height))
         let manual=requestedCapture;requestedCapture=nil
         let metadata=(manual != nil || argument("--record-dir") != nil) ? commander.desktopCaptureMetadata():[:]
-        let input=Input(camera:camera,viewport:viewport,mailbox:commander.sceneWorker?.mailbox,
+        let input=Input(camera:camera,mailbox:commander.sceneWorker?.mailbox,
             fade:commander.comfortFade,vignette:commander.motionVignette,manual:manual,metadata:metadata)
         presentation=Presentation(camera:camera,viewport:viewport)
-        let delay=max(0,update.targetTimestamp-CACurrentMediaTime()-0.003)
+        let delay=max(0,update.targetTimestamp-CACurrentMediaTime()-0.004)
         renderQueue.asyncAfter(deadline:.now()+delay) { [self] in
             defer {frameAdmission.signal()}
             autoreleasepool {draw(input,drawable:update.drawable)}
