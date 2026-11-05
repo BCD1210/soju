@@ -175,7 +175,7 @@ final class UnitBillboard {
             if let stream=art.stream,Int(number(native,"flags"))&8 != 0,!shadow {
                 let base=Int(number(native,"frameset")),id=Int(number(native,"id"))
                 for neighbor in [frame-1,frame+1] where neighbor>=base && neighbor<=base+16 && records.indices.contains(neighbor) {
-                    stream.request(id,frame:neighbor,color:team)
+                    stream.request(id,frame:neighbor,color:team,prefetch:true)
                 }
             }
             node.opacity=shadow ? 0.5:1
