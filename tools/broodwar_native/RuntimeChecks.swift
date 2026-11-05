@@ -166,6 +166,11 @@ func runtimeChecks()throws {
     try require(streamedBillboard.shownColors[0]==streamRed,"pending owner change retains the displayed texture identity")
     waitForColor(streamBlue)
     try require(streamedBillboard.shownColors[0]==streamBlue,"same-frame owner change publishes its replacement texture")
+    let idlePose=streamedBillboard.poseRevision,idleGeometry=streamedBillboard.geometryRevision
+    var healthUpdate=streamedUnit;healthUpdate["hp"]=17;healthUpdate["order"]=3
+    streamedBillboard.apply(healthUpdate,ground:commander.ground,art:streamedArt,color:streamBlue)
+    streamedBillboard.updateView(eye:SIMD3<Float>(3,4,5),orientation:simd_quatf(),perspective:false,art:streamedArt)
+    try require(streamedBillboard.poseRevision==idlePose && streamedBillboard.geometryRevision==idleGeometry && number(streamedBillboard.unit,"hp")==17 && number(streamedBillboard.unit,"order")==3,"nonvisual native updates retain the displayed pose while accepting current unit state")
     let movingGeometry=streamedBillboard.layers[0]!.geometry,movingRevision=streamedBillboard.geometryRevision
     var movedUnit=streamedUnit
     movedUnit["x"]=132

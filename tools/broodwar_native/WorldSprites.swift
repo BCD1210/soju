@@ -21,13 +21,18 @@ final class UnitBillboard {
     var lastEye:SIMD3<Float>?,lastRotation:SIMD4<Float>?,lastPerspective:Bool?
     init(id:String) {root.name=id}
     func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites,color:[Int]=[255,255,255]) {
-        lastEye=nil;poseRevision &+= 1
         let sameTeam=team==color
-        self.unit=unit;team=color;contactGround=ground
         let x=number(unit,"x")/32,z=number(unit,"y")/32
-        root.position=Terrain3D.worldPosition(x,ground.buildingElevation(unit)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
-        root.isHidden=unit["renderHidden"] as? Bool == true || unit["transported"] as? Bool == true
-        root.opacity=unit["cloaked"] as? Bool == true ? 0.45:1
+        let position=Terrain3D.worldPosition(x,ground.buildingElevation(unit)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
+        let hidden=unit["renderHidden"] as? Bool == true || unit["transported"] as? Bool == true
+        let opacity:CGFloat=unit["cloaked"] as? Bool == true ? 0.45:1
+        let poseChanged=contactGround !== ground || root.simdPosition != SIMD3<Float>(position) || root.isHidden != hidden || root.opacity != opacity ||
+            (self.unit["building"] as? Bool) != (unit["building"] as? Bool) || (self.unit["airborne"] as? Bool) != (unit["airborne"] as? Bool)
+        self.unit=unit;team=color;contactGround=ground
+        if poseChanged {
+            lastEye=nil;poseRevision &+= 1
+            root.position=position;root.isHidden=hidden;root.opacity=opacity
+        }
         let main=unit["image"] as? Obj ?? [:]
         let chain=(unit["visual"] as? Obj)?["images"] as? [Obj] ?? [main]
         // Native map coordinates move the root; they do not change image geometry.
@@ -36,7 +41,7 @@ final class UnitBillboard {
             for index in nativeLayers.keys where chain.indices.contains(index) {nativeLayers[index]=chain[index]}
             return
         }
-        lastNativeChain=appearance;geometryRevision &+= 1
+        lastEye=nil;lastNativeChain=appearance;geometryRevision &+= 1
         var keep=Set<Int>();evidence=[]
         let observerAzimuth:Double? = art.stream != nil && capturedPerspective==true ? capturedEye.map {
             let delta=$0-root.simdWorldPosition;return atan2(Double(delta.x),Double(delta.z))
