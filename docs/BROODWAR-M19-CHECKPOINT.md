@@ -79,17 +79,17 @@ The cadence and ≤70 ms native-to-presented targets are **not met**.
 
 ## Outstanding gates
 
-Remaining desktop command coverage (including sustained WASD, targeting a unit,
-build placement and live death/transport exits),
-all three races' simulator controller chains, ground/air possession, movement,
-attack, exit, death exit and captures remain to be completed. Each view needs a
+Remaining desktop command coverage includes sustained WASD, targeting a unit,
+build placement and live transport exits. XR per-race controller chains, view
+switching, ground/air possession, stick movement, ray attack, manual exit and
+live death exit now have evidence below. Each view still needs a passing
 125-unit stress run with cadence p95 ≤12 ms, zero missed slots, packet-age and
-native-to-presented distributions. M18 still needs its default-settings XR stress
-and ten-minute active duel, and native-to-presented p95 ≤70 ms.
+native-to-presented distributions. M18 still needs its default-settings ten-minute
+XR duel and native-to-presented p95 ≤70 ms.
 
-The D2R loader and its private OXRSys simulator were active during this work.
-No Brood War XR session was started, and shared runtime services/source were not
-modified or restarted. Desktop evidence is not substituted for XR acceptance.
+The D2R job finished before the XR continuation. Only the private Brood War
+bottle, viewer and simulator were restarted. Shared OXRSys sources and services
+remain unchanged. Desktop evidence is not substituted for XR acceptance.
 The SceneKit fallback's comfort effect and headset comfort remain unverified.
 No new minimap UI is introduced; saved ground coordinates remain stable in table
 view. Game assets and build outputs remain private and untracked.
@@ -145,3 +145,36 @@ These results close the M18 per-race controller chains and the listed M19 view
 controls. They do not yet qualify live death exits, performance, the ten-minute
 XR duel, or the requested combat deliverables. No timing pass is inferred from
 capture-enabled controller sessions.
+
+## XR combat and death exits
+
+`xr-live/xr-combat-death-exits.json` verifies a possessed Marine, Zealot and
+Mutalisk each issuing native attacks, dying through original combat rules and
+returning automatically to the table. Native death / observed table-return frames
+were 1641 / 1668, 1650 / 1674 and 1564 / 1588 respectively. These are observed
+snapshot frames, not an exact transition-latency measurement.
+
+`user-shots/` contains six named, unretouched XR screenshots: Marine firing at
+Hydralisks, Zealot in melee, Mutalisk attacking Marines, and table views from the
+same three fights while other friendly combatants remained alive. The silent
+`marine-first-person-combat.mp4` is 13.6 seconds of possession, approach and
+combat. It preserves capture timing from XR frame deltas at 90 Hz, without frame
+interpolation. Per-image provenance files identify original frames and hashes;
+raw eye images, metadata and native event histories remain in each race folder.
+Neighboring air units and close-range effects sometimes occlude the possessed
+view; these captures are not a visual-polish acceptance claim.
+
+The capture fixtures only arrange armies on owned terrain; original unit stats
+and combat handlers remain in force. Simulator controls enter possession.
+Capture staging uses original attack-move handlers for the armies; separate
+controller qualification establishes ray/stick orders. Capture-enabled timing
+is excluded from performance qualification.
+
+## Panel cache step
+
+`40a67a0` retains immutable panel-image conversions across pose-only captures and
+rasterizes minimap fog once per change instead of filling thousands of rectangles.
+`runtime-panel-cache-*.json` passed all desktop, offline XR and fallback checks;
+Python remained 286 passed plus 60 subtests. Live combat and death-exit checks
+also exercised the cache. This is not a latency-target pass. An additional view
+scheduling experiment failed its timing comparison and was removed.
