@@ -139,9 +139,13 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     let tiled=try MetalBatches(device:device)
     let tileA=failedTerrain.terrain.terrain[0]!,tileB=SCNNode(geometry:failedTerrain.terrain.terrain[0]!.geometry)
     tileB.position=SCNVector3(1,0,0)
-    try tiled.prepare(MetalBatches.Input(sceneRevision:1,terrainRevision:1,terrainFogRevision:1,mapWidth:2,terrain:[0:tileA,1:tileB],billboards:[],overlays:[],objectCount:0))
+    try tiled.prepare(MetalBatches.Input(sceneRevision:1,terrainRevision:1,terrainFogRevision:1,mapWidth:2,terrain:[0:tileA,1:tileB],billboards:[],overlays:[],objectCount:0,retireTerrainSources:true))
     let page=tiled.batches.first(where:{$0.terrain})!
     try require(page.textures[0].arrayLength==1 && page.textures[1].arrayLength==2,"repeated terrain shares diffuse storage while retaining independent fog slices")
+    let boundTile=tileA.geometry!.firstMaterial!.diffuse.contents as! MTLTexture
+    try require(boundTile.parent === page.textures[0] && boundTile.textureType == .type2D,"terrain scene nodes release upload textures and reference immutable array slices")
+    try tiled.prepare(MetalBatches.Input(sceneRevision:2,terrainRevision:2,terrainFogRevision:2,mapWidth:2,terrain:[0:tileA,1:tileB],billboards:[],overlays:[],objectCount:0,retireTerrainSources:true))
+    try require(tiled.batches.first(where:{$0.terrain})!.textures[0] === page.textures[0],"terrain slice bindings preserve page reuse on unchanged terrain")
     let packed=page.vertices.contents().bindMemory(to:MetalBatches.Vertex.self,capacity:page.vertices.length/MemoryLayout<MetalBatches.Vertex>.stride)
     let tileVertices=Array(UnsafeBufferPointer(start:packed,count:page.vertices.length/MemoryLayout<MetalBatches.Vertex>.stride))
     try require(Set(tileVertices.map{$0.uv.z})==[0] && Set(tileVertices.map{$0.uv.w})==[0,1],"terrain vertex indices distinguish shared artwork from per-tile visibility")
@@ -149,6 +153,7 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     failedTerrain.apply(NativeSceneWorker.Update(state:deltaState,fog:[:],creep:[]))
     let delta=try failedTerrain.packet(view("terrain-retry"),includeTerrain:false)
     try require(delta.nativeFrame==2 && delta.picks.contains(where:{$0.target == .terrain}),"native delta publishes before terrain removal rebuild")
+    try require((recovered.diagnostics["fog"] as? [String:Int])==["0":50] && (delta.diagnostics["fog"] as? [String:Int])==[:],"fog diagnostic snapshots update on native changes without mutating retained packets")
     let refined=try failedTerrain.packet(view("terrain-retry"))
     try require(!refined.picks.contains(where:{$0.target == .terrain}) && delta.picks.contains(where:{$0.target == .terrain}),"terrain refinement retires picks without mutating the displayed delta")
 

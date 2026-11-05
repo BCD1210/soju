@@ -29,8 +29,13 @@ final class UnitBillboard {
         root.opacity=unit["cloaked"] as? Bool == true ? 0.45:1
         let main=unit["image"] as? Obj ?? [:]
         let chain=(unit["visual"] as? Obj)?["images"] as? [Obj] ?? [main]
-        if sameTeam,!layers.isEmpty,NSArray(array:chain).isEqual(to:lastNativeChain) {return}
-        lastNativeChain=chain;geometryRevision &+= 1
+        // Native map coordinates move the root; they do not change image geometry.
+        let appearance=chain.map { $0.filter { $0.key != "mapX" && $0.key != "mapY" } }
+        if sameTeam,!layers.isEmpty,NSArray(array:appearance).isEqual(to:lastNativeChain) {
+            for index in nativeLayers.keys where chain.indices.contains(index) {nativeLayers[index]=chain[index]}
+            return
+        }
+        lastNativeChain=appearance;geometryRevision &+= 1
         var keep=Set<Int>();evidence=[]
         for (index,native) in chain.enumerated() {
             guard Int(number(native,"flags"))&0x40==0,let id=native["id"] as? Int,

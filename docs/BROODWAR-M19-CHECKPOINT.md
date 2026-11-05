@@ -178,3 +178,36 @@ rasterizes minimap fog once per change instead of filling thousands of rectangle
 Python remained 286 passed plus 60 subtests. Live combat and death-exit checks
 also exercised the cache. This is not a latency-target pass. An additional view
 scheduling experiment failed its timing comparison and was removed.
+
+## Default XR duel: residency failure and repair
+
+`duel-xr-default-fresh/` completed 606.53 seconds of native gameplay samples
+(608.81 seconds in the metrics window), with 173 attacks, 147 damage events and
+19 deaths. Tracking stayed valid, but the renderer exhausted its default texture
+budget and stopped advancing scene packets. **This run fails qualification**;
+its low frame-loop intervals cannot qualify a frozen scene. The earlier
+`duel-xr-default/` attempt also remains invalid because the native match advanced
+during a viewer rebuild before the strategy started. All attempts are retained.
+
+The expanded native snapshot exposed duplicate terrain storage: scene materials
+pinned upload textures after their pixels had been copied into terrain arrays.
+The worker now binds immutable array-slice views to those materials. At high
+residency, completed upload batches release replaced source ownership through
+SceneKit's main-thread flush, temporarily releasing the construction lock.
+The render thread continues using immutable packets. Snapshot-only batch inputs
+retain their existing ownership behavior. No budget or image-resolution setting
+was changed.
+
+The first repair attempts still exceeded the budget during a large initial
+reveal. `expanded-map-retest-v6/qualification.json` now verifies all **3,753**
+explored tiles, **1,371.53 MiB peak**, and **zero rejections** at the default
+1,536 MiB limit. Its captured image was inspected. This frozen snapshot is a
+memory and rendering regression check; it is not live latency or duel evidence.
+The next live drivers also reject stale scene packets and any residency rejection,
+in addition to validating tracking.
+
+The same change set avoids rebuilding native image geometry when only map
+coordinates change, and reuses fog/creep diagnostic snapshots until their content
+changes. Runtime checks verify pose changes, retained geometry, image-change
+invalidation, immutable diagnostics, terrain slice ownership and page reuse.
+Live latency and cadence acceptance remain open.

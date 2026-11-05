@@ -143,6 +143,17 @@ func runtimeChecks()throws {
     try require(streamedBillboard.shownColors[0]==streamRed,"pending owner change retains the displayed texture identity")
     waitForColor(streamBlue)
     try require(streamedBillboard.shownColors[0]==streamBlue,"same-frame owner change publishes its replacement texture")
+    let movingGeometry=streamedBillboard.layers[0]!.geometry,movingRevision=streamedBillboard.geometryRevision
+    var movedUnit=streamedUnit
+    movedUnit["x"]=132
+    movedUnit["image"]=["id":239,"frame":68,"flags":0,"mapX":132,"mapY":100]
+    streamedBillboard.apply(movedUnit,ground:commander.ground,art:streamedArt,color:streamBlue)
+    streamedBillboard.updateView(eye:SIMD3<Float>(3,4,5),orientation:simd_quatf(),perspective:false,art:streamedArt)
+    try require(streamedBillboard.layers[0]!.geometry === movingGeometry && streamedBillboard.geometryRevision==movingRevision && abs(streamedBillboard.root.position.x-4.125)<0.001 && number(streamedBillboard.nativeLayers[0]!,"mapX")==132,"native translation updates pose and evidence without rebuilding unchanged image geometry")
+    movedUnit["image"]=["id":239,"frame":68,"flags":0,"mapX":132,"mapY":100,"offsetX":4]
+    streamedBillboard.apply(movedUnit,ground:commander.ground,art:streamedArt,color:streamBlue)
+    try require(streamedBillboard.geometryRevision>movingRevision && streamedBillboard.layers[0]!.geometry !== movingGeometry,"image offset changes still rebuild the native layer")
+    streamedBillboard.apply(streamedUnit,ground:commander.ground,art:streamedArt,color:streamBlue)
     commander.billboards["stream-transition"]=streamedBillboard
     commander.sceneRevision+=1
     try batchCheck.prepare(commander)

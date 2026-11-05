@@ -19,6 +19,15 @@ final class NativeSceneWorker {
         autoreleasepool(invoking:body)
         SCNTransaction.commit();SCNTransaction.unlock()
     }
+    // SceneKit retires replaced material contents on its main-thread flush.
+    // Release the construction lock for that flush only at a completed upload
+    // boundary; render packets remain immutable and the frame owner never waits.
+    private static func retireTerrainSources() {
+        dispatchPrecondition(condition:.notOnQueue(.main))
+        SCNTransaction.commit();SCNTransaction.unlock()
+        DispatchQueue.main.sync {autoreleasepool {SCNTransaction.flush()}}
+        SCNTransaction.lock();SCNTransaction.begin();SCNTransaction.disableActions=true
+    }
     // Admit the next bridge read when this update starts, overlapping it with
     // construction. The bridge holds admission until then, bounding the FIFO
     // to one pending native update without dropping state or event deltas.
@@ -30,6 +39,7 @@ final class NativeSceneWorker {
                 do {
                     if builder==nil {
                         builder=try Builder(device:device)
+                        builder!.batches.retireSourceOwnership=Self.retireTerrainSources
                         builder!.sprites.stream?.onReady={ [weak self] in self?.scheduleView() }
                     }
                     builder!.workerStartedAt=CACurrentMediaTime()
@@ -67,6 +77,7 @@ final class NativeSceneWorker {
         private let overlayCache=SceneOverlayCache()
         var units=[String:Obj](),billboards=[String:UnitBillboard](),bars=[String:UnitBars](),rings=[String:SCNNode]()
         var state:Obj=[:],fog=[Int:UInt8](),creep=Set<Int>(),session="",eventSequence=0.0,generation=0
+        private var diagnosticFog=[String:Int](),diagnosticCreep=[Int]()
         var terrainRevision=0,fogRevision=0
         var workerStartedAt=0.0
         var terrainDirty=true
@@ -83,6 +94,8 @@ final class NativeSceneWorker {
             if reset {billboards.removeAll();bars.removeAll();rings.removeAll();effects.clear();sprites.clear();eventSequence=0}
             let events=reset ? []:(update.state["events"] as? [Obj] ?? []).filter{number($0,"seq")>eventSequence}
             terrainDirty = terrainDirty || reset || fog != update.fog || creep != update.creep
+            if reset || fog != update.fog {diagnosticFog=Dictionary(uniqueKeysWithValues:update.fog.map{(String($0.key),Int($0.value))})}
+            if reset || creep != update.creep {diagnosticCreep=Array(update.creep).sorted()}
             session=next;state=update.state;fog=update.fog;creep=update.creep
             eventSequence=number(state,"eventSeq");units=prepared.units
             for id in billboards.keys where units[id]==nil {billboards.removeValue(forKey:id);bars.removeValue(forKey:id);rings.removeValue(forKey:id)}
@@ -130,7 +143,7 @@ final class NativeSceneWorker {
             overlays.sort{$0.renderingOrder<$1.renderingOrder}
             generation &+= 1
             try batches.prepare(MetalBatches.Input(sceneRevision:generation,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,
-                terrain:terrain.terrain,billboards:billboards.filter{$0.key != view.hiddenUnit}.map{$0.value},overlays:overlays,objectCount:units.count))
+                terrain:terrain.terrain,billboards:billboards.filter{$0.key != view.hiddenUnit}.map{$0.value},overlays:overlays,objectCount:units.count,retireTerrainSources:true))
             var picks=[ScenePickMesh](),positions=[String:SIMD3<Float>]()
             func pick(_ node:SCNNode,_ target:ScenePickHit.Target,sharedKey:String?=nil) {
                 guard !node.isHidden,let geometry=node.geometry,let source=geometry.sources(for:.vertex).first else {return}
@@ -176,7 +189,7 @@ final class NativeSceneWorker {
                 "spriteBounds":billboards.mapValues{$0.projectedLayers(camera:view.camera,viewport:view.viewport,art:sprites)},"frame":number(state,"frame"),"nativeFrame":number(state,"frame"),
                 "camera":[column.x,column.y,column.z],"viewHeight":view.camera.orthographic ? 1/view.camera.projection.columns.1.y:0,
                 "nativeAt":number(state,"nativeAt"),"bridgeReadAt":number(state,"bridgeReadAt"),"bridgeStartedAt":number(state,"bridgeStartedAt"),"workerStartedAt":workerStartedAt,
-                "state":state,"fog":Dictionary(uniqueKeysWithValues:fog.map{(String($0.key),Int($0.value))}),"creepTilesSnapshot":Array(creep).sorted(),
+                "state":state,"fog":diagnosticFog,"creepTilesSnapshot":diagnosticCreep,
                 "missingWorldImages":sprites.missing.sorted(),"spriteFrames":effects.sprites.renderedFrames,"missingEffectImages":effects.sprites.missing.sorted(),
                 "combatEvents":effects.counts,"projectiles":effects.projectiles.count,"creepTiles":terrain.creepNodes.count,"terrainTiles":terrain.terrain.count,
                 "capability":"native HD relief and sprite chains; authored rigs require SOJU_BW_RENDERER=scenekit"]
