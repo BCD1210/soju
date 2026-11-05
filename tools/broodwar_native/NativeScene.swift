@@ -239,7 +239,7 @@ final class Commander: NSObject, NSApplicationDelegate {
                 // Publish native state without waiting for the main run loop's
                 // SceneKit flush. Main-owner controls still receive every update
                 // before the next bridge read is admitted.
-                worker?.submit(NativeSceneWorker.Update(state:s,fog:[:],creep:[],prepared:prepared,region:f),readNext:{ [weak self] in self?.busy=false }) {}
+                worker?.submit(NativeSceneWorker.Update(state:s,fog:[:],creep:[],prepared:prepared,region:f),readNext:{ [weak self] in self?.busy=false;self?.refresh() }) {}
             } catch {
                 DispatchQueue.main.async { self.notice="Connection: \(error)";self.busy=false }
             }
