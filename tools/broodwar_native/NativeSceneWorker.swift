@@ -186,14 +186,19 @@ final class NativeSceneWorker {
             try batches.prepare(MetalBatches.Input(sceneRevision:generation,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,
                 terrain:terrain.terrain,billboards:billboards.filter{$0.key != view.hiddenUnit}.map{$0.value},overlays:overlays,objectCount:units.count,retireTerrainSources:true,reuseUnitPoses:true))
             var picks=[ScenePickMesh](),positions=[String:SIMD3<Float>]()
-            func pick(_ node:SCNNode,_ target:ScenePickHit.Target,sharedKey:String?=nil) {
+            func pick(_ node:SCNNode,_ target:ScenePickHit.Target,sharedKey:String?=nil,relief:SpriteRelief.Mesh?=nil) {
                 guard !node.isHidden,let geometry=node.geometry,let source=geometry.sources(for:.vertex).first else {return}
                 let key=sharedKey ?? String(describing:ObjectIdentifier(source)),packed:PickGeometry
                 if let cached=pickGeometry.get(key),sharedKey != nil || cached.source === source {packed=cached}
                 else {
-                    let (vertices,indices)=batches.mesh(geometry)
+                    let points:[SIMD3<Float>],indices:[UInt32]
+                    if let relief=relief {
+                        points=relief.vertices.map{SIMD3<Float>($0)};indices=relief.indices.map{UInt32($0)}
+                    } else {
+                        let mesh=batches.mesh(geometry)
+                        points=mesh.0.map{SIMD3<Float>($0.position.x,$0.position.y,$0.position.z)};indices=mesh.1
+                    }
                     guard !indices.isEmpty else {return}
-                    let points=vertices.map{SIMD3<Float>($0.position.x,$0.position.y,$0.position.z)}
                     let lower=points.reduce(SIMD3<Float>(repeating:.greatestFiniteMagnitude)){simd_min($0,$1)}
                     let upper=points.reduce(SIMD3<Float>(repeating: -.greatestFiniteMagnitude)){simd_max($0,$1)}
                     packed=PickGeometry(source:source,vertices:points,indices:indices,lower:lower,upper:upper)
@@ -206,7 +211,8 @@ final class NativeSceneWorker {
                 for (index,node) in billboard.layers where number(billboard.nativeLayers[index] ?? [:],"drawfunc") != 10 {
                     let shared=billboard.contactMeshes[index]==nil && billboard.sourceMeshes[index] != nil
                     let key=shared ? "unit/\(billboard.shownImages[index] ?? -1)/\(billboard.shown[index] ?? -1)":nil
-                    pick(node,.unit(id),sharedKey:key)
+                    let relief=node.geometry is SCNPlane ? nil:billboard.contactMeshes[index] ?? billboard.sourceMeshes[index]
+                    pick(node,.unit(id),sharedKey:key,relief:relief)
                 }
             }
             if pickTerrainRevision != terrainRevision {
