@@ -1,5 +1,9 @@
 #include <os/signpost.h>
 #include <chrono>
+#include <mach/mach.h>
+#include <mach/mach_time.h>
+#include <mach/thread_policy.h>
+#include <pthread.h>
 // OpenXR frame lifecycle and Metal swapchains. No game simulation runs here.
 #define XR_USE_GRAPHICS_API_METAL
 #define XR_USE_TIMESPEC
@@ -17,6 +21,24 @@
 #include <algorithm>
 
 namespace {
+void scheduleFrameThread(XrDuration period) {
+    static thread_local XrDuration configured=0;
+    if(period==configured || period<1000000 || period>1000000000)return;
+    configured=period;
+    mach_timebase_info_data_t base{};
+    if(mach_timebase_info(&base)!=KERN_SUCCESS || base.numer==0)return;
+    auto ticks=[&](uint64_t ns){return uint32_t(std::min<uint64_t>(UINT32_MAX,ns*base.denom/base.numer));};
+    // Bound the frame owner's wake-up delay without changing runtime deadlines.
+    // Encoding normally takes less than 1 ms; leave room for control and submission.
+    thread_time_constraint_policy_data_t policy{
+        ticks(period),ticks(std::min<XrDuration>(period,2000000)),
+        ticks(std::min<XrDuration>(period,3000000)),true};
+    const auto result=thread_policy_set(pthread_mach_thread_np(pthread_self()),THREAD_TIME_CONSTRAINT_POLICY,
+        reinterpret_cast<thread_policy_t>(&policy),THREAD_TIME_CONSTRAINT_POLICY_COUNT);
+    fprintf(stderr,"XR frame thread scheduling: period=%.3fms computation=%.3fms constraint=%.3fms result=%d\n",
+        double(period)/1e6,double(std::min<XrDuration>(period,2000000))/1e6,
+        double(std::min<XrDuration>(period,3000000))/1e6,result);
+}
 XrInstance instance=XR_NULL_HANDLE;
 PFN_xrConvertTimeToTimespecTimeKHR timeToHost=nullptr;
 XrSystemId systemId=0;
@@ -228,6 +250,7 @@ extern "C" int soju_xr_step(void* context,SojuXRDraw draw,SojuXRControls control
     const auto waitReturned=TimingClock::now();
     frameTiming.waitMs=elapsedMs(waitStart);
     frameTiming.periodMs=double(state.predictedDisplayPeriod)/1e6;
+    if(XR_SUCCEEDED(waited))scheduleFrameThread(state.predictedDisplayPeriod);
     os_signpost_interval_end(frameLog,OS_SIGNPOST_ID_EXCLUSIVE,"Runtime wait");
     CHECK(waited);XrFrameBeginInfo begin{XR_TYPE_FRAME_BEGIN_INFO};CHECK(xrBeginFrame(session,&begin));
     // Balance a begun frame even when image acquisition/render submission fails.
