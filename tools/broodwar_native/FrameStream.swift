@@ -26,6 +26,9 @@ final class FrameStream {
         }
         let diffuse:MTLTexture,maps:[String:Map],shaders:[SCNShaderModifierEntryPoint:String]?
         private var sharedMetal:SCNMaterial?
+        init(diffuse:MTLTexture,maps:[String:Map]) {
+            self.diffuse=diffuse;self.maps=maps;shaders=nil
+        }
         init(_ material:SCNMaterial,diffuse:MTLTexture) {
             self.diffuse=diffuse;shaders=material.shaderModifiers
             maps=Dictionary(uniqueKeysWithValues:["normal","bright","specular","emissive","ao_depth"].map {
@@ -90,6 +93,22 @@ final class FrameStream {
                         let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {throw SceneError.invalid("Missing sprite frame")}
                     let diffuse=MetalBatches.colorView(try TextureResidency.shared.load(loader,MetalBatches.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.topLeft],owner:"unit-model"))
                     let mesh=source.relief.meshData(id,frame:frame,art:source)
+                    if useMetalBatches {
+                        var maps=[String:Material.Map]()
+                        cost=MetalBatches.textureBytes(diffuse)+(mesh?.bytes ?? 0)
+                        for name in ["normal","bright","specular","emissive","ao_depth"] {
+                            let fallback:SIMD4<Float>=name=="normal" ? SIMD4<Float>(0.5,0.5,1,1):name=="ao_depth" ? SIMD4<Float>(repeating:1):SIMD4<Float>(0,0,0,1)
+                            var map=Material.Map.color(fallback)
+                            if name=="normal" || name=="ao_depth" {
+                                if let texture=source.relief.dataTexture(id,frame:frame,layer:name,art:source) {map = .texture(texture)}
+                            } else if let image=source.texture(id,frame:frame,color:color,layer:name),let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) {
+                                map = .texture(MetalBatches.colorView(try TextureResidency.shared.load(loader,MetalBatches.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.topLeft],owner:"unit-model")))
+                            }
+                            if case .texture(let texture)=map {cost+=MetalBatches.textureBytes(texture)}
+                            maps[name]=map
+                        }
+                        result=Prepared(geometry:mesh,material:Material(diffuse:diffuse,maps:maps),image:diffuse,contact:source.relief.contactHeights["\(id)/\(frame)"] ?? 0)
+                    } else {
                     let material=source.relief.material(id,frame:frame,color:color,art:source)
                     material.diffuse.contents=diffuse;cost+=MetalBatches.textureBytes(diffuse)
                     for name in ["normal","bright","specular","emissive","ao_depth"] {
@@ -103,6 +122,7 @@ final class FrameStream {
                         cost+=mesh.bytes
                     }
                     result=Prepared(geometry:mesh,material:Material(material,diffuse:diffuse),image:diffuse,contact:source.relief.contactHeights["\(id)/\(frame)"] ?? 0)
+                    }
                 } catch {fputs("HD stream \(id)/\(frame): \(error)\n",stderr)}
                 os_signpost(.begin,log:XRFrameMetrics.log,name:"Stream publish")
                 defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Stream publish")}
