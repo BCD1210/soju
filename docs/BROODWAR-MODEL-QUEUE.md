@@ -277,3 +277,23 @@ Remaining work, in order:
 4. Only after a passing review: activate through the documented data pack route, verify hot-reload and capture the live XR/desktop unit beside its sprite. No installation, viewer restart, or live comparison capture was performed for these rejected candidates.
 
 One concurrent intake attempt collided on its timestamp staging directory. Its traceback is preserved at `marine/review/intake-concurrent-collision.log`; the Marine review was rerun separately and completed. No review or renderer source was modified to bypass any rejection.
+
+## Per-asset user approval — 2026-11-05
+
+The user reviewed the Marine iteration sheet and explicitly approved `C/iterations/05-visibility-soft` as good enough to replace the sprite-relief Marine. This is a **per-asset exception**, not a numeric fidelity pass or a change to the general review gate.
+
+- Who: the user. Date: 2026-11-05, America/Los_Angeles.
+- Type: 0 (Marine). Mean IoU: **0.815**; mean SSIM: **0.386**. Native checks pass; the normal visual gate still fails (0/17 views).
+- Reason: **replaces sprite-relief marine**.
+- Approved private delivery: `asset-upgrades/marine/candidates/C/user-approved/marine-05/delivery/`. Catalog and delivery metadata retain the approval, exact model/mask hashes, source scores and failed visual-gate status.
+- Activation uses the documented atomic asset-release installer. The prior catalog and viewer binaries are preserved under `3d-proof/m19/user-shots/marine-3d/rollback/`; the installed release also retains `previous-catalog.json`.
+- The stock viewer has no per-asset approval reader. A private build adds an explicit, hash-bound user-approval path while retaining the existing numeric gate for all other assets. Repository renderer/review sources and general thresholds are unchanged.
+- Subsequent SCV, Zergling and Zealot candidates have delegated user approval only if their best mean IoU reaches 0.80, with per-asset records and native checks. Below-threshold candidates are reported without installation.
+
+Installation and desktop/private-XR evidence are being recorded under `3d-proof/m19/user-shots/marine-3d/`. Performance qualification and physical-headset acceptance are separate from this asset approval.
+
+### Native size correction — 2026-11-05
+
+The approved Marine was normalized to 1.748 **terrain tiles**, mistakenly treating an authored height as native scene scale. The fitted shape is 103.82232666 HD pixels high; image 239 has 4 HD pixels per native pixel and the viewer uses 32 native pixels per tile. Correct height: **0.811111927 tiles**, ratio **0.464022842** of the previous height. `targetHeight` replaces catalog `scale`; it is not multiplied twice. `footPivot` translates the base and does not change height.
+
+The private `marine-05-native-size` delivery retains the approved model/mask bytes and adds `nativeScale` provenance plus the user's requested size correction. Atomic installation retains the oversized release as its immediate rollback. Every subsequent installed roster delivery must record the same conversion from its fitted sprite-space height and actual HD scale. The installer rejects inconsistent `nativeScale` / `targetHeight` metadata. General fidelity thresholds remain unchanged.
