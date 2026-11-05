@@ -120,14 +120,21 @@ unsafe extern "C" fn frame() {
         match r.socket.recv_from(&mut buffer) {
             Ok((size, addr)) => {
                 if !addr.ip().is_loopback() { continue; }
-                let mut result = match serde_json::from_slice::<Value>(&buffer[..size]) {
-                    Ok(req) => commands::request(r, &req).unwrap_or_else(|e| json!({"ok":false,"error":e})),
-                    Err(_) => json!({"ok":false,"error":"invalid JSON"})
+                let (mut result, snapshot) = match serde_json::from_slice::<Value>(&buffer[..size]) {
+                    Ok(req) => {
+                        let snapshot = matches!(req["op"].as_str(), Some("state" | "scene" | "terrain"));
+                        (commands::request(r, &req).unwrap_or_else(|e| json!({"ok":false,"error":e})), snapshot)
+                    },
+                    Err(_) => (json!({"ok":false,"error":"invalid JSON"}), false)
                 };
                 result["nativeFrameUnixMs"] = json!(frame_unix_ms);
                 if let Ok(data) = serde_json::to_vec(&result) {
                     send_response(&r.socket, addr, &data);
                 }
+                // A pipelined reader can queue another request before this hook
+                // resumes after send. Return to the game instead of repeatedly
+                // publishing the same frame with an increasingly old timestamp.
+                if snapshot { break; }
             },
             Err(_) => break,
         }
