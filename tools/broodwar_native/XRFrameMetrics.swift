@@ -51,7 +51,7 @@ enum FrameCreation:Int,CaseIterable {
 final class XRFrameMetrics {
     static let log=OSLog(subsystem:"soju.broodwar",category:"PointsOfInterest")
     private let lock=NSLock()
-    private let latency=Dictionary(uniqueKeysWithValues:["bridgeRoundTrip","nativeToBridge","bridgeToWorker","workerToPacket","packetAge","packetToPresented","packetToDisplayEstimate","nativeToGPUComplete","nativeToPresented","nativeToPredictedDisplay","nativeToDisplayEstimate"].map{($0,FrameDistribution())})
+    private let latency=Dictionary(uniqueKeysWithValues:["bridgeRoundTrip","nativeToBridge","bridgeToWorker","workerToPacket","nativeToPacket","packetAge","packetToPresented","packetToDisplayEstimate","nativeToGPUComplete","nativeToPresented","nativeToPredictedDisplay","nativeToDisplayEstimate"].map{($0,FrameDistribution())})
     private var lastLatencyNative=0.0
     func presented(_ timing:SceneTiming,at time:Double) {
         lock.lock();defer{lock.unlock()}
@@ -67,6 +67,7 @@ final class XRFrameMetrics {
             lastLatencyNative=timing.native
             for (key,value) in [("bridgeRoundTrip",timing.bridgeRead-timing.bridgeStarted),("nativeToBridge",timing.bridgeRead-timing.native),("bridgeToWorker",timing.workerStarted-timing.bridgeRead),("workerToPacket",timing.published-timing.workerStarted)] {latency[key]?.add(value*1000)}
         }
+        latency["nativeToPacket"]?.add((timing.published-timing.native)*1000)
         latency["packetAge"]?.add((completed-timing.published)*1000)
         latency["nativeToGPUComplete"]?.add((completed-timing.native)*1000)
         if timing.predictedDisplay>0 {
