@@ -19,11 +19,13 @@ final class NativeSceneWorker {
         autoreleasepool(invoking:body)
         SCNTransaction.commit();SCNTransaction.unlock()
     }
-    // Release the bridge after the unit delta. Terrain refinement is queued next.
-    // Native updates are FIFO and never replaced by a newer state or view.
-    func submit(_ update:Update,completion:@escaping()->Void) {
+    // Admit the next bridge read when this update starts, overlapping it with
+    // construction. The bridge holds admission until then, bounding the FIFO
+    // to one pending native update without dropping state or event deltas.
+    func submit(_ update:Update,readNext:@escaping()->Void={},completion:@escaping()->Void) {
         mailbox.invalidate(update.state["session"] as? String ?? "legacy")
         queue.async { [self] in
+            DispatchQueue.main.async(execute:readNext)
             construct {
                 do {
                     if builder==nil {
