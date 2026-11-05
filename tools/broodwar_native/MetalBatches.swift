@@ -28,7 +28,7 @@ final class MetalBatches {
     struct Input {
         let sceneRevision:Int,terrainRevision:Int,terrainFogRevision:Int,mapWidth:Int
         let terrain:[Int:SCNNode],billboards:[UnitBillboard],overlays:[SCNNode],objectCount:Int
-        var retireTerrainSources=false
+        var retireTerrainSources=false,reuseUnitPoses=false
     }
     fileprivate struct Batch {
         var vertices:MTLBuffer;var indices:MTLBuffer;var count:Int;var flatVertices:MTLBuffer?
@@ -165,6 +165,12 @@ final class MetalBatches {
         let keys:[Int],sources:[SCNGeometrySource],masks:[AnyObject],diffuse:[AnyObject],poses:[[SIMD4<Float>]],batch:Batch
     }
     private var terrainPageCache=[Int:TerrainPage]()
+    private struct UnitStamp:Equatable {
+        let unit:UnitBillboard,geometry:Int,pose:Int,hidden:Bool
+        init(_ unit:UnitBillboard) {self.unit=unit;geometry=unit.geometryRevision;pose=unit.poseRevision;hidden=unit.root.isHidden}
+        static func ==(a:Self,b:Self)->Bool {a.unit === b.unit && a.geometry==b.geometry && a.pose==b.pose && a.hidden==b.hidden}
+    }
+    private var unitStamps=[ObjectIdentifier:UnitStamp](),preparedUnits=[Batch]()
     private var preparedTerrain=[Batch]()
     var revisions=[(UnitBillboard,Int)]()
     lazy var flatIndices=buffer([UInt32(0),1,2,2,1,3])
@@ -362,6 +368,10 @@ final class MetalBatches {
             terrainRevision=commander.terrainRevision;terrainFogRevision=commander.terrainFogRevision
         }
         var constructed=preparedTerrain
+        let stamps=commander.reuseUnitPoses ? Dictionary(uniqueKeysWithValues:commander.billboards.map{(ObjectIdentifier($0),UnitStamp($0))}):[:]
+        let unitStart=constructed.count
+        if commander.reuseUnitPoses,stamps==unitStamps {constructed+=preparedUnits}
+        else {
         var groups=[String:[SCNNode]]()
         for billboard in commander.billboards where !billboard.root.isHidden {
             for (index,native) in billboard.nativeLayers {
@@ -410,6 +420,8 @@ final class MetalBatches {
                 groupCache.insert((source,cached),key:key,bytes:Self.retainedBytes(cached))
             }
         }
+        }
+        let unitEnd=constructed.count
         // Preserve creep edges and independent native sprite chains as overlays.
         for node in commander.overlays {
             guard let geometry=node.geometry,let material=geometry.firstMaterial else {continue}
@@ -424,12 +436,14 @@ final class MetalBatches {
             constructed.append(Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:nil,instances:(0..<3).map{_ in buffer([instance])},nodes:[node],textures:[diffuse,normal,black,black,black,white],terrain:false,shadow:true,mode:(material.multiply.contents as? NSColor)==NSColor.black ? 3:0,depthDisabled:!material.readsFromDepthBuffer,bounds:[(center,radius)]))
             constructed[constructed.count-1].primitive=geometry.elements.first?.primitiveType == .line ? .line:.triangle
         }
-        for i in constructed.indices {
+        for i in constructed.indices where constructed[i].drawNodes.isEmpty {
             constructed[i].drawNodes=constructed[i].nodes.map { node in
                 DrawNode(transform:node.simdWorldTransform,scale:node.simdScale,opacity:inheritedOpacity(node),hidden:node.isHidden,
                     billboard:node.constraints?.contains(where:{$0 is SCNBillboardConstraint})==true)
             }
         }
+        if commander.reuseUnitPoses {preparedUnits=Array(constructed[unitStart..<unitEnd]);unitStamps=stamps}
+        else {preparedUnits=[];unitStamps=[:]}
         batches=constructed.map(PacketBatch.init)
         resetVisibility()
         ready=true

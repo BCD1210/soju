@@ -16,6 +16,7 @@ final class UnitBillboard {
     var layerOrder=[Int]()
     var lastNativeChain=[Obj]()
     var geometryRevision=0,poseRevision=0
+    var projectedSnapshot:(geometry:Int,pose:Int,projection:simd_float4x4,viewport:SIMD2<Float>,bounds:[SceneSpriteBounds])?
     var capturedEye:SIMD3<Float>?,capturedRotation:SIMD4<Float>?,capturedPerspective:Bool?
     var lastEye:SIMD3<Float>?,lastRotation:SIMD4<Float>?,lastPerspective:Bool?
     init(id:String) {root.name=id}

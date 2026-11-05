@@ -304,3 +304,11 @@ This improves the original 97.63 ms result but still fails the 70 ms target.
 `xr-live/build-packet-cost-evidence.json` records binary and source hashes.
 The intermediate `stress-desktop-deferred/` experiment and all post-measurement
 CPU samples remain available; neither is substituted for final qualification.
+
+## Reuse during terrain refinement
+
+The worker can retain unit batches when geometry, pose, visibility and membership
+are unchanged. Projected bounds reuse also accounts for the camera projection and
+viewport. Movement, viewport resizing, hiding and removal invalidate the relevant
+values; retained packets remain immutable. Desktop/XR/fallback runtime checks
+pass 247/252/252. Live performance is still subject to remeasurement.

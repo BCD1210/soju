@@ -106,7 +106,9 @@ extension UnitBillboard {
         projectedSpriteBounds(projection:camera.projection*simd_inverse(camera.transform),viewport:viewport,art:art).map{$0.object}
     }
     func projectedSpriteBounds(projection:simd_float4x4,viewport:SIMD2<Float>,art:WorldSprites)->[SceneSpriteBounds] {
-        return nativeLayers.keys.sorted().compactMap {index in
+        if let cached=projectedSnapshot,cached.geometry==geometryRevision,cached.pose==poseRevision,
+           cached.viewport==viewport,simd_equal(cached.projection,projection) {return cached.bounds}
+        let bounds:[SceneSpriteBounds]=nativeLayers.keys.sorted().compactMap {index in
             guard !root.isHidden,let native=nativeLayers[index],let node=layers[index],!node.isHidden,
                   let entry=art.images[String(Int(number(native,"id")))],let records=art.frameRecords(Int(number(native,"id"))),
                   let frame=shown[index],records.indices.contains(frame) else {return nil}
@@ -121,5 +123,7 @@ extension UnitBillboard {
             return SceneSpriteBounds(image:number(native,"id"),frame:frame,shadow:number(native,"drawfunc")==10,
                 left:points.map{$0.x}.min()!,top:points.map{$0.y}.min()!,right:points.map{$0.x}.max()!,bottom:points.map{$0.y}.max()!)
         }
+        projectedSnapshot=(geometryRevision,poseRevision,projection,viewport,bounds)
+        return bounds
     }
 }

@@ -54,7 +54,7 @@ struct ScenePickMesh {
 struct SceneTiming {
     var native=0.0,bridgeStarted=0.0,bridgeRead=0.0,workerStarted=0.0,published=0.0,predictedDisplay=0.0
 }
-struct SceneSpriteBounds {
+struct SceneSpriteBounds:Equatable {
     let image:Double,frame:Int,shadow:Bool,left:Float,top:Float,right:Float,bottom:Float
     var object:Obj {["image":image,"frame":frame,"shadow":shadow,"left":left,"top":top,"right":right,"bottom":bottom]}
 }
