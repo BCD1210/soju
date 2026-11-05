@@ -108,13 +108,24 @@ final class NativeSceneWorker {
             effects.apply(bullets:state["bullets"] as? [Obj] ?? [],events:events,units:units,frame:number(state,"frame"),ground:terrain.ground)
             sprites.apply(state,ground:terrain.ground,authored:[])
         }
+        private func trimTextureCaches() {
+            // Drop only cache ownership before a large reveal competes with live
+            // terrain, animation and wrist textures for the shared budget.
+            if number(TextureResidency.shared.report(),"residentBytes")>Double(TextureResidency.shared.limit)*0.75 {
+                let retired=terrain.art.textures.trim(to:16*1024*1024)+batches.textures.trim(to:8*1024*1024)
+                sprites.stream?.trim(to:96*1024*1024)
+                if retired>0 {batches.retireSourceOwnership?()}
+            }
+        }
         func packet(_ view:SceneView,includeTerrain:Bool=true)throws->ScenePacket {
+            trimTextureCaches()
             if includeTerrain && (terrainDirty || lastCenter != view.center || lastRadius != view.radius) {
                 let terrainResult=terrain.apply(TerrainWorker.Request(session:session,center:view.center,radius:view.radius,fog:fog,creep:creep))
                 guard terrainResult.error.isEmpty else {terrainDirty=true;throw SceneError.invalid(terrainResult.error)}
                 if !terrainResult.terrain.isEmpty || !terrainResult.removedTerrain.isEmpty {terrainRevision &+= 1;fogRevision &+= 1}
                 terrainDirty=false;lastCenter=view.center;lastRadius=view.radius
             }
+            trimTextureCaches()
             let column=view.camera.transform.columns.3,eye=SIMD3<Float>(column.x,column.y,column.z)
             for billboard in billboards.values {billboard.updateView(eye:eye,orientation:view.camera.orientation,perspective:!view.camera.orthographic,art:sprites)}
             var overlays=Array(terrain.creepNodes.values)+Array(sprites.nodes.values)

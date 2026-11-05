@@ -63,6 +63,9 @@ final class FrameStream {
         lock.lock();defer{lock.unlock()}
         return resident.get(key)
     }
+    func trim(to bytes:Int) {
+        lock.lock();resident.trim(to:bytes);lock.unlock()
+    }
     func request(_ id:Int,frame:Int,color:[Int]) {
         let key=key(id,frame,color)
         lock.lock()
@@ -71,6 +74,11 @@ final class FrameStream {
         queue.async { [self] in
             autoreleasepool {
                 var result:Prepared?,cost=0
+                if number(TextureResidency.shared.report(),"residentBytes")>Double(TextureResidency.shared.limit)*0.70 {
+                    trim(to:96*1024*1024)
+                    source.relief.materials.trim(to:0)
+                    source.relief.dataTextures.trim(to:16*1024*1024)
+                }
                 do {
                     guard let image=source.texture(id,frame:frame,color:color),
                         let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {throw SceneError.invalid("Missing sprite frame")}

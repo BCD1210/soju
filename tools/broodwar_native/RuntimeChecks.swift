@@ -182,6 +182,13 @@ func runtimeChecks()throws {
     try require(simd_equal(captured,originalTransform),"published batch retains captured transforms when source nodes move")
     originalLayer.simdWorldTransform=originalTransform
     commander.billboards.removeValue(forKey:"stream-transition")
+    let ownership=ResidentCache<NSObject>(limit:8),retainedObject=NSObject()
+    ownership.insert(retainedObject,key:"retained",bytes:4);ownership.insert(NSObject(),key:"old",bytes:4)
+    _=ownership.get("retained")
+    try require(ownership.trim(to:4)==4 && ownership.get("old")==nil && ownership.get("retained") === retainedObject,"pressure trim drops least-recent cache ownership while preserving referenced resources")
+    try require(ownership.trim(to:0)==4 && ownership.bytes==0 && ownership.get("retained")==nil,"pressure trim releases the final cache entry with exact accounting")
+    ownership.insert(retainedObject,key:"reused",bytes:4)
+    try require(ownership.get("reused") === retainedObject && ownership.trim(to:8)==0,"trimmed cache remains reusable without evicting below its target")
     let cache=ResidentCache<Int>(limit:4)
     cache.insert(1,key:"first",bytes:2);cache.insert(2,key:"second",bytes:2)
     _=cache.get("first");cache.insert(3,key:"third",bytes:2)
