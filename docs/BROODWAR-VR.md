@@ -4,14 +4,13 @@ The current implementation runs **Blizzard's original StarCraft.exe**, version
 1.23.10.13515, in a dedicated Wine bottle. Samase 0.10.28-64 loads the Soju Rust
 module inside that process. No replacement engine is used by this path.
 
-**The active desktop/OpenXR renderer uses independent rigged triangle models,
-original-client positions/headings and map-derived 3D terrain. Model replacement
-is now data-driven: validate/install a GLB pack and the running viewer reloads it
-without restarting the game or rebuilding the engine.**
-See [BROODWAR-ASSET-INTEGRATION.md](BROODWAR-ASSET-INTEGRATION.md) for the delivery
-contract, installation, rollback and current verification. The initial creator
-art remains below the user's quality target; Dots is producing replacements.
-Physical-headset and all-map/combat coverage remain unverified.
+The default desktop/OpenXR Metal renderer uses native HD relief meshes and
+sprite chains, original-client positions/headings, and map-derived 3D terrain.
+The SceneKit fallback supports independent rigged models and live GLB-pack
+replacement. See [BROODWAR-ASSET-INTEGRATION.md](BROODWAR-ASSET-INTEGRATION.md)
+for that delivery contract, installation, rollback and verification. Dots is
+producing replacement models. Physical-headset and all-map/combat coverage
+remain unverified.
 
 `soju bw-vr` now launches this original-client OpenXR path. The earlier OpenBW /
 placeholder-mesh source remains under tools/broodwar_vr for reference.
@@ -188,7 +187,8 @@ calibrated only from tracked poses, including X/Z and heading. The desktop mirro
 copies the left eye into app-owned textures before releasing the runtime image,
 then preserves its aspect ratio. It is a low-rate preview, not a second XR camera.
 
-Controller controls:
+Earlier controller mapping (superseded by the M19 controls below):
+
 - Left trigger cycles SCVs, Marines and Command Centers.
 - Left stick walks; right stick snaps the body heading by 30 degrees.
 - Right grip cycles Point/move, Mine, Follow SCV, Train SCV and Build depot.
