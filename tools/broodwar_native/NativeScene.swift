@@ -216,7 +216,8 @@ final class Commander: NSObject, NSApplicationDelegate {
            let root=wrists.card.nativeRoot,root != Int(number(unit,"buttonSet")) {
             wrists.card.nativeMenu=228
         }
-        let cardSelection=selected,cardMenu=wrists.card.nativeMenu
+        let cardSelection=selected,cardMenu=wrists.card.nativeMenu,worker=sceneWorker
+        let expectedPath=(art.manifest["map"] as? Obj)?["nativePath"] as? String ?? ""
         bridge.queue.async {
             do {
                 var request:Obj=["op":"scene","terrainRegion":["x":x,"y":y,"width":regionWidth,"height":regionHeight]]
@@ -227,13 +228,18 @@ final class Commander: NSObject, NSApplicationDelegate {
                 let metadata=knownSession != s["session"] as? String ? try? self.bridge.request(["op":"unit_types"]):nil
                 guard s["truncated"] as? Bool != true else { throw SceneError.invalid("Visible unit limit exceeded; native snapshot was not applied") }
                 let loaded=s["map"] as? Obj ?? [:]
-                if Int(number(loaded,"width")) != self.mapWidth*32 || Int(number(loaded,"height")) != self.mapHeight*32 {
+                let pathChanged = !expectedPath.isEmpty && (loaded["path"] as? String).map{$0.lowercased() != expectedPath.lowercased()} == true
+                if pathChanged || Int(number(loaded,"width")) != self.mapWidth*32 || Int(number(loaded,"height")) != self.mapHeight*32 {
                     DispatchQueue.main.async {self.apply(s,[:]);self.busy=false};return
                 }
                 let f=s["terrainRegion"] as? Obj ?? [:]
                 let prepared=PreparedState(s,previous:self.bridge.previousState)
                 self.bridge.previousState=s
-                DispatchQueue.main.async { self.wrists.card.acceptOriginal(original ?? [:],selection:cardSelection,menu:cardMenu);if let metadata=metadata {self.wrists.card.accept(metadata)};self.apply(s,f,prepared:prepared);if self.sceneWorker==nil {self.busy=false} }
+                DispatchQueue.main.async { self.wrists.card.acceptOriginal(original ?? [:],selection:cardSelection,menu:cardMenu);if let metadata=metadata {self.wrists.card.accept(metadata)};self.apply(s,f,prepared:prepared,submittedToWorker:worker != nil);if worker==nil {self.busy=false} }
+                // Publish native state without waiting for the main run loop's
+                // SceneKit flush. Main-owner controls still receive every update
+                // before the next bridge read is admitted.
+                worker?.submit(NativeSceneWorker.Update(state:s,fog:[:],creep:[],prepared:prepared,region:f),readNext:{ [weak self] in self?.busy=false }) {}
             } catch {
                 DispatchQueue.main.async { self.notice="Connection: \(error)";self.busy=false }
             }

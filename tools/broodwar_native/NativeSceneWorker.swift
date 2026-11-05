@@ -4,7 +4,7 @@ import Metal
 import simd
 
 final class NativeSceneWorker {
-    struct Update {let state:Obj,fog:[Int:UInt8],creep:Set<Int>;var prepared:PreparedState?=nil}
+    struct Update {let state:Obj,fog:[Int:UInt8],creep:Set<Int>;var prepared:PreparedState?=nil;var region:Obj?=nil}
     let mailbox=SceneMailbox()
     private let queue=DispatchQueue(label:"soju.bw.scene-owner",qos:.userInitiated)
     private let viewLock=NSLock()
@@ -78,6 +78,14 @@ final class NativeSceneWorker {
         var units=[String:Obj](),billboards=[String:UnitBillboard](),bars=[String:UnitBars](),rings=[String:SCNNode]()
         var state:Obj=[:],fog=[Int:UInt8](),creep=Set<Int>(),session="",eventSequence=0.0,generation=0
         private var diagnosticFog=[String:Int](),diagnosticCreep=[Int]()
+        private struct Region:Equatable {
+            let x:Int,y:Int,width:Int,fog:String,creep:String
+            init(_ value:Obj) {
+                x=Int(number(value,"x"));y=Int(number(value,"y"));width=Int(number(value,"width"))
+                fog=value["fog"] as? String ?? "";creep=value["creep"] as? String ?? ""
+            }
+        }
+        private var lastRegion:Region?
         var terrainRevision=0,fogRevision=0
         var workerStartedAt=0.0
         var terrainDirty=true
@@ -93,10 +101,25 @@ final class NativeSceneWorker {
             let prepared=update.prepared ?? PreparedState(update.state,previous:state)
             if reset {billboards.removeAll();bars.removeAll();rings.removeAll();effects.clear();sprites.clear();eventSequence=0}
             let events=reset ? []:(update.state["events"] as? [Obj] ?? []).filter{number($0,"seq")>eventSequence}
-            terrainDirty = terrainDirty || reset || fog != update.fog || creep != update.creep
-            if reset || fog != update.fog {diagnosticFog=Dictionary(uniqueKeysWithValues:update.fog.map{(String($0.key),Int($0.value))})}
-            if reset || creep != update.creep {diagnosticCreep=Array(update.creep).sorted()}
-            session=next;state=update.state;fog=update.fog;creep=update.creep
+            var incomingFog=update.fog,incomingCreep=update.creep
+            if let region=update.region {
+                incomingFog=reset ? [:]:fog;incomingCreep=reset ? []:creep
+                let region=Region(region)
+                if region.width>0 && (reset || region != lastRegion) {
+                    for (offset,value) in region.fog.utf8.enumerated() {
+                        incomingFog[(region.y+offset/region.width)*terrain.mapWidth+region.x+offset%region.width]=value
+                    }
+                    for (offset,value) in region.creep.utf8.enumerated() {
+                        let index=(region.y+offset/region.width)*terrain.mapWidth+region.x+offset%region.width
+                        if value==49 {incomingCreep.insert(index)}else {incomingCreep.remove(index)}
+                    }
+                }
+                lastRegion=region
+            } else {lastRegion=nil}
+            terrainDirty = terrainDirty || reset || fog != incomingFog || creep != incomingCreep
+            if reset || fog != incomingFog {diagnosticFog=Dictionary(uniqueKeysWithValues:incomingFog.map{(String($0.key),Int($0.value))})}
+            if reset || creep != incomingCreep {diagnosticCreep=Array(incomingCreep).sorted()}
+            session=next;state=update.state;fog=incomingFog;creep=incomingCreep
             eventSequence=number(state,"eventSeq");units=prepared.units
             for id in billboards.keys where units[id]==nil {billboards.removeValue(forKey:id);bars.removeValue(forKey:id);rings.removeValue(forKey:id)}
             let colors=state["playerColors"] as? [[Int]] ?? []
