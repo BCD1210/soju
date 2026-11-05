@@ -166,7 +166,7 @@ extension Commander {
                let unit=units[id],number(unit,"owner")==number(state,"player") {selected=[id];notice="Selected unit \(Int(number(unit,"type")))"}
             return
         }
-        if let hit=view.hitTest(p,options:[SCNHitTestOption.categoryBitMask:5]).first(where:{unitID($0.node) != nil}),let id=unitID(hit.node),
+        if let hit=view.hitTest(p,options:[SCNHitTestOption.categoryBitMask:PossessionPresentation.pickCategories]).first(where:{unitID($0.node) != nil}),let id=unitID(hit.node),
             let u=units[id],number(u,"owner")==number(state,"player") {
             selected=[id];notice="Selected unit \(Int(number(u,"type")))"
         }
@@ -186,7 +186,7 @@ extension Commander {
             guard !selected.isEmpty,let hit=sceneHit(p,accept:{$0 == .terrain}) else {notice="Select units and right-click explored ground";return}
             groundCommand(hit.worldCoordinates);return
         }
-        let hits=view.hitTest(p,options:[SCNHitTestOption.categoryBitMask:5])
+        let hits=view.hitTest(p,options:[SCNHitTestOption.categoryBitMask:PossessionPresentation.pickCategories])
         if let choice=wrists.pending {
             let hit=hits.first{choice.target == .unit ? unitID($0.node) != nil:(choice.target == .rally && unitID($0.node) != nil) || $0.node.name=="terrain"}
             cardCommand(choice,hit:hit.flatMap{scenePick($0)});return

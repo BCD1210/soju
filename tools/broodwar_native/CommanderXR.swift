@@ -66,6 +66,7 @@ extension Commander {
             let updateStart=CACurrentMediaTime()
             os_signpost(.begin,log:XRFrameMetrics.log,name:"Billboard update")
             for billboard in billboards.values {billboard.updateView(eye:center,orientation:headRotation,perspective:true,art:worldSprites,recordEvidence:captureFrames.folder != nil || xrDrawCount%90==0)}
+            updatePossessionVisibility(eye:center)
             os_signpost(.end,log:XRFrameMetrics.log,name:"Billboard update")
             frameMetrics.stage("billboardUpdate",milliseconds:(CACurrentMediaTime()-updateStart)*1000)
             hud.simdPosition=center+headRotation.act(SIMD3<Float>(0,0.45,-1.5)*worldUnitsPerMeter);hud.simdOrientation=headRotation;hud.simdScale=SIMD3<Float>(repeating:worldUnitsPerMeter)
