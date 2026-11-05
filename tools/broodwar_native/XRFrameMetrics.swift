@@ -95,10 +95,12 @@ final class XRFrameMetrics {
     private var enabled=argument("--metrics-start-file")==nil
     private let metricsStartFile=argument("--metrics-start-file")
     private let traceCreations=CommandLine.arguments.contains("--trace-frame-creations")
+    private let traceAllocations:Bool
     private var creations=[UInt64](repeating:0,count:FrameCreation.allCases.count)
     private var allCreations=[UInt64](repeating:0,count:FrameCreation.allCases.count)
     private var reporter:DispatchSourceTimer?
-    init() {
+    init(allocationSampling:Bool=CommandLine.arguments.contains("--trace-frame-allocations")) {
+        traceAllocations=allocationSampling
         guard argument("--frame-metrics") != nil else {return}
         let timer=DispatchSource.makeTimerSource(queue:DispatchQueue(label:"soju.bw.metrics",qos:.utility))
         timer.schedule(deadline:.now()+5,repeating:5)
@@ -107,6 +109,7 @@ final class XRFrameMetrics {
     }
     deinit {reporter?.cancel()}
     var completedStereoSamples:Int {lock.lock();defer{lock.unlock()};return Int(gpu.count)}
+    var frameAllocationSamples:UInt64 {lock.lock();defer{lock.unlock()};return allocationFrames}
     func created(_ kind:FrameCreation,_ count:Int=1) {
         lock.lock();allCreations[kind.rawValue]+=UInt64(count)
         if enabled {creations[kind.rawValue]+=UInt64(count)}
@@ -114,9 +117,11 @@ final class XRFrameMetrics {
         if traceCreations {os_signpost(.event,log:Self.log,name:"Frame creation request","kind=%d count=%d",kind.rawValue,count)}
     }
     func beginFrameAllocationSample() {
+        guard traceAllocations else {return}
         malloc_zone_statistics(nil,&allocationBefore)
     }
     func endFrameAllocationSample() {
+        guard traceAllocations else {return}
         var after=malloc_statistics_t();malloc_zone_statistics(nil,&after)
         let delta=Int64(after.blocks_in_use)-Int64(allocationBefore.blocks_in_use)
         lock.lock();defer{lock.unlock()}
@@ -174,9 +179,9 @@ final class XRFrameMetrics {
             "frameOwnerCreationRequests":["measured":Dictionary(uniqueKeysWithValues:FrameCreation.allCases.map{($0.name,creations[$0.rawValue])}),
                 "includingWarmup":Dictionary(uniqueKeysWithValues:FrameCreation.allCases.map{($0.name,allCreations[$0.rawValue])}),
                 "method":"Instrumented creation requests issued by the native frame owner. Metal command buffers and encoders remain framework object requests. These counters are not malloc interception, exclude worker/UI creation, and do not prove zero transient allocations."],
-            "frameAllocationDelta":["samples":allocationFrames,"positiveFrames":allocationPositive,"zeroNetFrames":allocationZero,
+            "frameAllocationDelta":["enabled":traceAllocations,"samples":allocationFrames,"positiveFrames":allocationPositive,"zeroNetFrames":allocationZero,
                 "minNetBlocks":allocationMin,"maxNetBlocks":allocationMax,"totalNetBlocks":allocationTotal,
-                "method":"All-zone blocks-in-use delta across each frame loop. Includes concurrent worker activity; frees can cancel allocations. Not a transient allocation count or proof of zero allocations."],
+                "method":"Opt-in --trace-frame-allocations samples all-zone blocks-in-use around each frame. Disabled for ordinary timing runs. Includes concurrent worker activity; frees can cancel allocations. Not a transient allocation count or proof of zero allocations."],
             "runtimePacing":["samples":lifecycleSamples,"periodMs":periodMs,"afterWaitOverPeriod":lateSubmissions,
                 "wait":waitTiming.summary(),"acquire":acquireTiming.summary(),"endFrame":endTiming.summary(),"afterWait":afterWaitTiming.summary(),
                 "method":"Host monotonic durations. After-wait budget uses predictedDisplayPeriod, not a converted display timestamp; xrEndFrame is submission, not physical presentation."],

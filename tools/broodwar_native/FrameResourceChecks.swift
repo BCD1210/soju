@@ -4,6 +4,10 @@ import SceneKit
 import simd
 
 func frameResourceChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws {
+    let ordinaryMetrics=XRFrameMetrics(allocationSampling:false),allocationTrace=XRFrameMetrics(allocationSampling:true)
+    ordinaryMetrics.beginFrameAllocationSample();ordinaryMetrics.endFrameAllocationSample()
+    allocationTrace.beginFrameAllocationSample();allocationTrace.endFrameAllocationSample()
+    try require(ordinaryMetrics.frameAllocationSamples==0 && allocationTrace.frameAllocationSamples==1,"frame-loop malloc sampling is opt-in and absent from ordinary cadence measurements")
     let renderer=try MetalBatches(device:device)
     let payload=SpriteRelief.Mesh(vertices:[SCNVector3(-1,-1,0),SCNVector3(1,-1,0),SCNVector3(0,1,0)],
         uv:[CGPoint(x:0,y:0),CGPoint(x:1,y:0),CGPoint(x:0.5,y:1)],indices:[0,1,2])
