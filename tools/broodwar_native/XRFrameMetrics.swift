@@ -51,11 +51,14 @@ enum FrameCreation:Int,CaseIterable {
 final class XRFrameMetrics {
     static let log=OSLog(subsystem:"soju.broodwar",category:"PointsOfInterest")
     private let lock=NSLock()
-    private let latency=Dictionary(uniqueKeysWithValues:["bridgeRoundTrip","nativeToBridge","bridgeToWorker","workerToPacket","packetAge","nativeToGPUComplete","nativeToPresented","nativeToPredictedDisplay","nativeToDisplayEstimate"].map{($0,FrameDistribution())})
+    private let latency=Dictionary(uniqueKeysWithValues:["bridgeRoundTrip","nativeToBridge","bridgeToWorker","workerToPacket","packetAge","packetToPresented","packetToDisplayEstimate","nativeToGPUComplete","nativeToPresented","nativeToPredictedDisplay","nativeToDisplayEstimate"].map{($0,FrameDistribution())})
     private var lastLatencyNative=0.0
     func presented(_ timing:SceneTiming,at time:Double) {
         lock.lock();defer{lock.unlock()}
-        if enabled,timing.native>0,time>0 {latency["nativeToPresented"]?.add((time-timing.native)*1000)}
+        if enabled,timing.native>0,time>0 {
+            latency["nativeToPresented"]?.add((time-timing.native)*1000)
+            if timing.published>0 {latency["packetToPresented"]?.add((time-timing.published)*1000)}
+        }
     }
     func latencySample(_ timing:SceneTiming,completed:Double) {
         lock.lock();defer{lock.unlock()}
@@ -69,6 +72,7 @@ final class XRFrameMetrics {
         if timing.predictedDisplay>0 {
             latency["nativeToPredictedDisplay"]?.add((timing.predictedDisplay-timing.native)*1000)
             latency["nativeToDisplayEstimate"]?.add((max(completed,timing.predictedDisplay)-timing.native)*1000)
+            latency["packetToDisplayEstimate"]?.add((max(completed,timing.predictedDisplay)-timing.published)*1000)
         }
     }
     private let intervals=FrameDistribution(),cpu=FrameDistribution(),gpu=FrameDistribution()

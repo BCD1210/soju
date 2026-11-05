@@ -265,13 +265,13 @@ final class MetalBatches {
         }
         return texture.makeTextureView(pixelFormat:format) ?? texture
     }
-    func texture(_ value:Any?,fallback:MTLTexture,topLeft:Bool=true)throws->MTLTexture {
+    func texture(_ value:Any?,fallback:MTLTexture,topLeft:Bool=true,owner:String="cards-overlays")throws->MTLTexture {
         if let t=value as? MTLTexture {return t}
         if let color=value as? NSColor,let rgb=color.usingColorSpace(.sRGB) {
             let key="solid/\(rgb.redComponent)/\(rgb.greenComponent)/\(rgb.blueComponent)/\(rgb.alphaComponent)"
             if let cached=textures.get(key) {return cached.1}
             let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:1,height:1,mipmapped:false)
-            guard let texture=TextureResidency.shared.make(device,descriptor,owner:"cards-overlays") else {throw SceneError.invalid("Solid texture residency limit")}
+            guard let texture=TextureResidency.shared.make(device,descriptor,owner:owner) else {throw SceneError.invalid("Solid texture residency limit")}
             let bytes=[rgb.redComponent,rgb.greenComponent,rgb.blueComponent,rgb.alphaComponent].map{UInt8(max(0,min(255,($0*255).rounded())))}
             bytes.withUnsafeBytes{texture.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4)}
             textures.insert((NSImage(size:NSSize(width:1,height:1)),texture),key:key,bytes:Self.textureBytes(texture));return texture
@@ -280,7 +280,7 @@ final class MetalBatches {
         let key=String(describing:ObjectIdentifier(image))+"/\(topLeft)"
         if let cached=textures.get(key) {return cached.1}
         guard let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {return fallback}
-        let t=Self.colorView(try TextureResidency.shared.load(loader,Self.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:topLeft ? MTKTextureLoader.Origin.topLeft:MTKTextureLoader.Origin.bottomLeft],owner:"cards-overlays"))
+        let t=Self.colorView(try TextureResidency.shared.load(loader,Self.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:topLeft ? MTKTextureLoader.Origin.topLeft:MTKTextureLoader.Origin.bottomLeft],owner:owner))
         textures.insert((image,t),key:key,bytes:Self.textureBytes(t));return t
     }
     func mesh(_ geometry:SCNGeometry,transform:simd_float4x4=matrix_identity_float4x4,slice:Float=0,uvTransform:SCNMatrix4=SCNMatrix4Identity)->([Vertex],[UInt32]) {
@@ -434,6 +434,9 @@ final class MetalBatches {
         let columns=max(1,(width+15)/16)
         let pages=Dictionary(grouping:terrain.keys,by:{($0/max(1,width)/8)*columns+($0%max(1,width)/16)})
         var result=[Batch](),next=[Int:TerrainPage]()
+        let command=queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
+        var submitted=false
+        defer {if !submitted {blit.endEncoding()}}
         for page in pages.keys.sorted() {
             let keys=pages[page]!.sorted(),nodes=keys.map{terrain[$0]!}
             let sources=nodes.compactMap{$0.geometry?.sources(for:.vertex).first}
@@ -455,7 +458,7 @@ final class MetalBatches {
             }
             os_signpost(.begin,log:XRFrameMetrics.log,name:"Terrain page")
             defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Terrain page")}
-            let firstMask=try texture(nodes[0].geometry?.firstMaterial?.multiply.contents,fallback:white)
+            let firstMask=try texture(nodes[0].geometry?.firstMaterial?.multiply.contents,fallback:white,owner:"terrain-fog")
             let fd=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:firstMask.width,height:firstMask.height,mipmapped:false)
             fd.textureType = .type2DArray;fd.arrayLength=nodes.count;fd.storageMode = .private;fd.usage = .shaderRead
             guard let fog=TextureResidency.shared.make(device,fd,owner:"terrain-fog") else {throw SceneError.invalid("Fog texture residency limit")}
@@ -467,7 +470,6 @@ final class MetalBatches {
                 guard let array=TextureResidency.shared.make(device,d,owner:"terrain-pages") else {throw SceneError.invalid("Terrain texture residency limit")}
                 diffuse=array
             }
-            let command=queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
             if reuse {blit.copy(from:previous!.batch.textures[1],sourceSlice:0,sourceLevel:0,to:fog,destinationSlice:0,destinationLevel:0,sliceCount:nodes.count,levelCount:1)}
             var vertices=[Vertex](),indices=[UInt32](),copied=Set<Int>()
             for (slice,node) in nodes.enumerated() {
@@ -483,13 +485,12 @@ final class MetalBatches {
                     let base=UInt32(vertices.count);vertices+=v;indices+=ind.map{$0+base}
                 }
                 if !reuse || previous!.masks[slice] !== masks[slice] {
-                    let mask=try texture(material.multiply.contents,fallback:white)
+                    let mask=try texture(material.multiply.contents,fallback:white,owner:"terrain-fog")
                     if mask.width==fog.width && mask.height==fog.height {
                         blit.copy(from:mask,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:mask.width,height:mask.height,depth:1),to:fog,destinationSlice:slice,destinationLevel:0,destinationOrigin:MTLOrigin())
                     }
                 }
             }
-            blit.endEncoding();command.commit();command.waitUntilCompleted()
             var batch:Batch
             if reuse {batch=previous!.batch;batch.textures=[diffuse,fog]}
             else {
@@ -499,6 +500,7 @@ final class MetalBatches {
             }
             next[page]=TerrainPage(keys:keys,sources:sources,masks:masks,diffuse:diffuseSources,poses:poses,batch:batch);result.append(batch)
         }
+        blit.endEncoding();submitted=true;command.commit();command.waitUntilCompleted()
         terrainPageCache=next
         return result
     }
