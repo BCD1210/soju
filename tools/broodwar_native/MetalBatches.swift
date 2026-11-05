@@ -330,10 +330,12 @@ final class MetalBatches {
         }
         for i in vertices.indices {vertices[i].position=transform*vertices[i].position}
         for element in geometry.elements where element.primitiveType == .triangles || element.primitiveType == .line {
+            let indexBytes=element.bytesPerIndex,indexCount=element.primitiveCount*(element.primitiveType == .line ? 2:3)
+            indices.reserveCapacity(indices.count+indexCount)
             element.data.withUnsafeBytes { bytes in
-                for i in 0..<element.primitiveCount*(element.primitiveType == .line ? 2:3) {
-                    let offset=i*element.bytesPerIndex
-                    let index:UInt32=element.bytesPerIndex==4 ? bytes.loadUnaligned(fromByteOffset:offset,as:UInt32.self):element.bytesPerIndex==2 ? UInt32(bytes.loadUnaligned(fromByteOffset:offset,as:UInt16.self)):UInt32(bytes[offset])
+                for i in 0..<indexCount {
+                    let offset=i*indexBytes
+                    let index:UInt32=indexBytes==4 ? bytes.loadUnaligned(fromByteOffset:offset,as:UInt32.self):indexBytes==2 ? UInt32(bytes.loadUnaligned(fromByteOffset:offset,as:UInt16.self)):UInt32(bytes[offset])
                     indices.append(index)
                 }
             }
@@ -369,16 +371,16 @@ final class MetalBatches {
             let nodes=groups[key]!,node=nodes[0]
             guard let geometry=node.geometry,let material=geometry.firstMaterial else {continue}
             let source=geometry.sources(for:.vertex).first
-            if let cached=groupCache.get(key),cached.0 === source,cached.1.nodes.count==nodes.count {
-                var batch=cached.1;batch.nodes=nodes;constructed.append(batch);continue
-            }
             let shadow=key.hasSuffix("/true"),relief = !(geometry is SCNPlane)
-            let (vertices,indices)=mesh(geometry)
-            if vertices.isEmpty || indices.isEmpty {continue}
             var maps=[try texture(material.diffuse.contents,fallback:white,topLeft:true)]
             for name in ["normal","bright","specular","emissive","ao_depth"] {
                 maps.append(try texture(relief ? (material.value(forKey:"relief_"+name) as? SCNMaterialProperty)?.contents:nil,fallback:name=="normal" ? normal:name=="ao_depth" ? white:black,topLeft:true))
             }
+            if let cached=groupCache.get(key),cached.0 === source,cached.1.bounds.count>=nodes.count {
+                var batch=cached.1;batch.nodes=nodes;batch.textures=maps;constructed.append(batch);continue
+            }
+            let (vertices,indices)=mesh(geometry)
+            if vertices.isEmpty || indices.isEmpty {continue}
             var flat:MTLBuffer?
             if relief {
                 let xs=vertices.map{$0.position.x},ys=vertices.map{$0.position.y},zs=vertices.map{$0.position.z}
@@ -397,7 +399,10 @@ final class MetalBatches {
             let batch=Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:flat,instances:(0..<3).map{_ in buffer(instances+instances)},nodes:nodes,textures:maps,terrain:false,shadow:shadow,mode:shadow ? 3:relief ? 1:0,depthDisabled:false,bounds:bounds)
             constructed.append(batch)
             if let source=source {
-                groupCache.insert((source,batch),key:key,bytes:Self.retainedBytes(batch))
+                // Cache geometry capacity only. Materials and nodes have their own
+                // owners; retaining them here evicts useful meshes during animation.
+                var cached=batch;cached.nodes=[];cached.textures=[]
+                groupCache.insert((source,cached),key:key,bytes:Self.retainedBytes(cached))
             }
         }
         // Preserve creep edges and independent native sprite chains as overlays.
