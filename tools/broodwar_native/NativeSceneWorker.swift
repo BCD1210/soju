@@ -10,6 +10,8 @@ final class NativeSceneWorker {
     private let viewLock=NSLock()
     private var latestView:SceneView?,viewScheduled=false
     private var pendingNative=0,viewDeferred=false
+    private var resourceRevision=0
+    private var publishedView:SceneView?,publishedResources = -1
     private var builder:Builder?
     private let device:MTLDevice
     init(device:MTLDevice) {self.device=device}
@@ -43,7 +45,7 @@ final class NativeSceneWorker {
                     if builder==nil {
                         builder=try Builder(device:device)
                         builder!.batches.retireSourceOwnership=Self.retireTerrainSources
-                        builder!.sprites.stream?.onReady={ [weak self] in self?.scheduleView() }
+                        builder!.sprites.stream?.onReady={ [weak self] in self?.resourcesReady() }
                     }
                     builder!.workerStartedAt=CACurrentMediaTime()
                     builder!.apply(update)
@@ -60,6 +62,10 @@ final class NativeSceneWorker {
         latestView=view;viewLock.unlock()
         if changed {scheduleView()}
     }
+    private func resourcesReady() {
+        viewLock.lock();resourceRevision &+= 1;viewLock.unlock()
+        scheduleView()
+    }
     private func scheduleView() {
         viewLock.lock()
         if viewScheduled {viewLock.unlock();return}
@@ -74,9 +80,13 @@ final class NativeSceneWorker {
         }
     }
     private func publish(includeTerrain:Bool=true) {
-        viewLock.lock();let view=latestView;viewLock.unlock()
+        viewLock.lock();let view=latestView,resources=resourceRevision;viewLock.unlock()
         guard let builder=builder,let view=view,view.session==builder.session else {return}
-        do {mailbox.publish(try builder.packet(view,includeTerrain:includeTerrain || builder.terrain.session != builder.session))}
+        if includeTerrain,publishedView?.equivalent(to:view)==true,publishedResources==resources,!builder.needsTerrain(view) {return}
+        do {
+            mailbox.publish(try builder.packet(view,includeTerrain:includeTerrain || builder.terrain.session != builder.session))
+            publishedView=view;publishedResources=resources
+        }
         catch {mailbox.fail(String(describing:error));fputs("Native scene packet: \(error)\n",stderr)}
     }
     final class Builder {
@@ -147,9 +157,12 @@ final class NativeSceneWorker {
                 if retired>0 {batches.retireSourceOwnership?()}
             }
         }
+        func needsTerrain(_ view:SceneView)->Bool {
+            terrainDirty || lastCenter != view.center || lastRadius != view.radius || terrain.session != session
+        }
         func packet(_ view:SceneView,includeTerrain:Bool=true)throws->ScenePacket {
             trimTextureCaches()
-            if includeTerrain && (terrainDirty || lastCenter != view.center || lastRadius != view.radius) {
+            if includeTerrain && needsTerrain(view) {
                 let terrainResult=terrain.apply(TerrainWorker.Request(session:session,center:view.center,radius:view.radius,fog:fog,creep:creep))
                 guard terrainResult.error.isEmpty else {terrainDirty=true;throw SceneError.invalid(terrainResult.error)}
                 if !terrainResult.terrain.isEmpty || !terrainResult.removedTerrain.isEmpty {terrainRevision &+= 1;fogRevision &+= 1}
