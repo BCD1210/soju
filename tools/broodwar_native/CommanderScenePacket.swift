@@ -48,6 +48,7 @@ extension Commander {
             }
         }
         #endif
+        wrists.overlayImages.begin()
         var overlays=[SceneOverlay]()
         func capture(_ node:SCNNode,opacity:Float=1) {
             guard !node.isHidden else {return}
@@ -55,7 +56,7 @@ extension Commander {
             if let geometry=node.geometry,let material=geometry.firstMaterial {
                 let (vertices,indices)=batches.mesh(geometry,uvTransform:material.diffuse.contentsTransform)
                 if !indices.isEmpty {
-                    let image=(material.diffuse.contents as? NSImage)?.cgImage(forProposedRect:nil,context:nil,hints:nil)
+                    let image=wrists.overlayImages.capture(material.diffuse.contents as? NSImage)
                     overlays.append(SceneOverlay(transform:node.simdWorldTransform,vertices:vertices.map{SCNVector3($0.position.x,$0.position.y,$0.position.z)},
                         uv:vertices.map{CGPoint(x:Double($0.uv.x),y:Double($0.uv.y))},indices:indices.map{Int32($0)},image:image,
                         color:SceneOverlay.tint(material.diffuse.contents),opacity:alpha,
@@ -67,6 +68,7 @@ extension Commander {
         #if SOJU_OPENXR
         if xrRequested {for node in [wrists.commands,wrists.resources,wrists.ray,wrists.box,reticle,hud] {capture(node)}}
         #endif
+        wrists.overlayImages.end()
         let center=terrainCenter
         var sceneCamera=desktopCameraPacket!
         #if SOJU_OPENXR
