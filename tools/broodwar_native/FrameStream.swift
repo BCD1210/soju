@@ -6,7 +6,7 @@ import MetalKit
 // The worker owns its decoders and SceneKit construction objects. Only completed,
 // immutable resources cross to the render thread; a cache miss never decodes there.
 final class FrameStream {
-    struct Material {
+    final class Material {
         enum Map {
             case texture(MTLTexture)
             case color(SIMD4<Float>)
@@ -25,13 +25,18 @@ final class FrameStream {
             }
         }
         let diffuse:MTLTexture,maps:[String:Map],shaders:[SCNShaderModifierEntryPoint:String]?
+        private var sharedMetal:SCNMaterial?
         init(_ material:SCNMaterial,diffuse:MTLTexture) {
             self.diffuse=diffuse;shaders=material.shaderModifiers
             maps=Dictionary(uniqueKeysWithValues:["normal","bright","specular","emissive","ao_depth"].map {
                 ($0,Map((material.value(forKey:"relief_"+$0) as? SCNMaterialProperty)?.contents))
             })
         }
-        func material()->SCNMaterial {
+        // Only the stream's construction owner requests this shared value.
+        // Metal reads it without mutation; fallback shaders keep private copies.
+        func material(sharedForMetal:Bool=false)->SCNMaterial {
+            let share=sharedForMetal && useMetalBatches
+            if share,let material=sharedMetal {return material}
             let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
             material.diffuse.contents=diffuse;material.readsFromDepthBuffer=true;material.writesToDepthBuffer=true
             material.transparencyMode = .aOne
@@ -42,6 +47,7 @@ final class FrameStream {
             }
             material.setValue(NSValue(scnVector3:SCNVector3(SpriteRelief.reference)),forKey:"reliefLight")
             material.setValue(NSValue(scnVector3:SCNVector3(0,0,1)),forKey:"reliefEye")
+            if share {sharedMetal=material}
             return material
         }
     }
