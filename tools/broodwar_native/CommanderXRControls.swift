@@ -75,7 +75,7 @@ extension Commander {
         }
         let hit:ScenePickHit?
         if let worker=sceneWorker {hit=worker.mailbox.presented()?.hit(origin:from,direction:direction,accept:accepts)}
-        else {hit=world.rootNode.hitTestWithSegment(from:SCNVector3(from),to:SCNVector3(end),options:[SCNHitTestOption.searchMode.rawValue:SCNHitTestSearchMode.all.rawValue,SCNHitTestOption.categoryBitMask.rawValue:5]).compactMap{scenePick($0,origin:from)}.filter{accepts($0.target)}.min(by:{$0.distance<$1.distance})}
+        else {hit=world.rootNode.hitTestWithSegment(from:SCNVector3(from),to:SCNVector3(end),options:[SCNHitTestOption.searchMode.rawValue:SCNHitTestSearchMode.all.rawValue,SCNHitTestOption.categoryBitMask.rawValue:PossessionPresentation.pickCategories]).compactMap{scenePick($0,origin:from)}.filter{accepts($0.target)}.min(by:{$0.distance<$1.distance})}
         wrists.ray.isHidden=false
         wrists.line(from:SCNVector3(from.x,from.y,from.z),to:hit?.worldCoordinates ?? SCNVector3(end.x,end.y,end.z),color:wrists.pending==nil ? .cyan:.orange)
         guard let hit=hit else {

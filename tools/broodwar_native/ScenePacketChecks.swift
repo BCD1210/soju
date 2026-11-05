@@ -104,7 +104,7 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     let card=SceneOverlay(transform:matrix_identity_float4x4,vertices:vertices.map{SCNVector3($0)},uv:[],indices:[0,1,2],image:nil,color:SIMD4<Float>(1,0,0,1),opacity:1,depth:false,order:100,line:false,name:"card-7")
     func view(_ session:String)->SceneView {SceneView(session:session,viewport:SIMD2<Float>(32,32),camera:camera,center:SIMD2<Int>(1,1),radius:20,selected:["native"],overlays:[line,card])}
     try require(view("same").equivalent(to:view("same")) && !view("same").equivalent(to:view("other")) && !line.equivalent(to:card),"view coalescing preserves session and overlay changes")
-    let unit:Obj=["id":"native","x":100,"y":100,"type":7,"owner":0,"hp":40,"maxHP":40,"image":["id":239,"frame":68,"flags":0]]
+    let unit:Obj=["id":"native","x":100,"y":100,"type":7,"owner":0,"hp":40,"maxHP":40,"image":["id":239,"frame":68,"flags":0],"visual":["images":[["id":239,"frame":68,"flags":0],["id":239,"frame":68,"flags":0,"drawfunc":10]]]]
     func state(_ frame:Int,_ events:[Obj],_ session:String="native-check")->Obj {
         ["session":session,"frame":frame,"units":[unit],"events":events,"eventSeq":events.map{number($0,"seq")}.max() ?? 0,
          "bullets":[["id":1,"weapon":0,"x":100,"y":100,"facing":0]]]
@@ -121,6 +121,15 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     let first=worker.mailbox.latest()!,firstPosition=first.unitPositions["native"]!
     try require(first.picks.contains(where:{$0.target == .card(7)}) && first.batches.contains(where:{$0.primitive == .line && $0.depthDisabled}),"worker packet retains command-card picking and depth-disabled line overlays")
     try require(first.batches.contains(where:{$0.textures.first?.width==1 && !$0.depthDisabled && $0.count>0}),"worker packet contains native procedural projectile geometry")
+    var possessionView=view("native-check");possessionView.hiddenUnit="native"
+    worker.view(possessionView)
+    try require(wait{(worker.mailbox.latest()?.generation ?? 0)>first.generation},"possession republishes view without a native state update")
+    let hiddenPacket=worker.mailbox.latest()!
+    try require(hiddenPacket.picks.contains(where:{$0.target == .unit("native")}),"hidden possessed body retains native picking geometry")
+    try require(hiddenPacket.batches.contains(where:{$0.shadow && ($0.textures.first?.width ?? 0)>1}),"possessed native shadow remains in the rendered packet")
+    try require(!hiddenPacket.batches.contains(where:{!$0.terrain && !$0.shadow && ($0.textures.first?.width ?? 0)>1}),"possessed native body is excluded from draw batches")
+    worker.view(view("native-check"))
+    try require(wait{(worker.mailbox.latest()?.generation ?? 0)>hiddenPacket.generation},"possession exit restores body batches without another state update")
     let attack:Obj=["kind":"attack","seq":1,"x":100,"y":100]
     completed=false;worker.submit(NativeSceneWorker.Update(state:state(2,[attack]),fog:[:],creep:[])){completed=true}
     try require(wait{completed && worker.mailbox.latest()?.nativeFrame==2},"ordered worker publishes the next native frame")

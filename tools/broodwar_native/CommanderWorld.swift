@@ -353,6 +353,7 @@ extension Commander {
             if sceneWorker==nil {for billboard in billboards.values {billboard.updateView(eye:camera.simdWorldPosition,orientation:camera.simdOrientation,perspective:camera.camera?.usesOrthographicProjection != true,art:worldSprites,recordEvidence:captureFrames.folder != nil || now-lastSceneDiagnostic>1)}}
             updateDesktopCard()
         }
+        updatePossessionVisibility()
         sendSceneView()
         if sceneWorker==nil {Models3D.followLight(world,position:camera.position)}
         if !xrRequested,!useMetalBatches,initialized,let index=captureFrames.reserve(),

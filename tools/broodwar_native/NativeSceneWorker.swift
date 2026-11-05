@@ -178,6 +178,7 @@ final class NativeSceneWorker {
             if yieldToNative() {throw RefinementYield.nativePending}
             let column=view.camera.transform.columns.3,eye=SIMD3<Float>(column.x,column.y,column.z)
             for billboard in billboards.values {billboard.updateView(eye:eye,orientation:view.camera.orientation,perspective:!view.camera.orthographic,art:sprites)}
+            let hiddenBodies=PossessionPresentation.hiddenBodies(Array(billboards.values),eye:eye,possessed:view.hiddenUnit)
             var overlays=Array(terrain.creepNodes.values)+Array(sprites.nodes.values)
             func collect(_ node:SCNNode,hidden:Bool=false) {
                 if hidden || node.isHidden {return}
@@ -185,7 +186,7 @@ final class NativeSceneWorker {
                 for child in node.childNodes {collect(child)}
             }
             collect(effects.root)
-            for (id,billboard) in billboards where id != view.hiddenUnit && view.selected.contains(id) && !billboard.root.isHidden {
+            for (id,billboard) in billboards where !hiddenBodies.contains(id) && view.selected.contains(id) && !billboard.root.isHidden {
                 guard let unit=units[id] else {continue}
                 let bar=bars[id] ?? UnitBars();bars[id]=bar;bar.apply(unit)
                 bar.root.simdPosition=billboard.root.simdPosition+SIMD3<Float>(0,1.2,0)
@@ -205,7 +206,7 @@ final class NativeSceneWorker {
             if yieldToNative() {throw RefinementYield.nativePending}
             let nextGeneration=generation &+ 1
             try batches.prepare(MetalBatches.Input(sceneRevision:nextGeneration,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,
-                terrain:terrain.terrain,billboards:billboards.filter{$0.key != view.hiddenUnit}.map{$0.value},overlays:overlays,objectCount:units.count,retireTerrainSources:true,reuseUnitPoses:true),checkpoint:{
+                terrain:terrain.terrain,billboards:Array(billboards.values),overlays:overlays,objectCount:units.count,retireTerrainSources:true,reuseUnitPoses:true,hiddenBodies:hiddenBodies),checkpoint:{
                     if yieldToNative() {throw RefinementYield.nativePending}
                 })
             var picks=[ScenePickMesh](),positions=[String:SIMD3<Float>]()

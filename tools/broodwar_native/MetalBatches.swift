@@ -29,6 +29,7 @@ final class MetalBatches {
         let sceneRevision:Int,terrainRevision:Int,terrainFogRevision:Int,mapWidth:Int
         let terrain:[Int:SCNNode],billboards:[UnitBillboard],overlays:[SCNNode],objectCount:Int
         var retireTerrainSources=false,reuseUnitPoses=false
+        var hiddenBodies=Set<String>()
     }
     fileprivate struct Batch {
         var vertices:MTLBuffer;var indices:MTLBuffer;var count:Int;var flatVertices:MTLBuffer?
@@ -174,6 +175,7 @@ final class MetalBatches {
         init(_ unit:UnitBillboard) {self.unit=unit;geometry=unit.geometryRevision;pose=unit.poseRevision;hidden=unit.root.isHidden}
         static func ==(a:Self,b:Self)->Bool {a.unit === b.unit && a.geometry==b.geometry && a.pose==b.pose && a.hidden==b.hidden}
     }
+    private var preparedHiddenBodies=Set<String>()
     private var unitStamps=[ObjectIdentifier:UnitStamp](),preparedUnits=[Batch]()
     private var preparedTerrain=[Batch]()
     var revisions=[(UnitBillboard,Int)]()
@@ -375,7 +377,7 @@ final class MetalBatches {
         var constructed=preparedTerrain
         let stamps=commander.reuseUnitPoses ? Dictionary(uniqueKeysWithValues:commander.billboards.map{(ObjectIdentifier($0),UnitStamp($0))}):[:]
         let unitStart=constructed.count
-        if commander.reuseUnitPoses,stamps==unitStamps {constructed+=preparedUnits}
+        if commander.reuseUnitPoses,stamps==unitStamps,commander.hiddenBodies==preparedHiddenBodies {constructed+=preparedUnits}
         else {
         var groups=[String:[SCNNode]]()
         var reliefMeshes=[ObjectIdentifier:SpriteRelief.Mesh]()
@@ -384,6 +386,7 @@ final class MetalBatches {
                 guard let node=billboard.layers[index],let frame=billboard.shown[index] else {continue}
                 if node.categoryBitMask != 4 {node.categoryBitMask=4}
                 let shadow=Int(number(native,"drawfunc"))==10
+                if !shadow,commander.hiddenBodies.contains(billboard.root.name ?? "") {continue}
                 if !shadow,let geometry=node.geometry,!(geometry is SCNPlane),let mesh=billboard.contactMeshes[index] ?? billboard.sourceMeshes[index] {
                     reliefMeshes[ObjectIdentifier(geometry)]=mesh
                 }
@@ -472,7 +475,7 @@ final class MetalBatches {
                     billboard:node.constraints?.contains(where:{$0 is SCNBillboardConstraint})==true)
             }
         }
-        if commander.reuseUnitPoses {preparedUnits=Array(constructed[unitStart..<unitEnd]);unitStamps=stamps}
+        if commander.reuseUnitPoses {preparedUnits=Array(constructed[unitStart..<unitEnd]);unitStamps=stamps;preparedHiddenBodies=commander.hiddenBodies}
         else {preparedUnits=[];unitStamps=[:]}
         batches=constructed.map(PacketBatch.init)
         resetVisibility()

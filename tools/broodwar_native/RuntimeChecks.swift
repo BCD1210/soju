@@ -296,6 +296,19 @@ func runtimeChecks()throws {
     let aMaterials=Set(commander.models["a"]!.source.materials.map{ObjectIdentifier($0)})
     let bMaterials=Set(commander.models["b"]!.source.materials.map{ObjectIdentifier($0)})
     try require(aMaterials.isDisjoint(with:bMaterials),"team tint materials are isolated between units")
+    commander.enterPossession("a");commander.updatePossessionVisibility()
+    let ownedMesh=commander.models["a"]!.allNodes.first(where:{$0.geometry != nil})!
+    let nearbyMesh=commander.models["b"]!.allNodes.first(where:{$0.geometry != nil})!
+    try require(!commander.models["a"]!.root.isHidden && ownedMesh.castsShadow && ownedMesh.categoryBitMask==PossessionPresentation.hiddenCategory,"possessed body retains shadow geometry and uses camera-only exclusion")
+    try require(nearbyMesh.categoryBitMask==PossessionPresentation.hiddenCategory,"nearby body cannot obscure possession view")
+    try require(ownedMesh.categoryBitMask & PossessionPresentation.pickCategories != 0,"camera-excluded mesh remains in desktop and XR pick mask")
+    let head=commander.possessionEye(unit("a")),height=commander.modelLibrary.catalog.definitions[0]?.targetHeight ?? 1
+    try require(abs(Double(head.y)-commander.ground.elevation(x/32,y/32)-max(0.20,height*0.86))<0.00001,"possession eye uses scaled visor height")
+    commander.models["b"]!.root.position.x += 5;commander.updatePossessionVisibility()
+    try require(nearbyMesh.categoryBitMask != PossessionPresentation.hiddenCategory,"distant bodies remain visible")
+    commander.exitPossession()
+    try require(ownedMesh.categoryBitMask != PossessionPresentation.hiddenCategory && !commander.models["a"]!.root.isHidden,"possession exit restores body visibility without mutating native hidden state")
+    commander.apply(state(2,[unit("a"),unit("b")]),[:])
     let attack:Obj=["kind":"attack","unit":"a","seq":1,"x":x,"y":y]
     commander.apply(state(12,[unit("a"),unit("b")],[attack]),[:])
     try require(commander.models["a"]?.action=="attack","native fire selects attack animation")

@@ -6,6 +6,37 @@ struct CommanderViewBookmark {
     let position:SIMD3<Float>,yaw:CGFloat,pitch:CGFloat,eyeHeight:Double,tabletop:Bool
 }
 
+enum PossessionPresentation {
+    static let hiddenCategory = 8
+    static let pickCategories = 1 | 4 | hiddenCategory
+    static let nearDistance:Float = 0.60
+    static func near(_ node:SCNNode,eye:SIMD3<Float>)->Bool {
+        let box=node.boundingBox
+        let radius=Float(hypot(max(abs(box.min.x),abs(box.max.x)),max(abs(box.min.z),abs(box.max.z))))
+        let delta=node.simdWorldPosition-eye
+        return simd_length(SIMD2<Float>(delta.x,delta.z)) < radius+nearDistance
+    }
+    private static let originalCategories=NSMapTable<SCNNode,NSNumber>.weakToStrongObjects()
+    static func mask(_ node:SCNNode,hidden:Bool) {
+        guard node.geometry != nil else {return}
+        if hidden {
+            if originalCategories.object(forKey:node)==nil {
+                originalCategories.setObject(NSNumber(value:node.categoryBitMask),forKey:node)
+            }
+            node.categoryBitMask=hiddenCategory
+        } else if let original=originalCategories.object(forKey:node) {
+            node.categoryBitMask=original.intValue;originalCategories.removeObject(forKey:node)
+        }
+    }
+    static func hiddenBodies(_ billboards:[UnitBillboard],eye:SIMD3<Float>,possessed:String?)->Set<String> {
+        guard let possessed=possessed else {return []}
+        return Set(billboards.compactMap { b in
+            guard let id=b.root.name else {return nil}
+            return id==possessed || (b.unit["building"] as? Bool != true && near(b.root,eye:eye)) ? id:nil
+        })
+    }
+}
+
 extension Commander {
     var comfortFade:Float {Float(max(0,1-(CACurrentMediaTime()-comfortStarted)/0.35))}
     var viewBookmark:CommanderViewBookmark {
@@ -36,7 +67,8 @@ extension Commander {
         wrists.pending=nil;wrists.dragStart=nil
         let turret=unit["turret"] as? Obj ?? unit
         yaw = -CGFloat(number(turret,"facing"))*2 * .pi/256;pitch=0
-        camera.simdPosition=possessionEye(unit);placedEyeHeight=1.0
+        camera.simdPosition=possessionEye(unit);placedEyeHeight=Double(camera.position.y)-ground.elevation(number(unit,"x")/32,number(unit,"y")/32)
+        updatePossessionVisibility()
         notice="Unit view · Escape or right grip exits"
     }
     func canPossess(_ unit:Obj)->Bool {
@@ -47,7 +79,7 @@ extension Commander {
     func possessionEye(_ unit:Obj)->SIMD3<Float> {
         let x=number(unit,"x")/32,z=number(unit,"y")/32
         let definition=modelLibrary.catalog.definitions[Int(number(unit,"type"))]
-        let eyeHeight=max(0.35,(definition?.targetHeight ?? 1.0)*0.8)
+        let eyeHeight=max(0.20,(definition?.targetHeight ?? 1.0)*0.86)
         let flight=unit["airborne"] as? Bool == true ? (definition?.flightHeight ?? 1.5):0
         let height=ground.elevation(x,z)+(definition?.elevation ?? 0)+flight+eyeHeight
         return SIMD3<Float>(Float(x),Float(height),Float(z))
@@ -55,8 +87,7 @@ extension Commander {
     func exitPossession() {
         guard possessedUnit != nil else {return}
         comfortStarted=CACurrentMediaTime();motionVignette=0
-        if let id=possessedUnit {nodes[id]?.isHidden=units[id]?["renderHidden"] as? Bool == true}
-        possessedUnit=nil
+        possessedUnit=nil;updatePossessionVisibility()
         if let bookmark=possessionReturn {restoreView(bookmark)}
         possessionReturn=nil;wrists.pending=nil;notice="Returned to commander view"
     }
@@ -67,7 +98,29 @@ extension Commander {
         motionVignette=min(0.7,simd_distance(target,camera.simdPosition)*0.6)
         camera.simdPosition += (target-camera.simdPosition)*Float(1-exp(-dt/0.08))
         selected=[id]
-        if sceneWorker==nil {nodes[id]?.isHidden=true}
+        updatePossessionVisibility()
+    }
+    func updatePossessionVisibility(eye:SIMD3<Float>?=nil) {
+        guard sceneWorker==nil else {return}
+        camera.camera?.categoryBitMask = ~PossessionPresentation.hiddenCategory
+        #if SOJU_OPENXR
+        xrCamera.camera?.categoryBitMask = ~PossessionPresentation.hiddenCategory
+        #endif
+        let eye=eye ?? camera.simdWorldPosition
+        for (id,model) in models {
+            let hide=possessedUnit != nil && (id==possessedUnit ||
+                (units[id]?["building"] as? Bool != true && PossessionPresentation.near(model.root,eye:eye)))
+            for node in model.allNodes {PossessionPresentation.mask(node,hidden:hide)}
+            PossessionPresentation.mask(model.selection,hidden:hide)
+            model.bars.root.enumerateChildNodes {node,_ in PossessionPresentation.mask(node,hidden:hide)}
+        }
+        let hidden=PossessionPresentation.hiddenBodies(Array(billboards.values),eye:eye,possessed:possessedUnit)
+        for (id,billboard) in billboards {
+            for (index,node) in billboard.layers {
+                let shadow=number(billboard.nativeLayers[index] ?? [:],"drawfunc")==10
+                PossessionPresentation.mask(node,hidden:hidden.contains(id) && !shadow)
+            }
+        }
     }
     func possessionMove(side:Float,forward:Float,heading:Float,now:Double) {
         guard let id=possessedUnit,let unit=units[id],canPossess(unit),now-lastPossessionOrder>=0.15,
