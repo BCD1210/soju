@@ -119,3 +119,29 @@ ground/table switching, Marine possession and stick movement, but did not finish
 the simulator connection lost tracking during later input. These partial trials
 and mixed timing samples are not acceptance results. Tracking diagnostics and
 fresh connected runs are required before closing the gates below.
+
+## XR controller qualification
+
+`xr-live/xr-controller-table.json` verifies all three races through simulator
+controller input and original native handlers: select, card move, attack with
+measured enemy damage, completed construction, completed production, and spell.
+Terran completed a Supply Depot and SCV and applied Defensive Matrix. Zerg
+completed a Spawning Pool and Drone morph and cast Dark Swarm. Protoss completed
+a Pylon and new Probe and cast Feedback. The original Probe subsequently died;
+`protoss_train_identity.py` verifies the new unit identity instead of requiring a
+net population increase. The earlier count-based timeout is retained.
+
+`xr-live/xr-view-modes.json` verifies ground/table switching and ground/air
+possession for Marine/Wraith, Hydralisk/Mutalisk and Dragoon/Arbiter. Each possessed
+unit moved through left-stick input, issued a successful ray attack-move, retained
+its camera heading while moving, and returned to the adjusted table. Native
+movement distances were 158–179 pixels. The replay traces, native acknowledgments,
+controller edges, scene snapshots and viewer captures remain under `xr-live/`.
+A long selection hold missed an animated Dragoon; a short trigger tap succeeded.
+The private simulator was reconnected after the initial tracking loss; these
+successful checks use the subsequent connected sessions.
+
+These results close the M18 per-race controller chains and the listed M19 view
+controls. They do not yet qualify live death exits, performance, the ten-minute
+XR duel, or the requested combat deliverables. No timing pass is inferred from
+capture-enabled controller sessions.
