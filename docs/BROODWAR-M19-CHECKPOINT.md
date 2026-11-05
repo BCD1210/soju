@@ -253,3 +253,18 @@ still required.
 `expanded-map-pressure-cache/qualification.json` passes all 3,753 explored tiles
 with zero rejections, 1,349.78 MiB peak and 1,221.02 MiB retained at the end of the
 frozen-map run. It remains a memory regression check, not live duel evidence.
+
+## Completed default ten-minute XR duel
+
+`duel-xr-pressure-cache/qualification.json` verifies the sustained combat gate on
+`0567e10`: **608.98 seconds** of native samples, 614.02 seconds of metrics,
+14,499 native frames advanced, 272 attacks, 240 damage events and 31 deaths.
+The owned army remained alive, tracking stayed valid, and every sampled scene
+packet stayed fresh. Default settings, no captures, **1,357.61 MiB peak and zero
+rejections**. This closes the sustained default-settings duel functionality and
+residency gate.
+
+Performance remains separate: cadence p95 **12.48 ms**, **zero missed slots**,
+packet age p95 **40.12 ms**, native-to-display estimate p95 **130.73 ms**. The
+12 ms cadence and 70 ms latency thresholds do not pass for this long run. The
+three-view 125-unit stress results above remain separate measurements.
