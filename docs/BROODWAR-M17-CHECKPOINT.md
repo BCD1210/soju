@@ -1,6 +1,6 @@
 # Brood War M17 checkpoint
 
-M17 is **partial; controller, native action-card, and rendered gates have passed**. Started from
+M17 is **complete for the four requested gates**. Started from
 `6b7b387` on `feat/broodwar-3d`. Evidence lives outside the repository at
 `~/.local/share/soju/broodwar-native/3d-proof/m17/`. No push was performed.
 
@@ -138,25 +138,60 @@ These gates establish the tested contact/terrain behavior, not hidden-side model
 fidelity: native sprite relief still has view-dependent silhouettes and baked
 artwork. They are not a claim that every building has a complete solid model.
 
+## Final 125-unit stress
+
+After the preceding gates passed and step 3 was committed, the private simulator
+was connected to the population fixture. The run warmed for 30 seconds and ran
+the 45-second driver. Its last periodic metrics snapshot covers **44.40 seconds
+and 3,997 stereo frames**. All nine native samples retained **125 owned units**;
+the final renderer count was 137. All ten group-move submissions addressed 12
+Marines and succeeded. This stress load uses native commands, independently of
+the simulator-only controller acceptance above.
+
+| Metric | p95 | p99 | Maximum |
+|---|---:|---:|---:|
+| Frame cadence | 11.86 ms | 12.20 ms | 15.69 ms |
+| After-wait host work | 0.76 ms | 1.68 ms | 4.64 ms |
+| Stereo GPU | 4.66 ms | 5.74 ms | 6.89 ms |
+| Stereo CPU encode | 0.55 ms | 0.61 ms | 0.72 ms |
+
+Estimated missed cadence slots: **0**. After-wait period overruns: **0**. GPU
+samples over 11.111 ms: **0**. Cadence samples over 11.111 ms: 2,006, which are
+not the missed-slot estimate. M16 cadence p95 was 11.87 ms and GPU p95 was
+5.94 ms. These remain host/GPU measurements, not physical display telemetry or
+a long-duration stability claim.
+
+The run used the same explicit 4 GiB fixture texture limit as the controller
+runs. Renderer-owned texture storage peaked at 1,182,680,192 bytes with zero
+rejections. Mid-measurement diagnostics retained valid controller poses and a
+178.64 ms scene-packet age. Evidence is in `population/live-final-metrics.json`,
+`population/live-state-samples.json`, `population/stress-orders.json`, and
+`population/live.log`; `live-launch.json` records the executable hash.
+
 ## Validation
 
 - Python: **286 passed, 60 subtests passed**, `tests-python-visual.log`.
 - Rust: **17 passed**, `tests-rust-visual.log`.
-- Runtime: **185 desktop / 190 XR / 190 fallback**, corresponding
-  `runtime-*-visual.json` and `runtime-*-visual.log`; all report passed.
+- Runtime: **186 desktop / 191 XR / 191 fallback**, corresponding
+  `runtime-*-final.json` and `runtime-*-final.log`; all report passed.
 - Both desktop and XR viewer builds succeeded. The live simulator connection
-  survived the formerly crashing wrist-panel path.
+  survived the formerly crashing wrist-panel path. The final population map adds
+  one terrain-dependent check to each earlier 185/190/190 run.
 
 The automated runtime checks are separate from the controller evidence above and do not certify rendered visual acceptance.
-No new final stress result is claimed.
+The final stress result is recorded above.
 
-## Ordered work still open
+## Completed sequence
 
 1. Controller gate complete: all three races passed the five command chains.
 2. Native action-card gate complete: 0 structural mismatches across 76 fixture
    types, six build submenus, and shared-selection checks.
 3. Rendered gate complete: 16 accepted normal views, 80 rejected controls.
-4. Rerun the 125-unit stress after the preceding gates pass.
+4. Final 125-unit stress complete: cadence p95 11.86 ms, 0 missed slots.
 
-Step 4 remains pending at this visual checkpoint. No game assets or
+The private simulator was left receiving the live Brood War population session
+after measurement (`final-session.json`). Shared OXRSys source/services and the
+D2R test copy were untouched.
+
+All four steps were completed in order with local commits. No game assets or
 `tools/broodwar_native/target/` were staged. `asset-upgrades/` was not modified.
