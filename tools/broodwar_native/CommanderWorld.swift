@@ -22,7 +22,7 @@ struct PreparedState {
     }
 }
 extension Commander {
-    func apply(_ s:Obj,_ f:Obj,prepared preparedState:PreparedState?=nil,capturedTerrain:([Int:UInt8],Set<Int>)?=nil) {
+    func apply(_ s:Obj,_ f:Obj,prepared preparedState:PreparedState?=nil,capturedTerrain:([Int:UInt8],Set<Int>)?=nil,submittedToWorker:Bool=false) {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"State apply")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"State apply")}
         let liveMap=s["map"] as? Obj ?? [:]
@@ -107,7 +107,7 @@ extension Commander {
         if let captured=capturedTerrain {fog=captured.0;creepTiles=captured.1;updateTerrain()}
         if let worker=sceneWorker {
             notice="Native HD relief and sprite chains · authored rigs: SOJU_BW_RENDERER=scenekit"
-            worker.submit(NativeSceneWorker.Update(state:s,fog:fog,creep:creepTiles,prepared:preparedState),readNext:{ [weak self] in self?.busy=false }) {}
+            if !submittedToWorker {worker.submit(NativeSceneWorker.Update(state:s,fog:fog,creep:creepTiles,prepared:preparedState),readNext:{ [weak self] in self?.busy=false }) {}}
             sendSceneView()
             return
         }

@@ -157,6 +157,15 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     let refined=try failedTerrain.packet(view("terrain-retry"))
     try require(!refined.picks.contains(where:{$0.target == .terrain}) && delta.picks.contains(where:{$0.target == .terrain}),"terrain refinement retires picks without mutating the displayed delta")
 
+    failedTerrain.apply(NativeSceneWorker.Update(state:deltaState,fog:[:],creep:[],region:["x":2,"y":3,"width":2,"fog":"2120","creep":"1001"]))
+    let firstIndex=3*failedTerrain.terrain.mapWidth+2,secondRow=firstIndex+failedTerrain.terrain.mapWidth
+    try require(failedTerrain.fog==[firstIndex:50,firstIndex+1:49,secondRow:50,secondRow+1:48] && failedTerrain.creep==[firstIndex,secondRow+1],"bridge regions map fog and creep into worker-owned map coordinates")
+    failedTerrain.apply(NativeSceneWorker.Update(state:deltaState,fog:[:],creep:[],region:["x":2,"y":3,"width":1,"fog":"1","creep":"0"]))
+    try require(failedTerrain.fog[firstIndex]==49 && failedTerrain.fog[secondRow]==50 && failedTerrain.creep==[secondRow+1],"successive bridge regions retain outside visibility and remove changed creep")
+    var resetRegion=deltaState;resetRegion["session"]="region-reset"
+    failedTerrain.apply(NativeSceneWorker.Update(state:resetRegion,fog:[:],creep:[],region:["x":0,"y":0,"width":1,"fog":"2","creep":"0"]))
+    try require(failedTerrain.fog==[0:50] && failedTerrain.creep.isEmpty,"new native session clears accumulated bridge regions")
+
     #if SOJU_OPENXR
     let inputQueue=XRInputQueue()
     var allAccepted=true,motion=SojuXRInput()

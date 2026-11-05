@@ -268,3 +268,20 @@ Performance remains separate: cadence p95 **12.48 ms**, **zero missed slots**,
 packet age p95 **40.12 ms**, native-to-display estimate p95 **130.73 ms**. The
 12 ms cadence and 70 ms latency thresholds do not pass for this long run. The
 three-view 125-unit stress results above remain separate measurements.
+
+## Direct native publication
+
+Native snapshots now enter the scene worker directly from the bridge queue.
+The main owner still receives every ordered control/card update before admitting
+the next bridge read. The worker accumulates native fog and creep regions itself,
+including session resets; runtime checks verify region coordinates, outside-region
+retention and reset behavior. Desktop/XR/fallback checks pass 234/239/239.
+`xr-live/build-direct-publication-evidence.json` records matching staged sources.
+
+`stress-desktop-direct/` measured **87.92 ms native-to-presented p95** and 33.83 ms
+packet age p95 over 44.99 seconds. This desktop uses compositor presentation times
+and runs at approximately 50 Hz; its intervals are not a 90 Hz XR cadence gate.
+`stress-tabletop-direct/` measured **87.12 ms native-to-display estimate p95**,
+34.80 ms packet age p95, **11.91 ms cadence p95, zero missed slots and zero
+rejections** over 45.30 seconds. Neither latency result meets 70 ms. CPU samples
+were collected after the metric windows, and are excluded from qualification.
