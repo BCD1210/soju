@@ -4,7 +4,7 @@ import Metal
 import simd
 
 final class NativeSceneWorker {
-    struct Update {let state:Obj,fog:[Int:UInt8],creep:Set<Int>}
+    struct Update {let state:Obj,fog:[Int:UInt8],creep:Set<Int>;var prepared:PreparedState?=nil}
     let mailbox=SceneMailbox()
     private let queue=DispatchQueue(label:"soju.bw.scene-owner",qos:.userInitiated)
     private let viewLock=NSLock()
@@ -12,12 +12,19 @@ final class NativeSceneWorker {
     private var builder:Builder?
     private let device:MTLDevice
     init(device:MTLDevice) {self.device=device}
+    // SceneKit's main-run-loop flush also touches lazily materialized sources.
+    // Commit construction under its global lock before publishing Metal values.
+    private func construct(_ body:()->Void) {
+        SCNTransaction.lock();SCNTransaction.begin();SCNTransaction.disableActions=true
+        autoreleasepool(invoking:body)
+        SCNTransaction.commit();SCNTransaction.unlock()
+    }
     // Release the bridge after the unit delta. Terrain refinement is queued next.
     // Native updates are FIFO and never replaced by a newer state or view.
     func submit(_ update:Update,completion:@escaping()->Void) {
         mailbox.invalidate(update.state["session"] as? String ?? "legacy")
         queue.async { [self] in
-            autoreleasepool {
+            construct {
                 do {
                     if builder==nil {
                         builder=try Builder(device:device)
@@ -44,7 +51,7 @@ final class NativeSceneWorker {
         viewScheduled=true;viewLock.unlock()
         queue.async { [self] in
             viewLock.lock();viewScheduled=false;viewLock.unlock()
-            autoreleasepool {publish()}
+            construct {publish()}
         }
     }
     private func publish(includeTerrain:Bool=true) {
@@ -69,7 +76,7 @@ final class NativeSceneWorker {
         init(device:MTLDevice)throws {terrain=try TerrainWorker.Builder();effects=try CombatEffects(authoredModels:false);batches=try MetalBatches(device:device)}
         func apply(_ update:Update) {
             let next=update.state["session"] as? String ?? "legacy",reset=next != session
-            let prepared=PreparedState(update.state,previous:state)
+            let prepared=update.prepared ?? PreparedState(update.state,previous:state)
             if reset {billboards.removeAll();bars.removeAll();rings.removeAll();effects.clear();sprites.clear();eventSequence=0}
             let events=reset ? []:(update.state["events"] as? [Obj] ?? []).filter{number($0,"seq")>eventSequence}
             terrainDirty = terrainDirty || reset || fog != update.fog || creep != update.creep

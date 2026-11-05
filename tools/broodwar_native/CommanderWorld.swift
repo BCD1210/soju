@@ -103,7 +103,7 @@ extension Commander {
         if let captured=capturedTerrain {fog=captured.0;creepTiles=captured.1;updateTerrain()}
         if let worker=sceneWorker {
             notice="Native HD relief and sprite chains · authored rigs: SOJU_BW_RENDERER=scenekit"
-            worker.submit(NativeSceneWorker.Update(state:s,fog:fog,creep:creepTiles)) { [weak self] in self?.busy=false }
+            worker.submit(NativeSceneWorker.Update(state:s,fog:fog,creep:creepTiles,prepared:preparedState)) { [weak self] in self?.busy=false }
             sendSceneView()
             return
         }

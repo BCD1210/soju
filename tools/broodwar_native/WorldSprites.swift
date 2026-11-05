@@ -59,7 +59,7 @@ final class UnitBillboard {
             material.readsFromDepthBuffer=false;material.writesToDepthBuffer=false;plane.materials=[material];node.geometry=plane
             if !shadow,let data=prepared?.geometry ?? (art.stream==nil ? art.relief.meshData(id,frame:frame,art:art):nil) {
                 sourceMeshes[index]=data;contactPoses.removeValue(forKey:index);contactMeshes.removeValue(forKey:index)
-                let mesh=data.geometry()
+                let mesh=art.geometry(data,id:id,frame:frame)
                 mesh.materials=[prepared?.material.material() ?? art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
             }
             node.isHidden=false;node.castsShadow=false;node.renderingOrder=node.geometry is SCNPlane ? 1000+Int(number(unit,"y"))*32+chain.count-index:0
@@ -138,7 +138,7 @@ final class UnitBillboard {
                 geometryRevision &+= 1
                 if !shadow,let data=prepared?.geometry ?? (art.stream==nil ? art.relief.meshData(id,frame:frame,art:art):nil) {
                     sourceMeshes[index]=data;contactPoses.removeValue(forKey:index);contactMeshes.removeValue(forKey:index)
-                    let mesh=data.geometry()
+                    let mesh=art.geometry(data,id:id,frame:frame)
                     mesh.materials=[prepared?.material.material() ?? art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh;node.renderingOrder=0
                 } else {node.geometry?.firstMaterial?.diffuse.contents=prepared?.image ?? art.texture(id,frame:frame,color:team) as Any?}
                 shown[index]=frame;shownImages[index]=id;shownColors[index]=team;node.isHidden=false
@@ -217,6 +217,19 @@ final class UnitBillboard {
 
 // Native image chains drive both independent map sprites and fallback death frames.
 final class WorldSprites {
+    // Source objects are created and retained by this scene owner, never by the
+    // decoder queue. Distinct geometries/materials share immutable vertex data.
+    private let geometrySources=ResidentCache<[SCNGeometrySource]>(limit:64*1024*1024)
+    func geometry(_ mesh:SpriteRelief.Mesh,id:Int,frame:Int)->SCNGeometry {
+        guard stream != nil else {return mesh.geometry()}
+        let key="\(id)/\(frame)",sources:[SCNGeometrySource]
+        if let cached=geometrySources.get(key) {sources=cached}
+        else {
+            sources=[SCNGeometrySource(vertices:mesh.vertices),SCNGeometrySource(textureCoordinates:mesh.uv)]
+            geometrySources.insert(sources,key:key,bytes:mesh.bytes)
+        }
+        return SCNGeometry(sources:sources,elements:[SCNGeometryElement(indices:mesh.indices,primitiveType:.triangles)])
+    }
     let stream:FrameStream?
     let relief=SpriteRelief()
     let root=SCNNode(),folder=runtime.appendingPathComponent("world-sprites")

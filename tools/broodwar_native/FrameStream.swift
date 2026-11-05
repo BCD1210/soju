@@ -34,7 +34,8 @@ final class FrameStream {
         func material()->SCNMaterial {
             let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
             material.diffuse.contents=diffuse;material.readsFromDepthBuffer=true;material.writesToDepthBuffer=true
-            material.transparencyMode = .aOne;material.shaderModifiers=shaders
+            material.transparencyMode = .aOne
+            if !useMetalBatches {material.shaderModifiers=shaders}
             for (name,map) in maps {
                 let property=SCNMaterialProperty(contents:map.contents);property.wrapS = .clamp;property.wrapT = .clamp
                 material.setValue(property,forKey:"relief_"+name)

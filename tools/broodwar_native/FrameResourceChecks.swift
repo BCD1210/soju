@@ -7,6 +7,11 @@ func frameResourceChecks(device:MTLDevice,require:(Bool,String)throws->Void)thro
     let renderer=try MetalBatches(device:device)
     let payload=SpriteRelief.Mesh(vertices:[SCNVector3(-1,-1,0),SCNVector3(1,-1,0),SCNVector3(0,1,0)],
         uv:[CGPoint(x:0,y:0),CGPoint(x:1,y:0),CGPoint(x:0.5,y:1)],indices:[0,1,2])
+    let owner=WorldSprites(streaming:true)
+    let sharedA=owner.geometry(payload,id:1,frame:0),sharedB=owner.geometry(payload,id:1,frame:0)
+    sharedB.elements[0].primitiveRange=NSRange(location:0,length:1)
+    sharedA.elements[0].primitiveRange=NSRange(location:0,length:0)
+    try require(sharedA !== sharedB && sharedA.sources(for:.vertex).first === sharedB.sources(for:.vertex).first && sharedB.elements[0].primitiveRange.length == 1,"scene-owned geometry shares immutable vertices while keeping mutable elements isolated")
     final class MeshResults {
         let lock=NSLock();var checks=0,failures=0
         func record(_ okay:Bool) {lock.lock();checks+=1;if !okay {failures+=1};lock.unlock()}
