@@ -306,3 +306,19 @@ The private `marine-05-native-size` delivery retains the approved model/mask byt
 - Validation: 288 Python tests and 60 subtests; 18 Rust tests; desktop 278, XR 283, fallback 283 runtime checks. External-pass GPU readback checks opaque rendering and near/far occlusion.
 - Corrected desktop and actual XR swapchain sheets: `~/.local/share/soju/broodwar-native/3d-proof/m19/user-shots/marine-3d/desktop-comparison-fixed.jpg` and `xr-comparison-fixed.jpg`. Each includes matched eye-level, possession, and recorded native combat frame 1540. No live game restart or combat commands; skeletal animation phases are not synchronized.
 - Native size derivation is now included in pending roster previews and deliveries; SCV preview height is 1.060292145 tile units. No further unit has been installed.
+
+## Roster continuation and fixed playback evidence — 2026-11-05
+
+The SCV, Zergling and Zealot each reached three consecutive gains below 0.01 in best mean silhouette IoU. None reached the delegated 0.80 installation threshold; no new approval or catalog activation was issued. The corrected Marine release remains active.
+
+| Unit | Best delivery mean IoU / SSIM | Native tile height | Remaining blocker |
+| --- | --- | --- | --- |
+| SCV | 0.718866 / 0.294429 | 1.060292145 | Cab/tool silhouette and surface detail remain below threshold. |
+| Zergling | 0.601489 / 0.313536 | 0.710584339 | Misplaced limbs/claws, smeared shell detail and stretched animation surfaces. |
+| Zealot | 0.552052 / 0.125837 | 0.981640598 | Hunched torso, incorrect limbs, soft armor and stretched animation surfaces. |
+
+Zergling and Zealot plateau decisions used static previews (best 0.610858 and 0.587402); the table reports the final rigged deliveries. Their native skeleton isolation and clip-execution checks pass, but this does not establish acceptable deformation quality. Eight player-color samples and action frames are retained. The unchanged general review also reports missing type-specific calibration for those two units.
+
+All private outputs are under `~/.local/share/soju/broodwar-native/asset-upgrades/marine/candidates/C/roster/`: each unit has `RESULT.md`, `result.json`, per-iteration comparison sheets, and `proof/xr-comparison.jpg`. XR sheets use actual private-simulator swapchain captures at matched cameras and recorded native states. SCV and Zergling comparisons explicitly filter to their respective unit types to remove foreground occluders while retaining original positions and terrain; Zealot uses the complete scene. No candidate was substituted into the active catalog.
+
+Fresh desktop mesh picking selected the expected resized Marine; evidence is `3d-proof/m19/user-shots/marine-3d/new-desktop-combat-fixed-video/desktop-picking-fixed.json`. The 14.6-second `desktop-combat-comparison-fixed.mp4` illustrates both renderings of the same native combat replay. Capture timing differs by up to 1.423 seconds between sides; use the fixed still sheets for exactly matched native states. The private viewers were restored to the existing live map with the approved, corrected Marine; game and shared simulator processes were not restarted.
