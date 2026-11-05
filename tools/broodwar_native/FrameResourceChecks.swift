@@ -4,6 +4,43 @@ import SceneKit
 import simd
 
 func frameResourceChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws {
+    // Exercise the same external command-buffer path used by the XR fallback.
+    let scene=SCNScene(),sceneRenderer=SCNRenderer(device:device,options:nil)
+    sceneRenderer.scene=scene;sceneRenderer.usesReverseZ=SceneKitDepth.reversed
+    let sceneCamera=SCNNode();sceneCamera.camera=SCNCamera();sceneCamera.position.z=3
+    scene.rootNode.addChildNode(sceneCamera);sceneRenderer.pointOfView=sceneCamera
+    for (z,color) in [(CGFloat(0),NSColor.green),(CGFloat(-1),NSColor.red)] {
+        let node=SCNNode(geometry:SCNBox(width:1,height:1,length:0.3,chamferRadius:0))
+        let material=SCNMaterial();material.lightingModel = .constant;material.diffuse.contents=color
+        node.geometry!.materials=[material];node.position.z=z;scene.rootNode.addChildNode(node)
+    }
+    var sceneProjection=SCNMatrix4()
+    let near=CGFloat(0.03),far=CGFloat(150)
+    sceneProjection.m11=1;sceneProjection.m22=1
+    sceneProjection.m33 = -(far+near)/(far-near);sceneProjection.m34 = -1
+    sceneProjection.m43 = -2*far*near/(far-near);sceneProjection.m44=0
+    sceneCamera.camera!.projectionTransform=sceneProjection
+    SCNTransaction.flush();sceneRenderer.update(atTime:1)
+    let colorDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:64,height:64,mipmapped:false)
+    colorDesc.usage=[.renderTarget,.shaderRead];colorDesc.storageMode = .private
+    let sceneColor=device.makeTexture(descriptor:colorDesc)!
+    let depthDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float_stencil8,width:64,height:64,mipmapped:false)
+    depthDesc.usage = .renderTarget;depthDesc.storageMode = .private
+    let sceneDepth=device.makeTexture(descriptor:depthDesc)!,scenePass=MTLRenderPassDescriptor()
+    scenePass.colorAttachments[0].texture=sceneColor;scenePass.colorAttachments[0].loadAction = .clear
+    scenePass.colorAttachments[0].storeAction = .store
+    scenePass.depthAttachment.texture=sceneDepth;scenePass.depthAttachment.loadAction = .clear
+    scenePass.depthAttachment.clearDepth=SceneKitDepth.clear;scenePass.depthAttachment.storeAction = .dontCare
+    scenePass.stencilAttachment.texture=sceneDepth;scenePass.stencilAttachment.loadAction = .clear
+    scenePass.stencilAttachment.storeAction = .dontCare
+    let sceneQueue=device.makeCommandQueue()!,sceneCommand=sceneQueue.makeCommandBuffer()!
+    sceneRenderer.render(atTime:1,viewport:CGRect(x:0,y:0,width:64,height:64),commandBuffer:sceneCommand,passDescriptor:scenePass)
+    let scenePixels=device.makeBuffer(length:64*256,options:.storageModeShared)!,sceneBlit=sceneCommand.makeBlitCommandEncoder()!
+    sceneBlit.copy(from:sceneColor,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:64,height:64,depth:1),to:scenePixels,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:64*256)
+    sceneBlit.endEncoding();sceneCommand.commit();sceneCommand.waitUntilCompleted()
+    let sceneBytes=scenePixels.contents().bindMemory(to:UInt8.self,capacity:64*256),center=32*256+32*4
+    print("SceneKit external center BGRA: \(sceneBytes[center]),\(sceneBytes[center+1]),\(sceneBytes[center+2]),\(sceneBytes[center+3]); status=\(sceneCommand.status.rawValue)")
+    try require(sceneCommand.status == .completed && sceneBytes[center+1]>180 && sceneBytes[center+2]<80,"external SceneKit pass draws opaque geometry and nearer geometry occludes farther geometry")
     let ordinaryMetrics=XRFrameMetrics(allocationSampling:false),allocationTrace=XRFrameMetrics(allocationSampling:true)
     ordinaryMetrics.beginFrameAllocationSample();ordinaryMetrics.endFrameAllocationSample()
     allocationTrace.beginFrameAllocationSample();allocationTrace.endFrameAllocationSample()

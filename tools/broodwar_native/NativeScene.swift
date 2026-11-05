@@ -157,7 +157,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         if xrRequested {
             if !useMetalBatches {
                 xrRenderer=SCNRenderer(device:art.device,options:nil);xrRenderer!.scene=world
-                xrRenderer!.usesReverseZ=false;xrRenderer!.isJitteringEnabled=false;xrRenderer!.isPlaying=true
+                xrRenderer!.usesReverseZ=SceneKitDepth.reversed;xrRenderer!.isJitteringEnabled=false;xrRenderer!.isPlaying=true
             }
             xrCamera.camera=SCNCamera();xrCamera.camera!.zNear=0.03;xrCamera.camera!.zFar=150;Models3D.exposure(xrCamera.camera!)
             world.rootNode.addChildNode(xrCamera);xrRenderer?.pointOfView=xrCamera

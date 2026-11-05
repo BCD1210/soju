@@ -120,7 +120,7 @@ extension Commander {
         pass.colorAttachments[0].loadAction = .clear;pass.colorAttachments[0].storeAction = .multisampleResolve
         pass.colorAttachments[0].clearColor=MTLClearColorMake(0.025,0.035,0.05,1)
         pass.depthAttachment.texture=xrDepth[index];pass.depthAttachment.loadAction = .clear
-        pass.depthAttachment.storeAction = .dontCare;pass.depthAttachment.clearDepth=1
+        pass.depthAttachment.storeAction = .dontCare;pass.depthAttachment.clearDepth=SceneKitDepth.clear
         pass.stencilAttachment.texture=xrDepth[index];pass.stencilAttachment.loadAction = .clear
         pass.stencilAttachment.storeAction = .dontCare;pass.stencilAttachment.clearStencil=0
         if eye.eye==0 { xrDrawCount+=1 }
