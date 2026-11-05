@@ -327,3 +327,18 @@ latency and were removed. Their `stress-desktop-display-refresh/`,
 The display reports a 100 Hz mode; requesting 90 fps yields approximately 50 fps
 in the existing desktop view. Changing that request alone increased queued
 presentation delay, so no such change is retained.
+
+## Native update scheduling
+
+Bridge admission now starts the next read as soon as the worker accepts the
+previous snapshot. A queued view-only publication may yield to a pending native
+update once; consecutive deferrals are prohibited so terrain work still runs.
+Ordered native updates and event deltas remain intact. Desktop/XR/fallback
+runtime checks pass 247/252/252.
+
+`stress-possess-native-priority/` improved XR latency p95 to **83.06 ms** over
+43.86 seconds, with **11.91 ms cadence p95, zero missed slots, zero rejections**
+and 35.14 ms packet age p95. It still fails 70 ms. Its moving-camera CPU sample
+was collected only after freezing `live-final-metrics.json`.
+`stress-desktop-native-priority/` measured **78.55 ms actual presentation p95**
+over 45.05 seconds; the desktop latency gate also remains open.

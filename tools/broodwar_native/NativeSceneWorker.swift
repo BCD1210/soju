@@ -9,6 +9,7 @@ final class NativeSceneWorker {
     private let queue=DispatchQueue(label:"soju.bw.scene-owner",qos:.userInitiated)
     private let viewLock=NSLock()
     private var latestView:SceneView?,viewScheduled=false
+    private var pendingNative=0,viewDeferred=false
     private var builder:Builder?
     private let device:MTLDevice
     init(device:MTLDevice) {self.device=device}
@@ -33,7 +34,9 @@ final class NativeSceneWorker {
     // to one pending native update without dropping state or event deltas.
     func submit(_ update:Update,readNext:@escaping()->Void={},completion:@escaping()->Void) {
         mailbox.invalidate(update.state["session"] as? String ?? "legacy")
+        viewLock.lock();pendingNative+=1;viewLock.unlock()
         queue.async { [self] in
+            viewLock.lock();pendingNative-=1;viewLock.unlock()
             DispatchQueue.main.async(execute:readNext)
             construct {
                 do {
@@ -62,8 +65,12 @@ final class NativeSceneWorker {
         if viewScheduled {viewLock.unlock();return}
         viewScheduled=true;viewLock.unlock()
         queue.async { [self] in
-            viewLock.lock();viewScheduled=false;viewLock.unlock()
-            construct {publish()}
+            viewLock.lock();viewScheduled=false
+            // One queued native update may replace a view-only publication.
+            // Never defer twice, so sustained input cannot starve terrain work.
+            let deferView=pendingNative>0 && !viewDeferred
+            viewDeferred=deferView;viewLock.unlock()
+            if !deferView {construct {publish()}}
         }
     }
     private func publish(includeTerrain:Bool=true) {
