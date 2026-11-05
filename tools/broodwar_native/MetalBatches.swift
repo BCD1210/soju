@@ -368,7 +368,7 @@ final class MetalBatches {
                 guard let node=billboard.layers[index],let frame=billboard.shown[index] else {continue}
                 node.categoryBitMask=4
                 let shadow=Int(number(native,"drawfunc"))==10
-                let key="\(billboard.shownImages[index] ?? Int(number(native,"id")))/\(frame)/\(billboard.shownColors[index] ?? billboard.team)/\(shadow)"
+                let key="\(billboard.shownImages[index] ?? Int(number(native,"id")))/\(frame)/\(WorldSprites.colorKey(billboard.shownColors[index] ?? billboard.team))/\(shadow)"
                 groups[key,default:[]].append(node)
             }
         }

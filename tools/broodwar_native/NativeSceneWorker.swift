@@ -210,24 +210,16 @@ final class NativeSceneWorker {
             picks.append(contentsOf:terrainPicks)
             for node in overlays {if let name=node.name,name.hasPrefix("card-"),let index=Int(name.dropFirst(5)) {pick(node,.card(index))}}
             let diagnostics:Obj=["billboardUnits":billboards.mapValues{$0.evidence},"nativeDeathFrames":sprites.deathFrames,"nativeLoneFrames":sprites.loneFrames,
-                "unitPickBounds":picks.compactMap { mesh -> Obj? in
-                    guard case .unit(let id)=mesh.target else {return nil}
-                    let center=mesh.transform*SIMD4<Float>((mesh.lower+mesh.upper)/2,1)
-                    return ["unit":id,"center":[center.x,center.y,center.z],"lower":[mesh.lower.x,mesh.lower.y,mesh.lower.z],"upper":[mesh.upper.x,mesh.upper.y,mesh.upper.z],"triangles":mesh.indices.count/3]
-                },
-                "cardPickBounds":picks.compactMap { mesh -> Obj? in
-                    guard case .card(let index)=mesh.target else {return nil}
-                    let center=mesh.transform*SIMD4<Float>((mesh.lower+mesh.upper)/2,1)
-                    return ["index":index,"center":[center.x,center.y,center.z],"triangles":mesh.indices.count/3]
-                },
-                "spriteBounds":billboards.mapValues{$0.projectedLayers(camera:view.camera,viewport:view.viewport,art:sprites)},"frame":number(state,"frame"),"nativeFrame":number(state,"frame"),
+                "frame":number(state,"frame"),"nativeFrame":number(state,"frame"),
                 "camera":[column.x,column.y,column.z],"viewHeight":view.camera.orthographic ? 1/view.camera.projection.columns.1.y:0,
                 "nativeAt":number(state,"nativeAt"),"bridgeReadAt":number(state,"bridgeReadAt"),"bridgeStartedAt":number(state,"bridgeStartedAt"),"workerStartedAt":workerStartedAt,
                 "state":state,"fog":diagnosticFog,"creepTilesSnapshot":diagnosticCreep,
                 "missingWorldImages":sprites.missing.sorted(),"spriteFrames":effects.sprites.renderedFrames,"missingEffectImages":effects.sprites.missing.sorted(),
                 "combatEvents":effects.counts,"projectiles":effects.projectiles.count,"creepTiles":terrain.creepNodes.count,"terrainTiles":terrain.terrain.count,
                 "capability":"native HD relief and sprite chains; authored rigs require SOJU_BW_RENDERER=scenekit"]
-            var packet=ScenePacket(generation:generation,session:session,batches:batches.batches,picks:picks,nativeFrame:number(state,"frame"),publishedAt:CACurrentMediaTime(),unitPositions:positions,diagnostics:diagnostics)
+            let projection=view.camera.projection*simd_inverse(view.camera.transform)
+            let bounds=billboards.mapValues{$0.projectedSpriteBounds(projection:projection,viewport:view.viewport,art:sprites)}
+            var packet=ScenePacket(generation:generation,session:session,batches:batches.batches,picks:picks,nativeFrame:number(state,"frame"),publishedAt:CACurrentMediaTime(),unitPositions:positions,diagnostics:diagnostics,spriteBounds:bounds)
             packet.timing=SceneTiming(native:number(state,"nativeAt"),bridgeStarted:number(state,"bridgeStartedAt"),bridgeRead:number(state,"bridgeReadAt"),workerStarted:workerStartedAt,published:packet.publishedAt)
             return packet
         }

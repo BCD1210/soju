@@ -153,6 +153,23 @@ func runtimeChecks()throws {
     movedUnit["image"]=["id":239,"frame":68,"flags":0,"mapX":132,"mapY":100,"offsetX":4]
     streamedBillboard.apply(movedUnit,ground:commander.ground,art:streamedArt,color:streamBlue)
     try require(streamedBillboard.geometryRevision>movingRevision && streamedBillboard.layers[0]!.geometry !== movingGeometry,"image offset changes still rebuild the native layer")
+    var directional=streamedUnit
+    directional["image"]=["id":239,"frame":68,"frameset":68,"direction":0,"flags":8]
+    streamedBillboard.apply(directional,ground:commander.ground,art:streamedArt,color:streamBlue)
+    let observer=streamedBillboard.root.simdWorldPosition+SIMD3<Float>(3,4,0)
+    let directionDeadline=Date().addingTimeInterval(30)
+    repeat {
+        streamedBillboard.updateView(eye:observer,orientation:simd_quatf(),perspective:true,art:streamedArt)
+        if streamedBillboard.shown[0]==76 {break}
+        Thread.sleep(forTimeInterval:0.01)
+    } while Date()<directionDeadline
+    try require(streamedBillboard.shown[0]==76,"streamed directional unit resolves its observer-facing frame")
+    directional["image"]=["id":239,"frame":68,"frameset":68,"direction":0,"flags":8,"offsetX":1]
+    streamedBillboard.apply(directional,ground:commander.ground,art:streamedArt,color:streamBlue)
+    let observerRevision=streamedBillboard.geometryRevision
+    try require(streamedBillboard.shown[0]==76,"native layer changes construct the already-known observer frame directly")
+    streamedBillboard.updateView(eye:observer,orientation:simd_quatf(),perspective:true,art:streamedArt)
+    try require(streamedBillboard.geometryRevision==observerRevision,"observer update does not rebuild a native frame that will not be displayed")
     streamedBillboard.apply(streamedUnit,ground:commander.ground,art:streamedArt,color:streamBlue)
     commander.billboards["stream-transition"]=streamedBillboard
     commander.sceneRevision+=1
@@ -466,6 +483,10 @@ func runtimeChecks()throws {
     let diff=PreparedState(state(2101,[unit("stable"),moved]),previous:previous)
     try require(diff.dirty==Set(["changed"]),"state diff preserves stationary units while marking movement")
     try require(PreparedState(state(2102,[unit("stable")],session:"next"),previous:previous).dirty==Set(["stable"]),"session changes invalidate otherwise unchanged units")
+    var damaged=unit("stable");damaged["hp"]=1
+    let nativePrevious=try JSONSerialization.jsonObject(with:JSONSerialization.data(withJSONObject:previous)) as! Obj
+    let nativeChanged=try JSONSerialization.jsonObject(with:JSONSerialization.data(withJSONObject:state(2103,[damaged]))) as! Obj
+    try require(PreparedState(nativeChanged,previous:nativePrevious).dirty==Set(["stable"]),"native dictionary comparison retains nonvisual unit changes after JSON decoding")
     let terrainWorker=try TerrainWorker.Builder()
     let workerCenter=commander.mapWidth+1
     var workerFog=[Int:UInt8]()

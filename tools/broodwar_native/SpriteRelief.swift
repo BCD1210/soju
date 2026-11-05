@@ -127,7 +127,7 @@ final class SpriteRelief {
         return texture
     }
     func material(_ id:Int,frame:Int,color:[Int],art:WorldSprites)->SCNMaterial {
-        let key="\(id)/\(frame)/\(color)"
+        let key="\(id)/\(frame)/\(WorldSprites.colorKey(color))"
         if let cached=materials.get(key) {return cached.copy() as! SCNMaterial}
         let m=SCNMaterial();m.lightingModel = .constant;m.isDoubleSided=true
         m.diffuse.contents=art.texture(id,frame:frame,color:color)

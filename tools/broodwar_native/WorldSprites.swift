@@ -37,10 +37,14 @@ final class UnitBillboard {
         }
         lastNativeChain=appearance;geometryRevision &+= 1
         var keep=Set<Int>();evidence=[]
+        let observerAzimuth:Double? = art.stream != nil && capturedPerspective==true ? capturedEye.map {
+            let delta=$0-root.simdWorldPosition;return atan2(Double(delta.x),Double(delta.z))
+        }:nil
         for (index,native) in chain.enumerated() {
             guard Int(number(native,"flags"))&0x40==0,let id=native["id"] as? Int,
                 let entry=art.images[String(id)],let records=art.frameRecords(id) else {continue}
-            let frame=Int(number(native,"frame"))
+            let shadow=Int(number(native,"drawfunc"))==10
+            let (frame,mirrored)=observerAzimuth != nil && !shadow ? Self.viewFrame(native,azimuth:observerAzimuth!,count:records.count):(Int(number(native,"frame")),Int(number(native,"flags"))&2 != 0)
             guard records.indices.contains(frame) else {continue}
             let prepared=art.stream?.get(id,frame:frame,color:color)
             if let stream=art.stream,prepared==nil {
@@ -57,7 +61,7 @@ final class UnitBillboard {
             guard scale>0 else {continue}
             keep.insert(index);nativeLayers[index]=native;shown[index]=frame;shownImages[index]=id;shownColors[index]=color
             if let prepared=prepared {contacts[index]=prepared.contact}
-            let shadow=Int(number(native,"drawfunc"))==10,node=layers[index] ?? SCNNode()
+            let node=layers[index] ?? SCNNode()
             let plane=SCNPlane(width:number(entry,"grpWidth")/32,height:number(entry,"grpHeight")/32)
             let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
             material.diffuse.contents=image;material.diffuse.wrapS = .clamp;material.diffuse.wrapT = .clamp
@@ -75,7 +79,7 @@ final class UnitBillboard {
                 let constraint=SCNBillboardConstraint();constraint.freeAxes = .all;node.constraints=[constraint]
             }
             node.position=SCNVector3(number(native,"offsetX")/32,shadow ? 0.025:-number(native,"offsetY")/32,0)
-            node.scale.x=Int(number(native,"flags"))&2 != 0 ? -1:1
+            node.scale.x=mirrored ? -1:1
             if layers[index]==nil {layers[index]=node;root.addChildNode(node)}
             evidence.append(["image":id,"frame":frame,"frameset":number(native,"frameset"),
                 "direction":number(native,"direction"),"mirrored":node.scale.x<0])
@@ -259,6 +263,10 @@ final class WorldSprites {
         guard let records=images[String(id)]?["frames"] as? [Obj] else {return nil}
         frameCatalog[id]=records;return records
     }
+    static func colorKey(_ color:[Int])->String {
+        if color.count==3 {return "\(color[0]),\(color[1]),\(color[2])"}
+        return color.map{String($0)}.joined(separator:",")
+    }
     static func playerColor(_ colors:[[Int]],owner:Int)->[Int] {
         if colors.indices.contains(owner),colors[owner].count>=3,colors[owner].prefix(3).contains(where:{$0>0}) {return Array(colors[owner].prefix(3))}
         return Models3D.playerColors.indices.contains(owner) ? Models3D.playerColors[owner]:[255,255,255]
@@ -269,7 +277,7 @@ final class WorldSprites {
     }
     func texture(_ id:Int,frame:Int,color:[Int]=[255,255,255],layer:String="diffuse")->NSImage? {
         let tint=(layer=="diffuse" || layer=="bright") ? color:[]
-        let key="\(id)/\(frame)/\(tint)/\(layer)"
+        let key="\(id)/\(frame)/\(Self.colorKey(tint))/\(layer)"
         if let image=frames.get(key) {return image}
         guard let entry=images[String(id)],let records=frameRecords(id),records.indices.contains(frame),let file=(layer=="diffuse" ? entry["file"] as? String:((entry["relief"] as? Obj)?["files"] as? [String:String])?[layer]) else {if layer=="diffuse" {missing.insert(id)};return nil}
         let atlas:NSImage

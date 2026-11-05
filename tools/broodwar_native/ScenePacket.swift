@@ -54,11 +54,39 @@ struct ScenePickMesh {
 struct SceneTiming {
     var native=0.0,bridgeStarted=0.0,bridgeRead=0.0,workerStarted=0.0,published=0.0,predictedDisplay=0.0
 }
+struct SceneSpriteBounds {
+    let image:Double,frame:Int,shadow:Bool,left:Float,top:Float,right:Float,bottom:Float
+    var object:Obj {["image":image,"frame":frame,"shadow":shadow,"left":left,"top":top,"right":right,"bottom":bottom]}
+}
 struct ScenePacket {
     let generation:Int,session:String,batches:[MetalBatches.PacketBatch],picks:[ScenePickMesh]
     let nativeFrame:Double,publishedAt:Double
     var timing=SceneTiming()
-    let unitPositions:[String:SIMD3<Float>],diagnostics:Obj
+    let unitPositions:[String:SIMD3<Float>]
+    private let diagnosticValues:Obj,spriteBounds:[String:[SceneSpriteBounds]]
+    init(generation:Int,session:String,batches:[MetalBatches.PacketBatch],picks:[ScenePickMesh],nativeFrame:Double,publishedAt:Double,
+         unitPositions:[String:SIMD3<Float>],diagnostics:Obj,spriteBounds:[String:[SceneSpriteBounds]]=[:]) {
+        self.generation=generation;self.session=session;self.batches=batches;self.picks=picks
+        self.nativeFrame=nativeFrame;self.publishedAt=publishedAt;self.unitPositions=unitPositions
+        diagnosticValues=diagnostics;self.spriteBounds=spriteBounds
+    }
+    // Convert immutable packet values only for a diagnostic or capture consumer.
+    // No construction nodes or mutable worker state cross this boundary.
+    var diagnostics:Obj {
+        var result=diagnosticValues
+        result["spriteBounds"]=spriteBounds.mapValues{$0.map{$0.object}}
+        result["unitPickBounds"]=picks.compactMap { mesh -> Obj? in
+            guard case .unit(let id)=mesh.target else {return nil}
+            let center=mesh.transform*SIMD4<Float>((mesh.lower+mesh.upper)/2,1)
+            return ["unit":id,"center":[center.x,center.y,center.z],"lower":[mesh.lower.x,mesh.lower.y,mesh.lower.z],"upper":[mesh.upper.x,mesh.upper.y,mesh.upper.z],"triangles":mesh.indices.count/3]
+        }
+        result["cardPickBounds"]=picks.compactMap { mesh -> Obj? in
+            guard case .card(let index)=mesh.target else {return nil}
+            let center=mesh.transform*SIMD4<Float>((mesh.lower+mesh.upper)/2,1)
+            return ["index":index,"center":[center.x,center.y,center.z],"triangles":mesh.indices.count/3]
+        }
+        return result
+    }
     func hit(origin:SIMD3<Float>,direction:SIMD3<Float>,accept:(ScenePickHit.Target)->Bool)->ScenePickHit? {
         var nearest:ScenePickHit?
         for mesh in picks where accept(mesh.target) {
