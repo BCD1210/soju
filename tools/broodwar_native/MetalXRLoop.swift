@@ -144,7 +144,8 @@ final class MetalXRLoop {
             if mirrorDue {lastMirror=start}
             capturePool.enqueue(command,source:texture,request:FrameCapturePool.Request(packet:framePacket,camera:left,frame:frame,eye:Int(eye.eye),index:index,mirror:mirrorDue,scale:body.scale))
         }
-        completionPool.attach(command,frame:frame,eye:Int(eye.eye))
+        var timing=framePacket?.timing ?? SceneTiming();timing.predictedDisplay=eye.predictedHostTime
+        completionPool.attach(command,frame:frame,eye:Int(eye.eye),timing:timing)
         command.commit()
         if eye.eye==1 {
             metrics.submitted()

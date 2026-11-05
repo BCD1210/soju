@@ -63,7 +63,20 @@ pub(super) unsafe fn request(r: &Runtime, req: &Value) -> Result<Value, &'static
         }
         return super::buttonsets::evaluate(r, &selected, player, req["menu"].as_u64());
     }
-    if op == "state" || op == "scene" { return Ok(world::snapshot(r, game, &all, player, op == "scene", req["since"].as_u64())); }
+    if op == "state" || op == "scene" {
+        let mut result=world::snapshot(r, game, &all, player, op == "scene", req["since"].as_u64());
+        // One simulation-thread response prevents a frame of waiting per read.
+        if op == "scene" {
+            for (field, operation) in [("terrainRegion", "terrain"), ("cardSelection", "evaluated_buttons")] {
+                if let Some(value)=req.get(field) {
+                    if !value.is_object() {result[field]=json!({"ok":false,"error":"invalid scene read"});continue;}
+                    let mut child=value.clone();child["op"]=json!(operation);child["token"]=req["token"].clone();
+                    result[field]=request(r,&child).unwrap_or_else(|e|json!({"ok":false,"error":e}));
+                }
+            }
+        }
+        return Ok(result);
+    }
     if op == "unit_types" {
         let types: Vec<_> = (0..228).map(|id| {
             let kind = UnitId(id);

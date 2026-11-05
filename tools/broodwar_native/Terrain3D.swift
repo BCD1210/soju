@@ -25,17 +25,18 @@ final class Terrain3D {
     // Shared corners give every cliff texel real surface area. Extra extruded
     // walls duplicated the baked cliff artwork and had zero-area texture UVs.
     func corner(_ x:Int,_ y:Int,_ cx:Int,_ cy:Int)->Double {
-        [index(cx-1,cy-1),index(cx,cy-1),index(cx-1,cy),index(cx,cy)].map{heights[$0]}.reduce(0,+)/4
+        (heights[index(cx-1,cy-1)]+heights[index(cx,cy-1)]+heights[index(cx-1,cy)]+heights[index(cx,cy)])/4
     }
 
     func surface(_ x:Int,_ y:Int)->[Double] {
         [corner(x,y,x,y),corner(x,y,x,y+1),corner(x,y,x+1,y+1),corner(x,y,x+1,y)]
     }
     func profile(_ x:Double,_ z:Double)->Double {
-        let sx=x*4,sy=z*4,ix=Int(floor(sx)),iy=Int(floor(sy)),v=surface(ix,iy)
+        let sx=x*4,sy=z*4,ix=Int(floor(sx)),iy=Int(floor(sy))
+        let a=corner(ix,iy,ix,iy),b=corner(ix,iy,ix,iy+1),c=corner(ix,iy,ix+1,iy+1),d=corner(ix,iy,ix+1,iy)
         var fx=sx-floor(sx),fy=sy-floor(sy)
         fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy)
-        return v[0]*(1-fx)*(1-fy)+v[1]*(1-fx)*fy+v[2]*fx*fy+v[3]*fx*(1-fy)
+        return a*(1-fx)*(1-fy)+b*(1-fx)*fy+c*fx*fy+d*fx*(1-fy)
     }
     func elevation(_ x:Double,_ z:Double)->Double {
         let sx=x*16,sy=z*16,ix=floor(sx),iy=floor(sy),fx=sx-ix,fy=sy-iy

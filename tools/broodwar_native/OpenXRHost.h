@@ -8,6 +8,7 @@ typedef struct {
     float headX,headY,headZ;
     uint32_t width,height,eye,tracked;
     int64_t time;
+    double predictedHostTime;
 } SojuXREye;
 typedef struct {
     float px,py,pz,qx,qy,qz,qw,moveX,moveY,turnX;

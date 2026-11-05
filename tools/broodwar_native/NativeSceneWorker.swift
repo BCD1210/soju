@@ -12,7 +12,7 @@ final class NativeSceneWorker {
     private var builder:Builder?
     private let device:MTLDevice
     init(device:MTLDevice) {self.device=device}
-    // The bridge keeps its single outstanding request busy until this callback.
+    // Release the bridge after the unit delta. Terrain refinement is queued next.
     // Native updates are FIFO and never replaced by a newer state or view.
     func submit(_ update:Update,completion:@escaping()->Void) {
         mailbox.invalidate(update.state["session"] as? String ?? "legacy")
@@ -23,14 +23,21 @@ final class NativeSceneWorker {
                         builder=try Builder(device:device)
                         builder!.sprites.stream?.onReady={ [weak self] in self?.scheduleView() }
                     }
+                    builder!.workerStartedAt=CACurrentMediaTime()
                     builder!.apply(update)
-                    publish()
+                    publish(includeTerrain:false)
                 } catch {mailbox.fail(String(describing:error));fputs("Native scene worker: \(error)\n",stderr)}
             }
             DispatchQueue.main.async(execute:completion)
+            if builder?.terrainDirty == true {scheduleView()}
         }
     }
-    func view(_ view:SceneView) {viewLock.lock();latestView=view;viewLock.unlock();scheduleView()}
+    func view(_ view:SceneView) {
+        viewLock.lock()
+        let changed=latestView.map{!$0.equivalent(to:view)} ?? true
+        latestView=view;viewLock.unlock()
+        if changed {scheduleView()}
+    }
     private func scheduleView() {
         viewLock.lock()
         if viewScheduled {viewLock.unlock();return}
@@ -40,10 +47,10 @@ final class NativeSceneWorker {
             autoreleasepool {publish()}
         }
     }
-    private func publish() {
+    private func publish(includeTerrain:Bool=true) {
         viewLock.lock();let view=latestView;viewLock.unlock()
         guard let builder=builder,let view=view,view.session==builder.session else {return}
-        do {mailbox.publish(try builder.packet(view))}
+        do {mailbox.publish(try builder.packet(view,includeTerrain:includeTerrain || builder.terrain.session != builder.session))}
         catch {mailbox.fail(String(describing:error));fputs("Native scene packet: \(error)\n",stderr)}
     }
     final class Builder {
@@ -51,11 +58,14 @@ final class NativeSceneWorker {
         var units=[String:Obj](),billboards=[String:UnitBillboard](),bars=[String:UnitBars](),rings=[String:SCNNode]()
         var state:Obj=[:],fog=[Int:UInt8](),creep=Set<Int>(),session="",eventSequence=0.0,generation=0
         var terrainRevision=0,fogRevision=0
-        private var terrainDirty=true,lastCenter:SIMD2<Int>?,lastRadius=0
+        var workerStartedAt=0.0
+        var terrainDirty=true
+        private var lastCenter:SIMD2<Int>?,lastRadius=0
         private struct PickGeometry {
             let source:SCNGeometrySource,vertices:[SIMD3<Float>],indices:[UInt32],lower:SIMD3<Float>,upper:SIMD3<Float>
         }
         private let pickGeometry=ResidentCache<PickGeometry>(limit:64*1024*1024)
+        private var terrainPicks=[ScenePickMesh](),pickTerrainRevision = -1
         init(device:MTLDevice)throws {terrain=try TerrainWorker.Builder();effects=try CombatEffects(authoredModels:false);batches=try MetalBatches(device:device)}
         func apply(_ update:Update) {
             let next=update.state["session"] as? String ?? "legacy",reset=next != session
@@ -75,8 +85,8 @@ final class NativeSceneWorker {
             effects.apply(bullets:state["bullets"] as? [Obj] ?? [],events:events,units:units,frame:number(state,"frame"),ground:terrain.ground)
             sprites.apply(state,ground:terrain.ground,authored:[])
         }
-        func packet(_ view:SceneView)throws->ScenePacket {
-            if terrainDirty || lastCenter != view.center || lastRadius != view.radius {
+        func packet(_ view:SceneView,includeTerrain:Bool=true)throws->ScenePacket {
+            if includeTerrain && (terrainDirty || lastCenter != view.center || lastRadius != view.radius) {
                 let terrainResult=terrain.apply(TerrainWorker.Request(session:session,center:view.center,radius:view.radius,fog:fog,creep:creep))
                 guard terrainResult.error.isEmpty else {terrainDirty=true;throw SceneError.invalid(terrainResult.error)}
                 if !terrainResult.terrain.isEmpty || !terrainResult.removedTerrain.isEmpty {terrainRevision &+= 1;fogRevision &+= 1}
@@ -112,10 +122,10 @@ final class NativeSceneWorker {
             try batches.prepare(MetalBatches.Input(sceneRevision:generation,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,
                 terrain:terrain.terrain,billboards:Array(billboards.values),overlays:overlays,objectCount:units.count))
             var picks=[ScenePickMesh](),positions=[String:SIMD3<Float>]()
-            func pick(_ node:SCNNode,_ target:ScenePickHit.Target) {
+            func pick(_ node:SCNNode,_ target:ScenePickHit.Target,sharedKey:String?=nil) {
                 guard !node.isHidden,let geometry=node.geometry,let source=geometry.sources(for:.vertex).first else {return}
-                let key=String(describing:ObjectIdentifier(source)),packed:PickGeometry
-                if let cached=pickGeometry.get(key),cached.source === source {packed=cached}
+                let key=sharedKey ?? String(describing:ObjectIdentifier(source)),packed:PickGeometry
+                if let cached=pickGeometry.get(key),sharedKey != nil || cached.source === source {packed=cached}
                 else {
                     let (vertices,indices)=batches.mesh(geometry)
                     guard !indices.isEmpty else {return}
@@ -129,9 +139,18 @@ final class NativeSceneWorker {
             }
             for (id,billboard) in billboards where !billboard.root.isHidden {
                 positions[id]=billboard.root.simdWorldPosition
-                for (index,node) in billboard.layers where number(billboard.nativeLayers[index] ?? [:],"drawfunc") != 10 {pick(node,.unit(id))}
+                for (index,node) in billboard.layers where number(billboard.nativeLayers[index] ?? [:],"drawfunc") != 10 {
+                    let shared=billboard.contactMeshes[index]==nil && billboard.sourceMeshes[index] != nil
+                    let key=shared ? "unit/\(billboard.shownImages[index] ?? -1)/\(billboard.shown[index] ?? -1)":nil
+                    pick(node,.unit(id),sharedKey:key)
+                }
             }
-            for node in terrain.terrain.values {pick(node,.terrain)}
+            if pickTerrainRevision != terrainRevision {
+                let start=picks.count
+                for node in terrain.terrain.values {pick(node,.terrain)}
+                terrainPicks=Array(picks[start...]);picks.removeSubrange(start...);pickTerrainRevision=terrainRevision
+            }
+            picks.append(contentsOf:terrainPicks)
             for node in overlays {if let name=node.name,name.hasPrefix("card-"),let index=Int(name.dropFirst(5)) {pick(node,.card(index))}}
             let diagnostics:Obj=["billboardUnits":billboards.mapValues{$0.evidence},"nativeDeathFrames":sprites.deathFrames,"nativeLoneFrames":sprites.loneFrames,
                 "unitPickBounds":picks.compactMap { mesh -> Obj? in
@@ -146,11 +165,14 @@ final class NativeSceneWorker {
                 },
                 "spriteBounds":billboards.mapValues{$0.projectedLayers(camera:view.camera,viewport:view.viewport,art:sprites)},"frame":number(state,"frame"),"nativeFrame":number(state,"frame"),
                 "camera":[column.x,column.y,column.z],"viewHeight":view.camera.orthographic ? 1/view.camera.projection.columns.1.y:0,
+                "nativeAt":number(state,"nativeAt"),"bridgeReadAt":number(state,"bridgeReadAt"),"bridgeStartedAt":number(state,"bridgeStartedAt"),"workerStartedAt":workerStartedAt,
                 "state":state,"fog":Dictionary(uniqueKeysWithValues:fog.map{(String($0.key),Int($0.value))}),"creepTilesSnapshot":Array(creep).sorted(),
                 "missingWorldImages":sprites.missing.sorted(),"spriteFrames":effects.sprites.renderedFrames,"missingEffectImages":effects.sprites.missing.sorted(),
                 "combatEvents":effects.counts,"projectiles":effects.projectiles.count,"creepTiles":terrain.creepNodes.count,"terrainTiles":terrain.terrain.count,
                 "capability":"native HD relief and sprite chains; authored rigs require SOJU_BW_RENDERER=scenekit"]
-            return ScenePacket(generation:generation,session:session,batches:batches.batches,picks:picks,nativeFrame:number(state,"frame"),publishedAt:CACurrentMediaTime(),unitPositions:positions,diagnostics:diagnostics)
+            var packet=ScenePacket(generation:generation,session:session,batches:batches.batches,picks:picks,nativeFrame:number(state,"frame"),publishedAt:CACurrentMediaTime(),unitPositions:positions,diagnostics:diagnostics)
+            packet.timing=SceneTiming(native:number(state,"nativeAt"),bridgeStarted:number(state,"bridgeStartedAt"),bridgeRead:number(state,"bridgeReadAt"),workerStarted:workerStartedAt,published:packet.publishedAt)
+            return packet
         }
     }
 }

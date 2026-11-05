@@ -6,6 +6,7 @@ final class GPUCompletionPool {
     private final class Slot {
         let available=DispatchSemaphore(value:1)
         var frame=0,eye=0
+        var timing=SceneTiming()
         var handler:MTLCommandBufferHandler!
     }
     private let slots=(0..<16).map{_ in Slot()}
@@ -17,16 +18,18 @@ final class GPUCompletionPool {
             slot.handler={ [weak slot,metrics,available] command in
                 defer {available.signal()}
                 guard let slot=slot else {return}
-                if command.status == .completed {metrics.completed(frame:slot.frame,eye:slot.eye,milliseconds:(command.gpuEndTime-command.gpuStartTime)*1000)}
+                if command.status == .completed {
+                    if slot.eye==1 {metrics.latencySample(slot.timing,completed:command.gpuEndTime)}
+                    metrics.completed(frame:slot.frame,eye:slot.eye,milliseconds:(command.gpuEndTime-command.gpuStartTime)*1000)}
                 else if let error=command.error {fputs("GPU completion: \(error)\n",stderr)}
             }
         }
     }
-    @discardableResult func attach(_ command:MTLCommandBuffer,frame:Int,eye:Int)->Bool {
+    @discardableResult func attach(_ command:MTLCommandBuffer,frame:Int,eye:Int,timing:SceneTiming=SceneTiming())->Bool {
         for _ in slots.indices {
             let slot=slots[next];next=(next+1)%slots.count
             guard slot.available.wait(timeout:.now()) == .success else {continue}
-            slot.frame=frame;slot.eye=eye;command.addCompletedHandler(slot.handler);return true
+            slot.frame=frame;slot.eye=eye;slot.timing=timing;command.addCompletedHandler(slot.handler);return true
         }
         exhausted+=1;return false
     }

@@ -42,9 +42,13 @@ struct ScenePickMesh {
         return found ? ScenePickHit(target:target,position:origin+direction*closest,distance:closest):nil
     }
 }
+struct SceneTiming {
+    var native=0.0,bridgeStarted=0.0,bridgeRead=0.0,workerStarted=0.0,published=0.0,predictedDisplay=0.0
+}
 struct ScenePacket {
     let generation:Int,session:String,batches:[MetalBatches.PacketBatch],picks:[ScenePickMesh]
     let nativeFrame:Double,publishedAt:Double
+    var timing=SceneTiming()
     let unitPositions:[String:SIMD3<Float>],diagnostics:Obj
     func hit(origin:SIMD3<Float>,direction:SIMD3<Float>,accept:(ScenePickHit.Target)->Bool)->ScenePickHit? {
         var nearest:ScenePickHit?
@@ -83,6 +87,11 @@ struct SceneView {
     let viewport:SIMD2<Float>
     let camera:MetalBatches.CameraPacket,center:SIMD2<Int>,radius:Int,selected:Set<String>
     let overlays:[SceneOverlay]
+    func equivalent(to other:SceneView)->Bool {
+        session==other.session && viewport==other.viewport && center==other.center && radius==other.radius && selected==other.selected &&
+        camera.orientation.vector==other.camera.orientation.vector && camera.orthographic==other.camera.orthographic && simd_equal(camera.transform,other.camera.transform) && simd_equal(camera.projection,other.camera.projection) &&
+        overlays.count==other.overlays.count && zip(overlays,other.overlays).allSatisfy{$0.equivalent(to:$1)}
+    }
 }
 // UI construction nodes are read only by the main owner. Their immutable scalar
 // geometry and image snapshots are rebuilt into private nodes by the worker.
@@ -93,6 +102,11 @@ struct SceneOverlay {
     }
     let transform:simd_float4x4,vertices:[SCNVector3],uv:[CGPoint],indices:[Int32]
     let image:CGImage?,color:SIMD4<Float>,opacity:Float,depth:Bool,order:Int,line:Bool,name:String?
+    func equivalent(to other:SceneOverlay)->Bool {
+        image === other.image && color==other.color && opacity==other.opacity && depth==other.depth && order==other.order && line==other.line && name==other.name &&
+        simd_equal(transform,other.transform) && uv==other.uv && indices==other.indices && vertices.count==other.vertices.count &&
+        zip(vertices,other.vertices).allSatisfy{$0.x==$1.x && $0.y==$1.y && $0.z==$1.z}
+    }
     func node()->SCNNode {
         var sources=[SCNGeometrySource(vertices:vertices)]
         if !uv.isEmpty {sources.append(SCNGeometrySource(textureCoordinates:uv))}
