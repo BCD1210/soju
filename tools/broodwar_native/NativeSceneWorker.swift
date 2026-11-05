@@ -177,7 +177,7 @@ final class NativeSceneWorker {
             overlays.sort{$0.renderingOrder<$1.renderingOrder}
             generation &+= 1
             try batches.prepare(MetalBatches.Input(sceneRevision:generation,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,
-                terrain:terrain.terrain,billboards:billboards.filter{$0.key != view.hiddenUnit}.map{$0.value},overlays:overlays,objectCount:units.count,retireTerrainSources:true))
+                terrain:terrain.terrain,billboards:billboards.filter{$0.key != view.hiddenUnit}.map{$0.value},overlays:overlays,objectCount:units.count,retireTerrainSources:true,reuseUnitPoses:true))
             var picks=[ScenePickMesh](),positions=[String:SIMD3<Float>]()
             func pick(_ node:SCNNode,_ target:ScenePickHit.Target,sharedKey:String?=nil) {
                 guard !node.isHidden,let geometry=node.geometry,let source=geometry.sources(for:.vertex).first else {return}

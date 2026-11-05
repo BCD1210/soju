@@ -198,6 +198,30 @@ func runtimeChecks()throws {
     let captured=asynchronous.batches.first(where:{!$0.terrain})!.drawNodes[0].transform
     try require(simd_equal(captured,originalTransform),"published batch retains captured transforms when source nodes move")
     originalLayer.simdWorldTransform=originalTransform
+    let poseBatches=try MetalBatches(device:commander.art.device)
+    func poseInput(_ revision:Int,_ units:[UnitBillboard])->MetalBatches.Input {
+        MetalBatches.Input(sceneRevision:revision,terrainRevision:revision,terrainFogRevision:revision,mapWidth:1,terrain:[:],billboards:units,overlays:[],objectCount:units.count,reuseUnitPoses:true)
+    }
+    try poseBatches.prepare(poseInput(1,[streamedBillboard]))
+    let retainedPose=poseBatches.batches[0].drawNodes[0].transform
+    let projectedBefore=streamedBillboard.projectedSpriteBounds(projection:matrix_identity_float4x4,viewport:SIMD2<Float>(320,200),art:streamedArt)
+    try poseBatches.prepare(poseInput(2,[streamedBillboard]))
+    try require(simd_equal(poseBatches.batches[0].drawNodes[0].transform,retainedPose),"terrain-only refinement preserves cached unit poses")
+    let originalRoot=streamedBillboard.root.simdPosition
+    streamedBillboard.root.simdPosition.x+=1;streamedBillboard.poseRevision+=1
+    try poseBatches.prepare(poseInput(3,[streamedBillboard]))
+    let changedPose=poseBatches.batches[0].drawNodes[0].transform
+    let projectedAfter=streamedBillboard.projectedSpriteBounds(projection:matrix_identity_float4x4,viewport:SIMD2<Float>(320,200),art:streamedArt)
+    try require(abs(changedPose.columns.3.x-retainedPose.columns.3.x-1)<0.001,"native pose revision invalidates cached unit transforms")
+    try require(!projectedBefore.isEmpty && abs(projectedAfter[0].left-projectedBefore[0].left-160)<0.01,"projected bounds update with native poses while retained bounds stay immutable")
+    let resizedBounds=streamedBillboard.projectedSpriteBounds(projection:matrix_identity_float4x4,viewport:SIMD2<Float>(640,200),art:streamedArt)
+    try require(abs(resizedBounds[0].left-projectedAfter[0].left*2)<0.01,"projected bounds cache accounts for viewport changes")
+    streamedBillboard.root.isHidden=true
+    try poseBatches.prepare(poseInput(4,[streamedBillboard]))
+    try require(poseBatches.batches.isEmpty,"hidden units retire cached unit draws")
+    streamedBillboard.root.isHidden=false;streamedBillboard.root.simdPosition=originalRoot;streamedBillboard.poseRevision+=1
+    try poseBatches.prepare(poseInput(5,[]))
+    try require(poseBatches.batches.isEmpty,"removed units cannot reuse cached unit draws")
     commander.billboards.removeValue(forKey:"stream-transition")
     let ownership=ResidentCache<NSObject>(limit:8),retainedObject=NSObject()
     ownership.insert(retainedObject,key:"retained",bytes:4);ownership.insert(NSObject(),key:"old",bytes:4)
