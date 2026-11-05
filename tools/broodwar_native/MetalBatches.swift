@@ -373,11 +373,15 @@ final class MetalBatches {
         if commander.reuseUnitPoses,stamps==unitStamps {constructed+=preparedUnits}
         else {
         var groups=[String:[SCNNode]]()
+        var reliefMeshes=[ObjectIdentifier:SpriteRelief.Mesh]()
         for billboard in commander.billboards where !billboard.root.isHidden {
             for (index,native) in billboard.nativeLayers {
                 guard let node=billboard.layers[index],let frame=billboard.shown[index] else {continue}
                 node.categoryBitMask=4
                 let shadow=Int(number(native,"drawfunc"))==10
+                if !shadow,let geometry=node.geometry,!(geometry is SCNPlane),let mesh=billboard.contactMeshes[index] ?? billboard.sourceMeshes[index] {
+                    reliefMeshes[ObjectIdentifier(geometry)]=mesh
+                }
                 let key="\(billboard.shownImages[index] ?? Int(number(native,"id")))/\(frame)/\(WorldSprites.colorKey(billboard.shownColors[index] ?? billboard.team))/\(shadow)"
                 groups[key,default:[]].append(node)
             }
@@ -394,7 +398,11 @@ final class MetalBatches {
             if let cached=groupCache.get(key),cached.0 === source,cached.1.bounds.count>=nodes.count {
                 var batch=cached.1;batch.nodes=nodes;batch.textures=maps;constructed.append(batch);continue
             }
-            let (vertices,indices)=mesh(geometry)
+            let vertices:[Vertex],indices:[UInt32]
+            if let relief=reliefMeshes[ObjectIdentifier(geometry)] {
+                vertices=zip(relief.vertices,relief.uv).map{Vertex(position:SIMD4<Float>(SIMD3<Float>($0.0),1),uv:SIMD4<Float>(Float($0.1.x),Float($0.1.y),0,0))}
+                indices=relief.indices.map{UInt32($0)}
+            } else {(vertices,indices)=mesh(geometry)}
             if vertices.isEmpty || indices.isEmpty {continue}
             var flat:MTLBuffer?
             if relief {

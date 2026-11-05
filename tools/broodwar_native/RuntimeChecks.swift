@@ -231,6 +231,11 @@ func runtimeChecks()throws {
         MetalBatches.Input(sceneRevision:revision,terrainRevision:revision,terrainFogRevision:revision,mapWidth:1,terrain:[:],billboards:units,overlays:[],objectCount:units.count,reuseUnitPoses:true)
     }
     try poseBatches.prepare(poseInput(1,[streamedBillboard]))
+    let referenceMesh=batchCheck.mesh(streamedBillboard.layers[0]!.geometry!)
+    let directBatch=poseBatches.batches[0]
+    let referenceVertices=referenceMesh.0.withUnsafeBytes{Data($0)}
+    let referenceIndices=referenceMesh.1.withUnsafeBytes{Data($0)}
+    try require(directBatch.vertices.length==referenceVertices.count && Data(bytes:directBatch.vertices.contents(),count:directBatch.vertices.length)==referenceVertices && directBatch.indices.length==referenceIndices.count && Data(bytes:directBatch.indices.contents(),count:directBatch.indices.length)==referenceIndices,"typed relief upload preserves SceneKit reference vertex, UV and index bytes")
     let retainedPose=poseBatches.batches[0].drawNodes[0].transform
     let projectedBefore=streamedBillboard.projectedSpriteBounds(projection:matrix_identity_float4x4,viewport:SIMD2<Float>(320,200),art:streamedArt)
     try poseBatches.prepare(poseInput(2,[streamedBillboard]))
