@@ -158,6 +158,10 @@ final class MetalBatches {
     }
 
     private let groupCache=ResidentCache<(SCNGeometrySource,Batch)>(limit:96*1024*1024)
+    private struct OverlayGeometry {
+        let geometry:SCNGeometry,uv:SCNMatrix4,ranges:[NSRange],batch:Batch
+    }
+    private let overlayGeometry=ResidentCache<OverlayGeometry>(limit:16*1024*1024)
     let textures=ResidentCache<(NSImage,MTLTexture)>(limit:128*1024*1024)
     var ready=false,draws=0,visible=0,culled=0,lodCount=0
     var sourceRevision = -1,terrainRevision = -1,terrainFogRevision = -1
@@ -434,6 +438,16 @@ final class MetalBatches {
         for node in commander.overlays {
             guard let geometry=node.geometry,let material=geometry.firstMaterial else {continue}
             node.categoryBitMask=4
+            let key=String(describing:ObjectIdentifier(geometry)),uv=material.diffuse.contentsTransform
+            let ranges=geometry.elements.map{$0.primitiveRange}
+            if type(of:geometry)==SCNGeometry.self,let cached=overlayGeometry.get(key),cached.geometry === geometry,
+               SCNMatrix4EqualToMatrix4(cached.uv,uv),cached.ranges==ranges {
+                var batch=cached.batch
+                batch.nodes=[node];batch.textures=[try texture(material.diffuse.contents,fallback:white),normal,black,black,black,white]
+                batch.mode=(material.multiply.contents as? NSColor)==NSColor.black ? 3:0
+                batch.depthDisabled = !material.readsFromDepthBuffer
+                constructed.append(batch);continue
+            }
             let (vertices,indices)=mesh(geometry,uvTransform:material.diffuse.contentsTransform)
             guard !vertices.isEmpty && !indices.isEmpty else {continue}
             let diffuse=try texture(material.diffuse.contents,fallback:white)
@@ -443,6 +457,10 @@ final class MetalBatches {
             let radius=simd_length(SIMD3<Float>(Float(hi.x-lo.x),Float(hi.y-lo.y),Float(hi.z-lo.z)))*0.5
             constructed.append(Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:nil,instances:(0..<3).map{_ in buffer([instance])},nodes:[node],textures:[diffuse,normal,black,black,black,white],terrain:false,shadow:true,mode:(material.multiply.contents as? NSColor)==NSColor.black ? 3:0,depthDisabled:!material.readsFromDepthBuffer,bounds:[(center,radius)]))
             constructed[constructed.count-1].primitive=geometry.elements.first?.primitiveType == .line ? .line:.triangle
+            if type(of:geometry)==SCNGeometry.self {
+                var cached=constructed[constructed.count-1];cached.nodes=[];cached.textures=[]
+                overlayGeometry.insert(OverlayGeometry(geometry:geometry,uv:uv,ranges:ranges,batch:cached),key:key,bytes:Self.retainedBytes(cached))
+            }
         }
         for i in constructed.indices where constructed[i].drawNodes.isEmpty {
             constructed[i].drawNodes=constructed[i].nodes.map { node in

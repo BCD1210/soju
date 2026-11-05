@@ -31,6 +31,19 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     let changedOverlay=overlayCache.nodes([overlay(2,SIMD4<Float>(1,0,0,1))])[0]
     try require(changedOverlay !== originalOverlay,"overlay content change replaces worker material")
     try require(overlayCache.nodes([]).isEmpty,"removed overlays release worker cache entries")
+    let overlayBatches=try MetalBatches(device:device)
+    func prepareOverlay(_ node:SCNNode)throws->MetalBatches.PacketBatch {
+        try overlayBatches.prepare(MetalBatches.Input(sceneRevision:1,terrainRevision:0,terrainFogRevision:0,mapWidth:1,terrain:[:],billboards:[],overlays:[node],objectCount:0))
+        return overlayBatches.batches[0]
+    }
+    let overlayFirst=try prepareOverlay(movedOverlay)
+    movedOverlay.simdPosition.x=4;movedOverlay.opacity=0.5
+    let overlayNext=try prepareOverlay(movedOverlay)
+    try require(overlayFirst.vertices === overlayNext.vertices && overlayFirst.instances[0] === overlayNext.instances[0] && overlayNext.drawNodes[0].transform.columns.3.x==4 && overlayNext.drawNodes[0].opacity==0.5,"tracked overlay motion reuses GPU geometry while publishing fresh transforms and opacity")
+    try require(overlayFirst.drawNodes[0].transform.columns.3.x==2 && overlayFirst.drawNodes[0].opacity==1,"overlay GPU reuse preserves the prior packet's pose")
+    movedOverlay.geometry!.firstMaterial!.diffuse.contentsTransform=SCNMatrix4MakeScale(2,2,1)
+    let changedUV=try prepareOverlay(movedOverlay)
+    try require(changedUV.vertices !== overlayNext.vertices,"overlay UV changes invalidate uploaded geometry")
     try require(SceneOverlay.tint(NSImage(size:NSSize(width:2,height:2))) == SIMD4<Float>(repeating:1),"textured wrist overlays use white RGB tint without querying grayscale components")
     try require(SceneOverlay.tint(NSColor(calibratedWhite:0.5,alpha:0.25)).w == 0.25,"overlay grayscale colors convert to RGB while preserving alpha")
     if case .color(let fallback)=FrameStream.Material.Map(nil) {
