@@ -3,6 +3,7 @@ import SceneKit
 
 extension Commander {
     func selectBox(_ rect:NSRect,add:Bool) {
+        guard possessedUnit==nil else {return}
         let candidates=units.keys.sorted().filter { id in
             guard let unit=units[id],number(unit,"owner")==number(state,"player"),
                 unit["renderHidden"] as? Bool != true else {return false}
@@ -15,6 +16,7 @@ extension Commander {
         notice="Selected \(selected.count)"
     }
     func selectSameType() {
+        guard possessedUnit==nil else {return}
         guard let first=selected.first,let original=units[first] else {return}
         selected=Array(units.keys.sorted().filter { id in
             guard let unit=units[id],number(unit,"type")==number(original,"type"),
@@ -36,9 +38,17 @@ extension Commander {
         notice="Group \(index): \(selected.count)";return true
     }
     func toggleTabletop() {
-        tabletop.toggle()
-        pitch=tabletop ? -1.0:-0.14
-        notice=tabletop ? "Tabletop commander · V returns to unit scale":"Unit scale"
+        comfortStarted=CACurrentMediaTime()
+        if possessedUnit != nil {exitPossession()}
+        if tabletop {
+            if let bookmark=groundReturn {restoreView(bookmark)}else {tabletop=false}
+            groundReturn=nil
+        } else {
+            groundReturn=viewBookmark;tabletop=true
+            wrists.zoom=max(4,Float(max(mapWidth,mapHeight))/1.8)
+            pitch = -0.65;recenterTable()
+        }
+        notice=tabletop ? "Command table · V returns to ground":"Ground commander"
     }
     func captureDesktop() {
         let folder=argument("--proof-dir").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("3d-proof/m4/desktop")

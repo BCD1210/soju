@@ -13,7 +13,7 @@ extension Commander {
         return ScenePickHit(target:target,position:position,distance:simd_distance(position,origin))
     }
     func sceneCamera(aspect:Float)->MetalBatches.CameraPacket {
-        let near=Float(camera.camera!.zNear),far=Float(camera.camera!.zFar)
+        let near=Float(camera.camera!.zNear)*(tabletop ? wrists.zoom:1),far=Float(camera.camera!.zFar)
         var projection=matrix_identity_float4x4
         if camera.camera!.usesOrthographicProjection {
             let scale=Float(camera.camera!.orthographicScale)
@@ -71,11 +71,11 @@ extension Commander {
         var sceneCamera=desktopCameraPacket!
         #if SOJU_OPENXR
         if let loop=metalXRLoop {
-            loop.update(MetalXRLoop.Body(position:camera.simdPosition,yaw:Float(yaw),scale:worldUnitsPerMeter,tabletop:tabletop))
+            loop.update(MetalXRLoop.Body(position:camera.simdPosition,yaw:Float(yaw),scale:worldUnitsPerMeter,tabletop:tabletop,fade:comfortFade,vignette:motionVignette))
             if let latest=loop.latest().camera {sceneCamera=latest}
         }
         #endif
-        worker.view(SceneView(session:session,viewport:SIMD2<Float>(Float(view.bounds.width),Float(view.bounds.height)),camera:sceneCamera,center:SIMD2<Int>(Int(center.x),Int(center.z)),radius:tabletop || camera.camera!.usesOrthographicProjection ? 44:20,selected:Set(selected),overlays:overlays))
+        worker.view(SceneView(session:session,viewport:SIMD2<Float>(Float(view.bounds.width),Float(view.bounds.height)),camera:sceneCamera,center:SIMD2<Int>(Int(center.x),Int(center.z)),radius:terrainRadius,selected:Set(selected),overlays:overlays,hiddenUnit:possessedUnit))
     }
     func sceneRay(_ point:NSPoint)->(SIMD3<Float>,SIMD3<Float>)? {
         guard let presentation=desktopMetal?.presentation else {return nil}

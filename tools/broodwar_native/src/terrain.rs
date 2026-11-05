@@ -13,7 +13,7 @@ impl Region {
         let field = |key| request[key].as_u64()
             .and_then(|value| usize::try_from(value).ok()).ok_or("invalid terrain region");
         let region = Self {x: field("x")?, y: field("y")?, width: field("width")?, height: field("height")?};
-        if region.width == 0 || region.height == 0 || region.width > 64 || region.height > 64 ||
+        if region.width == 0 || region.height == 0 || region.width > 256 || region.height > 256 ||
             region.x.checked_add(region.width).map_or(true, |end| end > usize::from(map[0])) ||
             region.y.checked_add(region.height).map_or(true, |end| end > usize::from(map[1])) {
             return Err("terrain region outside map or too large");
@@ -53,6 +53,17 @@ mod tests {
         let result = region.snapshot(&tiles,4,6).unwrap();
         assert_eq!(result["fog"],"210");
         assert_eq!(result["creep"],"100");
+    }
+
+    #[test]
+    fn full_map_snapshot_is_bounded_and_preserves_visibility() {
+        let region = Region::parse(&json!({"x":0,"y":0,"width":256,"height":256}),[256,256]).unwrap();
+        let mut tiles=vec![0;256*256];
+        tiles[65535]=0x100;
+        let result=region.snapshot(&tiles,256,0).unwrap();
+        assert_eq!(result["fog"].as_str().unwrap().len(),65536);
+        assert_eq!(result["fog"].as_str().unwrap().as_bytes()[65535],b'0');
+        assert!(Region::parse(&json!({"x":0,"y":0,"width":257,"height":256}),[257,256]).is_err());
     }
 
     #[test]

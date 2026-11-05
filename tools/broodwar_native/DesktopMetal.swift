@@ -36,7 +36,7 @@ final class DesktopMetal:NSObject,MTKViewDelegate {
         do {
         if let packet=framePacket {batches.consume(packet)}else {batches.suspend()}
         try batches.render(command:command,output:drawable.texture,camera:camera,eye:SIMD3<Float>(position.x,position.y,position.z),rightTransform:camera.transform,rightProjection:camera.projection)
-        batches.copyEye(command:command,to:drawable.texture,eye:0)
+        batches.copyEye(command:command,to:drawable.texture,eye:0,fade:commander.comfortFade,vignette:commander.motionVignette)
         presentation=Presentation(camera:camera,viewport:SIMD2<Float>(Float(commander.view.bounds.width),Float(commander.view.bounds.height)))
         } catch {command.commit();fputs("Desktop batches: \(error)\n",stderr);return}
         let index=commander.captureFrames.reserve(),manual=requestedCapture

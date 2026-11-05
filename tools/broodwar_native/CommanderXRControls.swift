@@ -6,7 +6,7 @@ import simd
 extension Commander {
     var worldUnitsPerMeter:Float {tabletop ? wrists.zoom:1}
     var xrBody:simd_quatf {
-        simd_quatf(angle:Float(yaw)-xrOriginYaw,axis:SIMD3<Float>(0,1,0))*simd_quatf(angle:tabletop ? -0.75:0,axis:SIMD3<Float>(1,0,0))
+        simd_quatf(angle:Float(yaw)-xrOriginYaw,axis:SIMD3<Float>(0,1,0))
     }
     func handPosition(_ position:SIMD3<Float>)->SIMD3<Float> {
         camera.simdPosition+xrBody.act((position-(xrOrigin ?? .zero))*worldUnitsPerMeter)
@@ -37,23 +37,25 @@ extension Commander {
             }
         }
         guard xrOrigin != nil else {return}
+        if let id=possessedUnit {selected=[id]}
+        if input.rightGripPressed != 0,possessedUnit != nil {exitPossession();return}
+        if tabletop,input.leftGripHeld != 0,input.rightGripHeld != 0,(input.leftGripPressed != 0 || input.rightGripPressed != 0) {recenterTable();return}
         if input.leftGripPressed != 0 && input.rightGripHeld==0 {toggleTabletop()}
         let raw=SIMD3<Float>(input.px,input.py,input.pz),left=SIMD3<Float>(input.leftX,input.leftY,input.leftZ)
-        if input.rightGripHeld != 0 && input.aimValid != 0 {
-            if input.leftGripHeld != 0 && input.leftValid != 0 {
-                let distance=simd_distance(raw,left)
-                if let old=wrists.grabDistance,distance>0.08 {wrists.zoom=max(3,min(60,wrists.zoom*old/distance))}
-                wrists.grabDistance=distance
-            } else if let old=wrists.grab {
-                let delta=xrBody.act((old-raw)*worldUnitsPerMeter)
-                camera.position.x+=CGFloat(delta.x);camera.position.z+=CGFloat(delta.z)
-            } else {wrists.grabs+=1}
-            wrists.grab=raw
-        } else {wrists.grab=nil;wrists.grabDistance=nil}
-        if abs(input.turnX)<0.4 {turnHeld=false}
-        if abs(input.turnX)>0.7 && !turnHeld {yaw-=input.turnX>0 ? .pi/6 : -.pi/6;turnHeld=true}
         let dx=abs(input.moveX)>0.15 ? input.moveX:0,dy=abs(input.moveY)>0.15 ? input.moveY:0
-        walk(CGFloat((-sin(Float(yaw))*dy+cos(Float(yaw))*dx)*3*dt*worldUnitsPerMeter),CGFloat((-cos(Float(yaw))*dy-sin(Float(yaw))*dx)*3*dt*worldUnitsPerMeter))
+        if tabletop {
+            if input.rightGripHeld != 0 {adjustTable(scale:dy*dt,height:dx*dt*0.5,rotation:input.turnX*dt)}
+            else {adjustTable(scale:0,height:0,rotation:input.turnX*dt)}
+        } else {
+            if abs(input.turnX)<0.4 {turnHeld=false}
+            if abs(input.turnX)>0.7 && !turnHeld {yaw-=input.turnX>0 ? .pi/6 : -.pi/6;turnHeld=true}
+            if possessedUnit != nil {
+                let forward=xrCamera.simdWorldOrientation.act(SIMD3<Float>(0,0,-1))
+                possessionMove(side:dx,forward:dy,heading:atan2(-forward.x,-forward.z),now:now)
+            } else {
+                walk(CGFloat((-sin(Float(yaw))*dy+cos(Float(yaw))*dx)*3*dt),CGFloat((-cos(Float(yaw))*dy-sin(Float(yaw))*dx)*3*dt))
+            }
+        }
         wrists.update(self)
         for (node,valid,position,rotation) in [(wrists.commands,input.leftValid,left,simd_quatf(ix:input.leftQx,iy:input.leftQy,iz:input.leftQz,r:input.leftQw)),
             (wrists.resources,input.aimValid,raw,simd_quatf(ix:input.qx,iy:input.qy,iz:input.qz,r:input.qw))] {
@@ -63,9 +65,9 @@ extension Commander {
         }
         guard input.aimValid != 0 else {reticle.isHidden=true;wrists.ray.isHidden=true;wrists.dragStart=nil;wrists.box.geometry=nil;return}
         let from=handPosition(raw),direction=(xrBody*simd_quatf(ix:input.qx,iy:input.qy,iz:input.qz,r:input.qw)).act(SIMD3<Float>(0,0,-1))
-        let end=from+direction*100
+        let end=from+direction*(100*worldUnitsPerMeter)
         let hit:ScenePickHit?
-        if let worker=sceneWorker {hit=worker.mailbox.presented()?.hit(origin:from,direction:direction,accept:{_ in true})}
+        if let worker=sceneWorker {hit=worker.mailbox.presented()?.hit(origin:from,direction:direction,accept:{if case .unit(let id)=$0 {return id != self.possessedUnit};return true})}
         else {hit=world.rootNode.hitTestWithSegment(from:SCNVector3(from),to:SCNVector3(end),options:[SCNHitTestOption.searchMode.rawValue:SCNHitTestSearchMode.all.rawValue,SCNHitTestOption.categoryBitMask.rawValue:5]).compactMap{scenePick($0,origin:from)}.min(by:{$0.distance<$1.distance})}
         wrists.ray.isHidden=false
         wrists.line(from:SCNVector3(from.x,from.y,from.z),to:hit?.worldCoordinates ?? SCNVector3(end.x,end.y,end.z),color:wrists.pending==nil ? .cyan:.orange)
@@ -91,8 +93,12 @@ extension Commander {
             }
             return
         }
+        if input.rightPressed != 0 && input.rightGripHeld != 0 {
+            if let id=hit.unitID {enterPossession(id)}
+            return
+        }
         let point=hit.worldCoordinates
-        if input.leftPressed != 0 || (input.leftHeld != 0 && wrists.dragStart==nil) {wrists.dragStart=point;wrists.dragUnit=hit.unitID}
+        if possessedUnit==nil && (input.leftPressed != 0 || (input.leftHeld != 0 && wrists.dragStart==nil)) {wrists.dragStart=point;wrists.dragUnit=hit.unitID}
         if let start=wrists.dragStart,input.leftHeld != 0 {
             let points=[start,SCNVector3(point.x,start.y,start.z),point,SCNVector3(start.x,point.y,point.z),start].map{SCNVector3($0.x,$0.y+0.1,$0.z)}
             let geometry=SCNGeometry(sources:[SCNGeometrySource(vertices:points)],elements:[SCNGeometryElement(indices:[Int32(0),1,1,2,2,3,3,4],primitiveType:.line)])
@@ -118,6 +124,7 @@ extension Commander {
         }
         if input.rightPressed != 0 && !hit.name.hasPrefix("card-") {
             if let choice=wrists.pending {cardCommand(choice,hit:hit)}
+            else if possessedUnit != nil {possessionAttack(hit)}
             else if let id=hit.unitID,let unit=units[id] {
                 if !contextCommand(id),number(unit,"owner")==number(state,"player") {selected=[id];wrists.page=0}
             } else if !selected.isEmpty {groundCommand(point)}

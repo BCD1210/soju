@@ -110,7 +110,7 @@ final class NativeSceneWorker {
                 for child in node.childNodes {collect(child)}
             }
             collect(effects.root)
-            for (id,billboard) in billboards where view.selected.contains(id) && !billboard.root.isHidden {
+            for (id,billboard) in billboards where id != view.hiddenUnit && view.selected.contains(id) && !billboard.root.isHidden {
                 guard let unit=units[id] else {continue}
                 let bar=bars[id] ?? UnitBars();bars[id]=bar;bar.apply(unit)
                 bar.root.simdPosition=billboard.root.simdPosition+SIMD3<Float>(0,1.2,0)
@@ -129,7 +129,7 @@ final class NativeSceneWorker {
             overlays.sort{$0.renderingOrder<$1.renderingOrder}
             generation &+= 1
             try batches.prepare(MetalBatches.Input(sceneRevision:generation,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,
-                terrain:terrain.terrain,billboards:Array(billboards.values),overlays:overlays,objectCount:units.count))
+                terrain:terrain.terrain,billboards:billboards.filter{$0.key != view.hiddenUnit}.map{$0.value},overlays:overlays,objectCount:units.count))
             var picks=[ScenePickMesh](),positions=[String:SIMD3<Float>]()
             func pick(_ node:SCNNode,_ target:ScenePickHit.Target,sharedKey:String?=nil) {
                 guard !node.isHidden,let geometry=node.geometry,let source=geometry.sources(for:.vertex).first else {return}

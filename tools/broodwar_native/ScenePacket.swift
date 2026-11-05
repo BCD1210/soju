@@ -87,8 +87,9 @@ struct SceneView {
     let viewport:SIMD2<Float>
     let camera:MetalBatches.CameraPacket,center:SIMD2<Int>,radius:Int,selected:Set<String>
     let overlays:[SceneOverlay]
+    var hiddenUnit:String?=nil
     func equivalent(to other:SceneView)->Bool {
-        session==other.session && viewport==other.viewport && center==other.center && radius==other.radius && selected==other.selected &&
+        hiddenUnit==other.hiddenUnit && session==other.session && viewport==other.viewport && center==other.center && radius==other.radius && selected==other.selected &&
         camera.orientation.vector==other.camera.orientation.vector && camera.orthographic==other.camera.orthographic && simd_equal(camera.transform,other.camera.transform) && simd_equal(camera.projection,other.camera.projection) &&
         overlays.count==other.overlays.count && zip(overlays,other.overlays).allSatisfy{$0.equivalent(to:$1)}
     }
