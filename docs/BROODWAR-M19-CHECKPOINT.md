@@ -231,3 +231,25 @@ not pass**. XR reports the later of GPU readiness and runtime predicted display;
 it has no physical presentation timestamp. These estimates must not be relabeled
 as desktop compositor `presentedTime` measurements. Each private run retains its
 exact launch, binary hash, native samples, original orders and metrics.
+
+## Live reveal pressure follow-up
+
+`duel-xr-default-release/qualification-failure.json` records a second failed duel:
+318.86 measured seconds, 1,535.95 MiB peak and 124 residency rejections before the
+fresh-packet guard stopped it. The live reveal retained terrain and panel caches
+alongside terrain arrays and animated units; the earlier frozen-map pass did not
+cover that combined working set. This is not a ten-minute qualification.
+
+Under texture pressure, the worker now evicts least-recent unused cache entries
+before and after terrain construction. Active packet references remain valid.
+The decoder also trims its own cached materials and maps under pressure. These
+changes preserve the default budget, texture resolution and original rules.
+Runtime checks cover retained resources, eviction accounting and cache reuse.
+Python passes 286 tests plus 60 subtests; Rust passes 18; desktop/XR/fallback
+runtime checks pass 231/236/236. Build hashes and source matches are recorded in
+`xr-live/build-pressure-cache-evidence.json`. Sustained live qualification is
+still required.
+
+`expanded-map-pressure-cache/qualification.json` passes all 3,753 explored tiles
+with zero rejections, 1,349.78 MiB peak and 1,221.02 MiB retained at the end of the
+frozen-map run. It remains a memory regression check, not live duel evidence.

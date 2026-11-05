@@ -30,6 +30,13 @@ final class ResidentCache<Value> {
         if newest !== entry {detach(entry);append(entry)}
         return entry.value
     }
+    @discardableResult func trim(to target:Int)->Int {
+        let before=bytes
+        while bytes>max(0,target),let old=oldest {
+            detach(old);entries.removeValue(forKey:old.key);bytes-=old.bytes;evictions+=1
+        }
+        return before-bytes
+    }
     func insert(_ value:Value,key:String,bytes cost:Int) {
         if let old=entries.removeValue(forKey:key) {detach(old);bytes-=old.bytes}
         let cost=max(0,cost)
