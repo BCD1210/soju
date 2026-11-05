@@ -67,7 +67,7 @@ final class FrameCapturePool {
         if slot.texture?.width==source.width && slot.texture?.height==source.height && slot.texture?.pixelFormat==source.pixelFormat {return true}
         slot.descriptor.width=source.width;slot.descriptor.height=source.height;slot.descriptor.pixelFormat=source.pixelFormat
         metrics.created(.captureTexture)
-        slot.texture=TextureResidency.shared.make(source.device,slot.descriptor)
+        slot.texture=TextureResidency.shared.make(source.device,slot.descriptor,owner:"captures")
         guard slot.texture != nil else {return false}
         lock.lock();textureCreations+=1;lock.unlock();return true
     }

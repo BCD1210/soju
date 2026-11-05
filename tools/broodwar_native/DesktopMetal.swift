@@ -45,7 +45,7 @@ final class DesktopMetal:NSObject,MTKViewDelegate {
             let metadata=commander.desktopCaptureMetadata()
             let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:drawable.texture.pixelFormat,width:drawable.texture.width,height:drawable.texture.height,mipmapped:false)
             descriptor.usage = .shaderRead;descriptor.storageMode = .private
-            guard let texture=TextureResidency.shared.make(commander.art.device,descriptor),let blit=command.makeBlitCommandEncoder() else {command.present(drawable);command.commit();return}
+            guard let texture=TextureResidency.shared.make(commander.art.device,descriptor,owner:"captures"),let blit=command.makeBlitCommandEncoder() else {command.present(drawable);command.commit();return}
             blit.copy(from:drawable.texture,to:texture);blit.endEncoding()
             command.addCompletedHandler { [weak self] completed in
                 guard completed.status == .completed,let self=self,

@@ -102,6 +102,15 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     let recovered=try failedTerrain.packet(view("terrain-retry"))
     try require(recovered.picks.filter{$0.target == .terrain}.count==1,"failed terrain retries and recovers with unchanged fog and camera")
 
+    let tiled=try MetalBatches(device:device)
+    let tileA=failedTerrain.terrain.terrain[0]!,tileB=SCNNode(geometry:failedTerrain.terrain.terrain[0]!.geometry)
+    tileB.position=SCNVector3(1,0,0)
+    try tiled.prepare(MetalBatches.Input(sceneRevision:1,terrainRevision:1,terrainFogRevision:1,mapWidth:2,terrain:[0:tileA,1:tileB],billboards:[],overlays:[],objectCount:0))
+    let page=tiled.batches.first(where:{$0.terrain})!
+    try require(page.textures[0].arrayLength==1 && page.textures[1].arrayLength==2,"repeated terrain shares diffuse storage while retaining independent fog slices")
+    let packed=page.vertices.contents().bindMemory(to:MetalBatches.Vertex.self,capacity:page.vertices.length/MemoryLayout<MetalBatches.Vertex>.stride)
+    let tileVertices=Array(UnsafeBufferPointer(start:packed,count:page.vertices.length/MemoryLayout<MetalBatches.Vertex>.stride))
+    try require(Set(tileVertices.map{$0.uv.z})==[0] && Set(tileVertices.map{$0.uv.w})==[0,1],"terrain vertex indices distinguish shared artwork from per-tile visibility")
     #if SOJU_OPENXR
     let inputQueue=XRInputQueue()
     var allAccepted=true,motion=SojuXRInput()

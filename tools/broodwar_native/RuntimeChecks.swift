@@ -143,6 +143,11 @@ func runtimeChecks()throws {
     cache.insert(4,key:"oversized",bytes:5)
     try require(cache.bytes==4 && cache.get("oversized")==nil,"resident cache respects byte budget")
 
+    cache.insert(5,key:"first",bytes:1);cache.insert(6,key:"fourth",bytes:3)
+    try require(cache.bytes==4 && cache.get("third")==nil && cache.get("first")==5 && cache.get("fourth")==6,"LRU replacement updates links and byte accounting before eviction")
+    cache.insert(7,key:"fourth",bytes:4)
+    try require(cache.bytes==4 && cache.get("first")==nil && cache.get("fourth")==7,"LRU replacement of its newest entry preserves an evictable oldest entry")
+
     commander.apply(state(1,[unit("a"),unit("b")]),[:])
     try require(commander.models.count==2,"two independent live models")
     let aMaterials=Set(commander.models["a"]!.source.materials.map{ObjectIdentifier($0)})
@@ -360,8 +365,9 @@ func runtimeChecks()throws {
     commander.apply(state(1001,[unit("unapproved")]),[:])
     try require(commander.models.isEmpty && commander.billboards["unapproved"] != nil,"unapproved live model uses the HD image fallback")
     let residency=TextureResidency(limit:1024)
-    try require(residency.reserve(768) && !residency.reserve(512),"texture admission counts pinned owners across caches")
-    residency.release(768)
+    try require(residency.reserve(768,owner:"terrain-pages") && !residency.reserve(512),"texture admission counts pinned owners across caches")
+    try require((residency.report()["owners"] as? [String:Int])?["terrain-pages"]==768,"texture owners report admitted storage only")
+    residency.release(768,owner:"terrain-pages")
     try require(residency.reserve(1024) && !residency.reserve(1),"texture admission reuses released capacity without overshoot")
     residency.release(1024)
     try require(number(residency.report(),"residentBytes")==0,"texture residency returns to zero after release")
