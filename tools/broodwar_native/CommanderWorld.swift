@@ -73,6 +73,9 @@ extension Commander {
             }
             if CommandLine.arguments.contains("--tabletop") {toggleTabletop()}
             initialized=true
+            if argument("--snapshot") != nil,CommandLine.arguments.contains("--possess-selected"),let id=selected.first {
+                enterPossession(id)
+            }
         }
         let x=Int(number(f,"x")),y=Int(number(f,"y")),w=Int(number(f,"width"))
         let radius=terrainRadius
