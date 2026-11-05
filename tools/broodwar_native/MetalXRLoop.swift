@@ -14,7 +14,7 @@ private func packetXRControls(_ context:UnsafeMutableRawPointer?,_ input:UnsafeP
     Unmanaged<MetalXRLoop>.fromOpaque(context).takeUnretainedValue().enqueue(input.pointee)
 }
 final class MetalXRLoop {
-    struct Body {let position:SIMD3<Float>,yaw:Float,scale:Float,tabletop:Bool}
+    struct Body {let position:SIMD3<Float>,yaw:Float,scale:Float,tabletop:Bool;var fade:Float=0,vignette:Float=0}
     struct Feedback {let origin:SIMD3<Float>?,originYaw:Float,center:SIMD3<Float>?,camera:MetalBatches.CameraPacket?,image:CGImage?}
     private struct Status {
         let frame:Int,generation:Int,nativeFrame:Double,publishedAt:Double,units:Int,draws:Int,visible:Int,culled:Int,completionSlotsExhausted:Int
@@ -104,7 +104,7 @@ final class MetalXRLoop {
         guard let body=frameBody else {return}
         metrics.created(.commandBuffer)
         guard let command=queue.makeCommandBuffer() else {return}
-        let rotation=simd_quatf(angle:body.yaw-originYaw,axis:SIMD3<Float>(0,1,0))*simd_quatf(angle:body.tabletop ? -0.75:0,axis:SIMD3<Float>(1,0,0))
+        let rotation=simd_quatf(angle:body.yaw-originYaw,axis:SIMD3<Float>(0,1,0))
         func camera(_ eye:SojuXREye)->MetalBatches.CameraPacket {
             let position=body.position+rotation.act((SIMD3<Float>(eye.px,eye.py,eye.pz)-(origin ?? .zero))*body.scale)
             let orientation=rotation*simd_quatf(ix:eye.qx,iy:eye.qy,iz:eye.qz,r:eye.qw)
@@ -134,7 +134,7 @@ final class MetalXRLoop {
                 let center=body.position+rotation.act((SIMD3<Float>(eye.headX,eye.headY,eye.headZ)-(origin ?? .zero))*body.scale)
                 lock.lock();feedback=Feedback(origin:origin,originYaw:originYaw,center:center,camera:left,image:feedback.image);lock.unlock()
             }
-            batches.copyEye(command:command,to:output,eye:Int(eye.eye))
+            batches.copyEye(command:command,to:output,eye:Int(eye.eye),fade:body.fade,vignette:body.vignette)
         } catch {fputs("XR packet encode: \(error)\n",stderr);command.commit();return}
         metrics.stage("renderEncodeEye",milliseconds:(CACurrentMediaTime()-renderStart)*1000)
         if eye.eye==0 {captureIndex=framePacket==nil ? nil:captures.reserve()}

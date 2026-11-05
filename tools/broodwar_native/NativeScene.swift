@@ -20,6 +20,7 @@ final class WalkView: SCNView {
         keys.insert(e.keyCode)
         if !e.isARepeat {
             let key=e.charactersIgnoringModifiers?.lowercased() ?? ""
+            if e.keyCode==48 {commander?.key("\t");return}
             if e.keyCode==111 {commander?.captureDesktop();return}
             if commander?.groupKey(key,modifiers:e.modifierFlags) != true {commander?.key(key)}
         }
@@ -63,6 +64,9 @@ final class Commander: NSObject, NSApplicationDelegate {
     var yaw:CGFloat = -0.54,pitch:CGFloat = -0.14
     var units=[String:Obj](),nodes=[String:SCNNode](),selected=[String]()
     var controlGroups=[Int:[String]]();var tabletop=false
+    var groundReturn:CommanderViewBookmark?,possessionReturn:CommanderViewBookmark?
+    var comfortStarted = -Double.infinity;var motionVignette:Float=0
+    var possessedUnit:String?;var lastPossessionOrder=0.0;var tableHeight:Float=0.65
     var terrain=[Int:SCNNode]();var fog=[Int:UInt8]();let fogPresentation=FogPresentation()
     let modelLibrary:Models3D;var models=[String:ModelInstance]();let ground:Terrain3D
     let effects:CombatEffects;var retiring=[String:ModelInstance]()
@@ -204,7 +208,7 @@ final class Commander: NSObject, NSApplicationDelegate {
         guard !busy else { return };busy=true
         let center=terrainCenter
         let cx=max(0,min(mapWidth-1,Int(center.x))),cy=max(0,min(mapHeight-1,Int(center.z)))
-        let regionWidth=min(tabletop || camera.camera?.usesOrthographicProjection == true ? 64:48,mapWidth),regionHeight=min(tabletop || camera.camera?.usesOrthographicProjection == true ? 64:48,mapHeight)
+        let regionWidth=min(tabletop ? mapWidth:camera.camera?.usesOrthographicProjection == true ? 64:48,mapWidth),regionHeight=min(tabletop ? mapHeight:camera.camera?.usesOrthographicProjection == true ? 64:48,mapHeight)
         let x=max(0,min(mapWidth-regionWidth,cx-regionWidth/2)),y=max(0,min(mapHeight-regionHeight,cy-regionHeight/2))
         let since=eventSequence,knownSession=session
         wrists.card.nativeMode=true

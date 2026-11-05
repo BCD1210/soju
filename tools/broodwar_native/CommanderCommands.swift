@@ -84,6 +84,26 @@ extension Commander {
         }.sorted {($0["id"] as? String ?? "")<($1["id"] as? String ?? "")}
     }
     func key(_ key:String) {
+        if possessedUnit != nil && ["w","a","s","d"].contains(key) {return}
+        if key=="\u{1b}",possessedUnit != nil {exitPossession();return}
+        if key=="v" {toggleTabletop();return}
+        if key=="r",tabletop {recenterTable();return}
+        if key=="[" {adjustTable(scale:0.1,height:0,rotation:0);return}
+        if key=="]" {adjustTable(scale:-0.1,height:0,rotation:0);return}
+        if key=="-" {adjustTable(scale:0,height:-0.05,rotation:0);return}
+        if key=="=" {adjustTable(scale:0,height:0.05,rotation:0);return}
+        if key=="," {adjustTable(scale:0,height:0,rotation:Float.pi/12);return}
+        if key=="." {adjustTable(scale:0,height:0,rotation:-Float.pi/12);return}
+        if key=="\t" {
+            if possessedUnit != nil {exitPossession()}
+            else {
+                let point=view.convert(window.mouseLocationOutsideOfEventStream,from:nil)
+                if let hit=sceneHit(point,accept:{if case .unit=$0 {return true};return false}),let id=hit.unitID {enterPossession(id)}
+                else if let hit=view.hitTest(point,options:[:]).first,let id=unitID(hit.node) {enterPossession(id)}
+                else if let id=selected.first {enterPossession(id)}
+            }
+            return
+        }
         if key=="`" {devOverlay.toggle();label?.isHidden = !devOverlay;return}
         if let unit=selected.first.flatMap({units[$0]}) {
             let choices=wrists.card.choices(unit),start=min(wrists.page*9,choices.count),end=min(start+9,choices.count)
@@ -140,6 +160,7 @@ extension Commander {
         return nil
     }
     func select(at p:NSPoint) {
+        guard possessedUnit==nil else {return}
         if sceneWorker != nil {
             if let id=sceneHit(p,accept:{if case .unit=$0 {return true};return false})?.unitID,
                let unit=units[id],number(unit,"owner")==number(state,"player") {selected=[id];notice="Selected unit \(Int(number(unit,"type")))"}
@@ -151,6 +172,11 @@ extension Commander {
         }
     }
     func move(to p:NSPoint) {
+        if possessedUnit != nil,wrists.pending==nil {
+            if let hit=sceneHit(p,accept:{if case .unit(let id)=$0 {return id != possessedUnit};return $0 == .terrain}) {possessionAttack(hit)}
+            else if let hit=view.hitTest(p,options:[:]).first.flatMap({scenePick($0)}) {possessionAttack(hit)}
+            return
+        }
         if sceneWorker != nil {
             if let choice=wrists.pending {
                 let hit=sceneHit(p,accept:{ target in if choice.target == .unit {if case .unit=target {return true};return false};if choice.target == .rally,case .unit=target {return true};return target == .terrain})

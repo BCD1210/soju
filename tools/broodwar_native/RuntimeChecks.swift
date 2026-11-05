@@ -20,6 +20,41 @@ func runtimeChecks()throws {
     }
     var passed=[String]()
     func require(_ ok:Bool,_ message:String)throws {if !ok {throw SceneError.invalid("Runtime check: "+message)};passed.append(message)}
+    commander.camera.simdPosition=SIMD3<Float>(12,3,24)
+    commander.yaw=0.3;commander.pitch = -0.2
+    let originalView=commander.viewBookmark
+    commander.toggleTabletop()
+    try require(commander.tabletop && commander.terrainRadius>=max(commander.mapWidth,commander.mapHeight),"table view covers full map")
+    commander.adjustTable(scale:100,height:100,rotation:0.5)
+    try require(commander.wrists.zoom==256 && commander.tableHeight==1.5,"table scale and height clamp safely")
+    commander.adjustTable(scale:-100,height:-100,rotation:0)
+    try require(commander.wrists.zoom==4 && commander.tableHeight==0.25,"table minimum scale and height remain positive")
+    commander.toggleTabletop()
+    try require(commander.camera.simdPosition==originalView.position && commander.yaw==originalView.yaw && commander.pitch==originalView.pitch,"table exit restores ground pose exactly")
+    commander.state=["player":6]
+    var rider=unit("rider");rider["facing"]=64
+    commander.units=["rider":rider]
+    commander.enterPossession("rider")
+    try require(commander.possessedUnit=="rider" && !commander.tabletop,"owned ground unit can be possessed")
+    let ridingYaw=commander.yaw
+    rider["x"]=132;rider["facing"]=128;commander.units["rider"]=rider
+    commander.updatePossession(0.016)
+    try require(commander.yaw==ridingYaw,"unit facing changes do not rotate possessed camera")
+    rider["transported"]=true;commander.units["rider"]=rider;commander.updatePossession(0.016)
+    try require(commander.possessedUnit==nil && commander.camera.simdPosition==originalView.position,"transport entry restores previous view")
+    rider["transported"]=false;rider["airborne"]=true;commander.units["rider"]=rider
+    commander.toggleTabletop();let tableView=commander.viewBookmark
+    commander.enterPossession("rider")
+    try require(commander.possessedUnit=="rider","owned air unit can be possessed")
+    commander.units.removeValue(forKey:"rider");commander.updatePossession(0.016)
+    try require(commander.possessedUnit==nil && commander.tabletop && commander.camera.simdPosition==tableView.position,"unit disappearance restores previous table view")
+    for flag in ["dead","burrowed","transported","renderHidden","building"] {
+        var invalid=unit("invalid");invalid[flag]=true
+        try require(!commander.canPossess(invalid),"possession rejects \(flag) unit")
+    }
+    var enemy=unit("enemy");enemy["owner"]=1
+    try require(!commander.canPossess(enemy),"possession rejects enemy unit")
+    commander.toggleTabletop();commander.state=[:];commander.units=[:]
     let longRun=FrameDistribution()
     for _ in 0..<54000 {longRun.add(1000.0/90)}
     longRun.add(2000)

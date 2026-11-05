@@ -1,0 +1,89 @@
+import Cocoa
+import SceneKit
+import simd
+
+struct CommanderViewBookmark {
+    let position:SIMD3<Float>,yaw:CGFloat,pitch:CGFloat,eyeHeight:Double,tabletop:Bool
+}
+
+extension Commander {
+    var comfortFade:Float {Float(max(0,1-(CACurrentMediaTime()-comfortStarted)/0.35))}
+    var viewBookmark:CommanderViewBookmark {
+        CommanderViewBookmark(position:camera.simdPosition,yaw:yaw,pitch:pitch,eyeHeight:placedEyeHeight,tabletop:tabletop)
+    }
+    func restoreView(_ bookmark:CommanderViewBookmark) {
+        camera.simdPosition=bookmark.position;yaw=bookmark.yaw;pitch=bookmark.pitch
+        placedEyeHeight=bookmark.eyeHeight;tabletop=bookmark.tabletop
+    }
+    var terrainRadius:Int {tabletop ? max(mapWidth,mapHeight):camera.camera?.usesOrthographicProjection == true ? 44:20}
+    func recenterTable() {
+        let center=SIMD3<Float>(Float(mapWidth)*0.5,0,Float(mapHeight)*0.5)
+        let offset=simd_quatf(angle:Float(yaw),axis:SIMD3<Float>(0,1,0)).act(SIMD3<Float>(0,tableHeight,1.25)*wrists.zoom)
+        camera.camera?.zFar=Double(max(Float(max(mapWidth,mapHeight)),wrists.zoom))*4
+        camera.simdPosition=center+offset
+        placedEyeHeight=Double(offset.y)
+    }
+    func adjustTable(scale:Float,height:Float,rotation:Float) {
+        guard tabletop else {return}
+        wrists.zoom=max(4,min(256,wrists.zoom*exp(scale)))
+        tableHeight=max(0.25,min(1.5,tableHeight+height));yaw+=CGFloat(rotation)
+        recenterTable()
+    }
+    func enterPossession(_ id:String) {
+        guard possessedUnit==nil,let unit=units[id],canPossess(unit) else {return}
+        comfortStarted=CACurrentMediaTime()
+        possessionReturn=viewBookmark;possessedUnit=id;tabletop=false;selected=[id]
+        wrists.pending=nil;wrists.dragStart=nil
+        let turret=unit["turret"] as? Obj ?? unit
+        yaw = -CGFloat(number(turret,"facing"))*2 * .pi/256;pitch=0
+        camera.simdPosition=possessionEye(unit);placedEyeHeight=1.0
+        notice="Unit view · Escape or right grip exits"
+    }
+    func canPossess(_ unit:Obj)->Bool {
+        number(unit,"owner")==number(state,"player") && number(unit,"hp")>0 &&
+        unit["building"] as? Bool != true && unit["dead"] as? Bool != true &&
+        unit["transported"] as? Bool != true && unit["burrowed"] as? Bool != true && unit["renderHidden"] as? Bool != true
+    }
+    func possessionEye(_ unit:Obj)->SIMD3<Float> {
+        let x=number(unit,"x")/32,z=number(unit,"y")/32
+        let definition=modelLibrary.catalog.definitions[Int(number(unit,"type"))]
+        let eyeHeight=max(0.35,(definition?.targetHeight ?? 1.0)*0.8)
+        let flight=unit["airborne"] as? Bool == true ? (definition?.flightHeight ?? 1.5):0
+        let height=ground.elevation(x,z)+(definition?.elevation ?? 0)+flight+eyeHeight
+        return SIMD3<Float>(Float(x),Float(height),Float(z))
+    }
+    func exitPossession() {
+        guard possessedUnit != nil else {return}
+        comfortStarted=CACurrentMediaTime();motionVignette=0
+        if let id=possessedUnit {nodes[id]?.isHidden=units[id]?["renderHidden"] as? Bool == true}
+        possessedUnit=nil
+        if let bookmark=possessionReturn {restoreView(bookmark)}
+        possessionReturn=nil;wrists.pending=nil;notice="Returned to commander view"
+    }
+    func updatePossession(_ dt:Double) {
+        guard let id=possessedUnit else {return}
+        guard let unit=units[id],canPossess(unit) else {exitPossession();return}
+        let target=possessionEye(unit)
+        motionVignette=min(0.7,simd_distance(target,camera.simdPosition)*0.6)
+        camera.simdPosition += (target-camera.simdPosition)*Float(1-exp(-dt/0.08))
+        selected=[id]
+        if sceneWorker==nil {nodes[id]?.isHidden=true}
+    }
+    func possessionMove(side:Float,forward:Float,heading:Float,now:Double) {
+        guard let id=possessedUnit,let unit=units[id],canPossess(unit),now-lastPossessionOrder>=0.15,
+              abs(side)>0.15 || abs(forward)>0.15 else {return}
+        let dx = -sin(heading)*forward+cos(heading)*side
+        let dz = -cos(heading)*forward-sin(heading)*side
+        let x=max(0,min(Float(mapWidth*32-1),Float(number(unit,"x"))+dx*96))
+        let y=max(0,min(Float(mapHeight*32-1),Float(number(unit,"y"))+dz*96))
+        command(["op":"move","units":[id],"x":Int(x),"y":Int(y)]);lastPossessionOrder=now
+    }
+    func possessionAttack(_ hit:ScenePickHit) {
+        guard let id=possessedUnit else {return}
+        if let target=hit.unitID,target != id {command(["op":"attack","units":[id],"target":target])}
+        else {
+            let p=Terrain3D.mapPosition(hit.worldCoordinates)
+            command(["op":"attack_move","units":[id],"x":Int(p.x*32),"y":Int(p.z*32)])
+        }
+    }
+}

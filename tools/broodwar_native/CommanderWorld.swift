@@ -38,6 +38,9 @@ extension Commander {
         let newSession=s["session"] as? String ?? "legacy"
         let changed=newSession != session
         if changed {
+            exitPossession()
+            if tabletop,let bookmark=groundReturn {restoreView(bookmark)}
+            tabletop=false;groundReturn=nil
             lastTerrainUpdate=nil
             for n in nodes.values {n.removeFromParentNode()}
             for m in retiring.values {m.root.removeFromParentNode()}
@@ -59,7 +62,7 @@ extension Commander {
         if !initialized,let base=list.first(where:{($0["townHall"] as? Bool == true || number($0,"type")==106) && number($0,"owner")==number(s,"player")}) {
             camera.position=SCNVector3(number(base,"x")/32-3,1.65,number(base,"y")/32+5)
             if let value=argument("--camera"),let a=Double(value.split(separator:",").first ?? ""),let b=Double(value.split(separator:",").last ?? "") {camera.position.x=CGFloat(a);camera.position.z=CGFloat(b)}
-            if CommandLine.arguments.contains("--tabletop") {tabletop=true;pitch = -1}
+
             if let value=argument("--yaw"),let angle=Double(value) {yaw=CGFloat(angle)}
             if let value=argument("--select-type"),let kind=Int(value),let unit=list.first(where:{number($0,"type")==Double(kind) && number($0,"owner")==number(s,"player")}),let id=unit["id"] as? String {selected=[id]}
             if !CommandLine.arguments.contains("--top-down") {
@@ -67,10 +70,11 @@ extension Commander {
                 camera.position=Terrain3D.worldPosition(x,ground.elevation(x,z),z)
                 camera.position.y += CGFloat(commanderHeight);placedEyeHeight=commanderHeight
             }
+            if CommandLine.arguments.contains("--tabletop") {toggleTabletop()}
             initialized=true
         }
         let x=Int(number(f,"x")),y=Int(number(f,"y")),w=Int(number(f,"width"))
-        let radius=tabletop || camera.camera?.usesOrthographicProjection == true ? 44:20
+        let radius=terrainRadius
         let packet=TerrainUpdateKey(region:SIMD4<Int32>(Int32(x),Int32(y),Int32(w),Int32(number(f,"height"))),
             center:SIMD3<Int32>(Int32(terrainCenter.x),Int32(terrainCenter.z),Int32(radius)),
             fog:f["fog"] as? String ?? "",creep:f["creep"] as? String ?? "")
@@ -173,7 +177,7 @@ extension Commander {
     var terrainCenter:SCNVector3 {
         if CommandLine.arguments.contains("--top-down"),let values=argument("--camera")?.split(separator:","),values.count==2,
            let x=Double(values[0]),let z=Double(values[1]) {return SCNVector3(x,0,z)}
-        if tabletop {let p=cameraMapPosition;return SCNVector3(p.x-sin(yaw)*CGFloat(wrists.zoom),0,p.z-cos(yaw)*CGFloat(wrists.zoom))}
+        if tabletop {return SCNVector3(CGFloat(mapWidth)/2,0,CGFloat(mapHeight)/2)}
         #if SOJU_OPENXR
         if xrRequested,let h=headCenter { return Terrain3D.mapPosition(SCNVector3(Double(h.x),Double(h.y)-commanderHeight,Double(h.z))) }
         #endif
@@ -184,21 +188,21 @@ extension Commander {
         if let worker=terrainWorker {
             let center=terrainCenter
             worker.submit(TerrainWorker.Request(session:session,center:SIMD2<Int>(Int(center.x),Int(center.z)),
-                radius:tabletop || camera.camera?.usesOrthographicProjection == true ? 44:20,fog:fog,creep:creepTiles)) { [weak self] result in
+                radius:terrainRadius,fog:fog,creep:creepTiles)) { [weak self] result in
                 guard let self=self,result.session==self.session else {return}
                 self.installTerrain(result)
             }
             return
         }
         let tiles=art.tileCatalog
-        let cx=Int(terrainCenter.x),cy=Int(terrainCenter.z),radius=tabletop || camera.camera?.usesOrthographicProjection == true ? 44:20
+        let cx=Int(terrainCenter.x),cy=Int(terrainCenter.z),radius=terrainRadius
         var keep=dirty==nil ? Set<Int>():Set(terrain.keys)
         let candidates:Set<Int>
         if let dirty=dirty {candidates=dirty}
         else {
             var region=Set<Int>()
-            for y in max(0,cy-radius)..<max(0,min(mapHeight,cy+radius+1)) {
-                for x in max(0,cx-radius)..<max(0,min(mapWidth,cx+radius+1)) {region.insert(y*mapWidth+x)}
+            for y in max(0,min(mapHeight,cy-radius))..<max(0,min(mapHeight,cy+radius+1)) {
+                for x in max(0,min(mapWidth,cx-radius))..<max(0,min(mapWidth,cx+radius+1)) {region.insert(y*mapWidth+x)}
             }
             candidates=region
         }
@@ -279,9 +283,11 @@ extension Commander {
         if !result.error.isEmpty {notice=result.error}
     }
     var cameraMapPosition:SCNVector3 {
-        Terrain3D.mapPosition(SCNVector3(camera.position.x,camera.position.y-CGFloat(placedEyeHeight),camera.position.z))
+        if tabletop,let bookmark=groundReturn {return Terrain3D.mapPosition(SCNVector3(bookmark.position))}
+        return Terrain3D.mapPosition(SCNVector3(camera.position.x,camera.position.y-CGFloat(placedEyeHeight),camera.position.z))
     }
     func walk(_ dx:CGFloat,_ dz:CGFloat) {
+        guard !tabletop,possessedUnit==nil else {return}
         var native=cameraMapPosition
         for axis in 0..<2 {
             let x=native.x+(axis==0 ? dx:0),z=native.z+(axis==1 ? dz:0)
@@ -334,6 +340,8 @@ extension Commander {
         if !CommandLine.arguments.contains("--top-down") {
             walk((-sin(yaw)*forward+cos(yaw)*side)*speed*dt,(-cos(yaw)*forward-sin(yaw)*side)*speed*dt)
         }
+        updatePossession(Double(dt))
+        possessionMove(side:Float(side),forward:Float(forward),heading:Float(yaw),now:now)
         camera.eulerAngles=SCNVector3(pitch,yaw,0)
         if CommandLine.arguments.contains("--top-down") {
             let elevation=(Double(argument("--elevation") ?? "90") ?? 90)*Double.pi/180
@@ -359,7 +367,7 @@ extension Commander {
                  "animationWarning":m.animationError,"animationPlayers":m.activePlayers.count,
                  "file":m.definition.file]
             }
-            var diagnostics:Obj=["time":Date().timeIntervalSince1970,"frame":number(state,"frame"),
+            var diagnostics:Obj=["viewMode":possessedUnit != nil ? "possess":tabletop ? "tabletop":"ground","possessedUnit":possessedUnit ?? "","tableScale":wrists.zoom,"tableHeight":tableHeight,"time":Date().timeIntervalSince1970,"frame":number(state,"frame"),
                 "selected":selected,"cardPage":wrists.page,"nativeCard":wrists.card.nativeResponse,"commandCard":wrists.choices.map{choice -> Obj in
                     ["title":choice.title,"hotkey":choice.hotkey,"payload":choice.payload,"position":choice.originalPosition ?? 0,
                      "unavailable":choice.unavailable(state,selected.first.flatMap{units[$0]} ?? [:]) ?? ""]},

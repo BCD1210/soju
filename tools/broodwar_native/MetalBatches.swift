@@ -55,6 +55,7 @@ final class MetalBatches {
     var frameMetrics:XRFrameMetrics?
     let pipelines:[MTLRenderPipelineState]
     let linePipelines:[MTLRenderPipelineState]
+    let comfortPipeline:MTLRenderPipelineState
     let compositePipeline:MTLRenderPipelineState
     var overlayColor:MTLTexture?,overlayResolved:MTLTexture?
     private var depthViews=[MTLTexture]()
@@ -222,6 +223,8 @@ final class MetalBatches {
         composite.colorAttachments[0].sourceAlphaBlendFactor = .one
         composite.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
         compositePipeline=try device.makeRenderPipelineState(descriptor:composite)
+        composite.fragmentFunction=library.makeFunction(name:"comfortFragment")
+        comfortPipeline=try device.makeRenderPipelineState(descriptor:composite)
         let d=MTLDepthStencilDescriptor();d.depthCompareFunction = .lessEqual;d.isDepthWriteEnabled=true;depth=device.makeDepthStencilState(descriptor:d)!
         d.isDepthWriteEnabled=false;shadowDepth=device.makeDepthStencilState(descriptor:d)!
         d.depthCompareFunction = .always;overlayDepth=device.makeDepthStencilState(descriptor:d)!
@@ -536,11 +539,21 @@ final class MetalBatches {
             encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:3);encoder.endEncoding()
         }
     }
-    func copyEye(command:MTLCommandBuffer,to output:MTLTexture,eye:Int) {
+    func copyEye(command:MTLCommandBuffer,to output:MTLTexture,eye:Int,fade:Float=0,vignette:Float=0) {
         guard let source=stereoResolved else {return}
         frameMetrics?.created(.blitEncoder)
         guard let blit=command.makeBlitCommandEncoder() else {return}
         blit.copy(from:source,sourceSlice:eye,sourceLevel:0,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:output.width,height:output.height,depth:1),to:output,destinationSlice:0,destinationLevel:0,destinationOrigin:MTLOrigin());blit.endEncoding()
+        if fade>0 || vignette>0 {
+            let pass=compositePass;pass.colorAttachments[0].texture=output
+            pass.colorAttachments[0].loadAction = .load;pass.colorAttachments[0].storeAction = .store
+            if let encoder=command.makeRenderCommandEncoder(descriptor:pass) {
+                var values=SIMD2<Float>(fade,vignette)
+                encoder.setRenderPipelineState(comfortPipeline)
+                encoder.setFragmentBytes(&values,length:MemoryLayout<SIMD2<Float>>.stride,index:0)
+                encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:3);encoder.endEncoding()
+            }
+        }
     }
     func inheritedOpacity(_ node:SCNNode)->Float {
         var value=Float(node.opacity),parent=node.parent
@@ -673,6 +686,10 @@ final class MetalBatches {
     }
     fragment float4 compositeFragment(CompositeRaster r [[stage_in]],texture2d<float> overlay [[texture(0)]]) {
         constexpr sampler s(filter::nearest);return overlay.sample(s,r.uv);
+    }
+    fragment float4 comfortFragment(CompositeRaster r [[stage_in]],constant float2 &comfort [[buffer(0)]]) {
+        float edge=smoothstep(0.35,1.0,length((r.uv-0.5)*2));
+        return float4(0,0,0,max(comfort.x,edge*comfort.y));
     }
     constant uint batchMode [[function_constant(0)]];
     struct Vertex {float4 position;float4 uv;};
