@@ -235,3 +235,45 @@ The first directional group is a candidate pose. Static buildings have one view.
 | 225 | Vespene Sac 2 | unmeasured | — | — | HD sprite |
 | 226 | Vespene Tank 1 | unmeasured | — | — | HD sprite |
 | 227 | Vespene Tank 2 | unmeasured | — | — | HD sprite |
+
+
+## Authored model work — 2026-11-04
+
+Private workspace: `~/.local/share/soju/broodwar-native/asset-upgrades/`.
+Marine and SCV now have original scripted Blender candidates. **Neither is a production delivery or approved replacement.** The existing installed-model scores above are unchanged; the scores below measure these new candidates.
+
+| Unit | LOD0 / LOD1 triangles | Authored clips | Min IoU | Min SSIM | Intake | Installed |
+| --- | ---: | --- | ---: | ---: | --- | --- |
+| Marine | 35,932 / 14,372 | Idle, Walk, Fire, Death | 0.258638 | 0.016664 | Rejected: visual fidelity | No |
+| SCV | 20,908 / 8,363 | Idle, Walk, Attack, Work, CarryIdle, CarryWalk, Death | 0.458848 | 0.016258 | Rejected: visual fidelity | No |
+| Zergling | — | — | — | — | Not authored; calibration unavailable | No |
+| Zealot | — | — | — | — | Not authored; calibration unavailable | No |
+| Hydralisk | — | — | — | — | Not authored; calibration unavailable | No |
+| Dragoon | — | — | — | — | Not authored; calibration unavailable | No |
+| Siege Tank (tank + siege) | — | — | — | — | Not authored; calibration unavailable | No |
+| Mutalisk | — | — | — | — | Not authored; calibration unavailable | No |
+| Command Center | — | — | — | — | Not authored; calibration unavailable | No |
+| Hatchery | — | — | — | — | Not authored; calibration unavailable | No |
+| Nexus | — | — | — | — | Not authored; calibration unavailable | No |
+
+For each authored unit, `<unit>/delivery/` contains the embedded GLB, same-basename packed `.blend`, LOD1 GLB, catalog, delivery declaration, provenance, and separate grayscale team mask. `<unit>/src/` contains the geometry, material, skeleton, animation, export and review scripts; `zsh <unit>/src/rebuild.sh` regenerates and reviews it. All these files stay outside git. Dimensions are Marine 1.748 and SCV 1.878, glTF +Y up / +Z forward, ground origin. Textures are 256×256. The native rigs use unique bones, explicit clip mappings and independent instances.
+
+Both candidates passed native structural/animation checks. All eight native player-color captures are distinct after replacing the problematic diffuse-alpha route with a separate white mask restricted to `team-shoulder-enamel`. Every authored integer animation frame has sampled lowest-surface ground error below 0.000001 scene units. This does not certify planted gait, foot sliding, artistic deformation, or physical headset quality.
+
+Evidence relative to the private workspace:
+
+| Unit | Final immutable review | Studio/reference evidence | Native evidence |
+| --- | --- | --- | --- |
+| Marine | `marine/review/intake-20261105T035228643821Z/review.json` | `marine/review/reference-comparison.jpg`; `front.png`, `side.png`, `back.png`, `three-quarter.png`, `top.png` in the same directory | `marine/review/native-animation/`; `native-team-colors.jpg`; `native-animation-sheet.jpg` |
+| SCV | `scv/review/intake-20261105T035212425679Z/review.json` | `scv/review/reference-comparison.jpg`; `front.png`, `side.png`, `back.png`, `three-quarter.png`, `top.png` in the same directory | `scv/review/native-animation/`; `native-team-colors.jpg`; `native-animation-sheet.jpg` |
+
+Each intake folder also retains 17 calibrated render comparisons, 36 perspective frames, `closeup.gif`, native cardinal/color captures, and the immutable tested delivery. Current GLB hashes were checked against the final staged copies. `review/validation.json` lists unresolved defects; `review/latest-review.json` points at the final report. The separate `native-*.gif` files are four sampled native animation poses, not full-rate animation or live-match evidence.
+
+Remaining work, in order:
+
+1. Marine still needs substantial silhouette, proportions, armor construction, rifle pose, surface-detail and motion refinement. The procedural candidate does not meet Remastered close-up quality. SCV similarly needs more faithful industrial forms, stance, cockpit/tool construction and animation refinement. Neither should be presented as finished art.
+2. Every calibrated direction must reach IoU 0.95 and foreground SSIM 0.85 before installation. Current comparisons also expose camera/pose disagreement; the contract notes that calibration was fitted to different geometry. The diffuse gate renders unlit base color against shaded reference art. Record these limitations without weakening the gate or painting lighting into volume.
+3. The nine later requested units remain unstarted. The current intake has measured calibration entries only for Marine and SCV and rejects all other types. Measured references are a prerequisite to their eventual acceptance, alongside their actual modeling/rigging work. Siege Tank additionally needs both modes and a named turret pivot.
+4. Only after a passing review: activate through the documented data pack route, verify hot-reload and capture the live XR/desktop unit beside its sprite. No installation, viewer restart, or live comparison capture was performed for these rejected candidates.
+
+One concurrent intake attempt collided on its timestamp staging directory. Its traceback is preserved at `marine/review/intake-concurrent-collision.log`; the Marine review was rerun separately and completed. No review or renderer source was modified to bypass any rejection.
