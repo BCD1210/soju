@@ -297,3 +297,12 @@ Installation and desktop/private-XR evidence are being recorded under `3d-proof/
 The approved Marine was normalized to 1.748 **terrain tiles**, mistakenly treating an authored height as native scene scale. The fitted shape is 103.82232666 HD pixels high; image 239 has 4 HD pixels per native pixel and the viewer uses 32 native pixels per tile. Correct height: **0.811111927 tiles**, ratio **0.464022842** of the previous height. `targetHeight` replaces catalog `scale`; it is not multiplied twice. `footPivot` translates the base and does not change height.
 
 The private `marine-05-native-size` delivery retains the approved model/mask bytes and adds `nativeScale` provenance plus the user's requested size correction. Atomic installation retains the oversized release as its immediate rollback. Every subsequent installed roster delivery must record the same conversion from its fitted sprite-space height and actual HD scale. The installer rejects inconsistent `nativeScale` / `targetHeight` metadata. General fidelity thresholds remain unchanged.
+
+## Marine viewer correction verification — 2026-11-05
+
+- Size commit `1fd8cf9`: approved 05 Marine height corrected from 1.748 to 0.811111927 tile world units (103.82232666 source pixels / 4 sprite scale / 32 pixels per tile). Foot pivot translates only; targetHeight overrides catalog scale. Active release `20261105T181538Z-b8d1f92f` retains the explicit user approval and rollback.
+- Possession commit `a034481`: own body and nearby bodies excluded by camera category, with shadow and pick categories retained; visor eye 0.697556257 above ground. XR ray selection and possession verified on the resized Marine.
+- XR render commit `fd04666`: consistent reversed depth restores opaque meshes and selection rings in the external swapchain render pass. Diagnostic depth bypass removed.
+- Validation: 288 Python tests and 60 subtests; 18 Rust tests; desktop 278, XR 283, fallback 283 runtime checks. External-pass GPU readback checks opaque rendering and near/far occlusion.
+- Corrected desktop and actual XR swapchain sheets: `~/.local/share/soju/broodwar-native/3d-proof/m19/user-shots/marine-3d/desktop-comparison-fixed.jpg` and `xr-comparison-fixed.jpg`. Each includes matched eye-level, possession, and recorded native combat frame 1540. No live game restart or combat commands; skeletal animation phases are not synchronized.
+- Native size derivation is now included in pending roster previews and deliveries; SCV preview height is 1.060292145 tile units. No further unit has been installed.
