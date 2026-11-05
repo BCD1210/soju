@@ -204,3 +204,9 @@ final class Art {
         return m
     }
 }
+
+// Keep the SceneKit camera and external Metal pass in the same depth convention.
+enum SceneKitDepth {
+    static let reversed = true
+    static let clear = 0.0
+}
