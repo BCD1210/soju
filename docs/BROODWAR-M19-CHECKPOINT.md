@@ -211,3 +211,23 @@ coordinates change, and reuses fog/creep diagnostic snapshots until their conten
 changes. Runtime checks verify pose changes, retained geometry, image-change
 invalidation, immutable diagnostics, terrain slice ownership and page reuse.
 Live latency and cadence acceptance remain open.
+
+## Default XR stress after terrain ownership repair
+
+`xr-live/xr-stress-release.json` verifies 125 owned units, original move-order
+acknowledgements and actual movement, fresh scene packets, and valid simulator
+tracking throughout each capture-disabled run on `127892e`. The private simulator
+uses its Release build; the earlier Debug tracking-loss attempt remains invalid.
+All viewer settings are default, including the 1,536 MiB texture budget.
+
+| View | Measured seconds | Cadence p95 ms | Missed slots | Packet age p95 ms | Native-to-display estimate p95 ms | Peak MiB | Rejections |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Table | 45.31 | 11.92 | 0 | 34.87 | 93.60 | 1173.52 | 0 |
+| Ground | 42.07 | 11.88 | 0 | 36.20 | 86.68 | 1075.92 | 0 |
+| Possess | 43.63 | 11.93 | 0 | 34.29 | 147.46 | 1074.95 | 0 |
+
+The cadence and residency gates pass in every view. The 70 ms latency gate **does
+not pass**. XR reports the later of GPU readiness and runtime predicted display;
+it has no physical presentation timestamp. These estimates must not be relabeled
+as desktop compositor `presentedTime` measurements. Each private run retains its
+exact launch, binary hash, native samples, original orders and metrics.
