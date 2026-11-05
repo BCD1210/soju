@@ -28,6 +28,7 @@ final class MetalBatches {
     struct Input {
         let sceneRevision:Int,terrainRevision:Int,terrainFogRevision:Int,mapWidth:Int
         let terrain:[Int:SCNNode],billboards:[UnitBillboard],overlays:[SCNNode],objectCount:Int
+        var retireTerrainSources=false
     }
     fileprivate struct Batch {
         var vertices:MTLBuffer;var indices:MTLBuffer;var count:Int;var flatVertices:MTLBuffer?
@@ -53,6 +54,7 @@ final class MetalBatches {
     }
     let device:MTLDevice,loader:MTKTextureLoader,queue:MTLCommandQueue
     var frameMetrics:XRFrameMetrics?
+    var retireSourceOwnership:(()->Void)?
     let pipelines:[MTLRenderPipelineState]
     let linePipelines:[MTLRenderPipelineState]
     let comfortPipeline:MTLRenderPipelineState
@@ -356,7 +358,7 @@ final class MetalBatches {
         sourceRevision=commander.sceneRevision
         revisions=commander.billboards.map{($0,$0.geometryRevision)}
         if terrainChanged {
-            preparedTerrain=try prepareTerrain(commander.terrain,width:commander.mapWidth)
+            preparedTerrain=try prepareTerrain(commander.terrain,width:commander.mapWidth,retireSources:commander.retireTerrainSources)
             terrainRevision=commander.terrainRevision;terrainFogRevision=commander.terrainFogRevision
         }
         var constructed=preparedTerrain
@@ -432,19 +434,29 @@ final class MetalBatches {
         resetVisibility()
         ready=true
     }
-    private func prepareTerrain(_ terrain:[Int:SCNNode],width:Int)throws->[Batch] {
+    private func prepareTerrain(_ terrain:[Int:SCNNode],width:Int,retireSources:Bool)throws->[Batch] {
         // Fixed map-index pages keep a reveal/removal from shifting every later slice.
         let columns=max(1,(width+15)/16)
         let pages=Dictionary(grouping:terrain.keys,by:{($0/max(1,width)/8)*columns+($0%max(1,width)/16)})
         var result=[Batch](),next=[Int:TerrainPage]()
-        let command=queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
-        var submitted=false
-        defer {if !submitted {blit.endEncoding()}}
-        for page in pages.keys.sorted() {
+        var sourceBindings=[(SCNMaterial,MTLTexture)]()
+        var command=queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
+        var encoderOpen=true
+        defer {if encoderOpen {blit.endEncoding()}}
+        func flushUploads(reopen:Bool)throws {
+            blit.endEncoding();encoderOpen=false;command.commit();command.waitUntilCompleted()
+            guard command.status == .completed else {throw SceneError.invalid("Terrain upload failed")}
+            let retired = !sourceBindings.isEmpty
+            for (material,texture) in sourceBindings {material.diffuse.contents=texture}
+            sourceBindings.removeAll(keepingCapacity:true)
+            if reopen && retired {retireSourceOwnership?()}
+            if reopen {command=queue.makeCommandBuffer()!;blit=command.makeBlitCommandEncoder()!;encoderOpen=true}
+        }
+        for page in pages.keys.sorted() {try autoreleasepool {
             let keys=pages[page]!.sorted(),nodes=keys.map{terrain[$0]!}
             let sources=nodes.compactMap{$0.geometry?.sources(for:.vertex).first}
             let masks=nodes.map{$0.geometry!.firstMaterial!.multiply.contents as AnyObject}
-            guard sources.count==nodes.count,let first=nodes.first?.geometry?.firstMaterial?.diffuse.contents as? MTLTexture else {continue}
+            guard sources.count==nodes.count,let first=nodes.first?.geometry?.firstMaterial?.diffuse.contents as? MTLTexture else {return}
             let diffuseSources=nodes.map{$0.geometry!.firstMaterial!.diffuse.contents as AnyObject}
             // Repeated tiles share a diffuse slice; visibility remains per map tile.
             var unique=[MTLTexture](),sliceByTexture=[ObjectIdentifier:Int]()
@@ -457,7 +469,7 @@ final class MetalBatches {
             let previous=terrainPageCache[page]
             let reuse=previous?.keys==keys && previous!.sources.count==sources.count && zip(previous!.sources,sources).allSatisfy{$0 === $1} && previous!.poses==poses && zip(previous!.diffuse,diffuseSources).allSatisfy{$0 === $1}
             if reuse,zip(previous!.masks,masks).allSatisfy({$0 === $1}) {
-                next[page]=previous!;result.append(previous!.batch);continue
+                next[page]=previous!;result.append(previous!.batch);return
             }
             os_signpost(.begin,log:XRFrameMetrics.log,name:"Terrain page")
             defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Terrain page")}
@@ -501,9 +513,26 @@ final class MetalBatches {
                 batch=Batch(vertices:buffer(vertices),indices:buffer(indices),count:indices.count,flatVertices:nil,
                     instances:(0..<3).map{_ in buffer([instance])},nodes:[],textures:[diffuse,fog],terrain:true,shadow:false,mode:2,depthDisabled:false,bounds:[])
             }
-            next[page]=TerrainPage(keys:keys,sources:sources,masks:masks,diffuse:diffuseSources,poses:poses,batch:batch);result.append(batch)
-        }
-        blit.endEncoding();submitted=true;command.commit();command.waitUntilCompleted()
+            var retainedSources=diffuseSources
+            if !reuse && retireSources {
+                // The array now owns the uploaded pixels. Scene nodes can refer
+                // to its slices instead of pinning a second full terrain copy.
+                let views=try unique.indices.map { slice -> MTLTexture in
+                    guard let view=diffuse.makeTextureView(pixelFormat:diffuse.pixelFormat,textureType:.type2D,
+                        levels:0..<diffuse.mipmapLevelCount,slices:slice..<(slice+1)) else {throw SceneError.invalid("Terrain slice view")}
+                    return view
+                }
+                retainedSources=diffuseSlices.map{views[$0] as AnyObject}
+                for (index,node) in nodes.enumerated() {sourceBindings.append((node.geometry!.firstMaterial!,views[diffuseSlices[index]]))}
+            }
+            next[page]=TerrainPage(keys:keys,sources:sources,masks:masks,diffuse:retainedSources,poses:poses,batch:batch);result.append(batch)
+            // A large initial reveal must retire uploaded source pages before
+            // allocating the entire destination alongside the entire source.
+            if !sourceBindings.isEmpty,number(TextureResidency.shared.report(),"residentBytes")>Double(TextureResidency.shared.limit)*0.75 {
+                try flushUploads(reopen:true)
+            }
+        }}
+        try flushUploads(reopen:false)
         terrainPageCache=next
         return result
     }
