@@ -312,3 +312,18 @@ are unchanged. Projected bounds reuse also accounts for the camera projection an
 viewport. Movement, viewport resizing, hiding and removal invalidate the relevant
 values; retained packets remain immutable. Desktop/XR/fallback runtime checks
 pass 247/252/252. Live performance is still subject to remeasurement.
+
+The `691d794` XR stress runs now meet 70 ms in table and ground views:
+`stress-tabletop-unit-reuse/` measured **68.12 ms** latency p95, 11.89 ms cadence,
+zero missed slots; `stress-ground-unit-reuse/` measured **68.03 ms**, 11.93 ms,
+zero missed slots. Possession remains open: `stress-possess-unit-reuse/` measured
+**116.51 ms** latency p95, 11.92 ms cadence and zero missed slots. All use the
+same default-settings binary and preserve native move acknowledgements and
+actual movement. These are XR display estimates, not physical presentation.
+
+Desktop refresh-rate/drawable-count experiments did not improve the qualified
+latency and were removed. Their `stress-desktop-display-refresh/`,
+`stress-desktop-double-buffer/` and `stress-desktop-two-drawables/` artifacts remain.
+The display reports a 100 Hz mode; requesting 90 fps yields approximately 50 fps
+in the existing desktop view. Changing that request alone increased queued
+presentation delay, so no such change is retained.
