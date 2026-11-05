@@ -87,15 +87,16 @@ final class Bridge {
 final class Art {
     let device: MTLDevice
     let manifest: Obj
+    let folder: URL
     lazy var tileCatalog=manifest["tiles"] as? [String:Obj] ?? [:]
     let textures=ResidentCache<MTLTexture>(limit:128*1024*1024)
-    init(device preferred:MTLDevice? = nil) throws {
+    init(device preferred:MTLDevice? = nil,folder:URL=assets) throws {
         guard let d=preferred ?? MTLCreateSystemDefaultDevice(),d.supportsBCTextureCompression else { throw SceneError.invalid("Metal BC texture support required") }
-        device=d;manifest=try loadObject(assets.appendingPathComponent("manifest.json"))
+        device=d;self.folder=folder;manifest=try loadObject(folder.appendingPathComponent("manifest.json"))
     }
     func texture(_ name:String) throws -> MTLTexture {
         if let t=textures.get(name) { return t }
-        let b=[UInt8](try Data(contentsOf:assets.appendingPathComponent(name)))
+        let b=[UInt8](try Data(contentsOf:folder.appendingPathComponent(name)))
         guard b.count>=128,Array(b[0..<4])==[68,68,83,32] else { throw SceneError.invalid("Unsupported texture "+name) }
         let w=Int(u32(b,16)),h=Int(u32(b,12)),four=String(bytes:b[84..<88],encoding:.ascii) ?? ""
         let block:Int

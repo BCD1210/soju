@@ -249,6 +249,7 @@ do {
     if CommandLine.arguments.contains("--live-proof") {try liveModelProof();exit(0)}
     if argument("--original-card-audit") != nil {try originalCommandAudit();exit(0)}
     if argument("--command-audit") != nil {try commandAudit();exit(0)}
+    if argument("--rendered-gates") != nil {try renderedVisualGates();exit(0)}
     if argument("--grounding-job") != nil {try buildingGroundingProof();exit(0)}
     if argument("--fidelity-job") != nil {guard let device=MTLCreateSystemDefaultDevice() else {throw SceneError.invalid("Metal unavailable")};try modelFidelityProof(device:device);exit(0)}
     if CommandLine.arguments.contains("--runtime-check") {try runtimeChecks();exit(0)}

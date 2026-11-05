@@ -10,7 +10,8 @@ final class SpriteRelief {
     let materials=ResidentCache<SCNMaterial>(limit:32*1024*1024)
     struct Mesh {
         let vertices:[SCNVector3],uv:[CGPoint],indices:[Int32]
-        var bytes:Int {vertices.count*MemoryLayout<SCNVector3>.stride+uv.count*MemoryLayout<CGPoint>.stride+indices.count*MemoryLayout<Int32>.stride}
+        var baseHeights:[Float]=[],baseSamples:[Int]=[]
+        var bytes:Int {vertices.count*MemoryLayout<SCNVector3>.stride+uv.count*MemoryLayout<CGPoint>.stride+indices.count*MemoryLayout<Int32>.stride+baseHeights.count*MemoryLayout<Float>.stride+baseSamples.count*MemoryLayout<Int>.stride}
         func geometry()->SCNGeometry {
             SCNGeometry(sources:[SCNGeometrySource(vertices:vertices),SCNGeometrySource(textureCoordinates:uv)],
                         elements:[SCNGeometryElement(indices:indices,primitiveType:.triangles)])
@@ -21,6 +22,26 @@ final class SpriteRelief {
     let alphaAtlases=ResidentCache<NSBitmapImageRep>(limit:128*1024*1024)
     static let sun=SIMD3<Float>(-0.22033581,0.89032002,0.39847509)
     static let reference=SIMD3<Float>(-0.22033581,0.54387457,0.80972377)
+    // Drape a continuous bottom band, retaining the upper relief coordinates.
+    // A narrow contact strip absorbs the source mesh sampling interval.
+    static func conform(_ mesh:Mesh,ground:Terrain3D,transform:simd_float4x4)->Mesh {
+        guard mesh.baseHeights.count==mesh.vertices.count else {return mesh}
+        let inverse=simd_inverse(transform)
+        let tilt=simd_quatf(angle:-Float(Terrain3D.canonicalElevation),axis:SIMD3<Float>(1,0,0))
+        var vertices=mesh.vertices
+        for i in vertices.indices {
+            let local=SIMD3<Float>(vertices[i]),height=tilt.act(local).y
+            let above=max(0,height-mesh.baseHeights[i]-0.08)
+            let fraction=min(1,above/0.75),weight=1-fraction*fraction*(3-2*fraction)
+            if weight<=0 {continue}
+            let p=transform*SIMD4<Float>(local,1)
+            let floor=ground.elevation(Double(p.x),Double(p.z))
+            let base=Double(p.y-above)
+            let moved=inverse*SIMD4<Float>(p.x,p.y+Float((floor-base)*Double(weight)),p.z,1)
+            vertices[i]=SCNVector3(moved.x,moved.y,moved.z)
+        }
+        return Mesh(vertices:vertices,uv:mesh.uv,indices:mesh.indices,baseHeights:mesh.baseHeights,baseSamples:mesh.baseSamples)
+    }
     func geometry(_ id:Int,frame:Int,art:WorldSprites)->SCNGeometry? {
         meshData(id,frame:frame,art:art)?.geometry()
     }
@@ -45,6 +66,7 @@ final class SpriteRelief {
             }
         }
         var minimum=Double.infinity
+        var opaque=[Bool]()
         let f=records[frame],w=Int(number(f,"w")),h=Int(number(f,"h")),scale=number(entry,"scale"),unit=scale*32
         guard w>0,h>0,unit>0 else {return nil}
         let cw=number(entry,"grpWidth")*scale,ch=number(entry,"grpHeight")*scale
@@ -60,17 +82,28 @@ final class SpriteRelief {
             let u=(number(f,"ox")+px)/cw,v=(number(f,"oy")+py)/ch
             let localY=(0.5-v)*ch/unit
             vertices.append(SCNVector3((u-0.5)*cw/unit,localY,z))
+            var covered=false
             if let alpha=alpha {
                 var coverage=[Int](repeating:0,count:4);alpha.getPixel(&coverage,atX:ax,y:ay)
-                if coverage[3]>=16 {minimum=min(minimum,localY*cos(Terrain3D.canonicalElevation)+z*sin(Terrain3D.canonicalElevation))}
+                covered=coverage[3]>=16
+                if covered {minimum=min(minimum,localY*cos(Terrain3D.canonicalElevation)+z*sin(Terrain3D.canonicalElevation))}
             }
+            opaque.append(covered)
             uv.append(CGPoint(x:u,y:v))
         }}
         for y in 0..<ny {for x in 0..<nx {
             let a=Int32(y*(nx+1)+x),b=a+1,c=a+Int32(nx+1),d=c+1
             indices += [a,c,b,b,c,d]
         }}
-        let mesh=Mesh(vertices:vertices,uv:uv,indices:indices)
+        var floors=[Float](repeating:Float.infinity,count:nx+1),anchors=[Int](repeating:-1,count:nx+1)
+        let tilt=simd_quatf(angle:-Float(Terrain3D.canonicalElevation),axis:SIMD3<Float>(1,0,0))
+        for i in vertices.indices where opaque[i] {
+            let column=i%(nx+1),height=tilt.act(SIMD3<Float>(vertices[i])).y
+            if height<floors[column] {floors[column]=height;anchors[column]=i}
+        }
+        let fallback=minimum.isFinite ? Float(minimum):0
+        let base=[Float](repeating:fallback,count:vertices.count)
+        let mesh=Mesh(vertices:vertices,uv:uv,indices:indices,baseHeights:base,baseSamples:anchors.filter{$0>=0 && tilt.act(SIMD3<Float>(vertices[$0])).y<=fallback+0.08})
         contactHeights[key]=minimum.isFinite ? Float(minimum):0
         if meshes.count>512 {meshes.removeAll()};meshes[key]=mesh
         return mesh
