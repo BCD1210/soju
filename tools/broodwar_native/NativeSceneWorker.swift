@@ -203,9 +203,11 @@ final class NativeSceneWorker {
             overlays += overlayCache.nodes(view.overlays)
             overlays.sort{$0.renderingOrder<$1.renderingOrder}
             if yieldToNative() {throw RefinementYield.nativePending}
-            generation &+= 1
-            try batches.prepare(MetalBatches.Input(sceneRevision:generation,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,
-                terrain:terrain.terrain,billboards:billboards.filter{$0.key != view.hiddenUnit}.map{$0.value},overlays:overlays,objectCount:units.count,retireTerrainSources:true,reuseUnitPoses:true))
+            let nextGeneration=generation &+ 1
+            try batches.prepare(MetalBatches.Input(sceneRevision:nextGeneration,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,
+                terrain:terrain.terrain,billboards:billboards.filter{$0.key != view.hiddenUnit}.map{$0.value},overlays:overlays,objectCount:units.count,retireTerrainSources:true,reuseUnitPoses:true),checkpoint:{
+                    if yieldToNative() {throw RefinementYield.nativePending}
+                })
             var picks=[ScenePickMesh](),positions=[String:SIMD3<Float>]()
             func pick(_ node:SCNNode,_ target:ScenePickHit.Target,sharedKey:String?=nil,relief:SpriteRelief.Mesh?=nil) {
                 guard !node.isHidden,let geometry=node.geometry,let source=geometry.sources(for:.vertex).first else {return}
@@ -228,6 +230,7 @@ final class NativeSceneWorker {
                 picks.append(ScenePickMesh(target:target,transform:node.simdWorldTransform,vertices:packed.vertices,indices:packed.indices,lower:packed.lower,upper:packed.upper))
             }
             for (id,billboard) in billboards where !billboard.root.isHidden {
+                if yieldToNative() {throw RefinementYield.nativePending}
                 positions[id]=billboard.root.simdWorldPosition
                 for (index,node) in billboard.layers where number(billboard.nativeLayers[index] ?? [:],"drawfunc") != 10 {
                     let shared=billboard.contactMeshes[index]==nil && billboard.sourceMeshes[index] != nil
@@ -253,6 +256,8 @@ final class NativeSceneWorker {
                 "capability":"native HD relief and sprite chains; authored rigs require SOJU_BW_RENDERER=scenekit"]
             let projection=view.camera.projection*simd_inverse(view.camera.transform)
             let bounds=billboards.mapValues{$0.projectedSpriteBounds(projection:projection,viewport:view.viewport,art:sprites)}
+            if yieldToNative() {throw RefinementYield.nativePending}
+            generation=nextGeneration
             var packet=ScenePacket(generation:generation,session:session,batches:batches.batches,picks:picks,nativeFrame:number(state,"frame"),publishedAt:CACurrentMediaTime(),unitPositions:positions,diagnostics:diagnostics,spriteBounds:bounds)
             packet.timing=SceneTiming(native:number(state,"nativeAt"),bridgeStarted:number(state,"bridgeStartedAt"),bridgeRead:number(state,"bridgeReadAt"),workerStarted:workerStartedAt,published:packet.publishedAt)
             packet.timing.bridgeWireRead=number(state,"bridgeWireReadAt")

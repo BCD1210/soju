@@ -152,13 +152,19 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     do {_ = try failedTerrain.packet(view("terrain-retry"),yieldToNative:{yieldChecks+=1;return yieldChecks==2})}
     catch NativeSceneWorker.RefinementYield.nativePending {}
     try require(yieldChecks==2 && failedTerrain.generation==beforeFailure.generation,"a native arrival during view preparation cancels redundant batch construction")
+    yieldChecks=0
+    do {_ = try failedTerrain.packet(view("terrain-retry"),yieldToNative:{yieldChecks+=1;return yieldChecks==4})}
+    catch NativeSceneWorker.RefinementYield.nativePending {}
+    try require(yieldChecks==4 && failedTerrain.generation==beforeFailure.generation,"native arrival during GPU batch preparation leaves the published generation unchanged")
+    let afterYield=try failedTerrain.packet(view("terrain-retry"))
+    try require(afterYield.nativeFrame==beforeFailure.nativeFrame && afterYield.picks.count==beforeFailure.picks.count,"the next publication completes after an interrupted batch preparation")
     let tileKey=String(failedTerrain.terrain.mapTiles[0]),originalTile=failedTerrain.terrain.art.tileCatalog[tileKey]!
     failedTerrain.terrain.art.tileCatalog[tileKey]?["file"]="runtime-check-missing-terrain.dds"
     failedTerrain.apply(NativeSceneWorker.Update(state:terrainState,fog:[0:50],creep:[]))
     var terrainRejected=false
     do {_ = try failedTerrain.packet(view("terrain-retry"))}
     catch SceneError.invalid(let message) {terrainRejected=message.contains("Terrain:")}
-    try require(terrainRejected && failedTerrain.generation==beforeFailure.generation,"terrain loading failure rejects publication of an incomplete scene packet")
+    try require(terrainRejected && failedTerrain.generation==afterYield.generation,"terrain loading failure rejects publication of an incomplete scene packet")
     failedTerrain.terrain.art.tileCatalog[tileKey]=originalTile
     let recovered=try failedTerrain.packet(view("terrain-retry"))
     try require(recovered.picks.filter{$0.target == .terrain}.count==1,"failed terrain retries and recovers with unchanged fog and camera")

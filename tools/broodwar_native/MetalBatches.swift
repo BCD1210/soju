@@ -361,9 +361,10 @@ final class MetalBatches {
     func prepare(_ commander:Commander)throws {
         try prepare(input(commander))
     }
-    func prepare(_ commander:Input)throws {
+    func prepare(_ commander:Input,checkpoint:()throws->Void={})throws {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"Batch prepare")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Batch prepare")}
+        try checkpoint()
         let terrainChanged=terrainRevision != commander.terrainRevision || terrainFogRevision != commander.terrainFogRevision
         sourceRevision=commander.sceneRevision
         revisions=commander.billboards.map{($0,$0.geometryRevision)}
@@ -391,6 +392,7 @@ final class MetalBatches {
             }
         }
         for key in groups.keys.sorted() {
+            try checkpoint()
             let nodes=groups[key]!,node=nodes[0]
             guard let geometry=node.geometry,let material=geometry.firstMaterial else {continue}
             let source=geometry.sources(for:.vertex).first
@@ -436,6 +438,7 @@ final class MetalBatches {
         let unitEnd=constructed.count
         // Preserve creep edges and independent native sprite chains as overlays.
         for node in commander.overlays {
+            try checkpoint()
             guard let geometry=node.geometry,let material=geometry.firstMaterial else {continue}
             if node.categoryBitMask != 4 {node.categoryBitMask=4}
             let key=String(describing:ObjectIdentifier(geometry)),uv=material.diffuse.contentsTransform
@@ -463,6 +466,7 @@ final class MetalBatches {
             }
         }
         for i in constructed.indices where constructed[i].drawNodes.isEmpty {
+            try checkpoint()
             constructed[i].drawNodes=constructed[i].nodes.map { node in
                 DrawNode(transform:node.simdWorldTransform,scale:node.simdScale,opacity:inheritedOpacity(node),hidden:node.isHidden,
                     billboard:node.constraints?.contains(where:{$0 is SCNBillboardConstraint})==true)
