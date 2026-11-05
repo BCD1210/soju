@@ -28,7 +28,7 @@ final class EffectSprites {
                 do {
                     guard let image=NSImage(contentsOf:folder.appendingPathComponent(key)),
                         let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {throw SceneError.invalid("Missing effect frame")}
-                    result=try TextureResidency.shared.load(loader,MetalBatches.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.topLeft])
+                    result=try TextureResidency.shared.load(loader,MetalBatches.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.topLeft],owner:"effects")
                 } catch {fputs("Effect stream \(key): \(error)\n",stderr)}
                 lock.lock();pending.remove(key)
                 if let texture=result {resident.insert(texture,key:key,bytes:MetalBatches.textureBytes(texture))}

@@ -162,6 +162,7 @@ final class MetalBatches {
         let keys:[Int],sources:[SCNGeometrySource],masks:[AnyObject],diffuse:[AnyObject],poses:[[SIMD4<Float>]],batch:Batch
     }
     private var terrainPageCache=[Int:TerrainPage]()
+    private var preparedTerrain=[Batch]()
     var revisions=[(UnitBillboard,Int)]()
     lazy var flatIndices=buffer([UInt32(0),1,2,2,1,3])
     var stereoColor:MTLTexture?,stereoDepth:MTLTexture?,stereoResolved:MTLTexture?
@@ -189,7 +190,7 @@ final class MetalBatches {
         self.device=device;loader=MTKTextureLoader(device:device);queue=device.makeCommandQueue()!
         func solid(_ rgba:[UInt8])throws->MTLTexture {
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
-            guard let t=TextureResidency.shared.make(device,d) else {throw SceneError.invalid("Solid texture residency limit")}
+            guard let t=TextureResidency.shared.make(device,d,owner:"render-targets") else {throw SceneError.invalid("Solid texture residency limit")}
             rgba.withUnsafeBytes{t.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4)}
             return t
         }
@@ -270,7 +271,7 @@ final class MetalBatches {
             let key="solid/\(rgb.redComponent)/\(rgb.greenComponent)/\(rgb.blueComponent)/\(rgb.alphaComponent)"
             if let cached=textures.get(key) {return cached.1}
             let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:1,height:1,mipmapped:false)
-            guard let texture=TextureResidency.shared.make(device,descriptor) else {throw SceneError.invalid("Solid texture residency limit")}
+            guard let texture=TextureResidency.shared.make(device,descriptor,owner:"cards-overlays") else {throw SceneError.invalid("Solid texture residency limit")}
             let bytes=[rgb.redComponent,rgb.greenComponent,rgb.blueComponent,rgb.alphaComponent].map{UInt8(max(0,min(255,($0*255).rounded())))}
             bytes.withUnsafeBytes{texture.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4)}
             textures.insert((NSImage(size:NSSize(width:1,height:1)),texture),key:key,bytes:Self.textureBytes(texture));return texture
@@ -279,7 +280,7 @@ final class MetalBatches {
         let key=String(describing:ObjectIdentifier(image))+"/\(topLeft)"
         if let cached=textures.get(key) {return cached.1}
         guard let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {return fallback}
-        let t=Self.colorView(try TextureResidency.shared.load(loader,Self.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:topLeft ? MTKTextureLoader.Origin.topLeft:MTKTextureLoader.Origin.bottomLeft]))
+        let t=Self.colorView(try TextureResidency.shared.load(loader,Self.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:topLeft ? MTKTextureLoader.Origin.topLeft:MTKTextureLoader.Origin.bottomLeft],owner:"cards-overlays"))
         textures.insert((image,t),key:key,bytes:Self.textureBytes(t));return t
     }
     func mesh(_ geometry:SCNGeometry,transform:simd_float4x4=matrix_identity_float4x4,slice:Float=0,uvTransform:SCNMatrix4=SCNMatrix4Identity)->([Vertex],[UInt32]) {
@@ -346,10 +347,14 @@ final class MetalBatches {
     func prepare(_ commander:Input)throws {
         os_signpost(.begin,log:XRFrameMetrics.log,name:"Batch prepare")
         defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Batch prepare")}
-        sourceRevision=commander.sceneRevision;terrainRevision=commander.terrainRevision
-        terrainFogRevision=commander.terrainFogRevision
+        let terrainChanged=terrainRevision != commander.terrainRevision || terrainFogRevision != commander.terrainFogRevision
+        sourceRevision=commander.sceneRevision
         revisions=commander.billboards.map{($0,$0.geometryRevision)}
-        var constructed=try prepareTerrain(commander.terrain,width:commander.mapWidth)
+        if terrainChanged {
+            preparedTerrain=try prepareTerrain(commander.terrain,width:commander.mapWidth)
+            terrainRevision=commander.terrainRevision;terrainFogRevision=commander.terrainFogRevision
+        }
+        var constructed=preparedTerrain
         var groups=[String:[SCNNode]]()
         for billboard in commander.billboards where !billboard.root.isHidden {
             for (index,native) in billboard.nativeLayers {
@@ -430,6 +435,13 @@ final class MetalBatches {
             let masks=nodes.map{$0.geometry!.firstMaterial!.multiply.contents as AnyObject}
             guard sources.count==nodes.count,let first=nodes.first?.geometry?.firstMaterial?.diffuse.contents as? MTLTexture else {continue}
             let diffuseSources=nodes.map{$0.geometry!.firstMaterial!.diffuse.contents as AnyObject}
+            // Repeated tiles share a diffuse slice; visibility remains per map tile.
+            var unique=[MTLTexture](),sliceByTexture=[ObjectIdentifier:Int]()
+            let diffuseSlices=diffuseSources.map { source -> Int in
+                let identity=ObjectIdentifier(source)
+                if let slice=sliceByTexture[identity] {return slice}
+                let slice=unique.count;sliceByTexture[identity]=slice;unique.append(source as! MTLTexture);return slice
+            }
             let poses=nodes.map{node in let t=node.simdWorldTransform;return [t.columns.0,t.columns.1,t.columns.2,t.columns.3]}
             let previous=terrainPageCache[page]
             let reuse=previous?.keys==keys && previous!.sources.count==sources.count && zip(previous!.sources,sources).allSatisfy{$0 === $1} && previous!.poses==poses && zip(previous!.diffuse,diffuseSources).allSatisfy{$0 === $1}
@@ -441,25 +453,28 @@ final class MetalBatches {
             let firstMask=try texture(nodes[0].geometry?.firstMaterial?.multiply.contents,fallback:white)
             let fd=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm_srgb,width:firstMask.width,height:firstMask.height,mipmapped:false)
             fd.textureType = .type2DArray;fd.arrayLength=nodes.count;fd.storageMode = .private;fd.usage = .shaderRead
-            guard let fog=TextureResidency.shared.make(device,fd) else {throw SceneError.invalid("Fog texture residency limit")}
+            guard let fog=TextureResidency.shared.make(device,fd,owner:"terrain-fog") else {throw SceneError.invalid("Fog texture residency limit")}
             let diffuse:MTLTexture
             if reuse {diffuse=previous!.batch.textures[0]}
             else {
                 let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:first.pixelFormat,width:first.width,height:first.height,mipmapped:true)
-                d.textureType = .type2DArray;d.arrayLength=nodes.count;d.storageMode = .private;d.usage = .shaderRead
-                guard let array=TextureResidency.shared.make(device,d) else {throw SceneError.invalid("Terrain texture residency limit")}
+                d.textureType = .type2DArray;d.arrayLength=unique.count;d.storageMode = .private;d.usage = .shaderRead
+                guard let array=TextureResidency.shared.make(device,d,owner:"terrain-pages") else {throw SceneError.invalid("Terrain texture residency limit")}
                 diffuse=array
             }
             let command=queue.makeCommandBuffer()!,blit=command.makeBlitCommandEncoder()!
             if reuse {blit.copy(from:previous!.batch.textures[1],sourceSlice:0,sourceLevel:0,to:fog,destinationSlice:0,destinationLevel:0,sliceCount:nodes.count,levelCount:1)}
-            var vertices=[Vertex](),indices=[UInt32]()
+            var vertices=[Vertex](),indices=[UInt32](),copied=Set<Int>()
             for (slice,node) in nodes.enumerated() {
                 let geometry=node.geometry!,material=geometry.firstMaterial!
                 if !reuse,let source=material.diffuse.contents as? MTLTexture {
-                    for level in 0..<source.mipmapLevelCount {
-                        blit.copy(from:source,sourceSlice:0,sourceLevel:level,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:max(1,source.width>>level),height:max(1,source.height>>level),depth:1),to:diffuse,destinationSlice:slice,destinationLevel:level,destinationOrigin:MTLOrigin())
+                    if copied.insert(diffuseSlices[slice]).inserted {
+                        for level in 0..<source.mipmapLevelCount {
+                            blit.copy(from:source,sourceSlice:0,sourceLevel:level,sourceOrigin:MTLOrigin(),sourceSize:MTLSize(width:max(1,source.width>>level),height:max(1,source.height>>level),depth:1),to:diffuse,destinationSlice:diffuseSlices[slice],destinationLevel:level,destinationOrigin:MTLOrigin())
+                        }
                     }
-                    let (v,ind)=mesh(geometry,transform:node.simdWorldTransform,slice:Float(slice),uvTransform:material.diffuse.contentsTransform)
+                    var (v,ind)=mesh(geometry,transform:node.simdWorldTransform,slice:Float(diffuseSlices[slice]),uvTransform:material.diffuse.contentsTransform)
+                    for index in v.indices {v[index].uv.w=Float(slice)}
                     let base=UInt32(vertices.count);vertices+=v;indices+=ind.map{$0+base}
                 }
                 if !reuse || previous!.masks[slice] !== masks[slice] {
@@ -496,8 +511,8 @@ final class MetalBatches {
         if overlayColor?.width != output.width || overlayColor?.height != output.height {
             let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm_srgb,width:output.width,height:output.height,mipmapped:false)
             descriptor.usage=[.renderTarget,.shaderRead];descriptor.storageMode = .private
-            overlayResolved=TextureResidency.shared.make(device,descriptor)
-            if samples>1 {descriptor.textureType = .type2DMultisample;descriptor.sampleCount=samples;descriptor.usage = .renderTarget;overlayColor=TextureResidency.shared.make(device,descriptor)}
+            overlayResolved=TextureResidency.shared.make(device,descriptor,owner:"cards-overlays")
+            if samples>1 {descriptor.textureType = .type2DMultisample;descriptor.sampleCount=samples;descriptor.usage = .renderTarget;overlayColor=TextureResidency.shared.make(device,descriptor,owner:"cards-overlays")}
             else {overlayColor=overlayResolved}
         }
         guard overlayColor != nil,overlayResolved != nil else {throw SceneError.invalid("Overlay texture residency limit")}
@@ -534,11 +549,11 @@ final class MetalBatches {
             frameMetrics?.created(.renderTexture,samples>1 ? 3:2);frameMetrics?.created(.textureView,2)
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm_srgb,width:output.width,height:output.height,mipmapped:false)
             d.textureType = .type2DArray;d.arrayLength=2;d.storageMode = .private;d.usage = [.renderTarget,.shaderRead]
-            stereoResolved=TextureResidency.shared.make(device,d)
+            stereoResolved=TextureResidency.shared.make(device,d,owner:"render-targets")
             d.usage = .renderTarget
-            if samples>1 {d.textureType = .type2DMultisampleArray;d.sampleCount=samples;stereoColor=TextureResidency.shared.make(device,d)}
+            if samples>1 {d.textureType = .type2DMultisampleArray;d.sampleCount=samples;stereoColor=TextureResidency.shared.make(device,d,owner:"render-targets")}
             else {stereoColor=stereoResolved}
-            d.pixelFormat = .depth32Float_stencil8;stereoDepth=TextureResidency.shared.make(device,d)
+            d.pixelFormat = .depth32Float_stencil8;stereoDepth=TextureResidency.shared.make(device,d,owner:"render-targets")
             depthViews=(0..<2).compactMap {eye in stereoDepth?.makeTextureView(pixelFormat:.depth32Float_stencil8,textureType:samples>1 ? .type2DMultisample:.type2D,levels:0..<1,slices:eye..<(eye+1))}
             stereoPass.renderTargetArrayLength=2
             stereoPass.colorAttachments[0].texture=stereoColor;stereoPass.colorAttachments[0].resolveTexture=samples>1 ? stereoResolved:nil
@@ -656,10 +671,10 @@ final class MetalBatches {
     struct Vertex {float4 position;float4 uv;};
     struct Instance {float4x4 model;float4 parameters;};
     struct Uniforms {float4x4 vp[2];float4 eye[2];};
-    struct Raster {float4 position [[position]];uint slice [[render_target_array_index]];float3 uv;float3 light;float3 view;float4 parameters [[flat]];};
+    struct Raster {float4 position [[position]];uint slice [[render_target_array_index]];float4 uv;float3 light;float3 view;float4 parameters [[flat]];};
     vertex Raster batchVertex(uint v [[vertex_id]],uint i [[instance_id]],uint eye [[amplification_id]],device const Vertex* vertices [[buffer(0)]],device const Instance* instances [[buffer(1)]],constant Uniforms& u [[buffer(2)]]) {
         Vertex a=vertices[v];Instance b=instances[i];Raster r;
-        float4 world=b.model*a.position;r.position=u.vp[eye]*world;r.slice=eye;r.uv=a.uv.xyz;r.parameters=b.parameters;
+        float4 world=b.model*a.position;r.position=u.vp[eye]*world;r.slice=eye;r.uv=a.uv;r.parameters=b.parameters;
         float3x3 rotation=float3x3(b.model[0].xyz,b.model[1].xyz,b.model[2].xyz);
         r.light=u.eye[0].w==0 ? float3(-0.22033581,0.54387457,0.80972377):transpose(rotation)*float3(-0.22033581,0.89032002,0.39847509);
         r.view=u.eye[0].w==0 ? float3(0,0,1):transpose(rotation)*(u.eye[eye].xyz-world.xyz);return r;
@@ -669,7 +684,7 @@ final class MetalBatches {
         constexpr sampler terrainSampler(coord::normalized,address::clamp_to_edge,filter::linear,mip_filter::linear,max_anisotropy(16));
         if(batchMode==2) {
             float2 size=r.parameters.zw;float2 original=(r.uv.xy*size-8.0)/(size-16.0);
-            return float4(terrain.sample(terrainSampler,r.uv.xy,uint(r.uv.z)).rgb*fog.sample(s,float2(original.x,1.0-original.y),uint(r.uv.z)).rgb,1);
+            return float4(terrain.sample(terrainSampler,r.uv.xy,uint(r.uv.z)).rgb*fog.sample(s,float2(original.x,1.0-original.y),uint(r.uv.w)).rgb,1);
         }
         float4 color=diffuse.sample(s,r.uv.xy);if(color.a<0.01) discard_fragment();
         if(batchMode==3) return float4(0,0,0,color.a*r.parameters.y);

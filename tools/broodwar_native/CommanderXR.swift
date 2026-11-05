@@ -111,8 +111,8 @@ extension Commander {
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float_stencil8,width:texture.width,height:texture.height,mipmapped:false)
             desc.storageMode = .private;desc.usage = .renderTarget
             desc.textureType = .type2DMultisample;desc.sampleCount=4
-            xrDepth[index]=TextureResidency.shared.make(art.device,desc)
-            desc.pixelFormat=output.pixelFormat;xrColor[index]=TextureResidency.shared.make(art.device,desc)
+            xrDepth[index]=TextureResidency.shared.make(art.device,desc,owner:"render-targets")
+            desc.pixelFormat=output.pixelFormat;xrColor[index]=TextureResidency.shared.make(art.device,desc,owner:"render-targets")
         }
         let pass=xrScenePass;pass.colorAttachments[0].texture=xrColor[index]
         pass.colorAttachments[0].resolveTexture=output
@@ -176,7 +176,7 @@ extension Commander {
             if eye.eye==0 {lastMirrorTime=xrFrameTime}
             let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:texture.pixelFormat,width:texture.width,height:texture.height,mipmapped:false)
             desc.usage = .shaderRead;desc.storageMode = .private
-            if let copy=TextureResidency.shared.make(art.device,desc),let blit=buffer.makeBlitCommandEncoder() {
+            if let copy=TextureResidency.shared.make(art.device,desc,owner:"captures"),let blit=buffer.makeBlitCommandEncoder() {
                 blit.copy(from:texture,to:copy);blit.endEncoding()
                 buffer.addCompletedHandler { [weak self] command in
                     guard command.status == .completed,let ci=CIImage(mtlTexture:copy,options:nil),let cg=context.createCGImage(ci.transformed(by:CGAffineTransform(translationX:0,y:CGFloat(copy.height)).scaledBy(x:1,y:-1)),from:ci.extent) else { return }

@@ -73,14 +73,14 @@ final class FrameStream {
                 do {
                     guard let image=source.texture(id,frame:frame,color:color),
                         let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) else {throw SceneError.invalid("Missing sprite frame")}
-                    let diffuse=MetalBatches.colorView(try TextureResidency.shared.load(loader,MetalBatches.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.topLeft]))
+                    let diffuse=MetalBatches.colorView(try TextureResidency.shared.load(loader,MetalBatches.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.topLeft],owner:"unit-model"))
                     let mesh=source.relief.meshData(id,frame:frame,art:source)
                     let material=source.relief.material(id,frame:frame,color:color,art:source)
                     material.diffuse.contents=diffuse;cost+=MetalBatches.textureBytes(diffuse)
                     for name in ["normal","bright","specular","emissive","ao_depth"] {
                         guard let property=material.value(forKey:"relief_"+name) as? SCNMaterialProperty else {continue}
                         if let image=property.contents as? NSImage,let cg=image.cgImage(forProposedRect:nil,context:nil,hints:nil) {
-                            property.contents=MetalBatches.colorView(try TextureResidency.shared.load(loader,MetalBatches.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.topLeft]))
+                            property.contents=MetalBatches.colorView(try TextureResidency.shared.load(loader,MetalBatches.colorImage(cg),options:[.SRGB:true,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.topLeft],owner:"unit-model"))
                         }
                         if let texture=property.contents as? MTLTexture {cost+=MetalBatches.textureBytes(texture)}
                     }
