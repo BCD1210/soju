@@ -47,6 +47,16 @@ final class UnitBillboard {
             let shadow=Int(number(native,"drawfunc"))==10
             let (frame,mirrored)=observerAzimuth != nil && !shadow ? Self.viewFrame(native,azimuth:observerAzimuth!,count:records.count):(Int(number(native,"frame")),Int(number(native,"flags"))&2 != 0)
             guard records.indices.contains(frame) else {continue}
+            if sameTeam,shown[index]==frame,shownImages[index]==id,shownColors[index]==color,
+               let node=layers[index],!node.isHidden,
+               number(nativeLayers[index] ?? [:],"drawfunc")==number(native,"drawfunc") {
+                keep.insert(index);nativeLayers[index]=native
+                node.position=SCNVector3(number(native,"offsetX")/32,shadow ? 0.025:-number(native,"offsetY")/32,0)
+                node.scale.x=mirrored ? -1:1
+                evidence.append(["image":id,"frame":frame,"frameset":number(native,"frameset"),
+                    "direction":number(native,"direction"),"mirrored":mirrored])
+                continue
+            }
             let prepared=art.stream?.get(id,frame:frame,color:color)
             if let stream=art.stream,prepared==nil {
                 stream.request(id,frame:frame,color:color);keep.insert(index);nativeLayers[index]=native
@@ -63,18 +73,19 @@ final class UnitBillboard {
             keep.insert(index);nativeLayers[index]=native;shown[index]=frame;shownImages[index]=id;shownColors[index]=color
             if let prepared=prepared {contacts[index]=prepared.contact}
             let node=layers[index] ?? SCNNode()
-            let plane=SCNPlane(width:number(entry,"grpWidth")/32,height:number(entry,"grpHeight")/32)
-            let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
-            material.diffuse.contents=image;material.diffuse.wrapS = .clamp;material.diffuse.wrapT = .clamp
-            material.readsFromDepthBuffer=false;material.writesToDepthBuffer=false;plane.materials=[material];node.geometry=plane
             if !shadow,let data=prepared?.geometry ?? (art.stream==nil ? art.relief.meshData(id,frame:frame,art:art):nil) {
                 sourceMeshes[index]=data;contactPoses.removeValue(forKey:index);contactMeshes.removeValue(forKey:index)
                 let mesh=art.geometry(data,id:id,frame:frame)
                 mesh.materials=[prepared?.material.material() ?? art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
+            } else {
+                let plane=SCNPlane(width:number(entry,"grpWidth")/32,height:number(entry,"grpHeight")/32)
+                let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
+                material.diffuse.contents=image;material.diffuse.wrapS = .clamp;material.diffuse.wrapT = .clamp
+                material.readsFromDepthBuffer=false;material.writesToDepthBuffer=false;plane.materials=[material];node.geometry=plane
             }
             node.isHidden=false;node.castsShadow=false;node.renderingOrder=node.geometry is SCNPlane ? 1000+Int(number(unit,"y"))*32+chain.count-index:0
             if shadow {
-                node.constraints=nil;node.eulerAngles.x = -.pi/2;material.multiply.contents=NSColor.black;material.readsFromDepthBuffer=true;node.opacity=0.5
+                node.constraints=nil;node.eulerAngles.x = -.pi/2;node.geometry?.firstMaterial?.multiply.contents=NSColor.black;node.geometry?.firstMaterial?.readsFromDepthBuffer=true;node.opacity=0.5
             } else {
                 node.eulerAngles = SCNVector3Zero;node.opacity=1
                 let constraint=SCNBillboardConstraint();constraint.freeAxes = .all;node.constraints=[constraint]

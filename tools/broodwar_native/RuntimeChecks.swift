@@ -152,7 +152,7 @@ func runtimeChecks()throws {
     try require(streamedBillboard.layers[0]!.geometry === movingGeometry && streamedBillboard.geometryRevision==movingRevision && abs(streamedBillboard.root.position.x-4.125)<0.001 && number(streamedBillboard.nativeLayers[0]!,"mapX")==132,"native translation updates pose and evidence without rebuilding unchanged image geometry")
     movedUnit["image"]=["id":239,"frame":68,"flags":0,"mapX":132,"mapY":100,"offsetX":4]
     streamedBillboard.apply(movedUnit,ground:commander.ground,art:streamedArt,color:streamBlue)
-    try require(streamedBillboard.geometryRevision>movingRevision && streamedBillboard.layers[0]!.geometry !== movingGeometry,"image offset changes still rebuild the native layer")
+    try require(streamedBillboard.geometryRevision>movingRevision && streamedBillboard.layers[0]!.geometry === movingGeometry && abs(streamedBillboard.layers[0]!.position.x-0.125)<0.001,"image offset changes update the layer pose while retaining its frame geometry")
     var directional=streamedUnit
     directional["image"]=["id":239,"frame":68,"frameset":68,"direction":0,"flags":8]
     streamedBillboard.apply(directional,ground:commander.ground,art:streamedArt,color:streamBlue)
