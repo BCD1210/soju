@@ -76,7 +76,7 @@ final class UnitBillboard {
             if !shadow,let data=prepared?.geometry ?? (art.stream==nil ? art.relief.meshData(id,frame:frame,art:art):nil) {
                 sourceMeshes[index]=data;contactPoses.removeValue(forKey:index);contactMeshes.removeValue(forKey:index)
                 let mesh=art.geometry(data,id:id,frame:frame)
-                mesh.materials=[prepared?.material.material() ?? art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
+                mesh.materials=[prepared?.material.material(sharedForMetal:useMetalBatches) ?? art.relief.material(id,frame:frame,color:color,art:art)];node.geometry=mesh
             } else {
                 let plane=SCNPlane(width:number(entry,"grpWidth")/32,height:number(entry,"grpHeight")/32)
                 let material=SCNMaterial();material.lightingModel = .constant;material.isDoubleSided=true
@@ -160,7 +160,7 @@ final class UnitBillboard {
                 if !shadow,let data=prepared?.geometry ?? (art.stream==nil ? art.relief.meshData(id,frame:frame,art:art):nil) {
                     sourceMeshes[index]=data;contactPoses.removeValue(forKey:index);contactMeshes.removeValue(forKey:index)
                     let mesh=art.geometry(data,id:id,frame:frame)
-                    mesh.materials=[prepared?.material.material() ?? art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh;node.renderingOrder=0
+                    mesh.materials=[prepared?.material.material(sharedForMetal:useMetalBatches) ?? art.relief.material(id,frame:frame,color:team,art:art)];node.geometry=mesh;node.renderingOrder=0
                 } else {node.geometry?.firstMaterial?.diffuse.contents=prepared?.image ?? art.texture(id,frame:frame,color:team) as Any?}
                 shown[index]=frame;shownImages[index]=id;shownColors[index]=team;node.isHidden=false
                 if let prepared=prepared {contacts[index]=prepared.contact}

@@ -121,6 +121,9 @@ func runtimeChecks()throws {
         let secondMap=secondMaterial.value(forKey:"relief_normal") as! SCNMaterialProperty
         firstMap.contents=NSColor.red
         try require(firstMap !== secondMap && !(secondMap.contents is NSColor),"streamed material reconstruction owns independent map properties")
+        let sharedFirst=prepared.material.material(sharedForMetal:true),sharedSecond=prepared.material.material(sharedForMetal:true)
+        try require(useMetalBatches ? sharedFirst === sharedSecond:sharedFirst !== sharedSecond,"only the read-only Metal path shares prepared frame materials")
+        try require(sharedFirst !== firstMaterial && sharedFirst !== secondMaterial && (sharedFirst.value(forKey:"relief_normal") as? SCNMaterialProperty)?.contents is MTLTexture,"shared Metal material remains independent of mutable fallback copies")
     }
     let streamedArt=WorldSprites(streaming:true),streamedBillboard=UnitBillboard(id:"stream-transition")
     let catalogFirst=streamedArt.frameRecords(239)!,catalogAgain=streamedArt.frameRecords(239)!
