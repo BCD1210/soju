@@ -381,7 +381,7 @@ final class MetalBatches {
         for billboard in commander.billboards where !billboard.root.isHidden {
             for (index,native) in billboard.nativeLayers {
                 guard let node=billboard.layers[index],let frame=billboard.shown[index] else {continue}
-                node.categoryBitMask=4
+                if node.categoryBitMask != 4 {node.categoryBitMask=4}
                 let shadow=Int(number(native,"drawfunc"))==10
                 if !shadow,let geometry=node.geometry,!(geometry is SCNPlane),let mesh=billboard.contactMeshes[index] ?? billboard.sourceMeshes[index] {
                     reliefMeshes[ObjectIdentifier(geometry)]=mesh
@@ -437,7 +437,7 @@ final class MetalBatches {
         // Preserve creep edges and independent native sprite chains as overlays.
         for node in commander.overlays {
             guard let geometry=node.geometry,let material=geometry.firstMaterial else {continue}
-            node.categoryBitMask=4
+            if node.categoryBitMask != 4 {node.categoryBitMask=4}
             let key=String(describing:ObjectIdentifier(geometry)),uv=material.diffuse.contentsTransform
             let ranges=geometry.elements.map{$0.primitiveRange}
             if type(of:geometry)==SCNGeometry.self,let cached=overlayGeometry.get(key),cached.geometry === geometry,

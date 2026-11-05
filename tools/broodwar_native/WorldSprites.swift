@@ -185,23 +185,28 @@ final class UnitBillboard {
                     stream.request(id,frame:neighbor,color:team,prefetch:true)
                 }
             }
-            node.opacity=shadow ? 0.5:1
-            node.constraints=nil
-            node.scale=SCNVector3(1,1,1)
+            let opacity:CGFloat=shadow ? 0.5:1
+            if node.opacity != opacity {node.opacity=opacity}
+            if node.constraints != nil {node.constraints=nil}
+            let scale=SIMD3<Float>(mirrored ? -1:1,1,1)
+            if node.simdScale != scale {node.simdScale=scale}
             if shadow {
                 // Owned shadow-image alpha retains the original soft coverage.
                 // Undo the source projection before laying that layer on ground.
-                (node.geometry as? SCNPlane)?.height=number(entry,"grpHeight")/32/sin(Terrain3D.canonicalElevation)
-                node.eulerAngles=SCNVector3(-Double.pi/2,0,0)
+                let height=CGFloat(number(entry,"grpHeight")/32/sin(Terrain3D.canonicalElevation))
+                if let plane=node.geometry as? SCNPlane,plane.height != height {plane.height=height}
+                let angles=SIMD3<Float>(-.pi/2,0,0)
+                if node.simdEulerAngles != angles {node.simdEulerAngles=angles}
                 let flight=unit["airborne"] as? Bool == true ? 1.5:0
-                node.position=SCNVector3(ox,0.002-flight,oy/sin(Terrain3D.canonicalElevation))
-                node.renderingOrder=1
+                let position=SIMD3<Float>(Float(ox),Float(0.002-flight),Float(oy/sin(Terrain3D.canonicalElevation)))
+                if node.simdPosition != position {node.simdPosition=position}
+                if node.renderingOrder != 1 {node.renderingOrder=1}
             } else {
-                node.simdOrientation=rotation
+                if node.simdOrientation.vector != rotation.vector {node.simdOrientation=rotation}
                 let offset=rotation.act(SIMD3<Float>(Float(ox),Float(-oy),0))
-                node.simdPosition=offset+SIMD3<Float>(0,node.geometry is SCNPlane ? Float(contact):buildingLift,0)
+                let position=offset+SIMD3<Float>(0,node.geometry is SCNPlane ? Float(contact):buildingLift,0)
+                if node.simdPosition != position {node.simdPosition=position}
             }
-            node.scale.x=mirrored ? -1:1
             if perspective,!shadow,id==Int(number(main,"id")),unit["building"] as? Bool == true,unit["airborne"] as? Bool != true,
                let ground=contactGround,let source=sourceMeshes[index] {
                 let transform=node.simdWorldTransform,pose=[transform.columns.0,transform.columns.1,transform.columns.2,transform.columns.3]
