@@ -1,6 +1,7 @@
 # Brood War M18 checkpoint
 
-M18 qualification is in progress. Started at `815337a` on `feat/broodwar-3d`.
+M18 qualification is incomplete. Required XR runs are blocked by the active D2R
+qualification job. Started at `815337a` on `feat/broodwar-3d`.
 Evidence is private under `runtime/3d-proof/m18/`, where `runtime/` means
 `~/.local/share/soju/broodwar-native/`. All commits remain local.
 
@@ -112,75 +113,100 @@ rank. This probe is not display acceptance.
 
 ## Latest desktop population check
 
-After frame admission was corrected, `population-desktop-final/` measured
-**45.043 seconds** following a 30-second warmup. All nine native samples retained
-**125 owned units**, and all **120 Marines moved more than 32 pixels**. The default
-texture budget recorded **zero rejections** and a **1,023.71 MiB** peak.
+`population-desktop-final/` measured **44.982 seconds** following a
+30-second warmup. All nine native samples retained **125 owned units**. All
+120 movement orders were accepted; **119 Marines displaced more than 32 pixels**.
+One Marine moved less than that threshold. The default texture budget recorded
+**zero rejections** and a **1,045.92 MiB** peak.
 
 | Stage | p50 ms | p95 ms |
 |---|---:|---:|
-| Bridge round trip | 31.19 | 42.05 |
-| Native hook to bridge receipt | 7.31 | 9.80 |
-| Bridge receipt to worker start | 5.99 | 8.44 |
-| Worker start to packet publication | 9.48 | 20.74 |
-| Packet publication to GPU completion | 5.86 | 35.55 |
-| Packet publication to compositor presentation | 27.32 | 57.60 |
-| Native hook to GPU completion | 45.80 | 66.41 |
-| Native hook to compositor presentation | 67.69 | 87.92 |
+| Bridge round trip | 31.66 | 44.81 |
+| Native hook to bridge receipt | 9.53 | 17.09 |
+| Bridge receipt to worker start | 6.82 | 10.26 |
+| Worker start to packet publication | 9.35 | 21.52 |
+| Native hook to publication (all displayed frames) | 28.09 | 59.29 |
+| Packet publication to GPU completion | 12.00 | 40.68 |
+| Packet publication to compositor presentation | 34.41 | 62.72 |
+| Native hook to GPU completion | 45.54 | 75.23 |
+| Native hook to compositor presentation | 68.08 | 97.63 |
 
 Packet age meets 50 ms in this desktop run, but native-to-presented latency does
-not meet 70 ms. Desktop cadence p95 was 21.69 ms with 2,220 estimated missed 90 Hz slots;
-this is not XR acceptance. The other qualification
-job remained active; no private XR session was started.
+not meet 70 ms. Desktop cadence p95 was 23.83 ms with 2,223 estimated missed
+90 Hz slots; this is not XR acceptance. The other qualification job remained
+active; no private XR session was started.
 
-## Desktop duel stability check
+The preceding `population-desktop-frame-admission/` run is retained separately:
+packet p95 35.55 ms, native-to-GPU p95 66.41 ms, native-to-presented p95 87.92 ms,
+and 1,023.71 MiB peak with zero rejections. It is not substituted for the latest
+result. The new native-to-publication metric includes view/terrain republication
+of older state on every displayed frame.
 
-`duel-desktop/` completed **610.076 measured seconds**, 121 native samples, and
-13,780 native-frame advances without a viewer crash. Texture peak was
-**983.39 MiB**, with **zero rejections** under the default limit. However, the
-scripted defense lost its workers and lifted its command center; all owned units
-were gone by 368.89 seconds. There were 27 samples with visible opponent units.
-This is **not a full live-duel acceptance pass**, and it does not replace the
-required XR duel. The later portion was a much lighter workload.
+## Active-play desktop duel
 
-| Desktop duel stage | p50 ms | p95 ms |
+`duel-desktop-active/` completed **609.427 measured seconds** after active warmup,
+with 119 native samples and frames **743 → 13,839**. It retained **6–32 owned
+units** throughout and ended with **eight workers, fourteen Marines, and an intact
+base**, including four garrisoned Marines. Ten field Marines received an ordinary
+attack-move order; native snapshots record their movement and engagement with
+Hydralisks and defenses. Only three sampled snapshots contained visible opponent
+units, so combat coverage was brief rather than continuous.
+
+The default **1,536 MiB** limit recorded **zero rejections** and a **1,080.65 MiB**
+peak. No viewer crash occurred. This passes desktop residency/stability only;
+**XR qualification remains pending and desktop latency does not pass**.
+
+| Active desktop duel stage | p50 ms | p95 ms |
 |---|---:|---:|
-| Bridge round trip (overlaps construction) | 36.71 | 52.35 |
-| Native hook to bridge receipt | 2.27 | 18.74 |
-| Bridge receipt to worker start | 1.13 | 3.90 |
-| Worker start to packet publication | 3.97 | 13.28 |
-| Packet publication to GPU completion | 20.08 | 50.04 |
-| Packet publication to compositor presentation | 42.40 | 71.53 |
-| Native hook to compositor presentation | 55.96 | 104.51 |
+| Bridge round trip | 36.47 | 73.52 |
+| Native hook to bridge receipt | 3.04 | 25.98 |
+| Bridge receipt to worker start | 1.89 | 4.10 |
+| Worker start to packet publication | 8.58 | 20.49 |
+| Packet publication to GPU completion | 11.82 | 54.94 |
+| Packet publication to compositor presentation | 33.98 | 75.76 |
+| Native hook to GPU completion | 36.11 | 173.78 |
+| Native hook to compositor presentation | 58.44 | 193.39 |
 
-| Allocation owner | Latest desktop 125-unit peak MiB | Desktop duel peak MiB |
+Desktop cadence p95 was 21.86 ms with 30,089 estimated missed 90 Hz slots. It is
+not evidence for the XR cadence gate. Stage percentiles must not be added; their
+sampling populations differ as described above. The native-to-publication metric was added after this duel and is available
+in the latest population run. It records source age on every displayed frame.
+
+| Allocation owner | Desktop 125-unit peak MiB | Active desktop duel peak MiB |
 |---|---:|---:|
-| Unit/model textures | 314.55 | 310.56 |
-| Terrain pages | 318.23 | 289.41 |
-| Terrain gutters | 268.75 | 246.00 |
-| Terrain sources | 33.28 | 29.91 |
-| Terrain fog, including source masks | 7.05 | 7.51 |
-| Cards/overlays | <0.01 | 54.08 |
-| Effects | 0 | 15.39 |
+| Unit/model textures | 329.52 | 348.05 |
+| Terrain pages | 347.81 | 305.81 |
+| Terrain gutters | 271.75 | 257.75 |
+| Terrain sources | 32.81 | 28.22 |
+| Terrain fog, including source masks | 7.31 | 7.98 |
+| Cards/overlays | <0.01 | 74.06 |
+| Effects | 0 | 32.30 |
 | Render targets | 104.75 | 104.75 |
 | Captures | 0 (disabled) | 0 (disabled) |
 
-The second attempt, `duel-desktop-defense/`, failed after about 505 seconds when
-all owned units were lost. Its peak was 1,044.38 MiB with zero rejections; the
-failure was not a renderer crash. The original driver waited through renderer
-warmup before issuing any mining orders, giving the opponent a head start.
+Evidence includes `live-final-metrics.json`, `live-state-samples.json`,
+`warmup-state-samples.json`, full native snapshots, `live-orders.json`,
+`raid-orders.json`, `raid-after.json`, and the exact executed `driver.py`.
 
-`measure_duel_active.py` now drives ordinary native game commands throughout
-warmup, arms metrics only after 30 connected seconds, then requires another
-610 seconds without losing all owned units. It prioritizes the bunker and four
+Two earlier duel attempts are retained and are not passes. `duel-desktop/` ran
+610.076 seconds, but lost all owned units by 368.89 seconds and continued with a
+lighter workload; its peak was 983.39 MiB with zero rejections.
+`duel-desktop-defense/` failed after about 505 seconds when all owned units were
+lost, peaking at 1,044.38 MiB with zero rejections. Neither was a renderer crash.
+
+The original driver waited through viewer warmup before issuing mining orders.
+The active driver now plays throughout warmup, prioritizes the bunker and four
 Marines before worker expansion, reserves repair workers, and delays scouting.
-The active-warmup attempt is still in progress; these are not tuning overrides.
+It arms metrics only after 30 connected seconds and then requires another
+610 seconds without losing all owned units. These are ordinary game commands,
+not renderer tuning overrides. The next XR run uses the same active-warmup
+strategy and schedules its field assaults within the driver.
 
 ## Validation
 
-- Python: **286 passed, 60 subtests passed**, `tests-python-frame-admission.log`.
+- Python: **286 passed, 60 subtests passed**, `tests-python-freshness.log`.
 - Rust: **17 passed**, `tests-rust-frame-admission.log`.
-- Runtime: **195 desktop / 200 XR / 200 fallback**, `runtime-*-batched.json`.
+- Runtime: **195 desktop / 200 XR / 200 fallback**, `runtime-*-freshness.json`.
   These checks ran offline against the private duel asset selection.
 - Rendered regression: **16 normal views pass, all 80 fault controls rejected**,
   `rendered-batched-cliff/acceptance.json` and
@@ -189,7 +215,7 @@ The active-warmup attempt is still in progress; these are not tuning overrides.
   sources match the repository. No game assets or `tools/broodwar_native/target/`
   are staged. `asset-upgrades/` and shared runtime source/services are untouched.
 
-## Local commits
+## Local implementation commits
 
 - `eab5351`: deduplicate terrain residency and bound cache eviction work.
 - `e0f3e98`: pipeline scene deltas and measure native display latency.
@@ -197,7 +223,9 @@ The active-warmup attempt is still in progress; these are not tuning overrides.
 - `11f45cd`: overlap bridge reads with bounded worker admission.
 - `ca157e3`: batch terrain uploads and expose packet display latency.
 - `794451f`: return to simulation after each snapshot read.
+- `31fbf9c`: expose native-state age at packet publication.
 
-The other qualification job still owns the simulator. Only desktop viewing and
+`acceptance.json` explicitly records incomplete status. The other qualification
+job still owns the simulator. Only desktop viewing and
 offline XR runtime checks have run so far; private XR controller chains, stress,
 and the full duel await release of that job.
