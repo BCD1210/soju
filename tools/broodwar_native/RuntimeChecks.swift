@@ -154,6 +154,12 @@ func runtimeChecks()throws {
         let sharedFirst=prepared.material.material(sharedForMetal:true),sharedSecond=prepared.material.material(sharedForMetal:true)
         try require(useMetalBatches ? sharedFirst === sharedSecond:sharedFirst !== sharedSecond,"only the read-only Metal path shares prepared frame materials")
         try require(sharedFirst !== firstMaterial && sharedFirst !== secondMaterial && (sharedFirst.value(forKey:"relief_normal") as? SCNMaterialProperty)?.contents is MTLTexture,"shared Metal material remains independent of mutable fallback copies")
+        let geometryArt=WorldSprites(streaming:true)
+        let sharedMesh=prepared.material.geometry(payload,art:geometryArt,id:239,frame:68)
+        let repeatedMesh=prepared.material.geometry(payload,art:geometryArt,id:239,frame:68)
+        try require(useMetalBatches ? sharedMesh === repeatedMesh:sharedMesh !== repeatedMesh,"read-only Metal frames reuse complete geometry while fallback retains private geometry")
+        let warped=payload.geometry();warped.materials=[SCNMaterial()]
+        try require((!useMetalBatches || sharedMesh.firstMaterial === sharedFirst) && sharedMesh.firstMaterial !== warped.firstMaterial && batchCheck.mesh(sharedMesh).1==payload.indices.map{UInt32($0)},"private contact geometry cannot replace the shared frame's material or indices")
     }
     let streamedArt=WorldSprites(streaming:true),streamedBillboard=UnitBillboard(id:"stream-transition")
     let catalogFirst=streamedArt.frameRecords(239)!,catalogAgain=streamedArt.frameRecords(239)!

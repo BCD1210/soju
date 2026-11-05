@@ -26,6 +26,14 @@ final class FrameStream {
         }
         let diffuse:MTLTexture,maps:[String:Map],shaders:[SCNShaderModifierEntryPoint:String]?
         private var sharedMetal:SCNMaterial?
+        private var sharedGeometry:SCNGeometry?
+        func geometry(_ mesh:SpriteRelief.Mesh,art:WorldSprites,id:Int,frame:Int)->SCNGeometry {
+            if useMetalBatches,let geometry=sharedGeometry {return geometry}
+            let geometry=art.geometry(mesh,id:id,frame:frame)
+            geometry.materials=[material(sharedForMetal:useMetalBatches)]
+            if useMetalBatches {sharedGeometry=geometry}
+            return geometry
+        }
         init(diffuse:MTLTexture,maps:[String:Map]) {
             self.diffuse=diffuse;self.maps=maps;shaders=nil
         }
