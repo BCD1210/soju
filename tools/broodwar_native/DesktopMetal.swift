@@ -7,7 +7,7 @@ import CoreImage
 final class DesktopSurface:MTKView {
     override func hitTest(_ point:NSPoint)->NSView? {nil}
 }
-final class DesktopMetal:NSObject,MTKViewDelegate {
+final class DesktopMetal:NSObject,MTKViewDelegate,CAMetalDisplayLinkDelegate {
     unowned let commander:Commander
     let surface:DesktopSurface,queue:MTLCommandQueue
     init(commander:Commander)throws {
@@ -21,6 +21,19 @@ final class DesktopMetal:NSObject,MTKViewDelegate {
         surface.delegate=self
         commander.view.isPlaying=false;commander.view.rendersContinuously=false;commander.view.scene=nil
         commander.view.addSubview(surface,positioned:.below,relativeTo:commander.label)
+        if let layer=surface.layer as? CAMetalLayer {
+            surface.isPaused=true
+            let link=CAMetalDisplayLink(metalLayer:layer)
+            link.delegate=self;link.preferredFrameLatency=1
+            let rate=Float(commander.view.window?.screen?.maximumFramesPerSecond ?? NSScreen.main?.maximumFramesPerSecond ?? 60)
+            link.preferredFrameRateRange=CAFrameRateRange(minimum:rate,maximum:rate,preferred:rate)
+            link.add(to:.main,forMode:.common);displayLink=link
+        }
+    }
+    private var displayLink:CAMetalDisplayLink?
+    deinit {displayLink?.invalidate()}
+    func metalDisplayLink(_ link:CAMetalDisplayLink,needsUpdate update:CAMetalDisplayLink.Update) {
+        draw(in:surface,drawable:update.drawable)
     }
     func mtkView(_ view:MTKView,drawableSizeWillChange size:CGSize) {}
     var requestedCapture:URL?
@@ -29,7 +42,11 @@ final class DesktopMetal:NSObject,MTKViewDelegate {
     private(set) var presentation:Presentation?
     let captureContext=CIContext()
     func draw(in view:MTKView) {
-        guard commander.initialized,let drawable=view.currentDrawable,let command=queue.makeCommandBuffer(),let batches=commander.metalBatches else {return}
+        guard let drawable=view.currentDrawable else {return}
+        draw(in:view,drawable:drawable)
+    }
+    private func draw(in view:MTKView,drawable:CAMetalDrawable) {
+        guard commander.initialized,let command=queue.makeCommandBuffer(),let batches=commander.metalBatches else {return}
         commander.sceneWorker?.mailbox.acquire(into:&framePacket)
         guard let camera=commander.desktopCameraPacket else {return}
         let position=camera.transform.columns.3
