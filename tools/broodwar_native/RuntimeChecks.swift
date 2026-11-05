@@ -101,10 +101,20 @@ func runtimeChecks()throws {
     let planeTop=planeVertices.max(by:{$0.position.y<$1.position.y})!
     try require(planeTop.uv.y==0,"SceneKit plane UVs also start at the image top")
     let streaming=FrameStream()
-    streaming.request(239,frame:68,color:[244,4,4])
+    var completedRequests=0
+    streaming.onReady={completedRequests+=1}
+    streaming.request(239,frame:68,color:[244,4,4],prefetch:true)
     let streamDeadline=Date().addingTimeInterval(30)
     while streaming.get(239,frame:68,color:[244,4,4])==nil && Date()<streamDeadline {Thread.sleep(forTimeInterval:0.01)}
     let prepared=streaming.get(239,frame:68,color:[244,4,4])
+    streaming.queue.sync {}
+    try require(completedRequests==0,"speculative frame readiness does not republish an unchanged scene")
+    streaming.queue.suspend()
+    streaming.request(239,frame:76,color:[244,4,4],prefetch:true)
+    streaming.request(239,frame:76,color:[244,4,4])
+    streaming.queue.resume()
+    streaming.queue.sync {}
+    try require(completedRequests==1 && streaming.get(239,frame:76,color:[244,4,4]) != nil,"a demanded pending prefetch wakes scene publication exactly once")
     try require(prepared?.geometry != nil,"background stream publishes a complete relief frame")
     try require(prepared?.image.pixelFormat == .rgba8Unorm_srgb || prepared?.image.pixelFormat == .bgra8Unorm_srgb,"streamed color is explicitly sRGB")
     if let prepared=prepared,let payload=prepared.geometry {

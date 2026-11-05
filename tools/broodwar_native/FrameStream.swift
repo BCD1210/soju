@@ -61,6 +61,7 @@ final class FrameStream {
     private let lock=NSLock()
     private let resident=ResidentCache<Prepared>(limit:192*1024*1024)
     private var pending=Set<String>(),failed=Set<String>()
+    private var demanded=Set<String>()
     var onReady:(()->Void)?
     private lazy var source=WorldSprites(streaming:false)
     private lazy var loader=MTKTextureLoader(device:source.relief.device)
@@ -75,10 +76,16 @@ final class FrameStream {
     func trim(to bytes:Int) {
         lock.lock();resident.trim(to:bytes);lock.unlock()
     }
-    func request(_ id:Int,frame:Int,color:[Int]) {
+    func request(_ id:Int,frame:Int,color:[Int],prefetch:Bool=false) {
         let key=key(id,frame,color)
         lock.lock()
-        guard resident.get(key)==nil,!pending.contains(key),!failed.contains(key),pending.count<64 else {lock.unlock();return}
+        guard resident.get(key)==nil,!failed.contains(key) else {lock.unlock();return}
+        if pending.contains(key) {
+            if !prefetch {demanded.insert(key)}
+            lock.unlock();return
+        }
+        guard pending.count<64 else {lock.unlock();return}
+        if !prefetch {demanded.insert(key)}
         pending.insert(key);lock.unlock()
         queue.async { [self] in
             autoreleasepool {
@@ -128,9 +135,10 @@ final class FrameStream {
                 defer {os_signpost(.end,log:XRFrameMetrics.log,name:"Stream publish")}
                 lock.lock()
                 pending.remove(key)
+                let notify=demanded.remove(key) != nil
                 if let result=result,cost<=resident.limit {resident.insert(result,key:key,bytes:cost)}else {failed.insert(key)}
                 lock.unlock()
-                if result != nil {onReady?()}
+                if result != nil && notify {onReady?()}
             }
         }
     }
