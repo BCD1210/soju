@@ -427,6 +427,13 @@ func runtimeChecks()throws {
     let footprintData:Obj=["width":16,"height":16,"flags":[Int](repeating:1,count:256),"heights":(0..<256).map{$0%16>=10 ? 2.0:0.0}]
     try JSONSerialization.data(withJSONObject:footprintData).write(to:footprintURL)
     let footprintGround=try Terrain3D(url:footprintURL)
+    var exactCorners=true
+    for y in -2...footprintGround.height+2 {for x in -2...footprintGround.width+2 {
+        let g=footprintGround
+        let expected=(g.heights[g.index(x-1,y-1)]+g.heights[g.index(x,y-1)]+g.heights[g.index(x-1,y)]+g.heights[g.index(x,y)])/4
+        exactCorners = exactCorners && g.corner(x,y,x,y)==expected
+    }}
+    try require(exactCorners,"immutable terrain corners match original height sampling inside and outside the map")
     let footprintUnit:Obj=["x":64,"y":64,"building":true,"footprintWidth":64,"footprintHeight":64]
     try require(footprintGround.elevation(2,2)==0 && footprintGround.buildingElevation(footprintUnit)==2,"building support includes elevated footprint corners beyond its center")
     let foundationSource=SpriteRelief.Mesh(vertices:[SCNVector3(-1,0,0),SCNVector3(1,0,0),SCNVector3(-1,1,0),SCNVector3(1,1,0)],uv:[CGPoint](repeating:.zero,count:4),indices:[0,1,2,1,3,2],baseHeights:[0,0,0,0],baseSamples:[0,1])

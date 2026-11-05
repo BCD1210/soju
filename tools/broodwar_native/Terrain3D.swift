@@ -4,12 +4,20 @@ import simd
 
 final class Terrain3D {
     let width:Int,height:Int,flags:[Int],heights:[Double],ramps:Set<Int>
+    private let cornerHeights:[Double]
     init(url:URL)throws {
         let data=try loadObject(url)
         width=Int(number(data,"width"));height=Int(number(data,"height"))
         guard width>0,height>0,let f=data["flags"] as? [Int],let h=data["heights"] as? [Double],
             f.count==width*height,h.count==f.count else { throw SceneError.invalid("Terrain minitile dimensions") }
         flags=f;heights=h;ramps=Set(data["rampCells"] as? [Int] ?? [])
+        let columns=width,rows=height
+        func sample(_ x:Int,_ y:Int)->Double {h[max(0,min(rows-1,y))*columns+max(0,min(columns-1,x))]}
+        var corners=[Double]();corners.reserveCapacity((columns+1)*(rows+1))
+        for y in 0...rows {for x in 0...columns {
+            corners.append((sample(x-1,y-1)+sample(x,y-1)+sample(x-1,y)+sample(x,y))/4)
+        }}
+        cornerHeights=corners
     }
     func index(_ x:Int,_ y:Int)->Int { max(0,min(height-1,y))*width+max(0,min(width-1,x)) }
     // Height never shifts the native horizontal map domain. A height-dependent
@@ -25,7 +33,10 @@ final class Terrain3D {
     // Shared corners give every cliff texel real surface area. Extra extruded
     // walls duplicated the baked cliff artwork and had zero-area texture UVs.
     func corner(_ x:Int,_ y:Int,_ cx:Int,_ cy:Int)->Double {
-        (heights[index(cx-1,cy-1)]+heights[index(cx,cy-1)]+heights[index(cx-1,cy)]+heights[index(cx,cy)])/4
+        // Immutable terrain corners are shared by visual and contact sampling.
+        // Outside-map corners retain the original clamped-height semantics.
+        if cx>=0 && cx<=width && cy>=0 && cy<=height {return cornerHeights[cy*(width+1)+cx]}
+        return (heights[index(cx-1,cy-1)]+heights[index(cx,cy-1)]+heights[index(cx-1,cy)]+heights[index(cx,cy)])/4
     }
 
     func surface(_ x:Int,_ y:Int)->[Double] {
