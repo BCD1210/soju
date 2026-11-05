@@ -22,6 +22,24 @@ def require(condition, message):
     if not condition:
         raise ValueError(message)
 
+def sprite_world_height(height_pixels, sprite_scale):
+    """Convert fitted HD sprite-space geometry to native 32-pixel terrain tiles."""
+    for value in (height_pixels, sprite_scale):
+        require(isinstance(value, (int, float)) and not isinstance(value, bool)
+                and math.isfinite(value) and value > 0, "Invalid native sprite scale")
+    return height_pixels / (sprite_scale * 32)
+
+def check_native_scale(definition):
+    record = definition.get("nativeScale")
+    if record is None:
+        return
+    require(isinstance(record, dict), "Invalid nativeScale record")
+    expected = sprite_world_height(record.get("heightPixels"), record.get("spriteScale"))
+    actual = definition.get("targetHeight")
+    require(isinstance(actual, (int, float)) and math.isfinite(actual)
+            and math.isclose(actual, expected, rel_tol=1e-5),
+            "targetHeight does not match native sprite/tile units")
+
 def contained(root, name):
     require(isinstance(name, str) and name and not pathlib.Path(name).is_absolute(), "Use a relative model path")
     require(".." not in pathlib.Path(name).parts, "Model path traverses parent")
@@ -162,6 +180,7 @@ def bundle(source, domain="units"):
     for key, definition in models.items():
         require(key.isdigit() and 0 <= int(key) <= 65535, "Invalid unit ID")
         require(isinstance(definition, dict), "Model entry must be an object")
+        check_native_scale(definition)
         path = contained(source, definition["file"])
         require(path.suffix.lower() == ".glb", "Model file must end in .glb")
         for name in ("scale", "targetHeight", "yawDegrees", "elevation", "flightHeight"):

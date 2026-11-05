@@ -26,6 +26,24 @@ def glb(path, mutate=None):
     path.write_bytes(data+struct.pack("<II",len(encoded),0x4E4F534A)+encoded+struct.pack("<II",len(binary),0x004E4942)+binary)
 
 class AssetsTest(unittest.TestCase):
+    def test_hd_sprite_height_uses_native_tile_units(self):
+        self.assertEqual(assets.sprite_world_height(128, 4), 1)
+        self.assertEqual(assets.sprite_world_height(64, 2), 1)
+        for invalid in (0, -1, float("nan"), float("inf"), True, None):
+            with self.assertRaises(ValueError):
+                assets.sprite_world_height(128, invalid)
+
+    def test_native_scale_rejects_meter_height_and_double_scaling(self):
+        definition = {"targetHeight": 1.748,
+                      "nativeScale": {"heightPixels": 103.82232666, "spriteScale": 4}}
+        with self.assertRaisesRegex(ValueError, "native sprite/tile"):
+            assets.check_native_scale(definition)
+        definition["targetHeight"] = assets.sprite_world_height(103.82232666, 4)
+        assets.check_native_scale(definition)
+        definition["targetHeight"] *= 2
+        with self.assertRaises(ValueError):
+            assets.check_native_scale(definition)
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=pathlib.Path(self.temp.name);self.source=self.root/"source";self.source.mkdir()
