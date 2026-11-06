@@ -163,7 +163,7 @@ final class NativeSceneWorker {
             for (id,rig) in retiringRigs where rig.model.updateDeath(frame:number(state,"frame"),now:CACurrentMediaTime()) {retiringRigs.removeValue(forKey:id)}
             for (id,unit) in units {
                 let kind=Int(number(unit,"type"))
-                guard approvedRigKinds.contains(kind) else {continue}
+                guard approvedRigKinds.contains(kind) else {rigs.removeValue(forKey:id);continue}
                 do {
                     let rig:MetalRigInstance
                     if let existing=rigs[id],existing.model.kind==kind {rig=existing}
@@ -182,9 +182,9 @@ final class NativeSceneWorker {
                     rig.model.teamColor(WorldSprites.playerColor(colors,owner:Int(number(unit,"owner"))));rigErrors.removeValue(forKey:kind)
                 } catch {rigErrors[kind]=String(describing:error);rigs.removeValue(forKey:id)}
             }
-            for (id,unit) in units where prepared.dirty.contains(id) || billboards[id]==nil {
+            for (id,unit) in units where prepared.dirty.contains(id) || billboards[id]==nil || billboards[id]?.bodyReplaced != (rigs[id] != nil) {
                 let billboard=billboards[id] ?? UnitBillboard(id:id)
-                billboard.apply(unit,ground:terrain.ground,art:sprites,color:WorldSprites.playerColor(colors,owner:Int(number(unit,"owner"))))
+                billboard.apply(unit,ground:terrain.ground,art:sprites,color:WorldSprites.playerColor(colors,owner:Int(number(unit,"owner"))),bodyReplaced:rigs[id] != nil)
                 billboards[id]=billboard
             }
             effects.apply(bullets:state["bullets"] as? [Obj] ?? [],events:events,units:units,frame:number(state,"frame"),ground:terrain.ground)
@@ -300,6 +300,7 @@ final class NativeSceneWorker {
                 "combatEvents":effects.counts,"projectiles":effects.projectiles.count,"creepTiles":terrain.creepNodes.count,"terrainTiles":terrain.terrain.count,
                 "capability":"native Metal terrain, relief and authored GPU-skinned rigs",
                 "riggedUnits":rigs.mapValues{["type":$0.model.kind,"clip":$0.model.playing,"targetHeight":$0.model.definition.targetHeight ?? 0]},
+                "replacedNativeBodyLayers":billboards.values.filter{$0.bodyReplaced}.reduce(0){$0+$1.nativeLayers.values.filter{number($0,"drawfunc") != 10}.count},
                 "rigErrors":Dictionary(uniqueKeysWithValues:rigErrors.map{(String($0.key),$0.value)}),
                 "possessionActive":view.hiddenUnit != nil,"possessionHiddenBodies":hiddenBodies.sorted(),"rigDraws":rigDraws.count,"retiringRigs":retiringRigs.count,"textureResidency":TextureResidency.shared.report()]
             let projection=view.camera.projection*simd_inverse(view.camera.transform)
