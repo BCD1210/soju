@@ -81,9 +81,13 @@ final class MetalBatches {
     private var submittedRevision = -1
     private var submittedGeometry=[(UnitBillboard,Int)]()
     private var packetGeneration = -1,packetSession=""
+    private var possessionActive=false
+    private(set) var possessionNearCulled=0,possessionNearTested=0,possessionNearSubmitted=0
+    var possessionReport:Obj {["active":possessionActive,"tested":possessionNearTested,"culled":possessionNearCulled,"remainingIntersections":possessionNearSubmitted,"method":"conservative posed bounds against both actual eye near volumes"]}
     func suspend() {ready=false}
     func consume(_ packet:ScenePacket) {
         guard packet.generation != packetGeneration || packet.session != packetSession else {return}
+        possessionActive=packet.diagnostics["possessionActive"] as? Bool ?? false
         batches=packet.batches;packetGeneration=packet.generation;packetSession=packet.session
         resetVisibility();ready=true
     }
@@ -693,6 +697,9 @@ final class MetalBatches {
         var clip=matrix_identity_float4x4;clip.columns.2.z=0.5;clip.columns.3.z=0.5
         let vp=clip*camera.projection*simd_inverse(camera.transform)
         let rightVP=clip*rightProjection*simd_inverse(rightTransform)
+        let leftVolume=PossessionPresentation.eyeVolume(transform:camera.transform,projection:camera.projection)
+        let rightVolume=PossessionPresentation.eyeVolume(transform:rightTransform,projection:rightProjection)
+        possessionNearCulled=0;possessionNearTested=0;possessionNearSubmitted=0
         frame+=1
         visibilityLock.lock()
         let occlusionValid=lastVisibilityFrame>=0 && simd_equal(vp,visibleVP) && simd_equal(rightVP,visibleRightVP) && frame%30 != 0
@@ -740,6 +747,13 @@ final class MetalBatches {
                         }
                         let stretch=max(simd_length(model.columns.0),simd_length(model.columns.1),simd_length(model.columns.2))
                         let center=model*SIMD4<Float>(batch.bounds[index].0,1),radius=batch.bounds[index].1*stretch+simd_length(SIMD3<Float>(rightTransform.columns.3.x,rightTransform.columns.3.y,rightTransform.columns.3.z)-eye)
+                        if possessionActive && !shadow && !batch.depthDisabled {
+                            possessionNearTested+=1
+                            let c=SIMD3<Float>(center.x,center.y,center.z)
+                            if PossessionPresentation.intersectsEye(center:c,radius:radius,volume:leftVolume) || PossessionPresentation.intersectsEye(center:c,radius:radius,volume:rightVolume) {
+                                possessionNearCulled+=1;continue
+                            }
+                        }
                         let p=vp*center
                         // Conservative sphere support against all six homogeneous planes.
                         var outside=false
@@ -747,6 +761,10 @@ final class MetalBatches {
                             if simd_dot(plane,center) < -radius*simd_length(SIMD3<Float>(plane.x,plane.y,plane.z)) {outside=true;break}
                         }
                         if outside || p.w<=0 {culled+=1;continue}
+                        if possessionActive && !shadow && !batch.depthDisabled {
+                            let c=SIMD3<Float>(center.x,center.y,center.z)
+                            if PossessionPresentation.intersectsEye(center:c,radius:radius,volume:leftVolume) || PossessionPresentation.intersectsEye(center:c,radius:radius,volume:rightVolume) {possessionNearSubmitted+=1}
+                        }
                         let instance=Instance(model:model,parameters:SIMD4<Float>(batch.mode,node.opacity,batch.opaque,0),teamColor:batch.teamColor)
                         let pixels=batch.bounds[index].1*camera.projection.columns.1.y*Float(output.height)/max(p.w,0.001)
                         if batch.flatVertices != nil && pixels<48 {
