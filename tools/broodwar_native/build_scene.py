@@ -35,14 +35,18 @@ def build(xr=False,sdk=None,loader=None):
     main.parent.mkdir(exist_ok=True)
     main.write_text((HERE/"NativeScene.swift").read_text())
     sources=[]
-    for name in ("SceneSupport.swift","CommanderWorld.swift","CommanderViewModes.swift","CommanderCommands.swift","CommanderXR.swift","CommanderXRControls.swift","CommandCard.swift","OriginalCommandCard.swift","CommandAudit.swift","WristPanels.swift","WorldSprites.swift","SpriteRelief.swift","XRFrameMetrics.swift","ResidentCache.swift","MetalBatches.swift","ScenePacket.swift","NativeSceneWorker.swift","CommanderScenePacket.swift","MetalXRLoop.swift","XRInputQueue.swift","GPUCompletionPool.swift","FrameCapturePool.swift","DesktopMetal.swift","FrameStream.swift","CaptureFrames.swift","Models3D.swift","ModelCatalog.swift","AssetChecks.swift","ModelFidelity.swift","RenderedVisualGates.swift","Terrain3D.swift","TerrainWorker.swift","CombatEffects.swift","UnitPresentation.swift","EffectSprites.swift","CommanderSelection.swift","RuntimeChecks.swift","ScenePacketChecks.swift","FrameResourceChecks.swift"):
+    for name in ("SceneSupport.swift","CommanderWorld.swift","CommanderViewModes.swift","CommanderCommands.swift","CommanderXR.swift","CommanderXRControls.swift","CommandCard.swift","OriginalCommandCard.swift","CommandAudit.swift","WristPanels.swift","WorldSprites.swift","SpriteRelief.swift","XRFrameMetrics.swift","ResidentCache.swift","MetalBatches.swift","MetalRig.swift","ScenePacket.swift","NativeSceneWorker.swift","CommanderScenePacket.swift","MetalXRLoop.swift","XRInputQueue.swift","GPUCompletionPool.swift","FrameCapturePool.swift","DesktopMetal.swift","FrameStream.swift","CaptureFrames.swift","Models3D.swift","ModelCatalog.swift","AssetChecks.swift","ModelFidelity.swift","RenderedVisualGates.swift","Terrain3D.swift","TerrainWorker.swift","CombatEffects.swift","UnitPresentation.swift","EffectSprites.swift","CommanderSelection.swift","RuntimeChecks.swift","ScenePacketChecks.swift","FrameResourceChecks.swift"):
         staged=main.parent/name;staged.write_text((HERE/name).read_text());sources.append(str(staged))
     command += [str(main),*sources,"-F",str(framework),"-framework","GLTFKit2",
         "-Xlinker","-rpath","-Xlinker",str(framework),"-o",str(temporary),"-framework","Cocoa","-framework","SceneKit","-framework","Metal"]
     subprocess.run(command,check=True)
     (RUNTIME/"default-model-catalog.json").write_text((HERE.parents[1]/"resources/broodwar-models.json").read_text())
     (RUNTIME/"unit-names.json").write_text((HERE.parents[1]/"resources/broodwar-unit-types.json").read_text())
-    subprocess.run(["codesign","--force","--sign","-",str(temporary)],check=True)
+    # Stable identity + fixed identifier keep macOS Local Network grants across rebuilds.
+    import importlib.util
+    spec=importlib.util.spec_from_file_location("soju_signing",HERE.parents[1]/"scripts/setup-local-signing.py")
+    signing=importlib.util.module_from_spec(spec);spec.loader.exec_module(signing)
+    signing.sign(temporary,"com.soju.broodwar."+("xr" if xr else "scene"))
     os.replace(temporary,output)
     print(output)
 
