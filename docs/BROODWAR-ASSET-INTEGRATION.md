@@ -34,6 +34,21 @@ An explicitly installed catalog takes precedence over loose unit-ID files.
 L forces a definition reload. The viewer retains an existing valid model if a
 replacement cannot load and reports the failed type.
 
+For visual review before acceptance, launch with `--model-preview --model-dir
+/absolute/path/to/delivery --catalog /absolute/path/to/delivery/catalog.json`.
+This explicitly selects the SceneKit rig renderer and bypasses the legacy sprite
+similarity gate for the preview session; it does not write an acceptance result.
+Use `--snapshot capture.json --select-type 0 --possess-selected` for a repeatable,
+read-only possession view. The possession startup option only applies to snapshots.
+Add `--snapshot-assets /path/to/terrain-release` when the recording belongs to a
+different map. It only changes asset reads for the snapshot session.
+
+A visual acceptance row in `model-fidelity.json` uses `method: "visual-native"`,
+`visualReviewed: true`, `passed: true`, and true `nativeChecks` for `scale`,
+`picking`, `teamColors`, `clips`, and `textureBudget`. The existing model revision
+and SHA-256 checks still bind acceptance to the reviewed bytes. This method does
+not use sprite similarity scores; preview captures alone do not satisfy it.
+
 ## File and coordinate contract
 
 - Standard GLB 2.0, triangulated geometry, one embedded buffer.
@@ -79,6 +94,10 @@ a model does not add unsupported game commands or new simulation behavior.
 ```
 
 Each model entry can also set `elevation` for its vertical offset and `flightHeight` (default 1.5) for airborne clearance. `teamMaterials` lists exact material names to tint with the native player color; other authored PBR materials remain intact. `turretNodes` lists exact yaw pivots controlled by native turret heading.
+`teamColorBlend` accepts `multiply` (the existing default) or `replace`.
+Use `replace` when the source mask describes replacement paint: full mask coverage
+uses the player color even when the diffuse RGB underneath is black. Both modes
+use the same mask convention and leave uncovered pixels unchanged.
 Buildings normally use `faceHeading: false` and an explicit yaw.
 Runtime overrides inherit baseline values for the same ID. New IDs should
 declare their intended size, pivot, heading and required actions explicitly.

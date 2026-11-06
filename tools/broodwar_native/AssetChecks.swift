@@ -73,6 +73,7 @@ extension Models3D {
                     animations.append(["action":action,"clip":a.playing,"changed":changed,"otherInstanceChange":leak,"boundNodes":a.activePlayers.count,"captures":captures,"loop":action != "death"])
                     clock += max(duration,1)+1
                 }
+                var pickSamples=[Obj]()
                 if CommandLine.arguments.contains("--model-proof") {
                     // A fresh renderer prevents a prior clip's scene-time epoch
                     // from leaking into the exported idle reference views.
@@ -101,8 +102,21 @@ extension Models3D {
                             try png.write(to:out.appendingPathComponent("\(kind)-player-\(player+1).png"))
                         }
                     }
+                    for y in stride(from:64,through:576,by:64) {
+                        for x in stride(from:64,through:576,by:64) {
+                            let hits=previewRenderer.hitTest(CGPoint(x:x,y:y),options:[.ignoreHiddenNodes:true])
+                            let owned=hits.contains { hit in
+                                var node:SCNNode?=hit.node
+                                while let current=node {if current===preview.root {return true};node=current.parent}
+                                return false
+                            }
+                            if owned {pickSamples.append(["x":x,"y":y])}
+                        }
+                    }
+                    guard !pickSamples.isEmpty else {throw SceneError.invalid("Rendered model cannot be picked: \(kind)")}
                 }
                 report.append(["type":kind,"file":a.definition.file,"passed":true,"independentSkeletons":true,"animations":animations,
+                    "pickingChecked":CommandLine.arguments.contains("--model-proof"),"pickSamples":pickSamples,
                     "triangles":a.source.geometries.reduce(0){sum,g in sum+g.elements.reduce(0){$0+($1.primitiveType == .triangles ? $1.primitiveCount:0)}}])
             } catch { failures.append("\(kind): \(error)");report.append(["type":kind,"passed":false,"error":String(describing:error)]) }
         }

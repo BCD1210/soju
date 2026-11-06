@@ -13,7 +13,8 @@ struct TerrainUpdateKey:Equatable {
 }
 func number(_ o: Obj, _ k: String) -> Double { (o[k] as? NSNumber)?.doubleValue ?? 0 }
 let runtime = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/soju/broodwar-native")
-let assets = runtime.appendingPathComponent("scene-assets")
+let assets = (argument("--snapshot") == nil ? nil:argument("--snapshot-assets"))
+    .map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("scene-assets")
 
 enum SceneError: Error { case invalid(String) }
 func loadObject(_ url: URL) throws -> Obj {

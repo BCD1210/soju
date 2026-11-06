@@ -7,7 +7,8 @@ import QuartzCore
 import CoreImage
 import Darwin
 import simd
-let useMetalBatches=ProcessInfo.processInfo.environment["SOJU_BW_RENDERER"] != "scenekit"
+let modelPreview=CommandLine.arguments.contains("--model-preview")
+let useMetalBatches=ProcessInfo.processInfo.environment["SOJU_BW_RENDERER"] != "scenekit" && !modelPreview
 let xrRequested=CommandLine.arguments.contains("--xr")
 
 final class MirrorView: NSImageView { override func hitTest(_ point:NSPoint)->NSView? { nil } }
@@ -58,7 +59,7 @@ final class WalkView: SCNView {
 final class Commander: NSObject, NSApplicationDelegate {
     var window:NSWindow!;var view:WalkView!;var label:NSTextField!
     var desktopCard=NSView(),desktopCardSignature=""
-    var requireFidelity=true
+    var requireFidelity = !modelPreview
     let art:Art;let bridge=Bridge();let world=SCNScene();let camera=SCNNode()
     var placedEyeHeight=1.65
     var yaw:CGFloat = -0.54,pitch:CGFloat = -0.14

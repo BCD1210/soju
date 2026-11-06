@@ -271,11 +271,19 @@ final class Models3D {
     }
     func approvedForLive(_ kind:Int)->Bool {
         guard let row=fidelity[kind],
-              row["passed"] as? Bool == true,row["modelRevision"] as? String == catalog.signatures[kind],number(row,"minimumIoU")>=0.95,number(row,"minimumSSIM")>=0.85,
+              Self.passesReviewCriteria(row),row["modelRevision"] as? String == catalog.signatures[kind],
               let definition=catalog.definitions[kind],let path=try? catalog.url(definition),
               let bytes=try? Data(contentsOf:path) else {return false}
         let hash=SHA256.hash(data:bytes).map{String(format:"%02x",$0)}.joined()
         return row["modelSha256"] as? String == hash
+    }
+    static func passesReviewCriteria(_ row:Obj)->Bool {
+        guard row["passed"] as? Bool == true else {return false}
+        if row["method"] as? String == "visual-native" {
+            guard row["visualReviewed"] as? Bool == true,let checks=row["nativeChecks"] as? [String:Bool] else {return false}
+            return ["scale","picking","teamColors","clips","textureBudget"].allSatisfy{checks[$0]==true}
+        }
+        return number(row,"minimumIoU")>=0.95 && number(row,"minimumSSIM")>=0.85
     }
     func make(_ kind:Int)throws->ModelInstance {
         guard let definition=catalog.definitions[kind],let revision=catalog.signatures[kind] else {
