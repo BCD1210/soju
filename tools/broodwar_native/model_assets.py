@@ -192,6 +192,7 @@ def bundle(source, domain="units"):
         if "flightHeight" in definition:
             require(0 <= definition["flightHeight"] < 1000, "Invalid flightHeight")
         require(definition.get("teamMask", "none") in ("alpha", "texture", "none"), "Invalid teamMask")
+        require(definition.get("teamColorBlend", "multiply") in ("multiply", "replace"), "Invalid teamColorBlend")
         if definition.get("teamMask") == "texture":
             mask = contained(source, definition.get("teamMaskTexture", ""))
             require(mask.is_file() and mask.suffix.lower() in (".png", ".jpg", ".jpeg"), "Invalid teamMaskTexture")

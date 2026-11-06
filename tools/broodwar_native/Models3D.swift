@@ -53,6 +53,11 @@ final class ModelInstance {
             if definition.teamMask != "none" && (names.isEmpty || names.contains(material.name ?? "")) {
                 let mask=definition.teamMask=="alpha" ? "1.0 - texture2D(sourceTeamMask, _surface.diffuseTexcoord).a":"texture2D(teamMaskTexture, _surface.diffuseTexcoord).r"
                 let textureUniform=definition.teamMask=="texture" ? "uniform sampler2D teamMaskTexture;":"uniform sampler2D sourceTeamMask;"
+                let paint:String
+                switch definition.teamColorBlend {
+                case .multiply: paint="_surface.diffuse.rgb * teamColor"
+                case .replace: paint="teamColor"
+                }
                 if definition.teamMask=="alpha", let contents=material.diffuse.contents,
                    CFGetTypeID(contents as CFTypeRef)==CGImage.typeID {
                     let original=contents as! CGImage
@@ -73,7 +78,7 @@ final class ModelInstance {
                 \(textureUniform)
                 #pragma body
                 float teamMask = clamp(\(mask), 0.0, 1.0);
-                _surface.diffuse.rgb = mix(_surface.diffuse.rgb, _surface.diffuse.rgb * teamColor, teamMask);
+                _surface.diffuse.rgb = mix(_surface.diffuse.rgb, \(paint), teamMask);
                 _surface.diffuse.a = 1.0;
                 """]
                 material.setValue(NSValue(scnVector3:SCNVector3(1,1,1)),forKey:"teamColor")
