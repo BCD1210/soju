@@ -137,6 +137,14 @@ func scenePacketChecks(device:MTLDevice,require:(Bool,String)throws->Void)throws
     try require(wait{completed && worker.mailbox.latest()?.nativeFrame==3},"replayed native event still advances worker frame")
     try require((worker.mailbox.latest()?.diagnostics["combatEvents"] as? [String:Int])?["attack"]==1,"worker applies native event sequence exactly once across state updates")
     try require(first.nativeFrame==1 && first.unitPositions["native"]==firstPosition,"later worker updates preserve retained immutable packets")
+    if (first.diagnostics["riggedUnits"] as? [String:Obj])?["native"] != nil {
+        var morphed=unit;morphed["type"]=999
+        var changed=state(4,[]);changed["units"]=[morphed]
+        completed=false;worker.submit(NativeSceneWorker.Update(state:changed,fog:[:],creep:[])){completed=true}
+        try require(wait{completed && worker.mailbox.latest()?.nativeFrame==4 && worker.mailbox.latest()?.picks.contains(where:{$0.target == .unit("native")})==true},"unit form change publishes native geometry after resource readiness")
+        let changedPacket=worker.mailbox.latest()!
+        try require((changedPacket.diagnostics["riggedUnits"] as? [String:Obj])?["native"]==nil && changedPacket.picks.contains{$0.target == .unit("native")},"unapproved unit form removes the old rig and restores pickable native geometry")
+    }
     completed=false;worker.submit(NativeSceneWorker.Update(state:state(4,[],"next-session"),fog:[:],creep:[])){completed=true}
     try require(wait{completed} && worker.mailbox.latest()==nil,"session reset waits for a matching view instead of publishing stale UI values")
     worker.view(view("next-session"))

@@ -412,6 +412,14 @@ func runtimeChecks()throws {
         let facing=fallback.layers[0]!.simdOrientation.act(SIMD3<Float>(0,0,1))
         try require(abs(facing.x-Float(sin(angle)*cos(Terrain3D.canonicalElevation)))<0.0001 && abs(facing.z-Float(cos(angle)*cos(Terrain3D.canonicalElevation)))<0.0001,"relief preserves source elevation and faces observer azimuth at \(angle)")
     }
+    let replacement=UnitBillboard(id:"replacement-check")
+    var replacementUnit=sprite,bodyImage=sprite["image"] as! Obj,shadowImage=bodyImage
+    bodyImage["drawfunc"]=0;shadowImage["drawfunc"]=10
+    replacementUnit["visual"]=["images":[bodyImage,shadowImage]]
+    replacement.apply(replacementUnit,ground:commander.ground,art:commander.worldSprites,bodyReplaced:true)
+    try require(replacement.layers.count==1 && replacement.nativeLayers.values.allSatisfy{number($0,"drawfunc")==10},"rig replacement retains native shadows without loading duplicate body layers")
+    replacement.apply(replacementUnit,ground:commander.ground,art:commander.worldSprites)
+    try require(replacement.layers.count==2 && !replacement.bodyReplaced,"native body fallback returns when the rig replacement is removed")
     try require(WorldSprites.playerColor([[0,0,0,0]],owner:0)==Models3D.playerColors[0],"zero initialization colors use player palette")
     if let mesh=commander.worldSprites.relief.geometry(239,frame:68,art:commander.worldSprites) {
         try require(!(mesh is SCNPlane) && mesh.sources(for:.vertex).first!.vectorCount>100,"HD depth produces tessellated geometry")

@@ -14,13 +14,16 @@ final class UnitBillboard {
     var shown=[Int:Int](),shownImages=[Int:Int]()
     var shownColors=[Int:[Int]](),contacts=[Int:Float]()
     var layerOrder=[Int]()
+    private(set) var bodyReplaced=false
     var lastNativeChain=[Obj]()
     var geometryRevision=0,poseRevision=0
     var projectedSnapshot:(geometry:Int,pose:Int,projection:simd_float4x4,viewport:SIMD2<Float>,bounds:[SceneSpriteBounds])?
     var capturedEye:SIMD3<Float>?,capturedRotation:SIMD4<Float>?,capturedPerspective:Bool?
     var lastEye:SIMD3<Float>?,lastRotation:SIMD4<Float>?,lastPerspective:Bool?
     init(id:String) {root.name=id}
-    func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites,color:[Int]=[255,255,255]) {
+    func apply(_ unit:Obj,ground:Terrain3D,art:WorldSprites,color:[Int]=[255,255,255],bodyReplaced:Bool=false) {
+        let sameRepresentation=self.bodyReplaced==bodyReplaced
+        self.bodyReplaced=bodyReplaced
         let sameTeam=team==color
         let x=number(unit,"x")/32,z=number(unit,"y")/32
         let position=Terrain3D.worldPosition(x,ground.buildingElevation(unit)+(unit["airborne"] as? Bool == true ? 1.5:0),z)
@@ -37,7 +40,7 @@ final class UnitBillboard {
         let chain=(unit["visual"] as? Obj)?["images"] as? [Obj] ?? [main]
         // Native map coordinates move the root; they do not change image geometry.
         let appearance=chain.map { $0.filter { $0.key != "mapX" && $0.key != "mapY" } }
-        if sameTeam,!layers.isEmpty,NSArray(array:appearance).isEqual(to:lastNativeChain) {
+        if sameRepresentation,sameTeam,!layers.isEmpty,NSArray(array:appearance).isEqual(to:lastNativeChain) {
             for index in nativeLayers.keys where chain.indices.contains(index) {nativeLayers[index]=chain[index]}
             return
         }
@@ -47,6 +50,7 @@ final class UnitBillboard {
             let delta=$0-root.simdWorldPosition;return atan2(Double(delta.x),Double(delta.z))
         }:nil
         for (index,native) in chain.enumerated() {
+            if bodyReplaced,Int(number(native,"drawfunc")) != 10 {continue}
             guard Int(number(native,"flags"))&0x40==0,let id=native["id"] as? Int,
                 let entry=art.images[String(id)],let records=art.frameRecords(id) else {continue}
             let shadow=Int(number(native,"drawfunc"))==10
@@ -140,7 +144,7 @@ final class UnitBillboard {
             }
         }
         var buildingLift:Float=0
-        if perspective,unit["building"] as? Bool == true,unit["airborne"] as? Bool != true,
+        if !bodyReplaced,perspective,unit["building"] as? Bool == true,unit["airborne"] as? Bool != true,
            let entry=art.images[String(Int(number(main,"id")))],let records=art.frameRecords(Int(number(main,"id"))) {
             let (frame,_)=Self.viewFrame(main,azimuth:azimuth,count:records.count)
             let id=Int(number(main,"id"))
