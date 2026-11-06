@@ -305,6 +305,7 @@ func runtimeChecks()throws {
     try require(cache.bytes==4 && cache.get("first")==nil && cache.get("fourth")==7,"LRU replacement of its newest entry preserves an evictable oldest entry")
 
     commander.apply(state(1,[unit("a"),unit("b")]),[:])
+    try require(commander.initialized,"an owned army initializes the camera without a town hall")
     try require(commander.models.count==2,"two independent live models")
     let aMaterials=Set(commander.models["a"]!.source.materials.map{ObjectIdentifier($0)})
     let bMaterials=Set(commander.models["b"]!.source.materials.map{ObjectIdentifier($0)})
