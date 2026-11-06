@@ -20,6 +20,8 @@ func runtimeChecks()throws {
     }
     var passed=[String]()
     func require(_ ok:Bool,_ message:String)throws {if !ok {throw SceneError.invalid("Runtime check: "+message)};passed.append(message)}
+    let rigNumbers=try JSONSerialization.jsonObject(with:Data("[0,0.5,0.7071068,1]".utf8))
+    try require(MetalRigAsset.floats(rigNumbers)?.count==4 && abs((MetalRigAsset.floats(rigNumbers)?[2] ?? 0)-0.7071068)<0.000001,"rig JSON rest transforms preserve mixed numeric values")
     let nativeReview:Obj=["method":"visual-native","passed":true,"visualReviewed":true,
         "nativeChecks":["scale":true,"picking":true,"teamColors":true,"clips":true,"textureBudget":true]]
     try require(Models3D.passesReviewCriteria(nativeReview),"visual native review does not require sprite similarity scores")
@@ -544,7 +546,12 @@ func runtimeChecks()throws {
     }}
     try require(teamPixel,"HD team mask changes color while preserving alpha and cache isolation")
     commander.requireFidelity=true
-    commander.apply(state(1001,[unit("unapproved")]),[:])
+    let acceptedSignature=commander.modelLibrary.catalog.signatures[0]
+    commander.modelLibrary.catalog.signatures[0]="unapproved-runtime-fixture"
+    try require(!commander.modelLibrary.approvedForLive(0),"approval rejects a different model revision")
+    commander.modelLibrary.catalog.signatures[0]=acceptedSignature
+    var unapproved=unit("unapproved");unapproved["type"]=999
+    commander.apply(state(1001,[unapproved]),[:])
     try require(commander.models.isEmpty && commander.billboards["unapproved"] != nil,"unapproved live model uses the HD image fallback")
     let residency=TextureResidency(limit:1024)
     try require(residency.reserve(768,owner:"terrain-pages") && !residency.reserve(512),"texture admission counts pinned owners across caches")

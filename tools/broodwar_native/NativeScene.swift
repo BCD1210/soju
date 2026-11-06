@@ -257,6 +257,7 @@ final class Commander: NSObject, NSApplicationDelegate {
 
 
 do {
+    if CommandLine.arguments.contains("--metal-model-proof") {try metalRigProof();exit(0)}
     if CommandLine.arguments.contains("--effect-proof") {try effectSpriteProof();exit(0)}
     if CommandLine.arguments.contains("--live-proof") {try liveModelProof();exit(0)}
     if argument("--original-card-audit") != nil {try originalCommandAudit();exit(0)}

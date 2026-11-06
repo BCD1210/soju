@@ -7,8 +7,8 @@ import simd
 
 // Shared desktop/stereo terrain and sprite batches; other geometry uses a depth-preserving overlay.
 final class MetalBatches {
-    struct Vertex {var position:SIMD4<Float>;var uv:SIMD4<Float>}
-    struct Instance {var model:simd_float4x4;var parameters:SIMD4<Float>}
+    struct Vertex {var position:SIMD4<Float>;var uv:SIMD4<Float>;var normal=SIMD4<Float>(0,1,0,0);var joints=SIMD4<UInt32>.zero;var weights=SIMD4<Float>.zero}
+    struct Instance {var model:simd_float4x4;var parameters:SIMD4<Float>;var teamColor=SIMD4<Float>.zero}
     struct Uniforms {var left:simd_float4x4;var right:simd_float4x4;var leftEye:SIMD4<Float>;var rightEye:SIMD4<Float>}
     struct CameraPacket {
         let transform:simd_float4x4,projection:simd_float4x4
@@ -30,12 +30,15 @@ final class MetalBatches {
         let terrain:[Int:SCNNode],billboards:[UnitBillboard],overlays:[SCNNode],objectCount:Int
         var retireTerrainSources=false,reuseUnitPoses=false
         var hiddenBodies=Set<String>()
+        var rigs=[MetalRigDraw]()
     }
     fileprivate struct Batch {
         var vertices:MTLBuffer;var indices:MTLBuffer;var count:Int;var flatVertices:MTLBuffer?
         var instances:[MTLBuffer];var nodes:[SCNNode];var textures:[MTLTexture]
         var drawNodes=[DrawNode]()
         var terrain:Bool;var shadow:Bool;var mode:Float;var depthDisabled:Bool;var bounds:[(SIMD3<Float>,Float)]
+        var bones:MTLBuffer?=nil
+        var teamColor=SIMD4<Float>.zero,opaque:Float=1
         var primitive:MTLPrimitiveType = .triangle
     }
     // Construction nodes never cross the publication boundary. GPU instance
@@ -44,13 +47,14 @@ final class MetalBatches {
         let vertices:MTLBuffer,indices:MTLBuffer,count:Int,flatVertices:MTLBuffer?
         let instances:[MTLBuffer],textures:[MTLTexture],drawNodes:[DrawNode]
         let terrain:Bool,shadow:Bool,mode:Float,depthDisabled:Bool,bounds:[(SIMD3<Float>,Float)]
+        let bones:MTLBuffer?,teamColor:SIMD4<Float>,opaque:Float
         let primitive:MTLPrimitiveType
         fileprivate init(_ source:Batch) {
             vertices=source.vertices;indices=source.indices;count=source.count;flatVertices=source.flatVertices
             instances=source.instances;textures=source.textures;drawNodes=source.drawNodes
             terrain=source.terrain;shadow=source.shadow;mode=source.mode
             depthDisabled=source.depthDisabled;bounds=source.bounds
-            primitive=source.primitive
+            primitive=source.primitive;bones=source.bones;teamColor=source.teamColor;opaque=source.opaque
         }
     }
     let device:MTLDevice,loader:MTKTextureLoader,queue:MTLCommandQueue
@@ -63,6 +67,7 @@ final class MetalBatches {
     var overlayColor:MTLTexture?,overlayResolved:MTLTexture?
     private var depthViews=[MTLTexture]()
     private let overlayPass=MTLRenderPassDescriptor(),compositePass=MTLRenderPassDescriptor()
+    let identityBones:MTLBuffer
     let samples:Int
     let depth:MTLDepthStencilState,shadowDepth:MTLDepthStencilState,overlayDepth:MTLDepthStencilState
     private(set) var batches=[PacketBatch]()
@@ -203,6 +208,7 @@ final class MetalBatches {
         guard device.supportsVertexAmplificationCount(2) else {throw SceneError.invalid("Two-view vertex amplification unavailable")}
         let samples=xrRequested ? 1:4;self.samples=samples
         self.device=device;loader=MTKTextureLoader(device:device);queue=device.makeCommandQueue()!
+        var identity=matrix_identity_float4x4;identityBones=device.makeBuffer(bytes:&identity,length:MemoryLayout<simd_float4x4>.stride,options:.storageModeShared)!
         func solid(_ rgba:[UInt8])throws->MTLTexture {
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
             guard let t=TextureResidency.shared.make(device,d,owner:"render-targets") else {throw SceneError.invalid("Solid texture residency limit")}
@@ -225,8 +231,8 @@ final class MetalBatches {
             d.colorAttachments[0].sourceAlphaBlendFactor = .one;d.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
             return try device.makeRenderPipelineState(descriptor:d)
         }
-        pipelines=try (UInt32(0)..<4).map{try makePipeline($0,.triangle)}
-        linePipelines=try (UInt32(0)..<4).map{try makePipeline($0,.line)}
+        pipelines=try (UInt32(0)..<5).map{try makePipeline($0,.triangle)}
+        linePipelines=try (UInt32(0)..<5).map{try makePipeline($0,.line)}
         let composite=MTLRenderPipelineDescriptor()
         composite.vertexFunction=library.makeFunction(name:"compositeVertex")
         composite.fragmentFunction=library.makeFunction(name:"compositeFragment")
@@ -477,6 +483,13 @@ final class MetalBatches {
         }
         if commander.reuseUnitPoses {preparedUnits=Array(constructed[unitStart..<unitEnd]);unitStamps=stamps;preparedHiddenBodies=commander.hiddenBodies}
         else {preparedUnits=[];unitStamps=[:]}
+        for rig in commander.rigs {
+            var batch=Batch(vertices:rig.part.vertexBuffer,indices:rig.part.indexBuffer,count:rig.part.indices.count,flatVertices:nil,
+                instances:(0..<3).map{_ in buffer([Instance(model:rig.transform,parameters:SIMD4(4,rig.opacity,1,0))])},nodes:[],textures:rig.part.textures,
+                terrain:false,shadow:false,mode:4,depthDisabled:false,bounds:[(rig.center,rig.radius)])
+            batch.drawNodes=[DrawNode(transform:rig.transform,scale:SIMD3(repeating:1),opacity:rig.opacity,hidden:false,billboard:false)]
+            batch.bones=rig.bones;batch.teamColor=rig.color;batch.opaque=rig.part.opaque ? 1:0;constructed.append(batch)
+        }
         batches=constructed.map(PacketBatch.init)
         resetVisibility()
         ready=true
@@ -708,6 +721,7 @@ final class MetalBatches {
                 if occlusionValid && !visibleNow[batchIndex] {occlusionSkipped+=1;continue}
                 encoder.setRenderPipelineState((batch.primitive == .line ? linePipelines:pipelines)[Int(batch.mode)])
                 encoder.setDepthStencilState(batch.depthDisabled ? overlayDepth:shadow ? shadowDepth:depth)
+                encoder.setVertexBuffer(batch.bones ?? identityBones,offset:0,index:3)
                 encoder.setVisibilityResultMode(.counting,offset:batchIndex*8)
                 var count=1,farCount=0
                 if !batch.terrain {
@@ -730,7 +744,7 @@ final class MetalBatches {
                             if simd_dot(plane,center) < -radius*simd_length(SIMD3<Float>(plane.x,plane.y,plane.z)) {outside=true;break}
                         }
                         if outside || p.w<=0 {culled+=1;continue}
-                        let instance=Instance(model:model,parameters:SIMD4<Float>(batch.mode,node.opacity,0,0))
+                        let instance=Instance(model:model,parameters:SIMD4<Float>(batch.mode,node.opacity,batch.opaque,0),teamColor:batch.teamColor)
                         let pixels=batch.bounds[index].1*camera.projection.columns.1.y*Float(output.height)/max(p.w,0.001)
                         if batch.flatVertices != nil && pixels<48 {
                             data[batch.drawNodes.count+farCount]=instance;farCount+=1
@@ -768,16 +782,21 @@ final class MetalBatches {
         return float4(0,0,0,max(comfort.x,edge*comfort.y));
     }
     constant uint batchMode [[function_constant(0)]];
-    struct Vertex {float4 position;float4 uv;};
-    struct Instance {float4x4 model;float4 parameters;};
+    struct Vertex {float4 position;float4 uv;float4 normal;uint4 joints;float4 weights;};
+    struct Instance {float4x4 model;float4 parameters;float4 teamColor;};
     struct Uniforms {float4x4 vp[2];float4 eye[2];};
-    struct Raster {float4 position [[position]];uint slice [[render_target_array_index]];float4 uv;float3 light;float3 view;float4 parameters [[flat]];};
-    vertex Raster batchVertex(uint v [[vertex_id]],uint i [[instance_id]],uint eye [[amplification_id]],device const Vertex* vertices [[buffer(0)]],device const Instance* instances [[buffer(1)]],constant Uniforms& u [[buffer(2)]]) {
+    struct Raster {float4 position [[position]];uint slice [[render_target_array_index]];float4 uv;float3 light;float3 view;float4 parameters [[flat]];float4 teamColor [[flat]];float3 world;float3 normal;};
+    vertex Raster batchVertex(uint v [[vertex_id]],uint i [[instance_id]],uint eye [[amplification_id]],device const Vertex* vertices [[buffer(0)]],device const Instance* instances [[buffer(1)]],constant Uniforms& u [[buffer(2)]],device const float4x4* bones [[buffer(3)]]) {
         Vertex a=vertices[v];Instance b=instances[i];Raster r;
-        float4 world=b.model*a.position;r.position=u.vp[eye]*world;r.slice=eye;r.uv=a.uv;r.parameters=b.parameters;
+        float4 local=a.position;float3 normal=a.normal.xyz;
+        if(b.parameters.x>=4) {
+            float4x4 skin=bones[a.joints.x]*a.weights.x+bones[a.joints.y]*a.weights.y+bones[a.joints.z]*a.weights.z+bones[a.joints.w]*a.weights.w;
+            local=skin*a.position;normal=(skin*float4(normal,0)).xyz;
+        }
+        float4 world=b.model*local;r.world=world.xyz;r.normal=normalize((b.model*float4(normal,0)).xyz);r.teamColor=b.teamColor;r.position=u.vp[eye]*world;r.slice=eye;r.uv=a.uv;r.parameters=b.parameters;
         float3x3 rotation=float3x3(b.model[0].xyz,b.model[1].xyz,b.model[2].xyz);
         r.light=u.eye[0].w==0 ? float3(-0.22033581,0.54387457,0.80972377):transpose(rotation)*float3(-0.22033581,0.89032002,0.39847509);
-        r.view=u.eye[0].w==0 ? float3(0,0,1):transpose(rotation)*(u.eye[eye].xyz-world.xyz);return r;
+        r.view=u.eye[0].w==0 ? float3(0,0,1):(b.parameters.x>=4 ? u.eye[eye].xyz-world.xyz:transpose(rotation)*(u.eye[eye].xyz-world.xyz));return r;
     }
     fragment float4 batchFragment(Raster r [[stage_in]],texture2d<float> diffuse [[texture(0)]],texture2d<float> normal [[texture(1)]],texture2d<float> bright [[texture(2)]],texture2d<float> specular [[texture(3)]],texture2d<float> emissive [[texture(4)]],texture2d<float> ao [[texture(5)]],texture2d_array<float> terrain [[texture(6)]],texture2d_array<float> fog [[texture(7)]]) {
         constexpr sampler s(coord::normalized,address::clamp_to_edge,filter::linear,mip_filter::none);
@@ -786,7 +805,22 @@ final class MetalBatches {
             float2 size=r.parameters.zw;float2 original=(r.uv.xy*size-8.0)/(size-16.0);
             return float4(terrain.sample(terrainSampler,r.uv.xy,uint(r.uv.z)).rgb*fog.sample(s,float2(original.x,1.0-original.y),uint(r.uv.w)).rgb,1);
         }
-        float4 color=diffuse.sample(s,r.uv.xy);if(color.a<0.01) discard_fragment();
+        float4 color=diffuse.sample(s,r.uv.xy);
+        if(batchMode==4) {
+            float alpha=r.parameters.z>0.5 ? 1.0:color.a;
+            if(alpha<0.01) discard_fragment();
+            if(r.teamColor.w>0) color.rgb=mix(color.rgb,r.teamColor.w>1.5 ? r.teamColor.rgb:color.rgb*r.teamColor.rgb,1.0-color.a);
+            float3 n=normalize(r.normal),dp1=dfdx(r.world),dp2=dfdy(r.world);float2 duv1=dfdx(r.uv.xy),duv2=dfdy(r.uv.xy);
+            float3 t=dp1*duv2.y-dp2*duv1.y,b=-dp1*duv2.x+dp2*duv1.x;
+            float norm=max(dot(t,t),dot(b,b));
+            if(norm>1e-12) {float3 mapped=normal.sample(s,r.uv.xy).xyz*2-1;n=normalize(t*rsqrt(norm)*mapped.x+b*rsqrt(norm)*mapped.y+n*mapped.z);}
+            float3 l=normalize(float3(-0.22,0.89,0.40)),v=normalize(r.view),h=normalize(l+v);
+            float rough=clamp(bright.sample(s,r.uv.xy).g,0.18,1.0);
+            float highlight=pow(max(dot(n,h),0.0),mix(128.0,4.0,rough))*0.12;
+            color.rgb=color.rgb*(0.45+0.85*max(dot(n,l),0.0))+highlight+specular.sample(s,r.uv.xy).rgb;
+            return float4(color.rgb,alpha*r.parameters.y);
+        }
+        if(color.a<0.01) discard_fragment();
         if(batchMode==3) return float4(0,0,0,color.a*r.parameters.y);
         if(batchMode==1) {
             float3 n=normalize(normal.sample(s,r.uv.xy).rgb*2.0-1.0);

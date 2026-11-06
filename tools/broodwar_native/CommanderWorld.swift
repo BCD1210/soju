@@ -73,7 +73,7 @@ extension Commander {
             }
             if CommandLine.arguments.contains("--tabletop") {toggleTabletop()}
             initialized=true
-            if argument("--snapshot") != nil,CommandLine.arguments.contains("--possess-selected"),let id=selected.first {
+            if CommandLine.arguments.contains("--possess-selected"),let id=selected.first {
                 enterPossession(id)
             }
         }
@@ -110,7 +110,7 @@ extension Commander {
         selected=selected.filter { units[$0] != nil }
         if let captured=capturedTerrain {fog=captured.0;creepTiles=captured.1;updateTerrain()}
         if let worker=sceneWorker {
-            notice="Native HD relief and sprite chains · authored rigs: SOJU_BW_RENDERER=scenekit"
+            notice="Native Metal terrain, relief and authored rigs"
             if !submittedToWorker {worker.submit(NativeSceneWorker.Update(state:s,fog:fog,creep:creepTiles,prepared:preparedState),readNext:{ [weak self] in self?.busy=false }) {}}
             sendSceneView()
             return
