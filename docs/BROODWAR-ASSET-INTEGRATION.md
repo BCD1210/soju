@@ -36,10 +36,15 @@ replacement cannot load and reports the failed type.
 
 For visual review before acceptance, launch with `--model-preview --model-dir
 /absolute/path/to/delivery --catalog /absolute/path/to/delivery/catalog.json`.
-This explicitly selects the SceneKit rig renderer and bypasses the legacy sprite
+Approved, hash-bound rigs render by default in the shared desktop/XR Metal batches.
+The scene owner samples glTF clips against the native game frame, publishes immutable
+bone palettes, and derives picking meshes from the same pose. Geometry and poses are
+shared across matching instances; texture uploads use the shared residency budget.
+
+The preview option explicitly selects the SceneKit rig renderer and bypasses the legacy sprite
 similarity gate for the preview session; it does not write an acceptance result.
 Use `--snapshot capture.json --select-type 0 --possess-selected` for a repeatable,
-read-only possession view. The possession startup option only applies to snapshots.
+read-only possession view. The possession startup option also supports the running private game.
 Add `--snapshot-assets /path/to/terrain-release` when the recording belongs to a
 different map. It only changes asset reads for the snapshot session.
 
@@ -348,3 +353,11 @@ is approximately 0.162 (linear 0.030), comparable to desktop proofs at 0.190.
 `xr-view-diagnostics.json` records the actual swapchain/render formats and exposure.
 Simulator receipt was 72 fps with zero displayed loss/error/drop at capture;
 this is not physical-headset acceptance.
+
+For direct Metal validation, run `soju-bw-scene --metal-model-proof --model-types
+0,7 --proof-dir /private/output`. This renders the actual amplified Metal path,
+checks eight team colors, animation pixel changes and deformed-mesh picking, and
+records world bounds, catalog revisions, model hashes and texture residency.
+`--model-review-types 0,7` explicitly enables specified unaccepted types for a
+review session; it does not write acceptance. Normal startup requires the existing
+hash-bound review gate.

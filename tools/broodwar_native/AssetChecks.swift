@@ -2,6 +2,7 @@ import Cocoa
 import SceneKit
 import Metal
 import simd
+import CryptoKit
 
 func argument(_ name:String)->String? {
     guard let i=CommandLine.arguments.firstIndex(of:name),i+1<CommandLine.arguments.count else { return nil }
@@ -115,7 +116,7 @@ extension Models3D {
                     }
                     guard !pickSamples.isEmpty else {throw SceneError.invalid("Rendered model cannot be picked: \(kind)")}
                 }
-                report.append(["type":kind,"file":a.definition.file,"passed":true,"independentSkeletons":true,"animations":animations,
+                report.append(["type":kind,"file":a.definition.file,"modelRevision":a.revision,"modelSha256":SHA256.hash(data:try Data(contentsOf:catalog.url(a.definition))).map{String(format:"%02x",$0)}.joined(),"passed":true,"independentSkeletons":true,"animations":animations,
                     "pickingChecked":CommandLine.arguments.contains("--model-proof"),"pickSamples":pickSamples,
                     "triangles":a.source.geometries.reduce(0){sum,g in sum+g.elements.reduce(0){$0+($1.primitiveType == .triangles ? $1.primitiveCount:0)}}])
             } catch { failures.append("\(kind): \(error)");report.append(["type":kind,"passed":false,"error":String(describing:error)]) }

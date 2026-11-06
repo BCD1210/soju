@@ -98,6 +98,9 @@ final class NativeSceneWorker {
     final class Builder {
         let terrain:TerrainWorker.Builder,sprites=WorldSprites(streaming:true),effects:CombatEffects,batches:MetalBatches
         private let overlayCache=SceneOverlayCache()
+        let modelLibrary:Models3D
+        var rigAssets=[Int:MetalRigAsset](),rigs=[String:MetalRigInstance](),retiringRigs=[String:MetalRigInstance]()
+        var rigErrors=[Int:String](),approvedRigKinds=Set<Int>()
         var units=[String:Obj](),billboards=[String:UnitBillboard](),bars=[String:UnitBars](),rings=[String:SCNNode]()
         var state:Obj=[:],fog=[Int:UInt8](),creep=Set<Int>(),session="",eventSequence=0.0,generation=0
         private var diagnosticFog=[String:Int](),diagnosticCreep=[Int]()
@@ -118,11 +121,16 @@ final class NativeSceneWorker {
         }
         private let pickGeometry=ResidentCache<PickGeometry>(limit:64*1024*1024)
         private var terrainPicks=[ScenePickMesh](),pickTerrainRevision = -1
-        init(device:MTLDevice)throws {terrain=try TerrainWorker.Builder();effects=try CombatEffects(authoredModels:false);batches=try MetalBatches(device:device)}
+        init(device:MTLDevice)throws {
+            terrain=try TerrainWorker.Builder();effects=try CombatEffects(authoredModels:false);batches=try MetalBatches(device:device)
+            modelLibrary=try Models3D(folder:argument("--model-dir").map{URL(fileURLWithPath:$0)} ?? runtime.appendingPathComponent("models-3d"),catalogURL:argument("--catalog").map{URL(fileURLWithPath:$0)})
+            approvedRigKinds=Set(modelLibrary.fidelity.keys.filter{modelLibrary.approvedForLive($0)})
+            if let review=argument("--model-review-types") {approvedRigKinds.formUnion(review.split(separator:",").compactMap{Int($0)})}
+        }
         func apply(_ update:Update) {
             let next=update.state["session"] as? String ?? "legacy",reset=next != session
             let prepared=update.prepared ?? PreparedState(update.state,previous:state)
-            if reset {billboards.removeAll();bars.removeAll();rings.removeAll();effects.clear();sprites.clear();eventSequence=0}
+            if reset {rigs.removeAll();retiringRigs.removeAll();billboards.removeAll();bars.removeAll();rings.removeAll();effects.clear();sprites.clear();eventSequence=0}
             let events=reset ? []:(update.state["events"] as? [Obj] ?? []).filter{number($0,"seq")>eventSequence}
             var incomingFog=update.fog,incomingCreep=update.creep
             if let region=update.region {
@@ -146,13 +154,39 @@ final class NativeSceneWorker {
             eventSequence=number(state,"eventSeq");units=prepared.units
             for id in billboards.keys where units[id]==nil {billboards.removeValue(forKey:id);bars.removeValue(forKey:id);rings.removeValue(forKey:id)}
             let colors=state["playerColors"] as? [[Int]] ?? []
+            for event in events where event["kind"] as? String == "death" {
+                if let id=event["unit"] as? String,units[id]==nil,let rig=rigs.removeValue(forKey:id),rig.model.clip(for:"death") != nil {
+                    rig.model.beginDeath(frame:number(state,"frame"));retiringRigs[id]=rig
+                }
+            }
+            for id in rigs.keys where units[id]==nil {rigs.removeValue(forKey:id)}
+            for (id,rig) in retiringRigs where rig.model.updateDeath(frame:number(state,"frame"),now:CACurrentMediaTime()) {retiringRigs.removeValue(forKey:id)}
+            for (id,unit) in units {
+                let kind=Int(number(unit,"type"))
+                guard approvedRigKinds.contains(kind) else {continue}
+                do {
+                    let rig:MetalRigInstance
+                    if let existing=rigs[id],existing.model.kind==kind {rig=existing}
+                    else {
+                        let model=try modelLibrary.make(kind);model.root.name=id
+                        let asset:MetalRigAsset
+                        if let cached=rigAssets[kind] {asset=cached}
+                        else {asset=try MetalRigAsset(url:modelLibrary.catalog.url(model.definition),definition:model.definition,batches:batches);rigAssets[kind]=asset}
+                        rig=MetalRigInstance(model:model,asset:asset);rigs[id]=rig
+                    }
+                    for event in events where event["kind"] as? String == "attack" && event["unit"] as? String == id {rig.model.attackUntilFrame=number(state,"frame")+5}
+                    rig.model.apply(unit,height:terrain.ground.buildingElevation(unit),frame:number(state,"frame"))
+                    rig.model.root.simdPosition=rig.model.targetPosition;rig.model.root.eulerAngles.y=CGFloat(rig.model.targetYaw)
+                    rig.model.teamColor(WorldSprites.playerColor(colors,owner:Int(number(unit,"owner"))));rigErrors.removeValue(forKey:kind)
+                } catch {rigErrors[kind]=String(describing:error);rigs.removeValue(forKey:id)}
+            }
             for (id,unit) in units where prepared.dirty.contains(id) || billboards[id]==nil {
                 let billboard=billboards[id] ?? UnitBillboard(id:id)
                 billboard.apply(unit,ground:terrain.ground,art:sprites,color:WorldSprites.playerColor(colors,owner:Int(number(unit,"owner"))))
                 billboards[id]=billboard
             }
             effects.apply(bullets:state["bullets"] as? [Obj] ?? [],events:events,units:units,frame:number(state,"frame"),ground:terrain.ground)
-            sprites.apply(state,ground:terrain.ground,authored:[])
+            sprites.apply(state,ground:terrain.ground,authored:Set(retiringRigs.keys))
         }
         private func trimTextureCaches() {
             // Drop only cache ownership before a large reveal competes with live
@@ -179,6 +213,11 @@ final class NativeSceneWorker {
             let column=view.camera.transform.columns.3,eye=SIMD3<Float>(column.x,column.y,column.z)
             for billboard in billboards.values {billboard.updateView(eye:eye,orientation:view.camera.orientation,perspective:!view.camera.orthographic,art:sprites)}
             let hiddenBodies=PossessionPresentation.hiddenBodies(Array(billboards.values),eye:eye,possessed:view.hiddenUnit)
+            var rigDraws=[MetalRigDraw](),rigPicks=[ScenePickMesh]()
+            for (id,rig) in rigs.merging(retiringRigs,uniquingKeysWith:{$1}) {
+                let pose=rig.pose(frame:number(state,"frame"),batches:batches,hidden:hiddenBodies.contains(id))
+                rigDraws+=pose.0;rigPicks+=pose.1
+            }
             var overlays=Array(terrain.creepNodes.values)+Array(sprites.nodes.values)
             func collect(_ node:SCNNode,hidden:Bool=false) {
                 if hidden || node.isHidden {return}
@@ -206,10 +245,10 @@ final class NativeSceneWorker {
             if yieldToNative() {throw RefinementYield.nativePending}
             let nextGeneration=generation &+ 1
             try batches.prepare(MetalBatches.Input(sceneRevision:nextGeneration,terrainRevision:terrainRevision,terrainFogRevision:fogRevision,mapWidth:terrain.mapWidth,
-                terrain:terrain.terrain,billboards:Array(billboards.values),overlays:overlays,objectCount:units.count,retireTerrainSources:true,reuseUnitPoses:true,hiddenBodies:hiddenBodies),checkpoint:{
+                terrain:terrain.terrain,billboards:Array(billboards.values),overlays:overlays,objectCount:units.count,retireTerrainSources:true,reuseUnitPoses:true,hiddenBodies:hiddenBodies.union(rigs.keys),rigs:rigDraws),checkpoint:{
                     if yieldToNative() {throw RefinementYield.nativePending}
                 })
-            var picks=[ScenePickMesh](),positions=[String:SIMD3<Float>]()
+            var picks=rigPicks,positions=[String:SIMD3<Float>]()
             func pick(_ node:SCNNode,_ target:ScenePickHit.Target,sharedKey:String?=nil,relief:SpriteRelief.Mesh?=nil) {
                 guard !node.isHidden,let geometry=node.geometry,let source=geometry.sources(for:.vertex).first else {return}
                 let key=sharedKey ?? String(describing:ObjectIdentifier(source)),packed:PickGeometry
@@ -233,6 +272,7 @@ final class NativeSceneWorker {
             for (id,billboard) in billboards where !billboard.root.isHidden {
                 if yieldToNative() {throw RefinementYield.nativePending}
                 positions[id]=billboard.root.simdWorldPosition
+                if rigs[id] != nil {continue}
                 for (index,node) in billboard.layers where number(billboard.nativeLayers[index] ?? [:],"drawfunc") != 10 {
                     let shared=billboard.contactMeshes[index]==nil && billboard.sourceMeshes[index] != nil
                     let key=shared ? "unit/\(billboard.shownImages[index] ?? -1)/\(billboard.shown[index] ?? -1)":nil
@@ -254,7 +294,10 @@ final class NativeSceneWorker {
                 "state":state,"fog":diagnosticFog,"creepTilesSnapshot":diagnosticCreep,
                 "missingWorldImages":sprites.missing.sorted(),"spriteFrames":effects.sprites.renderedFrames,"missingEffectImages":effects.sprites.missing.sorted(),
                 "combatEvents":effects.counts,"projectiles":effects.projectiles.count,"creepTiles":terrain.creepNodes.count,"terrainTiles":terrain.terrain.count,
-                "capability":"native HD relief and sprite chains; authored rigs require SOJU_BW_RENDERER=scenekit"]
+                "capability":"native Metal terrain, relief and authored GPU-skinned rigs",
+                "riggedUnits":rigs.mapValues{["type":$0.model.kind,"clip":$0.model.playing,"targetHeight":$0.model.definition.targetHeight ?? 0]},
+                "rigErrors":Dictionary(uniqueKeysWithValues:rigErrors.map{(String($0.key),$0.value)}),
+                "rigDraws":rigDraws.count,"retiringRigs":retiringRigs.count,"textureResidency":TextureResidency.shared.report()]
             let projection=view.camera.projection*simd_inverse(view.camera.transform)
             let bounds=billboards.mapValues{$0.projectedSpriteBounds(projection:projection,viewport:view.viewport,art:sprites)}
             if yieldToNative() {throw RefinementYield.nativePending}
