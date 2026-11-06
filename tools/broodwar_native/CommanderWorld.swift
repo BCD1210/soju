@@ -60,7 +60,7 @@ extension Commander {
         state=s
         let list=preparedState?.list ?? (s["units"] as? [Obj] ?? [])
         units=preparedState?.units ?? Dictionary(uniqueKeysWithValues:list.compactMap { u in (u["id"] as? String).map { ($0,u) } })
-        if !initialized,let base=list.first(where:{($0["townHall"] as? Bool == true || number($0,"type")==106) && number($0,"owner")==number(s,"player")}) {
+        if !initialized,let base=list.first(where:{($0["townHall"] as? Bool == true || number($0,"type")==106) && number($0,"owner")==number(s,"player")}) ?? list.first(where:{number($0,"owner")==number(s,"player")}) {
             camera.position=SCNVector3(number(base,"x")/32-3,1.65,number(base,"y")/32+5)
             if let value=argument("--camera"),let a=Double(value.split(separator:",").first ?? ""),let b=Double(value.split(separator:",").last ?? "") {camera.position.x=CGFloat(a);camera.position.z=CGFloat(b)}
 
