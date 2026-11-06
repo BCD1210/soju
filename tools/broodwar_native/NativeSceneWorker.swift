@@ -176,6 +176,8 @@ final class NativeSceneWorker {
                     }
                     for event in events where event["kind"] as? String == "attack" && event["unit"] as? String == id {rig.model.attackUntilFrame=number(state,"frame")+5}
                     rig.model.apply(unit,height:terrain.ground.buildingElevation(unit),frame:number(state,"frame"))
+                    let turret=unit["turret"] as? Obj ?? [:]
+                    rig.turretYaw=Float(-(number(turret,"facing")-number(unit,"facing"))*2*Double.pi/256)
                     rig.model.root.simdPosition=rig.model.targetPosition;rig.model.root.eulerAngles.y=CGFloat(rig.model.targetYaw)
                     rig.model.teamColor(WorldSprites.playerColor(colors,owner:Int(number(unit,"owner"))));rigErrors.removeValue(forKey:kind)
                 } catch {rigErrors[kind]=String(describing:error);rigs.removeValue(forKey:id)}

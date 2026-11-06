@@ -137,10 +137,10 @@ final class MetalRigAsset {
         }
         clips=animations
     }
-    func sample(clip:String,time:Float,loop:Bool,batches:MetalBatches)->[PosedPart] {
-        let key="\(clip)/\(time)/\(loop)"
+    func sample(clip:String,time:Float,loop:Bool,turrets:[String:Float]=[:],batches:MetalBatches)->[PosedPart] {
+        let key="\(clip)/\(time)/\(loop)/"+turrets.keys.sorted().map{"\($0)=\(turrets[$0]!)"}.joined(separator:",")
         if let cached=poses.get(key) {return cached}
-        let transforms=transforms(clip:clip,time:time,loop:loop)
+        let transforms=transforms(clip:clip,time:time,loop:loop,turrets:turrets)
         var posed=[PosedPart]()
         for part in parts {
             let matrices:[simd_float4x4]
@@ -162,7 +162,7 @@ final class MetalRigAsset {
 
     static func floats(_ value:Any?)->[Float]? {(value as? [NSNumber])?.map{$0.floatValue}}
     static func matrix(_ a:[Float])->simd_float4x4 {simd_float4x4(SIMD4(a[0],a[1],a[2],a[3]),SIMD4(a[4],a[5],a[6],a[7]),SIMD4(a[8],a[9],a[10],a[11]),SIMD4(a[12],a[13],a[14],a[15]))}
-    func transforms(clip:String,time:Float,loop:Bool)->[simd_float4x4] {
+    func transforms(clip:String,time:Float,loop:Bool,turrets:[String:Float]=[:])->[simd_float4x4] {
         var translation=nodes.map{Self.floats($0["translation"]) ?? [0,0,0]},rotation=nodes.map{Self.floats($0["rotation"]) ?? [0,0,0,1]},scale=nodes.map{Self.floats($0["scale"]) ?? [1,1,1]}
         if let clip=clips[clip] {
             let t=loop ? max(0,time).truncatingRemainder(dividingBy:clip.duration):min(max(0,time),clip.duration)
@@ -182,7 +182,12 @@ final class MetalRigAsset {
             var local:simd_float4x4
             if let matrix=Self.floats(nodes[i]["matrix"]) {local=Self.matrix(matrix)}
             else {let q=rotation[i];local=simd_float4x4(simd_quatf(vector:SIMD4(q[0],q[1],q[2],q[3])));local.columns.0 *= scale[i][0];local.columns.1 *= scale[i][1];local.columns.2 *= scale[i][2];local.columns.3=SIMD4(translation[i][0],translation[i][1],translation[i][2],1)}
-            result[i]=parents[i]<0 ? local:visit(parents[i])*local;done.insert(i);return result[i]
+            result[i]=parents[i]<0 ? local:visit(parents[i])*local
+            if let name=nodes[i]["name"] as? String,let angle=turrets[name] {
+                let turn=simd_float4x4(simd_quatf(angle:angle,axis:SIMD3(0,1,0)))
+                for column in 0..<3 {result[i][column]=turn*result[i][column]}
+            }
+            done.insert(i);return result[i]
         }
         for i in nodes.indices {_=visit(i)};return result
     }
@@ -194,11 +199,12 @@ struct MetalRigDraw {
 }
 final class MetalRigInstance {
     let model:ModelInstance,asset:MetalRigAsset
-    var clip="",clipFrame=0.0
+    var clip="",clipFrame=0.0,turretYaw:Float=0
     init(model:ModelInstance,asset:MetalRigAsset) {self.model=model;self.asset=asset}
     func pose(frame:Double,batches:MetalBatches,hidden:Bool)->([MetalRigDraw],[ScenePickMesh]) {
         if clip != model.playing {clip=model.playing;clipFrame=frame}
-        let sampled=asset.sample(clip:clip,time:Float(max(0,frame-clipFrame)/24),loop:!model.dying,batches:batches)
+        let turrets=Dictionary(uniqueKeysWithValues:(model.definition.raw["turretNodes"] as? [String] ?? []).map{($0,turretYaw)})
+        let sampled=asset.sample(clip:clip,time:Float(max(0,frame-clipFrame)/24),loop:!model.dying,turrets:turrets,batches:batches)
         if model.root.isHidden {return ([],[])}
         let world=model.root.simdWorldTransform*model.placement.simdTransform*model.rig.simdTransform
         let rgb=model.appliedTeamColor.count>=3 ? model.appliedTeamColor:[244,4,4]
@@ -232,8 +238,13 @@ func metalRigProof()throws {
             let asset=try MetalRigAsset(url:library.catalog.url(model.definition),definition:model.definition,batches:batches),rig=MetalRigInstance(model:model,asset:asset)
             model.teamColor(Models3D.playerColors[0])
             let camera=SCNNode();camera.camera=SCNCamera();camera.camera!.fieldOfView=45;camera.camera!.zNear=0.01;camera.camera!.zFar=100
-            let height=Float(model.definition.targetHeight ?? 1),center=SIMD3<Float>(0,height*0.5,0)
-            camera.simdPosition=center+SIMD3<Float>(0,height*0.35,height*2.8);camera.look(at:SCNVector3(center))
+            let height=Float(model.definition.targetHeight ?? 1)
+            let framing=rig.pose(frame:0,batches:batches,hidden:false).1
+            var frameLower=SIMD3<Float>(repeating:.greatestFiniteMagnitude),frameUpper=SIMD3<Float>(repeating: -.greatestFiniteMagnitude)
+            for pick in framing {for p in pick.vertices {let v=pick.transform*SIMD4(p,1);frameLower=simd_min(frameLower,SIMD3(v.x,v.y,v.z));frameUpper=simd_max(frameUpper,SIMD3(v.x,v.y,v.z))}}
+            let center=(frameLower+frameUpper)/2,extent=frameUpper-frameLower,span=max(extent.x,max(extent.y,extent.z))
+            let heading=Float(argument("--proof-heading") ?? "0") ?? 0
+            camera.simdPosition=center+SIMD3<Float>(sin(heading)*span*2.2,span*0.6,cos(heading)*span*2.2);camera.look(at:SCNVector3(center))
             var latestPicks=[ScenePickMesh]()
             func draw(_ name:String,_ frame:Double)throws->[UInt8] {
                 let pose=rig.pose(frame:frame,batches:batches,hidden:false);latestPicks=pose.1;revision+=1
@@ -259,7 +270,14 @@ func metalRigProof()throws {
             }}
             let hasPaint=asset.parts.contains{$0.paint}
             guard !hasPaint || minimumColorPixels>100 else {throw SceneError.invalid("Metal team colors indistinguishable")}
-            model.teamColor(Models3D.playerColors[0]);var clips=[Obj]()
+            model.teamColor(Models3D.playerColors[0]);var turretPixels=0
+            if !(model.definition.raw["turretNodes"] as? [String] ?? []).isEmpty {
+                rig.turretYaw=0;let straight=try draw("turret-straight",0)
+                rig.turretYaw=Float.pi/2;let turned=try draw("turret-turned",0)
+                turretPixels=stride(from:0,to:straight.count,by:4).filter{p in (0..<3).contains{abs(Int(straight[p+$0])-Int(turned[p+$0]))>4}}.count
+                guard turretPixels>100 else {throw SceneError.invalid("Metal turret did not turn")};rig.turretYaw=0
+            }
+            var clips=[Obj]()
             for action in model.definition.animations.keys.sorted() where model.clip(for:action) != nil {
                 model.playAction(action,force:true,blendDuration:0,loop:action != "death");model.dying=action=="death";rig.clip=""
                 let start=try draw("\(action)-0",0),duration=asset.clips[model.playing]?.duration ?? 1
@@ -279,7 +297,7 @@ func metalRigProof()throws {
             guard pickCount>0 else {throw SceneError.invalid("Metal rig cannot be picked")}
             var lower=SIMD3<Float>(repeating:.greatestFiniteMagnitude),upper=SIMD3<Float>(repeating: -.greatestFiniteMagnitude)
             for pick in latestPicks {for p in pick.vertices {let v=pick.transform*SIMD4(p,1);lower=simd_min(lower,SIMD3(v.x,v.y,v.z));upper=simd_max(upper,SIMD3(v.x,v.y,v.z))}}
-            results.append(["type":kind,"passed":true,"modelRevision":model.revision,"modelSha256":SHA256.hash(data:try Data(contentsOf:library.catalog.url(model.definition))).map{String(format:"%02x",$0)}.joined(),"clips":clips,"pickSamples":pickCount,"minimumTeamColorPixels":minimumColorPixels,"hasTeamMask":hasPaint,"worldBounds":[[lower.x,lower.y,lower.z],[upper.x,upper.y,upper.z]],"targetHeight":height])
+            results.append(["type":kind,"passed":true,"modelRevision":model.revision,"modelSha256":SHA256.hash(data:try Data(contentsOf:library.catalog.url(model.definition))).map{String(format:"%02x",$0)}.joined(),"clips":clips,"pickSamples":pickCount,"turretChangedPixels":turretPixels,"minimumTeamColorPixels":minimumColorPixels,"hasTeamMask":hasPaint,"worldBounds":[[lower.x,lower.y,lower.z],[upper.x,upper.y,upper.z]],"targetHeight":height])
         } catch {errors.append("\(kind): \(error)");results.append(["type":kind,"passed":false,"error":String(describing:error)])}
     }
     let report:Obj=["passed":errors.isEmpty,"models":results,"errors":errors,"textureResidency":TextureResidency.shared.report(),"renderer":"Metal GPU skinning; amplified stereo, left-eye readback"]
