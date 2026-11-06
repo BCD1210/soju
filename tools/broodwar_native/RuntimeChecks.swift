@@ -20,6 +20,17 @@ func runtimeChecks()throws {
     }
     var passed=[String]()
     func require(_ ok:Bool,_ message:String)throws {if !ok {throw SceneError.invalid("Runtime check: "+message)};passed.append(message)}
+    let nativeReview:Obj=["method":"visual-native","passed":true,"visualReviewed":true,
+        "nativeChecks":["scale":true,"picking":true,"teamColors":true,"clips":true,"textureBudget":true]]
+    try require(Models3D.passesReviewCriteria(nativeReview),"visual native review does not require sprite similarity scores")
+    var pendingReview=nativeReview;pendingReview["visualReviewed"]=false
+    try require(!Models3D.passesReviewCriteria(pendingReview),"pending visual review cannot activate a model")
+    for missing in ["scale","picking","teamColors","clips","textureBudget"] {
+        var incomplete=nativeReview,checks=nativeReview["nativeChecks"] as! [String:Bool]
+        checks.removeValue(forKey:missing);incomplete["nativeChecks"]=checks
+        try require(!Models3D.passesReviewCriteria(incomplete),"native review requires \(missing) evidence")
+    }
+    try require(!Models3D.passesReviewCriteria(["passed":true,"minimumIoU":0.8,"minimumSSIM":0.9]),"legacy review retains its similarity threshold")
     commander.camera.simdPosition=SIMD3<Float>(12,3,24)
     commander.yaw=0.3;commander.pitch = -0.2
     let originalView=commander.viewBookmark
