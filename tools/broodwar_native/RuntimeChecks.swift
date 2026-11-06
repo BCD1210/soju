@@ -304,6 +304,22 @@ func runtimeChecks()throws {
     cache.insert(7,key:"fourth",bytes:4)
     try require(cache.bytes==4 && cache.get("first")==nil && cache.get("fourth")==7,"LRU replacement of its newest entry preserves an evictable oldest entry")
 
+    let nearCamera=SCNNode();nearCamera.camera=SCNCamera();nearCamera.camera!.zNear=0.03
+    let nearProjection=simd_float4x4(nearCamera.camera!.projectionTransform)
+    for offset:Float in [-0.032,0.032] {
+        var eyeTransform=matrix_identity_float4x4;eyeTransform.columns.3.x=offset
+        let volume=PossessionPresentation.eyeVolume(transform:eyeTransform,projection:nearProjection)
+        let inverse=simd_inverse(nearProjection)
+        for x:Float in [-1,0,1] {for y:Float in [-1,0,1] {
+            let h=inverse*SIMD4<Float>(x,y,-1,1),p=eyeTransform*(h/h.w)
+            try require(PossessionPresentation.intersectsEye(center:SIMD3<Float>(p.x,p.y,p.z),radius:0.001,volume:volume),"both stereo near rectangles exclude intersecting rig bounds")
+        }}
+        try require(PossessionPresentation.intersectsEye(center:.zero,radius:3,volume:volume),"eye enclosed inside a large rig excludes its geometry")
+        try require(!PossessionPresentation.intersectsEye(center:SIMD3<Float>(0,0,-4),radius:0.5,volume:volume),"distant rig remains visible in possession")
+    }
+    let largeBuilding=SCNNode(geometry:SCNBox(width:2,height:2,length:2,chamferRadius:0))
+    largeBuilding.simdScale=SIMD3<Float>(4,2,3);largeBuilding.simdPosition=SIMD3<Float>(4,0,0)
+    try require(PossessionPresentation.near(largeBuilding,eye:.zero),"transformed building bounds protect an eye inside the model")
     commander.apply(state(1,[unit("a"),unit("b")]),[:])
     try require(commander.initialized,"an owned army initializes the camera without a town hall")
     try require(commander.models.count==2,"two independent live models")

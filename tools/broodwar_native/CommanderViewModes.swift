@@ -10,11 +10,30 @@ enum PossessionPresentation {
     static let hiddenCategory = 8
     static let pickCategories = 1 | 4 | hiddenCategory
     static let nearDistance:Float = 0.60
+    static func nearBounds(lower:SIMD3<Float>,upper:SIMD3<Float>,transform:simd_float4x4,eye:SIMD3<Float>)->Bool {
+        var lo=SIMD3<Float>(repeating:.infinity),hi=SIMD3<Float>(repeating:-.infinity)
+        for x in [lower.x,upper.x] {for y in [lower.y,upper.y] {for z in [lower.z,upper.z] {
+            let p=transform*SIMD4<Float>(x,y,z,1),v=SIMD3<Float>(p.x,p.y,p.z)
+            lo=simd_min(lo,v);hi=simd_max(hi,v)
+        }}}
+        return simd_distance(eye,simd_clamp(eye,lo,hi))<=nearDistance
+    }
     static func near(_ node:SCNNode,eye:SIMD3<Float>)->Bool {
         let box=node.boundingBox
-        let radius=Float(hypot(max(abs(box.min.x),abs(box.max.x)),max(abs(box.min.z),abs(box.max.z))))
-        let delta=node.simdWorldPosition-eye
-        return simd_length(SIMD2<Float>(delta.x,delta.z)) < radius+nearDistance
+        return nearBounds(lower:SIMD3<Float>(box.min),upper:SIMD3<Float>(box.max),transform:node.simdWorldTransform,eye:eye)
+    }
+    // Enclose the complete near rectangle and eye, including asymmetric stereo projections.
+    static func eyeVolume(transform:simd_float4x4,projection:simd_float4x4)->(SIMD3<Float>,Float) {
+        let p=transform.columns.3,eye=SIMD3<Float>(p.x,p.y,p.z),inverse=simd_inverse(projection)
+        var radius:Float=0
+        for x:Float in [-1,1] {for y:Float in [-1,1] {
+            let h=inverse*SIMD4<Float>(x,y,-1,1),world=transform*(h/h.w)
+            radius=max(radius,simd_distance(eye,SIMD3<Float>(world.x,world.y,world.z)))
+        }}
+        return (eye,radius+0.02)
+    }
+    static func intersectsEye(center:SIMD3<Float>,radius:Float,volume:(SIMD3<Float>,Float))->Bool {
+        simd_distance(center,volume.0)<=radius+volume.1
     }
     private static let originalCategories=NSMapTable<SCNNode,NSNumber>.weakToStrongObjects()
     static func mask(_ node:SCNNode,hidden:Bool) {
@@ -32,7 +51,7 @@ enum PossessionPresentation {
         guard let possessed=possessed else {return []}
         return Set(billboards.compactMap { b in
             guard let id=b.root.name else {return nil}
-            return id==possessed || (b.unit["building"] as? Bool != true && near(b.root,eye:eye)) ? id:nil
+            return id==possessed || near(b.root,eye:eye) ? id:nil
         })
     }
 }
@@ -109,7 +128,7 @@ extension Commander {
         let eye=eye ?? camera.simdWorldPosition
         for (id,model) in models {
             let hide=possessedUnit != nil && (id==possessedUnit ||
-                (units[id]?["building"] as? Bool != true && PossessionPresentation.near(model.root,eye:eye)))
+                PossessionPresentation.near(model.root,eye:eye))
             for node in model.allNodes {PossessionPresentation.mask(node,hidden:hide)}
             PossessionPresentation.mask(model.selection,hidden:hide)
             model.bars.root.enumerateChildNodes {node,_ in PossessionPresentation.mask(node,hidden:hide)}

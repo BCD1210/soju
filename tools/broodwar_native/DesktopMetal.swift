@@ -94,7 +94,9 @@ final class DesktopMetal:NSObject,CAMetalDisplayLinkDelegate {
         } catch {command.commit();fputs("Desktop batches: \(error)\n",stderr);return}
         let index=commander.captureFrames.reserve(),manual=input.manual
         if index != nil || manual != nil {
-            let metadata=input.metadata
+            var metadata=framePacket?.diagnostics ?? input.metadata
+            metadata["snapshotSource"]=input.metadata["snapshotSource"]
+            metadata["possessionNearPlane"]=batches.possessionReport
             let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:drawable.texture.pixelFormat,width:drawable.texture.width,height:drawable.texture.height,mipmapped:false)
             descriptor.usage = .shaderRead;descriptor.storageMode = .private
             guard let texture=TextureResidency.shared.make(commander.art.device,descriptor,owner:"captures"),let blit=command.makeBlitCommandEncoder() else {present(command,drawable);return}

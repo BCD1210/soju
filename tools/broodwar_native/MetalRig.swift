@@ -247,9 +247,10 @@ func metalRigProof()throws {
             let heading=Float(argument("--proof-heading") ?? "0") ?? 0
             camera.simdPosition=center+SIMD3<Float>(sin(heading)*span*2.2,span*0.6,cos(heading)*span*2.2);camera.look(at:SCNVector3(center))
             var latestPicks=[ScenePickMesh]()
-            func draw(_ name:String,_ frame:Double)throws->[UInt8] {
+            func draw(_ name:String,_ frame:Double,possession:Bool=false)throws->[UInt8] {
                 let pose=rig.pose(frame:frame,batches:batches,hidden:false);latestPicks=pose.1;revision+=1
                 try batches.prepare(MetalBatches.Input(sceneRevision:revision,terrainRevision:0,terrainFogRevision:0,mapWidth:1,terrain:[:],billboards:[],overlays:[],objectCount:1,rigs:pose.0))
+                batches.consume(ScenePacket(generation:revision,session:"rig-proof",batches:batches.batches,picks:pose.1,nativeFrame:frame,publishedAt:0,unitPositions:[:],diagnostics:["possessionActive":possession]))
                 guard let command=batches.queue.makeCommandBuffer() else {throw SceneError.invalid("Rig proof command")}
                 var right=camera.simdWorldTransform;right.columns.3.x+=0.064
                 try batches.render(command:command,output:texture,camera:camera,eye:camera.simdWorldPosition,rightTransform:right,rightProjection:simd_float4x4(camera.camera!.projectionTransform))
@@ -262,6 +263,12 @@ func metalRigProof()throws {
                 try png.write(to:output.appendingPathComponent("\(kind)-\(name).png"));return bytes
             }
             let initial=try draw("idle",0)
+            let outsideTransform=camera.simdTransform
+            camera.simdPosition=center
+            _=try draw("possession-inside",0,possession:true)
+            let nearReport=batches.possessionReport
+            guard batches.possessionNearCulled>0,batches.possessionNearSubmitted==0,!latestPicks.isEmpty else {throw SceneError.invalid("Possession eye intersects submitted rig geometry or loses picking")}
+            camera.simdTransform=outsideTransform
             var colorImages=[[UInt8]]()
             for (i,color) in Models3D.playerColors.enumerated() {model.teamColor(color);colorImages.append(try draw("player-\(i+1)",0))}
             var minimumColorPixels=Int.max
@@ -298,7 +305,7 @@ func metalRigProof()throws {
             guard pickCount>0 else {throw SceneError.invalid("Metal rig cannot be picked")}
             var lower=SIMD3<Float>(repeating:.greatestFiniteMagnitude),upper=SIMD3<Float>(repeating: -.greatestFiniteMagnitude)
             for pick in latestPicks {for p in pick.vertices {let v=pick.transform*SIMD4(p,1);lower=simd_min(lower,SIMD3(v.x,v.y,v.z));upper=simd_max(upper,SIMD3(v.x,v.y,v.z))}}
-            results.append(["type":kind,"passed":true,"modelRevision":model.revision,"modelSha256":SHA256.hash(data:try Data(contentsOf:library.catalog.url(model.definition))).map{String(format:"%02x",$0)}.joined(),"clips":clips,"pickSamples":pickCount,"turretChangedPixels":turretPixels,"minimumTeamColorPixels":minimumColorPixels,"hasTeamMask":hasPaint,"worldBounds":[[lower.x,lower.y,lower.z],[upper.x,upper.y,upper.z]],"targetHeight":height])
+            results.append(["type":kind,"passed":true,"modelRevision":model.revision,"modelSha256":SHA256.hash(data:try Data(contentsOf:library.catalog.url(model.definition))).map{String(format:"%02x",$0)}.joined(),"clips":clips,"pickSamples":pickCount,"possessionNearPlane":nearReport,"turretChangedPixels":turretPixels,"minimumTeamColorPixels":minimumColorPixels,"hasTeamMask":hasPaint,"worldBounds":[[lower.x,lower.y,lower.z],[upper.x,upper.y,upper.z]],"targetHeight":height])
         } catch {errors.append("\(kind): \(error)");results.append(["type":kind,"passed":false,"error":String(describing:error)])}
     }
     let report:Obj=["passed":errors.isEmpty,"models":results,"errors":errors,"textureResidency":TextureResidency.shared.report(),"renderer":"Metal GPU skinning; amplified stereo, left-eye readback"]

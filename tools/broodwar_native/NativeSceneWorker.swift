@@ -214,11 +214,13 @@ final class NativeSceneWorker {
             if yieldToNative() {throw RefinementYield.nativePending}
             let column=view.camera.transform.columns.3,eye=SIMD3<Float>(column.x,column.y,column.z)
             for billboard in billboards.values {billboard.updateView(eye:eye,orientation:view.camera.orientation,perspective:!view.camera.orthographic,art:sprites)}
-            let hiddenBodies=PossessionPresentation.hiddenBodies(Array(billboards.values),eye:eye,possessed:view.hiddenUnit)
+            var hiddenBodies=PossessionPresentation.hiddenBodies(Array(billboards.values),eye:eye,possessed:view.hiddenUnit)
             var rigDraws=[MetalRigDraw](),rigPicks=[ScenePickMesh]()
             for (id,rig) in rigs.merging(retiringRigs,uniquingKeysWith:{$1}) {
                 let pose=rig.pose(frame:number(state,"frame"),batches:batches,hidden:hiddenBodies.contains(id))
-                rigDraws+=pose.0;rigPicks+=pose.1
+                let nearEye=view.hiddenUnit != nil && pose.1.contains {PossessionPresentation.nearBounds(lower:$0.lower,upper:$0.upper,transform:$0.transform,eye:eye)}
+                if nearEye {hiddenBodies.insert(id)} else {rigDraws+=pose.0}
+                rigPicks+=pose.1
             }
             var overlays=Array(terrain.creepNodes.values)+Array(sprites.nodes.values)
             func collect(_ node:SCNNode,hidden:Bool=false) {
@@ -299,7 +301,7 @@ final class NativeSceneWorker {
                 "capability":"native Metal terrain, relief and authored GPU-skinned rigs",
                 "riggedUnits":rigs.mapValues{["type":$0.model.kind,"clip":$0.model.playing,"targetHeight":$0.model.definition.targetHeight ?? 0]},
                 "rigErrors":Dictionary(uniqueKeysWithValues:rigErrors.map{(String($0.key),$0.value)}),
-                "rigDraws":rigDraws.count,"retiringRigs":retiringRigs.count,"textureResidency":TextureResidency.shared.report()]
+                "possessionActive":view.hiddenUnit != nil,"possessionHiddenBodies":hiddenBodies.sorted(),"rigDraws":rigDraws.count,"retiringRigs":retiringRigs.count,"textureResidency":TextureResidency.shared.report()]
             let projection=view.camera.projection*simd_inverse(view.camera.transform)
             let bounds=billboards.mapValues{$0.projectedSpriteBounds(projection:projection,viewport:view.viewport,art:sprites)}
             if yieldToNative() {throw RefinementYield.nativePending}

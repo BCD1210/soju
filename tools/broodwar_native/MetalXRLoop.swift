@@ -142,7 +142,7 @@ final class MetalXRLoop {
         let mirrorDue=eye.eye==0 && start-lastMirror>=0.5
         if mirrorDue || index != nil {
             if mirrorDue {lastMirror=start}
-            capturePool.enqueue(command,source:texture,request:FrameCapturePool.Request(packet:framePacket,camera:left,frame:frame,eye:Int(eye.eye),index:index,mirror:mirrorDue,scale:body.scale))
+            capturePool.enqueue(command,source:texture,request:FrameCapturePool.Request(packet:framePacket,camera:left,frame:frame,eye:Int(eye.eye),index:index,mirror:mirrorDue,scale:body.scale,possessionNearPlane:batches.possessionReport))
         }
         var timing=framePacket?.timing ?? SceneTiming();timing.predictedDisplay=eye.predictedHostTime
         completionPool.attach(command,frame:frame,eye:Int(eye.eye),timing:timing)

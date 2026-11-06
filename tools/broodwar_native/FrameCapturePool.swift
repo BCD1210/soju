@@ -8,6 +8,7 @@ final class FrameCapturePool {
     struct Request {
         let packet:ScenePacket?,camera:MetalBatches.CameraPacket
         let frame:Int,eye:Int,index:Int?,mirror:Bool,scale:Float
+        var possessionNearPlane:Obj=[:]
     }
     struct Statistics {let textureCreations:Int,exhausted:Int,completed:Int,failed:Int,saveFailed:Int,mirrorFrame:Int}
     private final class Slot {
@@ -86,6 +87,7 @@ final class FrameCapturePool {
                     if let index=request.index {
                         let position=request.camera.transform.columns.3,orientation=request.camera.orientation
                         var metadata=request.packet?.diagnostics ?? [:]
+                        metadata["possessionNearPlane"]=request.possessionNearPlane
                         metadata["xrFrame"]=request.frame;metadata["eye"]=request.eye;metadata["source"]="OpenXR Metal scene packet"
                         metadata["snapshotSource"]=snapshotSource;metadata["worldUnitsPerMeter"]=request.scale
                         metadata["camera"]=[position.x,position.y,position.z]
