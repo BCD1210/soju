@@ -304,6 +304,9 @@ func runtimeChecks()throws {
     cache.insert(7,key:"fourth",bytes:4)
     try require(cache.bytes==4 && cache.get("first")==nil && cache.get("fourth")==7,"LRU replacement of its newest entry preserves an evictable oldest entry")
 
+    let constantTrack=MetalRigAsset.Track(node:0,path:"translation",times:[0,1],values:[[0,0,0],[0,0,0]],step:false)
+    let movingTrack=MetalRigAsset.Track(node:0,path:"translation",times:[0,1],values:[[0,0,0],[0,1,0]],step:false)
+    try require(!MetalRigAsset.Clip(tracks:[constantTrack],duration:1).hasMotion && MetalRigAsset.Clip(tracks:[movingTrack],duration:1).hasMotion,"authored static sequences are distinguished from moving animation tracks")
     let nearCamera=SCNNode();nearCamera.camera=SCNCamera();nearCamera.camera!.zNear=0.03
     let nearProjection=simd_float4x4(nearCamera.camera!.projectionTransform)
     for offset:Float in [-0.032,0.032] {
