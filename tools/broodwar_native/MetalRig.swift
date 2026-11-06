@@ -14,7 +14,13 @@ final class MetalRigAsset {
         let paint:Bool,replace:Bool,opaque:Bool
     }
     struct Track {let node:Int,path:String,times:[Float],values:[[Float]],step:Bool}
-    struct Clip {let tracks:[Track],duration:Float}
+    struct Clip {
+        let tracks:[Track],duration:Float
+        var hasMotion:Bool {tracks.contains {track in
+            guard let first=track.values.first else {return false}
+            return track.values.dropFirst().contains {value in zip(first,value).contains {abs($0-$1)>0.000001}}
+        }}
+    }
     let nodes:[Obj],skins:[Obj],parts:[Part],clips:[String:Clip]
     let parents:[Int],inverseBinds:[[simd_float4x4]]
     struct PosedPart {let part:Part,bones:MTLBuffer,points:[SIMD3<Float>],lower:SIMD3<Float>,upper:SIMD3<Float>}
@@ -291,8 +297,8 @@ func metalRigProof()throws {
                 let start=try draw("\(action)-0",0),duration=asset.clips[model.playing]?.duration ?? 1
                 let end=try draw("\(action)-1",Double(duration)*24*0.61)
                 let changed=stride(from:0,to:start.count,by:4).filter{p in (0..<3).contains{abs(Int(start[p+$0])-Int(end[p+$0]))>4}}.count
-                if ["walk","attack","death","work"].contains(action),changed==0 {throw SceneError.invalid("Metal animation did not change pixels: \(action)")}
-                clips.append(["action":action,"clip":model.playing,"changedPixels":changed])
+                if ["walk","attack","death","work"].contains(action),asset.clips[model.playing]?.hasMotion == true,changed==0 {throw SceneError.invalid("Metal animation did not change pixels: \(action)")}
+                clips.append(["action":action,"clip":model.playing,"changedPixels":changed,"staticPose":asset.clips[model.playing]?.hasMotion == false,"duration":duration])
             }
             model.dying=false;model.playAction("idle",force:true);rig.clip="";_=try draw("idle-final",0)
             var pickCount=0
