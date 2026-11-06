@@ -236,6 +236,7 @@ func metalRigProof()throws {
         do {
             let model=try library.make(kind);model.root.name="proof-\(kind)"
             let asset=try MetalRigAsset(url:library.catalog.url(model.definition),definition:model.definition,batches:batches),rig=MetalRigInstance(model:model,asset:asset)
+            model.root.position.y=CGFloat(model.definition.elevation)
             model.teamColor(Models3D.playerColors[0])
             let camera=SCNNode();camera.camera=SCNCamera();camera.camera!.fieldOfView=45;camera.camera!.zNear=0.01;camera.camera!.zFar=100
             let height=Float(model.definition.targetHeight ?? 1)
