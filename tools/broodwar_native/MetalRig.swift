@@ -10,7 +10,7 @@ import simd
 final class MetalRigAsset {
     struct Part {
         let node:Int,skin:Int?,vertices:[MetalBatches.Vertex],indices:[UInt32]
-        let vertexBuffer:MTLBuffer,indexBuffer:MTLBuffer,textures:[MTLTexture]
+        let vertexBuffer:MTLBuffer,indexBuffer:MTLBuffer,textures:[MTLTexture],samplers:[MTLSamplerState]
         let paint:Bool,replace:Bool,opaque:Bool
     }
     struct Track {let node:Int,path:String,times:[Float],values:[[Float]],step:Bool}
@@ -72,6 +72,29 @@ final class MetalRigAsset {
             guard start>=binaryStart,end<=data.count,let sourceImage=CGImageSourceCreateWithData(data.subdata(in:start..<end) as CFData,nil),let image=CGImageSourceCreateImageAtIndex(sourceImage,0,nil) else {throw SceneError.invalid("Invalid rig texture")}
             let result=try TextureResidency.shared.load(batches.loader,image,options:[.SRGB:color,.generateMipmaps:true,.origin:MTKTextureLoader.Origin.topLeft],owner:"authored-rigs");imageCache[cacheKey]=result;return result
         }
+        let sourceSamplers=doc["samplers"] as? [Obj] ?? []
+        var samplerCache=[Int:MTLSamplerState]()
+        func sampler(_ info:Obj?)throws->MTLSamplerState {
+            let textureIndex=info?["index"] as? Int ?? -1
+            let index=textures.indices.contains(textureIndex) ? textures[textureIndex]["sampler"] as? Int ?? -1:-1
+            if let cached=samplerCache[index] {return cached}
+            let source=sourceSamplers.indices.contains(index) ? sourceSamplers[index]:[:],descriptor=MTLSamplerDescriptor()
+            func address(_ key:String)throws->MTLSamplerAddressMode {
+                switch source[key] as? Int ?? 10497 {
+                case 10497:return .repeat
+                case 33071:return .clampToEdge
+                case 33648:return .mirrorRepeat
+                default:throw SceneError.invalid("Unsupported rig texture wrap")
+                }
+            }
+            descriptor.sAddressMode=try address("wrapS");descriptor.tAddressMode=try address("wrapT")
+            let minimum=source["minFilter"] as? Int ?? 9987
+            descriptor.minFilter=[9728,9984,9986].contains(minimum) ? .nearest:.linear
+            descriptor.magFilter=source["magFilter"] as? Int == 9728 ? .nearest:.linear
+            descriptor.mipFilter=[9728,9729].contains(minimum) ? .notMipmapped:([9984,9985].contains(minimum) ? .nearest:.linear)
+            guard let result=batches.device.makeSamplerState(descriptor:descriptor) else {throw SceneError.invalid("Rig texture sampler allocation")}
+            samplerCache[index]=result;return result
+        }
         let meshes=doc["meshes"] as? [Obj] ?? [],materials=doc["materials"] as? [Obj] ?? []
         let teamNames=Set(definition.raw["teamMaterials"] as? [String] ?? [])
         var output=[Part]()
@@ -94,7 +117,8 @@ final class MetalRigAsset {
                 }
                 let mi=primitive["material"] as? Int ?? 0,material=materials.indices.contains(mi) ? materials[mi]:[:],pbr=material["pbrMetallicRoughness"] as? Obj ?? [:]
                 let maps=try [texture(pbr["baseColorTexture"] as? Obj,batches.white),texture(material["normalTexture"] as? Obj,batches.normal,false),texture(pbr["metallicRoughnessTexture"] as? Obj,batches.white,false),texture(material["emissiveTexture"] as? Obj,batches.black)]
-                output.append(Part(node:nodeIndex,skin:skinIndex,vertices:vertices,indices:indices,vertexBuffer:batches.buffer(vertices),indexBuffer:batches.buffer(indices),textures:maps,paint:definition.teamMask=="alpha" && (teamNames.isEmpty || teamNames.contains(material["name"] as? String ?? "")),replace:definition.raw["teamColorBlend"] as? String == "replace",opaque:material["alphaMode"] as? String != "BLEND"))
+                let samplers=try [sampler(pbr["baseColorTexture"] as? Obj),sampler(material["normalTexture"] as? Obj),sampler(pbr["metallicRoughnessTexture"] as? Obj),sampler(material["emissiveTexture"] as? Obj)]
+                output.append(Part(node:nodeIndex,skin:skinIndex,vertices:vertices,indices:indices,vertexBuffer:batches.buffer(vertices),indexBuffer:batches.buffer(indices),textures:maps,samplers:samplers,paint:definition.teamMask=="alpha" && (teamNames.isEmpty || teamNames.contains(material["name"] as? String ?? "")),replace:definition.raw["teamColorBlend"] as? String == "replace",opaque:material["alphaMode"] as? String != "BLEND"))
             }
         }
         parts=output
