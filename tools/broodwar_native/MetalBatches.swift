@@ -38,6 +38,7 @@ final class MetalBatches {
         var drawNodes=[DrawNode]()
         var terrain:Bool;var shadow:Bool;var mode:Float;var depthDisabled:Bool;var bounds:[(SIMD3<Float>,Float)]
         var bones:MTLBuffer?=nil
+        var samplers=[MTLSamplerState]()
         var teamColor=SIMD4<Float>.zero,opaque:Float=1
         var primitive:MTLPrimitiveType = .triangle
     }
@@ -47,6 +48,7 @@ final class MetalBatches {
         let vertices:MTLBuffer,indices:MTLBuffer,count:Int,flatVertices:MTLBuffer?
         let instances:[MTLBuffer],textures:[MTLTexture],drawNodes:[DrawNode]
         let terrain:Bool,shadow:Bool,mode:Float,depthDisabled:Bool,bounds:[(SIMD3<Float>,Float)]
+        let samplers:[MTLSamplerState]
         let bones:MTLBuffer?,teamColor:SIMD4<Float>,opaque:Float
         let primitive:MTLPrimitiveType
         fileprivate init(_ source:Batch) {
@@ -54,7 +56,7 @@ final class MetalBatches {
             instances=source.instances;textures=source.textures;drawNodes=source.drawNodes
             terrain=source.terrain;shadow=source.shadow;mode=source.mode
             depthDisabled=source.depthDisabled;bounds=source.bounds
-            primitive=source.primitive;bones=source.bones;teamColor=source.teamColor;opaque=source.opaque
+            samplers=source.samplers;primitive=source.primitive;bones=source.bones;teamColor=source.teamColor;opaque=source.opaque
         }
     }
     let device:MTLDevice,loader:MTKTextureLoader,queue:MTLCommandQueue
@@ -488,7 +490,7 @@ final class MetalBatches {
                 instances:(0..<3).map{_ in buffer([Instance(model:rig.transform,parameters:SIMD4(4,rig.opacity,1,0))])},nodes:[],textures:rig.part.textures,
                 terrain:false,shadow:false,mode:4,depthDisabled:false,bounds:[(rig.center,rig.radius)])
             batch.drawNodes=[DrawNode(transform:rig.transform,scale:SIMD3(repeating:1),opacity:rig.opacity,hidden:false,billboard:false)]
-            batch.bones=rig.bones;batch.teamColor=rig.color;batch.opaque=rig.part.opaque ? 1:0;constructed.append(batch)
+            batch.samplers=rig.part.samplers;batch.bones=rig.bones;batch.teamColor=rig.color;batch.opaque=rig.part.opaque ? 1:0;constructed.append(batch)
         }
         batches=constructed.map(PacketBatch.init)
         resetVisibility()
@@ -722,6 +724,7 @@ final class MetalBatches {
                 encoder.setRenderPipelineState((batch.primitive == .line ? linePipelines:pipelines)[Int(batch.mode)])
                 encoder.setDepthStencilState(batch.depthDisabled ? overlayDepth:shadow ? shadowDepth:depth)
                 encoder.setVertexBuffer(batch.bones ?? identityBones,offset:0,index:3)
+                for (index,sampler) in batch.samplers.enumerated() {encoder.setFragmentSamplerState(sampler,index:index)}
                 encoder.setVisibilityResultMode(.counting,offset:batchIndex*8)
                 var count=1,farCount=0
                 if !batch.terrain {
@@ -798,7 +801,7 @@ final class MetalBatches {
         r.light=u.eye[0].w==0 ? float3(-0.22033581,0.54387457,0.80972377):transpose(rotation)*float3(-0.22033581,0.89032002,0.39847509);
         r.view=u.eye[0].w==0 ? float3(0,0,1):(b.parameters.x>=4 ? u.eye[eye].xyz-world.xyz:transpose(rotation)*(u.eye[eye].xyz-world.xyz));return r;
     }
-    fragment float4 batchFragment(Raster r [[stage_in]],texture2d<float> diffuse [[texture(0)]],texture2d<float> normal [[texture(1)]],texture2d<float> bright [[texture(2)]],texture2d<float> specular [[texture(3)]],texture2d<float> emissive [[texture(4)]],texture2d<float> ao [[texture(5)]],texture2d_array<float> terrain [[texture(6)]],texture2d_array<float> fog [[texture(7)]]) {
+    fragment float4 batchFragment(Raster r [[stage_in]],texture2d<float> diffuse [[texture(0)]],texture2d<float> normal [[texture(1)]],texture2d<float> bright [[texture(2)]],texture2d<float> specular [[texture(3)]],texture2d<float> emissive [[texture(4)]],texture2d<float> ao [[texture(5)]],texture2d_array<float> terrain [[texture(6)]],texture2d_array<float> fog [[texture(7)]],sampler rigDiffuse [[sampler(0)]],sampler rigNormal [[sampler(1)]],sampler rigRoughness [[sampler(2)]],sampler rigEmissive [[sampler(3)]]) {
         constexpr sampler s(coord::normalized,address::clamp_to_edge,filter::linear,mip_filter::none);
         constexpr sampler terrainSampler(coord::normalized,address::clamp_to_edge,filter::linear,mip_filter::linear,max_anisotropy(16));
         if(batchMode==2) {
@@ -807,17 +810,18 @@ final class MetalBatches {
         }
         float4 color=diffuse.sample(s,r.uv.xy);
         if(batchMode==4) {
+            color=diffuse.sample(rigDiffuse,r.uv.xy);
             float alpha=r.parameters.z>0.5 ? 1.0:color.a;
             if(alpha<0.01) discard_fragment();
             if(r.teamColor.w>0) color.rgb=mix(color.rgb,r.teamColor.w>1.5 ? r.teamColor.rgb:color.rgb*r.teamColor.rgb,1.0-color.a);
             float3 n=normalize(r.normal),dp1=dfdx(r.world),dp2=dfdy(r.world);float2 duv1=dfdx(r.uv.xy),duv2=dfdy(r.uv.xy);
             float3 t=dp1*duv2.y-dp2*duv1.y,b=-dp1*duv2.x+dp2*duv1.x;
             float norm=max(dot(t,t),dot(b,b));
-            if(norm>1e-12) {float3 mapped=normal.sample(s,r.uv.xy).xyz*2-1;n=normalize(t*rsqrt(norm)*mapped.x+b*rsqrt(norm)*mapped.y+n*mapped.z);}
+            if(norm>1e-12) {float3 mapped=normal.sample(rigNormal,r.uv.xy).xyz*2-1;n=normalize(t*rsqrt(norm)*mapped.x+b*rsqrt(norm)*mapped.y+n*mapped.z);}
             float3 l=normalize(float3(-0.22,0.89,0.40)),v=normalize(r.view),h=normalize(l+v);
-            float rough=clamp(bright.sample(s,r.uv.xy).g,0.18,1.0);
+            float rough=clamp(bright.sample(rigRoughness,r.uv.xy).g,0.18,1.0);
             float highlight=pow(max(dot(n,h),0.0),mix(128.0,4.0,rough))*0.12;
-            color.rgb=color.rgb*(0.45+0.85*max(dot(n,l),0.0))+highlight+specular.sample(s,r.uv.xy).rgb;
+            color.rgb=color.rgb*(0.45+0.85*max(dot(n,l),0.0))+highlight+specular.sample(rigEmissive,r.uv.xy).rgb;
             return float4(color.rgb,alpha*r.parameters.y);
         }
         if(color.a<0.01) discard_fragment();
