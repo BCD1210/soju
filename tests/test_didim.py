@@ -87,3 +87,31 @@ class DidimGames(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DidimStore(unittest.TestCase):
+    """activate() talks to the store; these cover the paths that never touch the network or keychain."""
+    def run_activate(self, key, store='http://127.0.0.1:9'):
+        env = dict(os.environ, SOJU_BASE=tempfile.mkdtemp(), SOJU_DIDIM_STORE=store, SOJU_DIDIM_KEY=key)
+        return subprocess.run([sys.executable, str(SCRIPT), 'activate', 'no-such-game-for-tests'], env=env,
+                              capture_output=True, text=True)
+
+    def test_malformed_key_is_rejected_before_any_request(self):
+        result = self.run_activate('not a key!')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('does not look right', result.stderr)
+
+    def test_unreachable_store_is_reported(self):
+        result = self.run_activate('DSTC-TEST-0000-0000')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Could not reach the store', result.stderr)
+
+    def test_catalog_copies_match_and_are_valid(self):
+        bundled = json.loads((ROOT / 'resources/didim-store.json').read_text())
+        public = json.loads((ROOT / 'docs/store/catalog.json').read_text())
+        self.assertEqual(bundled, public)
+        self.assertEqual(bundled['schema'], 1)
+        for game in bundled['games']:
+            self.assertTrue(game['checkout'].startswith('https://buy.polar.sh/'))
+            self.assertTrue(game['cover'].startswith('https://didimlabs.com/store/'))
+            self.assertTrue((ROOT / 'docs/store' / game['cover'].rsplit('/', 1)[1]).is_file())

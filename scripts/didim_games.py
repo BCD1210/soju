@@ -7,6 +7,7 @@ A game zip holds one .app whose Contents/Resources/soju-game.json names it:
 Games install to $SOJU_BASE/didim-games/<id>/. No network, no accounts.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -17,6 +18,9 @@ import sys
 import tempfile
 
 ID = re.compile(r'[a-z0-9][a-z0-9-]{0,63}')
+STORE = os.environ.get('SOJU_DIDIM_STORE', 'https://didimlabs.com')
+KEYCHAIN_SERVICE = 'Soju Didim Labs license'
+KEY = re.compile(r'[A-Za-z0-9-]{8,100}')
 MAX_MANIFEST = 64 * 1024
 
 
@@ -57,7 +61,7 @@ def inside(root, path):
         return False
 
 
-def install(archive):
+def install(archive, expect=None):
     archive = Path(archive).expanduser().absolute()
     if not archive.is_file() or archive.suffix.lower() != '.zip':
         raise ValueError('Choose the game .zip you downloaded.')
@@ -75,6 +79,8 @@ def install(archive):
             raise ValueError('The archive must contain exactly one .app.')
         app = apps[0]
         item = read_manifest(app)
+        if expect and item['id'] != expect:
+            raise ValueError('The download is a different game than the one bought.')
         # Downloads carry quarantine; the bundle is checked before it is trusted.
         subprocess.run(['/usr/bin/xattr', '-dr', 'com.apple.quarantine', str(app)], check=False,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -115,6 +121,72 @@ def installed(soju_base=None):
     return games
 
 
+def saved_key(uid):
+    found = subprocess.run(['/usr/bin/security', 'find-generic-password', '-s', KEYCHAIN_SERVICE, '-a', uid, '-w'],
+                           capture_output=True, text=True)
+    return found.stdout.strip() if found.returncode == 0 else ''
+
+
+def save_key(uid, key):
+    # Stored in the login keychain so a reinstall or update needs no key; never written to logs or files.
+    subprocess.run(['/usr/bin/security', 'add-generic-password', '-U', '-s', KEYCHAIN_SERVICE, '-a', uid,
+                    '-l', 'Soju: ' + uid, '-w', key], check=True, capture_output=True)
+
+
+def fetch_json(url, body):
+    import urllib.request, urllib.error
+    request = urllib.request.Request(url, data=json.dumps(body).encode(), method='POST',
+                                     headers={'Content-Type': 'application/json', 'User-Agent': 'Soju'})
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.loads(response.read(1024 * 1024))
+    except urllib.error.HTTPError as error:
+        try: message = json.loads(error.read(65536)).get('error')
+        except (ValueError, AttributeError): message = None
+        raise ValueError(message or 'The store answered with an error (' + str(error.code) + ').')
+    except urllib.error.URLError:
+        raise ValueError('Could not reach the store. Check the internet connection.')
+
+
+def activate(uid):
+    """Download and install a bought game. The key comes from SOJU_DIDIM_KEY or the keychain."""
+    import urllib.request
+    if not ID.fullmatch(uid or ''): raise ValueError('Choose a game.')
+    key = os.environ.pop('SOJU_DIDIM_KEY', '').strip() or saved_key(uid)
+    if not key: raise ValueError('Enter the license key from your purchase email.')
+    if not KEY.fullmatch(key): raise ValueError('That license key does not look right.')
+    print('Checking the license key…', flush=True)
+    info = fetch_json(STORE + '/api/didim/download', {'game': uid, 'key': key})
+    name, size, digest, url = info.get('name'), info.get('size'), info.get('sha256'), info.get('url')
+    if not (isinstance(name, str) and name.endswith('.zip') and '/' not in name and isinstance(size, int)
+            and isinstance(digest, str) and re.fullmatch(r'[0-9a-f]{64}', digest)
+            and isinstance(url, str) and url.startswith('https://')):
+        raise ValueError('The store sent an unexpected answer.')
+    save_key(uid, key)
+    folder = games_dir() / '.downloads'
+    folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    target = folder / name
+    print('Downloading ' + name + ' (' + str(size // (1024 * 1024)) + ' MB)…', flush=True)
+    sha = hashlib.sha256(); done = 0; shown = -1
+    request = urllib.request.Request(url, headers={'User-Agent': 'Soju'})
+    with urllib.request.urlopen(request, timeout=60) as response, target.open('wb') as out:
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk: break
+            out.write(chunk); sha.update(chunk); done += len(chunk)
+            if done > size: raise ValueError('The download is larger than expected.')
+            percent = done * 100 // size
+            if percent // 5 != shown:
+                shown = percent // 5
+                print('Downloading… ' + str(percent) + '%', flush=True)
+    try:
+        if done != size or sha.hexdigest() != digest:
+            raise ValueError('The download was damaged. Try again.')
+        install(target, expect=uid)
+    finally:
+        target.unlink(missing_ok=True)
+
+
 def remove(uid):
     if not ID.fullmatch(uid or ''): raise ValueError('Choose a game ID.')
     dest = games_dir() / uid
@@ -125,12 +197,13 @@ def remove(uid):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['install', 'list', 'remove'])
+    parser.add_argument('action', choices=['install', 'activate', 'list', 'remove'])
     parser.add_argument('target', nargs='?')
     args = parser.parse_args()
     try:
         if args.action == 'install': install(args.target or '')
         elif args.action == 'remove': remove(args.target)
+        elif args.action == 'activate': activate(args.target)
         else: print(json.dumps(installed(), ensure_ascii=False))
     except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
         print('soju: ' + str(error), file=sys.stderr); sys.exit(1)

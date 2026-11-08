@@ -116,7 +116,7 @@ enum Launcher: String, CaseIterable, Identifiable {
         })
     }
 
-    func task(_ args: [String], logName: String) throws -> (Process, URL) {
+    func task(_ args: [String], logName: String, environment extra: [String: String] = [:]) throws -> (Process, URL) {
         let dir = base.appendingPathComponent("logs")
         // Logs can name games, paths and backend errors: keep them to this user.
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -136,6 +136,7 @@ enum Launcher: String, CaseIterable, Identifiable {
         env["PYTHONDONTWRITEBYTECODE"] = "1"
         env["TERM"] = "dumb"
         for key in ["ENGINE", "WINEPREFIX", "WINEDLLOVERRIDES", "DYLD_FALLBACK_LIBRARY_PATH"] { env.removeValue(forKey: key) }
+        env.merge(extra) { _, new in new }
         p.environment = env
         p.standardInput = FileHandle.nullDevice
         p.standardOutput = output
@@ -143,11 +144,11 @@ enum Launcher: String, CaseIterable, Identifiable {
         return (p, url)
     }
 
-    func run(_ args: [String], title: String) {
+    func run(_ args: [String], title: String, environment: [String: String] = [:]) {
         guard !busy else { return }
         busy = true; failed = false; activity = title; log = ""
         do {
-            let (p, url) = try task(args, logName: "desktop")
+            let (p, url) = try task(args, logName: "desktop", environment: environment)
             logReader = try FileHandle(forReadingFrom: url)
             operation = p
             p.terminationHandler = { [weak self] process in

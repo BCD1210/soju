@@ -146,9 +146,9 @@ scripts/play.sh gog-kill          # GOG 보틀 종료 (창을 닫으면 메뉴�
 
 게임은 아직 폭넓게 테스트하지 않았습니다. 커널 안티치트(EAC/BattlEye)가 필요한 게임은 Wine에서 돌지 않습니다.
 
-## Didim Labs 게임 (맥 네이티브)
+## Didim Labs Store (맥 네이티브 게임)
 
-Didim Labs가 만든 애플 실리콘 네이티브 게임은 내려받은 .zip으로 설치합니다(Library → Add Didim Labs game, 또는 `soju didim install <zip>`). 설치 전에 게임 서명을 확인하고, Windows나 Wine 없이 바로 실행됩니다. 세이브는 `~/Library/Application Support`에 남습니다.
+Didim Labs가 만든 애플 실리콘 네이티브 게임을 소주의 Didim Labs Store 탭에서 삽니다. 결제(Polar)를 마치고 영수증 메일의 라이선스 키를 넣으면 소주가 내려받아 확인하고 설치합니다. Windows나 Wine 없이 실행되고, 키는 macOS 키체인에 저장돼 다시 설치할 때 쓰입니다. 내려받은 .zip은 Library → Add Didim Labs game 또는 `soju didim install <zip>`으로도 설치할 수 있습니다. 세이브는 `~/Library/Application Support`에 남습니다.
 
 ## Xbox PC / Microsoft Store (Xodus 백엔드, 실험 기능)
 
