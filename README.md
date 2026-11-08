@@ -12,7 +12,7 @@ owned library cached by **GOG GALAXY**. Installed and uninstalled games share th
 same library, with availability filters and official-client install actions.
 **Discover** searches Steam, GOG and Microsoft Store listings and prices, with links to buy from the stores.
 **Xbox PC (experimental):** sign in to a Microsoft account to import owned and PC Game Pass games, download them through the [Xodus](https://github.com/xodus-gaming/xodus) backend and start them on Soju's engine. Retro Classics reaches its main menu on Soju; other games are untested. Purchases, downloads and updates stay with the official stores.
-**Didim Labs Store:** native Apple Silicon games made by Didim Labs. Buy through the store's checkout (Polar), paste the license key from the receipt, and Soju downloads, checks and installs the game; it runs without Windows or Wine. The key is kept in the macOS Keychain for reinstalls. A downloaded .zip also installs with Library → Add Didim Labs game or `soju didim install <zip>`.
+**Didim Labs Store:** we sell our own Mac games here. Pay on Polar, paste the key from the receipt email, and Soju downloads the game, checks its SHA-256 and signature, and installs it. No Wine. The key stays in the Keychain, so reinstalling doesn't ask again. If you already have the .zip, use Library → Add Didim Labs game or `soju didim install <zip>`.
 Epic and Battle.net account imports are not included yet. Compatibility varies by game.
 
 ![Soju unified game library](docs/assets/soju-library.png)
@@ -26,7 +26,7 @@ CodeWeavers' published sources; Steam uses a separate private Wine 11 setup.
 Apple's proprietary GPTK/D3DMetal is downloaded separately. Games and store
 clients are not included.
 
-**Current release: [v1.10.0](https://github.com/BCD1210/soju/releases/tag/v1.10.0).**
+**Current release: [v1.10.1](https://github.com/BCD1210/soju/releases/tag/v1.10.1).**
 The compatibility examples below were verified on M4 Pro / macOS 26.5.
 D2R and Hogwarts Legacy are examples of supported games, not the scope of the project.
 
@@ -102,7 +102,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.10.0/Soju-1.10.0-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.10.1/Soju-1.10.1-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 

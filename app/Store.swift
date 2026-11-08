@@ -71,7 +71,7 @@ struct StoreView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 7) {
                 Text("Didim Labs Store").font(.system(size: 30, weight: .bold, design: .rounded))
-                Text("Games made by Didim Labs, built natively for Apple Silicon. Buy once, then install and play them here.")
+                Text("Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
                     .font(.callout).foregroundStyle(.secondary)
             }
             if model.busy || !model.activity.isEmpty && model.activity != "Ready when you are." {
@@ -90,7 +90,7 @@ struct StoreView: View {
                     }
                 }
             }
-            Text("Payments are handled by Polar, Didim Labs' reseller. The license key from your receipt email is saved in this Mac's Keychain.")
+            Text("Checkout is on Polar. Their receipt email has your license key; Soju keeps it in the Keychain so you only paste it once.")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -129,12 +129,12 @@ struct StoreView: View {
                             Label("Buy · " + game.price, systemImage: "cart")
                         }.buttonStyle(.borderedProminent).tint(accent)
                     }
-                    Button(installed(game) == nil ? "Enter license key…" : "Reinstall latest version") {
+                    Button(installed(game) == nil ? "I have a key" : "Reinstall") {
                         if installed(game) == nil { key = ""; keyFor = game }
                         else { model.run(["didim", "activate", game.id], title: "Updating " + game.title + "…") }
                     }.disabled(model.busy)
                     if let steam = game.steam, let url = URL(string: steam) {
-                        Link("Windows on Steam", destination: url).font(.system(size: 12))
+                        Link("Windows: Steam", destination: url).font(.system(size: 12))
                     }
                 }.padding(.top, 4)
             }
@@ -145,7 +145,7 @@ struct StoreView: View {
     private func keySheet(_ game: StoreGame) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Install " + game.title).font(.system(size: 18, weight: .bold))
-            Text("Paste the license key from your purchase email (it starts with DSTC-). Soju checks it, downloads the game and installs it.")
+            Text("Paste the key from the Polar receipt email. It starts with DSTC-.")
                 .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             TextField("License key", text: $key).textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
             HStack {
