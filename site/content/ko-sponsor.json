@@ -1,0 +1,196 @@
+{
+  "out": "ko/sponsor.html",
+  "lang": "ko",
+  "base": "../",
+  "title": "소주에 광고하기 | Didim Labs",
+  "description": "소주 앱 사이드바에 이름, 한 줄 문구, 링크를 30일 동안 올립니다. 49달러, 한 번에 광고주 한 곳, 게재 전에 직접 확인합니다.",
+  "canonical": "https://didimlabs.com/ko/sponsor.html",
+  "alternates": [
+    {
+      "hreflang": "en",
+      "href": "https://didimlabs.com/sponsor.html"
+    },
+    {
+      "hreflang": "ko",
+      "href": "https://didimlabs.com/ko/sponsor.html"
+    },
+    {
+      "hreflang": "x-default",
+      "href": "https://didimlabs.com/sponsor.html"
+    }
+  ],
+  "og": {
+    "image": "https://didimlabs.com/assets/soju-sponsor-slot.png",
+    "imageAlt": "소주 사이드바 아래쪽 광고 카드"
+  },
+  "nav": [
+    {
+      "label": "소주",
+      "href": "./"
+    },
+    {
+      "label": "다운로드",
+      "href": "./#install"
+    },
+    {
+      "label": "게임",
+      "href": "../games/dont-sell-the-cat.html"
+    },
+    {
+      "label": "광고",
+      "href": "sponsor.html",
+      "current": true
+    },
+    {
+      "label": "English",
+      "href": "../sponsor.html",
+      "lang": "en"
+    }
+  ],
+  "footer": [
+    "Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com) · [소주](./)",
+    "Blizzard, Valve, Epic, GOG, Microsoft, Apple, CodeWeavers와 관련 없습니다."
+  ],
+  "body": [
+    {
+      "type": "Hero",
+      "props": {
+        "title": "소주에 광고하기",
+        "lead": "소주 사이드바 맨 아래 카드 자리를 팝니다. 한 번에 한 곳만 나오고, 이름 하나, 문구 한 줄, 링크 하나가 들어갑니다.",
+        "actions": [
+          {
+            "label": "30일 49달러로 구매",
+            "href": "https://buy.polar.sh/polar_cl_BeAyjraP77KriARD48Ird5WIyyvGUw1oWhLON2PZ1FF",
+            "primary": true
+          },
+          {
+            "label": "문의하기",
+            "href": "#contact"
+          }
+        ],
+        "meta": "결제는 Polar로 합니다. 광고를 싣지 않기로 하면 전액 환불합니다."
+      }
+    },
+    {
+      "type": "Section",
+      "props": {
+        "id": "slot",
+        "title": "나오는 자리"
+      },
+      "children": [
+        {
+          "type": "Figure",
+          "props": {
+            "image": {
+              "src": "../assets/soju-sponsor-slot.png",
+              "alt": "On your Mac 상자 아래 광고 카드가 있는 소주 사이드바",
+              "width": 440,
+              "height": 530
+            },
+            "caption": "예시 카드입니다. 이름과 링크는 임시 값입니다."
+          }
+        },
+        {
+          "type": "Bullets",
+          "props": {
+            "items": [
+              "사이드바 왼쪽 아래, 앱의 모든 화면에 소주를 켜 둔 동안 계속 보입니다.",
+              "이름 40자, 문구 90자, https 링크 하나까지. 이미지와 추적 스크립트는 넣지 않습니다.",
+              "누르면 브라우저에서 링크가 열리고, 클릭 수를 셀 수 있게 `utm_source=soju`가 붙습니다.",
+              "소주 1.10.3부터는 카드를 didimlabs.com에서 받아 오므로 앱 업데이트 없이 바뀝니다."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "Section",
+      "props": {
+        "id": "price",
+        "title": "가격과 진행 방식"
+      },
+      "children": [
+        {
+          "type": "Table",
+          "props": {
+            "label": "광고 자리",
+            "head": [
+              "",
+              "내용"
+            ],
+            "rows": [
+              [
+                "가격",
+                "30일 49달러"
+              ],
+              [
+                "자리",
+                "한 번에 광고주 한 곳"
+              ],
+              [
+                "시작",
+                "원하는 날짜, 또는 확인 후 비어 있는 가장 빠른 날"
+              ],
+              [
+                "확인",
+                "영업일 2일 안에 확인합니다. 싣지 않기로 하면 Polar에서 전액 환불됩니다"
+              ],
+              [
+                "긴 기간이나 제휴",
+                "메일이나 아래 문의 양식으로 연락 주세요"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "Text",
+          "props": {
+            "text": "게임, 맥 앱, 하드웨어, 게임 스토어, 개발 도구 광고를 받습니다. 도박, 코인, 성인물, 불법 복제, 치트, 서명 안 된 프로그램 설치를 권하는 광고는 받지 않습니다."
+          }
+        },
+        {
+          "type": "Buttons",
+          "props": {
+            "items": [
+              {
+                "label": "30일 49달러로 구매",
+                "href": "https://buy.polar.sh/polar_cl_BeAyjraP77KriARD48Ird5WIyyvGUw1oWhLON2PZ1FF",
+                "primary": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "Section",
+      "props": {
+        "id": "contact",
+        "title": "제휴와 문의"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "props": {
+            "text": "번들, 게임 출시, 스토어 제휴, 긴 기간 광고는 아래 양식이나 [hello@didimlabs.com](mailto:hello@didimlabs.com)으로 보내 주세요. 답장은 메일로 드립니다."
+          }
+        },
+        {
+          "type": "ContactForm",
+          "props": {
+            "action": "/api/sponsor/inquiry",
+            "name": "이름",
+            "email": "이메일",
+            "company": "회사나 제품 이름 (선택)",
+            "message": "문의 내용",
+            "send": "보내기",
+            "sending": "보내는 중…",
+            "sent": "보냈습니다. 메일로 답장드릴게요.",
+            "failed": "보내지 못했습니다. hello@didimlabs.com으로 메일 주세요.",
+            "thanks": "구매해 주셔서 감사합니다. 광고를 확인하고 영업일 2일 안에 시작 날짜를 메일로 알려 드릴게요."
+          }
+        }
+      ]
+    }
+  ]
+}

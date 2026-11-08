@@ -1,0 +1,196 @@
+{
+  "out": "sponsor.html",
+  "lang": "en",
+  "base": "",
+  "title": "Advertise in Soju | Didim Labs",
+  "description": "Put your name, one line and a link in the Soju app sidebar for 30 days. $49, one sponsor at a time, every ad checked before it runs.",
+  "canonical": "https://didimlabs.com/sponsor.html",
+  "alternates": [
+    {
+      "hreflang": "en",
+      "href": "https://didimlabs.com/sponsor.html"
+    },
+    {
+      "hreflang": "ko",
+      "href": "https://didimlabs.com/ko/sponsor.html"
+    },
+    {
+      "hreflang": "x-default",
+      "href": "https://didimlabs.com/sponsor.html"
+    }
+  ],
+  "og": {
+    "image": "https://didimlabs.com/assets/soju-sponsor-slot.png",
+    "imageAlt": "The sponsor card at the bottom of the Soju sidebar"
+  },
+  "nav": [
+    {
+      "label": "Soju",
+      "href": "./"
+    },
+    {
+      "label": "Download",
+      "href": "./#install"
+    },
+    {
+      "label": "Games",
+      "href": "games/dont-sell-the-cat.html"
+    },
+    {
+      "label": "Advertise",
+      "href": "sponsor.html",
+      "current": true
+    },
+    {
+      "label": "한국어",
+      "href": "ko/sponsor.html",
+      "lang": "ko"
+    }
+  ],
+  "footer": [
+    "Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com) · [GitHub](https://github.com/BCD1210/soju)",
+    "Not affiliated with Blizzard, Valve, Epic, GOG, Microsoft, Apple or CodeWeavers."
+  ],
+  "body": [
+    {
+      "type": "Hero",
+      "props": {
+        "title": "Advertise in Soju",
+        "lead": "The card at the bottom of the Soju sidebar is for sale. It shows one sponsor at a time: a name, one line of text and a link.",
+        "actions": [
+          {
+            "label": "Buy 30 days for $49",
+            "href": "https://buy.polar.sh/polar_cl_BeAyjraP77KriARD48Ird5WIyyvGUw1oWhLON2PZ1FF",
+            "primary": true
+          },
+          {
+            "label": "Ask a question",
+            "href": "#contact"
+          }
+        ],
+        "meta": "Paid through Polar. Full refund if we turn the ad down."
+      }
+    },
+    {
+      "type": "Section",
+      "props": {
+        "id": "slot",
+        "title": "Where it shows"
+      },
+      "children": [
+        {
+          "type": "Figure",
+          "props": {
+            "image": {
+              "src": "assets/soju-sponsor-slot.png",
+              "alt": "Soju sidebar with a sponsor card under the On your Mac box",
+              "width": 440,
+              "height": 530
+            },
+            "caption": "Example card. The name and link are placeholders."
+          }
+        },
+        {
+          "type": "Bullets",
+          "props": {
+            "items": [
+              "Bottom left of the sidebar, on every page of the app, every time Soju is open.",
+              "Name up to 40 characters, one line up to 90 characters, one https link. No images or tracking scripts.",
+              "Clicks open your link in the browser with `utm_source=soju` added so you can count them.",
+              "Soju 1.10.3 and later load the card from didimlabs.com, so it changes without an app update."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "Section",
+      "props": {
+        "id": "price",
+        "title": "Price and how it runs"
+      },
+      "children": [
+        {
+          "type": "Table",
+          "props": {
+            "label": "Sponsor slot",
+            "head": [
+              "",
+              "Details"
+            ],
+            "rows": [
+              [
+                "Price",
+                "$49 for 30 days"
+              ],
+              [
+                "Slots",
+                "One sponsor at a time"
+              ],
+              [
+                "Start",
+                "The date you ask for, or the next free day after we approve the ad"
+              ],
+              [
+                "Review",
+                "Within 2 business days. If we say no, Polar refunds you in full"
+              ],
+              [
+                "Longer runs or trades",
+                "Email us or use the form below"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "Text",
+          "props": {
+            "text": "We take ads for games, Mac apps, hardware, game stores and dev tools. We don't take gambling, crypto, adult content, piracy, cheats or anything that asks people to install unsigned software."
+          }
+        },
+        {
+          "type": "Buttons",
+          "props": {
+            "items": [
+              {
+                "label": "Buy 30 days for $49",
+                "href": "https://buy.polar.sh/polar_cl_BeAyjraP77KriARD48Ird5WIyyvGUw1oWhLON2PZ1FF",
+                "primary": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "Section",
+      "props": {
+        "id": "contact",
+        "title": "Partnerships and questions"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "props": {
+            "text": "Bundles, game launches, store partnerships, longer runs: write to us here or at [hello@didimlabs.com](mailto:hello@didimlabs.com). We reply by email."
+          }
+        },
+        {
+          "type": "ContactForm",
+          "props": {
+            "action": "/api/sponsor/inquiry",
+            "name": "Name",
+            "email": "Email",
+            "company": "Company or product (optional)",
+            "message": "What you have in mind",
+            "send": "Send",
+            "sending": "Sending…",
+            "sent": "Sent. We'll reply by email.",
+            "failed": "Couldn't send. Please email hello@didimlabs.com.",
+            "thanks": "Thanks for buying the slot. We'll check the ad and email you the start date within 2 business days."
+          }
+        }
+      ]
+    }
+  ]
+}

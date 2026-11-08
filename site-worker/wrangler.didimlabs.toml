@@ -10,3 +10,7 @@ custom_domain = true
 [[routes]]
 pattern = "www.didimlabs.com"
 custom_domain = true
+
+# Sponsor inquiries. The recipient is the SPONSOR_TO secret and must be a verified Email Routing address.
+[[send_email]]
+name = "MAILER"
