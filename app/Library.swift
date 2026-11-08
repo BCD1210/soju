@@ -111,6 +111,7 @@ extension SojuModel {
         if !FileManager.default.fileExists(atPath: game.installPath) {
             return "This game folder is unavailable. Reconnect its drive and refresh."
         }
+        if game.platform == .didim { return nil }
         if game.platform == .steam {
             let local = base.appendingPathComponent("steam-runtime/bin/wine").path
             let upstream = base.appendingPathComponent("steam-wine/bin/wine").path
@@ -144,6 +145,8 @@ extension SojuModel {
                     }
                     if self.stoppingGames.remove(game.id) != nil {
                         self.activity = game.title + " stopped."
+                    } else if process.terminationStatus == 0 && game.platform == .didim {
+                        self.activity = game.title + " closed."
                     } else if process.terminationStatus != 0 {
                         let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
                         let reason = text.split(separator: "\n").last(where: { $0.hasPrefix("soju: ") }).map { String($0.dropFirst(6)) }
@@ -161,10 +164,10 @@ extension SojuModel {
             try p.run()
             failed = false
             preferences.opened[game.id] = Date(); savePreferences()
-            activity = "Opening " + game.title + " through " + game.platform.title + "…"
+            activity = game.platform == .didim ? "Playing " + game.title + "…" : "Opening " + game.title + " through " + game.platform.title + "…"
             // An Xbox game runs inside this process, so it counts as running until it exits.
             // Other clients may stay alive for hours: there it is only a launch request.
-            if game.platform != .xbox { DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
+            if !game.platform.runsInSoju { DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
                 guard let self, let p, self.gameLaunches[game.id] === p else { return }
                 self.launchingGames.remove(game.id)
             } }
@@ -225,6 +228,7 @@ private extension Launcher {
         case .epic: return Color(red: 0.82, green: 0.64, blue: 0.40)
         case .gog: return Color(red: 0.70, green: 0.47, blue: 0.87)
         case .xbox: return Color(red: 0.24, green: 0.66, blue: 0.33)
+        case .didim: return Color(red: 0.79, green: 0.36, blue: 0.27)
         }
     }
 }
@@ -345,6 +349,11 @@ struct LibraryView: View {
                 } label: {
                     Label(model.scanning ? "Scanning…" : "Refresh", systemImage: "arrow.clockwise")
                 }.disabled(model.scanning || model.busy).help("Rescan local installation records")
+                Button {
+                    model.installDidimGame()
+                } label: {
+                    Label("Add Didim Labs game", systemImage: "plus")
+                }.disabled(model.busy).help("Install a native Mac game from a downloaded .zip")
             }
             HStack(spacing: 12) {
                 HStack(spacing: 8) {
@@ -446,7 +455,7 @@ struct LibraryView: View {
                             if !game.isInstalled { model.installOwnedGame(game) }
                             else if issue == nil { model.play(game) } else { selected = game }
                         } label: {
-                            Label(!game.isInstalled ? (game.isPartialDownload ? "Resume" : game.platform.ownedActionTitle) : model.launchingGames.contains(game.id) ? (game.platform == .xbox ? "Running" : "Starting…") : issue == nil ? "Play" : "Details", systemImage: !game.isInstalled ? "arrow.down.circle" : issue == nil ? "play.fill" : "exclamationmark.circle")
+                            Label(!game.isInstalled ? (game.isPartialDownload ? "Resume" : game.platform.ownedActionTitle) : model.launchingGames.contains(game.id) ? (game.platform.runsInSoju ? "Running" : "Starting…") : issue == nil ? "Play" : "Details", systemImage: !game.isInstalled ? "arrow.down.circle" : issue == nil ? "play.fill" : "exclamationmark.circle")
                         }.buttonStyle(.borderedProminent).tint(green).controlSize(.small)
                             .disabled(model.busy || model.launchingGames.contains(game.id))
                             .accessibilityLabel((!game.isInstalled ? (game.isPartialDownload ? "Resume downloading " : game.platform.ownedActionTitle + " ") : issue == nil ? "Play " : "Check ") + game.title)
@@ -514,7 +523,7 @@ struct LibraryView: View {
                     Text(game.platform.title).font(.system(size: 11, weight: .semibold)).foregroundStyle(game.platform.accent)
                     Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded))
                     Label(installedLabel(game), systemImage: !game.isInstalled ? "cloud" : game.volume.map { $0 != "this Mac" } == true ? "externaldrive" : "internaldrive").font(.system(size: 12)).foregroundStyle(.secondary)
-                    Text(game.platform == .xbox ? "Downloaded from the Microsoft Store. Xbox PC support is experimental: not every game works. The first launch may download about 600 MB of Xbox runtime files and take a few minutes to set up." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
+                    Text(game.platform == .didim ? "A native Mac game from Didim Labs. It runs without Windows or Wine." : game.platform == .xbox ? "Downloaded from the Microsoft Store. Xbox PC support is experimental: not every game works. The first launch may download about 600 MB of Xbox runtime files and take a few minutes to set up." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                     if game.downloadBlocked, let issue = game.issue {
                         Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
@@ -522,7 +531,7 @@ struct LibraryView: View {
                     if let issue = model.launchIssue(for: game) {
                         Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
                     }
-                    Text(game.platform == .xbox ? (game.isInstalled ? "Files are in " + game.installPath + ". Saves sync with your Xbox account when the game exits." : "This game is in your Xbox library. Download it to play; compatibility varies by game.") : game.isInstalled ? "Installation detected. Compatibility varies by game and Mac." : "This game is in your imported library. Open its launcher to install it; compatibility varies by game.")
+                    Text(game.platform == .didim ? "Files are in " + game.installPath + ". Saves stay in ~/Library/Application Support." : game.platform == .xbox ? (game.isInstalled ? "Files are in " + game.installPath + ". Saves sync with your Xbox account when the game exits." : "This game is in your Xbox library. Download it to play; compatibility varies by game.") : game.isInstalled ? "Installation detected. Compatibility varies by game and Mac." : "This game is in your imported library. Open its launcher to install it; compatibility varies by game.")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                     Spacer()
                 }

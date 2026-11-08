@@ -1,9 +1,14 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 enum Launcher: String, CaseIterable, Identifiable {
-    case battlenet, steam, epic, gog, xbox
+    case battlenet, steam, epic, gog, xbox, didim
     var id: String { rawValue }
+    /// Platforms with something to install on the Platforms page (not native Didim Labs games).
+    static var installable: [Launcher] { allCases.filter { $0 != .didim } }
+    /// Games that run as a task of Soju until they quit, instead of through an open launcher.
+    var runsInSoju: Bool { self == .xbox || self == .didim }
     var title: String {
         switch self {
         case .battlenet: return "Battle.net"
@@ -11,17 +16,19 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .epic: return "Epic Games"
         case .gog: return "GOG GALAXY"
         case .xbox: return "Xbox PC"
+        case .didim: return "Didim Labs"
         }
     }
     var detail: String {
         switch self {
         case .steam: return "Windows library · D3D11 with DXMT"
         case .xbox: return "Microsoft Store library · experimental"
+        case .didim: return "Native Mac games"
         default: return "Windows library · Apple D3DMetal"
         }
     }
     /// Xbox PC has no Windows client to open; sign-in and downloads run in Soju.
-    var opensAWindow: Bool { self != .xbox }
+    var opensAWindow: Bool { self != .xbox && self != .didim }
     var accountName: String {
         switch self {
         case .steam: return "Steam account"
@@ -29,6 +36,7 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .epic: return "Epic account"
         case .battlenet: return "Blizzard account"
         case .xbox: return "Microsoft account"
+        case .didim: return "Didim Labs"
         }
     }
     /// Action for an owned game that is not on this Mac yet.
@@ -37,6 +45,7 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .steam: return "Install"
         case .gog: return "Galaxy"
         case .xbox: return "Download"
+        case .didim: return "Install"
         default: return "Open"
         }
     }
@@ -47,6 +56,7 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .epic: return "shield.lefthalf.filled"
         case .gog: return "square.grid.2x2.fill"
         case .xbox: return "xbox.logo"
+        case .didim: return "cat.fill"
         }
     }
     var executable: String {
@@ -56,6 +66,7 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .epic: return "epic-bottle/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe"
         case .gog: return "gog-bottle/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe"
         case .xbox: return "xbox-bottle/drive_c/ProgramData/Soju/xbox.json"
+        case .didim: return "didim-games"
         }
     }
 }
@@ -100,7 +111,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     init() { refresh(); refreshLibrary() }
 
     func refresh() {
-        installed = Set(Launcher.allCases.filter {
+        installed = Set(Launcher.installable.filter {
             FileManager.default.fileExists(atPath: base.appendingPathComponent($0.executable).path)
         })
     }
@@ -172,7 +183,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     }
 
     func installSelection() {
-        let selected = Launcher.allCases.filter { selection.contains($0) }.map(\.rawValue)
+        let selected = Launcher.installable.filter { selection.contains($0) }.map(\.rawValue)
         guard !selected.isEmpty else { return }
         run(["install", selected.joined(separator: ",")], title: "Installing selected launchers…")
     }
@@ -213,6 +224,18 @@ enum Launcher: String, CaseIterable, Identifiable {
         run(["gptk", url.path], title: "Installing Apple GPTK…")
     }
 
+    /// A Didim Labs game zip (bought and downloaded outside Soju) installs into didim-games.
+    func installDidimGame() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose a Didim Labs game"
+        panel.message = "Select the game .zip you downloaded."
+        panel.allowedContentTypes = [.zip]
+        panel.canChooseDirectories = false
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        run(["didim", "install", url.path], title: "Installing the game…")
+    }
+
     func copyLog() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(log, forType: .string)
@@ -247,7 +270,7 @@ struct PlatformsView: View {
                 } label: { Image(systemName: "ellipsis.circle").font(.title2) }.menuStyle(.borderlessButton).fixedSize()
             }
             LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(Launcher.allCases) { launcher in
+                ForEach(Launcher.installable) { launcher in
                     card(launcher)
                 }
             }

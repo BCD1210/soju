@@ -22,6 +22,8 @@ Usage:
   soju game <id>      Play a game from the unified library
   soju game-install <id>  Open the official launcher to install an owned game
   soju search <term>  Search Steam, GOG and the Microsoft Store (--country US|KR|GB|DE|JP)
+  soju didim install <game.zip>  Install a native Mac game from Didim Labs
+  soju didim list|remove <id>    List or remove installed Didim Labs games
   soju --version      Print the Soju version
   soju battlenet      Launch Battle.net (default bottle)
   soju d2r            Launch Diablo II: Resurrected directly
@@ -70,6 +72,7 @@ case "${1:-}" in
   game-install)   shift; exec python3 "$ROOT/scripts/game-library.py" install "$@" ;;
   library)        exec python3 "$ROOT/scripts/game-library.py" list ;;
   game)           shift; exec python3 "$ROOT/scripts/game-library.py" launch "$@" ;;
+  didim)          shift; exec python3 "$ROOT/scripts/didim_games.py" "$@" ;;
   --version)      cat "$ROOT/VERSION" ;;
   app)            exec bash "$ROOT/scripts/install-app.sh" ;;
   install)        shift; exec bash "$ROOT/install.sh" "$@" ;;
