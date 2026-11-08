@@ -74,7 +74,7 @@ struct StoreView: View {
                 Text("Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
                     .font(.callout).foregroundStyle(.secondary)
             }
-            if model.busy || !model.activity.isEmpty && model.activity != "Ready when you are." {
+            if model.busy || !model.activity.isEmpty && model.activity != "Ready." {
                 HStack(spacing: 8) {
                     if model.busy { ProgressView().controlSize(.small) }
                     else { Image(systemName: model.failed ? "exclamationmark.circle" : "checkmark.circle").foregroundStyle(model.failed ? .orange : .green) }

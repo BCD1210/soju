@@ -11,7 +11,7 @@ import { components, registry } from './catalog.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const docs = join(here, '..', 'docs');
-const CSS_VERSION = '20261109';
+const CSS_VERSION = '20261109b';
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const plain = (s) => s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
 
@@ -66,6 +66,7 @@ function page(file) {
     '<meta name="twitter:card" content="summary_large_image">',
     '<meta name="theme-color" content="#121413">',
     `<link rel="icon" href="${b}assets/favicon.png">`,
+    `<link rel="apple-touch-icon" href="${b}assets/apple-touch-icon.png">`,
     `<link rel="stylesheet" href="${b}style.css?v=${CSS_VERSION}">`,
     graph.length && `<script type="application/ld+json">\n${JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }, null, 1).replace(/</g, '\\u003c')}\n</script>`,
   ].filter(Boolean).join('\n');
@@ -79,7 +80,7 @@ ${head}
 <body>
 <a class="skip" href="#main">${p.lang === 'ko' ? '본문으로' : 'Skip to content'}</a>
 <nav aria-label="${p.lang === 'ko' ? '메인' : 'Main'}"><div class="inner">
-  <a class="brand" href="${b || './'}">Didim Labs</a>
+  <a class="brand" href="${b || './'}"><img src="${b}assets/soju-logo-64.png" width="28" height="28" alt="">Soju<span> by Didim Labs</span></a>
   ${nav}
 </div></nav>
 <main id="main">
