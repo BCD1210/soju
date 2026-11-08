@@ -19,6 +19,10 @@ case "$ACTION" in
     case "${1:-}" in setup|play|status) exec python3 "$ROOT/scripts/d2r-vr.py" "$1" ;;
       flat) exec python3 "$ROOT/scripts/d2r-vr.py" play --flat ;;
       *) echo "Unknown VR action."; exit 64 ;; esac ;;
+  didim)
+    case "${1:-}" in install) exec python3 "$ROOT/scripts/didim_games.py" install "${2:?Choose the game zip}" ;;
+      remove) exec python3 "$ROOT/scripts/didim_games.py" remove "${2:?Choose a game}" ;;
+      *) echo "Unknown Didim Labs action."; exit 64 ;; esac ;;
   xbox)
     case "${1:-}" in login|logout|kill|status) exec bash "$ROOT/scripts/xbox.sh" "$1" ;;
       location) exec bash "$ROOT/scripts/xbox.sh" location "${2:?Choose a folder}" ;;

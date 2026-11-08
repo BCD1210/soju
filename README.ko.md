@@ -146,6 +146,10 @@ scripts/play.sh gog-kill          # GOG 보틀 종료 (창을 닫으면 메뉴�
 
 게임은 아직 폭넓게 테스트하지 않았습니다. 커널 안티치트(EAC/BattlEye)가 필요한 게임은 Wine에서 돌지 않습니다.
 
+## Didim Labs 게임 (맥 네이티브)
+
+Didim Labs가 만든 애플 실리콘 네이티브 게임은 내려받은 .zip으로 설치합니다(Library → Add Didim Labs game, 또는 `soju didim install <zip>`). 설치 전에 게임 서명을 확인하고, Windows나 Wine 없이 바로 실행됩니다. 세이브는 `~/Library/Application Support`에 남습니다.
+
 ## Xbox PC / Microsoft Store (Xodus 백엔드, 실험 기능)
 
 Microsoft 계정으로 로그인해 보유 게임과 PC Game Pass 게임을 가져오고, Microsoft Store를 검색하고, 게임을 내려받고 실행할 수 있습니다. **게임 실행은 실험 기능입니다.** M4 Pro·macOS 26.5에서 Retro Classics가 메인 화면까지 실행되는 것을 확인했고, 다른 게임은 아직 확인하지 않았습니다. 게임별 Wine 설정은 `resources/xbox-compat.json`에 있습니다. 실행 방식은 맥에서 여러 게임이 실행된 MACxus와 같습니다. 실행하려면 CX 엔진과 Apple GPTK가 필요합니다. Xbox PC를 설정하면 엔진이 설치되고, GPTK는 Battle.net·Epic·GOG처럼 Platforms에서 추가합니다.

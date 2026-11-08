@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from game_artwork import executable_icon
 from library_services import saved_accounts
 import xbox_locations
+import didim_games
 from urllib.parse import quote
 
 FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
@@ -329,12 +330,24 @@ class Library:
             except (OSError, ValueError, KeyError, TypeError, AttributeError):
                 self.warn('xbox', 'A download record could not be read. Download the game again to repair it.')
 
+    def didim(self):
+        # Native Mac games from Didim Labs: no Windows client or engine involved.
+        try: found = didim_games.installed(self.base)
+        except (OSError, ValueError, KeyError, TypeError):
+            self.warn('didim', 'A Didim Labs game record could not be read. Install the game again.'); return
+        for item in found:
+            key = 'didim:' + item['uid']
+            self.games[key] = dict(id=key, platform='didim', title=item['title'].strip()[:300],
+                                   install_path=item['folder'], artwork=item['artwork'], issue=None,
+                                   arguments=[item['app']])
+
     def scan(self):
         self.games = {}; self.warnings = []
         for platform in FOLDERS:
             try: getattr(self, platform)()
             except (OSError, ValueError, KeyError, TypeError, sqlite3.Error):
                 self.warn(platform, 'Installation records are temporarily unavailable. Open the launcher and refresh.')
+        self.didim()
         accounts, owned, warnings = saved_accounts(self.base)
         self.warnings.extend(warnings)
         for game in owned:
@@ -360,6 +373,10 @@ class Library:
         game = self.games.get(game_id)
         if game is None: raise ValueError('This game is no longer installed. Refresh the library.')
         root = Path(__file__).resolve().parent
+        if game['platform'] == 'didim':
+            if install: raise ValueError('This game is installed. Use Play instead.')
+            # -W keeps Soju's task alive until the game quits, so Stop and Running work.
+            return ['/usr/bin/open', '-W', '-n', game['arguments'][0]]
         if game['platform'] == 'xbox':
             # A game on an unplugged drive is never downloaded again onto the Mac.
             if game.get('available') is False: raise ValueError(game['issue'])
@@ -402,6 +419,8 @@ def main():
             if not game: raise ValueError('This game is no longer installed. Refresh the library.')
             print(game['title'] + ' (' + game['platform'] + ')', flush=True)
             print(game['issue'] or 'Installation found. Checking the platform environment…', flush=True)
+            if game['platform'] == 'didim':
+                print('Native Mac game. Files: ' + game['install_path'], flush=True); return
             command = ['/bin/bash', str(Path(__file__).resolve().parent / 'doctor.sh'), game['platform']]
         else: command = lib.command(args.game_id, install=args.action == 'install')
         if args.dry_run: print(json.dumps(command)); return
