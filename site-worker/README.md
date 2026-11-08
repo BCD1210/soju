@@ -1,5 +1,9 @@
-Cloudflare Worker that serves the GitHub Pages site (docs/) at soju.snack-wrap.com, so the install command stays short:
+Cloudflare Worker that serves the GitHub Pages site (docs/) at didimlabs.com, so the install command stays short:
 
-    curl -fsSL soju.snack-wrap.com/install.sh | bash
+    curl -fsSL didimlabs.com/install.sh | bash
 
-Deploy with `wrangler deploy` from this directory. The custom domain is created by the route entry in wrangler.toml.
+didimlabs.com is in the fdmk.noreply Cloudflare account: deploy with
+
+    HOME=~/.tagmatch-cloudflare npx wrangler@4.150.0 deploy -c wrangler.didimlabs.toml
+
+The old soju.snack-wrap.com address (mikey9220 account, `wrangler deploy`) redirects every path to didimlabs.com.

@@ -1,7 +1,7 @@
 # Maintaining Support Soju
 
 The app sidebar, website navigation, footer and README link to
-https://soju.snack-wrap.com/support.html. This is a static page with no payment
+https://didimlabs.com/support.html. This is a static page with no payment
 embed, analytics or donation pop-up.
 
 ## Current status
