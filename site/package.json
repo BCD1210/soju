@@ -1,0 +1,16 @@
+{
+  "name": "didimlabs-site",
+  "private": true,
+  "type": "module",
+  "description": "Builds docs/*.html for didimlabs.com from content/*.json with json-render (static HTML, no client JS).",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@json-render/core": "0.22.0",
+    "@json-render/react": "0.22.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  }
+}

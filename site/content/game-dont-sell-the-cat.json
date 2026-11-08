@@ -1,0 +1,83 @@
+{
+  "out": "games/dont-sell-the-cat.html",
+  "lang": "en",
+  "base": "../",
+  "title": "Don't Sell the Cat – pawnshop horror game for Mac and Windows | Didim Labs",
+  "description": "Don't Sell the Cat is a short first-person horror game set in a 1958 pawnshop. Seven nights, ten endings, about two hours. Native on Apple Silicon Macs and on Windows. $6.99.",
+  "canonical": "https://didimlabs.com/games/dont-sell-the-cat.html",
+  "og": {"title": "Don't Sell the Cat", "description": "Seven nights at a pawnshop counter. Check what people bring in, pay the rent, and don't open the back shutter.", "image": "https://didimlabs.com/store/dont-sell-the-cat-wide.jpg"},
+  "nav": [
+    {"label": "Soju", "href": "../"},
+    {"label": "Buy", "href": "#buy"},
+    {"label": "Requirements", "href": "#specs"},
+    {"label": "FAQ", "href": "#faq"},
+    {"label": "한국어", "href": "#ko", "lang": "ko"}
+  ],
+  "footer": ["Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com) · [Soju](../)"],
+  "jsonld": [
+    {"@type": "VideoGame", "@id": "https://didimlabs.com/games/dont-sell-the-cat.html#game", "name": "Don't Sell the Cat", "alternateName": "고양이는 팔지 마세요", "url": "https://didimlabs.com/games/dont-sell-the-cat.html",
+     "description": "First-person horror game set in a pawnshop that opened in 1958. Over seven nights you check items with a loupe, a UV lamp, a scale and the shop cat, pay the rent, and decide who to trust. About two hours to a first ending; ten endings.",
+     "image": "https://didimlabs.com/store/dont-sell-the-cat-wide.jpg",
+     "screenshot": ["https://didimlabs.com/games/img/1_counter.jpg", "https://didimlabs.com/games/img/2_uv.jpg", "https://didimlabs.com/games/img/3_moth_hiss.jpg"],
+     "genre": ["Horror", "Simulation", "Adventure"], "gamePlatform": ["macOS", "Windows"], "operatingSystem": "macOS 12+ (Apple Silicon), Windows 10/11 64-bit",
+     "applicationCategory": "Game", "playMode": "SinglePlayer", "inLanguage": ["en", "ko"],
+     "author": {"@type": "Organization", "@id": "https://didimlabs.com/#org", "name": "Didim Labs", "url": "https://didimlabs.com/"}, "publisher": {"@id": "https://didimlabs.com/#org"},
+     "offers": {"@type": "Offer", "price": "6.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock", "url": "https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2"}}
+  ],
+  "body": [
+    {"type": "Hero", "props": {
+      "title": "Don't Sell the Cat",
+      "lead": "Seven nights behind the counter of a pawnshop that opened in 1958. Check what people bring in with a loupe, a UV lamp, a scale and the shop cat. Pay the rent. The ledger writes lines you didn't write, and someone knocks on the back shutter after closing. Don't open it.",
+      "actions": [{"label": "Buy for $6.99", "href": "https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2", "primary": true}],
+      "meta": "Mac and Windows in one purchase · about 2 hours · English, 한국어",
+      "image": {"src": "../store/dont-sell-the-cat-wide.jpg", "alt": "Title art: a black cat with yellow eyes on a pawnshop counter, a man's silhouette behind it", "width": 920, "height": 430}
+    }},
+    {"type": "Section", "props": {"id": "about", "title": "About the game"}, "children": [
+      {"type": "Text", "props": {"text": "Pell & Daughter Loans, 1414 Corvin Street. The owner leaves notes and never comes down. Customers come in one at a time: a mother with a ring, a man who won't take cash, a nurse from the hospital across the street who always comes back for what she pawns. Fakes show under the loupe, under UV or on the scale. Cursed things are harder; Moth, the cat, hisses at them. Most nights."}},
+      {"type": "Features", "props": {"items": [
+        {"title": "7 nights", "text": "22 scripted visits, plus 14 neighbourhood regulars whose cases change every run."},
+        {"title": "Choices stick", "text": "What you buy, sell or refuse changes who comes back and what they say."},
+        {"title": "10 endings", "text": "Two only appear in the Second Ledger, a harder run that opens after you finish once."},
+        {"title": "Few big scares", "text": "No gore. Flashing lights can be turned down in Settings. No voice acting."}
+      ]}},
+      {"type": "Gallery", "props": {"images": [
+        {"src": "img/1_counter.jpg", "alt": "A customer at the counter with an item for sale", "width": 1280, "height": 720},
+        {"src": "img/2_uv.jpg", "alt": "Checking an item under the UV lamp", "width": 1280, "height": 720},
+        {"src": "img/3_moth_hiss.jpg", "alt": "Moth the cat hissing at a cursed item", "width": 1280, "height": 720},
+        {"src": "img/4_ledger.jpg", "alt": "The ledger with a line in red ink", "width": 1280, "height": 720},
+        {"src": "img/5_cctv.jpg", "alt": "Security camera view of the shop at night", "width": 1280, "height": 720},
+        {"src": "img/8_shutter.jpg", "alt": "The back shutter of the shop", "width": 1280, "height": 720}
+      ]}}
+    ]},
+    {"type": "Section", "props": {"id": "buy", "title": "Buy and install", "intro": "Checkout is handled by Polar, our reseller, which also takes care of sales tax. You get a license key and both downloads; the Polar customer portal lets you get them again with your email."}, "children": [
+      {"type": "Steps", "props": {"items": [
+        {"title": "Pay on Polar", "text": "[Buy for $6.99](https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2). The receipt email has your license key."},
+        {"title": "Mac", "text": "Install [Soju](../), open the Didim Labs Store tab, choose **I have a key** and paste it. Soju downloads, checks and installs the game."},
+        {"title": "Windows", "text": "Download the Windows zip from the receipt, unzip it and run the exe. [Windows install steps](../windows.html)."}
+      ]}},
+      {"type": "Note", "props": {"text": "The Windows version will also be on Steam."}}
+    ]},
+    {"type": "Section", "props": {"id": "specs", "title": "Requirements"}, "children": [
+      {"type": "Table", "props": {"label": "System requirements", "head": ["", "Mac", "Windows"], "rows": [
+        ["System", "macOS 12 or later", "Windows 10 or 11, 64-bit"],
+        ["Processor / GPU", "Apple M1 or newer", "DirectX 12 GPU (runs on Intel HD 615 at Low)"],
+        ["Memory", "4 GB", "4 GB"],
+        ["Download", "369 MB", "376 MB"]
+      ]}}
+    ]},
+    {"type": "Section", "props": {"id": "faq", "title": "FAQ"}, "children": [
+      {"type": "Faq", "props": {"items": [
+        {"q": "How long is Don't Sell the Cat?", "a": "About two hours to a first ending. There are ten endings; two only open in the Second Ledger, a harder second run unlocked after finishing once."},
+        {"q": "Does Don't Sell the Cat run on Mac?", "a": "Yes, natively on Apple Silicon (M1 or newer, macOS 12+). Buy it here and install it through Soju's store tab with your license key. One purchase includes the Windows version too."},
+        {"q": "Is it very scary?", "a": "There are only a few big scares, and no gore. Flashing lights can be turned down in Settings."},
+        {"q": "Which languages are supported?", "a": "English and Korean, for both interface and text. There is no voice acting."},
+        {"q": "Was AI used to make it?", "a": "Some 3D character and item models were generated with Meshy and edited for the game, and story text was drafted with AI help and rewritten by us. Props, sound and music were not made with AI. Nothing is generated while you play."}
+      ]}}
+    ]},
+    {"type": "Section", "props": {"id": "ko", "title": "고양이는 팔지 마세요"}, "children": [
+      {"type": "Text", "props": {"text": "1958년에 문을 연 전당포의 야간 카운터에서 일곱 밤을 보내는 1인칭 공포 게임입니다. 손님이 가져온 물건을 확대경, UV 램프, 저울, 가게 고양이로 확인하고 집세를 냅니다. 장부에는 내가 쓰지 않은 줄이 생기고, 문을 닫으면 누군가 뒷문 셔터를 두드립니다."}},
+      {"type": "Text", "props": {"text": "첫 결말까지 약 2시간, 결말 10개, 한국어 지원. $6.99에 맥판과 윈도우판이 같이 들어 있습니다. 맥에서는 [소주](../ko/)의 Didim Labs Store 탭에서 영수증 메일의 키를 넣으면 설치됩니다."}},
+      {"type": "Buttons", "props": {"items": [{"label": "구매하기 ($6.99)", "href": "https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2", "primary": true}]}}
+    ]}
+  ]
+}

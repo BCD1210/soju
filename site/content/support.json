@@ -1,0 +1,33 @@
+{
+  "out": "support.html",
+  "lang": "en",
+  "base": "",
+  "title": "Supporting Soju | Didim Labs",
+  "description": "Soju is free. Ways to support it: buy a Didim Labs game, report which games run, or contribute on GitHub.",
+  "canonical": "https://didimlabs.com/support.html",
+  "nav": [
+    {"label": "Soju", "href": "./"},
+    {"label": "Download", "href": "./#install"},
+    {"label": "Games", "href": "games/dont-sell-the-cat.html"},
+    {"label": "Support", "href": "support.html", "current": true},
+    {"label": "GitHub", "href": "https://github.com/BCD1210/soju"}
+  ],
+  "footer": ["Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com) · [GitHub](https://github.com/BCD1210/soju)", "Not affiliated with Blizzard, Valve, Epic, GOG, Microsoft, Apple or CodeWeavers."],
+  "body": [
+    {"type": "Hero", "props": {"title": "Supporting Soju", "lead": "Soju is free and will stay free. You don't need to pay for anything to use it."}},
+    {"type": "Section", "props": {"id": "money", "title": "If you want to pay something"}, "children": [
+      {"type": "Text", "props": {"text": "Buy one of our games. [Don't Sell the Cat](games/dont-sell-the-cat.html) is $6.99 for Mac and Windows, and that money pays for work on Soju. We don't take donations yet."}}
+    ]},
+    {"type": "Section", "props": {"id": "game-purchases", "title": "\"Supports Soju\" store links"}, "children": [
+      {"type": "Text", "props": {"text": "Some store links on Soju's Discover page may later be marked **Supports Soju**. Buying through one of those can earn us a commission from the store; the price is the same for you. Links without the mark earn nothing, and the mark never changes search order or prices. None are switched on yet."}},
+      {"type": "Note", "props": {"text": "A game being for sale doesn't mean it runs on a Mac. Check [what we've tested](./#works) first."}}
+    ]},
+    {"type": "Section", "props": {"id": "help", "title": "Helping without money"}, "children": [
+      {"type": "Bullets", "props": {"items": [
+        "[Report a game](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml) you tried, whether it worked or not, with your Mac and macOS version.",
+        "Send fixes, translations or clearer docs through [GitHub](https://github.com/BCD1210/soju).",
+        "Tell a friend who games on a Mac."
+      ]}}
+    ]}
+  ]
+}

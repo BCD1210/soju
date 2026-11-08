@@ -1,0 +1,46 @@
+{
+  "out": "windows.html",
+  "lang": "en",
+  "base": "",
+  "title": "Don't Sell the Cat on Windows: install steps | Didim Labs",
+  "description": "How to install the Windows version of Don't Sell the Cat bought from Didim Labs, including the Windows SmartScreen prompt and where saves are kept.",
+  "canonical": "https://didimlabs.com/windows.html",
+  "og": {"image": "https://didimlabs.com/store/dont-sell-the-cat-wide.jpg"},
+  "nav": [
+    {"label": "Soju", "href": "./"},
+    {"label": "Don't Sell the Cat", "href": "games/dont-sell-the-cat.html"},
+    {"label": "한국어", "href": "#ko", "lang": "ko"}
+  ],
+  "footer": ["Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com) · [Soju](./)"],
+  "body": [
+    {"type": "Hero", "props": {"title": "Don't Sell the Cat on Windows", "lead": "You bought the game from us and want to play on a PC. It takes about a minute."}},
+    {"type": "Section", "props": {"id": "install", "title": "Install"}, "children": [
+      {"type": "Steps", "props": {"items": [
+        {"title": "Download", "text": "Open the Polar receipt email (or the page you saw after paying) and download `DontSellTheCat-windows-1.0.zip`, about 375 MB."},
+        {"title": "Extract", "text": "Right-click the zip, choose **Extract All**, and put the folder wherever you like."},
+        {"title": "Run", "text": "Open the folder and double-click `DontSellTheCat.exe`."},
+        {"title": "If Windows warns you", "text": "A blue \"Windows protected your PC\" window can appear the first time, because the game isn't from the Microsoft Store and we don't pay for a code-signing certificate. Click **More info**, then **Run anyway**."}
+      ]}},
+      {"type": "Table", "props": {"label": "Requirements", "head": ["", "Needed"], "rows": [
+        ["Windows", "10 or 11, 64-bit"],
+        ["Graphics", "DirectX 12 GPU. On older laptops set Graphics to Low in Settings."],
+        ["Saves", "`%APPDATA%\\Godot\\app_userdata\\Don't Sell the Cat`. Copy this folder to move progress to another PC."]
+      ]}}
+    ]},
+    {"type": "Section", "props": {"id": "updates", "title": "Updates"}, "children": [
+      {"type": "Text", "props": {"text": "New versions are added to your purchase. Download the zip again from the receipt link or the Polar customer portal and replace the old folder; your saves stay where they are."}},
+      {"type": "Text", "props": {"text": "On a Mac, use [Soju](./) instead: open the Didim Labs Store tab and paste your license key."}}
+    ]},
+    {"type": "Section", "props": {"id": "ko", "title": "한국어 안내"}, "children": [
+      {"type": "Steps", "props": {"items": [
+        {"title": "받기", "text": "Polar 영수증 메일(또는 결제 후 나온 페이지)에서 `DontSellTheCat-windows-1.0.zip`을 받습니다. 약 375MB입니다."},
+        {"title": "압축 풀기", "text": "zip을 오른쪽 클릭해 **압축 풀기**를 하고 원하는 곳에 폴더를 둡니다."},
+        {"title": "실행", "text": "폴더 안의 `DontSellTheCat.exe`를 실행합니다. \"Windows의 PC 보호\" 창이 뜨면 **추가 정보** → **실행**을 누르세요. 처음 한 번만 뜹니다."}
+      ]}},
+      {"type": "Text", "props": {"text": "세이브는 `%APPDATA%\\Godot\\app_userdata\\Don't Sell the Cat`에 있습니다."}}
+    ]},
+    {"type": "Section", "props": {"id": "help", "title": "Help"}, "children": [
+      {"type": "Text", "props": {"text": "Write to [hello@didimlabs.com](mailto:hello@didimlabs.com) with your Windows version and what you see."}}
+    ]}
+  ]
+}
