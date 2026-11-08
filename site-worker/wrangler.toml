@@ -1,4 +1,4 @@
-# Old address in the mikey9220 Cloudflare account: only redirects to didimlabs.com (see worker.js).
+# Old address: only redirects to didimlabs.com (see worker.js).
 name = "soju-site"
 main = "worker.js"
 compatibility_date = "2026-08-01"
