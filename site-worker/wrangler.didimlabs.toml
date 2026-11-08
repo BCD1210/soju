@@ -1,0 +1,14 @@
+# didimlabs.com lives in the fdmk.noreply Cloudflare account: deploy with
+#   HOME=~/.tagmatch-cloudflare npx wrangler@4.150.0 deploy -c wrangler.didimlabs.toml
+name = "soju-site"
+main = "worker.js"
+compatibility_date = "2026-08-01"
+account_id = "546296716e02539841fba47503c600b0"
+
+[[routes]]
+pattern = "didimlabs.com"
+custom_domain = true
+
+[[routes]]
+pattern = "www.didimlabs.com"
+custom_domain = true

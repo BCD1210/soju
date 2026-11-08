@@ -22,7 +22,7 @@ wine-stable 环境。Apple 的专有 GPTK/D3DMetal 组件需要单独下载。
 下方运行案例在 M4 Pro / macOS 26.5 上验证。
 D2R 和 Hogwarts Legacy 是兼容案例，项目面向多个游戏启动器。
 
-[观看 30 秒实际游戏演示](https://soju.snack-wrap.com/#demo) · Hogwarts Legacy / Epic + Guilt Free / Steam（需额外配置 DXMT）
+[观看 30 秒实际游戏演示](https://didimlabs.com/#demo) · Hogwarts Legacy / Epic + Guilt Free / Steam（需额外配置 DXMT）
 
 *[English README](README.md) · [한국어 README](README.ko.md)*
 
@@ -73,7 +73,7 @@ D2R 和 Hogwarts Legacy 是兼容案例，项目面向多个游戏启动器。
 ## 安装（一行命令）
 
 ```bash
-curl -fsSL soju.snack-wrap.com/install.sh | bash
+curl -fsSL didimlabs.com/install.sh | bash
 ```
 
 或者用 Homebrew：

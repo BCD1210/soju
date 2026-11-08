@@ -18,13 +18,13 @@ Steam game rendering needs additional setup. D2R needs macOS 26.4 or later, and 
 
 I'm looking for compatibility reports across different games and Macs: game + store, Mac model, macOS version, Soju/engine version, and what worked or failed. Reproducible bug reports and contributions are welcome.
 
-Project and installation: https://soju.snack-wrap.com/
+Project and installation: https://didimlabs.com/
 Source: https://github.com/BCD1210/soju
 Reports: https://github.com/BCD1210/soju/discussions
 
 ## Short post
 
-Soju is a free, open-source launcher toolkit for Apple Silicon Macs: Battle.net, Steam, Epic and GOG, with separate Wine environments and Mac launch shortcuts. Compatibility varies by game. Try it and share what works: https://soju.snack-wrap.com/
+Soju is a free, open-source launcher toolkit for Apple Silicon Macs: Battle.net, Steam, Epic and GOG, with separate Wine environments and Mac launch shortcuts. Compatibility varies by game. Try it and share what works: https://didimlabs.com/
 
 ## 한국어 커뮤니티 글
 
@@ -40,14 +40,14 @@ Steam 게임 실행에는 추가 설정이 필요하고, 디아2는 macOS 26.4 �
 
 다양한 게임과 맥에서 결과를 모으고 있습니다. 게임명·스토어·맥 모델·macOS 버전·Soju/엔진 버전과 함께 성공 사례나 재현 가능한 오류를 알려주시면 도움이 됩니다.
 
-소개와 설치: https://soju.snack-wrap.com/
+소개와 설치: https://didimlabs.com/
 소스: https://github.com/BCD1210/soju
 실행 결과: https://github.com/BCD1210/soju/discussions
 
 ## Published demo
 
-[Watch the 21-second launcher preview](https://soju.snack-wrap.com/#demo)
-[Download MP4](https://soju.snack-wrap.com/assets/soju-launcher-demo.mp4)
+[Watch the 21-second launcher preview](https://didimlabs.com/#demo)
+[Download MP4](https://didimlabs.com/assets/soju-launcher-demo.mp4)
 
 The video contains actual Epic Games Launcher and Battle.net window recordings captured on Apple Silicon on 2026-09-06. The recordings are cropped to exclude account details, then placed alongside Soju titles. It shows launcher interfaces, not gameplay. Steam and GOG are included in the project introduction, but are not shown in the recording.
 

@@ -29,13 +29,13 @@ clients are not included.
 The compatibility examples below were verified on M4 Pro / macOS 26.5.
 D2R and Hogwarts Legacy are examples of supported games, not the scope of the project.
 
-[Watch the 30-second gameplay demo](https://soju.snack-wrap.com/#demo) · Hogwarts Legacy / Epic + Guilt Free / Steam (custom DXMT)
+[Watch the 30-second gameplay demo](https://didimlabs.com/#demo) · Hogwarts Legacy / Epic + Guilt Free / Steam (custom DXMT)
 
 *[한국어 README](README.ko.md) · [简体中文说明](README.zh.md)*
 
 ## Support Soju
 
-Help keep Soju free and open source. [Support Soju](https://soju.snack-wrap.com/support.html) brings together ways to contribute, voluntary support updates and information about game purchase links.
+Help keep Soju free and open source. [Support Soju](https://didimlabs.com/support.html) brings together ways to contribute, voluntary support updates and information about game purchase links.
 
 ## What runs
 
@@ -89,7 +89,7 @@ Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the l
 ## Install (one line)
 
 ```bash
-curl -fsSL soju.snack-wrap.com/install.sh | bash
+curl -fsSL didimlabs.com/install.sh | bash
 ```
 
 Or via Homebrew:

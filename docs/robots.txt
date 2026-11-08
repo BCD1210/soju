@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://soju.snack-wrap.com/sitemap.xml
+Sitemap: https://didimlabs.com/sitemap.xml
