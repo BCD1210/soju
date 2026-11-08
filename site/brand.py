@@ -32,30 +32,45 @@ def font(size, bold=False):
     return ImageFont.load_default()
 
 
-def logo():
-    """The app icon without its transparent margin."""
+def app_icon():
+    """The app icon without its transparent margin (used where a solid tile is required)."""
     icon = Image.open(SRC / 'logo-1024.png').convert('RGBA')
     return icon.crop(icon.getchannel('A').getbbox())
 
 
+def logo():
+    """The bottle-and-glass drawing on a transparent background, centred on a square canvas."""
+    art = Image.open(SRC / 'logo-mark.png').convert('RGBA')
+    side = max(art.size)
+    square = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+    square.alpha_composite(art, ((side - art.width) // 2, (side - art.height) // 2))
+    return square
+
+
 def logo_files(mark):
-    for size, name in [(512, 'soju-logo.png'), (256, 'favicon.png'), (180, 'apple-touch-icon.png'), (64, 'soju-logo-64.png')]:
+    for size, name in [(512, 'soju-logo.png'), (256, 'favicon.png'), (64, 'soju-logo-64.png')]:
         mark.resize((size, size), Image.LANCZOS).save(OUT / name)
+    # The app sidebar uses the same transparent drawing.
+    mark.resize((256, 256), Image.LANCZOS).save(ROOT.parent / 'resources' / 'soju-mark.png', optimize=True)
+    # iOS fills transparent touch icons with black, so the home-screen icon keeps the solid app tile.
+    app_icon().resize((180, 180), Image.LANCZOS).convert('RGB').save(OUT / 'apple-touch-icon.png')
 
 
 def watermark_layer(width, mark):
-    """Logo plus 'Soju · didimlabs.com', sized to the image width."""
-    h = max(28, width // 34)
+    """Logo plus 'Soju · didimlabs.com' with a soft shadow instead of a backing box."""
+    h = max(28, width // 30)
     small = mark.resize((h, h), Image.LANCZOS)
-    f = font(int(h * 0.5), bold=True)
+    f = font(int(h * 0.46), bold=True)
     text = 'Soju · didimlabs.com'
     tw = int(f.getlength(text))
     pad = h // 3
-    layer = Image.new('RGBA', (h + pad + tw + pad * 2, h + pad), (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer)
-    d.rounded_rectangle([0, 0, layer.width - 1, layer.height - 1], radius=h // 3, fill=(12, 14, 13, 150))
+    layer = Image.new('RGBA', (h + pad + tw + pad, h + pad), (0, 0, 0, 0))
     layer.alpha_composite(small, (pad // 2, pad // 2))
-    d.text((h + pad, layer.height // 2), text, font=f, fill=(240, 242, 240, 235), anchor='lm')
+    shadow = Image.new('RGBA', layer.size, (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).text((h + pad // 2 + 1, layer.height // 2 + 2), text, font=f, fill=(0, 0, 0, 200), anchor='lm')
+    shadow = shadow.filter(ImageFilter.GaussianBlur(max(2, h // 12)))
+    layer.alpha_composite(shadow)
+    ImageDraw.Draw(layer).text((h + pad // 2, layer.height // 2), text, font=f, fill=(244, 245, 242, 240), anchor='lm')
     return layer
 
 
@@ -63,7 +78,7 @@ def watermark_image(name, mark, quality=88):
     img = Image.open(SRC / name).convert('RGBA')
     layer = watermark_layer(img.width, mark)
     margin = max(12, img.width // 60)
-    img.alpha_composite(layer, (img.width - layer.width - margin, img.height - layer.height - margin))
+    img.alpha_composite(layer, (img.width - layer.width - margin, img.height - layer.height - max(margin, img.height // 14)))
     out = OUT / name
     if name.endswith('.jpg'):
         img.convert('RGB').save(out, quality=quality, optimize=True)
@@ -112,7 +127,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     mark = logo()
     logo_files(mark)
-    for name in ['soju-library.png', 'soju-discover.png', 'soju-desktop.png', 'soju-store.jpg',
+    for name in ['soju-library.png', 'soju-discover.png', 'soju-desktop.png', 'soju-store.jpg', 'soju-sponsor-slot.png',
                  'soju-gameplay-demo-poster.jpg', 'soju-launcher-demo-poster.jpg']:
         if (SRC / name).exists():
             watermark_image(name, mark)

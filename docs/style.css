@@ -119,11 +119,23 @@ a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px 
 
 /* Soju logo */
 nav a.brand { display: inline-flex; align-items: center; gap: 8px; }
-nav a.brand img { border-radius: 7px; }
 nav a.brand span { color: var(--dim); font-weight: 400; font-size: 14px; }
 h1.with-logo { display: flex; align-items: center; gap: 16px; }
-h1.with-logo img { width: 72px; height: 72px; border-radius: 16px; }
+h1.with-logo img { width: 72px; height: 72px; }
 @media (max-width: 720px) {
   nav a.brand span { display: none; }
-  h1.with-logo img { width: 56px; height: 56px; border-radius: 13px; }
+  h1.with-logo img { width: 56px; height: 56px; }
 }
+
+/* Sponsor page */
+.figure { margin: 20px 0; }
+.figure img { max-width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--border); }
+.figure figcaption { color: var(--dim); font-size: 14px; margin-top: 8px; }
+form.contact { display: grid; gap: 14px; max-width: 560px; margin: 16px 0; }
+form.contact label { display: grid; gap: 6px; font-size: 14px; color: var(--dim); }
+form.contact input, form.contact textarea { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; width: 100%; box-sizing: border-box; }
+form.contact input:focus, form.contact textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+form.contact .hp { position: absolute; left: -9999px; width: 1px; height: 1px; }
+form.contact button { cursor: pointer; border: 0; font: inherit; }
+form.contact button:disabled { opacity: .6; cursor: default; }
+.form-status { margin-left: 12px; color: var(--dim); font-size: 14px; }

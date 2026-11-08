@@ -290,7 +290,7 @@ struct LibraryView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
-                SojuLogo(size: 34)
+                SojuLogo(size: 40)
                 Text("Soju").font(.system(size: 26, weight: .bold, design: .rounded))
             }.padding(.bottom, 4).padding(.top, 16)
             Text("by Didim Labs")
@@ -307,12 +307,9 @@ struct LibraryView: View {
                 Label("On your Mac", systemImage: "desktopcomputer").font(.system(size: 12, weight: .medium))
                 Text("Installed games appear automatically. Connect accounts to add your owned library.")
                     .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }.padding(13).background(green.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
-            Link(destination: URL(string: "https://didimlabs.com/support.html")!) {
-                Label("Support Soju", systemImage: "heart")
-                    .font(.system(size: 12, weight: .medium))
-            }.foregroundStyle(.secondary).padding(.top, 12)
-                .help("Help keep Soju free and open source")
+            }.padding(13).frame(maxWidth: .infinity, alignment: .leading)
+                .background(green.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+            SponsorCard()
             HStack {
                 Text("v" + model.version).foregroundStyle(.secondary)
                 Spacer()
@@ -328,7 +325,7 @@ struct LibraryView: View {
         } label: {
             HStack(spacing: 11) {
                 Image(systemName: symbol).frame(width: 18)
-                Text(title)
+                Text(title).fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 if let count { Text(String(count)).font(.system(size: 11)).opacity(0.65) }
             }.font(.system(size: 13, weight: page == id ? .semibold : .regular))

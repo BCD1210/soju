@@ -74,8 +74,12 @@ enum Launcher: String, CaseIterable, Identifiable {
 /// The app icon (hand-drawn soju bottle and glass), used as the logo inside the app.
 struct SojuLogo: View {
     var size: CGFloat
+    /// The bottle-and-glass drawing without the icon tile; falls back to the app icon.
+    static let mark: NSImage = Bundle.main.resourceURL.flatMap {
+        NSImage(contentsOf: $0.appendingPathComponent("soju/resources/soju-mark.png"))
+    } ?? NSApp.applicationIconImage
     var body: some View {
-        Image(nsImage: NSApp.applicationIconImage).resizable().interpolation(.high)
+        Image(nsImage: Self.mark).resizable().interpolation(.high)
             .frame(width: size, height: size).accessibilityHidden(true)
     }
 }

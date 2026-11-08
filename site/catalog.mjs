@@ -28,6 +28,14 @@ export const components = {
     Video: { props: z.object({ src: str, poster: str, captions: opt(str), label: str, caption: opt(str) }), description: 'Video' },
     Faq: { props: z.object({ items: z.array(z.object({ q: str, a: str })) }), description: 'Questions and answers' },
     Links: { props: z.object({ items: z.array(link) }), description: 'List of links' },
+    Figure: { props: z.object({ image, caption: opt(str) }), description: 'Single image with caption' },
+    ContactForm: {
+      props: z.object({
+        action: str, name: str, email: str, company: str, message: str, send: str,
+        sending: str, sent: str, failed: str, thanks: opt(str),
+      }),
+      description: 'Inquiry form posted to the site worker',
+    },
 };
 
 export const catalog = defineCatalog(schema, { components, actions: {} });
@@ -90,5 +98,24 @@ export const { registry } = defineRegistry(catalog, {
       h('details', { key: k, open: k === 0 }, h('summary', null, f.q), h('p', null, inline(f.a))))),
     Links: ({ props }) => h('ul', { className: 'links' }, props.items.map((l, k) =>
       h('li', { key: k }, h('a', { href: l.href, lang: l.lang }, l.label)))),
+    Figure: ({ props }) => h('figure', { className: 'figure' }, img(props.image, { loading: 'lazy' }),
+      props.caption && h('figcaption', null, props.caption)),
+    ContactForm: ({ props }) => h(Fragment, null,
+      props.thanks && h('p', { className: 'note thanks', id: 'thanks', hidden: true }, props.thanks),
+      h('form', { className: 'contact', method: 'post', action: props.action, id: 'contact' },
+        h('label', null, props.name, h('input', { name: 'name', required: true, maxLength: 100, autoComplete: 'name' })),
+        h('label', null, props.email, h('input', { name: 'email', type: 'email', required: true, maxLength: 200, autoComplete: 'email' })),
+        h('label', null, props.company, h('input', { name: 'company', maxLength: 120, autoComplete: 'organization' })),
+        h('label', null, props.message, h('textarea', { name: 'message', required: true, minLength: 5, maxLength: 4000, rows: 5 })),
+        h('input', { name: 'website', tabIndex: -1, autoComplete: 'off', className: 'hp', 'aria-hidden': 'true' }),
+        h('p', { className: 'actions' }, h('button', { className: 'btn', type: 'submit' }, props.send),
+          h('span', { className: 'form-status', role: 'status', 'aria-live': 'polite' }))),
+      h('script', { dangerouslySetInnerHTML: { __html: `(function(){
+var f=document.getElementById('contact'),s=f.querySelector('.form-status'),b=f.querySelector('button');
+if(/[?&]thanks=1/.test(location.search)){var t=document.getElementById('thanks');if(t)t.hidden=false;}
+f.addEventListener('submit',function(e){e.preventDefault();b.disabled=true;s.textContent=${JSON.stringify(props.sending)};
+fetch(f.action,{method:'POST',body:new FormData(f)}).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+.then(function(x){if(x.ok){f.reset();s.textContent=${JSON.stringify(props.sent)};}else{s.textContent=(x.j&&x.j.error)||${JSON.stringify(props.failed)};b.disabled=false;}})
+.catch(function(){s.textContent=${JSON.stringify(props.failed)};b.disabled=false;});});})();` } })),
   },
 });
