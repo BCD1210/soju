@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "games": [
+    {
+      "id": "dont-sell-the-cat",
+      "title": "Don't Sell the Cat",
+      "publisher": "Didim Labs",
+      "price": "$6.99",
+      "checkout": "https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2",
+      "cover": "https://didimlabs.com/store/dont-sell-the-cat-wide.jpg",
+      "summary": "Seven nights behind the counter of a pawnshop that opened in 1958. Check what people bring in with a loupe, a UV lamp, a scale and the shop cat. Pay the rent. The ledger writes lines you didn't write, and someone knocks on the back shutter after closing. Don't open it.",
+      "details": "First-person horror · about 2 hours · 10 endings · English and Korean",
+      "requires": "Apple Silicon Mac, macOS 12 or later · 369 MB",
+      "steam": "https://store.steampowered.com/app/5584970"
+    }
+  ]
+}

@@ -12,7 +12,7 @@ owned library cached by **GOG GALAXY**. Installed and uninstalled games share th
 same library, with availability filters and official-client install actions.
 **Discover** searches Steam, GOG and Microsoft Store listings and prices, with links to buy from the stores.
 **Xbox PC (experimental):** sign in to a Microsoft account to import owned and PC Game Pass games, download them through the [Xodus](https://github.com/xodus-gaming/xodus) backend and start them on Soju's engine. Retro Classics reaches its main menu on Soju; other games are untested. Purchases, downloads and updates stay with the official stores.
-**Didim Labs games:** native Apple Silicon games from Didim Labs install from their downloaded .zip (Library → Add Didim Labs game, or `soju didim install <zip>`) and run without Windows or Wine; Soju checks the game's signature first.
+**Didim Labs Store:** native Apple Silicon games made by Didim Labs. Buy through the store's checkout (Polar), paste the license key from the receipt, and Soju downloads, checks and installs the game; it runs without Windows or Wine. The key is kept in the macOS Keychain for reinstalls. A downloaded .zip also installs with Library → Add Didim Labs game or `soju didim install <zip>`.
 Epic and Battle.net account imports are not included yet. Compatibility varies by game.
 
 ![Soju unified game library](docs/assets/soju-library.png)

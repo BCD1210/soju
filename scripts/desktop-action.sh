@@ -22,6 +22,7 @@ case "$ACTION" in
   didim)
     case "${1:-}" in install) exec python3 "$ROOT/scripts/didim_games.py" install "${2:?Choose the game zip}" ;;
       remove) exec python3 "$ROOT/scripts/didim_games.py" remove "${2:?Choose a game}" ;;
+      activate) exec python3 "$ROOT/scripts/didim_games.py" activate "${2:?Choose a game}" ;;
       *) echo "Unknown Didim Labs action."; exit 64 ;; esac ;;
   xbox)
     case "${1:-}" in login|logout|kill|status) exec bash "$ROOT/scripts/xbox.sh" "$1" ;;
