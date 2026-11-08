@@ -94,7 +94,8 @@ ${footer}
 `;
   const out = join(docs, p.out);
   mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, html);
+  // Version local asset links so browsers pick up regenerated images.
+  writeFileSync(out, html.replace(/((?:src|poster|href)="[^"?:]*assets\/[^"?]+\.(?:png|jpg|mp4))"/g, `$1?v=${CSS_VERSION}"`));
   return p.out;
 }
 
