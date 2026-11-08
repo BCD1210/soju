@@ -13,7 +13,7 @@ const image = z.object({ src: str, alt: str, width: opt(z.number()), height: opt
 
 export const components = {
     Stack: { props: z.object({}), description: 'Groups children with no markup of its own' },
-    Hero: { props: z.object({ title: str, lead: str, actions: opt(z.array(link)), meta: opt(str), image: opt(image) }), description: 'Page heading' },
+    Hero: { props: z.object({ title: str, lead: str, logo: opt(str), actions: opt(z.array(link)), meta: opt(str), image: opt(image) }), description: 'Page heading' },
     Section: { props: z.object({ id: opt(str), title: str, intro: opt(str) }), description: 'Titled section' },
     Text: { props: z.object({ text: str }), description: 'Paragraph' },
     Bullets: { props: z.object({ items: z.array(str) }), description: 'Bulleted list' },
@@ -55,7 +55,7 @@ export const { registry } = defineRegistry(catalog, {
   components: {
     Stack: ({ children }) => h(Fragment, null, children),
     Hero: ({ props }) => h('header', { className: 'hero' },
-      h('h1', null, props.title),
+      props.logo ? h('h1', { className: 'with-logo' }, h('img', { src: props.logo, width: 72, height: 72, alt: '' }), props.title) : h('h1', null, props.title),
       h('p', { className: 'lead' }, inline(props.lead)),
       props.actions && h('p', { className: 'actions' }, props.actions.map(button), props.meta && h('span', { className: 'meta' }, props.meta)),
       props.image && img(props.image, { className: 'shot', fetchPriority: 'high' })),

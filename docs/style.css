@@ -116,3 +116,14 @@ a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px 
   main { padding: 4px 16px 56px; }
   tbody th { white-space: normal; }
 }
+
+/* Soju logo */
+nav a.brand { display: inline-flex; align-items: center; gap: 8px; }
+nav a.brand img { border-radius: 7px; }
+nav a.brand span { color: var(--dim); font-weight: 400; font-size: 14px; }
+h1.with-logo { display: flex; align-items: center; gap: 16px; }
+h1.with-logo img { width: 72px; height: 72px; border-radius: 16px; }
+@media (max-width: 720px) {
+  nav a.brand span { display: none; }
+  h1.with-logo img { width: 56px; height: 56px; border-radius: 13px; }
+}

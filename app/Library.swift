@@ -290,11 +290,11 @@ struct LibraryView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
-                Image(systemName: "leaf.fill").font(.title2).foregroundStyle(green)
+                SojuLogo(size: 34)
                 Text("Soju").font(.system(size: 26, weight: .bold, design: .rounded))
             }.padding(.bottom, 4).padding(.top, 16)
-            Text("ALL YOUR GAMES. ONE HOME.")
-                .font(.system(size: 8, weight: .semibold)).tracking(1).foregroundStyle(.secondary).padding(.bottom, 30)
+            Text("by Didim Labs")
+                .font(.system(size: 11)).foregroundStyle(.secondary).padding(.bottom, 26)
             nav("library", "Library", "square.grid.2x2", count: model.games.count)
             nav("favorites", "Favorites", "star", count: model.games.filter { model.preferences.favorites.contains($0.id) }.count)
             nav("discover", "Discover", "magnifyingglass", count: nil)
@@ -406,7 +406,7 @@ struct LibraryView: View {
             }
             HStack(spacing: 8) {
                 Circle().fill(model.failed ? Color.orange : green).frame(width: 5, height: 5)
-                Text(model.activity == "Ready when you are." ? "\(model.games.count) games · \(model.games.filter { $0.isInstalled }.count) installed · Stored locally" : model.activity)
+                Text(model.activity == "Ready." ? "\(model.games.count) games · \(model.games.filter { $0.isInstalled }.count) installed · Stored locally" : model.activity)
                     .lineLimit(1)
                 Spacer()
                 Button("Diagnostics") { showDiagnostics = true }.buttonStyle(.plain)

@@ -63,7 +63,7 @@ struct DiscoverView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("Find your next game").font(.system(size: 30, weight: .bold, design: .rounded))
+                    Text("Store search").font(.system(size: 30, weight: .bold, design: .rounded))
                     Text("Search Steam, GOG and the Microsoft Store. Compare games and prices.").font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -99,7 +99,7 @@ struct DiscoverView: View {
             if shown.isEmpty {
                 VStack(spacing: 14) {
                     Image(systemName: "sparkle.magnifyingglass").font(.system(size: 42, weight: .light))
-                    Text(store.searching ? "Searching the stores…" : store.searchedQuery.isEmpty ? "What would you like to play?" : "No matching listings")
+                    Text(store.searching ? "Searching the stores…" : store.searchedQuery.isEmpty ? "Type a game name and press Search." : "No matching listings")
                         .font(.title3.bold())
                     Text("Purchases happen in each store.").foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -71,6 +71,15 @@ enum Launcher: String, CaseIterable, Identifiable {
     }
 }
 
+/// The app icon (hand-drawn soju bottle and glass), used as the logo inside the app.
+struct SojuLogo: View {
+    var size: CGFloat
+    var body: some View {
+        Image(nsImage: NSApp.applicationIconImage).resizable().interpolation(.high)
+            .frame(width: size, height: size).accessibilityHidden(true)
+    }
+}
+
 @MainActor final class SojuModel: ObservableObject {
     @Published var accountSummaries: [AccountSummary] = []
     @Published var accountBusy = false
@@ -88,7 +97,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     var scanner: Process?
     @Published var installed: Set<Launcher> = []
     @Published var busy = false
-    @Published var activity = "Ready when you are."
+    @Published var activity = "Ready."
     @Published var log = "Choose a launcher to get started. Existing installations are detected automatically."
     @Published var failed = false
     @Published var selection: Set<Launcher> = [.battlenet]
@@ -255,11 +264,9 @@ struct PlatformsView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 7) {
                     HStack(spacing: 10) {
-                        Image(systemName: "leaf.fill").foregroundStyle(green)
+                        SojuLogo(size: 38)
                         Text("Soju").font(.system(size: 30, weight: .bold, design: .rounded))
-                        Text("OPEN SOURCE").font(.system(size: 10, weight: .bold)).tracking(1.5)
-                            .padding(.horizontal, 9).padding(.vertical, 5)
-                            .background(green.opacity(0.09), in: Capsule()).foregroundStyle(green)
+                        Text("open source").font(.system(size: 12)).foregroundStyle(.secondary)
                     }
                     Text("Install and manage your official Windows launchers and Xbox PC downloads.").foregroundStyle(.secondary)
                 }
