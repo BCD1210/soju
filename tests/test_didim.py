@@ -91,6 +91,12 @@ if __name__ == '__main__':
 
 class DidimStore(unittest.TestCase):
     """activate() talks to the store; these cover the paths that never touch the network or keychain."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.dir = Path(self.tmp.name)
+        self.base = self.dir / 'base'
+        self.env = dict(os.environ, SOJU_BASE=str(self.base))
+        self.addCleanup(self.tmp.cleanup)
+
     def run_activate(self, key, store='http://127.0.0.1:9'):
         env = dict(os.environ, SOJU_BASE=tempfile.mkdtemp(), SOJU_DIDIM_STORE=store, SOJU_DIDIM_KEY=key)
         return subprocess.run([sys.executable, str(SCRIPT), 'activate', 'no-such-game-for-tests'], env=env,
@@ -106,6 +112,55 @@ class DidimStore(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Could not reach the store', result.stderr)
 
+    def serve_catalog(self, catalog):
+        import http.server, threading
+        body = json.dumps(catalog).encode()
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200 if self.path == '/store/catalog.json' else 404)
+                self.end_headers(); self.wfile.write(body)
+            def log_message(self, *args): pass
+        server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        return 'http://127.0.0.1:%d' % server.server_port
+
+    def run_demo(self, catalog):
+        env = dict(self.env, SOJU_DIDIM_STORE=self.serve_catalog(catalog))
+        return subprocess.run([sys.executable, str(SCRIPT), 'demo', 'test-game'], env=env, capture_output=True, text=True)
+
+    def test_demo_needs_a_listed_demo(self):
+        result = self.run_demo({'schema': 1, 'games': [{'id': 'test-game'}]})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('no demo yet', result.stderr)
+
+    def test_demo_from_another_host_is_refused(self):
+        demo = {'id': 'test-game-demo', 'url': 'https://example.com/demo.zip', 'size': 10, 'sha256': '0' * 64}
+        result = self.run_demo({'schema': 1, 'games': [{'id': 'test-game', 'demo': demo}]})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('cannot use', result.stderr)
+        same_id = dict(demo, id='test-game', url='https://github.com/BCD1210/soju/releases/download/x/demo.zip')
+        result = self.run_demo({'schema': 1, 'games': [{'id': 'test-game', 'demo': same_id}]})
+        self.assertIn('cannot use', result.stderr)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'needs ditto and codesign')
+    def test_download_checks_hash_then_installs(self):
+        import hashlib, importlib.util
+        archive = make_zip(self.dir, dict(GOOD, id='test-game-demo'))
+        data = archive.read_bytes()
+        spec = importlib.util.spec_from_file_location('didim_games', SCRIPT)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        old = os.environ.get('SOJU_BASE'); os.environ['SOJU_BASE'] = str(self.base)
+        try:
+            with self.assertRaises(ValueError):
+                module.download_install('d.zip', len(data), '0' * 64, archive.as_uri(), expect='test-game-demo')
+            self.assertFalse((self.base / 'didim-games/test-game-demo').exists())
+            module.download_install('d.zip', len(data), hashlib.sha256(data).hexdigest(), archive.as_uri(), expect='test-game-demo')
+            self.assertTrue((self.base / 'didim-games/test-game-demo/Test Game.app').is_dir())
+        finally:
+            if old is None: os.environ.pop('SOJU_BASE', None)
+            else: os.environ['SOJU_BASE'] = old
+
     def test_catalog_copies_match_and_are_valid(self):
         bundled = json.loads((ROOT / 'resources/didim-store.json').read_text())
         public = json.loads((ROOT / 'docs/store/catalog.json').read_text())
@@ -115,3 +170,6 @@ class DidimStore(unittest.TestCase):
             self.assertTrue(game['checkout'].startswith('https://buy.polar.sh/'))
             self.assertTrue(game['cover'].startswith('https://didimlabs.com/store/'))
             self.assertTrue((ROOT / 'docs/store' / game['cover'].rsplit('/', 1)[1]).is_file())
+            if 'demo' in game:
+                self.assertTrue(game['demo']['url'].startswith('https://github.com/BCD1210/soju/releases/download/'))
+                self.assertNotEqual(game['demo']['id'], game['id'])

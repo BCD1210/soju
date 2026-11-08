@@ -28,10 +28,13 @@
     {"type": "Hero", "props": {
       "title": "Don't Sell the Cat",
       "lead": "Seven nights behind the counter of a pawnshop that opened in 1958. Check what people bring in with a loupe, a UV lamp, a scale and the shop cat. Pay the rent. The ledger writes lines you didn't write, and someone knocks on the back shutter after closing. Don't open it.",
-      "actions": [{"label": "Buy for $6.99", "href": "https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2", "primary": true}],
+      "actions": [{"label": "Buy for $6.99", "href": "https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2", "primary": true}, {"label": "Free demo on Mac", "href": "#demo"}],
       "meta": "Mac and Windows in one purchase · about 2 hours · English, 한국어",
       "image": {"src": "../store/dont-sell-the-cat-wide.jpg", "alt": "Title art: a black cat with yellow eyes on a pawnshop counter, a man's silhouette behind it", "width": 920, "height": 430}
     }},
+    {"type": "Section", "props": {"id": "demo", "title": "Free demo"}, "children": [
+      {"type": "Text", "props": {"text": "The demo is the first three nights. On a Mac with Apple Silicon, [install Soju](../#install), open **Didim Labs Store** and press **Free demo**. It downloads, installs and shows up in your library like any other game. Demo saves are kept apart from the full game's."}}
+    ]},
     {"type": "Section", "props": {"id": "about", "title": "About the game"}, "children": [
       {"type": "Text", "props": {"text": "Pell & Daughter Loans, 1414 Corvin Street. The owner leaves notes and never comes down. Customers come in one at a time: a mother with a ring, a man who won't take cash, a nurse from the hospital across the street who always comes back for what she pawns. Fakes show under the loupe, under UV or on the scale. Cursed things are harder; Moth, the cat, hisses at them. Most nights."}},
       {"type": "Features", "props": {"items": [
