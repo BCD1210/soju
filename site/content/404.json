@@ -1,0 +1,13 @@
+{
+  "out": "404.html",
+  "lang": "en",
+  "base": "/",
+  "noindex": true,
+  "title": "Page not found | Didim Labs",
+  "description": "This page does not exist.",
+  "nav": [{"label": "Soju", "href": "/"}, {"label": "Games", "href": "/games/dont-sell-the-cat.html"}, {"label": "한국어", "href": "/ko/", "lang": "ko"}],
+  "footer": ["Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com)"],
+  "body": [
+    {"type": "Hero", "props": {"title": "That page isn't here", "lead": "It may have moved when the site changed address. Try the [Soju home page](/), [Don't Sell the Cat](/games/dont-sell-the-cat.html) or the [한국어 페이지](/ko/)."}}
+  ]
+}

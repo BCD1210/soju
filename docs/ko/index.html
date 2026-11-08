@@ -17,112 +17,84 @@
 <meta property="og:image" content="https://didimlabs.com/assets/soju-library.png">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#121413">
 <link rel="icon" href="../assets/favicon.png">
-<link rel="stylesheet" href="../style.css?v=20261108">
+<link rel="stylesheet" href="../style.css?v=20261109">
 <script type="application/ld+json">
 {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "inLanguage": "ko",
-  "mainEntity": [
-    {"@type": "Question", "name": "M1·M2·M3·M4 맥에서 윈도우 게임을 할 수 있나요?",
-     "acceptedAnswer": {"@type": "Answer", "text": "게임에 따라 됩니다. 소주는 윈도우 런처를 Wine과 애플의 D3DMetal 또는 DXMT로 실행합니다. 디아블로 II: 레저렉션, 호그와트 레거시, Guilt Free를 M4 Pro·macOS 26.5에서 직접 플레이했습니다. 커널 안티치트를 쓰는 게임은 안 됩니다."}},
-    {"@type": "Question", "name": "소주는 무료인가요?",
-     "acceptedAnswer": {"@type": "Answer", "text": "네. GPL-3.0 오픈소스이고 무료입니다. 게임은 각 스토어에서 평소처럼 삽니다. Didim Labs가 만든 맥 게임은 소주 스토어 탭에서 팝니다."}},
-    {"@type": "Question", "name": "macOS 버전은 무엇이 필요한가요?",
-     "acceptedAnswer": {"@type": "Answer", "text": "소주 앱은 애플 실리콘 맥의 macOS 14 이상에서 돌아갑니다. 스팀 게임은 macOS 26 이상, 디아블로 II: 레저렉션은 macOS 26.4 이상이 필요합니다."}},
-    {"@type": "Question", "name": "위스키(Whisky)나 크로스오버 대신 쓸 수 있나요?",
-     "acceptedAnswer": {"@type": "Answer", "text": "비슷한 일을 합니다. 위스키는 개발이 멈췄고 크로스오버는 유료입니다. 소주는 무료이고, 공식 스토어 런처 실행에 맞춰져 있으며, CodeWeavers가 공개한 소스로 Wine 엔진을 만듭니다."}}
-  ]
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "FAQPage",
+   "inLanguage": "ko",
+   "mainEntity": [
+    {
+     "@type": "Question",
+     "name": "M1·M2·M3·M4 맥에서 윈도우 게임을 할 수 있나요?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "게임에 따라 됩니다. 소주는 윈도우 런처를 Wine과 애플의 D3DMetal 또는 DXMT로 실행합니다. 디아블로 II: 레저렉션, 호그와트 레거시, Guilt Free를 M4 Pro·macOS 26.5에서 직접 플레이했습니다. 커널 안티치트를 쓰는 게임은 안 됩니다."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "소주는 무료인가요?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "네. GPL-3.0 오픈소스이고 무료입니다. 게임은 각 스토어에서 평소처럼 삽니다. Didim Labs가 만든 맥 게임은 소주 스토어 탭에서 팝니다."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "macOS 버전은 무엇이 필요한가요?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "소주 앱은 애플 실리콘 맥의 macOS 14 이상에서 돌아갑니다. 스팀 게임은 macOS 26 이상, 디아블로 II: 레저렉션은 macOS 26.4 이상이 필요합니다."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "위스키(Whisky)나 크로스오버 대신 쓸 수 있나요?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "비슷한 일을 합니다. 위스키는 개발이 멈췄고 크로스오버는 유료입니다. 소주는 무료이고, 공식 스토어 런처 실행에 맞춰져 있으며, CodeWeavers가 공개한 소스로 Wine 엔진을 만듭니다."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "게임이 안 켜지면요?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "soju doctor(디아2는 soju doctor d2r)를 실행해 보고 가이드를 확인한 뒤, 게임·맥 기종·macOS 버전·증상을 적어 이슈를 남겨 주세요."
+     }
+    }
+   ]
+  }
+ ]
 }
 </script>
 </head>
 <body>
+<a class="skip" href="#main">본문으로</a>
 <nav aria-label="메인"><div class="inner">
-  <a class="brand" href="./">Didim Labs</a>
-  <a href="#download">다운로드</a>
+  <a class="brand" href="../">Didim Labs</a>
+  <a href="#install">다운로드</a>
   <a href="#works">실행된 게임</a>
   <a href="../games/dont-sell-the-cat.html#ko">게임</a>
   <a href="#faq">자주 묻는 질문</a>
   <a href="https://github.com/BCD1210/soju">GitHub</a>
-  <a href="../" hreflang="en" lang="en">English</a>
+  <a href="../" lang="en" hreflang="en">English</a>
 </div></nav>
-<main>
-<header class="hero">
-<h1>소주 (Soju)</h1>
-<p class="lead">애플 실리콘 맥에서 윈도우 게임을 하기 위한 무료 맥 앱입니다. 진짜 스팀, 배틀넷, 에픽, GOG GALAXY, Xbox PC 런처를 각각 따로 된 Wine 환경에 설치하고, 설치된 게임을 한 라이브러리에 모아 보여 줍니다.</p>
-<p><a class="btn" href="https://github.com/BCD1210/soju/releases/download/v1.10.1/Soju-1.10.1-macos-arm64.zip">소주 1.10.1 다운로드</a>
-<span class="meta">macOS 14 이상, M1 이상 · 오픈소스(GPL-3.0)</span></p>
-<img src="../assets/soju-library.png" width="1140" height="780" alt="디아블로 II: 레저렉션, Guilt Free, 호그와트 레거시 등이 있는 소주 라이브러리 화면" class="shot">
-</header>
+<main id="main">
+<link rel="preload" as="image" href="../assets/soju-library.png" fetchPriority="high"/><header class="hero"><h1>소주 (Soju)</h1><p class="lead">애플 실리콘 맥에서 윈도우 게임을 하기 위한 무료 맥 앱입니다. 진짜 스팀, 배틀넷, 에픽, GOG GALAXY, Xbox PC 런처를 각각 따로 된 Wine 환경에 설치하고, 설치된 게임을 한 라이브러리에 모아 보여 줍니다.</p><p class="actions"><a class="btn" href="https://github.com/BCD1210/soju/releases/download/v1.10.1/Soju-1.10.1-macos-arm64.zip">소주 1.10.1 다운로드</a><span class="meta">macOS 14 이상, M1 이상 · 오픈소스(GPL-3.0)</span></p><img src="../assets/soju-library.png" alt="디아블로 II: 레저렉션, 고양이는 팔지 마세요, Guilt Free, 호그와트 레거시가 있는 소주 1.10 라이브러리" width="1140" height="780" class="shot" fetchPriority="high"/></header><section id="what" aria-labelledby="what-title"><h2 id="what-title">하는 일</h2><div class="features"><div class="feature"><h3>진짜 런처</h3><p>배틀넷·에픽·GOG는 <a href="https://www.codeweavers.com/crossover/source">CodeWeavers 소스</a>로 만든 Wine 엔진과 애플 D3DMetal을 같이 씁니다. 스팀은 D3D11 게임용 DXMT가 들어간 Wine 11 환경을 따로 씁니다.</p></div><div class="feature"><h3>라이브러리 하나</h3><p>모든 런처에 설치된 게임을 찾고, 스팀과 GOG에서 산 게임 목록을 가져옵니다.</p></div><div class="feature"><h3>스토어 검색</h3><p>스팀, GOG, 마이크로소프트 스토어를 지역 가격으로 검색합니다.</p></div><div class="feature"><h3>Xbox PC</h3><p>실험 기능입니다. 보유 게임과 게임 패스 게임을 가져와 Xodus 백엔드로 내려받습니다.</p></div></div><p>로그인, 구매, 게임 업데이트는 각 스토어가 그대로 맡습니다. 소주는 게임, 스토어 프로그램, 애플 게임 포팅 툴킷을 포함하지 않습니다.</p></section><section id="works" aria-labelledby="works-title"><h2 id="works-title">직접 실행해 본 게임</h2><p class="intro">M4 Pro 맥, macOS 26.5에서 확인했습니다. 다른 게임은 해 보기 전에는 모릅니다. <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">결과를 알려 주세요</a>.</p><div class="table-scroll" role="region" aria-label="실행한 게임" tabindex="0"><table><thead><tr><th scope="col">게임</th><th scope="col">스토어</th><th scope="col">결과</th></tr></thead><tbody><tr><th scope="row">디아블로 II: 레저렉션</th><td>배틀넷</td><td>온라인 플레이 됨. macOS 26.4 이상. <a href="../guides/ko/diablo-2-mac.html">가이드</a></td></tr><tr><th scope="row">호그와트 레거시</th><td>에픽</td><td>D3DMetal로 설치·플레이 됨</td></tr><tr><th scope="row">Guilt Free (Unity, D3D11)</th><td>스팀</td><td>DXMT 설정으로 플레이 됨</td></tr><tr><th scope="row">Retro Classics</th><td>Xbox PC</td><td>메인 화면까지 실행</td></tr><tr><th scope="row">GOG GALAXY</th><td>GOG</td><td>로그인·라이브러리 됨, 게임은 아직 조금만 시험</td></tr></tbody></table></div><p>커널 안티치트를 쓰는 게임은 실행되지 않습니다.</p></section><section id="store" aria-labelledby="store-title"><h2 id="store-title">Didim Labs 게임</h2><a class="game" href="../games/dont-sell-the-cat.html#ko"><img src="../store/dont-sell-the-cat-wide.jpg" alt="고양이는 팔지 마세요: 전당포 카운터 위의 노란 눈 검은 고양이" width="920" height="430" loading="lazy"/><span class="game-body"><b>고양이는 팔지 마세요</b><span class="game-meta">$6.99 · 맥·윈도우 · 약 2시간</span><span>1958년 전당포 야간 카운터에서 보내는 일곱 밤. 확대경, UV 램프, 저울, 가게 고양이로 물건을 확인하고, 뒷문 셔터는 열지 마세요.</span></span></a></section><section id="install" aria-labelledby="install-title"><h2 id="install-title">설치</h2><ol class="steps"><li><b>앱 받기</b><p><a href="https://github.com/BCD1210/soju/releases/download/v1.10.1/Soju-1.10.1-macos-arm64.zip">Soju-1.10.1-macos-arm64.zip</a>을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다.</p></li><li><b>런처 고르기</b><p>소주를 열고 Platforms에서 쓰는 런처를 고릅니다. 배틀넷·에픽·GOG는 애플 ID로 직접 받은 <a href="https://developer.apple.com/games/game-porting-toolkit/">게임 포팅 툴킷</a>도 필요합니다.</p></li><li><b>로그인하고 플레이</b><p>각 런처에서 평소처럼 로그인하면 설치된 게임이 라이브러리에 나타납니다.</p></li></ol><p>터미널이 편하면 설치 스크립트나 Homebrew를 쓰세요. Rosetta 2, Xcode Command Line Tools, Homebrew가 필요합니다.</p><pre><code>curl -fsSL https://didimlabs.com/install.sh | bash
 
-<section aria-labelledby="what-title">
-<h2 id="what-title">하는 일</h2>
-<ul>
-<li>고른 런처를 설치합니다. 배틀넷·에픽·GOG는 CodeWeavers 소스로 만든 Wine 엔진과 애플 D3DMetal을 같이 쓰고, 스팀은 D3D11 게임용 DXMT가 들어간 Wine 11 환경을 따로 씁니다.</li>
-<li>모든 런처에 설치된 게임을 찾고, 스팀과 GOG에서 산 게임 목록을 가져옵니다.</li>
-<li>스팀, GOG, 마이크로소프트 스토어를 지역 가격으로 검색합니다.</li>
-<li>Xbox PC(실험 기능): 보유 게임과 게임 패스 게임을 가져와 Xodus 백엔드로 내려받습니다.</li>
-<li>Didim Labs가 만든 맥 네이티브 게임을 파는 스토어 탭이 있습니다.</li>
-</ul>
-<p>로그인, 구매, 게임 업데이트는 각 스토어가 그대로 맡습니다. 소주는 게임, 스토어 프로그램, 애플 게임 포팅 툴킷을 포함하지 않습니다.</p>
-</section>
-
-<section id="works" aria-labelledby="works-title">
-<h2 id="works-title">직접 실행해 본 게임</h2>
-<p>M4 Pro 맥, macOS 26.5에서 확인했습니다. 다른 게임은 해 보기 전에는 모릅니다. <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">결과를 알려 주세요</a>.</p>
-<div class="table-scroll" role="region" aria-label="실행한 게임" tabindex="0">
-<table>
-<thead><tr><th scope="col">게임</th><th scope="col">스토어</th><th scope="col">결과</th></tr></thead>
-<tbody>
-<tr><td>디아블로 II: 레저렉션</td><td>배틀넷</td><td>온라인 플레이 됨. macOS 26.4 이상. <a href="../guides/ko/diablo-2-mac.html">가이드</a></td></tr>
-<tr><td>호그와트 레거시</td><td>에픽</td><td>D3DMetal로 설치·플레이 됨</td></tr>
-<tr><td>Guilt Free (Unity, D3D11)</td><td>스팀</td><td>DXMT 설정으로 플레이 됨</td></tr>
-<tr><td>Retro Classics</td><td>Xbox PC</td><td>메인 화면까지 실행</td></tr>
-<tr><td>GOG GALAXY</td><td>GOG</td><td>로그인·라이브러리 됨, 게임은 아직 조금만 시험</td></tr>
-</tbody>
-</table>
-</div>
-<p>커널 안티치트를 쓰는 게임은 실행되지 않습니다.</p>
-</section>
-
-<section aria-labelledby="store-title">
-<h2 id="store-title">Didim Labs 게임</h2>
-<a class="game" href="../games/dont-sell-the-cat.html#ko">
-<img src="../store/dont-sell-the-cat-wide.jpg" width="920" height="430" alt="고양이는 팔지 마세요: 전당포 카운터 위의 노란 눈 검은 고양이">
-<span><b>고양이는 팔지 마세요</b> · $6.99 · 맥·윈도우<br>
-1958년 전당포 야간 카운터에서 보내는 일곱 밤. 확대경, UV 램프, 저울, 가게 고양이로 물건을 확인하고, 뒷문 셔터는 열지 마세요.</span>
-</a>
-</section>
-
-<section id="download" aria-labelledby="download-title">
-<h2 id="download-title">설치</h2>
-<p><a href="https://github.com/BCD1210/soju/releases/download/v1.10.1/Soju-1.10.1-macos-arm64.zip">Soju-1.10.1-macos-arm64.zip</a>을 받아 압축을 풀고 응용 프로그램 폴더로 옮긴 뒤 실행하세요. Platforms 화면에서 원하는 런처를 고르면 됩니다.</p>
-<p>터미널에서는:</p>
-<pre><code>curl -fsSL https://didimlabs.com/install.sh | bash</code></pre>
-<p>Homebrew로는:</p>
-<pre><code>brew install BCD1210/soju/soju
-soju install</code></pre>
-<p>Rosetta 2, Xcode Command Line Tools, Homebrew가 필요합니다. 배틀넷·에픽·GOG는 애플 ID로 직접 받은 <a href="https://developer.apple.com/games/game-porting-toolkit/">게임 포팅 툴킷</a>도 필요합니다. <code>soju doctor</code>로 설치 상태를 점검하고 <code>soju update</code>로 업데이트합니다.</p>
-</section>
-
-<section id="faq" aria-labelledby="faq-title">
-<h2 id="faq-title">자주 묻는 질문</h2>
-<h3>M1·M2·M3·M4 맥에서 윈도우 게임을 할 수 있나요?</h3>
-<p>게임에 따라 됩니다. 소주는 윈도우 런처를 Wine과 애플의 D3DMetal 또는 DXMT로 실행합니다. 디아블로 II: 레저렉션, 호그와트 레거시, Guilt Free를 M4 Pro·macOS 26.5에서 직접 플레이했습니다. 커널 안티치트를 쓰는 게임은 안 됩니다.</p>
-<h3>소주는 무료인가요?</h3>
-<p>네. GPL-3.0 오픈소스이고 무료입니다. 게임은 각 스토어에서 평소처럼 삽니다. Didim Labs가 만든 맥 게임은 소주 스토어 탭에서 팝니다.</p>
-<h3>macOS 버전은 무엇이 필요한가요?</h3>
-<p>소주 앱은 애플 실리콘 맥의 macOS 14 이상에서 돌아갑니다. 스팀 게임은 macOS 26 이상, 디아블로 II: 레저렉션은 macOS 26.4 이상이 필요합니다.</p>
-<h3>위스키(Whisky)나 크로스오버 대신 쓸 수 있나요?</h3>
-<p>비슷한 일을 합니다. 위스키는 개발이 멈췄고 크로스오버는 유료입니다. 소주는 무료이고, 공식 스토어 런처 실행에 맞춰져 있으며, CodeWeavers가 공개한 소스로 Wine 엔진을 만듭니다.</p>
-<h3>게임이 안 켜지면요?</h3>
-<p><code>soju doctor</code>(디아2는 <code>soju doctor d2r</code>)를 실행해 보고 가이드를 확인한 뒤, 게임·맥 기종·macOS 버전·증상을 적어 <a href="https://github.com/BCD1210/soju/issues">이슈를 남겨 주세요</a>.</p>
-</section>
+# 또는
+brew install BCD1210/soju/soju
+soju install</code></pre><p><code>soju doctor</code>로 설치 상태를 점검하고 <code>soju update</code>로 업데이트합니다.</p></section><section id="faq" aria-labelledby="faq-title"><h2 id="faq-title">자주 묻는 질문</h2><div class="faq"><details open=""><summary>M1·M2·M3·M4 맥에서 윈도우 게임을 할 수 있나요?</summary><p>게임에 따라 됩니다. 소주는 윈도우 런처를 Wine과 애플의 D3DMetal 또는 DXMT로 실행합니다. 디아블로 II: 레저렉션, 호그와트 레거시, Guilt Free를 M4 Pro·macOS 26.5에서 직접 플레이했습니다. 커널 안티치트를 쓰는 게임은 안 됩니다.</p></details><details><summary>소주는 무료인가요?</summary><p>네. GPL-3.0 오픈소스이고 무료입니다. 게임은 각 스토어에서 평소처럼 삽니다. Didim Labs가 만든 맥 게임은 소주 스토어 탭에서 팝니다.</p></details><details><summary>macOS 버전은 무엇이 필요한가요?</summary><p>소주 앱은 애플 실리콘 맥의 macOS 14 이상에서 돌아갑니다. 스팀 게임은 macOS 26 이상, 디아블로 II: 레저렉션은 macOS 26.4 이상이 필요합니다.</p></details><details><summary>위스키(Whisky)나 크로스오버 대신 쓸 수 있나요?</summary><p>비슷한 일을 합니다. 위스키는 개발이 멈췄고 크로스오버는 유료입니다. 소주는 무료이고, 공식 스토어 런처 실행에 맞춰져 있으며, CodeWeavers가 공개한 소스로 Wine 엔진을 만듭니다.</p></details><details><summary>게임이 안 켜지면요?</summary><p><code>soju doctor</code>(디아2는 <code>soju doctor d2r</code>)를 실행해 보고 가이드를 확인한 뒤, 게임·맥 기종·macOS 버전·증상을 적어 <a href="https://github.com/BCD1210/soju/issues">이슈를 남겨 주세요</a>.</p></details></div></section>
 </main>
-<footer>
-<p>Didim Labs · <a href="mailto:hello@didimlabs.com">hello@didimlabs.com</a> · <a href="https://github.com/BCD1210/soju/blob/main/README.ko.md">한국어 README</a> · <a href="https://github.com/BCD1210/soju/releases">릴리스</a></p>
-<p>Blizzard, Valve, Epic, GOG, Microsoft, Apple, CodeWeavers와 관계없는 독립 프로젝트입니다.</p>
-</footer>
+<footer><div class="inner">
+<p><span>Didim Labs · <a href="mailto:hello@didimlabs.com">hello@didimlabs.com</a> · <a href="https://github.com/BCD1210/soju/blob/main/README.ko.md">한국어 README</a> · <a href="https://github.com/BCD1210/soju/releases">릴리스</a></span></p>
+<p><span>Blizzard, Valve, Epic, GOG, Microsoft, Apple, CodeWeavers와 관계없는 독립 프로젝트입니다.</span></p>
+</div></footer>
 </body>
 </html>

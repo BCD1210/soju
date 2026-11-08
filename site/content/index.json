@@ -1,0 +1,93 @@
+{
+  "out": "index.html",
+  "lang": "en",
+  "base": "",
+  "title": "Soju – play Windows games from Steam, Battle.net, Epic, GOG and Xbox on Apple Silicon Macs",
+  "description": "Soju is a free, open-source Mac app from Didim Labs that installs the official Windows launchers (Steam, Battle.net, Epic, GOG, Xbox PC) on M1–M4 Macs and puts all your games in one library.",
+  "canonical": "https://didimlabs.com/",
+  "alternates": [
+    {"hreflang": "en", "href": "https://didimlabs.com/"},
+    {"hreflang": "ko", "href": "https://didimlabs.com/ko/"},
+    {"hreflang": "x-default", "href": "https://didimlabs.com/"}
+  ],
+  "og": {"title": "Soju: Windows game launchers on Apple Silicon Macs", "description": "Free, open-source. Steam, Battle.net, Epic, GOG and Xbox PC games in one Mac library.", "image": "https://didimlabs.com/assets/soju-library.png", "imageAlt": "Soju library with Battle.net, Steam, Epic and GOG games"},
+  "nav": [
+    {"label": "Download", "href": "#install"},
+    {"label": "What runs", "href": "#works"},
+    {"label": "Games", "href": "games/dont-sell-the-cat.html"},
+    {"label": "Guides", "href": "#guides"},
+    {"label": "FAQ", "href": "#faq"},
+    {"label": "GitHub", "href": "https://github.com/BCD1210/soju"},
+    {"label": "한국어", "href": "ko/", "lang": "ko"}
+  ],
+  "footer": [
+    "Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com) · [GitHub](https://github.com/BCD1210/soju) · [Releases](https://github.com/BCD1210/soju/releases) · [Supporting Soju](support.html)",
+    "Not affiliated with Blizzard, Valve, Epic, GOG, Microsoft, Apple or CodeWeavers."
+  ],
+  "jsonld": [
+    {"@type": "Organization", "@id": "https://didimlabs.com/#org", "name": "Didim Labs", "url": "https://didimlabs.com/", "email": "hello@didimlabs.com", "logo": "https://didimlabs.com/assets/favicon.png", "sameAs": ["https://github.com/BCD1210/soju"]},
+    {"@type": "WebSite", "@id": "https://didimlabs.com/#site", "url": "https://didimlabs.com/", "name": "Didim Labs", "publisher": {"@id": "https://didimlabs.com/#org"}, "inLanguage": ["en", "ko"]},
+    {"@type": "SoftwareApplication", "@id": "https://didimlabs.com/#soju", "name": "Soju", "url": "https://didimlabs.com/", "downloadUrl": "https://github.com/BCD1210/soju/releases/download/v1.10.1/Soju-1.10.1-macos-arm64.zip", "softwareVersion": "1.10.1", "description": "Free, open-source Mac app that installs the official Windows launchers for Steam, Battle.net, Epic Games, GOG GALAXY and Xbox PC on Apple Silicon and shows every installed game in one library.", "applicationCategory": "GameApplication", "operatingSystem": "macOS 14 or later, Apple Silicon (M1 or newer)", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "isAccessibleForFree": true, "author": {"@id": "https://didimlabs.com/#org"}, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "screenshot": "https://didimlabs.com/assets/soju-library.png", "sameAs": ["https://github.com/BCD1210/soju"]}
+  ],
+  "body": [
+    {"type": "Hero", "props": {
+      "title": "Soju",
+      "lead": "A free Mac app for playing Windows games on Apple Silicon. It installs the real Steam, Battle.net, Epic, GOG GALAXY and Xbox PC launchers, keeps each in its own Wine setup, and lists every installed game in one library.",
+      "actions": [{"label": "Download Soju 1.10.1", "href": "https://github.com/BCD1210/soju/releases/download/v1.10.1/Soju-1.10.1-macos-arm64.zip", "primary": true}],
+      "meta": "macOS 14+, M1 or newer · open source (GPL-3.0)",
+      "image": {"src": "assets/soju-library.png", "alt": "Soju 1.10 library with Diablo II: Resurrected, Don't Sell the Cat, Guilt Free, Hogwarts Legacy and other installed games", "width": 1140, "height": 780}
+    }},
+    {"type": "Section", "props": {"id": "what", "title": "What it does"}, "children": [
+      {"type": "Features", "props": {"items": [
+        {"title": "Real launchers", "text": "Battle.net, Epic and GOG share a Wine engine built from [CodeWeavers' sources](https://www.codeweavers.com/crossover/source) with Apple's D3DMetal. Steam gets its own Wine 11 setup with DXMT for D3D11 games."},
+        {"title": "One library", "text": "Finds installed games across every launcher and imports the games you own on Steam and GOG."},
+        {"title": "Store search", "text": "Searches Steam, GOG and Microsoft Store listings with prices for your region."},
+        {"title": "Xbox PC", "text": "Experimental: imports owned and Game Pass games and downloads them through the [Xodus](https://github.com/xodus-gaming/xodus) backend."}
+      ]}},
+      {"type": "Text", "props": {"text": "Logins, purchases and game updates stay with each store. Soju doesn't bundle games, store clients or Apple's Game Porting Toolkit."}}
+    ]},
+    {"type": "Section", "props": {"id": "works", "title": "Games we've run", "intro": "Tested on an M4 Pro Mac with macOS 26.5. Other games may or may not work; please [report what you try](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)."}, "children": [
+      {"type": "Table", "props": {"label": "Tested games", "head": ["Game", "Store", "Result"], "rows": [
+        ["Diablo II: Resurrected", "Battle.net", "Plays online. Needs macOS 26.4+. [Guide](guides/diablo-2-resurrected-apple-silicon.html)"],
+        ["Hogwarts Legacy", "Epic", "Installs and plays with D3DMetal."],
+        ["Guilt Free (Unity, D3D11)", "Steam", "Plays with the DXMT setup. [Guide](guides/steam-windows-client-apple-silicon.html)"],
+        ["Retro Classics", "Xbox PC", "Reaches the main menu."],
+        ["GOG GALAXY", "GOG", "Login and library work; few games tried yet."]
+      ]}},
+      {"type": "Text", "props": {"text": "Games with kernel-level anti-cheat won't run. The Steam edition of Diablo II: Resurrected hasn't been checked."}},
+      {"type": "Video", "props": {"src": "assets/soju-gameplay-demo.mp4", "poster": "assets/soju-gameplay-demo-poster.jpg", "captions": "assets/soju-gameplay-demo.vtt", "label": "30-second clip of Hogwarts Legacy and Guilt Free running through Soju", "caption": "Hogwarts Legacy through Epic, Guilt Free through Steam. 30 seconds."}}
+    ]},
+    {"type": "Section", "props": {"id": "store", "title": "Games from Didim Labs"}, "children": [
+      {"type": "GameCard", "props": {"href": "games/dont-sell-the-cat.html", "image": {"src": "store/dont-sell-the-cat-wide.jpg", "alt": "Don't Sell the Cat: a black cat with yellow eyes on a pawnshop counter", "width": 920, "height": 430}, "title": "Don't Sell the Cat", "meta": "$6.99 · Mac and Windows · about 2 hours", "text": "Seven nights at a 1958 pawnshop counter. Check items with a loupe, UV lamp, scale and the shop cat, and don't open the back shutter."}}
+    ]},
+    {"type": "Section", "props": {"id": "install", "title": "Install"}, "children": [
+      {"type": "Steps", "props": {"items": [
+        {"title": "Download the app", "text": "[Soju-1.10.1-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.10.1/Soju-1.10.1-macos-arm64.zip). Unzip it and move Soju to Applications. [Signing notes](https://github.com/BCD1210/soju/blob/main/docs/DESKTOP.md)."},
+        {"title": "Pick launchers", "text": "Open Soju, go to Platforms and choose the launchers you use. Battle.net, Epic and GOG also need [Apple's Game Porting Toolkit](https://developer.apple.com/games/game-porting-toolkit/), which you download with your Apple ID."},
+        {"title": "Sign in and play", "text": "Sign in inside each launcher as usual. Installed games show up in the library."}
+      ]}},
+      {"type": "Text", "props": {"text": "Prefer the terminal? Run the installer, or use Homebrew. You'll need Rosetta 2, the Xcode Command Line Tools and Homebrew."}},
+      {"type": "Code", "props": {"code": "curl -fsSL https://didimlabs.com/install.sh | bash\n\n# or\nbrew install BCD1210/soju/soju\nsoju install"}},
+      {"type": "Text", "props": {"text": "`soju doctor` checks the setup; `soju update` updates it."}}
+    ]},
+    {"type": "Section", "props": {"id": "guides", "title": "Guides"}, "children": [
+      {"type": "Links", "props": {"items": [
+        {"label": "Diablo II: Resurrected on Apple Silicon", "href": "guides/diablo-2-resurrected-apple-silicon.html"},
+        {"label": "The Windows Steam client on Apple Silicon", "href": "guides/steam-windows-client-apple-silicon.html"},
+        {"label": "Whisky is gone: what to use instead", "href": "guides/whisky-alternative.html"},
+        {"label": "맥에서 디아블로 II: 레저렉션 돌리기", "href": "guides/ko/diablo-2-mac.html", "lang": "ko"},
+        {"label": "Installing Don't Sell the Cat on Windows", "href": "windows.html"}
+      ]}}
+    ]},
+    {"type": "Section", "props": {"id": "faq", "title": "FAQ"}, "children": [
+      {"type": "Faq", "props": {"items": [
+        {"q": "Can I play Windows games on an M1, M2, M3 or M4 Mac with Soju?", "a": "Often, yes. Soju runs the Windows launchers through Wine with Apple's D3DMetal or DXMT. Diablo II: Resurrected, Hogwarts Legacy and Guilt Free have been played on an M4 Pro with macOS 26.5. Games with kernel anti-cheat do not run."},
+        {"q": "Is Soju free?", "a": "Yes. Soju is free and open source under GPL-3.0-or-later. You buy games from the stores as usual. Didim Labs also sells its own Mac games in Soju's store tab."},
+        {"q": "Which macOS version do I need?", "a": "The Soju app needs macOS 14 or later on Apple Silicon. Steam games need macOS 26 or later, and Diablo II: Resurrected needs macOS 26.4 or later."},
+        {"q": "Is Soju a Whisky or CrossOver alternative?", "a": "It covers similar ground. Whisky is no longer developed and CrossOver is paid. Soju is free, focuses on the official store launchers, and builds its Wine engine from CodeWeavers' published sources."},
+        {"q": "Does Soju need my store passwords?", "a": "No. You sign in inside each official launcher. Library imports stay on your Mac and Soju has no account of its own."},
+        {"q": "A game won't start. What now?", "a": "Run `soju doctor` (or `soju doctor d2r`), check the guides, then [open an issue](https://github.com/BCD1210/soju/issues) with the game, your Mac, macOS version and what you see."}
+      ]}}
+    ]}
+  ]
+}
