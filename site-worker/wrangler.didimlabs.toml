@@ -1,9 +1,7 @@
-# didimlabs.com lives in the fdmk.noreply Cloudflare account: deploy with
-#   HOME=~/.tagmatch-cloudflare npx wrangler@4.150.0 deploy -c wrangler.didimlabs.toml
+# didimlabs.com. Deploy with the Cloudflare account that owns the zone (set CLOUDFLARE_ACCOUNT_ID).
 name = "soju-site"
 main = "worker.js"
 compatibility_date = "2026-08-01"
-account_id = "546296716e02539841fba47503c600b0"
 
 [[routes]]
 pattern = "didimlabs.com"

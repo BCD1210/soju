@@ -2,8 +2,8 @@ Cloudflare Worker that serves the GitHub Pages site (docs/) at didimlabs.com, so
 
     curl -fsSL didimlabs.com/install.sh | bash
 
-didimlabs.com is in the fdmk.noreply Cloudflare account: deploy with
+It also answers POST /api/didim/download for the Didim Labs Store (needs the POLAR_TOKEN secret).
 
-    HOME=~/.tagmatch-cloudflare npx wrangler@4.150.0 deploy -c wrangler.didimlabs.toml
-
-The old soju.snack-wrap.com address (mikey9220 account, `wrangler deploy`) redirects every path to didimlabs.com.
+Two deployments use this code: `wrangler.didimlabs.toml` for didimlabs.com and `wrangler.toml` for the old
+soju.snack-wrap.com address, which only redirects to didimlabs.com. They live in different Cloudflare accounts;
+the maintainers' private ops notes say which login deploys which.
