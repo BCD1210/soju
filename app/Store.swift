@@ -14,6 +14,16 @@ struct StoreGame: Decodable, Identifiable {
     let details: String
     let requires: String
     let steam: String?
+    let demo: StoreDemo?
+}
+
+/// A free demo: its own game ID, a zip on the Soju GitHub releases, and its size and SHA-256.
+struct StoreDemo: Decodable {
+    let id: String
+    let url: String
+    let size: Int
+    let sha256: String
+    var megabytes: String { String(max(1, size / 1_000_000)) + " MB" }
 }
 
 struct StoreCatalog: Decodable {
@@ -33,7 +43,13 @@ struct StoreCatalog: Decodable {
                 && safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"]) != nil
                 && (game.cover == nil || safe(game.cover!, hosts: ["didimlabs.com"]) != nil)
                 && (game.steam == nil || safe(game.steam!, hosts: ["store.steampowered.com"]) != nil)
+                && (game.demo == nil || validDemo(game.demo!, of: game.id))
         }
+    }
+    static func validDemo(_ demo: StoreDemo, of id: String) -> Bool {
+        demo.id != id && demo.id.range(of: "^[a-z0-9][a-z0-9-]{0,63}$", options: .regularExpression) != nil
+            && demo.url.hasPrefix("https://github.com/BCD1210/soju/releases/download/") && demo.url.hasSuffix(".zip")
+            && demo.size > 0 && demo.sha256.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil
     }
     static func safe(_ value: String, hosts: Set<String>) -> URL? {
         guard let url = URL(string: value), url.scheme == "https", let host = url.host, hosts.contains(host),
@@ -103,7 +119,10 @@ struct StoreView: View {
     }
 
     private func installed(_ game: StoreGame) -> InstalledGame? {
-        model.games.first { $0.id == "didim:" + game.id && $0.isInstalled }
+        installed(id: game.id)
+    }
+    private func installed(id: String) -> InstalledGame? {
+        model.games.first { $0.id == "didim:" + id && $0.isInstalled }
     }
 
     private func card(_ game: StoreGame) -> some View {
@@ -128,11 +147,25 @@ struct StoreView: View {
                         Button { if let url = StoreCatalog.safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"]) { NSWorkspace.shared.open(url) } } label: {
                             Label("Buy · " + game.price, systemImage: "cart")
                         }.buttonStyle(.borderedProminent).tint(accent)
+                        if let demo = game.demo {
+                            if let demoGame = installed(id: demo.id) {
+                                Button { model.play(demoGame) } label: { Label("Play demo", systemImage: "play") }
+                                    .disabled(model.launchingGames.contains(demoGame.id))
+                            } else {
+                                Button { model.run(["didim", "demo", game.id], title: "Downloading the " + game.title + " demo…") } label: {
+                                    Label("Free demo · " + demo.megabytes, systemImage: "arrow.down.circle")
+                                }.disabled(model.busy).help("The first nights of the game, free")
+                            }
+                        }
                     }
                     Button(installed(game) == nil ? "I have a key" : "Reinstall") {
                         if installed(game) == nil { key = ""; keyFor = game }
                         else { model.run(["didim", "activate", game.id], title: "Updating " + game.title + "…") }
                     }.disabled(model.busy)
+                    if installed(game) != nil, let demo = game.demo, installed(id: demo.id) != nil {
+                        Button("Remove demo") { model.run(["didim", "remove", demo.id], title: "Removing the demo…") }
+                            .disabled(model.busy)
+                    }
                     if let steam = game.steam, let url = URL(string: steam) {
                         Link("Windows: Steam", destination: url).font(.system(size: 12))
                     }

@@ -24,6 +24,7 @@ Usage:
   soju search <term>  Search Steam, GOG and the Microsoft Store (--country US|KR|GB|DE|JP)
   soju didim install <game.zip>  Install a native Mac game from Didim Labs
   soju didim list|remove <id>    List or remove installed Didim Labs games
+  soju didim demo <id>           Download and install a game's free demo
   soju --version      Print the Soju version
   soju battlenet      Launch Battle.net (default bottle)
   soju d2r            Launch Diablo II: Resurrected directly

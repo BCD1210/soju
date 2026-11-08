@@ -150,7 +150,6 @@ def fetch_json(url, body):
 
 def activate(uid):
     """Download and install a bought game. The key comes from SOJU_DIDIM_KEY or the keychain."""
-    import urllib.request
     if not ID.fullmatch(uid or ''): raise ValueError('Choose a game.')
     key = os.environ.pop('SOJU_DIDIM_KEY', '').strip() or saved_key(uid)
     if not key: raise ValueError('Enter the license key from your purchase email.')
@@ -163,6 +162,12 @@ def activate(uid):
             and isinstance(url, str) and url.startswith('https://')):
         raise ValueError('The store sent an unexpected answer.')
     save_key(uid, key)
+    download_install(name, size, digest, url, expect=uid)
+
+
+def download_install(name, size, digest, url, expect):
+    """Stream a zip into didim-games/.downloads, check its size and SHA-256, then install it."""
+    import urllib.request
     folder = games_dir() / '.downloads'
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     target = folder / name
@@ -182,9 +187,35 @@ def activate(uid):
     try:
         if done != size or sha.hexdigest() != digest:
             raise ValueError('The download was damaged. Try again.')
-        install(target, expect=uid)
+        install(target, expect=expect)
     finally:
         target.unlink(missing_ok=True)
+
+
+DEMO_PREFIX = 'https://github.com/BCD1210/soju/releases/download/'
+
+
+def demo(uid):
+    """Download and install the free demo listed for a game in the store catalog."""
+    import urllib.request, urllib.error
+    if not ID.fullmatch(uid or ''): raise ValueError('Choose a game.')
+    print('Looking up the demo…', flush=True)
+    try:
+        request = urllib.request.Request(STORE + '/store/catalog.json', headers={'User-Agent': 'Soju'})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            catalog = json.loads(response.read(512 * 1024))
+    except (urllib.error.URLError, ValueError):
+        raise ValueError('Could not reach the store. Check the internet connection.')
+    game = next((g for g in catalog.get('games', []) if isinstance(g, dict) and g.get('id') == uid), None)
+    info = game.get('demo') if game else None
+    if not isinstance(info, dict): raise ValueError('This game has no demo yet.')
+    demo_id, url, size, digest = info.get('id'), info.get('url'), info.get('size'), info.get('sha256')
+    if not (isinstance(demo_id, str) and ID.fullmatch(demo_id) and demo_id != uid
+            and isinstance(url, str) and url.startswith(DEMO_PREFIX) and url.endswith('.zip')
+            and isinstance(size, int) and 0 < size < 4 * 1024 ** 3
+            and isinstance(digest, str) and re.fullmatch(r'[0-9a-f]{64}', digest)):
+        raise ValueError('The store listed a demo Soju cannot use.')
+    download_install(url.rsplit('/', 1)[1], size, digest, url, expect=demo_id)
 
 
 def remove(uid):
@@ -197,13 +228,14 @@ def remove(uid):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['install', 'activate', 'list', 'remove'])
+    parser.add_argument('action', choices=['install', 'activate', 'demo', 'list', 'remove'])
     parser.add_argument('target', nargs='?')
     args = parser.parse_args()
     try:
         if args.action == 'install': install(args.target or '')
         elif args.action == 'remove': remove(args.target)
         elif args.action == 'activate': activate(args.target)
+        elif args.action == 'demo': demo(args.target)
         else: print(json.dumps(installed(), ensure_ascii=False))
     except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
         print('soju: ' + str(error), file=sys.stderr); sys.exit(1)

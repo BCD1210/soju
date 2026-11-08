@@ -64,8 +64,8 @@
         "lead": "애플 실리콘 맥에서 윈도우 게임을 하기 위한 무료 맥 앱입니다. 진짜 스팀, 배틀넷, 에픽, GOG GALAXY, Xbox PC 런처를 각각 따로 된 Wine 환경에 설치하고, 설치된 게임을 한 라이브러리에 모아 보여 줍니다.",
         "actions": [
           {
-            "label": "소주 1.10.3 다운로드",
-            "href": "https://github.com/BCD1210/soju/releases/download/v1.10.3/Soju-1.10.3-macos-arm64.zip",
+            "label": "소주 1.10.4 다운로드",
+            "href": "https://github.com/BCD1210/soju/releases/download/v1.10.4/Soju-1.10.4-macos-arm64.zip",
             "primary": true
           }
         ],
@@ -208,7 +208,7 @@
             "items": [
               {
                 "title": "앱 받기",
-                "text": "[Soju-1.10.3-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.10.3/Soju-1.10.3-macos-arm64.zip)을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
+                "text": "[Soju-1.10.4-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.10.4/Soju-1.10.4-macos-arm64.zip)을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
               },
               {
                 "title": "런처 고르기",

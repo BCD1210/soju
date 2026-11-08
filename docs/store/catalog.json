@@ -11,7 +11,13 @@
       "summary": "Seven nights behind the counter of a pawnshop that opened in 1958. Check what people bring in with a loupe, a UV lamp, a scale and the shop cat. Pay the rent. The ledger writes lines you didn't write, and someone knocks on the back shutter after closing. Don't open it.",
       "details": "First-person horror · about 2 hours · 10 endings · English and Korean · Windows version included",
       "requires": "Apple Silicon Mac, macOS 12 or later · 369 MB",
-      "steam": "https://store.steampowered.com/app/5584970"
+      "steam": "https://store.steampowered.com/app/5584970",
+      "demo": {
+        "id": "dont-sell-the-cat-demo",
+        "url": "https://github.com/BCD1210/soju/releases/download/dont-sell-the-cat-demo-1.0/DontSellTheCat-demo-mac-1.0.zip",
+        "size": 388469226,
+        "sha256": "3ffc4775fd3ff4c99e80c2b5d292865a7ea19a42d191cf2d1711de6486a7e0a7"
+      }
     }
   ]
 }
