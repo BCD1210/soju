@@ -3,7 +3,7 @@
   "lang": "en",
   "base": "../",
   "title": "Don't Sell the Cat – pawnshop horror game for Mac and Windows | Didim Labs",
-  "description": "Don't Sell the Cat is a short first-person horror game set in a 1958 pawnshop. Seven nights, ten endings, about two hours. Native on Apple Silicon Macs and on Windows. $6.99.",
+  "description": "Don't Sell the Cat is a short first-person horror game set in a 1958 pawnshop. Seven nights, ten endings, about two hours. Native on Apple Silicon Macs and on Windows. $2.99.",
   "canonical": "https://didimlabs.com/games/dont-sell-the-cat.html",
   "og": {
     "title": "Don't Sell the Cat",
@@ -77,7 +77,7 @@
       },
       "offers": {
         "@type": "Offer",
-        "price": "6.99",
+        "price": "2.99",
         "priceCurrency": "USD",
         "availability": "https://schema.org/InStock",
         "url": "https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2"
@@ -92,7 +92,7 @@
         "lead": "Seven nights behind the counter of a pawnshop that opened in 1958. Check what people bring in with a loupe, a UV lamp, a scale and the shop cat. Pay the rent. The ledger writes lines you didn't write, and someone knocks on the back shutter after closing. Don't open it.",
         "actions": [
           {
-            "label": "Buy for $6.99",
+            "label": "Buy for $2.99",
             "href": "https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2",
             "primary": true
           },
@@ -224,7 +224,7 @@
               },
               {
                 "title": "Bought on this site",
-                "text": "[Buy for $6.99](https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2), then press **Install in Soju** on the page you land on. On another Mac, sign in to Soju with Apple or Google using the email you paid with and press **Install**."
+                "text": "[Buy for $2.99](https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2), then press **Install in Soju** on the page you land on. On another Mac, sign in to Soju with Apple or Google using the email you paid with and press **Install**."
               },
               {
                 "title": "Windows",
@@ -335,7 +335,7 @@
         {
           "type": "Text",
           "props": {
-            "text": "첫 결말까지 약 2시간, 결말 10개, 한국어 지원. $6.99에 맥판과 윈도우판이 같이 들어 있습니다. 맥에서는 [소주](../ko/)의 Didim Labs Store에서 구매 버튼만 누르면 결제 후 알아서 설치됩니다."
+            "text": "첫 결말까지 약 2시간, 결말 10개, 한국어 지원. $2.99에 맥판과 윈도우판이 같이 들어 있습니다. 맥에서는 [소주](../ko/)의 Didim Labs Store에서 구매 버튼만 누르면 결제 후 알아서 설치됩니다."
           }
         },
         {
@@ -343,7 +343,7 @@
           "props": {
             "items": [
               {
-                "label": "구매하기 ($6.99)",
+                "label": "구매하기 ($2.99)",
                 "href": "https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2",
                 "primary": true
               }

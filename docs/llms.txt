@@ -17,7 +17,7 @@
 - [맥에서 디아블로 II: 레저렉션](https://didimlabs.com/guides/ko/diablo-2-mac.html)
 
 ## Games
-- [Don't Sell the Cat](https://didimlabs.com/games/dont-sell-the-cat.html): first-person horror in a 1958 pawnshop, about 2 hours, 10 endings, English and Korean. $6.99 for Mac (native Apple Silicon) and Windows. Bought through Polar; Mac copies install through Soju's store tab.
+- [Don't Sell the Cat](https://didimlabs.com/games/dont-sell-the-cat.html): first-person horror in a 1958 pawnshop, about 2 hours, 10 endings, English and Korean. $2.99 for Mac (native Apple Silicon) and Windows. Bought through Polar; Mac copies install through Soju's store tab.
 - [Installing the Windows version](https://didimlabs.com/windows.html)
 
 ## Contact
