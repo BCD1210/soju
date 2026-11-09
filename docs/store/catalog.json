@@ -14,9 +14,9 @@
       "steam": "https://store.steampowered.com/app/5584970",
       "demo": {
         "id": "dont-sell-the-cat-demo",
-        "url": "https://github.com/BCD1210/soju/releases/download/dont-sell-the-cat-demo-1.0/DontSellTheCat-demo-mac-1.0.1.zip",
-        "size": 388469892,
-        "sha256": "522d8dab5ac88a12b5bd023247a195ffef6646e6830ae355fa3e47e24baddfe9"
+        "url": "https://github.com/BCD1210/soju/releases/download/dont-sell-the-cat-demo-1.0/DontSellTheCat-demo-mac-1.0.2.zip",
+        "size": 388478250,
+        "sha256": "284138d39e72de245e59c4a669ad507f6c7a5e78bf6f7c38075911682e1ea113"
       }
     }
   ]
