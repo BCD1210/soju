@@ -100,6 +100,12 @@ struct TVView: View {
                         }.padding(.top, 4)
                     }
                 }
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Samsung or LG TV, or a smart monitor", systemImage: "airplayvideo").font(.system(size: 15, weight: .semibold))
+                    Text("These don't have Moonlight, but most take AirPlay, built into macOS. Open Control Center, choose Screen Mirroring, then your TV. Drag the game window onto the TV (or switch the game to full screen there). Play with the keyboard, mouse or controller connected to this Mac.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
                 step(4, "Play", done: false) {
                     Text("In Moonlight, open Desktop. You see this Mac's screen: start a game from Soju as usual. Mouse and keyboard work, and a controller on the TV acts as mouse and keys; games that only take a controller may not respond, because the Mac version of Sunshine can't create a virtual controller.")
                 }
