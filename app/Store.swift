@@ -124,11 +124,14 @@ struct StoreView: View {
                     }
                 }
             }
+            NotifyRow()
             Text("Checkout is on Polar. Buy here and Soju installs the game when the payment clears; the key is also in Polar's receipt email and is kept in the Keychain.")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { store.load(root: model.root); account.loadProviders() }
+        .onAppear { store.load(root: model.root); account.loadProviders(); buyRequested(); Usage.send("store_open") }
+        .onChange(of: model.requestedBuy) { buyRequested() }
+        .onChange(of: store.games.count) { buyRequested() }
         .sheet(item: $keyFor) { game in keySheet(game) }
     }
 
@@ -171,10 +174,10 @@ struct StoreView: View {
                         }.buttonStyle(.borderedProminent).tint(accent).disabled(purchase.pending != nil)
                         if let demo = game.demo {
                             if let demoGame = installed(id: demo.id) {
-                                Button { model.play(demoGame) } label: { Label("Play demo", systemImage: "play") }
+                                Button { Usage.send("demo_play"); model.play(demoGame) } label: { Label("Play demo", systemImage: "play") }
                                     .disabled(model.launchingGames.contains(demoGame.id))
                             } else {
-                                Button { model.run(["didim", "demo", game.id], title: "Downloading the " + game.title + " demo…") } label: {
+                                Button { Usage.send("demo_download"); model.run(["didim", "demo", game.id], title: "Downloading the " + game.title + " demo…") } label: {
                                     Label("Free demo · " + demo.megabytes, systemImage: "arrow.down.circle")
                                 }.disabled(model.busy).help("The first nights of the game, free")
                             }
@@ -223,9 +226,18 @@ struct StoreView: View {
         }
     }
 
+    /// From a demo's "Get the full game": start the checkout once the store has loaded that game.
+    private func buyRequested() {
+        guard let id = model.requestedBuy, let game = store.games.first(where: { $0.id == id }) else { return }
+        model.requestedBuy = nil
+        if installed(game) == nil && !account.owned.contains(game.id) && purchase.pending == nil { buy(game) }
+    }
+
     private func buy(_ game: StoreGame) {
+        Usage.send("purchase_start")
         purchase.start(game, fallback: StoreCatalog.safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"])) { id, title, key in
             account.markOwned(id)
+            Usage.send("purchase_done")
             install(id: id, title: title, key: key)
         }
     }
@@ -431,6 +443,7 @@ struct StoreView: View {
                 ? "No purchases for this Apple relay address. If you bought with your real email, use Google or your license key."
                 : "No purchases found for " + address + ". If you used another email, sign in with that one or use your key."
         } else {
+            Usage.send("signin")
             message = "Found " + String(found.count) + (found.count == 1 ? " game" : " games") + " for " + address + "."
         }
     }

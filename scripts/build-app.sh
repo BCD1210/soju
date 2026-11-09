@@ -10,7 +10,7 @@ trap 'rm -rf "$STAGE"' EXIT
 APP="$STAGE/Soju.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/soju"
 swiftc -swift-version 5 -parse-as-library -O -target arm64-apple-macosx14.0 \
-  "$ROOT/app/Soju.swift" "$ROOT/app/Library.swift" "$ROOT/app/Accounts.swift" "$ROOT/app/Discover.swift" "$ROOT/app/PurchaseLinks.swift" "$ROOT/app/SteamLogin.swift" "$ROOT/app/Store.swift" "$ROOT/app/Sponsor.swift" -o "$APP/Contents/MacOS/Soju"
+  "$ROOT/app/Soju.swift" "$ROOT/app/Library.swift" "$ROOT/app/Accounts.swift" "$ROOT/app/Discover.swift" "$ROOT/app/PurchaseLinks.swift" "$ROOT/app/SteamLogin.swift" "$ROOT/app/Store.swift" "$ROOT/app/Sponsor.swift" "$ROOT/app/Usage.swift" -o "$APP/Contents/MacOS/Soju"
 for dir in scripts tools patches third_party resources; do
   ditto "$ROOT/$dir" "$APP/Contents/Resources/soju/$dir"
 done
@@ -29,7 +29,9 @@ p.write_bytes(plistlib.dumps({
     "CFBundleVersion": sys.argv[2], "LSMinimumSystemVersion": "14.0",
     "NSHighResolutionCapable": True,
     "NSHumanReadableCopyright": "Soju contributors, GPL-3.0-or-later",
-    "LSApplicationCategoryType": "public.app-category.games"
+    "LSApplicationCategoryType": "public.app-category.games",
+    # soju://store/<game>?buy=1 opens the store (the end of a game demo links here).
+    "CFBundleURLTypes": [{"CFBundleURLName": "app.soju.desktop", "CFBundleURLSchemes": ["soju"]}]
 }))
 PY
 swift "$ROOT/app/Icon.swift" "$STAGE"

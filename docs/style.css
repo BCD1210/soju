@@ -139,3 +139,12 @@ form.contact .hp { position: absolute; left: -9999px; width: 1px; height: 1px; }
 form.contact button { cursor: pointer; border: 0; font: inherit; }
 form.contact button:disabled { opacity: .6; cursor: default; }
 .form-status { margin-left: 12px; color: var(--dim); font-size: 14px; }
+
+/* Release news sign-up */
+form.notify { margin: 12px 0; max-width: 560px; }
+form.notify label { display: grid; gap: 8px; font-size: 15px; }
+.notify-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.notify-row input { flex: 1 1 220px; font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.notify-row button { border: 0; font: inherit; cursor: pointer; }
+form.notify .hp { position: absolute; left: -9999px; width: 1px; height: 1px; }
+form.notify .form-status { display: block; margin: 8px 0 0; }

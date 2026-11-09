@@ -15,6 +15,7 @@
 // through the MAILER send_email binding to the SPONSOR_TO secret (a verified Email Routing address).
 import { EmailMessage } from "cloudflare:email";
 import { auth } from "./auth.js";
+import { notify, stats } from "./community.js";
 const HOME = "didimlabs.com";
 const POLAR = "https://api.polar.sh/v1";
 const ORG = "e7dd3a2e-a0ac-4b52-ad53-b7c7d7064420";
@@ -177,6 +178,8 @@ export default {
       return Response.redirect("https://" + HOME + url.pathname + url.search, 301);
     }
     if (url.pathname === "/api/didim/download") return download(request, env);
+    if (url.pathname === "/api/notify") return notify(request, env);
+    if (url.pathname === "/api/stats") return stats(request, env);
     if (url.pathname.startsWith("/auth/")) return auth(request, env, url, { home: HOME, games: GAMES, polar, org: ORG });
     if (url.pathname === "/api/didim/checkout") return startCheckout(request, env);
     const checkoutPath = url.pathname.match(/^\/api\/didim\/checkout\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);
