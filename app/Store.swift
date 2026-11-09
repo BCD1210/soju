@@ -79,6 +79,7 @@ struct StoreCatalog: Decodable {
 struct StoreView: View {
     @EnvironmentObject var model: SojuModel
     @StateObject private var store = StoreModel()
+    @StateObject private var purchase = PurchaseWatcher()
     @State private var keyFor: StoreGame?
     @State private var key = ""
     private let accent = Color(red: 0.79, green: 0.36, blue: 0.27)
@@ -97,6 +98,21 @@ struct StoreView: View {
                     Text(model.busy ? lastLine : (model.failed ? lastLine : model.activity)).font(.system(size: 12)).lineLimit(2)
                 }
             }
+            if let pending = purchase.pending {
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Finish paying for " + pending.title + " in your browser.").font(.system(size: 12, weight: .semibold))
+                        Text(purchase.message.isEmpty ? "Soju installs it by itself as soon as the payment goes through." : purchase.message)
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Open checkout") { NSWorkspace.shared.open(pending.url) }
+                    Button("Cancel") { purchase.cancel() }
+                }.padding(12).background(accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+            } else if !purchase.message.isEmpty {
+                Text(purchase.message).font(.system(size: 12)).foregroundStyle(.secondary)
+            }
             ScrollView {
                 VStack(spacing: 18) {
                     ForEach(store.games) { card($0) }
@@ -106,7 +122,7 @@ struct StoreView: View {
                     }
                 }
             }
-            Text("Checkout is on Polar. Their receipt email has your license key; Soju keeps it in the Keychain so you only paste it once.")
+            Text("Checkout is on Polar. Buy here and Soju installs the game when the payment clears; the key is also in Polar's receipt email and is kept in the Keychain.")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -144,9 +160,9 @@ struct StoreView: View {
                         Button { model.play(game) } label: { Label("Play", systemImage: "play.fill") }
                             .buttonStyle(.borderedProminent).tint(.green).disabled(model.launchingGames.contains(game.id))
                     } else {
-                        Button { if let url = StoreCatalog.safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"]) { NSWorkspace.shared.open(url) } } label: {
+                        Button { buy(game) } label: {
                             Label("Buy · " + game.price, systemImage: "cart")
-                        }.buttonStyle(.borderedProminent).tint(accent)
+                        }.buttonStyle(.borderedProminent).tint(accent).disabled(purchase.pending != nil)
                         if let demo = game.demo {
                             if let demoGame = installed(id: demo.id) {
                                 Button { model.play(demoGame) } label: { Label("Play demo", systemImage: "play") }
@@ -175,12 +191,29 @@ struct StoreView: View {
         }.padding(18).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
     }
 
+    private func buy(_ game: StoreGame) {
+        purchase.start(game, fallback: StoreCatalog.safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"])) { id, title, key in
+            install(id: id, title: title, key: key)
+        }
+    }
+
+    /// Runs as soon as Soju is free; the key goes to the Keychain inside didim_games.py.
+    private func install(id: String, title: String, key: String) {
+        if model.busy {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { install(id: id, title: title, key: key) }
+            return
+        }
+        model.run(["didim", "activate", id], title: "Installing " + title + "…", environment: ["SOJU_DIDIM_KEY": key])
+    }
+
     private func keySheet(_ game: StoreGame) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Install " + game.title).font(.system(size: 18, weight: .bold))
             Text("Paste the key from the Polar receipt email. It starts with DSTC-.")
                 .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             TextField("License key", text: $key).textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
+            Link("Lost the email? Find your key on Polar", destination: URL(string: "https://polar.sh/didim-labs/portal")!)
+                .font(.system(size: 11))
             HStack {
                 Spacer()
                 Button("Cancel") { keyFor = nil }
@@ -192,5 +225,78 @@ struct StoreView: View {
                     .disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).range(of: "^[A-Za-z0-9-]{8,100}$", options: .regularExpression) == nil)
             }
         }.padding(24).frame(width: 460)
+    }
+}
+
+/// Buying from inside Soju: the site worker opens a Polar checkout for this Soju only, and once the
+/// payment clears it hands back the license key, so nobody has to copy it out of an email.
+@MainActor final class PurchaseWatcher: ObservableObject {
+    struct Pending: Equatable { let game: String; let title: String; let id: String; let url: URL }
+    @Published var pending: Pending?
+    @Published var message = ""
+    private var timer: Timer?
+    private var started = Date()
+    private static let api = "https://didimlabs.com/api/didim/checkout"
+
+    func start(_ game: StoreGame, fallback: URL?, ready: @escaping (String, String, String) -> Void) {
+        message = "Opening checkout…"
+        var request = URLRequest(url: URL(string: Self.api)!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["game": game.id])
+        request.timeoutInterval = 20
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            let body = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            DispatchQueue.main.async {
+                guard (response as? HTTPURLResponse)?.statusCode == 200, let id = body?["id"] as? String,
+                      id.range(of: "^[0-9a-f-]{36}$", options: .regularExpression) != nil,
+                      let link = (body?["url"] as? String).flatMap({ StoreCatalog.safe($0, hosts: ["polar.sh", "buy.polar.sh"]) }) else {
+                    // The old way still works: Polar emails the key.
+                    self.message = ""
+                    if let fallback { NSWorkspace.shared.open(fallback) }
+                    return
+                }
+                self.pending = Pending(game: game.id, title: game.title, id: id, url: link)
+                self.message = ""
+                self.started = Date()
+                NSWorkspace.shared.open(link)
+                self.timer?.invalidate()
+                self.timer = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
+                    DispatchQueue.main.async { self?.poll(ready: ready) }
+                }
+            }
+        }.resume()
+    }
+
+    func cancel() {
+        timer?.invalidate(); timer = nil; pending = nil; message = ""
+    }
+
+    private func poll(ready: @escaping (String, String, String) -> Void) {
+        guard let pending else { cancel(); return }
+        if Date().timeIntervalSince(started) > 45 * 60 {
+            cancel(); message = "Stopped waiting for the payment. If you paid, use the key from the Polar email."
+            return
+        }
+        var request = URLRequest(url: URL(string: Self.api + "/" + pending.id)!)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 15
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            let body = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            DispatchQueue.main.async {
+                guard self.pending == pending, let status = body?["status"] as? String else { return }
+                switch status {
+                case "ready":
+                    if let key = body?["key"] as? String, key.range(of: "^[A-Za-z0-9-]{8,100}$", options: .regularExpression) != nil {
+                        self.cancel()
+                        ready(pending.game, pending.title, key)
+                    }
+                case "processing": self.message = "Payment received. Getting your license key…"
+                case "expired", "failed":
+                    self.cancel(); self.message = "The checkout " + status + ". Press Buy to try again."
+                default: break
+                }
+            }
+        }.resume()
     }
 }

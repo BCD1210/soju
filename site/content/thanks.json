@@ -1,0 +1,20 @@
+{
+  "out": "store/thanks.html",
+  "lang": "en",
+  "base": "../",
+  "noindex": true,
+  "title": "Thanks for your purchase | Didim Labs",
+  "description": "Your purchase went through.",
+  "nav": [{"label": "Soju", "href": "../"}, {"label": "Games", "href": "../games/dont-sell-the-cat.html"}, {"label": "한국어", "href": "../ko/", "lang": "ko"}],
+  "footer": ["Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com)"],
+  "body": [
+    {"type": "Hero", "props": {"title": "Thanks, it's yours", "lead": "If you bought it from Soju, go back to Soju. It installs the game by itself as soon as the payment clears, usually within a minute."}},
+    {"type": "Section", "props": {"title": "Bought on the website?"}, "children": [
+      {"type": "Text", "props": {"text": "Your license key is in the receipt email from Polar. In Soju, open **Didim Labs Store**, press **I have a key** and paste it. The Windows download is linked in the same email."}}
+    ]},
+    {"type": "Section", "props": {"title": "구매 감사합니다"}, "children": [
+      {"type": "Text", "props": {"text": "소주에서 사셨다면 소주로 돌아가세요. 결제가 끝나면 1분 안에 알아서 설치됩니다. 웹사이트에서 사셨다면 Polar 영수증 메일에 있는 라이선스 키를 소주의 **Didim Labs Store → I have a key**에 붙여 넣으세요."}}
+    ]},
+    {"type": "Note", "props": {"text": "Lost the email? Sign in at [polar.sh/didim-labs/portal](https://polar.sh/didim-labs/portal) with your purchase email to see your key and downloads."}}
+  ]
+}
