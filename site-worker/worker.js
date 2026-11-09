@@ -8,14 +8,15 @@
 //
 // In-app purchase without copying a key (the token also needs checkouts:read and checkouts:write):
 //   POST /api/didim/checkout {"game": "<id>"} -> {"id", "url"}: Soju opens url in the browser.
-//   GET /api/didim/checkout/<id> -> {"status": "open" | "processing" | "ready" | "expired" | "failed", "key"?}
+//   GET /api/didim/checkout/<id> -> {"status": "open" | "processing" | "ready" | "expired" | "failed", "game"?, "key"?}
+//   The website's thanks page links to soju://store/claim?checkout=<id> so a web purchase installs the same way.
 //   Soju polls until "ready", then installs with the key. The checkout id is only known to that Soju.
 //
 // POST /api/sponsor/inquiry (form fields name, email, company, message) mails an advertising inquiry
 // through the MAILER send_email binding to the SPONSOR_TO secret (a verified Email Routing address).
 import { EmailMessage } from "cloudflare:email";
 import { auth } from "./auth.js";
-import { notify, stats } from "./community.js";
+import { notify } from "./community.js";
 const HOME = "didimlabs.com";
 const POLAR = "https://api.polar.sh/v1";
 const ORG = "e7dd3a2e-a0ac-4b52-ad53-b7c7d7064420";
@@ -108,7 +109,8 @@ async function checkoutStatus(env, checkoutId) {
   if (!res.ok) return json({ error: "The store could not check the payment." }, 502);
   const checkout = await res.json();
   const productIds = [checkout.product_id, ...(checkout.products || []).map((p) => p.id)];
-  const game = Object.values(GAMES).find((g) => g.product && productIds.includes(g.product));
+  const gameId = Object.keys(GAMES).find((id) => GAMES[id].product && productIds.includes(GAMES[id].product));
+  const game = gameId && GAMES[gameId];
   if (!game) return json({ error: "Unknown checkout." }, 404);
   if (checkout.status === "expired" || checkout.status === "failed") return json({ status: checkout.status });
   if (checkout.status !== "succeeded" || !checkout.customer_id) {
@@ -120,7 +122,7 @@ async function checkoutStatus(env, checkoutId) {
     if (!list.ok) return json({ error: "The store could not find the license key yet." }, 502);
     const body = await list.json();
     const found = (body.items || []).find((k) => k.customer_id === checkout.customer_id && k.status === "granted");
-    if (found) return json({ status: "ready", key: found.key });
+    if (found) return json({ status: "ready", game: gameId, key: found.key });
     if (page >= ((body.pagination && body.pagination.max_page) || 1)) break;
   }
   return json({ status: "processing" });
@@ -179,7 +181,6 @@ export default {
     }
     if (url.pathname === "/api/didim/download") return download(request, env);
     if (url.pathname === "/api/notify") return notify(request, env);
-    if (url.pathname === "/api/stats") return stats(request, env);
     if (url.pathname.startsWith("/auth/")) return auth(request, env, url, { home: HOME, games: GAMES, polar, org: ORG });
     if (url.pathname === "/api/didim/checkout") return startCheckout(request, env);
     const checkoutPath = url.pathname.match(/^\/api\/didim\/checkout\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);

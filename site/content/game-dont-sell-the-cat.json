@@ -211,7 +211,7 @@
       "props": {
         "id": "buy",
         "title": "Buy and install",
-        "intro": "Checkout is handled by Polar, our reseller, which also takes care of sales tax. You get a license key and both downloads; the Polar customer portal lets you get them again with your email."
+        "intro": "Checkout is handled by Polar, our reseller, which also takes care of sales tax. One purchase covers Mac and Windows."
       },
       "children": [
         {
@@ -219,16 +219,16 @@
           "props": {
             "items": [
               {
-                "title": "Pay on Polar",
-                "text": "[Buy for $6.99](https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2). The receipt email has your license key."
+                "title": "Mac: buy in Soju",
+                "text": "Install [Soju](../), open **Didim Labs Store** and press **Buy**. After you pay, Soju downloads and installs the game by itself."
               },
               {
-                "title": "Mac",
-                "text": "Install [Soju](../), open the Didim Labs Store tab, choose **I have a key** and paste it. Soju downloads, checks and installs the game."
+                "title": "Bought on this site",
+                "text": "[Buy for $6.99](https://buy.polar.sh/polar_cl_RUBxcP2f3cFwGAUA0yXiuQcMm12Mu0kMaTJEB2yhNh2), then press **Install in Soju** on the page you land on. On another Mac, sign in to Soju with Apple or Google using the email you paid with and press **Install**."
               },
               {
                 "title": "Windows",
-                "text": "Download the Windows zip from the receipt, unzip it and run the exe. [Windows install steps](../windows.html)."
+                "text": "The receipt email links the Windows zip. Unzip it and run the exe. [Windows install steps](../windows.html)."
               }
             ]
           }
@@ -300,7 +300,7 @@
               },
               {
                 "q": "Does Don't Sell the Cat run on Mac?",
-                "a": "Yes, natively on Apple Silicon (M1 or newer, macOS 12+). Buy it here and install it through Soju's store tab with your license key. One purchase includes the Windows version too."
+                "a": "Yes, natively on Apple Silicon (M1 or newer, macOS 12+). Buy it in Soju's store and Soju installs it by itself. One purchase includes the Windows version too."
               },
               {
                 "q": "Is it very scary?",
@@ -335,7 +335,7 @@
         {
           "type": "Text",
           "props": {
-            "text": "첫 결말까지 약 2시간, 결말 10개, 한국어 지원. $6.99에 맥판과 윈도우판이 같이 들어 있습니다. 맥에서는 [소주](../ko/)의 Didim Labs Store 탭에서 영수증 메일의 키를 넣으면 설치됩니다."
+            "text": "첫 결말까지 약 2시간, 결말 10개, 한국어 지원. $6.99에 맥판과 윈도우판이 같이 들어 있습니다. 맥에서는 [소주](../ko/)의 Didim Labs Store에서 구매 버튼만 누르면 결제 후 알아서 설치됩니다."
           }
         },
         {

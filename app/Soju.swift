@@ -109,6 +109,8 @@ struct SojuLogo: View {
     @Published var requestedPage: String?
     /// A game the store should start checking out, from a soju://store/<game>?buy=1 link.
     @Published var requestedBuy: String?
+    /// A checkout paid on the website, from the thanks page's "Install in Soju" button.
+    @Published var requestedClaim: String?
 
     func open(_ url: URL) {
         guard url.scheme == "soju", url.host == "store" else { return }
@@ -116,6 +118,10 @@ struct SojuLogo: View {
         let game = url.pathComponents.dropFirst().first ?? ""
         let buy = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.contains { $0.name == "buy" && $0.value == "1" } == true
         if buy, game.range(of: "^[a-z0-9][a-z0-9-]{0,63}$", options: .regularExpression) != nil { requestedBuy = game }
+        if let checkout = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "checkout" })?.value,
+           checkout.range(of: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", options: .regularExpression) != nil {
+            requestedClaim = checkout
+        }
     }
     @Published var downloads: [String: String] = [:]
     var downloadTasks: [String: Process] = [:]
@@ -411,7 +417,6 @@ final class SojuDelegate: NSObject, NSApplicationDelegate {
     var body: some Scene {
         Window("Soju", id: "main") {
             LibraryView().environmentObject(model).onOpenURL { model.open($0) }.onAppear {
-                Usage.send("app_open")
                 delegate.isBusy = { model.busy }
                 delegate.downloads = { model.downloadTasks.count }
                 delegate.pauseDownloads = { model.pauseAllDownloads() }

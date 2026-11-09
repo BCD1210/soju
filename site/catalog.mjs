@@ -29,6 +29,7 @@ export const components = {
     Faq: { props: z.object({ items: z.array(z.object({ q: str, a: str })) }), description: 'Questions and answers' },
     Links: { props: z.object({ items: z.array(link) }), description: 'List of links' },
     Figure: { props: z.object({ image, caption: opt(str) }), description: 'Single image with caption' },
+    Claim: { props: z.object({ label: str, missing: str, ko: opt(str) }), description: 'Install-in-Soju button for a website purchase' },
     Notify: { props: z.object({ label: str, button: str, sent: str, failed: str, source: str }), description: 'Release news email sign-up' },
     ContactForm: {
       props: z.object({
@@ -101,6 +102,12 @@ export const { registry } = defineRegistry(catalog, {
       h('li', { key: k }, h('a', { href: l.href, lang: l.lang }, l.label)))),
     Figure: ({ props }) => h('figure', { className: 'figure' }, img(props.image, { loading: 'lazy' }),
       props.caption && h('figcaption', null, props.caption)),
+    Claim: ({ props }) => h(Fragment, null,
+      h('p', { className: 'actions', id: 'claim', hidden: true },
+        h('a', { className: 'btn', id: 'claim-link', href: '#' }, props.label),
+        props.ko && h('a', { className: 'btn secondary', id: 'claim-link-ko', href: '#' }, props.ko)),
+      h('p', { className: 'note' }, inline(props.missing)),
+      h('script', { dangerouslySetInnerHTML: { __html: `(function(){var m=location.search.match(/[?&]checkout_id=([0-9a-f-]{36})/);if(!m)return;var u='soju://store/claim?checkout='+m[1];document.getElementById('claim-link').href=u;var k=document.getElementById('claim-link-ko');if(k)k.href=u;document.getElementById('claim').hidden=false;})();` } })),
     Notify: ({ props }) => h(Fragment, null,
       h('form', { className: 'notify', method: 'post', action: '/api/notify', 'data-sent': props.sent, 'data-failed': props.failed },
         h('label', null, props.label, h('span', { className: 'notify-row' },
