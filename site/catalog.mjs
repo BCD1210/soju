@@ -29,6 +29,7 @@ export const components = {
     Faq: { props: z.object({ items: z.array(z.object({ q: str, a: str })) }), description: 'Questions and answers' },
     Links: { props: z.object({ items: z.array(link) }), description: 'List of links' },
     Figure: { props: z.object({ image, caption: opt(str) }), description: 'Single image with caption' },
+    Notify: { props: z.object({ label: str, button: str, sent: str, failed: str, source: str }), description: 'Release news email sign-up' },
     ContactForm: {
       props: z.object({
         action: str, name: str, email: str, company: str, message: str, send: str,
@@ -100,6 +101,17 @@ export const { registry } = defineRegistry(catalog, {
       h('li', { key: k }, h('a', { href: l.href, lang: l.lang }, l.label)))),
     Figure: ({ props }) => h('figure', { className: 'figure' }, img(props.image, { loading: 'lazy' }),
       props.caption && h('figcaption', null, props.caption)),
+    Notify: ({ props }) => h(Fragment, null,
+      h('form', { className: 'notify', method: 'post', action: '/api/notify', 'data-sent': props.sent, 'data-failed': props.failed },
+        h('label', null, props.label, h('span', { className: 'notify-row' },
+          h('input', { name: 'email', type: 'email', required: true, maxLength: 200, autoComplete: 'email', placeholder: 'you@example.com' }),
+          h('button', { className: 'btn', type: 'submit' }, props.button))),
+        h('input', { type: 'hidden', name: 'source', value: props.source }),
+        h('input', { name: 'website', tabIndex: -1, autoComplete: 'off', className: 'hp', 'aria-hidden': 'true' }),
+        h('span', { className: 'form-status', role: 'status', 'aria-live': 'polite' })),
+      h('script', { dangerouslySetInnerHTML: { __html: `document.querySelectorAll('form.notify').forEach(function(f){if(f.dataset.on)return;f.dataset.on=1;var s=f.querySelector('.form-status'),b=f.querySelector('button');
+f.addEventListener('submit',function(e){e.preventDefault();b.disabled=true;fetch(f.action,{method:'POST',body:new FormData(f)}).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+.then(function(x){b.disabled=false;if(x.ok){f.reset();s.textContent=f.dataset.sent;}else{s.textContent=(x.j&&x.j.error)||f.dataset.failed;}}).catch(function(){b.disabled=false;s.textContent=f.dataset.failed;});});});` } })),
     ContactForm: ({ props }) => h(Fragment, null,
       props.thanks && h('p', { className: 'note thanks', id: 'thanks', hidden: true }, props.thanks),
       h('form', { className: 'contact', method: 'post', action: props.action, id: 'contact' },

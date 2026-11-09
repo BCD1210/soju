@@ -18,3 +18,8 @@ name = "MAILER"
 # Sign-in results (see auth.js). Wrangler creates the namespace on first deploy.
 [[kv_namespaces]]
 binding = "AUTH"
+
+# Anonymous, opt-in usage counts (see community.js). Wrangler creates the database on first deploy.
+[[d1_databases]]
+binding = "STATS"
+database_name = "soju-stats"

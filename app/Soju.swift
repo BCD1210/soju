@@ -107,6 +107,16 @@ struct SojuLogo: View {
     @Published var selection: Set<Launcher> = [.battlenet]
     @Published var launching: Set<Launcher> = []
     @Published var requestedPage: String?
+    /// A game the store should start checking out, from a soju://store/<game>?buy=1 link.
+    @Published var requestedBuy: String?
+
+    func open(_ url: URL) {
+        guard url.scheme == "soju", url.host == "store" else { return }
+        requestedPage = "store"
+        let game = url.pathComponents.dropFirst().first ?? ""
+        let buy = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.contains { $0.name == "buy" && $0.value == "1" } == true
+        if buy, game.range(of: "^[a-z0-9][a-z0-9-]{0,63}$", options: .regularExpression) != nil { requestedBuy = game }
+    }
     @Published var downloads: [String: String] = [:]
     var downloadTasks: [String: Process] = [:]
     var downloadTimers: [String: Timer] = [:]
@@ -400,7 +410,8 @@ final class SojuDelegate: NSObject, NSApplicationDelegate {
     @StateObject private var model = SojuModel()
     var body: some Scene {
         Window("Soju", id: "main") {
-            LibraryView().environmentObject(model).onAppear {
+            LibraryView().environmentObject(model).onOpenURL { model.open($0) }.onAppear {
+                Usage.send("app_open")
                 delegate.isBusy = { model.busy }
                 delegate.downloads = { model.downloadTasks.count }
                 delegate.pauseDownloads = { model.pauseAllDownloads() }
