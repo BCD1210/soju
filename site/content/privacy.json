@@ -79,6 +79,7 @@
             "items": [
               "Soju downloads the store list and the sponsor card from didimlabs.com, and game files from Polar or GitHub.",
               "Account connections you add (Steam, GOG and others) talk to those services directly from your Mac.",
+              "If you turn on TV & iPad streaming, Soju installs Sunshine (open source, LizardByte) on your Mac. It streams only to devices you pair with a PIN on your own network, keeps its settings page on your Mac, and only contacts GitHub to check for new versions.",
               "Soju has no analytics, ads tracking or crash reporting."
             ]
           }

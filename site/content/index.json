@@ -90,8 +90,8 @@
       "@id": "https://didimlabs.com/#soju",
       "name": "Soju",
       "url": "https://didimlabs.com/",
-      "downloadUrl": "https://github.com/BCD1210/soju/releases/download/v1.10.8/Soju-1.10.8-macos-arm64.zip",
-      "softwareVersion": "1.10.8",
+      "downloadUrl": "https://github.com/BCD1210/soju/releases/download/v1.10.9/Soju-1.10.9-macos-arm64.zip",
+      "softwareVersion": "1.10.9",
       "description": "Free, open-source Mac app that installs the official Windows launchers for Steam, Battle.net, Epic Games, GOG GALAXY and Xbox PC on Apple Silicon and shows every installed game in one library.",
       "applicationCategory": "GameApplication",
       "operatingSystem": "macOS 14 or later, Apple Silicon (M1 or newer)",
@@ -120,8 +120,8 @@
         "lead": "A free Mac app for playing Windows games on Apple Silicon. It installs the real Steam, Battle.net, Epic, GOG GALAXY and Xbox PC launchers, keeps each in its own Wine setup, and lists every installed game in one library.",
         "actions": [
           {
-            "label": "Download Soju 1.10.8",
-            "href": "https://github.com/BCD1210/soju/releases/download/v1.10.8/Soju-1.10.8-macos-arm64.zip",
+            "label": "Download Soju 1.10.9",
+            "href": "https://github.com/BCD1210/soju/releases/download/v1.10.9/Soju-1.10.9-macos-arm64.zip",
             "primary": true
           }
         ],
@@ -274,7 +274,7 @@
             "items": [
               {
                 "title": "Download the app",
-                "text": "[Soju-1.10.8-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.10.8/Soju-1.10.8-macos-arm64.zip). Unzip it and move Soju to Applications. [Signing notes](https://github.com/BCD1210/soju/blob/main/docs/DESKTOP.md)."
+                "text": "[Soju-1.10.9-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.10.9/Soju-1.10.9-macos-arm64.zip). Unzip it and move Soju to Applications. [Signing notes](https://github.com/BCD1210/soju/blob/main/docs/DESKTOP.md)."
               },
               {
                 "title": "Pick launchers",
