@@ -336,7 +336,6 @@ struct LibraryView: View {
     }
     private var library: some View {
         VStack(alignment: .leading, spacing: 20) {
-            UsagePrompt()
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(page == "favorites" ? "Your favorites" : "Your library")

@@ -104,7 +104,7 @@ struct StoreView: View {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Finish paying for " + pending.title + " in your browser.").font(.system(size: 12, weight: .semibold))
+                        Text(pending.game.isEmpty ? "Getting your purchase from the website…" : "Finish paying for " + pending.title + " in your browser.").font(.system(size: 12, weight: .semibold))
                         Text(purchase.message.isEmpty ? "Soju installs it by itself as soon as the payment goes through." : purchase.message)
                             .font(.system(size: 11)).foregroundStyle(.secondary)
                     }
@@ -125,12 +125,17 @@ struct StoreView: View {
                 }
             }
             NotifyRow()
-            Text("Checkout is on Polar. Buy here and Soju installs the game when the payment clears; the key is also in Polar's receipt email and is kept in the Keychain.")
-                .font(.system(size: 11)).foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text("Press Buy, pay in your browser, and Soju installs the game by itself.")
+                if let game = store.games.first(where: { installed($0) == nil }) {
+                    Button("Have a license key?") { key = ""; keyFor = game }.buttonStyle(.link)
+                }
+            }.font(.system(size: 11)).foregroundStyle(.secondary)
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { store.load(root: model.root); account.loadProviders(); buyRequested(); Usage.send("store_open") }
+        .onAppear { store.load(root: model.root); account.loadProviders(); buyRequested(); claimRequested() }
         .onChange(of: model.requestedBuy) { buyRequested() }
+        .onChange(of: model.requestedClaim) { claimRequested() }
         .onChange(of: store.games.count) { buyRequested() }
         .sheet(item: $keyFor) { game in keySheet(game) }
     }
@@ -174,19 +179,19 @@ struct StoreView: View {
                         }.buttonStyle(.borderedProminent).tint(accent).disabled(purchase.pending != nil)
                         if let demo = game.demo {
                             if let demoGame = installed(id: demo.id) {
-                                Button { Usage.send("demo_play"); model.play(demoGame) } label: { Label("Play demo", systemImage: "play") }
+                                Button { model.play(demoGame) } label: { Label("Play demo", systemImage: "play") }
                                     .disabled(model.launchingGames.contains(demoGame.id))
                             } else {
-                                Button { Usage.send("demo_download"); model.run(["didim", "demo", game.id], title: "Downloading the " + game.title + " demo…") } label: {
+                                Button { model.run(["didim", "demo", game.id], title: "Downloading the " + game.title + " demo…") } label: {
                                     Label("Free demo · " + demo.megabytes, systemImage: "arrow.down.circle")
                                 }.disabled(model.busy).help("The first nights of the game, free")
                             }
                         }
                     }
-                    Button(installed(game) == nil ? "I have a key" : "Reinstall") {
-                        if installed(game) == nil { key = ""; keyFor = game }
-                        else { model.run(["didim", "activate", game.id], title: "Updating " + game.title + "…") }
-                    }.disabled(model.busy)
+                    if installed(game) != nil {
+                        Button("Reinstall") { model.run(["didim", "activate", game.id], title: "Updating " + game.title + "…") }
+                            .disabled(model.busy)
+                    }
                     if installed(game) != nil, let demo = game.demo, installed(id: demo.id) != nil {
                         Button("Remove demo") { model.run(["didim", "remove", demo.id], title: "Removing the demo…") }
                             .disabled(model.busy)
@@ -233,11 +238,19 @@ struct StoreView: View {
         if installed(game) == nil && !account.owned.contains(game.id) && purchase.pending == nil { buy(game) }
     }
 
+    /// A purchase made on the website: pick up its key with the checkout ID and install.
+    private func claimRequested() {
+        guard let checkout = model.requestedClaim else { return }
+        model.requestedClaim = nil
+        purchase.resume(checkout) { id, title, key in
+            account.markOwned(id)
+            install(id: id, title: store.games.first { $0.id == id }?.title ?? title, key: key)
+        }
+    }
+
     private func buy(_ game: StoreGame) {
-        Usage.send("purchase_start")
         purchase.start(game, fallback: StoreCatalog.safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"])) { id, title, key in
             account.markOwned(id)
-            Usage.send("purchase_done")
             install(id: id, title: title, key: key)
         }
     }
@@ -317,6 +330,18 @@ struct StoreView: View {
         timer?.invalidate(); timer = nil; pending = nil; message = ""
     }
 
+    /// Watch a checkout that was opened somewhere else (the website).
+    func resume(_ id: String, ready: @escaping (String, String, String) -> Void) {
+        pending = Pending(game: "", title: "your game", id: id, url: URL(string: "https://didimlabs.com/store/thanks.html")!)
+        message = "Checking your purchase…"
+        started = Date()
+        timer?.invalidate()
+        poll(ready: ready)
+        timer = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async { self?.poll(ready: ready) }
+        }
+    }
+
     private func poll(ready: @escaping (String, String, String) -> Void) {
         guard let pending else { cancel(); return }
         if Date().timeIntervalSince(started) > 45 * 60 {
@@ -332,9 +357,11 @@ struct StoreView: View {
                 guard self.pending == pending, let status = body?["status"] as? String else { return }
                 switch status {
                 case "ready":
-                    if let key = body?["key"] as? String, key.range(of: "^[A-Za-z0-9-]{8,100}$", options: .regularExpression) != nil {
+                    let game = pending.game.isEmpty ? ((body?["game"] as? String) ?? "") : pending.game
+                    if let key = body?["key"] as? String, key.range(of: "^[A-Za-z0-9-]{8,100}$", options: .regularExpression) != nil,
+                       game.range(of: "^[a-z0-9][a-z0-9-]{0,63}$", options: .regularExpression) != nil {
                         self.cancel()
-                        ready(pending.game, pending.title, key)
+                        ready(game, pending.title, key)
                     }
                 case "processing": self.message = "Payment received. Getting your license key…"
                 case "expired", "failed":
@@ -440,10 +467,9 @@ struct StoreView: View {
         UserDefaults.standard.set(Array(owned), forKey: "didimOwned")
         if found.isEmpty {
             message = (body["private"] as? Bool) == true
-                ? "No purchases for this Apple relay address. If you bought with your real email, use Google or your license key."
-                : "No purchases found for " + address + ". If you used another email, sign in with that one or use your key."
+                ? "No purchases for this Apple relay address. Sign in with Google, or with Apple sharing your real email."
+                : "No purchases found for " + address + ". Sign in with the email you paid with."
         } else {
-            Usage.send("signin")
             message = "Found " + String(found.count) + (found.count == 1 ? " game" : " games") + " for " + address + "."
         }
     }

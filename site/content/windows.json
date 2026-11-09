@@ -29,7 +29,7 @@
     ]},
     {"type": "Section", "props": {"id": "updates", "title": "Updates"}, "children": [
       {"type": "Text", "props": {"text": "New versions are added to your purchase. Download the zip again from the receipt link or the Polar customer portal and replace the old folder; your saves stay where they are."}},
-      {"type": "Text", "props": {"text": "On a Mac, use [Soju](./) instead: open the Didim Labs Store tab and paste your license key."}}
+      {"type": "Text", "props": {"text": "On a Mac, use [Soju](./) instead: press Buy in its Didim Labs Store and it installs the game by itself."}}
     ]},
     {"type": "Section", "props": {"id": "ko", "title": "한국어 안내"}, "children": [
       {"type": "Steps", "props": {"items": [

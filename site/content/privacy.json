@@ -79,8 +79,7 @@
             "items": [
               "Soju downloads the store list and the sponsor card from didimlabs.com, and game files from Polar or GitHub.",
               "Account connections you add (Steam, GOG and others) talk to those services directly from your Mac.",
-              "Usage counts are off unless you press Allow. If you allow them, Soju sends event names (app opened, store opened, demo downloaded or played, purchase started or finished, signed in), the Soju version and a random ID made at that moment. No names, emails, game lists or file paths. Turning counts off deletes the random ID.",
-              "Soju has no ads tracking or crash reporting."
+              "Soju has no analytics, ads tracking or crash reporting."
             ]
           }
         }
@@ -141,7 +140,7 @@
         {
           "type": "Text",
           "props": {
-            "text": "애플·구글 로그인은 이메일 주소만 받아, Polar에서 그 이메일로 산 게임의 라이선스 키를 찾는 데 한 번 씁니다. 서버에는 최대 10분만 남고 지워집니다. 결제 정보는 Polar가 처리하며 우리는 카드 번호를 보지 않습니다. 소주의 사용 집계는 '허용'을 눌러야만 켜지고, 이벤트 이름·버전·무작위 ID만 보냅니다. 출시 알림을 신청한 이메일은 새 게임 소식에만 씁니다. 문의와 삭제 요청: hello@didimlabs.com"
+            "text": "애플·구글 로그인은 이메일 주소만 받아, Polar에서 그 이메일로 산 게임의 라이선스 키를 찾는 데 한 번 씁니다. 서버에는 최대 10분만 남고 지워집니다. 결제 정보는 Polar가 처리하며 우리는 카드 번호를 보지 않습니다. 소주 앱에는 분석·추적 기능이 없습니다. 출시 알림을 신청한 이메일은 새 게임 소식에만 씁니다. 문의와 삭제 요청: hello@didimlabs.com"
           }
         }
       ]
