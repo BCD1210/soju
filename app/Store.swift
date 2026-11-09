@@ -80,6 +80,7 @@ struct StoreView: View {
     @EnvironmentObject var model: SojuModel
     @StateObject private var store = StoreModel()
     @StateObject private var purchase = PurchaseWatcher()
+    @StateObject private var account = AccountModel()
     @State private var keyFor: StoreGame?
     @State private var key = ""
     private let accent = Color(red: 0.79, green: 0.36, blue: 0.27)
@@ -91,6 +92,7 @@ struct StoreView: View {
                 Text("Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
                     .font(.callout).foregroundStyle(.secondary)
             }
+            accountBar
             if model.busy || !model.activity.isEmpty && model.activity != "Ready." {
                 HStack(spacing: 8) {
                     if model.busy { ProgressView().controlSize(.small) }
@@ -126,7 +128,7 @@ struct StoreView: View {
                 .font(.system(size: 11)).foregroundStyle(.secondary)
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { store.load(root: model.root) }
+        .onAppear { store.load(root: model.root); account.loadProviders() }
         .sheet(item: $keyFor) { game in keySheet(game) }
     }
 
@@ -159,6 +161,10 @@ struct StoreView: View {
                     if let game = installed(game) {
                         Button { model.play(game) } label: { Label("Play", systemImage: "play.fill") }
                             .buttonStyle(.borderedProminent).tint(.green).disabled(model.launchingGames.contains(game.id))
+                    } else if account.owned.contains(game.id) {
+                        Button { model.run(["didim", "activate", game.id], title: "Installing " + game.title + "…") } label: {
+                            Label("Install", systemImage: "arrow.down.circle.fill")
+                        }.buttonStyle(.borderedProminent).tint(.green).disabled(model.busy)
                     } else {
                         Button { buy(game) } label: {
                             Label("Buy · " + game.price, systemImage: "cart")
@@ -191,8 +197,35 @@ struct StoreView: View {
         }.padding(18).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
     }
 
+    private var accountBar: some View {
+        HStack(spacing: 10) {
+            if account.signingIn != nil {
+                ProgressView().controlSize(.small)
+                Text("Finish signing in in your browser.").font(.system(size: 12))
+                Button("Cancel") { account.cancel() }
+            } else if !account.email.isEmpty {
+                Image(systemName: "person.crop.circle.fill").foregroundStyle(.secondary)
+                Text("Signed in as " + account.email).font(.system(size: 12))
+                Button("Sign out") { account.signOut() }
+            } else if !account.providers.isEmpty {
+                Text("Bought a game already?").font(.system(size: 12)).foregroundStyle(.secondary)
+                if account.providers.contains("apple") {
+                    Button { account.signIn("apple") } label: { Label("Sign in with Apple", systemImage: "apple.logo") }
+                }
+                if account.providers.contains("google") {
+                    Button { account.signIn("google") } label: { Label("Sign in with Google", systemImage: "g.circle") }
+                }
+            }
+            if !account.message.isEmpty && account.signingIn == nil {
+                Text(account.message).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(2)
+            }
+            Spacer()
+        }
+    }
+
     private func buy(_ game: StoreGame) {
         purchase.start(game, fallback: StoreCatalog.safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"])) { id, title, key in
+            account.markOwned(id)
             install(id: id, title: title, key: key)
         }
     }
@@ -298,5 +331,107 @@ struct StoreView: View {
                 }
             }
         }.resume()
+    }
+}
+
+/// Sign in with Apple or Google (through didimlabs.com) to find games bought with that email.
+/// The keys go straight into the Keychain; Soju remembers only the email and which games are owned.
+@MainActor final class AccountModel: ObservableObject {
+    @Published var email = UserDefaults.standard.string(forKey: "didimAccountEmail") ?? ""
+    @Published var owned = Set(UserDefaults.standard.stringArray(forKey: "didimOwned") ?? [])
+    @Published var providers: [String] = []
+    @Published var signingIn: String?
+    @Published var message = ""
+    private var timer: Timer?
+    private var state = ""
+    private var started = Date()
+    private static let site = "https://didimlabs.com"
+    static let keychainService = "Soju Didim Labs license"
+
+    func loadProviders() {
+        var request = URLRequest(url: URL(string: Self.site + "/auth/providers")!)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 15
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            let list = (data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["providers"] as? [String]) ?? []
+            DispatchQueue.main.async { self.providers = list.filter { ["apple", "google"].contains($0) } }
+        }.resume()
+    }
+
+    func signIn(_ provider: String) {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else { return }
+        state = Data(bytes).base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        var parts = URLComponents(string: Self.site + "/auth/start")!
+        parts.queryItems = [URLQueryItem(name: "provider", value: provider), URLQueryItem(name: "state", value: state)]
+        guard let url = parts.url else { return }
+        signingIn = provider; message = ""; started = Date()
+        NSWorkspace.shared.open(url)
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async { self?.poll() }
+        }
+    }
+
+    func cancel() { timer?.invalidate(); timer = nil; signingIn = nil }
+
+    func signOut() {
+        cancel()
+        email = ""; owned = []; message = "Signed out. Installed games stay installed."
+        UserDefaults.standard.removeObject(forKey: "didimAccountEmail")
+        UserDefaults.standard.removeObject(forKey: "didimOwned")
+    }
+
+    /// A game bought in this Soju counts as owned even without signing in.
+    func markOwned(_ game: String) {
+        owned.insert(game)
+        UserDefaults.standard.set(Array(owned), forKey: "didimOwned")
+    }
+
+    private func poll() {
+        guard signingIn != nil else { return }
+        if Date().timeIntervalSince(started) > 10 * 60 { cancel(); message = "Sign-in timed out. Try again."; return }
+        let current = state
+        var request = URLRequest(url: URL(string: Self.site + "/auth/poll/" + current)!)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 15
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            let body = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            DispatchQueue.main.async {
+                guard self.state == current, let status = body?["status"] as? String else { return }
+                switch status {
+                case "done": self.cancel(); self.finish(body ?? [:])
+                case "failed": self.cancel(); self.message = (body?["error"] as? String) ?? "Sign-in didn't work."
+                case "expired": self.cancel(); self.message = "Sign-in expired. Try again."
+                default: break
+                }
+            }
+        }.resume()
+    }
+
+    private func finish(_ body: [String: Any]) {
+        let address = (body["email"] as? String) ?? ""
+        var found: [String] = []
+        for item in (body["owned"] as? [[String: Any]]) ?? [] {
+            guard let game = item["game"] as? String, let key = item["key"] as? String,
+                  game.range(of: "^[a-z0-9][a-z0-9-]{0,63}$", options: .regularExpression) != nil,
+                  key.range(of: "^[A-Za-z0-9-]{8,100}$", options: .regularExpression) != nil else { continue }
+            let save = Process()
+            save.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+            save.arguments = ["add-generic-password", "-U", "-s", Self.keychainService, "-a", game, "-l", "Soju: " + game, "-w", key]
+            if (try? save.run()) != nil { save.waitUntilExit(); if save.terminationStatus == 0 { found.append(game) } }
+        }
+        email = address
+        owned.formUnion(found)
+        UserDefaults.standard.set(address, forKey: "didimAccountEmail")
+        UserDefaults.standard.set(Array(owned), forKey: "didimOwned")
+        if found.isEmpty {
+            message = (body["private"] as? Bool) == true
+                ? "No purchases for this Apple relay address. If you bought with your real email, use Google or your license key."
+                : "No purchases found for " + address + ". If you used another email, sign in with that one or use your key."
+        } else {
+            message = "Found " + String(found.count) + (found.count == 1 ? " game" : " games") + " for " + address + "."
+        }
     }
 }
