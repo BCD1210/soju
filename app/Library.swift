@@ -268,6 +268,7 @@ struct LibraryView: View {
             if page == "platforms" { PlatformsView().frame(maxWidth: .infinity, maxHeight: .infinity) }
             else if page == "discover" { DiscoverView() }
             else if page == "store" { StoreView() }
+            else if page == "tv" { TVView() }
             else if page == "accounts" { AccountsView() }
             else { library }
         }
@@ -302,6 +303,7 @@ struct LibraryView: View {
             Divider().padding(.vertical, 16)
             nav("accounts", "Accounts", "person.crop.circle", count: nil)
             nav("platforms", "Platforms", "square.stack.3d.up", count: nil)
+            nav("tv", "TV & iPad", "tv", count: nil)
             Spacer()
             VStack(alignment: .leading, spacing: 9) {
                 Label("On your Mac", systemImage: "desktopcomputer").font(.system(size: 12, weight: .medium))

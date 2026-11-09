@@ -19,6 +19,11 @@ case "$ACTION" in
     case "${1:-}" in setup|play|status) exec python3 "$ROOT/scripts/d2r-vr.py" "$1" ;;
       flat) exec python3 "$ROOT/scripts/d2r-vr.py" play --flat ;;
       *) echo "Unknown VR action."; exit 64 ;; esac ;;
+  tv)
+    case "${1:-}" in setup|start|stop|status) exec python3 "$ROOT/scripts/stream_tv.py" "$1" ;;
+      pin) exec python3 "$ROOT/scripts/stream_tv.py" pin "${2:?Enter the PIN}" ;;
+      unpair) exec python3 "$ROOT/scripts/stream_tv.py" unpair "${2:?Choose a device}" ;;
+      *) echo "Unknown TV action."; exit 64 ;; esac ;;
   didim)
     case "${1:-}" in install) exec python3 "$ROOT/scripts/didim_games.py" install "${2:?Choose the game zip}" ;;
       remove) exec python3 "$ROOT/scripts/didim_games.py" remove "${2:?Choose a game}" ;;

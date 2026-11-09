@@ -417,6 +417,7 @@ final class SojuDelegate: NSObject, NSApplicationDelegate {
     var body: some Scene {
         Window("Soju", id: "main") {
             LibraryView().environmentObject(model).onOpenURL { model.open($0) }.onAppear {
+                TVKeeper.start()
                 delegate.isBusy = { model.busy }
                 delegate.downloads = { model.downloadTasks.count }
                 delegate.pauseDownloads = { model.pauseAllDownloads() }
