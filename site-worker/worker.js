@@ -6,6 +6,11 @@
 // license key (sold through Polar) into a short-lived download link. Needs the POLAR_TOKEN secret
 // (organization token with license_keys:read and customer_sessions:write) on the didimlabs.com worker.
 //
+// In-app purchase without copying a key (the token also needs checkouts:read and checkouts:write):
+//   POST /api/didim/checkout {"game": "<id>"} -> {"id", "url"}: Soju opens url in the browser.
+//   GET /api/didim/checkout/<id> -> {"status": "open" | "processing" | "ready" | "expired" | "failed", "key"?}
+//   Soju polls until "ready", then installs with the key. The checkout id is only known to that Soju.
+//
 // POST /api/sponsor/inquiry (form fields name, email, company, message) mails an advertising inquiry
 // through the MAILER send_email binding to the SPONSOR_TO secret (a verified Email Routing address).
 import { EmailMessage } from "cloudflare:email";
@@ -15,6 +20,7 @@ const ORG = "e7dd3a2e-a0ac-4b52-ad53-b7c7d7064420";
 // Game ID (soju-game.json) -> the Polar benefits that grant it.
 const GAMES = {
   "dont-sell-the-cat": {
+    product: "d1151bb7-78f2-4328-b4b1-bf3a7ae86abc",
     license: "e8fc1b75-2c42-4808-9486-14aab05e3bdb",
     download: "4c51886f-92d5-4620-868e-ce6aeb01adfb",
   },
@@ -62,6 +68,60 @@ async function download(request, env) {
     name: file.name, size: file.size, sha256: file.checksum_sha256_hex,
     url: file.download.url, expires_at: file.download.expires_at,
   });
+}
+
+const polar = (env, path, init = {}) => fetch(POLAR + path, {
+  ...init, headers: { "content-type": "application/json", authorization: "Bearer " + env.POLAR_TOKEN, ...(init.headers || {}) },
+});
+let checkoutMinute = 0, checkoutsThisMinute = 0;
+
+async function startCheckout(request, env) {
+  if (request.method !== "POST") return json({ error: "Use POST." }, 405);
+  if (!env.POLAR_TOKEN) return json({ error: "The store is not configured yet." }, 503);
+  let input;
+  try { input = await request.json(); } catch { return json({ error: "Send JSON." }, 400); }
+  const id = input && input.game;
+  const game = Object.hasOwn(GAMES, id) ? GAMES[id] : null;
+  if (!game || !game.product) return json({ error: "Unknown game." }, 404);
+  const minute = Math.floor(Date.now() / 60000);
+  if (minute !== checkoutMinute) { checkoutMinute = minute; checkoutsThisMinute = 0; }
+  if (++checkoutsThisMinute > 30) return json({ error: "Too many checkouts right now. Try again in a minute." }, 429);
+  const res = await polar(env, "/checkouts/", {
+    method: "POST",
+    body: JSON.stringify({
+      products: [game.product],
+      success_url: "https://" + HOME + "/store/thanks.html?checkout_id={CHECKOUT_ID}",
+      metadata: { source: "soju", game: id },
+    }),
+  });
+  if (!res.ok) return json({ error: "The store could not start the checkout. Try again shortly." }, 502);
+  const checkout = await res.json();
+  return json({ id: checkout.id, url: checkout.url });
+}
+
+async function checkoutStatus(env, checkoutId) {
+  if (!env.POLAR_TOKEN) return json({ error: "The store is not configured yet." }, 503);
+  const res = await polar(env, "/checkouts/" + checkoutId);
+  if (res.status === 404 || res.status === 422) return json({ error: "Unknown checkout." }, 404);
+  if (!res.ok) return json({ error: "The store could not check the payment." }, 502);
+  const checkout = await res.json();
+  const productIds = [checkout.product_id, ...(checkout.products || []).map((p) => p.id)];
+  const game = Object.values(GAMES).find((g) => g.product && productIds.includes(g.product));
+  if (!game) return json({ error: "Unknown checkout." }, 404);
+  if (checkout.status === "expired" || checkout.status === "failed") return json({ status: checkout.status });
+  if (checkout.status !== "succeeded" || !checkout.customer_id) {
+    return json({ status: checkout.status === "confirmed" || checkout.status === "succeeded" ? "processing" : "open" });
+  }
+  // The license key is granted a few seconds after the payment; until then the answer is "processing".
+  for (let page = 1; page <= 20; page++) {
+    const list = await polar(env, `/license-keys/?organization_id=${ORG}&benefit_id=${game.license}&limit=100&page=${page}`);
+    if (!list.ok) return json({ error: "The store could not find the license key yet." }, 502);
+    const body = await list.json();
+    const found = (body.items || []).find((k) => k.customer_id === checkout.customer_id && k.status === "granted");
+    if (found) return json({ status: "ready", key: found.key });
+    if (page >= ((body.pagination && body.pagination.max_page) || 1)) break;
+  }
+  return json({ status: "processing" });
 }
 
 const clean = (v, max) => String(v ?? "").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").trim().slice(0, max);
@@ -116,6 +176,9 @@ export default {
       return Response.redirect("https://" + HOME + url.pathname + url.search, 301);
     }
     if (url.pathname === "/api/didim/download") return download(request, env);
+    if (url.pathname === "/api/didim/checkout") return startCheckout(request, env);
+    const checkoutPath = url.pathname.match(/^\/api\/didim\/checkout\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);
+    if (checkoutPath) return request.method === "GET" ? checkoutStatus(env, checkoutPath[1]) : json({ error: "Use GET." }, 405);
     if (url.pathname === "/api/sponsor/inquiry") return inquiry(request, env);
     const upstream = new URL("https://bcd1210.github.io/soju" + url.pathname + url.search);
     const res = await fetch(upstream, { headers: { "User-Agent": "soju-site" }, cf: { cacheTtlByStatus: { "200-299": 300, "300-599": 0 } } });
