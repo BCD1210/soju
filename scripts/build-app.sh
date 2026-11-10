@@ -37,7 +37,21 @@ PY
 swift "$ROOT/app/Icon.swift" "$STAGE"
 iconutil -c icns "$STAGE/Soju.iconset" -o "$APP/Contents/Resources/Soju.icns"
 /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string Soju" "$APP/Contents/Info.plist"
-codesign --force --sign - "$APP"
+# Ad-hoc by default. A release build sets SOJU_SIGN_IDENTITY to a Developer ID Application identity
+# (and SOJU_SIGN_KEYCHAIN if it lives outside the login keychain); notarization needs the hardened
+# runtime and a secure timestamp. scripts/notarize-app.sh then submits the zip.
+SIGN="${SOJU_SIGN_IDENTITY:--}"
+if [ "$SIGN" = "-" ]; then
+  codesign --force --sign - "$APP"
+else
+  sign=(codesign --force --options runtime --timestamp --sign "$SIGN")
+  [ -z "${SOJU_SIGN_KEYCHAIN:-}" ] || sign+=(--keychain "$SOJU_SIGN_KEYCHAIN")
+  # Any Mach-O under Resources has to carry the same signature before the bundle is sealed.
+  while IFS= read -r -d '' f; do
+    if file -b "$f" | grep -q 'Mach-O'; then "${sign[@]}" "$f"; fi
+  done < <(find "$APP/Contents/Resources" -type f -print0)
+  "${sign[@]}" "$APP"
+fi
 codesign --verify --deep --strict "$APP"
 [ ! -d "$OUT/Soju.app" ] || rm -rf "$OUT/Soju.app"
 mv "$APP" "$OUT/Soju.app"
