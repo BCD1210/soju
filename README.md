@@ -2,45 +2,24 @@
 
 # Soju
 
-> **Free, open-source game library and launcher for Apple Silicon Macs.**
+> **Play Windows games on Apple Silicon Macs. Free and open source.**
 
-Bring installed games from **Battle.net, Steam, Epic Games and GOG GALAXY**
-into one native Mac library. Search, filter, favorite and launch games through
-their official Windows clients. The Platforms page handles launcher setup,
-component updates and diagnostics; the CLI and individual shortcuts remain available.
-
-Sign in to **Steam** to import your owned library, or import the
-owned library cached by **GOG GALAXY**. Installed and uninstalled games share the
-same library, with availability filters and official-client install actions.
-**Discover** searches Steam, GOG and Microsoft Store listings and prices, with links to buy from the stores.
-**Xbox PC (experimental):** sign in to a Microsoft account to import owned and PC Game Pass games, download them through the [Xodus](https://github.com/xodus-gaming/xodus) backend and start them on Soju's engine. Retro Classics reaches its main menu on Soju; other games are untested. Purchases, downloads and updates stay with the official stores.
-**TV & iPad:** turn on streaming in Soju, install the free Moonlight app on your TV, iPad or phone, type the PIN it shows, and play Soju games on that screen while they run on your Mac.
-
-**Didim Labs Store:** we sell our own Mac games here. Press Buy, pay on Polar, and Soju downloads the game, checks its SHA-256 and signature, and installs it. No Wine. The key stays in the Keychain, so reinstalling doesn't ask again. If you already have the .zip, use Library → Add Didim Labs game or `soju didim install <zip>`.
-Epic and Battle.net account imports are not included yet. Compatibility varies by game.
+Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games and GOG GALAXY** on M1-or-newer Macs, keeps each one in its own Wine setup, and lists your games in one Mac library. It began as a way to run Battle.net and Diablo II: Resurrected without CrossOver.
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
-![Search Steam and GOG with Soju Discover](docs/assets/soju-discover.png)
+**[Download Soju 1.10.10 for Mac](https://github.com/BCD1210/soju/releases/download/v1.10.10/Soju-1.10.10-macos-arm64.zip)**, or install from the terminal:
 
-[Account connections and store search](docs/ACCOUNTS.md) · Official Steam sign-in, no API key required. Account imports stay on your Mac.
+```bash
+brew install BCD1210/soju/soju
+soju install
+```
 
-The tools are free and open source. The main Wine engine is built from
-CodeWeavers' published sources; Steam uses a separate private Wine 11 setup.
-Apple's proprietary GPTK/D3DMetal is downloaded separately. Games and store
-clients are not included.
+The app runs on macOS 14 or later. Diablo II: Resurrected needs macOS 26.4 or later, and Steam games need macOS 26 or later.
 
-**Current release: [v1.10.10](https://github.com/BCD1210/soju/releases/tag/v1.10.10).**
-The compatibility examples below were verified on M4 Pro / macOS 26.5.
-D2R and Hogwarts Legacy are examples of supported games, not the scope of the project.
+[What runs](#what-runs) · [Install details](#install-one-line) · [30-second gameplay demo](https://didimlabs.com/#demo) · [Guides](https://didimlabs.com/#guides) · [한국어](README.ko.md) · [简体中文](README.zh.md)
 
-[Watch the 30-second gameplay demo](https://didimlabs.com/#demo) · Hogwarts Legacy / Epic + Guilt Free / Steam (custom DXMT)
-
-*[한국어 README](README.ko.md) · [简体中文说明](README.zh.md)*
-
-## Support Soju
-
-Help keep Soju free and open source. [Support Soju](https://didimlabs.com/support.html) brings together ways to contribute, voluntary support updates and information about game purchase links.
+Compatibility varies by game, and games with kernel anti-cheat will not run. Games, store clients and Apple's Game Porting Toolkit are not included; GPTK is downloaded separately.
 
 ## What runs
 
@@ -63,7 +42,7 @@ All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher
 
 | Game | Store | Graphics | Status | Notes |
 | --- | --- | --- | :-: | --- |
-| Diablo II: Resurrected | Battle.net | D3DMetal (D3D12) | ✅ in-game, online | **macOS 26.4 or later** (see prerequisites); `play.sh` sets `ROSETTA_ADVERTISE_AVX=1`; [guide](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
+| Diablo II: Resurrected | Battle.net | D3DMetal (D3D12) | ✅ in-game, online | **macOS 26.4 or later** (see prerequisites); `play.sh` sets `ROSETTA_ADVERTISE_AVX=1`; [guide](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) |
 | Diablo II: Resurrected in VR (offline) | Battle.net | D3DMetal (D3D12) + OpenXR | 🧪 simulator only | `soju vr setup` / `soju vr play`: D2R VR Unleashed for offline characters, streamed to an OXRSys headset client; [docs/VR.md](docs/VR.md) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ in-game | UE4 "AMD driver" warning is harmless |
 | Unity D3D11 title | Steam | DXMT | ✅ in-game, windowed | via `soju steam-games`; see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
@@ -74,22 +53,6 @@ Will not run: anything with kernel anti-cheat (EAC, BattlEye, Vanguard). Got ano
 [Community compatibility reports](docs/COMPATIBILITY.md) track additional user
 results separately from the maintainer-tested examples, including D2R on M5,
 the Dark Souls III renderer workaround, and unresolved launch failures.
-
-## Why this exists
-
-Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern Battle.net and D2R. The commercial option works, but the underlying Wine engine is GPL, so we built it ourselves and documented every wall we hit. The investigation and fixes are documented below:
-
-### The three keys
-
-1. **`ROSETTA_ADVERTISE_AVX=1`**: D2R's loader requires AVX instructions. Without this env var, the game freezes forever at ~86 MB RSS with 0% CPU, before any graphics init. This is why D2R "hangs at launch" on non-CrossOver Wine builds.
-
-2. **D3DMetal payload layout**: Apple's Game Porting Toolkit payload is three parts, and D3DMetal engages only with all three: `lib/external/` (libd3dshared + D3DMetal.framework), Apple's PE shims `d3d11.dll`, `d3d12.dll`, `dxgi.dll` (plus `atidxx64`, `nvapi64`, `nvngx`) replacing Wine's own in `lib/wine/x86_64-windows/`, and one `lib/wine/x86_64-unix/<shim>.so` per shim as a **symlink** into `lib/external/`. Copying real files there breaks `@loader_path` resolution and D3DMetal dies in an assertion loop; leaving Wine's own `d3d11.dll` in place runs D3D on wined3d instead, and the Epic Games Launcher crashes at start on that. `soju gptk` installs all three parts.
-
-3. **Battle.net Agent caller-signature fix**: the Agent verifies the signature of the connecting client using a relative filename resolved against its CWD (a versioned subfolder). Seeding a copy of the signed `Battle.net.exe` into each `Battle.net.NNNNN` subfolder makes verification pass (fixes error `BLZBNTBNA00000005`).
-
-Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the launch chain. macOS strips `DYLD_*` variables when exec'ing them.
-
-**Guides:** [D2R on Apple Silicon](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) · [Windows Steam client](https://bcd1210.github.io/soju/guides/steam-windows-client-apple-silicon.html) · [Whisky alternatives](https://bcd1210.github.io/soju/guides/whisky-alternative.html)
 
 ## Install (one line)
 
@@ -115,6 +78,39 @@ soju doctor      # checks the whole stack and prints what is wrong (paste this i
 soju update      # updates the scripts and the prebuilt engine, keeping GPTK and every bottle
 soju uninstall   # removes apps, bottles and the engine, asking before each one
 ```
+
+## More in the app
+
+- **Owned games:** sign in to Steam to import your owned library, or import the library cached by GOG GALAXY. Installed and uninstalled games share one library, with availability filters and official-client install actions. Epic and Battle.net account imports are not included yet. See [account connections and store search](docs/ACCOUNTS.md): official Steam sign-in, no API key required, and account imports stay on your Mac.
+- **Discover:** searches Steam, GOG and Microsoft Store listings and prices, with links to buy from the stores.
+- **Platforms:** handles launcher setup, component updates and diagnostics. The CLI and individual shortcuts remain available.
+- **Xbox PC (experimental):** sign in to a Microsoft account to import owned and PC Game Pass games, download them through the [Xodus](https://github.com/xodus-gaming/xodus) backend and start them on Soju's engine. Retro Classics reaches its main menu on Soju; other games are untested. Purchases, downloads and updates stay with the official stores. Details [below](#xbox-pc--microsoft-store-xodus-backend-experimental).
+- **TV & iPad:** turn on streaming in Soju, install the free Moonlight app on your TV, iPad or phone, type the PIN it shows, and play Soju games on that screen while they run on your Mac.
+- **Didim Labs Store:** we sell our own Mac games here. Press Buy, pay on Polar, and Soju downloads the game, checks its SHA-256 and signature, and installs it. No Wine. The key stays in the Keychain, so reinstalling doesn't ask again. If you already have the .zip, use Library → Add Didim Labs game or `soju didim install <zip>`.
+
+![Search Steam and GOG with Soju Discover](docs/assets/soju-discover.png)
+
+The main Wine engine is built from CodeWeavers' published sources; Steam uses a separate private Wine 11 setup.
+
+## Support Soju
+
+Help keep Soju free and open source. [Support Soju](https://didimlabs.com/support.html) brings together ways to contribute, voluntary support updates and information about game purchase links.
+
+## Why this exists
+
+Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern Battle.net and D2R. The commercial option works, but the underlying Wine engine is GPL, so we built it ourselves and documented every wall we hit. The investigation and fixes are documented below:
+
+### The three keys
+
+1. **`ROSETTA_ADVERTISE_AVX=1`**: D2R's loader requires AVX instructions. Without this env var, the game freezes forever at ~86 MB RSS with 0% CPU, before any graphics init. This is why D2R "hangs at launch" on non-CrossOver Wine builds.
+
+2. **D3DMetal payload layout**: Apple's Game Porting Toolkit payload is three parts, and D3DMetal engages only with all three: `lib/external/` (libd3dshared + D3DMetal.framework), Apple's PE shims `d3d11.dll`, `d3d12.dll`, `dxgi.dll` (plus `atidxx64`, `nvapi64`, `nvngx`) replacing Wine's own in `lib/wine/x86_64-windows/`, and one `lib/wine/x86_64-unix/<shim>.so` per shim as a **symlink** into `lib/external/`. Copying real files there breaks `@loader_path` resolution and D3DMetal dies in an assertion loop; leaving Wine's own `d3d11.dll` in place runs D3D on wined3d instead, and the Epic Games Launcher crashes at start on that. `soju gptk` installs all three parts.
+
+3. **Battle.net Agent caller-signature fix**: the Agent verifies the signature of the connecting client using a relative filename resolved against its CWD (a versioned subfolder). Seeding a copy of the signed `Battle.net.exe` into each `Battle.net.NNNNN` subfolder makes verification pass (fixes error `BLZBNTBNA00000005`).
+
+Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the launch chain. macOS strips `DYLD_*` variables when exec'ing them.
+
+**Guides:** [D2R on Apple Silicon](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) · [Windows Steam client](https://didimlabs.com/guides/steam-windows-client-apple-silicon.html) · [Whisky alternatives](https://didimlabs.com/guides/whisky-alternative.html)
 
 ## Build it yourself instead: no CrossOver required
 
