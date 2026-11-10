@@ -51,13 +51,17 @@
       "href": "https://github.com/BCD1210/soju"
     },
     {
+      "label": "Discord",
+      "href": "https://discord.gg/ttBDcF5ftz"
+    },
+    {
       "label": "한국어",
       "href": "ko/",
       "lang": "ko"
     }
   ],
   "footer": [
-    "Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com) · [GitHub](https://github.com/BCD1210/soju) · [Releases](https://github.com/BCD1210/soju/releases) · [Supporting Soju](support.html) · [Advertise in Soju](sponsor.html) · [Privacy](privacy.html)",
+    "Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com) · [GitHub](https://github.com/BCD1210/soju) · [Discord](https://discord.gg/ttBDcF5ftz) · [Releases](https://github.com/BCD1210/soju/releases) · [Supporting Soju](support.html) · [Advertise in Soju](sponsor.html) · [Privacy](privacy.html)",
     "Not affiliated with Blizzard, Valve, Epic, GOG, Microsoft, Apple or CodeWeavers."
   ],
   "jsonld": [

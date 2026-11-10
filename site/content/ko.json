@@ -47,13 +47,17 @@
       "href": "https://github.com/BCD1210/soju"
     },
     {
+      "label": "Discord",
+      "href": "https://discord.gg/ttBDcF5ftz"
+    },
+    {
       "label": "English",
       "href": "../",
       "lang": "en"
     }
   ],
   "footer": [
-    "Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com) · [한국어 README](https://github.com/BCD1210/soju/blob/main/README.ko.md) · [릴리스](https://github.com/BCD1210/soju/releases) · [소주에 광고하기](sponsor.html) · [개인정보](../privacy.html)",
+    "Didim Labs · [hello@didimlabs.com](mailto:hello@didimlabs.com) · [한국어 README](https://github.com/BCD1210/soju/blob/main/README.ko.md) · [Discord](https://discord.gg/ttBDcF5ftz) · [릴리스](https://github.com/BCD1210/soju/releases) · [소주에 광고하기](sponsor.html) · [개인정보](../privacy.html)",
     "Blizzard, Valve, Epic, GOG, Microsoft, Apple, CodeWeavers와 관계없는 독립 프로젝트입니다."
   ],
   "body": [
