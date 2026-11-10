@@ -54,6 +54,8 @@ def logo_files(mark):
     mark.resize((256, 256), Image.LANCZOS).save(ROOT.parent / 'resources' / 'soju-mark.png', optimize=True)
     # iOS fills transparent touch icons with black, so the home-screen icon keeps the solid app tile.
     app_icon().resize((180, 180), Image.LANCZOS).convert('RGB').save(OUT / 'apple-touch-icon.png')
+    # The home page shows the app icon large beside the headline.
+    app_icon().resize((640, 640), Image.LANCZOS).save(OUT / 'soju-app-icon.png', optimize=True)
 
 
 def watermark_layer(width, mark):
