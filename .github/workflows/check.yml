@@ -20,5 +20,9 @@ jobs:
         run: |
           swiftc app/PurchaseLinks.swift tests/test_purchase_links.swift -o /tmp/soju-purchase-tests
           /tmp/soju-purchase-tests
+      - name: Update check
+        run: |
+          swiftc app/UpdateCheck.swift tests/test_update_check.swift -o /tmp/soju-update-tests
+          /tmp/soju-update-tests
       - name: Build and verify the native app
         run: bash scripts/build-app.sh
