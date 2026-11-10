@@ -16,8 +16,12 @@ APP="$OUT/Soju.app"
 : "${SOJU_NOTARY_KEY_ID:?App Store Connect API key id}"
 : "${SOJU_NOTARY_ISSUER:?App Store Connect issuer id}"
 [ -f "$ZIP" ] && [ -d "$APP" ] || { echo "Build first: $ZIP and $APP are missing"; exit 1; }
-codesign -dv "$APP" 2>&1 | grep -q 'flags=.*runtime' || {
-  echo "$APP is not a Developer ID build (set SOJU_SIGN_IDENTITY for scripts/build-app.sh)"; exit 1; }
+# Read the signature into a variable first: with pipefail, grep -q closing the pipe early fails the check.
+signature=$(codesign -dv "$APP" 2>&1 || true)
+case "$signature" in
+  *"(runtime)"*) ;;
+  *) echo "$APP is not a Developer ID build (set SOJU_SIGN_IDENTITY for scripts/build-app.sh)"; exit 1 ;;
+esac
 
 result=$(xcrun notarytool submit "$ZIP" --key "$SOJU_NOTARY_KEY" --key-id "$SOJU_NOTARY_KEY_ID" \
   --issuer "$SOJU_NOTARY_ISSUER" --wait --output-format json)
