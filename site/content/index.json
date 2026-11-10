@@ -228,7 +228,7 @@
                 "store": "Battle.net",
                 "status": "Plays",
                 "tone": "plays",
-                "result": "A single-player match starts. Multiplayer not tried."
+                "result": "A single-player match starts. Multiplayer not tried. [Guide](guides/starcraft-remastered-apple-silicon.html)"
               },
               {
                 "title": "Hogwarts Legacy",
@@ -366,6 +366,10 @@
                 "href": "guides/diablo-2-resurrected-apple-silicon.html"
               },
               {
+                "label": "StarCraft: Remastered on Apple Silicon",
+                "href": "guides/starcraft-remastered-apple-silicon.html"
+              },
+              {
                 "label": "The Windows Steam client on Apple Silicon",
                 "href": "guides/steam-windows-client-apple-silicon.html"
               },
@@ -376,6 +380,11 @@
               {
                 "label": "맥에서 디아블로 II: 레저렉션 돌리기",
                 "href": "guides/ko/diablo-2-mac.html",
+                "lang": "ko"
+              },
+              {
+                "label": "맥에서 스타크래프트: 리마스터 하기",
+                "href": "guides/ko/starcraft-mac.html",
                 "lang": "ko"
               },
               {

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StarCraft: Remastered on Apple Silicon Macs with Soju (free, 2026)</title>
+<meta name="description" content="How to run StarCraft: Remastered on an M-series Mac through the Windows Battle.net client that Soju installs. What was tested on an M4 Pro with macOS 26.5, and what was not.">
+<link rel="canonical" href="https://didimlabs.com/guides/starcraft-remastered-apple-silicon.html">
+<meta property="og:title" content="StarCraft: Remastered on Apple Silicon Macs">
+<meta property="og:description" content="How to run StarCraft: Remastered on an M-series Mac through the Windows Battle.net client that Soju installs. What was tested on an M4 Pro with macOS 26.5, and what was not.">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://didimlabs.com/assets/starcraft-remastered-mac.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.png?v=20261110b">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=20261110b">
+<link rel="stylesheet" href="../style.css?v=20261110b">
+<meta property="og:url" content="https://didimlabs.com/guides/starcraft-remastered-apple-silicon.html">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "StarCraft: Remastered on Apple Silicon Macs with Soju (free, 2026)",
+  "description": "How to run StarCraft: Remastered on an M-series Mac through the Windows Battle.net client that Soju installs. What was tested on an M4 Pro with macOS 26.5, and what was not.",
+  "url": "https://didimlabs.com/guides/starcraft-remastered-apple-silicon.html",
+  "mainEntityOfPage": "https://didimlabs.com/guides/starcraft-remastered-apple-silicon.html",
+  "inLanguage": "en",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Soju",
+    "url": "https://didimlabs.com/"
+  },
+  "dateModified": "2026-11-10",
+  "image": "https://didimlabs.com/assets/starcraft-remastered-mac.jpg"
+}
+</script>
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../"><img src="../assets/soju-logo-64.png?v=20261110b" width="28" height="28" alt="">Soju<span> by Didim Labs</span></a>
+  <a href="diablo-2-resurrected-apple-silicon.html">D2R guide</a>
+  <a href="steam-windows-client-apple-silicon.html">Steam guide</a>
+  <a href="whisky-alternative.html">Whisky alternatives</a>
+  <a href="https://github.com/BCD1210/soju">GitHub</a>
+</div></nav>
+<main>
+<p class="note">This guide is part of <a href="../">Soju</a>, a free, open-source Mac app that installs the Windows Battle.net, Steam, Epic, GOG and Xbox PC launchers on Apple Silicon.</p>
+<h1>StarCraft: Remastered on Apple Silicon</h1>
+<p class="lead">StarCraft: Remastered runs through the Windows Battle.net client that Soju sets up.
+On an M4 Pro with macOS 26.5 we updated the game in Battle.net, watched the intro, reached the main menu
+signed in, and started a single-player match against the computer.</p>
+
+<img class="shot" src="../assets/starcraft-remastered-mac.jpg?v=20261110b" width="1600" height="900" alt="StarCraft: Remastered in a single-player match on a Mac, Terran command centre and SCVs next to a mineral field">
+
+<h2>The quick version</h2>
+<pre><code>brew install BCD1210/soju/soju
+soju install          # choose Battle.net; it needs Apple's Game Porting Toolkit
+soju battlenet        # sign in, install StarCraft, press Play</code></pre>
+<p>Or <a href="../#install">download the Soju app</a>, open Platforms, choose Battle.net and add the Game Porting Toolkit there.
+Once StarCraft is installed it also shows up in Soju's library, and <code>soju game battlenet:s1</code> starts it from a terminal.</p>
+
+<h2>What you need</h2>
+<table>
+  <tr><th>Item</th><th>Detail</th></tr>
+  <tr><td>Mac</td><td>Apple Silicon. We ran it on an M4 Pro with macOS 26.5; other versions are untested.</td></tr>
+  <tr><td>Account</td><td>A Battle.net account. StarCraft itself is free there; the Remastered graphics are a paid upgrade, and our test account has them.</td></tr>
+  <tr><td>Apple's Game Porting Toolkit</td><td>Battle.net in Soju uses it. You download it with a free Apple ID and Soju installs it into its engine.</td></tr>
+  <tr><td>Disk</td><td>About 5.5 GB for the game in our install, on top of Battle.net and the engine.</td></tr>
+</table>
+
+<h2>What we checked</h2>
+<ul>
+  <li>Battle.net showed <strong>Update</strong> for an older install; the update finished and the button changed to <strong>Play</strong>.</li>
+  <li>The intro video played and a click skipped it.</li>
+  <li>The main menu came up signed in to Battle.net, version 1.23.10.</li>
+  <li>Single Player, Expansion, a new character name typed on the keyboard, Play Custom, a melee game on the Bottleneck map against one computer player.</li>
+  <li>The match loaded with the Remastered graphics: command centre, SCVs, minerals and the console all drew correctly.</li>
+</ul>
+
+<h2>What we did not check</h2>
+<ul>
+  <li>Multiplayer and ladder games.</li>
+  <li>Sound.</li>
+  <li>Sessions longer than a few minutes.</li>
+  <li>Which graphics path the game uses under Wine.</li>
+</ul>
+
+<h2>Notes</h2>
+<table>
+  <tr><th>What you see</th><th>What to do</th></tr>
+  <tr><td>Battle.net opens with a "What's New" window dimming the page</td><td>Click anywhere outside it.</td></tr>
+  <tr><td>Black bars at the sides on an ultrawide display</td><td>Expected. On a 3440×1440 screen the game filled the height and left the sides black.</td></tr>
+  <tr><td>Battle.net will not start</td><td>Run <code>soju doctor</code>. It checks the engine, the Game Porting Toolkit files and the Battle.net bottle and says which part is missing.</td></tr>
+</table>
+
+<p>Tried multiplayer, or a different Mac? Tell us in <a href="https://discord.gg/ttBDcF5ftz">Discord</a> or
+<a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">send a compatibility report</a>.</p>
+
+<p><a class="btn" href="../#install">Download Soju</a></p>
+</main>
+<footer>
+  Soju is GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
+  not affiliated with Blizzard, Valve, Apple or CodeWeavers. StarCraft is a trademark of Blizzard Entertainment.
+</footer>
+</body>
+</html>
