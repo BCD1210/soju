@@ -313,7 +313,9 @@ struct PlatformsView: View {
                     .disabled(model.busy)
                 Spacer()
                 Menu("Apple GPTK") {
-                    Button("Download from Apple") { open("https://developer.apple.com/games/game-porting-toolkit/") }
+                    Button("Download and install") { model.run(["gptk"], title: "Downloading Apple GPTK…") }
+                    Divider()
+                    Button("Apple's download page") { open("https://developer.apple.com/games/game-porting-toolkit/") }
                     Button("Add mounted toolkit…", action: model.addGPTK)
                 }.disabled(model.busy).fixedSize()
             }

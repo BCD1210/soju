@@ -4,8 +4,10 @@
 #
 # Why it's needed: libd3dshared is required for D2R's loader (anti-cheat) to get
 # through Rosetta 2 (it registers non-native code regions). It also provides the
-# graphics backend (D3DMetal). Apple forbids redistributing it, so you download
-# it yourself: a free Apple ID is enough.
+# graphics backend (D3DMetal).
+#
+# `soju gptk` and the installer normally download the payload for you
+# (scripts/fetch-gptk.py) and pass it to this script. To use your own copy from Apple:
 #
 # 1) Download the "Evaluation environment for Windows games" dmg (that is the
 #    Game Porting Toolkit download) from

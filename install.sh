@@ -204,6 +204,8 @@ if [ "$NEEDS_CX" = 1 ]; then
 # scripts/get-gptk.sh finds the payload (mounted toolkit dmg, or CrossOver),
 # verifies every file (Apple's signature on the Mach-O parts, known Apple
 # builds for the PE shims) and installs it. See the notes in that script.
+# With no local payload, scripts/fetch-gptk.py downloads one (resources/gptk.json)
+# and runs the same verification; SOJU_GPTK_DOWNLOAD=0 keeps it manual.
 GPTK="$SOJU_DIR/scripts/get-gptk.sh"
 if GPTK_OK; then
   say "[2/4] Apple GPTK already installed - skipping"
@@ -212,10 +214,12 @@ else
   if SRC=$(ENGINE="$ENGINE" bash "$GPTK" --find); then
     echo "Found: $SRC - installing"
     ENGINE="$ENGINE" bash "$GPTK" "$SRC" || echo "  GPTK not installed (see above); the last lines of this installer say how to add it later"
+  elif [ "${SOJU_GPTK_DOWNLOAD:-1}" = 1 ] && ENGINE="$ENGINE" SOJU_BASE="$BASE" python3 "$SOJU_DIR/scripts/fetch-gptk.py"; then
+    :
   else
     cat <<'EOT'
-  Running games needs one Apple file (libd3dshared). Apple forbids redistributing
-  it, so you have to download it yourself (a free Apple ID is enough):
+  Soju could not download Apple's Game Porting Toolkit files, so get them from
+  Apple yourself (a free Apple ID is enough):
     1) Open https://developer.apple.com/games/game-porting-toolkit/
     2) Download the "evaluation environment for Windows games" dmg (that is
        the Game Porting Toolkit download) and double-click it to mount it
