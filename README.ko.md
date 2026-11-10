@@ -2,31 +2,24 @@
 
 # Soju (한국어)
 
-**1.6.1 추가:** Steam 공식 로그인으로 보유 게임 가져오기(API 키 불필요), GOG Galaxy 로컬 보유 목록 가져오기, Steam·GOG 상품/가격 검색과 공식 스토어 연결. [설정 안내](docs/ACCOUNTS.md).
-**v1.6.1:** 설치된 게임을 한 라이브러리에서 검색·필터·즐겨찾기하고 실행할 수 있습니다. 런처 설치와 업데이트는 Platforms에서 관리합니다. Steam·GOG 보유 게임을 가져오고 Discover에서 상품과 가격을 검색할 수 있습니다. Epic·Battle.net 전체 보유 목록 연동은 아직 지원하지 않습니다.
+> **Apple Silicon 맥에서 Windows 게임을 하는 무료 오픈소스 앱.**
 
-[Desktop / download](docs/DESKTOP.md)
+Soju는 M1 이후 맥에 **Battle.net·Steam·Epic Games·GOG GALAXY** 공식 Windows 런처를 설치하고, 런처마다 Wine 환경을 따로 두고, 게임을 맥 라이브러리 한 곳에 모아 보여줍니다. CrossOver 없이 Battle.net과 디아블로 2: 레저렉션을 돌리려고 시작한 프로젝트입니다.
 
-> **Apple Silicon 맥용 무료 오픈소스 게임 런처 도구.**
+![Soju 통합 게임 라이브러리](docs/assets/soju-library.png)
 
-맥에서 **Battle.net·Steam·Epic Games Launcher·GOG GALAXY**를 설치하고 실행하세요.
-Soju는 터미널 설치 도구, 런처별 독립 Wine 환경, 더블클릭으로 실행하는 맥 앱을 제공합니다.
-기존 스토어 계정으로 로그인해 지원되는 Windows 게임을 플레이할 수 있습니다.
+**[Soju 1.10.10 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.10.10/Soju-1.10.10-macos-arm64.zip)**, 또는 터미널에서 설치:
 
-게임 라이브러리는 각 스토어의 런처에서 이용합니다. 현재 Soju는 CLI와 런처별 실행 앱으로
-구성되어 있으며, 게임과 시스템에 따라 호환성이 달라집니다.
+```bash
+brew install BCD1210/soju/soju
+soju install
+```
 
-도구는 무료 오픈소스입니다. 기본 Wine 엔진은 CodeWeavers 공개 소스로 빌드하며,
-Steam은 별도의 wine-stable 환경을 사용합니다. Apple의 비공개 GPTK/D3DMetal 구성요소는
-별도로 내려받아야 합니다. 게임과 스토어 클라이언트는 포함하지 않습니다.
+앱은 macOS 14 이상에서 돌아갑니다. 디아블로 2: 레저렉션은 macOS 26.4 이상, Steam 게임은 macOS 26 이상이 필요합니다.
 
-**현재 스크립트: [v1.3.6](https://github.com/BCD1210/soju/releases/tag/v1.3.6).**
-아래 실행 사례는 M4 Pro / macOS 26.5에서 확인한 결과입니다.
-디아블로2와 호그와트 레거시는 지원 사례이며, 프로젝트의 범위는 여러 게임 런처입니다.
+[되는 것](#되는-것) · [설치 안내](#설치-한-줄) · [30초 게임 플레이 영상](https://didimlabs.com/#demo) · [맥에서 디아2 돌리기](https://didimlabs.com/guides/ko/diablo-2-mac.html) · [English](README.md) · [简体中文](README.zh.md)
 
-[30초 실제 게임 플레이 영상 보기](https://didimlabs.com/#demo) · 호그와트 레거시 / Epic + Guilt Free / Steam (별도 DXMT 설정)
-
-*[English README](README.md) · [简体中文说明](README.zh.md)*
+게임마다 호환성이 다르고, 커널 안티치트가 붙은 게임은 실행되지 않습니다. 게임, 스토어 클라이언트, Apple GPTK는 포함하지 않으며 GPTK는 따로 받아야 합니다.
 
 ## 되는 것
 
@@ -44,29 +37,18 @@ Steam은 별도의 wine-stable 환경을 사용합니다. Apple의 비공개 GPT
 | Battle.net | ✅ | ✅ | Agent 동작, `BLZBNTBNA00000005`는 서명 exe 시딩으로 해결 |
 | Epic Games Launcher | ✅ | ✅ | 창을 닫으면 메뉴바 트레이로 |
 | GOG GALAXY | ✅ | ✅ | 로그인·라이브러리까지, 게임은 아직 폭넓게 테스트 안 됨 |
-| Steam (Windows 클라이언트) | ✅ | ✅ | 별도 `wine-stable` + DXMT 보틀 |
+| Steam (Windows 클라이언트) | ✅ | ✅ | 별도 Wine 11 + DXMT 보틀 |
+| Xbox PC / Microsoft Store | ✅ | ✅ | Xodus 백엔드, 게임 실행은 실험 기능 (Retro Classics 메뉴까지 확인) |
 
 | 게임 | 스토어 | 그래픽 | 상태 | 비고 |
 | --- | --- | --- | :-: | --- |
-| Diablo II: Resurrected | Battle.net | D3DMetal (D3D12) | ✅ 인게임, 온라인 | **macOS 26.4 이상**(전제조건 참고); `play.sh`가 `ROSETTA_ADVERTISE_AVX=1` 설정; [가이드](https://bcd1210.github.io/soju/guides/ko/diablo-2-mac.html) |
+| Diablo II: Resurrected | Battle.net | D3DMetal (D3D12) | ✅ 인게임, 온라인 | **macOS 26.4 이상**(전제조건 참고); `play.sh`가 `ROSETTA_ADVERTISE_AVX=1` 설정; [가이드](https://didimlabs.com/guides/ko/diablo-2-mac.html) |
 | Diablo II: Resurrected VR(오프라인) | Battle.net | D3DMetal (D3D12) + OpenXR | 🧪 시뮬레이터만 확인 | `soju vr setup` / `soju vr play`: 오프라인 캐릭터용 D2R VR Unleashed, OXRSys 헤드셋 클라이언트로 스트리밍; [docs/VR.md](docs/VR.md) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 인게임 | UE4 "AMD 드라이버" 경고는 무해, 입력 소스를 영어로 |
 | Unity D3D11 타이틀 | Steam | DXMT | ✅ 인게임, 창 모드 | `soju steam-games` 필요, [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected (Infernal Edition) | Steam | 해당 없음 | ⏳ 미검증 | Steam 보틀에는 GPTK가 없고 D2R 로더는 `libd3dshared`가 필요 |
 
 안 되는 것: 커널 안티치트(EAC, BattlEye, Vanguard)가 붙은 게임 전부. 다른 게임을 돌리셨다면 [Discussions](https://github.com/BCD1210/soju/discussions)에 올리거나 표에 한 줄 추가하는 PR을 보내주세요.
-
-## 핵심 발견 3가지
-
-설치와 실행을 안정화하면서 확인한 원인과 해결 방법:
-
-1. **`ROSETTA_ADVERTISE_AVX=1`**: D2R 로더는 AVX 명령어가 필수입니다. 이 환경변수가 없으면 게임이 그래픽 초기화 전에 86MB/0%CPU로 영원히 멈춥니다. "맥에서 D2R이 실행 안 됨"의 정체입니다.
-2. **D3DMetal 페이로드 레이아웃**: 애플 GPTK 페이로드는 세 부분이고 셋이 다 있어야 D3DMetal이 붙습니다. `lib/external/`(libd3dshared + D3DMetal.framework), Wine 자체 DLL을 대체하는 애플의 PE shim `d3d11.dll`·`d3d12.dll`·`dxgi.dll`(+ `atidxx64`, `nvapi64`, `nvngx`)을 `lib/wine/x86_64-windows/`에, 그리고 shim마다 `lib/wine/x86_64-unix/<shim>.so`를 `lib/external/`로 가는 **심링크**로. 실물을 복사하면 `@loader_path`가 어긋나 assertion 루프로 죽고, Wine 자체 `d3d11.dll`을 그대로 두면 D3D가 wined3d로 돌아가며 Epic Games Launcher는 시작 직후 크래시합니다. `soju gptk`가 세 부분을 모두 설치합니다.
-3. **Battle.net Agent 서명검증 수정**: Agent는 접속한 클라이언트의 서명을 자기 작업폴더(버전 하위폴더) 기준 상대 파일명으로 검사합니다. 서명된 `Battle.net.exe` 사본을 각 `Battle.net.NNNNN` 폴더에 넣으면 통과합니다 (에러 `BLZBNTBNA00000005` 해결).
-
-함정 하나: 실행 체인에 애플 보호 바이너리(`nohup`, `arch` 등)를 두면 macOS가 `DYLD_*` 변수를 제거해 라이브러리를 못 찾습니다.
-
-**가이드:** [맥에서 디아2 돌리기](https://bcd1210.github.io/soju/guides/ko/diablo-2-mac.html) · [영문 가이드 모음](https://bcd1210.github.io/soju/)
 
 ## 설치 (한 줄)
 
@@ -92,6 +74,27 @@ soju doctor      # 스택 전체 점검, 뭐가 문제인지 출력 (이슈 올�
 soju update      # 스크립트와 엔진 업데이트 (GPTK와 보틀은 그대로 둠)
 soju uninstall   # 앱·보틀·엔진 제거, 항목마다 확인 후 진행
 ```
+
+## 앱에 더 있는 것
+
+- **보유 게임 가져오기:** Steam 공식 로그인으로 보유 게임을 가져오고(API 키 불필요), GOG GALAXY가 저장해 둔 보유 목록도 가져옵니다. 설치된 게임과 설치 안 된 게임이 한 라이브러리에 같이 보입니다. Epic·Battle.net 보유 목록 연동은 아직 없습니다. [설정 안내](docs/ACCOUNTS.md)
+- **Discover:** Steam·GOG·Microsoft Store의 상품과 가격을 검색하고 공식 스토어로 연결합니다.
+- **Platforms:** 런처 설치, 구성요소 업데이트, 진단을 한 화면에서 합니다. CLI와 런처별 바로가기도 그대로 쓸 수 있습니다.
+- **Xbox PC (실험 기능), TV·아이패드 스트리밍, Didim Labs Store:** 아래 [Didim Labs Store](#didim-labs-store)와 [Xbox PC](#xbox-pc--microsoft-store-xodus-백엔드-실험-기능) 항목에 있습니다.
+
+기본 Wine 엔진은 CodeWeavers 공개 소스로 빌드하고, Steam은 별도의 Wine 11 환경을 씁니다.
+
+## 핵심 발견 3가지
+
+설치와 실행을 안정화하면서 확인한 원인과 해결 방법:
+
+1. **`ROSETTA_ADVERTISE_AVX=1`**: D2R 로더는 AVX 명령어가 필수입니다. 이 환경변수가 없으면 게임이 그래픽 초기화 전에 86MB/0%CPU로 영원히 멈춥니다. "맥에서 D2R이 실행 안 됨"의 정체입니다.
+2. **D3DMetal 페이로드 레이아웃**: 애플 GPTK 페이로드는 세 부분이고 셋이 다 있어야 D3DMetal이 붙습니다. `lib/external/`(libd3dshared + D3DMetal.framework), Wine 자체 DLL을 대체하는 애플의 PE shim `d3d11.dll`·`d3d12.dll`·`dxgi.dll`(+ `atidxx64`, `nvapi64`, `nvngx`)을 `lib/wine/x86_64-windows/`에, 그리고 shim마다 `lib/wine/x86_64-unix/<shim>.so`를 `lib/external/`로 가는 **심링크**로. 실물을 복사하면 `@loader_path`가 어긋나 assertion 루프로 죽고, Wine 자체 `d3d11.dll`을 그대로 두면 D3D가 wined3d로 돌아가며 Epic Games Launcher는 시작 직후 크래시합니다. `soju gptk`가 세 부분을 모두 설치합니다.
+3. **Battle.net Agent 서명검증 수정**: Agent는 접속한 클라이언트의 서명을 자기 작업폴더(버전 하위폴더) 기준 상대 파일명으로 검사합니다. 서명된 `Battle.net.exe` 사본을 각 `Battle.net.NNNNN` 폴더에 넣으면 통과합니다 (에러 `BLZBNTBNA00000005` 해결).
+
+함정 하나: 실행 체인에 애플 보호 바이너리(`nohup`, `arch` 등)를 두면 macOS가 `DYLD_*` 변수를 제거해 라이브러리를 못 찾습니다.
+
+**가이드:** [맥에서 디아2 돌리기](https://didimlabs.com/guides/ko/diablo-2-mac.html) · [영문 가이드 모음](https://didimlabs.com/)
 
 ## 직접 빌드하고 싶다면: CrossOver 불필요
 
