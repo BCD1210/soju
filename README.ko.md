@@ -95,7 +95,7 @@ soju uninstall   # 앱·보틀·엔진 제거, 항목마다 확인 후 진행
 
 함정 하나: 실행 체인에 애플 보호 바이너리(`nohup`, `arch` 등)를 두면 macOS가 `DYLD_*` 변수를 제거해 라이브러리를 못 찾습니다.
 
-**가이드:** [맥에서 디아2 돌리기](https://didimlabs.com/guides/ko/diablo-2-mac.html) · [영문 가이드 모음](https://didimlabs.com/)
+**가이드:** [맥에서 디아2 돌리기](https://didimlabs.com/guides/ko/diablo-2-mac.html) · [맥에서 스타크래프트 리마스터 하기](https://didimlabs.com/guides/ko/starcraft-mac.html) · [영문 가이드 모음](https://didimlabs.com/)
 
 ## 직접 빌드하고 싶다면: CrossOver 불필요
 

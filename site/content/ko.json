@@ -172,7 +172,7 @@
                 "store": "배틀넷",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "컴퓨터 상대 싱글 대전 시작까지 확인. 멀티플레이는 미확인"
+                "result": "컴퓨터 상대 싱글 대전 시작까지 확인. 멀티플레이는 미확인. [가이드](../guides/ko/starcraft-mac.html)"
               },
               {
                 "title": "호그와트 레거시",
