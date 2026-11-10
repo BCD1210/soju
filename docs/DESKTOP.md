@@ -1,6 +1,6 @@
 # Soju for Mac
 
-[Download v1.10.10](https://github.com/BCD1210/soju/releases/download/v1.10.10/Soju-1.10.10-macos-arm64.zip)
+[Download v1.10.11](https://github.com/BCD1210/soju/releases/download/v1.10.11/Soju-1.10.11-macos-arm64.zip)
 
 1. Unzip and move **Soju.app** into Applications or ~/Applications.
 2. Open **Platforms** to install or open Battle.net, Steam, Epic Games or GOG GALAXY.
@@ -15,9 +15,10 @@
 
 ![Soju unified library](assets/soju-library.png)
 
-The app is a native desktop preview. It is ad-hoc signed, not
-Developer ID signed or notarized. If macOS blocks the downloaded app, review
-the source and use macOS Privacy & Security's Open Anyway flow if you trust it.
+The app is a native desktop preview. From 1.10.11 the release zip is signed with a
+Developer ID and notarized by Apple, so it opens after a normal download. Builds
+before 1.10.11 were ad-hoc signed; if macOS blocks one of those, update, or use
+Privacy & Security's Open Anyway.
 A local source build is also available: `bash scripts/install-app.sh`.
 Soju does not collect telemetry or upload diagnostic logs. Copy log is manual.
 
