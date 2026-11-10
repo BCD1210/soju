@@ -45,6 +45,7 @@ soju install
 | Diablo II: Resurrected | Battle.net | D3DMetal (D3D12) | ✅ 인게임, 온라인 | **macOS 26.4 이상**(전제조건 참고); `play.sh`가 `ROSETTA_ADVERTISE_AVX=1` 설정; [가이드](https://didimlabs.com/guides/ko/diablo-2-mac.html) |
 | Diablo II: Resurrected VR(오프라인) | Battle.net | D3DMetal (D3D12) + OpenXR | 🧪 시뮬레이터만 확인 | `soju vr setup` / `soju vr play`: 오프라인 캐릭터용 D2R VR Unleashed, OXRSys 헤드셋 클라이언트로 스트리밍; [docs/VR.md](docs/VR.md) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 인게임 | UE4 "AMD 드라이버" 경고는 무해, 입력 소스를 영어로 |
+| StarCraft: Remastered | Battle.net | 미확인 | ✅ 인게임 | 배틀넷에서 업데이트한 뒤 컴퓨터 상대 싱글 대전 시작까지 확인, 멀티플레이는 미확인 |
 | Unity D3D11 타이틀 | Steam | DXMT | ✅ 인게임, 창 모드 | `soju steam-games` 필요, [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected (Infernal Edition) | Steam | 해당 없음 | ⏳ 미검증 | Steam 보틀에는 GPTK가 없고 D2R 로더는 `libd3dshared`가 필요 |
 
