@@ -311,6 +311,7 @@ struct LibraryView: View {
                     .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }.padding(13).frame(maxWidth: .infinity, alignment: .leading)
                 .background(green.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+            UpdateCard(current: model.version)
             SponsorCard()
             HStack {
                 Text("v" + model.version).foregroundStyle(.secondary)
