@@ -17,7 +17,7 @@ soju install
 
 The app runs on macOS 14 or later. Diablo II: Resurrected needs macOS 26.4 or later, and Steam games need macOS 26 or later.
 
-[What runs](#what-runs) · [Install details](#install-one-line) · [30-second gameplay demo](https://didimlabs.com/#demo) · [Guides](https://didimlabs.com/#guides) · [한국어](README.ko.md) · [简体中文](README.zh.md)
+[What runs](#what-runs) · [Install details](#install-one-line) · [30-second gameplay demo](https://didimlabs.com/#demo) · [Guides](https://didimlabs.com/#guides) · [Discord](https://discord.gg/ttBDcF5ftz) · [한국어](README.ko.md) · [简体中文](README.zh.md)
 
 Compatibility varies by game, and games with kernel anti-cheat will not run. Games, store clients and Apple's Game Porting Toolkit are not included; GPTK is downloaded separately.
 
@@ -48,7 +48,7 @@ All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher
 | Unity D3D11 title | Steam | DXMT | ✅ in-game, windowed | via `soju steam-games`; see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected (Infernal Edition) | Steam | n/a | ⏳ not verified yet | the Steam bottle has no GPTK, and D2R's loader needs `libd3dshared` |
 
-Will not run: anything with kernel anti-cheat (EAC, BattlEye, Vanguard). Got another game running? Post it in [Discussions](https://github.com/BCD1210/soju/discussions) or send a PR that adds a row.
+Will not run: anything with kernel anti-cheat (EAC, BattlEye, Vanguard). Questions or a quick report? Join the [Discord](https://discord.gg/ttBDcF5ftz). Got another game running? Post it in [Discussions](https://github.com/BCD1210/soju/discussions) or send a PR that adds a row.
 
 [Community compatibility reports](docs/COMPATIBILITY.md) track additional user
 results separately from the maintainer-tested examples, including D2R on M5,

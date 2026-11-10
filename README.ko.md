@@ -17,7 +17,7 @@ soju install
 
 앱은 macOS 14 이상에서 돌아갑니다. 디아블로 2: 레저렉션은 macOS 26.4 이상, Steam 게임은 macOS 26 이상이 필요합니다.
 
-[되는 것](#되는-것) · [설치 안내](#설치-한-줄) · [30초 게임 플레이 영상](https://didimlabs.com/#demo) · [맥에서 디아2 돌리기](https://didimlabs.com/guides/ko/diablo-2-mac.html) · [English](README.md) · [简体中文](README.zh.md)
+[되는 것](#되는-것) · [설치 안내](#설치-한-줄) · [30초 게임 플레이 영상](https://didimlabs.com/#demo) · [맥에서 디아2 돌리기](https://didimlabs.com/guides/ko/diablo-2-mac.html) · [Discord](https://discord.gg/ttBDcF5ftz) · [English](README.md) · [简体中文](README.zh.md)
 
 게임마다 호환성이 다르고, 커널 안티치트가 붙은 게임은 실행되지 않습니다. 게임, 스토어 클라이언트, Apple GPTK는 포함하지 않으며 GPTK는 따로 받아야 합니다.
 
@@ -48,7 +48,7 @@ soju install
 | Unity D3D11 타이틀 | Steam | DXMT | ✅ 인게임, 창 모드 | `soju steam-games` 필요, [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected (Infernal Edition) | Steam | 해당 없음 | ⏳ 미검증 | Steam 보틀에는 GPTK가 없고 D2R 로더는 `libd3dshared`가 필요 |
 
-안 되는 것: 커널 안티치트(EAC, BattlEye, Vanguard)가 붙은 게임 전부. 다른 게임을 돌리셨다면 [Discussions](https://github.com/BCD1210/soju/discussions)에 올리거나 표에 한 줄 추가하는 PR을 보내주세요.
+안 되는 것: 커널 안티치트(EAC, BattlEye, Vanguard)가 붙은 게임 전부. 질문이나 간단한 제보는 [Discord](https://discord.gg/ttBDcF5ftz)에서 받습니다. 다른 게임을 돌리셨다면 [Discussions](https://github.com/BCD1210/soju/discussions)에 올리거나 표에 한 줄 추가하는 PR을 보내주세요.
 
 ## 설치 (한 줄)
 
