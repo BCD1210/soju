@@ -199,7 +199,7 @@
         {
           "type": "Text",
           "props": {
-            "text": "Logins, purchases and game updates stay with each store. Soju doesn't bundle games, store clients or Apple's Game Porting Toolkit."
+            "text": "Logins, purchases and game updates stay with each store. Soju doesn't bundle games or store clients, and it downloads Apple's Game Porting Toolkit files during setup."
           }
         }
       ]
@@ -320,7 +320,7 @@
               },
               {
                 "title": "Pick launchers",
-                "text": "Open Soju, go to Platforms and choose the launchers you use. Battle.net, Epic and GOG also need [Apple's Game Porting Toolkit](https://developer.apple.com/games/game-porting-toolkit/), which you download with your Apple ID."
+                "text": "Open Soju, go to Platforms and choose the launchers you use. Battle.net, Epic and GOG also use [Apple's Game Porting Toolkit](https://developer.apple.com/games/game-porting-toolkit/); Soju downloads Apple's files and checks Apple's signature before installing them."
               },
               {
                 "title": "Sign in and play",

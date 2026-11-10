@@ -19,7 +19,7 @@ soju install
 
 [되는 것](#되는-것) · [설치 안내](#설치-한-줄) · [30초 게임 플레이 영상](https://didimlabs.com/#demo) · [맥에서 디아2 돌리기](https://didimlabs.com/guides/ko/diablo-2-mac.html) · [Discord](https://discord.gg/ttBDcF5ftz) · [English](README.md) · [简体中文](README.zh.md)
 
-게임마다 호환성이 다르고, 커널 안티치트가 붙은 게임은 실행되지 않습니다. 게임, 스토어 클라이언트, Apple GPTK는 포함하지 않으며 GPTK는 따로 받아야 합니다.
+게임마다 호환성이 다르고, 커널 안티치트가 붙은 게임은 실행되지 않습니다. 게임과 스토어 클라이언트는 포함하지 않습니다. Apple GPTK 파일은 설치할 때 Soju가 받아 옵니다.
 
 ## 되는 것
 
@@ -99,7 +99,7 @@ soju uninstall   # 앱·보틀·엔진 제거, 항목마다 확인 후 진행
 
 ## 직접 빌드하고 싶다면: CrossOver 불필요
 
-이 레포의 스크립트 밖에서 받는 것은 애플의 무료 Game Porting Toolkit 파일 하나뿐입니다 (무료 Apple ID 필요. 애플이 재배포를 금지해서 직접 받아야 합니다).
+애플 Game Porting Toolkit 파일은 4단계에서 받아 옵니다. 직접 받은 파일을 쓰려면 무료 Apple ID로 애플에서 dmg를 받아 먼저 마운트해 두면 됩니다.
 
 ```bash
 # 1. 스크립트 받기
@@ -111,10 +111,10 @@ scripts/get-components.sh
 # 3. GPL 소스에서 엔진 빌드 (30~60분)
 scripts/build-engine.sh
 
-# 4. 애플 GPTK 설치 (https://developer.apple.com/games/game-porting-toolkit/ 에서
-#    "evaluation environment for Windows games" dmg를 받아 마운트한 상태로:)
-scripts/get-gptk.sh
-#    (CrossOver가 설치돼 있으면 거기서 자동 추출)
+# 4. 애플 GPTK 설치 (애플 파일을 받아 애플 서명을 확인한 뒤 설치)
+scripts/fetch-gptk.py
+#    (애플의 "evaluation environment for Windows games" dmg를 마운트하고
+#    scripts/get-gptk.sh를 실행해도 됩니다. CrossOver가 있으면 거기서 추출합니다)
 
 # 5. 보틀 생성 + Battle.net 설치 (블리자드 공식 설치기, 완전 자동)
 scripts/create-bottle.sh
@@ -191,7 +191,7 @@ scripts/play.sh steam-kill       # Steam 보틀 종료
 
 검증: M4 Pro / macOS 26.5. 로그인·라이브러리·실제 D3D11(Unity) 게임 인게임 렌더링까지 (DXMT 포크). 전체 배선은 `docs/STEAM-GAMES.md` + `scripts/setup-steam-games.sh` 참고. 참고: Steam 입력 시 macOS 입력기를 영어(ABC)로 전환하세요 (한글 IME 조합이 `?`로 보입니다).
 
-**전제조건**: Apple Silicon 맥, Rosetta 2, Xcode CLT, Homebrew, 본인 배틀넷 계정, GPTK용 무료 Apple ID. **Diablo II: Resurrected는 macOS 26.4 이상이 필요합니다**: 2026년 1월 블리자드가 넣은 안티치트가 Rosetta 2 버그를 건드리는데 Apple이 26.4에서 고쳤습니다. macOS 15에서는 게임이 실행 직후 죽고(배틀넷은 "업데이트"를 띄운 뒤 Initializing에 멈춤) CrossOver도 마찬가지입니다. 런처와 다른 게임은 이 버그와 무관하지만, 검증은 전부 macOS 26.5에서만 했습니다.
+**전제조건**: Apple Silicon 맥, Rosetta 2, Xcode CLT, Homebrew, 본인 배틀넷 계정. **Diablo II: Resurrected는 macOS 26.4 이상이 필요합니다**: 2026년 1월 블리자드가 넣은 안티치트가 Rosetta 2 버그를 건드리는데 Apple이 26.4에서 고쳤습니다. macOS 15에서는 게임이 실행 직후 죽고(배틀넷은 "업데이트"를 띄운 뒤 Initializing에 멈춤) CrossOver도 마찬가지입니다. 런처와 다른 게임은 이 버그와 무관하지만, 검증은 전부 macOS 26.5에서만 했습니다.
 
 ### GPTK가 왜 필요한가?
 

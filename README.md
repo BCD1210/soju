@@ -19,7 +19,7 @@ The app runs on macOS 14 or later. Diablo II: Resurrected needs macOS 26.4 or la
 
 [What runs](#what-runs) · [Install details](#install-one-line) · [30-second gameplay demo](https://didimlabs.com/#demo) · [Guides](https://didimlabs.com/#guides) · [Discord](https://discord.gg/ttBDcF5ftz) · [한국어](README.ko.md) · [简体中文](README.zh.md)
 
-Compatibility varies by game, and games with kernel anti-cheat will not run. Games, store clients and Apple's Game Porting Toolkit are not included; GPTK is downloaded separately.
+Compatibility varies by game, and games with kernel anti-cheat will not run. Games and store clients are not included. Soju downloads Apple's Game Porting Toolkit files during setup.
 
 ## What runs
 
@@ -115,7 +115,7 @@ Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the l
 
 ## Build it yourself instead: no CrossOver required
 
-The only thing you download outside this repo's scripts is Apple's free Game Porting Toolkit (one file, needs a free Apple ID). Apple forbids redistributing it.
+Apple's Game Porting Toolkit files are downloaded in step 4. To use your own copy instead, download the toolkit dmg from Apple with a free Apple ID and mount it first.
 
 ```bash
 # 1. Get the scripts
@@ -127,11 +127,10 @@ scripts/get-components.sh
 # 3. Build the engine from GPL sources (30-60 min)
 scripts/build-engine.sh
 
-# 4. Install Apple GPTK payload (download the "evaluation environment for Windows
-#    games" dmg from https://developer.apple.com/games/game-porting-toolkit/ ,
-#    mount it, then:)
-scripts/get-gptk.sh
-#    (if you happen to have CrossOver installed, the script auto-extracts from it instead)
+# 4. Install Apple GPTK payload (downloads Apple's files and checks Apple's signature)
+scripts/fetch-gptk.py
+#    (or mount Apple's "evaluation environment for Windows games" dmg and run
+#    scripts/get-gptk.sh; with CrossOver installed it extracts from that instead)
 
 # 5. Create a bottle + install Battle.net (official Blizzard installer, fully automatic)
 scripts/create-bottle.sh
@@ -203,7 +202,7 @@ scripts/play.sh steam-kill       # stop the Steam bottle (closing the window kee
 
 Verified on M4 Pro / macOS 26.5: login, library, and an actual D3D11 (Unity) game rendering in-game via a DXMT fork. See `docs/STEAM-GAMES.md` for the full wiring (`scripts/setup-steam-games.sh`). Notes: switch your macOS input source to English (ABC) when typing in Steam (IME composition shows as `?` otherwise).
 
-**Prerequisites**: Apple Silicon Mac, Rosetta 2, Xcode Command Line Tools, Homebrew, your own Battle.net account/games, and a free Apple ID for the GPTK download. **Diablo II: Resurrected needs macOS 26.4 or later**: the anti-cheat Blizzard added in January 2026 trips a Rosetta 2 bug that Apple fixed in 26.4, and on macOS 15 the game dies right after launch (Battle.net then shows "Update" and sits at Initializing) on Soju and on CrossOver alike. The launchers themselves and other games are not affected by that bug, but everything here was verified on macOS 26.5 only. Nothing from Apple, Blizzard, or CodeWeavers is redistributed by this repo.
+**Prerequisites**: Apple Silicon Mac, Rosetta 2, Xcode Command Line Tools, Homebrew, and your own Battle.net account/games. **Diablo II: Resurrected needs macOS 26.4 or later**: the anti-cheat Blizzard added in January 2026 trips a Rosetta 2 bug that Apple fixed in 26.4, and on macOS 15 the game dies right after launch (Battle.net then shows "Update" and sits at Initializing) on Soju and on CrossOver alike. The launchers themselves and other games are not affected by that bug, but everything here was verified on macOS 26.5 only. Nothing from Apple, Blizzard, or CodeWeavers is redistributed by this repo.
 
 ### Why is GPTK needed at all?
 
@@ -242,7 +241,7 @@ Every bottle start also spawns idle Windows service processes (`services.exe`, `
 
 - Scripts and docs in this repo: **GPL-3.0** (see LICENSE)
 - The engine is built from CodeWeavers' published Wine sources (GPL/LGPL). Sources:  `media.codeweavers.com/pub/crossover/source/`
-- **Not included and never will be**: Apple D3DMetal/GPTK binaries (non-redistributable), CrossOver application binaries, any Blizzard files
+- **Not in this repo or the app**: Apple D3DMetal/GPTK binaries, CrossOver application binaries, any Blizzard files. Soju downloads Apple's unmodified GPTK files during setup and installs only what Apple signed; Apple licenses them for non-commercial distribution ([licence](third_party/apple-gptk/License.rtf))
 - This project is not affiliated with CodeWeavers, Apple, or Blizzard Entertainment. Battle.net and Diablo are trademarks of Blizzard Entertainment. Use at your own risk; online play with third-party compatibility layers is at your own discretion.
 
 ## Share your compatibility results

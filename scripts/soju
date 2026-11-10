@@ -58,7 +58,7 @@ Usage:
   soju steam          Launch Steam
   soju steam-kill     Stop everything in the Steam bottle
 
-  soju gptk           Install Apple's GPTK payload into the engine (mounted dmg or CrossOver)
+  soju gptk           Install Apple's GPTK payload into the engine (downloads it; a mounted dmg or CrossOver is used if present)
   soju sweep          Remove orphaned Wine service processes (only when no bottle is running)
   soju doctor         Check the whole stack and print what is wrong
   soju update         Update the scripts and the prebuilt engine
@@ -93,7 +93,11 @@ case "${1:-}" in
     case "$market" in US|KR|GB|DE|JP) ;; *) echo "soju: choose US, KR, GB, DE or JP" >&2; exit 64 ;; esac
     printf '{"market":"%s"}' "$market" | exec python3 "$ROOT/scripts/library-service.py" sync xbox ;;
   steam-games)    shift; exec bash "$ROOT/scripts/setup-steam-games.sh" "$@" ;;
-  gptk)           shift; exec bash "$ROOT/scripts/get-gptk.sh" "$@" ;;
+  gptk)           shift
+    # A path, a mounted dmg or CrossOver is used as it is; otherwise Soju downloads the payload.
+    if [ "${1:-}" = "--download" ]; then exec python3 "$ROOT/scripts/fetch-gptk.py"; fi
+    if [ $# -gt 0 ] || bash "$ROOT/scripts/get-gptk.sh" --find >/dev/null 2>&1; then exec bash "$ROOT/scripts/get-gptk.sh" "$@"; fi
+    exec python3 "$ROOT/scripts/fetch-gptk.py" ;;
   sweep)          shift; exec bash "$ROOT/scripts/soju-sweep.sh" "$@" ;;
   doctor)         shift; exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
   update)         shift; exec bash "$ROOT/scripts/update.sh" "$@" ;;

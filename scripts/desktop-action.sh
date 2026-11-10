@@ -51,7 +51,9 @@ case "$ACTION" in
     [ -x "$BASE/cx26-engine/bin/wine" ] || {
       echo "Install Battle.net, Epic or GOG first to prepare its engine, then add GPTK."; exit 1;
     }
-    exec bash "$ROOT/scripts/get-gptk.sh" "${1:?Select the mounted toolkit}" ;;
+    # With a folder the user picked, install from it; without one, download the payload.
+    if [ -n "${1:-}" ]; then exec bash "$ROOT/scripts/get-gptk.sh" "$1"; fi
+    exec python3 "$ROOT/scripts/fetch-gptk.py" ;;
   update)
     echo "Soju $(cat "$ROOT/VERSION"): component update"
     echo "App updates: https://github.com/BCD1210/soju/releases"

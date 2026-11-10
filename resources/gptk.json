@@ -1,0 +1,11 @@
+{
+  "version": "3.0",
+  "source": "Gcenx/game-porting-toolkit release Game-Porting-Toolkit-3.0-3 (the archive Heroic Games Launcher downloads)",
+  "url": "https://github.com/Gcenx/game-porting-toolkit/releases/download/Game-Porting-Toolkit-3.0-3/game-porting-toolkit-3.0-3.tar.xz",
+  "sha256": "d377683937340f914823dbb2e1252b329cbf834ff58907d0293db8cebf0e392e",
+  "size": 239200808,
+  "prefix": "Game Porting Toolkit.app/Contents/Resources/wine/lib",
+  "shims": ["d3d10.dll", "d3d11.dll", "d3d12.dll", "dxgi.dll", "atidxx64.dll", "nvapi64.dll", "nvngx-on-metalfx.dll"],
+  "apple_page": "https://developer.apple.com/games/game-porting-toolkit/",
+  "license": "third_party/apple-gptk/License.rtf"
+}

@@ -254,7 +254,7 @@
               },
               {
                 "title": "런처 고르기",
-                "text": "소주를 열고 Platforms에서 쓰는 런처를 고릅니다. 배틀넷·에픽·GOG는 애플 ID로 직접 받은 [게임 포팅 툴킷](https://developer.apple.com/games/game-porting-toolkit/)도 필요합니다."
+                "text": "소주를 열고 Platforms에서 쓰는 런처를 고릅니다. 배틀넷·에픽·GOG는 [애플 게임 포팅 툴킷](https://developer.apple.com/games/game-porting-toolkit/)을 쓰는데, 소주가 애플 파일을 받아 애플 서명을 확인한 뒤 설치합니다."
               },
               {
                 "title": "로그인하고 플레이",
