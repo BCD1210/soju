@@ -33,6 +33,39 @@
   "image": "https://didimlabs.com/assets/starcraft-remastered-mac.jpg"
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does StarCraft: Remastered run on Apple Silicon Macs?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Through the Windows Battle.net client that Soju installs, a single-player match started and rendered with the Remastered graphics on an M4 Pro with macOS 26.5. Multiplayer was not tested. Blizzard's own Mac build is an Intel build that runs through Rosetta 2."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is StarCraft free to play on a Mac this way?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "StarCraft itself is free on Battle.net and the Remastered graphics are a paid upgrade. Soju is free and open source."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I start StarCraft from Soju?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Install Battle.net from Soju's Platforms page or with soju install, sign in, install StarCraft and press Play. After that it appears in Soju's library, and soju game battlenet:s1 starts it from a terminal."
+      }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 <nav><div class="inner">
@@ -50,6 +83,8 @@ On an M4 Pro with macOS 26.5 we updated the game in Battle.net, watched the intr
 signed in, and started a single-player match against the computer.</p>
 
 <img class="shot" src="../assets/starcraft-remastered-mac.jpg?v=20261110b" width="1600" height="900" alt="StarCraft: Remastered in a single-player match on a Mac, Terran command centre and SCVs next to a mineral field">
+
+<p class="note">Blizzard also offers StarCraft: Remastered in Battle.net for Mac. That build is made for Intel Macs and runs through Rosetta 2 on Apple Silicon. This guide covers the Windows client, which sits next to your other Windows Battle.net games in Soju.</p>
 
 <h2>The quick version</h2>
 <pre><code>brew install BCD1210/soju/soju
@@ -94,6 +129,13 @@ Once StarCraft is installed it also shows up in Soju's library, and <code>soju g
 
 <p>Tried multiplayer, or a different Mac? Tell us in <a href="https://discord.gg/ttBDcF5ftz">Discord</a> or
 <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">send a compatibility report</a>.</p>
+
+<h2 id="questions">Questions</h2>
+<div class="faq">
+  <details open><summary>Does StarCraft: Remastered run on Apple Silicon Macs?</summary><p>Yes. Through the Windows Battle.net client that Soju installs, a single-player match started and rendered with the Remastered graphics on an M4 Pro with macOS 26.5. Multiplayer was not tested. Blizzard's own Mac build is an Intel build that runs through Rosetta 2.</p></details>
+  <details><summary>Is StarCraft free to play on a Mac this way?</summary><p>StarCraft itself is free on Battle.net and the Remastered graphics are a paid upgrade. Soju is free and open source.</p></details>
+  <details><summary>How do I start StarCraft from Soju?</summary><p>Install Battle.net from Soju's Platforms page or with <code>soju install</code>, sign in, install StarCraft and press Play. After that it appears in Soju's library, and <code>soju game battlenet:s1</code> starts it from a terminal.</p></details>
+</div>
 
 <p><a class="btn" href="../#install">Download Soju</a></p>
 </main>

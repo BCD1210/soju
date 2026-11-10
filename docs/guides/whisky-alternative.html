@@ -22,11 +22,45 @@
   "url": "https://didimlabs.com/guides/whisky-alternative.html",
   "mainEntityOfPage": "https://didimlabs.com/guides/whisky-alternative.html",
   "inLanguage": "en",
+  "dateModified": "2026-11-10",
   "isPartOf": {
     "@type": "WebSite",
     "name": "Soju",
     "url": "https://didimlabs.com/"
   }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is Whisky still being developed?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Its developer ended the project in April 2025 and the GitHub repository has been read-only since May 2025. Community forks continue separately."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is a free Whisky alternative for Battle.net games on a Mac?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Soju. It is free and open source, installs the Windows Battle.net client on Apple Silicon, and has run Diablo II: Resurrected online and a StarCraft: Remastered single-player match on an M4 Pro with macOS 26.5."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "When is CrossOver the better choice?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "When you want a commercial product with support and the widest range of Windows software. CrossOver costs $74 with a year of updates and support, and it funds Wine development. Soju's engine is built from the sources CodeWeavers publishes."
+      }
+    }
+  ]
 }
 </script>
 </head>
@@ -40,6 +74,7 @@
 <main>
 <p class="note">This guide is part of <a href="../">Soju, the open-source game launcher toolkit for Apple Silicon</a>. Explore Battle.net, Steam, Epic and GOG setup and compatibility on the overview page.</p>
 <h1>Whisky is gone. What now?</h1>
+<p class="meta">Updated November 10, 2026</p>
 <p class="lead">Whisky was the free way to run Windows games on Apple Silicon.
 Development stopped, and its content server (data.getwhisky.app) went offline.
 Fresh installs can't even complete first-time setup anymore. Here is a map
@@ -51,14 +86,15 @@ of what's left in 2026.</p>
   <tr><td><a href="https://www.codeweavers.com/crossover">CrossOver</a></td><td>$74/yr</td>
       <td>The most polished option, funds Wine development. If you can pay, it's excellent.</td></tr>
   <tr><td><strong>Soju</strong> (this project)</td><td>Free (GPL)</td>
-      <td>CLI toolchain focused on what it has actually verified: Battle.net,
-      Diablo II: Resurrected, and the Windows Steam client with D3D11 games.
+      <td>Mac app and command-line tool that installs the Windows Battle.net, Steam, Epic, GOG and Xbox PC
+      launchers. Verified: Diablo II: Resurrected and StarCraft: Remastered on Battle.net, Hogwarts Legacy on Epic,
+      and the Windows Steam client with D3D11 games.
       Engine built from CodeWeavers' published GPL sources + Apple GPTK.</td></tr>
   <tr><td><a href="https://github.com/Kegworks-App/Kegworks">Kegworks</a> (ex-Wineskin)</td><td>Free</td>
       <td>Wrapper-app builder. Good for older/simpler titles; struggles with launchers that need modern Wine.</td></tr>
   <tr><td><a href="https://github.com/frankea/Whisky">Whisky forks</a></td><td>Free</td>
       <td>Community forks keep the app installable, but the underlying engine gaps
-      (Battle.net Agent, Steam CEF) remain.</td></tr>
+      (Battle.net Agent, Steam CEF) are theirs to solve. The most active fork lists Battle.net and Steam support in its README; we have not tested it.</td></tr>
   <tr><td><a href="https://www.playonmac.com">PlayOnMac</a></td><td>Free</td>
       <td>Long-standing Wine frontend; not focused on Apple Silicon gaming specifics.</td></tr>
 </table>
@@ -88,10 +124,17 @@ Resurrected on Apple Silicon</a> and <a href="steam-windows-client-apple-silicon
 Windows Steam client on M-series Macs</a>.</p>
 
 <h2>Limits</h2>
-<p>Soju is young and CLI-based. It verifies specific targets end-to-end rather
-than promising everything will work. If you want a GUI and broad catalog support
-with commercial backing, CrossOver remains the safe choice. Soju is for people
-who want the free, transparent path and don't mind a terminal.</p>
+<p>Soju is young. It verifies specific games end to end rather than promising that
+everything will work, and the list of games it has run is short. If you want broad
+catalog support with commercial backing, CrossOver remains the safe choice. Soju is
+the free, open path. See <a href="soju-vs-whisky-crossover-heroic.html">how the options compare</a>.</p>
+
+<h2 id="questions">Questions</h2>
+<div class="faq">
+  <details open><summary>Is Whisky still being developed?</summary><p>No. Its developer ended the project in April 2025 and the GitHub repository has been read-only since May 2025. Community forks continue separately.</p></details>
+  <details><summary>What is a free Whisky alternative for Battle.net games on a Mac?</summary><p>Soju. It is free and open source, installs the Windows Battle.net client on Apple Silicon, and has run Diablo II: Resurrected online and a StarCraft: Remastered single-player match on an M4 Pro with macOS 26.5.</p></details>
+  <details><summary>When is CrossOver the better choice?</summary><p>When you want a commercial product with support and the widest range of Windows software. CrossOver costs $74 with a year of updates and support, and it funds Wine development. Soju's engine is built from the sources CodeWeavers publishes.</p></details>
+</div>
 
 <p><a class="btn" href="https://github.com/BCD1210/soju">Get Soju on GitHub</a></p>
 </main>
