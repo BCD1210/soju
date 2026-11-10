@@ -224,6 +224,13 @@
                 "result": "Plays online. Needs macOS 26.4+. [Guide](guides/diablo-2-resurrected-apple-silicon.html)"
               },
               {
+                "title": "StarCraft: Remastered",
+                "store": "Battle.net",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "A single-player match starts. Multiplayer not tried."
+              },
+              {
                 "title": "Hogwarts Legacy",
                 "store": "Epic",
                 "status": "Plays",

@@ -195,7 +195,7 @@ main > section:has(.steps.row) > :is(p, pre) { max-width: var(--text-w); }
 .feature h3 { font-size: 19px; }
 .feature h3::before { content: ""; display: block; width: 28px; height: 3px; margin-bottom: 14px; border-radius: 2px; background: var(--accent); }
 
-.proof { list-style: none; padding: 0; margin: 22px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.proof { list-style: none; padding: 0; margin: 22px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 .proof-card { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 20px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); }
 .proof-card .store { font-size: 13px; font-weight: 600; color: var(--dim); }
 .proof-card b { font-size: 19px; line-height: 1.3; }
