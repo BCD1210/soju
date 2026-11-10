@@ -22,11 +22,53 @@
   "url": "https://didimlabs.com/guides/steam-windows-client-apple-silicon.html",
   "mainEntityOfPage": "https://didimlabs.com/guides/steam-windows-client-apple-silicon.html",
   "inLanguage": "en",
+  "dateModified": "2026-11-10",
   "isPartOf": {
     "@type": "WebSite",
     "name": "Soju",
     "url": "https://didimlabs.com/"
   }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I run the Windows Steam client on an Apple Silicon Mac for free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Soju installs the Windows Steam client in its own Wine 11 setup, with a small wrapper so the client's interface draws, and DXMT so D3D11 games render. It needs macOS 26 or later."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is Steam a black window under Wine on a Mac?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The Steam client is a Chromium (CEF) app. Its GPU process crash-loops under Wine's sandbox, and the Metal translation layers cannot present frames drawn by a helper process. Soju wraps steamwebhelper.exe to force --disable-gpu --single-process and re-applies the wrapper on every launch, because Steam updates restore the original."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which Windows Steam games run this way?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "D3D11 games that DXMT can render. Guilt Free (Unity, D3D11) was played on an M4 Pro with macOS 26.5. A user reported that Dark Souls III stalls under DXMT and runs at about 30 FPS with Soju's per-game DXVK switch. Games with kernel anti-cheat do not run."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this replace the macOS Steam app?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. It is a separate Windows Steam client for Windows-only games. Your macOS Steam app and its games are not touched."
+      }
+    }
+  ]
 }
 </script>
 </head>
@@ -40,6 +82,7 @@
 <main>
 <p class="note">This guide is part of <a href="../">Soju, the open-source game launcher toolkit for Apple Silicon</a>. Explore Battle.net, Steam, Epic and GOG setup and compatibility on the overview page.</p>
 <h1>The Windows Steam client on Apple Silicon</h1>
+<p class="meta">Updated November 10, 2026</p>
 <p class="lead">Yes, the actual Windows Steam client (not just macOS Steam) runs
 on M-series Macs for free, including D3D11 games rendering in-game. Verified on an
 M4 Pro / macOS 26 with the August 2026 Steam client.</p>
@@ -103,6 +146,14 @@ need <a href="https://github.com/3Shain/dxmt">DXMT</a> (D3D11→Metal). Soju's
   <tr><td>Game forces fullscreen</td>
       <td>Steam tags games with a fullscreen AppCompat flag; <code>soju steam-games</code> scrubs it. Unity titles also accept <code>-screen-fullscreen 0</code>.</td></tr>
 </table>
+
+<h2 id="questions">Questions</h2>
+<div class="faq">
+  <details open><summary>Can I run the Windows Steam client on an Apple Silicon Mac for free?</summary><p>Yes. Soju installs the Windows Steam client in its own Wine 11 setup, with a small wrapper so the client's interface draws, and DXMT so D3D11 games render. It needs macOS 26 or later.</p></details>
+  <details><summary>Why is Steam a black window under Wine on a Mac?</summary><p>The Steam client is a Chromium (CEF) app. Its GPU process crash-loops under Wine's sandbox, and the Metal translation layers cannot present frames drawn by a helper process. Soju wraps <code>steamwebhelper.exe</code> to force <code>--disable-gpu --single-process</code> and re-applies the wrapper on every launch, because Steam updates restore the original.</p></details>
+  <details><summary>Which Windows Steam games run this way?</summary><p>D3D11 games that DXMT can render. Guilt Free (Unity, D3D11) was played on an M4 Pro with macOS 26.5. A user reported that Dark Souls III stalls under DXMT and runs at about 30 FPS with Soju's per-game DXVK switch. Games with kernel anti-cheat do not run.</p></details>
+  <details><summary>Does this replace the macOS Steam app?</summary><p>No. It is a separate Windows Steam client for Windows-only games. Your macOS Steam app and its games are not touched.</p></details>
+</div>
 
 <p><a class="btn" href="https://github.com/BCD1210/soju">Get Soju on GitHub</a></p>
 </main>

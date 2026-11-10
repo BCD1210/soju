@@ -367,5 +367,32 @@
         }
       ]
     }
+  ],
+  "jsonld": [
+    {
+      "@type": "HowTo",
+      "name": "애플 실리콘 맥에 소주 설치하기",
+      "inLanguage": "ko",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "position": 1,
+          "name": "앱 받기",
+          "text": "Soju-1.10.13-macos-arm64.zip을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 2,
+          "name": "런처 고르기",
+          "text": "소주를 열고 Platforms에서 쓰는 런처를 고릅니다. 배틀넷·에픽·GOG는 애플 게임 포팅 툴킷을 쓰는데, 소주가 애플 파일을 받아 애플 서명을 확인한 뒤 설치합니다."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 3,
+          "name": "로그인하고 플레이",
+          "text": "각 런처에서 평소처럼 로그인하면 설치된 게임이 라이브러리에 나타납니다."
+        }
+      ]
+    }
   ]
 }
