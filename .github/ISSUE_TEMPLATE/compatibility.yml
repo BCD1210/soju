@@ -1,6 +1,7 @@
 name: Game compatibility report
 description: Share a working game, a partial success, or a failure on your Mac.
 title: "[Compatibility]: "
+labels: ["compatibility"]
 body:
   - type: markdown
     attributes:
