@@ -17,7 +17,7 @@ soju install
 
 应用需要 macOS 14 或更高版本。Diablo II: Resurrected 需要 macOS 26.4 或更高，Steam 游戏需要 macOS 26 或更高。
 
-[能跑什么](#能跑什么) · [安装说明](#安装一行命令) · [30 秒游戏演示](https://didimlabs.com/#demo) · [English](README.md) · [한국어](README.ko.md)
+[能跑什么](#能跑什么) · [安装说明](#安装一行命令) · [30 秒游戏演示](https://didimlabs.com/#demo) · [Discord](https://discord.gg/ttBDcF5ftz) · [English](README.md) · [한국어](README.ko.md)
 
 各游戏的兼容性不同，带内核级反作弊的游戏无法运行。项目不包含游戏、商店客户端和 Apple GPTK，GPTK 需要单独下载。
 
@@ -48,7 +48,7 @@ soju install
 | Unity D3D11 游戏 | Steam | DXMT | ✅ 进入游戏，窗口模式 | 需要 `soju steam-games`，见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected（Infernal Edition） | Steam | 不适用 | ⏳ 尚未验证 | Steam bottle 没有 GPTK，而 D2R 的加载器需要 `libd3dshared` |
 
-跑不了的：任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。跑通了别的游戏？欢迎发到 [Discussions](https://github.com/BCD1210/soju/discussions)，或提 PR 加一行。
+跑不了的：任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。有问题或想简单反馈，欢迎加入 [Discord](https://discord.gg/ttBDcF5ftz)。跑通了别的游戏？欢迎发到 [Discussions](https://github.com/BCD1210/soju/discussions)，或提 PR 加一行。
 
 ## 安装（一行命令）
 
