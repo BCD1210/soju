@@ -13,12 +13,25 @@ const image = z.object({ src: str, alt: str, width: opt(z.number()), height: opt
 
 export const components = {
     Stack: { props: z.object({}), description: 'Groups children with no markup of its own' },
-    Hero: { props: z.object({ title: str, lead: str, logo: opt(str), actions: opt(z.array(link)), meta: opt(str), image: opt(image) }), description: 'Page heading' },
+    Hero: {
+      props: z.object({
+        title: str, lead: str, logo: opt(str), actions: opt(z.array(link)), meta: opt(str), image: opt(image),
+        // Home pages: a large headline with the app icon beside it. Other pages give only title/lead.
+        headline: opt(str), eyebrow: opt(str), icon: opt(image), command: opt(str),
+        stores: opt(z.object({ label: str, items: z.array(str) })),
+      }),
+      description: 'Page heading',
+    },
     Section: { props: z.object({ id: opt(str), title: str, intro: opt(str) }), description: 'Titled section' },
     Text: { props: z.object({ text: str }), description: 'Paragraph' },
     Bullets: { props: z.object({ items: z.array(str) }), description: 'Bulleted list' },
     Features: { props: z.object({ items: z.array(z.object({ title: str, text: str })) }), description: 'Grid of short facts' },
-    Steps: { props: z.object({ items: z.array(z.object({ title: str, text: opt(str), code: opt(str) })) }), description: 'Numbered steps' },
+    Steps: { props: z.object({ row: opt(z.boolean()), items: z.array(z.object({ title: str, text: opt(str), code: opt(str) })) }), description: 'Numbered steps; row lays them out side by side' },
+    Proof: {
+      props: z.object({ items: z.array(z.object({ title: str, store: str, status: str, tone: z.enum(['plays', 'partial']), result: str })) }),
+      description: 'Cards for games that were run, with a status pill',
+    },
+    Cta: { props: z.object({ title: str, text: opt(str), icon: opt(image), actions: z.array(link) }), description: 'Closing call to action' },
     Table: { props: z.object({ label: str, head: z.array(str), rows: z.array(z.array(str)) }), description: 'Data table' },
     Code: { props: z.object({ code: str }), description: 'Code block' },
     Note: { props: z.object({ text: str }), description: 'Side note' },
@@ -64,11 +77,24 @@ const button = (l, k) => h('a', { key: k, className: l.primary ? 'btn' : 'btn se
 export const { registry } = defineRegistry(catalog, {
   components: {
     Stack: ({ children }) => h(Fragment, null, children),
-    Hero: ({ props }) => h('header', { className: 'hero' },
-      props.logo ? h('h1', { className: 'with-logo' }, h('img', { src: props.logo, width: 72, height: 72, alt: '' }), props.title) : h('h1', null, props.title),
-      h('p', { className: 'lead' }, inline(props.lead)),
-      props.actions && h('p', { className: 'actions' }, props.actions.map(button), props.meta && h('span', { className: 'meta' }, props.meta)),
-      props.image && img(props.image, { className: 'shot', fetchPriority: 'high' })),
+    Hero: ({ props }) => props.headline
+      ? h('header', { className: 'hero hero-home' },
+        h('div', { className: 'hero-copy' },
+          props.eyebrow && h('p', { className: 'eyebrow' }, props.eyebrow),
+          h('h1', { className: 'headline' }, inline(props.headline)),
+          h('p', { className: 'lead' }, inline(props.lead)),
+          props.actions && h('p', { className: 'actions' }, props.actions.map(button)),
+          props.command && h('p', { className: 'cmd' }, h('code', null, props.command)),
+          props.meta && h('p', { className: 'meta' }, props.meta),
+          props.stores && h('ul', { className: 'stores', 'aria-label': props.stores.label },
+            props.stores.items.map((s, k) => h('li', { key: k }, s)))),
+        props.icon && img(props.icon, { className: 'hero-icon' }),
+        props.image && h('div', { className: 'shot-wrap' }, img(props.image, { className: 'shot', fetchPriority: 'high' })))
+      : h('header', { className: 'hero' },
+        props.logo ? h('h1', { className: 'with-logo' }, h('img', { src: props.logo, width: 72, height: 72, alt: '' }), props.title) : h('h1', null, props.title),
+        h('p', { className: 'lead' }, inline(props.lead)),
+        props.actions && h('p', { className: 'actions' }, props.actions.map(button), props.meta && h('span', { className: 'meta' }, props.meta)),
+        props.image && img(props.image, { className: 'shot', fetchPriority: 'high' })),
     Section: ({ props, children }) => h('section', { id: props.id, 'aria-labelledby': props.id && props.id + '-title' },
       h('h2', { id: props.id && props.id + '-title' }, props.title),
       props.intro && h('p', { className: 'intro' }, inline(props.intro)),
@@ -77,13 +103,24 @@ export const { registry } = defineRegistry(catalog, {
     Bullets: ({ props }) => h('ul', null, props.items.map((t, k) => h('li', { key: k }, inline(t)))),
     Features: ({ props }) => h('div', { className: 'features' }, props.items.map((f, k) =>
       h('div', { key: k, className: 'feature' }, h('h3', null, f.title), h('p', null, inline(f.text))))),
-    Steps: ({ props }) => h('ol', { className: 'steps' }, props.items.map((s, k) =>
+    Steps: ({ props }) => h('ol', { className: props.row ? 'steps row' : 'steps' }, props.items.map((s, k) =>
       h('li', { key: k }, h('b', null, s.title), s.text && h('p', null, inline(s.text)), s.code && h('pre', null, h('code', null, s.code))))),
     Table: ({ props }) => h('div', { className: 'table-scroll', role: 'region', 'aria-label': props.label, tabIndex: 0 },
       h('table', null,
         h('thead', null, h('tr', null, props.head.map((c, k) => h('th', { key: k, scope: 'col' }, c)))),
         h('tbody', null, props.rows.map((r, i) => h('tr', { key: i }, r.map((c, k) => k === 0
           ? h('th', { key: k, scope: 'row' }, inline(c)) : h('td', { key: k }, inline(c)))))))),
+    Proof: ({ props }) => h('ul', { className: 'proof' }, props.items.map((g, k) =>
+      h('li', { key: k, className: 'proof-card' },
+        h('span', { className: 'store' }, g.store),
+        h('b', null, g.title),
+        h('span', { className: 'pill ' + g.tone }, g.status),
+        h('p', { className: 'result' }, inline(g.result))))),
+    Cta: ({ props }) => h('section', { className: 'cta' },
+      props.icon && img(props.icon, { loading: 'lazy' }),
+      h('h2', null, props.title),
+      props.text && h('p', null, inline(props.text)),
+      h('p', { className: 'actions' }, props.actions.map(button))),
     Code: ({ props }) => h('pre', null, h('code', null, props.code)),
     Note: ({ props }) => h('p', { className: 'note' }, inline(props.text)),
     Buttons: ({ props }) => h('p', { className: 'actions' }, props.items.map(button)),

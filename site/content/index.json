@@ -127,6 +127,14 @@
             "label": "Download Soju 1.10.10",
             "href": "https://github.com/BCD1210/soju/releases/download/v1.10.10/Soju-1.10.10-macos-arm64.zip",
             "primary": true
+          },
+          {
+            "label": "See what runs",
+            "href": "#works"
+          },
+          {
+            "label": "Discord",
+            "href": "https://discord.gg/ttBDcF5ftz"
           }
         ],
         "meta": "macOS 14+, M1 or newer · open source (GPL-3.0)",
@@ -136,7 +144,26 @@
           "width": 1140,
           "height": 780
         },
-        "logo": "assets/soju-logo.png"
+        "logo": "assets/soju-logo.png",
+        "headline": "Your Windows games, **on your Mac.**",
+        "eyebrow": "Free and open source · Apple Silicon",
+        "command": "brew install BCD1210/soju/soju",
+        "icon": {
+          "src": "assets/soju-app-icon.png",
+          "alt": "",
+          "width": 640,
+          "height": 640
+        },
+        "stores": {
+          "label": "Launchers Soju installs",
+          "items": [
+            "Steam",
+            "Battle.net",
+            "Epic Games",
+            "GOG GALAXY",
+            "Xbox PC"
+          ]
+        }
       }
     },
     {
@@ -186,40 +213,44 @@
       },
       "children": [
         {
-          "type": "Table",
+          "type": "Proof",
           "props": {
-            "label": "Tested games",
-            "head": [
-              "Game",
-              "Store",
-              "Result"
-            ],
-            "rows": [
-              [
-                "Diablo II: Resurrected",
-                "Battle.net",
-                "Plays online. Needs macOS 26.4+. [Guide](guides/diablo-2-resurrected-apple-silicon.html)"
-              ],
-              [
-                "Hogwarts Legacy",
-                "Epic",
-                "Installs and plays with D3DMetal."
-              ],
-              [
-                "Guilt Free (Unity, D3D11)",
-                "Steam",
-                "Plays with the DXMT setup. [Guide](guides/steam-windows-client-apple-silicon.html)"
-              ],
-              [
-                "Retro Classics",
-                "Xbox PC",
-                "Reaches the main menu."
-              ],
-              [
-                "GOG GALAXY",
-                "GOG",
-                "Login and library work; few games tried yet."
-              ]
+            "items": [
+              {
+                "title": "Diablo II: Resurrected",
+                "store": "Battle.net",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Plays online. Needs macOS 26.4+. [Guide](guides/diablo-2-resurrected-apple-silicon.html)"
+              },
+              {
+                "title": "Hogwarts Legacy",
+                "store": "Epic",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Installs and plays with D3DMetal."
+              },
+              {
+                "title": "Guilt Free (Unity, D3D11)",
+                "store": "Steam",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Plays with the DXMT setup. [Guide](guides/steam-windows-client-apple-silicon.html)"
+              },
+              {
+                "title": "Retro Classics",
+                "store": "Xbox PC",
+                "status": "Menu only",
+                "tone": "partial",
+                "result": "Reaches the main menu."
+              },
+              {
+                "title": "GOG GALAXY",
+                "store": "GOG",
+                "status": "Launcher only",
+                "tone": "partial",
+                "result": "Login and library work; few games tried yet."
+              }
             ]
           }
         },
@@ -288,7 +319,8 @@
                 "title": "Sign in and play",
                 "text": "Sign in inside each launcher as usual. Installed games show up in the library."
               }
-            ]
+            ],
+            "row": true
           }
         },
         {
@@ -387,6 +419,34 @@
           }
         }
       ]
+    },
+    {
+      "type": "Cta",
+      "props": {
+        "title": "Try Soju on your Mac",
+        "text": "Free and open source. Download the app, pick the launchers you use, and tell us which games run.",
+        "icon": {
+          "src": "assets/soju-app-icon.png",
+          "alt": "",
+          "width": 640,
+          "height": 640
+        },
+        "actions": [
+          {
+            "label": "Download Soju 1.10.10",
+            "href": "https://github.com/BCD1210/soju/releases/download/v1.10.10/Soju-1.10.10-macos-arm64.zip",
+            "primary": true
+          },
+          {
+            "label": "GitHub",
+            "href": "https://github.com/BCD1210/soju"
+          },
+          {
+            "label": "Discord",
+            "href": "https://discord.gg/ttBDcF5ftz"
+          }
+        ]
+      }
     },
     {
       "type": "Section",

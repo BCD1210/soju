@@ -11,7 +11,7 @@ import { components, registry } from './catalog.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const docs = join(here, '..', 'docs');
-const CSS_VERSION = '20261109d';
+const CSS_VERSION = '20261110a';
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const plain = (s) => s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
 
