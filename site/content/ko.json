@@ -71,6 +71,14 @@
             "label": "소주 1.10.10 다운로드",
             "href": "https://github.com/BCD1210/soju/releases/download/v1.10.10/Soju-1.10.10-macos-arm64.zip",
             "primary": true
+          },
+          {
+            "label": "실행해 본 게임",
+            "href": "#works"
+          },
+          {
+            "label": "디스코드",
+            "href": "https://discord.gg/ttBDcF5ftz"
           }
         ],
         "meta": "macOS 14 이상, M1 이상 · 오픈소스(GPL-3.0)",
@@ -80,7 +88,26 @@
           "width": 1140,
           "height": 780
         },
-        "logo": "../assets/soju-logo.png"
+        "logo": "../assets/soju-logo.png",
+        "headline": "윈도우 게임을 **맥에서.**",
+        "eyebrow": "무료 · 오픈소스 · 애플 실리콘 맥",
+        "command": "brew install BCD1210/soju/soju",
+        "icon": {
+          "src": "../assets/soju-app-icon.png",
+          "alt": "",
+          "width": 640,
+          "height": 640
+        },
+        "stores": {
+          "label": "소주가 설치하는 런처",
+          "items": [
+            "스팀",
+            "배틀넷",
+            "에픽게임즈",
+            "GOG GALAXY",
+            "Xbox PC"
+          ]
+        }
       }
     },
     {
@@ -130,40 +157,44 @@
       },
       "children": [
         {
-          "type": "Table",
+          "type": "Proof",
           "props": {
-            "label": "실행한 게임",
-            "head": [
-              "게임",
-              "스토어",
-              "결과"
-            ],
-            "rows": [
-              [
-                "디아블로 II: 레저렉션",
-                "배틀넷",
-                "온라인 플레이 됨. macOS 26.4 이상. [가이드](../guides/ko/diablo-2-mac.html)"
-              ],
-              [
-                "호그와트 레거시",
-                "에픽",
-                "D3DMetal로 설치·플레이 됨"
-              ],
-              [
-                "Guilt Free (Unity, D3D11)",
-                "스팀",
-                "DXMT 설정으로 플레이 됨"
-              ],
-              [
-                "Retro Classics",
-                "Xbox PC",
-                "메인 화면까지 실행"
-              ],
-              [
-                "GOG GALAXY",
-                "GOG",
-                "로그인·라이브러리 됨, 게임은 아직 조금만 시험"
-              ]
+            "items": [
+              {
+                "title": "디아블로 II: 레저렉션",
+                "store": "배틀넷",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "온라인 플레이 됨. macOS 26.4 이상. [가이드](../guides/ko/diablo-2-mac.html)"
+              },
+              {
+                "title": "호그와트 레거시",
+                "store": "에픽",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "D3DMetal로 설치·플레이 됨"
+              },
+              {
+                "title": "Guilt Free (Unity, D3D11)",
+                "store": "스팀",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "DXMT 설정으로 플레이 됨"
+              },
+              {
+                "title": "Retro Classics",
+                "store": "Xbox PC",
+                "status": "메뉴까지",
+                "tone": "partial",
+                "result": "메인 화면까지 실행"
+              },
+              {
+                "title": "GOG GALAXY",
+                "store": "GOG",
+                "status": "런처만",
+                "tone": "partial",
+                "result": "로그인·라이브러리 됨, 게임은 아직 조금만 시험"
+              }
             ]
           }
         },
@@ -222,7 +253,8 @@
                 "title": "로그인하고 플레이",
                 "text": "각 런처에서 평소처럼 로그인하면 설치된 게임이 라이브러리에 나타납니다."
               }
-            ]
+            ],
+            "row": true
           }
         },
         {
@@ -280,6 +312,34 @@
           }
         }
       ]
+    },
+    {
+      "type": "Cta",
+      "props": {
+        "title": "맥에서 바로 해 보세요",
+        "text": "소주는 무료 오픈소스입니다. 앱을 받아 쓰는 런처를 고르고, 어떤 게임이 되는지 알려 주세요.",
+        "icon": {
+          "src": "../assets/soju-app-icon.png",
+          "alt": "",
+          "width": 640,
+          "height": 640
+        },
+        "actions": [
+          {
+            "label": "소주 1.10.10 다운로드",
+            "href": "https://github.com/BCD1210/soju/releases/download/v1.10.10/Soju-1.10.10-macos-arm64.zip",
+            "primary": true
+          },
+          {
+            "label": "GitHub",
+            "href": "https://github.com/BCD1210/soju"
+          },
+          {
+            "label": "디스코드",
+            "href": "https://discord.gg/ttBDcF5ftz"
+          }
+        ]
+      }
     },
     {
       "type": "Section",
