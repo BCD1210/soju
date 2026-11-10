@@ -8,7 +8,7 @@ Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
-**[Download Soju 1.10.12 for Mac](https://github.com/BCD1210/soju/releases/download/v1.10.12/Soju-1.10.12-macos-arm64.zip)**, or install from the terminal:
+**[Download Soju 1.10.13 for Mac](https://github.com/BCD1210/soju/releases/download/v1.10.13/Soju-1.10.13-macos-arm64.zip)**, or install from the terminal:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -70,7 +70,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.10.12/Soju-1.10.12-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.10.13/Soju-1.10.13-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
