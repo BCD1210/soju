@@ -45,6 +45,7 @@ soju install
 | Diablo II: Resurrected | 战网 | D3DMetal (D3D12) | ✅ 进入游戏，可联网 | **需要 macOS 26.4 或更高**（见前提条件）；`play.sh` 设置 `ROSETTA_ADVERTISE_AVX=1`；[指南](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) |
 | Diablo II: Resurrected VR（离线） | 战网 | D3DMetal (D3D12) + OpenXR | 🧪 仅在模拟器验证 | `soju vr setup` / `soju vr play`：离线角色的 D2R VR Unleashed，串流到 OXRSys 头显客户端；[docs/VR.md](docs/VR.md) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 进入游戏 | UE4 的"AMD 驱动"警告无害 |
+| StarCraft: Remastered | 战网 | 未确认 | ✅ 进入游戏 | 战网更新游戏后可开始对电脑的单人对战；多人对战未测试 |
 | Unity D3D11 游戏 | Steam | DXMT | ✅ 进入游戏，窗口模式 | 需要 `soju steam-games`，见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected（Infernal Edition） | Steam | 不适用 | ⏳ 尚未验证 | Steam bottle 没有 GPTK，而 D2R 的加载器需要 `libd3dshared` |
 
