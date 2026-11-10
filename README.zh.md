@@ -2,31 +2,24 @@
 
 # Soju（简体中文）
 
-**1.6.1 新增：** 通过 Steam 官方登录导入已购游戏（无需 API 密钥）、GOG Galaxy 本地游戏库导入，以及 Steam/GOG 商店搜索与官方购买链接。[设置说明](docs/ACCOUNTS.md)。
-**v1.6.1：** 在统一游戏库中搜索、筛选、收藏和启动已安装的游戏。通过 Platforms 管理启动器安装与更新。支持导入 Steam/GOG 已购游戏，并在 Discover 中搜索商品与价格。暂不支持 Epic/Battle.net 的完整账户游戏库导入。
+> **在 Apple Silicon Mac 上玩 Windows 游戏，免费开源。**
 
-[Desktop / download](docs/DESKTOP.md)
+Soju 在 M1 及更新的 Mac 上安装 **Battle.net、Steam、Epic Games 和 GOG GALAXY** 的官方 Windows 客户端，每个客户端使用独立的 Wine 环境，并把游戏集中显示在一个 Mac 游戏库里。项目最初是为了不用 CrossOver 也能运行战网和 Diablo II: Resurrected。
 
-> **面向 Apple Silicon Mac 的免费开源游戏启动工具。**
+![Soju 统一游戏库](docs/assets/soju-library.png)
 
-在 Mac 上安装和运行 **Battle.net、Steam、Epic Games Launcher 和 GOG GALAXY**。
-Soju 提供终端安装工具、独立的 Wine 环境，以及每个商店对应的 Mac 启动应用。
-使用已有的商店账号登录，运行兼容的 Windows 游戏。
+**[下载 Soju 1.10.10（Mac）](https://github.com/BCD1210/soju/releases/download/v1.10.10/Soju-1.10.10-macos-arm64.zip)**，或在终端安装：
 
-游戏库仍通过各商店自己的客户端访问。Soju 目前提供 CLI 和各启动器的快捷应用；
-兼容性取决于游戏和系统环境。
+```bash
+brew install BCD1210/soju/soju
+soju install
+```
 
-工具免费开源。主 Wine 引擎基于 CodeWeavers 公开源码构建，Steam 使用独立的
-wine-stable 环境。Apple 的专有 GPTK/D3DMetal 组件需要单独下载。
-项目不包含游戏或商店客户端。
+应用需要 macOS 14 或更高版本。Diablo II: Resurrected 需要 macOS 26.4 或更高，Steam 游戏需要 macOS 26 或更高。
 
-**当前脚本版本：[v1.3.6](https://github.com/BCD1210/soju/releases/tag/v1.3.6)。**
-下方运行案例在 M4 Pro / macOS 26.5 上验证。
-D2R 和 Hogwarts Legacy 是兼容案例，项目面向多个游戏启动器。
+[能跑什么](#能跑什么) · [安装说明](#安装一行命令) · [30 秒游戏演示](https://didimlabs.com/#demo) · [English](README.md) · [한국어](README.ko.md)
 
-[观看 30 秒实际游戏演示](https://didimlabs.com/#demo) · Hogwarts Legacy / Epic + Guilt Free / Steam（需额外配置 DXMT）
-
-*[English README](README.md) · [한국어 README](README.ko.md)*
+各游戏的兼容性不同，带内核级反作弊的游戏无法运行。项目不包含游戏、商店客户端和 Apple GPTK，GPTK 需要单独下载。
 
 ## 能跑什么
 
@@ -44,33 +37,18 @@ D2R 和 Hogwarts Legacy 是兼容案例，项目面向多个游戏启动器。
 | 战网（Battle.net） | ✅ | ✅ | Agent 正常；`BLZBNTBNA00000005` 通过签名 exe 播种解决 |
 | Epic Games Launcher | ✅ | ✅ | 关闭窗口后驻留菜单栏托盘 |
 | GOG GALAXY | ✅ | ✅ | 登录和游戏库可用；游戏尚未广泛测试 |
-| Steam（Windows 客户端） | ✅ | ✅ | 独立的 `wine-stable` + DXMT bottle |
+| Steam（Windows 客户端） | ✅ | ✅ | 独立的 Wine 11 + DXMT bottle |
+| Xbox PC / Microsoft Store | ✅ | ✅ | Xodus 后端；游戏启动为实验功能（Retro Classics 可进入主菜单） |
 
 | 游戏 | 平台 | 图形 | 状态 | 说明 |
 | --- | --- | --- | :-: | --- |
-| Diablo II: Resurrected | 战网 | D3DMetal (D3D12) | ✅ 进入游戏，可联网 | **需要 macOS 26.4 或更高**（见前提条件）；`play.sh` 设置 `ROSETTA_ADVERTISE_AVX=1`；[指南](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) |
+| Diablo II: Resurrected | 战网 | D3DMetal (D3D12) | ✅ 进入游戏，可联网 | **需要 macOS 26.4 或更高**（见前提条件）；`play.sh` 设置 `ROSETTA_ADVERTISE_AVX=1`；[指南](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) |
 | Diablo II: Resurrected VR（离线） | 战网 | D3DMetal (D3D12) + OpenXR | 🧪 仅在模拟器验证 | `soju vr setup` / `soju vr play`：离线角色的 D2R VR Unleashed，串流到 OXRSys 头显客户端；[docs/VR.md](docs/VR.md) |
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 进入游戏 | UE4 的"AMD 驱动"警告无害 |
 | Unity D3D11 游戏 | Steam | DXMT | ✅ 进入游戏，窗口模式 | 需要 `soju steam-games`，见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | Diablo II: Resurrected（Infernal Edition） | Steam | 不适用 | ⏳ 尚未验证 | Steam bottle 没有 GPTK，而 D2R 的加载器需要 `libd3dshared` |
 
 跑不了的：任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。跑通了别的游戏？欢迎发到 [Discussions](https://github.com/BCD1210/soju/discussions)，或提 PR 加一行。
-
-## 为什么会有这个项目
-
-社区 Wine 构建（Whisky、Kegworks 时代的引擎）已经无法运行新版战网和 D2R。商业方案可以用，但其底层 Wine 引擎是 GPL 的，所以我们自己把它编译出来，并记录了撞上的每一堵墙。以下记录了其中三个问题的诊断和修复：
-
-### 三把钥匙
-
-1. **`ROSETTA_ADVERTISE_AVX=1`**：D2R 的加载器要求 AVX 指令集。没有这个环境变量，游戏会在任何图形初始化之前，卡在约 86 MB 内存、0% CPU 的状态永远不动。这就是非 CrossOver 的 Wine 构建上 "D2R 启动即卡死" 的真相。
-
-2. **D3DMetal 载荷布局**：Apple Game Porting Toolkit 的载荷分三部分，三者齐全 D3DMetal 才会生效：`lib/external/`（libd3dshared + D3DMetal.framework）；Apple 的 PE 垫片 `d3d11.dll`、`d3d12.dll`、`dxgi.dll`（以及 `atidxx64`、`nvapi64`、`nvngx`），放在 `lib/wine/x86_64-windows/` 下替换 Wine 自带的同名 DLL；以及每个垫片对应一个 `lib/wine/x86_64-unix/<垫片>.so`，必须是指向 `lib/external/` 的**符号链接**。直接复制文件会破坏 `@loader_path` 解析，D3DMetal 会陷入断言循环；若保留 Wine 自带的 `d3d11.dll`，D3D 会走 wined3d，Epic Games Launcher 启动即崩溃。`soju gptk` 会安装全部三部分。
-
-3. **战网 Agent 调用方签名修复**：Agent 校验连接客户端的签名时，用的是相对文件名，相对于它自己的工作目录（一个带版本号的子目录）解析。把签名过的 `Battle.net.exe` 复制一份到每个 `Battle.net.NNNNN` 子目录即可通过校验（修复错误 `BLZBNTBNA00000005`）。
-
-另外一个陷阱：启动链里绝不能出现 Apple 平台二进制（`nohup`、`arch` 等）。macOS 在 exec 它们时会剥掉 `DYLD_*` 环境变量。
-
-**指南（英文）：** [D2R on Apple Silicon](https://bcd1210.github.io/soju/guides/diablo-2-resurrected-apple-silicon.html) · [Windows Steam client](https://bcd1210.github.io/soju/guides/steam-windows-client-apple-silicon.html) · [Whisky alternatives](https://bcd1210.github.io/soju/guides/whisky-alternative.html)
 
 ## 安装（一行命令）
 
@@ -96,6 +74,33 @@ soju doctor      # 体检：检查整个栈，指出哪里不对（提 issue 时
 soju update      # 更新脚本和预编译引擎（保留 GPTK 和所有 bottle）
 soju uninstall   # 卸载：逐项确认后删除 app、bottle 和引擎
 ```
+
+## 应用里的其他功能
+
+- **导入已购游戏：** 通过 Steam 官方登录导入已购游戏（无需 API 密钥），也可导入 GOG GALAXY 本地缓存的游戏库。已安装和未安装的游戏显示在同一个游戏库里。暂不支持 Epic 和 Battle.net 的账户游戏库导入。[设置说明](docs/ACCOUNTS.md)
+- **Discover：** 搜索 Steam、GOG 和 Microsoft Store 的商品与价格，并链接到官方商店。
+- **Platforms：** 管理启动器安装、组件更新和诊断。CLI 和各启动器的快捷应用仍可使用。
+- **Xbox PC（实验功能）：** 见下文 [Xbox PC / Microsoft Store](#xbox-pc--microsoft-storexodus-后端实验功能)。
+- **电视和 iPad：** 在 Soju 中开启串流，在电视、iPad 或手机上安装免费的 Moonlight，输入它显示的 PIN，就能在那块屏幕上玩 Mac 上运行的游戏。
+- **Didim Labs Store：** 出售我们自己制作的 Mac 游戏，不需要 Wine。
+
+主 Wine 引擎基于 CodeWeavers 公开源码构建，Steam 使用独立的 Wine 11 环境。
+
+## 为什么会有这个项目
+
+社区 Wine 构建（Whisky、Kegworks 时代的引擎）已经无法运行新版战网和 D2R。商业方案可以用，但其底层 Wine 引擎是 GPL 的，所以我们自己把它编译出来，并记录了撞上的每一堵墙。以下记录了其中三个问题的诊断和修复：
+
+### 三把钥匙
+
+1. **`ROSETTA_ADVERTISE_AVX=1`**：D2R 的加载器要求 AVX 指令集。没有这个环境变量，游戏会在任何图形初始化之前，卡在约 86 MB 内存、0% CPU 的状态永远不动。这就是非 CrossOver 的 Wine 构建上 "D2R 启动即卡死" 的真相。
+
+2. **D3DMetal 载荷布局**：Apple Game Porting Toolkit 的载荷分三部分，三者齐全 D3DMetal 才会生效：`lib/external/`（libd3dshared + D3DMetal.framework）；Apple 的 PE 垫片 `d3d11.dll`、`d3d12.dll`、`dxgi.dll`（以及 `atidxx64`、`nvapi64`、`nvngx`），放在 `lib/wine/x86_64-windows/` 下替换 Wine 自带的同名 DLL；以及每个垫片对应一个 `lib/wine/x86_64-unix/<垫片>.so`，必须是指向 `lib/external/` 的**符号链接**。直接复制文件会破坏 `@loader_path` 解析，D3DMetal 会陷入断言循环；若保留 Wine 自带的 `d3d11.dll`，D3D 会走 wined3d，Epic Games Launcher 启动即崩溃。`soju gptk` 会安装全部三部分。
+
+3. **战网 Agent 调用方签名修复**：Agent 校验连接客户端的签名时，用的是相对文件名，相对于它自己的工作目录（一个带版本号的子目录）解析。把签名过的 `Battle.net.exe` 复制一份到每个 `Battle.net.NNNNN` 子目录即可通过校验（修复错误 `BLZBNTBNA00000005`）。
+
+另外一个陷阱：启动链里绝不能出现 Apple 平台二进制（`nohup`、`arch` 等）。macOS 在 exec 它们时会剥掉 `DYLD_*` 环境变量。
+
+**指南（英文）：** [D2R on Apple Silicon](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) · [Windows Steam client](https://didimlabs.com/guides/steam-windows-client-apple-silicon.html) · [Whisky alternatives](https://didimlabs.com/guides/whisky-alternative.html)
 
 ## 或者完全自己构建：不需要 CrossOver
 
