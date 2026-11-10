@@ -8,7 +8,7 @@ Soju 在 M1 及更新的 Mac 上安装 **Battle.net、Steam、Epic Games 和 GOG
 
 ![Soju 统一游戏库](docs/assets/soju-library.png)
 
-**[下载 Soju 1.10.12（Mac）](https://github.com/BCD1210/soju/releases/download/v1.10.12/Soju-1.10.12-macos-arm64.zip)**，或在终端安装：
+**[下载 Soju 1.10.13（Mac）](https://github.com/BCD1210/soju/releases/download/v1.10.13/Soju-1.10.13-macos-arm64.zip)**，或在终端安装：
 
 ```bash
 brew install BCD1210/soju/soju
@@ -19,7 +19,7 @@ soju install
 
 [能跑什么](#能跑什么) · [安装说明](#安装一行命令) · [30 秒游戏演示](https://didimlabs.com/#demo) · [Discord](https://discord.gg/ttBDcF5ftz) · [English](README.md) · [한국어](README.ko.md)
 
-各游戏的兼容性不同，带内核级反作弊的游戏无法运行。项目不包含游戏、商店客户端和 Apple GPTK，GPTK 需要单独下载。
+各游戏的兼容性不同，带内核级反作弊的游戏无法运行。项目不包含游戏和商店客户端。Apple GPTK 文件由 Soju 在安装时下载。
 
 ## 能跑什么
 
@@ -66,7 +66,7 @@ soju install     # 然后：soju battlenet / soju d2r / soju steam / soju epic /
 
 安装器会**先询问要安装哪些启动器，再下载对应组件**。仅选择 Steam 时，不会下载 CX 引擎或 Apple GPTK。Steam 图形组件经过 SHA-256 校验后，自动安装到 Soju 专用的 Wine 11.0 环境中。战网、Epic 和 GOG 使用共享 CX 引擎及用户单独下载的 Apple GPTK。各客户端的 bottle、账户和游戏分别保留。
 
-[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.10.12/Soju-1.10.12-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
+[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.10.13/Soju-1.10.13-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
 
 ## 日常维护
 
@@ -105,7 +105,7 @@ soju uninstall   # 卸载：逐项确认后删除 app、bottle 和引擎
 
 ## 或者完全自己构建：不需要 CrossOver
 
-除了本仓库脚本之外，你唯一要自己下载的是 Apple 免费的 Game Porting Toolkit（一个文件，一个免费 Apple ID 即可）。Apple 禁止再分发它。
+Apple 的 Game Porting Toolkit 文件在第 4 步下载。如果想用自己从 Apple 下载的版本，用免费 Apple ID 下载 dmg 并先挂载即可。
 
 ```bash
 # 1. 获取脚本
@@ -117,10 +117,10 @@ scripts/get-components.sh
 # 3. 从 GPL 源码构建引擎（30-60 分钟）
 scripts/build-engine.sh
 
-# 4. 安装 Apple GPTK（从 https://developer.apple.com/games/game-porting-toolkit/
-#    下载 "evaluation environment for Windows games" dmg 并挂载，然后：）
-scripts/get-gptk.sh
-#    （如果你恰好装了 CrossOver，脚本会自动从中提取）
+# 4. 安装 Apple GPTK（下载 Apple 的文件并校验 Apple 签名）
+scripts/fetch-gptk.py
+#    （也可以挂载 Apple 的 "evaluation environment for Windows games" dmg 后运行
+#    scripts/get-gptk.sh；如果装了 CrossOver，脚本会从中提取）
 
 # 5. 创建 bottle + 安装战网（Blizzard 官方安装包，全自动）
 scripts/create-bottle.sh
@@ -187,7 +187,7 @@ scripts/play.sh steam-kill       # 停止 Steam bottle
 
 在 M4 Pro / macOS 26.5 上验证：登录、游戏库，以及一个真实 D3D11（Unity）游戏通过 DXMT 分支在游戏内渲染。完整接线见 `docs/STEAM-GAMES.md`（`scripts/setup-steam-games.sh`）。注意：在 Steam 里打字时把 macOS 输入法切到英文（ABC），否则输入法合成会显示为 `?`。
 
-**前提条件**：Apple Silicon Mac、Rosetta 2、Xcode 命令行工具、Homebrew、你自己的战网账号/游戏，以及一个用于下载 GPTK 的免费 Apple ID。**《暗黑破坏神 II：狱火重生》需要 macOS 26.4 或更高**：暴雪 2026 年 1 月加入的反作弊会触发一个 Rosetta 2 的 bug，Apple 在 26.4 修复了它。在 macOS 15 上游戏启动后立刻退出（战网随后显示"更新"并卡在正在初始化），CrossOver 也一样。启动器和其他游戏不受这个 bug 影响，但所有验证都只在 macOS 26.5 上做过。本仓库不再分发 Apple、Blizzard 或 CodeWeavers 的任何文件。
+**前提条件**：Apple Silicon Mac、Rosetta 2、Xcode 命令行工具、Homebrew、以及你自己的战网账号/游戏。**《暗黑破坏神 II：狱火重生》需要 macOS 26.4 或更高**：暴雪 2026 年 1 月加入的反作弊会触发一个 Rosetta 2 的 bug，Apple 在 26.4 修复了它。在 macOS 15 上游戏启动后立刻退出（战网随后显示"更新"并卡在正在初始化），CrossOver 也一样。启动器和其他游戏不受这个 bug 影响，但所有验证都只在 macOS 26.5 上做过。本仓库不再分发 Apple、Blizzard 或 CodeWeavers 的任何文件。
 
 ### 为什么必须要 GPTK？
 

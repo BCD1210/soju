@@ -1,6 +1,6 @@
 # Soju for Mac
 
-[Download v1.10.12](https://github.com/BCD1210/soju/releases/download/v1.10.12/Soju-1.10.12-macos-arm64.zip)
+[Download v1.10.13](https://github.com/BCD1210/soju/releases/download/v1.10.13/Soju-1.10.13-macos-arm64.zip)
 
 1. Unzip and move **Soju.app** into Applications or ~/Applications.
 2. Open **Platforms** to install or open Battle.net, Steam, Epic Games or GOG GALAXY.
@@ -29,13 +29,14 @@ Soju does not collect telemetry or upload diagnostic logs. Copy log is manual.
 - The current Steam rendering package requires **macOS 26+ and Wine 11.0**.
   It was verified on M4 Pro / macOS 26.5. D3D11 support is not a guarantee that
   every game works; anti-cheat and individual game requirements still apply.
-- Battle.net, Epic and GOG use the CX engine and a separate Apple GPTK download.
+- Battle.net, Epic and GOG use the CX engine and Apple's GPTK files, which Soju downloads.
   Steam does not need either. Its Wine runtime downloads directly from the upstream
   release and is verified with a pinned SHA-256; no Homebrew Wine cask is needed.
 
-For Apple GPTK, install the selected non-Steam launcher to prepare the engine,
-download Apple's evaluation environment, open its DMG, then choose
-**Platforms → Apple GPTK → Add mounted toolkit**. Retry installation if it stopped.
+Installing a non-Steam launcher downloads Apple's GPTK files, checks Apple's signature
+and installs them. If that step was skipped, choose **Platforms → Apple GPTK →
+Download and install**. To use your own copy, download Apple's evaluation environment,
+open its DMG and choose **Add mounted toolkit**.
 
 The official clients retain their own login, library, downloads and game updates.
 Soju does not handle store passwords. Close launchers and games before updating
