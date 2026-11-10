@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soju vs Whisky, CrossOver, Heroic and Sikarugir: Windows games on Apple Silicon (2026)</title>
+<meta name="description" content="What each way of running Windows games on an M-series Mac is for in November 2026: Soju, CrossOver, Whisky and its fork, Heroic, Sikarugir and Mythic, with price, status and Battle.net and Steam support.">
+<link rel="canonical" href="https://didimlabs.com/guides/soju-vs-whisky-crossover-heroic.html">
+<meta property="og:title" content="Soju vs Whisky, CrossOver, Heroic and Sikarugir">
+<meta property="og:description" content="What each way of running Windows games on an M-series Mac is for in November 2026: Soju, CrossOver, Whisky and its fork, Heroic, Sikarugir and Mythic, with price, status and Battle.net and Steam support.">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://didimlabs.com/assets/soju-share.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.png?v=20261110b">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=20261110b">
+<link rel="stylesheet" href="../style.css?v=20261110b">
+<meta property="og:url" content="https://didimlabs.com/guides/soju-vs-whisky-crossover-heroic.html">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Soju vs Whisky, CrossOver, Heroic and Sikarugir: Windows games on Apple Silicon (2026)",
+  "description": "What each way of running Windows games on an M-series Mac is for in November 2026: Soju, CrossOver, Whisky and its fork, Heroic, Sikarugir and Mythic, with price, status and Battle.net and Steam support.",
+  "url": "https://didimlabs.com/guides/soju-vs-whisky-crossover-heroic.html",
+  "mainEntityOfPage": "https://didimlabs.com/guides/soju-vs-whisky-crossover-heroic.html",
+  "inLanguage": "en",
+  "dateModified": "2026-11-10",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Soju",
+    "url": "https://didimlabs.com/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What replaced Whisky on Mac?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nothing took its place one for one. A community fork keeps the Whisky app going, CrossOver is the commercial option its developer pointed people to, and Soju is a free app that installs the Windows Battle.net, Steam, Epic and GOG launchers. Which fits depends on where your games are."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Soju better than CrossOver?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They do different jobs. CrossOver covers far more Windows software and comes with support; it costs $74 with a year of updates. Soju is free and open source, and covers the launchers and games it has checked: Battle.net, the Windows Steam client, Epic and GOG. Soju's engine is built from the sources CodeWeavers publishes."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Heroic run Battle.net or Steam games?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Heroic is a launcher for Epic, GOG and Amazon libraries. Battle.net and Steam are not among its stores. For those two, the options here are Soju, CrossOver, or a wrapper you set up yourself."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which of these are free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Soju, the Whisky fork, Heroic, Sikarugir and Mythic are free. CrossOver is paid and has a free trial."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../"><img src="../assets/soju-logo-64.png?v=20261110b" width="28" height="28" alt="">Soju<span> by Didim Labs</span></a>
+  <a href="whisky-alternative.html">Whisky alternatives</a>
+  <a href="diablo-2-resurrected-apple-silicon.html">D2R guide</a>
+  <a href="steam-windows-client-apple-silicon.html">Steam guide</a>
+  <a href="https://github.com/BCD1210/soju">GitHub</a>
+</div></nav>
+<main>
+<p class="note">This page is part of <a href="../">Soju</a>, a free, open-source Mac app for Windows game launchers on Apple Silicon. Soju is ours. The rest comes from each project's own pages, and we say where we have not tested something.</p>
+<h1>Soju vs Whisky, CrossOver, Heroic and Sikarugir</h1>
+<p class="meta">Checked November 10, 2026</p>
+<p class="lead">Whisky ended in 2025. These are the ways to run Windows games on an Apple Silicon Mac
+now, what each one costs, whether it is still maintained, and what it does about Battle.net and the
+Windows Steam client.</p>
+
+<h2>At a glance</h2>
+<div class="table-scroll" role="region" aria-label="Comparison of tools" tabindex="0">
+<table style="min-width: 860px">
+  <tr><th>Tool</th><th>Cost</th><th>Status, November 2026</th><th>What it is for</th><th>Battle.net</th><th>Windows Steam client</th></tr>
+  <tr><td><a href="../">Soju</a></td><td>Free, GPL-3.0</td><td>Active (1.10.13)</td><td>Mac app that installs the Windows Battle.net, Steam, Epic, GOG and Xbox PC launchers and lists their games in one library</td><td>Runs. Diablo II: Resurrected online and a StarCraft: Remastered single-player match were checked</td><td>Runs. D3D11 games through DXMT were checked</td></tr>
+  <tr><td><a href="https://www.codeweavers.com/crossover">CrossOver</a></td><td>$74, with a year of updates and support</td><td>Active, commercial (CodeWeavers)</td><td>Runs Windows apps and games on a Mac, with support and a catalogue of tested titles</td><td>Runs in CrossOver</td><td>Runs in CrossOver</td></tr>
+  <tr><td><a href="https://github.com/Whisky-App/Whisky">Whisky</a></td><td>Free, GPL-3.0</td><td>Ended in April 2025. Repository read-only since May 2025</td><td>Was a SwiftUI Wine wrapper for Mac</td><td>No longer maintained</td><td>No longer maintained</td></tr>
+  <tr><td><a href="https://github.com/frankea/Whisky">Whisky community fork</a></td><td>Free, GPL-3.0</td><td>Active. Last code push October 2026</td><td>Continues the Whisky app</td><td>Listed in its README. Not tested by us</td><td>Listed in its README. Not tested by us</td></tr>
+  <tr><td><a href="https://heroicgameslauncher.com">Heroic Games Launcher</a></td><td>Free, GPL-3.0</td><td>Active</td><td>Launcher for your Epic, GOG and Amazon libraries on Linux, Windows and macOS</td><td>Not one of its stores</td><td>Not one of its stores</td></tr>
+  <tr><td><a href="https://github.com/Sikarugir-App/Sikarugir">Sikarugir</a> (formerly Kegworks)</td><td>Free</td><td>Active. Last code push November 2026</td><td>Builds a Mac app wrapper around one Windows program</td><td>You build the wrapper yourself. Not tested by us</td><td>You build the wrapper yourself. Not tested by us</td></tr>
+  <tr><td><a href="https://getmythic.app">Mythic</a></td><td>Free, GPL-3.0</td><td>Last code push September 2026</td><td>macOS game launcher that runs Windows games through its own engine</td><td>Not tested by us</td><td>Not tested by us</td></tr>
+</table>
+</div>
+
+<h2>Which one fits</h2>
+<ul>
+  <li><strong>Your games are on Battle.net, or need the Windows Steam client, and you want a free tool:</strong> Soju.</li>
+  <li><strong>You want a commercial product with support and the widest range of Windows software:</strong> CrossOver.</li>
+  <li><strong>Your library is on Epic, GOG or Amazon and you want one launcher for it:</strong> Heroic. Soju also installs the Epic and GOG clients.</li>
+  <li><strong>You want to turn one Windows program into its own Mac app:</strong> Sikarugir.</li>
+  <li><strong>You already use Whisky:</strong> the community fork keeps the app you know.</li>
+</ul>
+
+<h2>What Soju has run</h2>
+<p>All on an M4 Pro with macOS 26.5.</p>
+<ul>
+  <li>Diablo II: Resurrected, Battle.net: plays online. Needs macOS 26.4 or later. <a href="diablo-2-resurrected-apple-silicon.html">Guide</a></li>
+  <li>StarCraft: Remastered, Battle.net: a single-player match starts. Multiplayer not tried. <a href="starcraft-remastered-apple-silicon.html">Guide</a></li>
+  <li>Hogwarts Legacy, Epic: installs and plays with D3DMetal.</li>
+  <li>Guilt Free, Steam: plays with the DXMT setup. <a href="steam-windows-client-apple-silicon.html">Guide</a></li>
+  <li>Retro Classics, Xbox PC: reaches the main menu.</li>
+  <li>GOG GALAXY: login and library work; few games tried.</li>
+</ul>
+
+<h2>What Soju does not do</h2>
+<ul>
+  <li>Games with kernel anti-cheat (EAC, BattlEye, Vanguard) do not run.</li>
+  <li>The list of checked games is short. A launcher opening does not mean every game in it works.</li>
+  <li>Xbox PC support is experimental.</li>
+  <li>It needs an Apple Silicon Mac. Steam games need macOS 26 or later.</li>
+</ul>
+
+<h2 id="questions">Questions</h2>
+<div class="faq">
+  <details open><summary>What replaced Whisky on Mac?</summary><p>Nothing took its place one for one. A community fork keeps the Whisky app going, CrossOver is the commercial option its developer pointed people to, and Soju is a free app that installs the Windows Battle.net, Steam, Epic and GOG launchers. Which fits depends on where your games are.</p></details>
+  <details><summary>Is Soju better than CrossOver?</summary><p>They do different jobs. CrossOver covers far more Windows software and comes with support; it costs $74 with a year of updates. Soju is free and open source, and covers the launchers and games it has checked: Battle.net, the Windows Steam client, Epic and GOG. Soju's engine is built from the sources CodeWeavers publishes.</p></details>
+  <details><summary>Does Heroic run Battle.net or Steam games?</summary><p>Heroic is a launcher for Epic, GOG and Amazon libraries. Battle.net and Steam are not among its stores. For those two, the options here are Soju, CrossOver, or a wrapper you set up yourself.</p></details>
+  <details><summary>Which of these are free?</summary><p>Soju, the Whisky fork, Heroic, Sikarugir and Mythic are free. CrossOver is paid and has a free trial.</p></details>
+</div>
+
+<p><a class="btn" href="../#install">Download Soju</a></p>
+</main>
+<footer>
+  Soju is GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
+  not affiliated with Blizzard, Valve, Epic, GOG, Apple, CodeWeavers or the other projects named here.
+</footer>
+</body>
+</html>

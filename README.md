@@ -111,7 +111,7 @@ Community Wine builds (Whisky, Kegworks-era engines) stopped working with modern
 
 Plus one trap: never put Apple platform binaries (`nohup`, `arch`, …) in the launch chain. macOS strips `DYLD_*` variables when exec'ing them.
 
-**Guides:** [D2R on Apple Silicon](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) · [StarCraft: Remastered](https://didimlabs.com/guides/starcraft-remastered-apple-silicon.html) · [Windows Steam client](https://didimlabs.com/guides/steam-windows-client-apple-silicon.html) · [Whisky alternatives](https://didimlabs.com/guides/whisky-alternative.html)
+**Guides:** [D2R on Apple Silicon](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) · [StarCraft: Remastered](https://didimlabs.com/guides/starcraft-remastered-apple-silicon.html) · [Windows Steam client](https://didimlabs.com/guides/steam-windows-client-apple-silicon.html) · [Whisky alternatives](https://didimlabs.com/guides/whisky-alternative.html) · [Soju vs Whisky, CrossOver, Heroic](https://didimlabs.com/guides/soju-vs-whisky-crossover-heroic.html)
 
 ## Build it yourself instead: no CrossOver required
 

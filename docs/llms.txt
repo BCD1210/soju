@@ -3,6 +3,9 @@
 > Didim Labs makes Soju, a free open-source Mac app for running Windows game launchers on Apple Silicon, and small games for Mac and Windows.
 
 ## Soju
+- What it is: Soju is a Mac app (with a `soju` command-line tool) that installs the official Windows launchers for Battle.net, Steam, Epic Games, GOG GALAXY and Xbox PC on Apple Silicon and lists their games in one library. This Soju is the game launcher from Didim Labs; it is not the soju IRC bouncer and not the Korean drink.
+- Problems it solves: Diablo II: Resurrected hanging at launch on M-series Macs (its loader needs AVX, which Rosetta 2 only advertises when ROSETTA_ADVERTISE_AVX=1 is set); Battle.net error BLZBNTBNA00000005 on free Wine builds; the Windows Steam client showing a black window under Wine.
+- Since 1.10.11 the app is signed with a Developer ID and notarized by Apple. Since 1.10.13 it downloads Apple's Game Porting Toolkit files itself, so no Apple ID download is needed.
 - [Soju home](https://didimlabs.com/): what Soju does, tested games, install steps, FAQ
 - [Soju in Korean / 소주 한국어](https://didimlabs.com/ko/)
 - [Source code and releases](https://github.com/BCD1210/soju): GPL-3.0-or-later; current version 1.10.13
@@ -14,7 +17,10 @@
 - [Diablo II: Resurrected on Apple Silicon](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html)
 - [The Windows Steam client on Apple Silicon](https://didimlabs.com/guides/steam-windows-client-apple-silicon.html)
 - [Whisky is gone: alternatives](https://didimlabs.com/guides/whisky-alternative.html)
+- [Soju vs Whisky, CrossOver, Heroic and Sikarugir](https://didimlabs.com/guides/soju-vs-whisky-crossover-heroic.html): price, status and Battle.net/Steam support of each
+- [StarCraft: Remastered on Apple Silicon](https://didimlabs.com/guides/starcraft-remastered-apple-silicon.html)
 - [맥에서 디아블로 II: 레저렉션](https://didimlabs.com/guides/ko/diablo-2-mac.html)
+- [맥에서 스타크래프트: 리마스터](https://didimlabs.com/guides/ko/starcraft-mac.html)
 
 ## Games
 - [Don't Sell the Cat](https://didimlabs.com/games/dont-sell-the-cat.html): first-person horror in a 1958 pawnshop, about 2 hours, 10 endings, English and Korean. $2.99 for Mac (native Apple Silicon) and Windows. Bought through Polar; Mac copies install through Soju's store tab.

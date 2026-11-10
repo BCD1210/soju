@@ -113,7 +113,37 @@
       "sameAs": [
         "https://github.com/BCD1210/soju"
       ],
-      "image": "https://didimlabs.com/assets/soju-logo.png"
+      "image": "https://didimlabs.com/assets/soju-logo.png",
+      "alternateName": [
+        "Soju for Mac",
+        "Soju game launcher"
+      ],
+      "disambiguatingDescription": "A Mac app from Didim Labs for running Windows game launchers on Apple Silicon. Not the soju IRC bouncer and not the Korean spirit."
+    },
+    {
+      "@type": "HowTo",
+      "name": "Install Soju on an Apple Silicon Mac",
+      "inLanguage": "en",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "position": 1,
+          "name": "Download the app",
+          "text": "Soju-1.10.13-macos-arm64.zip. Unzip it and move Soju to Applications. Signing notes."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 2,
+          "name": "Pick launchers",
+          "text": "Open Soju, go to Platforms and choose the launchers you use. Battle.net, Epic and GOG also use Apple's Game Porting Toolkit; Soju downloads Apple's files and checks Apple's signature before installing them."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 3,
+          "name": "Sign in and play",
+          "text": "Sign in inside each launcher as usual. Installed games show up in the library."
+        }
+      ]
     }
   ],
   "body": [
@@ -376,6 +406,10 @@
               {
                 "label": "Whisky is gone: what to use instead",
                 "href": "guides/whisky-alternative.html"
+              },
+              {
+                "label": "Soju vs Whisky, CrossOver, Heroic and Sikarugir",
+                "href": "guides/soju-vs-whisky-crossover-heroic.html"
               },
               {
                 "label": "맥에서 디아블로 II: 레저렉션 돌리기",

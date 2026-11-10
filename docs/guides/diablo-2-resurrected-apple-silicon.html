@@ -27,12 +27,53 @@
     "name": "Soju",
     "url": "https://didimlabs.com/"
   },
-  "dateModified": "2026-09-20"
+  "dateModified": "2026-11-10"
 }
 </script>
 <link rel="alternate" hreflang="en" href="https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html">
 <link rel="alternate" hreflang="ko" href="https://didimlabs.com/guides/ko/diablo-2-mac.html">
 <link rel="alternate" hreflang="x-default" href="https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Why does Diablo II: Resurrected hang at launch on an M-series Mac?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "D2R's loader needs AVX instructions. Rosetta 2 supports AVX but only advertises it to a process when ROSETTA_ADVERTISE_AVX=1 is set; without it the loader waits forever at about 86 MB of memory and 0% CPU. Soju sets the variable when it starts the game. On macOS older than 26.4 the game can still stall, because of a Rosetta 2 bug Apple fixed in 26.4."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I play Diablo II: Resurrected on a Mac without CrossOver?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Soju is free and open source, and online play through Battle.net was verified on an M4 Pro with macOS 26.5. You need an Apple Silicon Mac, macOS 26.4 or later, your own Battle.net account and a D2R licence."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does BLZBNTBNA00000005 mean on a Mac?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Battle.net's Agent could not verify the program connecting to it. The check needs a macOS-specific way to turn a process ID into a file path, which most community Wine builds lack. Soju's engine is built from the sources CodeWeavers publishes, which have it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need an Apple ID or the Game Porting Toolkit dmg?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. From Soju 1.10.13 the installer downloads Apple's Game Porting Toolkit files, checks Apple's signature on them and installs them. A dmg you downloaded from Apple yourself is still used if it is mounted."
+      }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 <nav><div class="inner">
@@ -46,10 +87,10 @@
 <h1>Diablo II: Resurrected on Apple Silicon</h1>
 <p class="lead">Use Soju to set up the Battle.net edition of Diablo II: Resurrected on Apple Silicon. macOS 26.4 or later and your own game license are required. Online gameplay has been verified on M4 Pro / macOS 26.5; results on other setups may differ.</p>
 
-<p class="note">Updated <time datetime="2026-09-20">September 20, 2026</time>. Run <code>soju doctor d2r</code> before starting. On older macOS, update and restart first. Neither a Soju update nor the AVX environment setting replaces OS-side Rosetta fixes. <a href="https://github.com/BCD1210/soju/issues/44">See issue #44 for the macOS 26.0.1 hang report and follow-up</a>.</p>
+<p class="note">Updated <time datetime="2026-11-10">November 10, 2026</time>. Run <code>soju doctor d2r</code> before starting. On older macOS, update and restart first. Neither a Soju update nor the AVX environment setting replaces OS-side Rosetta fixes. <a href="https://github.com/BCD1210/soju/issues/44">See issue #44 for the macOS 26.0.1 hang report and follow-up</a>.</p>
 <h2>The quick version</h2>
 <pre><code>brew install BCD1210/soju/soju
-soju install      # engine + Apple GPTK walkthrough + Battle.net
+soju install      # engine + Apple GPTK files + Battle.net
 soju battlenet    # log in, install D2R inside Battle.net, press Play</code></pre>
 <p>That's it. The installer downloads a prebuilt GPL Wine engine and Apple's Game Porting
 Toolkit files (checking Apple's signature on them), and installs Battle.net with
@@ -100,8 +141,7 @@ Rosetta at all (it registers non-native code regions), not just for graphics.</p
   <li><strong>Install:</strong> <code>brew install BCD1210/soju/soju</code> (or the
   <a href="https://github.com/BCD1210/soju#install-one-line">one-line installer</a>)</li>
   <li><strong>Run</strong> <code>soju install</code>. It downloads the engine
-  (~350MB), then asks you to download Apple's Game Porting Toolkit dmg and press
-  Enter. It then installs Battle.net automatically (5-10 minutes).</li>
+  (~350MB) and Apple's Game Porting Toolkit files, then installs Battle.net automatically (5-10 minutes).</li>
   <li><strong>Play:</strong> double-click <code>~/Applications/Battle.net.app</code>
   (or run <code>soju battlenet</code>), log in, install D2R inside the app, press
   Play. For offline sessions afterwards: <code>soju d2r</code>.</li>
@@ -115,7 +155,7 @@ Rosetta at all (it registers non-native code regions), not just for graphics.</p
   <tr><td>BLZBNTBNA00000005 after login</td>
       <td>Engine problem. Make sure you're on Soju's engine, not a generic wine build.</td></tr>
   <tr><td>"Failed to initialize graphics"</td>
-      <td>GPTK not installed. Run <code>scripts/get-gptk.sh</code>.</td></tr>
+      <td>GPTK not installed. Run <code>soju gptk</code>.</td></tr>
   <tr><td>Typed text shows as ??</td>
       <td>Switch the macOS input source to English (ABC) while typing in Wine windows.</td></tr>
 </table>
@@ -125,6 +165,14 @@ Rosetta at all (it registers non-native code regions), not just for graphics.</p
 Apple's Game Porting Toolkit files are Apple's own, unmodified and licensed by
 Apple for non-commercial distribution, and you play on your own Battle.net
 account. Nothing is cracked or emulated. D2R runs against the real Battle.net.</p>
+
+<h2 id="questions">Questions</h2>
+<div class="faq">
+  <details open><summary>Why does Diablo II: Resurrected hang at launch on an M-series Mac?</summary><p>D2R's loader needs AVX instructions. Rosetta 2 supports AVX but only advertises it to a process when <code>ROSETTA_ADVERTISE_AVX=1</code> is set; without it the loader waits forever at about 86 MB of memory and 0% CPU. Soju sets the variable when it starts the game. On macOS older than 26.4 the game can still stall, because of a Rosetta 2 bug Apple fixed in 26.4.</p></details>
+  <details><summary>Can I play Diablo II: Resurrected on a Mac without CrossOver?</summary><p>Yes. Soju is free and open source, and online play through Battle.net was verified on an M4 Pro with macOS 26.5. You need an Apple Silicon Mac, macOS 26.4 or later, your own Battle.net account and a D2R licence.</p></details>
+  <details><summary>What does BLZBNTBNA00000005 mean on a Mac?</summary><p>Battle.net's Agent could not verify the program connecting to it. The check needs a macOS-specific way to turn a process ID into a file path, which most community Wine builds lack. Soju's engine is built from the sources CodeWeavers publishes, which have it.</p></details>
+  <details><summary>Do I need an Apple ID or the Game Porting Toolkit dmg?</summary><p>No. From Soju 1.10.13 the installer downloads Apple's Game Porting Toolkit files, checks Apple's signature on them and installs them. A dmg you downloaded from Apple yourself is still used if it is mounted.</p></details>
+</div>
 
 <p><a class="btn" href="https://github.com/BCD1210/soju">Get Soju on GitHub</a></p>
 </main>
