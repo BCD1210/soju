@@ -36,8 +36,7 @@ Soju does not collect telemetry or upload diagnostic logs. Copy log is manual.
 Installing a non-Steam launcher downloads Apple's GPTK files, checks Apple's signature
 and installs them. If that step was skipped, choose **Platforms → Apple GPTK →
 Download and install**. To use your own copy, download Apple's evaluation environment,
-open its DMG and choose **Add mounted toolkit**. Apple licenses the toolkit for
-non-commercial use.
+open its DMG and choose **Add mounted toolkit**.
 
 The official clients retain their own login, library, downloads and game updates.
 Soju does not handle store passwords. Close launchers and games before updating

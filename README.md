@@ -241,7 +241,7 @@ Every bottle start also spawns idle Windows service processes (`services.exe`, `
 
 - Scripts and docs in this repo: **GPL-3.0** (see LICENSE)
 - The engine is built from CodeWeavers' published Wine sources (GPL/LGPL). Sources:  `media.codeweavers.com/pub/crossover/source/`
-- **Not in this repo or the app**: Apple D3DMetal/GPTK binaries, CrossOver application binaries, any Blizzard files. Soju downloads Apple's unmodified GPTK files during setup and installs only what Apple signed; Apple licenses them for non-commercial distribution ([licence](third_party/apple-gptk/License.rtf))
+- **Not in this repo or the app**: Apple D3DMetal/GPTK binaries, CrossOver application binaries, any Blizzard files. Soju downloads Apple's unmodified GPTK files during setup and installs only what Apple signed
 - This project is not affiliated with CodeWeavers, Apple, or Blizzard Entertainment. Battle.net and Diablo are trademarks of Blizzard Entertainment. Use at your own risk; online play with third-party compatibility layers is at your own discretion.
 
 ## Share your compatibility results

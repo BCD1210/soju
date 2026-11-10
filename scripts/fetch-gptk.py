@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Download Apple's Game Porting Toolkit payload and install it with get-gptk.sh.
 
-Apple's licence (third_party/apple-gptk/License.rtf, section 2) lets the files under the
-toolkit's /redist directory and D3DMetal.framework be distributed separately, for
-non-commercial purposes. Soju does not host them: it downloads the archive pinned in
+Apple's licence for the toolkit (section 2) lets the files under its /redist directory and
+D3DMetal.framework be distributed separately, for non-commercial purposes. Soju does not
+host them: it downloads the archive pinned in
 resources/gptk.json, checks its SHA-256, takes only Apple's own files out of it and passes
 them to get-gptk.sh, which installs nothing that is not signed by Apple (the Mach-O parts)
 or a known Apple build (the PE shims).
@@ -82,10 +82,7 @@ def main():
     if not (engine / "lib").is_dir():
         print("Engine not found at %s. Install Battle.net, Epic or GOG first; that prepares the engine." % engine)
         return 1
-    print("Apple Game Porting Toolkit %s (D3DMetal)" % manifest["version"])
-    print("  Apple software, licensed by Apple for non-commercial use: " + manifest["apple_page"])
-    print("  Soju downloads Apple's unmodified files (%d MB), checks Apple's signature on them" % (manifest["size"] // 1000000))
-    print("  and installs only those. Source: " + manifest["source"], flush=True)
+    print("Downloading Apple's Game Porting Toolkit %s (%d MB)" % (manifest["version"], manifest["size"] // 1000000), flush=True)
     base.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".gptk-download-", dir=base) as work:
         work = Path(work); archive = work / "gptk.tar.xz"; stage = work / "lib"
@@ -110,9 +107,6 @@ def main():
         env = dict(os.environ, ENGINE=str(engine))
         if subprocess.run(["/bin/bash", str(ROOT / "scripts/get-gptk.sh"), str(stage)], env=env).returncode != 0:
             return 1
-    licence = ROOT / manifest["license"]
-    if licence.is_file():
-        shutil.copyfile(licence, engine / "lib/external/Apple-GPTK-License.rtf")
     return 0
 
 if __name__ == "__main__":
