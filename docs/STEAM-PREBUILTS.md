@@ -1,4 +1,4 @@
-# Steam support release v2
+# Steam support release v3
 
 The package contains only these open-source components:
 
@@ -15,9 +15,9 @@ The package contains only these open-source components:
 - LLVM 15.0.7: `8dfdcc7b7bf66834a761bd8de445840ef68e4d1a`
   (Apache-2.0 with LLVM exceptions), statically linked into the renderer.
 
-[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v2)
-([v1](https://github.com/BCD1210/soju/releases/tag/steam-support-v1) used the same
-revisions without the tessellation backport.)
+[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v3)
+([v2](https://github.com/BCD1210/soju/releases/tag/steam-support-v2) is the same without the pure virtual
+backport; [v1](https://github.com/BCD1210/soju/releases/tag/steam-support-v1) also lacks the tessellation backport.)
 
 No Apple GPTK, game files, store clients, accounts or credentials are included.
 Clients are downloaded from their official installers separately. The manifest
@@ -51,3 +51,10 @@ v2, on M4 Pro / macOS 26.5 in a throwaway prefix: the smoke test again presented
 whose hull shader requests factor 64. It averaged about 124 ms per frame
 without a cap (the same as v1), 12.3 ms with `d3d11.maxTessFactor = 16` and
 5.0 ms with `8`. v1 ignores the option.
+
+v3, on M4 Pro / macOS 26.5: only `dxmt-x64/d3d11.dll` differs from v2 (the other files
+are v2's, byte for byte; a rebuild changes only their PE timestamps). In it, the
+`ud2` trap after "Pure virtual function called" is replaced by a return. Installed
+through `soju update` from the published release, a Unity D3D11 game (Guilt Free)
+reached its main menu. Skyrim Special Edition's startup abort was checked by the
+contributor of #92 with the same instruction change.
