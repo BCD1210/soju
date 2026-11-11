@@ -20,6 +20,9 @@ from urllib.parse import quote
 
 FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
            'battlenet': 'bottle', 'gog': 'gog-bottle', 'xbox': 'xbox-bottle'}
+# Steam games that stop without Apple GPTK (soju steam-gptk on): Overwatch 2, and
+# Diablo II: Resurrected, whose loader needs GPTK's libd3dshared.
+STEAM_GPTK_GAMES = {'2357570', '2536520'}
 CLIENTS = {
     'steam': 'Program Files (x86)/Steam/steam.exe',
     'epic': 'Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe',
@@ -166,6 +169,9 @@ class Library:
             issue = 'Install this platform in Platforms, then try again.'
         elif not ready: issue = 'Finish the installation or update in the official launcher.'
         elif not arguments: issue = 'Open the official launcher to play this title.'
+        elif platform == 'steam' and uid in STEAM_GPTK_GAMES and self.folders['steam'] == 'steam-bottle':
+            issue = ('This game needs Apple GPTK. In Platforms, turn on "Overwatch and Diablo II mode" '
+                     'on the Steam card; Steam asks you to sign in once there, and the game shows up again.')
         self.games[key] = dict(id=key, platform=platform, title=title.strip()[:300],
                                install_path=str(location), artwork=artwork,
                                issue=issue, arguments=arguments)
