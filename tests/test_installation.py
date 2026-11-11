@@ -259,6 +259,23 @@ class SupportManifestTests(unittest.TestCase):
         pure_virtual = (ROOT/"patches/dxmt-nonfatal-pure-virtual.patch").read_text()
         self.assertIn("+#ifndef NDEBUG\n   __builtin_trap();\n+#endif", pure_virtual)
 
+    def test_surround_audio_patches_are_built_and_installed(self):
+        # #93: 5.1/7.1 output lost centre and back on stereo Macs in the Steam runtime.
+        script = (ROOT/"scripts/build-steam-support.sh").read_text()
+        for patch in ("steam-winecoreaudio-io-buffer.patch",
+                      "highball/0022-mmdevapi-spatial-static-object-order.patch",
+                      "highball/0023-winecoreaudio-spatial-mixer-for-surround-beds.patch"):
+            self.assertTrue((ROOT/"patches"/patch).is_file())
+            self.assertIn('apply_once wine "$ROOT/patches/' + patch + '"', script)
+        for out in ("output/winecoreaudio-patched.so", "output/mmdevapi-x64.dll"):
+            self.assertIn(out, script)
+        setup = (ROOT/"scripts/setup-steam-games.sh").read_text()
+        self.assertIn('"$SUP/winecoreaudio-patched.so" "$WLIB/x86_64-unix/winecoreaudio.so"', setup)
+        self.assertIn('"$SUP/mmdevapi-x64.dll" "$WLIB/x86_64-windows/mmdevapi.dll"', setup)
+        files = json.loads((ROOT/"resources/steam-support.json").read_text())["files"]
+        self.assertIn("winecoreaudio-patched.so", files)
+        self.assertIn("mmdevapi-x64.dll", files)
+
 class EnginePatchTests(unittest.TestCase):
     def test_stored_acls_patch_is_applied_once_by_the_engine_build(self):
         script = (ROOT/"scripts/build-engine.sh").read_text()

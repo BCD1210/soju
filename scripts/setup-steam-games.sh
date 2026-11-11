@@ -3,7 +3,7 @@
 #
 # Prerequisite: create-steam-bottle.sh. Verified components are downloaded into
 # ~/.battlenet-macos/steam-support/ (dxmt-x64/{d3d11,dxgi,d3d10core,winemetal}.dll
-# + winemetal.so, winemac-patched.so).
+# + winemetal.so, winemac-patched.so, winecoreaudio-patched.so, mmdevapi-x64.dll).
 # See docs/STEAM-GAMES.md for how to build the artifacts (based on
 # notpop/steam-on-m1-wine plus three fixes).
 #
@@ -20,6 +20,8 @@
 #     split is mandatory
 #   - winemac-patched.so: -fvisibility=default (DXMT dlsyms macdrv APIs) +
 #     WINE_NO_DOCK_ICON support (single Dock icon)
+#   - winecoreaudio-patched.so + mmdevapi-x64.dll: Highball 0015/0022/0023, so a game's
+#     5.1/7.1 output is mixed down for stereo speakers instead of losing centre and back (#93)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -94,6 +96,10 @@ cp -f "$SUP/dxmt-x64/"{d3d11.dll,dxgi.dll,d3d10core.dll,winemetal.dll} "$WLIB/x8
 cp -f "$SUP/dxmt-x64/winemetal.so" "$WLIB/x86_64-unix/"
 [ -f "$WLIB/x86_64-unix/winemac.so.vanilla" ] || cp "$WLIB/x86_64-unix/winemac.so" "$WLIB/x86_64-unix/winemac.so.vanilla"
 cp -f "$SUP/winemac-patched.so" "$WLIB/x86_64-unix/winemac.so"
+if [ -f "$SUP/winecoreaudio-patched.so" ]; then
+  cp -f "$SUP/winecoreaudio-patched.so" "$WLIB/x86_64-unix/winecoreaudio.so"
+  cp -f "$SUP/mmdevapi-x64.dll" "$WLIB/x86_64-windows/mmdevapi.dll"
+fi
 # i386 stays vanilla (protects the 32-bit steam.exe composer)
 
 BACKUP="$BASE/steam-support/prefix-backup-$(date +%Y%m%d-%H%M%S)"

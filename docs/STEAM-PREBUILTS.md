@@ -1,4 +1,4 @@
-# Steam support release v3
+# Steam support release v4
 
 The package contains only these open-source components:
 
@@ -11,12 +11,19 @@ The package contains only these open-source components:
 - Wine 11.0 winemac: `db11d0fe6a169c457e23d007e20404643d067aa8`,
   plus `patches/steam-winemac.patch`, built with public driver symbols
   (LGPL-2.1-or-later).
+- Wine 11.0 winecoreaudio (Unix side) and x86_64 mmdevapi, same revision, with
+  `patches/steam-winecoreaudio-io-buffer.patch` (Highball 0015 rebased onto wine-11.0),
+  `patches/highball/0022-mmdevapi-spatial-static-object-order.patch` and
+  `patches/highball/0023-winecoreaudio-spatial-mixer-for-surround-beds.patch`: a 5.1/7.1 stream on a
+  stereo device is rendered through Apple's AUSpatialMixer, so centre and back channels are heard (#93)
+  (LGPL-2.1-or-later).
 - Steam webhelper wrapper: vendored notpop source (MIT).
 - LLVM 15.0.7: `8dfdcc7b7bf66834a761bd8de445840ef68e4d1a`
   (Apache-2.0 with LLVM exceptions), statically linked into the renderer.
 
-[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v3)
-([v2](https://github.com/BCD1210/soju/releases/tag/steam-support-v2) is the same without the pure virtual
+[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v4)
+([v3](https://github.com/BCD1210/soju/releases/tag/steam-support-v3) is the same without the audio components;
+[v2](https://github.com/BCD1210/soju/releases/tag/steam-support-v2) is the same without the pure virtual
 backport; [v1](https://github.com/BCD1210/soju/releases/tag/steam-support-v1) also lacks the tessellation backport.)
 
 No Apple GPTK, game files, store clients, accounts or credentials are included.
@@ -58,3 +65,15 @@ are v2's, byte for byte; a rebuild changes only their PE timestamps). In it, the
 through `soju update` from the published release, a Unity D3D11 game (Guilt Free)
 reached its main menu. Skyrim Special Edition's startup abort was checked by the
 contributor of #92 with the same instruction change.
+
+v4, on M4 Pro / macOS 26.5: only `winecoreaudio-patched.so`, `mmdevapi-x64.dll` and `SOURCES.txt`
+are new; every other file is v3's, byte for byte. Two test programs ran in the Steam runtime with the
+new files: a WASAPI 5.1 float stream (mask 0x3f) with a tone in one channel at a time, and Skyrim's
+shape, a 6-channel XAudio2 mastering voice at 44.1 kHz with a mono voice sent only to the centre. A
+meter on the device unit's render callback measured what reached the 2-channel built-in speakers.
+With v3 the device unit was handed all 6 channels and the tone sat in channel 3, which Core Audio
+does not play on stereo speakers (as measured in #93). With v4 the log shows
+`6-channel stream (mask 0x3f) rendered by AUSpatialMixer for built-in speakers on a 2-channel device`
+and the centre tone reached both speakers (RMS 0.025 each for a 0.035 input); back left and back right
+went mostly to their side. The Overwatch/Diablo II Steam mode uses the CX engine, which already has
+these patches.

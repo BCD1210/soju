@@ -1,12 +1,12 @@
 {
-  "version": "steam-support-v3",
+  "version": "steam-support-v4",
   "wine_version": "wine-11.0",
   "minimum_macos": "26.0",
-  "url": "https://github.com/BCD1210/soju/releases/download/steam-support-v3/soju-steam-support-v3.tar.gz",
-  "sha256": "dc9a703d773c8c55c3af51ed431d7ee3f5d36a66479afa9c2c901257bfdac121",
-  "source_url": "https://github.com/BCD1210/soju/releases/download/steam-support-v3/soju-steam-support-v3-sources.tar.gz",
+  "url": "https://github.com/BCD1210/soju/releases/download/steam-support-v4/soju-steam-support-v4.tar.gz",
+  "sha256": "1624e5c05e644456d16f505b9327fded0d5e7608e98051b9ec2f3b5d7c3512ab",
+  "source_url": "https://github.com/BCD1210/soju/releases/download/steam-support-v4/soju-steam-support-v4-sources.tar.gz",
   "files": {
-    "SOURCES.txt": "5c2ca6e7e671587c97f3c6973378850059a45c297950b7b19d1a6f251ae7bf40",
+    "SOURCES.txt": "b61d171123b4f05afdcdbf40c8600d177f142b8435f95a2ab149793ba3d588f1",
     "dxmt-x64/d3d10core.dll": "53bc695d1408abd9067cf219a70e11c2f00d0c9c4c1065516de0fcfc81b95186",
     "dxmt-x64/d3d11.dll": "5c3056229d1cbcca67fdad1f89755f45e77c3adfd216905b265589ffba1400ce",
     "dxmt-x64/dxgi.dll": "ec286d4323c2ac18fc405067526c93b07a9f5f1cef719ab15829e48b8bed79b9",
@@ -17,7 +17,9 @@
     "licenses/LLVM.txt": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
     "licenses/Wine-LGPL.txt": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
     "licenses/wrapper-MIT.txt": "9678fa46fccba251d0444f19d73a4ca76118f33dbc711c8a4c73e7b63c62a1fa",
+    "mmdevapi-x64.dll": "349f60c04d7954cb0f6ca38d9e2a845312e6d444042c2b27f6cdb96b44ba4146",
     "steamwebhelper-wrapper.exe": "9302da71a4eed969dd4d679ba133c7735dafd08abcd491acddd6015dee579898",
+    "winecoreaudio-patched.so": "5ba64c4fbb04f3e2cdfb75b5ae6eaa526694cba211e0cc8869cf527a0e8198d6",
     "winemac-patched.so": "750784fccc7a0f6cd77a4bc4b372f81c09ba29bc62e79897b38240b142808547"
   }
 }
