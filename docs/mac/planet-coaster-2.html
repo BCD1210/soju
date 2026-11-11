@@ -50,7 +50,7 @@
 soju install          # choose Steam (macOS 26 or later)
 soju steam         # sign in, install the game, press Play</code></pre>
 <p>Or <a href="../#install">download the Soju app</a> and add Steam under Platforms. Needs an Apple Silicon Mac (M1 or newer) and macOS 14 or later.</p>
-<p>Tried it? Tell us in <a href="https://discord.gg/ttBDcF5ftz">Discord</a> or <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">send a compatibility report</a> and this page gets updated.</p>
+<p>Tried it? Tell us in <a href="https://discord.gg/PwBjET6YZ3">#compatibility on Discord</a> or <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">send a compatibility report</a> and this page gets updated.</p>
 <h2 id="questions">Questions</h2>
 <div class="faq">
   <details open><summary>Does Planet Coaster 2 run on an Apple Silicon Mac?</summary><p>Mac players report it runs. A Mac player reported it running through Highball (M3 Pro 2026-09-18); not verified by Highball&#x27;s maintainer. Not run in Soju yet; Soju&#x27;s engines differ, so results can too. Their notes: Direct3D 12 only (Cobra engine), so D3DMetal, and it needs a Wine 11 engine. On the Wine 10 engines it crashes within seconds: the game reads the current fiber at gs:0x20, where macOS keeps the thread&#x27;s scheduling priority (0x8ff and 0x20ff in a reporter&#x27;s minidumps, highball#537), and the Wine 11 engines&#x27; patches 0008 and 0009 put the real fiber pointer there. The recipe no longer turns on Metal&#x27;s validation layer…</p></details>
