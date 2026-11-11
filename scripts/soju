@@ -70,6 +70,7 @@ Usage:
   soju steam-kill     Stop everything in the Steam bottle
 
   soju gptk           Install Apple's GPTK payload into the engine (downloads it; a mounted dmg or CrossOver is used if present)
+  soju fps on|off     Show frame rate and frame time in games (Apple's Metal HUD), from the next launch
   soju sweep          Remove orphaned Wine service processes (only when no bottle is running)
   soju doctor         Check the whole stack and print what is wrong
   soju update         Update the scripts and the prebuilt engine
@@ -112,6 +113,14 @@ case "${1:-}" in
     if [ "${1:-}" = "--download" ]; then exec python3 "$ROOT/scripts/fetch-gptk.py"; fi
     if [ $# -gt 0 ] || bash "$ROOT/scripts/get-gptk.sh" --find >/dev/null 2>&1; then exec bash "$ROOT/scripts/get-gptk.sh" "$@"; fi
     exec python3 "$ROOT/scripts/fetch-gptk.py" ;;
+  fps)
+    f="${SOJU_BASE:-$HOME/.battlenet-macos}/fps-hud"
+    case "${2:-status}" in
+      on)  mkdir -p "$(dirname "$f")" && : > "$f" && echo "FPS display on: games started from now show Apple's Metal HUD" ;;
+      off) rm -f "$f" && echo "FPS display off (from the next launch)" ;;
+      status) [ -f "$f" ] && echo on || echo off ;;
+      *) echo "usage: soju fps on|off|status" >&2; exit 64 ;;
+    esac ;;
   sweep)          shift; exec bash "$ROOT/scripts/soju-sweep.sh" "$@" ;;
   doctor)         shift; exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
   update)         shift; exec bash "$ROOT/scripts/update.sh" "$@" ;;

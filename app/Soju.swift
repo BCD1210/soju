@@ -145,6 +145,17 @@ struct SojuLogo: View {
     @Published var issueTitle = "Game needs attention"
     let base = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".battlenet-macos")
     let root = Bundle.main.resourceURL!.appendingPathComponent("soju")
+    /// Apple's Metal HUD (frame rate) in games; play.sh reads the file at launch.
+    @Published var fpsHUD = FileManager.default.fileExists(atPath: FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".battlenet-macos/fps-hud").path) {
+        didSet {
+            let file = base.appendingPathComponent("fps-hud")
+            if fpsHUD {
+                try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+                FileManager.default.createFile(atPath: file.path, contents: nil)
+            } else { try? FileManager.default.removeItem(at: file) }
+        }
+    }
     private var operation: Process?
     private var launches: [Launcher: Process] = [:]
     private var logReader: FileHandle?
@@ -331,6 +342,8 @@ struct PlatformsView: View {
                     .disabled(model.busy)
                 Button("Update components") { model.run(["update"], title: "Checking component updates…") }
                     .disabled(model.busy)
+                Toggle("Show FPS in games", isOn: $model.fpsHUD).toggleStyle(.checkbox)
+                    .help("Apple's Metal HUD: frame rate and frame time in the corner of games started after this")
                 Spacer()
                 Menu("Apple GPTK") {
                     Button("Download and install") { model.run(["gptk"], title: "Downloading Apple GPTK…") }

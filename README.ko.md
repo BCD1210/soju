@@ -77,7 +77,11 @@ soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / 
 soju doctor      # 스택 전체 점검, 뭐가 문제인지 출력 (이슈 올릴 때 이 출력을 붙여주세요)
 soju update      # 스크립트와 엔진 업데이트 (GPTK와 보틀은 그대로 둠)
 soju uninstall   # 앱·보틀·엔진 제거, 항목마다 확인 후 진행
+soju fps on      # 게임 화면 구석에 프레임(FPS)·프레임 시간 표시 (애플 Metal HUD), soju fps off로 끔
 ```
+
+- **게임에서 FPS 보기:** Platforms의 체크박스나 `soju fps on`. 그다음 실행한 게임에 애플 Metal HUD(프레임, 프레임 시간, GPU)가 뜹니다. 호환성 보고할 때 숫자를 적기 좋습니다.
+- **게임별 알려진 설정:** 기본값인 DXMT보다 DXVK에서 더 잘 도는 것으로 알려진 스팀 게임(스카이림 SE, 다크소울 3 등, [resources/steam-profiles.json](resources/steam-profiles.json))은 스팀을 켤 때 한 번 DXVK로 바꿉니다. 직접 바꾼 설정이 우선이고, `soju steam-games renderer reset <game.exe>`로 되돌리면 다시 적용하지 않습니다.
 
 ## 앱에 더 있는 것
 

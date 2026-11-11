@@ -17,6 +17,8 @@ CSS = re.search(r"CSS_VERSION = '([^']+)'", (ROOT / "site/build.mjs").read_text(
 DATA = json.loads((ROOT / "site/mac-games.json").read_text())
 EST = json.loads((ROOT / "site/protondb-estimates.json").read_text())
 HB = json.loads((ROOT / "site/highball-mac.json").read_text())
+_rep = ROOT / "site/soju-reports.json"
+REPORTS = json.loads(_rep.read_text())["reports"] if _rep.exists() else []
 HB_URL = "https://gethighball.com/database/"
 AWACY = "https://areweanticheatyet.com/"
 KO_ESTIMATES = 3000   # Korean pages for the most-reported estimated games
@@ -39,17 +41,19 @@ STATUS = {
            "likely": ("Estimate: likely runs", "likely"), "mixed": ("Estimate: may have problems", "unknown"),
            "unlikely": ("Estimate: unlikely to run", "no"), "few": ("Estimate: few reports", "unknown"),
            "mac-verified": ("Runs on Mac (Highball test)", "ok"), "mac-reported": ("Mac players report it runs", "likely"),
-           "mac-problems": ("Mac players report problems", "no")},
+           "mac-problems": ("Mac players report problems", "no"),
+           "soju-works": ("Soju users report it runs", "likely"), "soju-problems": ("Soju users report problems", "no")},
     "ko": {"verified": ("소주에서 됨", "ok"), "untested": ("소주에서 아직 미확인", "unknown"),
            "blocked": ("안 됨: 안티치트", "no"), "blocked-online": ("온라인은 안티치트로 막힘", "no"),
            "native": ("맥 버전 있음", "native"),
            "likely": ("추정: 될 가능성 높음", "likely"), "mixed": ("추정: 문제 있을 수 있음", "unknown"),
            "unlikely": ("추정: 안 될 가능성 높음", "no"), "few": ("추정: 보고 적음", "unknown"),
            "mac-verified": ("맥에서 됨 (Highball 실측)", "ok"), "mac-reported": ("맥 사용자 보고: 됨", "likely"),
-           "mac-problems": ("맥 사용자 보고: 문제 있음", "no")},
+           "mac-problems": ("맥 사용자 보고: 문제 있음", "no"),
+           "soju-works": ("소주 사용자 보고: 됨", "likely"), "soju-problems": ("소주 사용자 보고: 문제 있음", "no")},
 }
 ESTIMATE = ("likely", "mixed", "unlikely", "few")
-MACDATA = ("mac-verified", "mac-reported", "mac-problems")
+MACDATA = ("mac-verified", "mac-reported", "mac-problems", "soju-works", "soju-problems")
 
 
 def hb_text(h, lang):
@@ -230,6 +234,15 @@ def game_page(lang, g):
         cap = ("소주에서 실행한 화면" if lang == "ko" else "Running in Soju") + (f', {g["verified_on"]}' if g.get("verified_on") else "")
         extra = (f'<figure><img class="shot" src="{shot}" loading="lazy" alt="{esc(name)} {cap}">'
                  f'<figcaption>{cap}</figcaption></figure>\n') + extra
+    if g.get("soju_reports"):
+        items = []
+        for r in g["soju_reports"]:
+            ok = ("됨" if r["works"] else "문제") if lang == "ko" else ("runs" if r["works"] else "problem")
+            bits = [x for x in (r.get("mac"), ("macOS " + re.sub(r"^(macOS\s*)+", "", r["macos"], flags=re.I)) if r.get("macos") else "", ("Soju " + r["soju"].replace("Soju ", "")) if r.get("soju") else "",
+                                (("FPS " if lang != "ko" else "프레임 ") + r["fps"]) if r.get("fps") else "") if x]
+            items.append(f'<li>{r["date"]}: {esc(ok)}, {esc(r.get("title") or r.get("result", ""))} ({esc(", ".join(bits))}) '
+                         f'<a href="{r["url"]}">#{r["number"]}</a></li>')
+        extra = ("<h2>" + ("소주 사용자 보고" if lang == "ko" else "Reports from Soju users") + "</h2>\n<ul>" + "".join(items) + "</ul>\n") + extra
     rel = [r for r in g.get("related", []) if lang == "en" or "ko" in r]
     related = ""
     if rel:
@@ -427,10 +440,32 @@ def letter_page(c, games, letters):
                                       SITE + f"mac/list-{c}.html", [], body, None, "../")
 
 
+def attach_reports(games):
+    """Soju users' reports (site/soju_reports.py) go on the matching page; on a page
+    nobody here has checked they also set the label."""
+    by_app, by_slug = {}, {}
+    for r in REPORTS:
+        if r.get("appid"):
+            by_app.setdefault(r["appid"], []).append(r)
+        slug = slugify(r["name"])
+        by_slug.setdefault(slug, []).append(r)
+        roman = re.sub(r"(?<=-)(2|3|4|5)$", lambda m: {"2": "ii", "3": "iii", "4": "iv", "5": "v"}[m.group(1)], slug)
+        if roman != slug:
+            by_slug.setdefault(roman, []).append(r)   # "Dark Souls 3" is the page dark-souls-iii
+    for g in games:
+        reps = by_app.get(g.get("appid") or "") or by_slug.get(g["slug"]) or by_slug.get(slugify(g["name"]))
+        if not reps:
+            continue
+        g["soju_reports"] = reps
+        if g["status"] not in ("verified", "blocked", "blocked-online", "native"):
+            g["status"] = "soju-works" if reps[-1]["works"] else "soju-problems"
+
+
 def main():
     curated = DATA["games"]
     est = estimates(curated)
     allg = curated + est
+    attach_reports(allg)
     out = {}
     for g in allg:
         p, h = game_page("en", g); out[p] = h

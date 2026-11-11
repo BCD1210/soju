@@ -10,6 +10,7 @@ export WINEPREFIX="$BASE/xbox-bottle"
 # passes a Wine debug channel list through for diagnosis.
 export WINEDEBUG="${SOJU_XBOX_WINEDEBUG:-${WINEDEBUG:-fixme-all}}"
 export WINEMSYNC="${WINEMSYNC:-1}"
+[ -f "$BASE/fps-hud" ] && export MTL_HUD_ENABLED=1   # soju fps on
 export ROSETTA_ADVERTISE_AVX="${ROSETTA_ADVERTISE_AVX:-1}"
 [ "$ROSETTA_ADVERTISE_AVX" = 0 ] && unset ROSETTA_ADVERTISE_AVX
 export WINE_SIMULATE_WRITECOPY=1
