@@ -71,6 +71,18 @@ body:
       label: Engine and graphics setup
       description: Include the engine version and D3DMetal or DXMT setup if known. Unknown is OK.
       placeholder: Soju engine v1.5 + D3DMetal, or Wine Stable + custom DXMT
+  - type: input
+    id: fps
+    attributes:
+      label: Frame rate
+      description: Optional. In Soju, turn on Show FPS in games (or run soju fps on) and note the usual number, with resolution and settings.
+      placeholder: 55-60 FPS at 1920x1080, High
+  - type: input
+    id: played
+    attributes:
+      label: How long you played
+      description: Optional. Roughly, in minutes or hours.
+      placeholder: 40 minutes
   - type: textarea
     id: steps
     attributes:

@@ -1,0 +1,47 @@
+{
+ "_source": "GitHub issues labelled compatibility in BCD1210/soju",
+ "reports": [
+  {
+   "number": 47,
+   "url": "https://github.com/BCD1210/soju/issues/47",
+   "date": "2026-09-21",
+   "name": "honkai star rail",
+   "appid": null,
+   "title": "Honkai: Star Rail (Epic) opens a white window and cannot reach gameplay",
+   "works": false,
+   "store": "Epic Games Launcher",
+   "result": "Works in-game",
+   "mac": "macbook pro m5",
+   "macos": "26.3",
+   "soju": "1.6.5"
+  },
+  {
+   "number": 48,
+   "url": "https://github.com/BCD1210/soju/issues/48",
+   "date": "2026-09-26",
+   "name": "Dark Souls 3",
+   "appid": null,
+   "title": "Dark Souls 3 (Steam) ~1 min freeze on every enemy kill under DXMT",
+   "works": false,
+   "store": "Steam",
+   "result": "Partially works",
+   "mac": "M5 Pro",
+   "macos": "26.6.2",
+   "soju": "1.6.6"
+  },
+  {
+   "number": 58,
+   "url": "https://github.com/BCD1210/soju/issues/58",
+   "date": "2026-10-17",
+   "name": "eFootball",
+   "appid": "1665460",
+   "title": "eFootball (Steam) exits immediately on Apple M2 — Soju 1.6.9",
+   "works": false,
+   "store": "Steam",
+   "result": "Fails to launch",
+   "mac": "2022 MacBook Air, Apple M2, 16 GB RAM",
+   "macos": "macOS Tahoe 26.5.1",
+   "soju": "Soju 1.6.9"
+  }
+ ]
+}
