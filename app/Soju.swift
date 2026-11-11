@@ -125,8 +125,19 @@ struct SojuLogo: View {
     @Published var requestedBuy: String?
     /// A checkout paid on the website, from the thanks page's "Install in Soju" button.
     @Published var requestedClaim: String?
+    /// The website's sign-in result handoff, from soju://auth/done?state=…&code=… ([state, code]).
+    @Published var requestedAuth: [String]?
 
     func open(_ url: URL) {
+        if url.scheme == "soju", url.host == "auth", url.path == "/done" {
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let state = items.first { $0.name == "state" }?.value ?? "", code = items.first { $0.name == "code" }?.value ?? ""
+            let safe = "^[A-Za-z0-9_-]{32,64}$"
+            if state.range(of: safe, options: .regularExpression) != nil, code.range(of: safe, options: .regularExpression) != nil {
+                requestedPage = "store"; requestedAuth = [state, code]
+            }
+            return
+        }
         guard url.scheme == "soju", url.host == "store" else { return }
         requestedPage = "store"
         let game = url.pathComponents.dropFirst().first ?? ""

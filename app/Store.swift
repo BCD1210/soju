@@ -136,6 +136,11 @@ struct StoreView: View {
         .onAppear { store.load(root: model.root); account.loadProviders(); buyRequested(); claimRequested() }
         .onChange(of: model.requestedBuy) { buyRequested() }
         .onChange(of: model.requestedClaim) { claimRequested() }
+        .onChange(of: model.requestedAuth) {
+            guard let handoff = model.requestedAuth, handoff.count == 2 else { return }
+            model.requestedAuth = nil
+            account.received(state: handoff[0], code: handoff[1])
+        }
         .onChange(of: store.games.count) { buyRequested() }
         .sheet(item: $keyFor) { game in keySheet(game) }
     }
@@ -383,6 +388,8 @@ struct StoreView: View {
     @Published var message = ""
     private var timer: Timer?
     private var state = ""
+    /// One-time code the website hands this Soju through soju://auth/done; the poll needs it.
+    private var code = ""
     private var started = Date()
     private static let site = "https://didimlabs.com"
     static let keychainService = "Soju Didim Labs license"
@@ -405,7 +412,7 @@ struct StoreView: View {
         var parts = URLComponents(string: Self.site + "/auth/start")!
         parts.queryItems = [URLQueryItem(name: "provider", value: provider), URLQueryItem(name: "state", value: state)]
         guard let url = parts.url else { return }
-        signingIn = provider; message = ""; started = Date()
+        signingIn = provider; message = ""; started = Date(); code = ""
         NSWorkspace.shared.open(url)
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -414,6 +421,13 @@ struct StoreView: View {
     }
 
     func cancel() { timer?.invalidate(); timer = nil; signingIn = nil }
+
+    /// The browser opened soju://auth/done for the sign-in this Soju started.
+    func received(state: String, code: String) {
+        guard signingIn != nil, state == self.state else { return }
+        self.code = code
+        poll()
+    }
 
     func signOut() {
         cancel()
@@ -432,7 +446,7 @@ struct StoreView: View {
         guard signingIn != nil else { return }
         if Date().timeIntervalSince(started) > 10 * 60 { cancel(); message = "Sign-in timed out. Try again."; return }
         let current = state
-        var request = URLRequest(url: URL(string: Self.site + "/auth/poll/" + current)!)
+        var request = URLRequest(url: URL(string: Self.site + "/auth/poll/" + current + "?v=2" + (code.isEmpty ? "" : "&code=" + code))!)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 15
         URLSession.shared.dataTask(with: request) { data, _, _ in

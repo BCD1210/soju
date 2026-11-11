@@ -116,15 +116,35 @@ export async function auth(request, env, url, { home, games, polar, org }) {
     let owned;
     try { owned = await purchases(env, email, games, polar, org); }
     catch { return fail("The store is busy", "Close this tab and try again from Soju in a minute.", "The store could not look up purchases."); }
-    await env.AUTH.put("s:" + state, JSON.stringify({ status: "done", email, private: c.is_private_email === true || c.is_private_email === "true", owned }), { expirationTtl: TTL });
-    return page("You're signed in", "Go back to Soju. You can close this tab.");
+    // The result goes only to the Soju on this Mac: the browser hands it a one-time code through
+    // soju://auth/done, and the poll must show that code. Someone who sent this person a sign-in
+    // link with their own state never sees the code, so they cannot read the email or keys.
+    const handoff = b64url(crypto.getRandomValues(new Uint8Array(32)));
+    await env.AUTH.put("s:" + state, JSON.stringify({ status: "done", handoff, email, private: c.is_private_email === true || c.is_private_email === "true", owned }), { expirationTtl: TTL });
+    const open = `soju://auth/done?${new URLSearchParams({ state, code: handoff })}`;
+    return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>You're signed in</title><style>body{font:16px/1.5 -apple-system,system-ui,sans-serif;background:#121413;color:#e7e9e6;display:grid;place-items:center;min-height:90vh;margin:0 16px}
+main{max-width:440px;text-align:center}img{width:72px;height:72px}h1{font-size:22px;margin:12px 0 6px}p{color:#a6ada7}a{color:#e7e9e6}</style>
+<main><img src="/assets/soju-logo.png" alt=""><h1>You're signed in</h1><p>Allow the browser to open Soju. If nothing happens, <a href="${open}">open Soju</a>. Then you can close this tab.</p></main>
+<script>location.href=${JSON.stringify(open)};</script>`, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" } });
   }
 
   const poll = url.pathname.match(/^\/auth\/poll\/([A-Za-z0-9_-]{32,64})$/);
   if (poll) {
     const saved = await env.AUTH.get("s:" + poll[1], "json");
     if (!saved) return json({ status: "expired" });
-    if (saved.status === "done" || saved.status === "failed") await env.AUTH.delete("s:" + poll[1]);
+    if (saved.status === "done") {
+      const code = url.searchParams.get("code") || "";
+      if (!code || code !== saved.handoff) {
+        // Soju 1.13.1 and later send v=2 and wait for the code; older versions are told to update.
+        return url.searchParams.get("v") === "2" ? json({ status: "pending" })
+          : json({ status: "failed", error: "Update Soju to sign in: restart it and choose Update and Restart, or download the new version from didimlabs.com." });
+      }
+      await env.AUTH.delete("s:" + poll[1]);
+      const { handoff, ...result } = saved;
+      return json(result);
+    }
+    if (saved.status === "failed") await env.AUTH.delete("s:" + poll[1]);
     return json(saved);
   }
   return json({ error: "Not found." }, 404);
