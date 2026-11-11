@@ -227,6 +227,9 @@ private extension Launcher {
         case .steam: return Color(red: 0.36, green: 0.67, blue: 0.77)
         case .epic: return Color(red: 0.82, green: 0.64, blue: 0.40)
         case .gog: return Color(red: 0.70, green: 0.47, blue: 0.87)
+        case .ea: return Color(red: 0.29, green: 0.42, blue: 0.95)
+        case .rockstar: return Color(red: 0.96, green: 0.70, blue: 0.20)
+        case .ubisoft: return Color(red: 0.36, green: 0.55, blue: 0.98)
         case .xbox: return Color(red: 0.24, green: 0.66, blue: 0.33)
         case .didim: return Color(red: 0.79, green: 0.36, blue: 0.27)
         }

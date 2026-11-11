@@ -4,11 +4,11 @@
 
 > **在 Apple Silicon Mac 上玩 Windows 游戏，免费开源。**
 
-Soju 在 M1 及更新的 Mac 上安装 **Battle.net、Steam、Epic Games 和 GOG GALAXY** 的官方 Windows 客户端，每个客户端使用独立的 Wine 环境，并把游戏集中显示在一个 Mac 游戏库里。项目最初是为了不用 CrossOver 也能运行战网和 Diablo II: Resurrected。
+Soju 在 M1 及更新的 Mac 上安装 **Battle.net、Steam、Epic Games、GOG GALAXY、EA app、Rockstar Games Launcher 和 Ubisoft Connect** 的官方 Windows 客户端，每个客户端使用独立的 Wine 环境，并把游戏集中显示在一个 Mac 游戏库里。项目最初是为了不用 CrossOver 也能运行战网和 Diablo II: Resurrected。
 
 ![Soju 统一游戏库](docs/assets/soju-library.png)
 
-**[下载 Soju 1.10.13（Mac）](https://github.com/BCD1210/soju/releases/download/v1.10.13/Soju-1.10.13-macos-arm64.zip)**，或在终端安装：
+**[下载 Soju 1.11.0（Mac）](https://github.com/BCD1210/soju/releases/download/v1.11.0/Soju-1.11.0-macos-arm64.zip)**，或在终端安装：
 
 ```bash
 brew install BCD1210/soju/soju
@@ -37,6 +37,9 @@ soju install
 | 战网（Battle.net） | ✅ | ✅ | Agent 正常；`BLZBNTBNA00000005` 通过签名 exe 播种解决 |
 | Epic Games Launcher | ✅ | ✅ | 关闭窗口后驻留菜单栏托盘 |
 | GOG GALAXY | ✅ | ✅ | 登录和游戏库可用；游戏尚未广泛测试 |
+| EA app | 登录窗口 | 尚未测试 | 1.11 新增，启动器引擎（DXMT） |
+| Rockstar Games Launcher | 登录窗口 | 尚未测试 | 1.11 新增，启动器引擎（DXMT） |
+| Ubisoft Connect | 登录窗口 | 尚未测试 | 1.11 新增，启动器引擎（DXMT） |
 | Steam（Windows 客户端） | ✅ | ✅ | 独立的 Wine 11 + DXMT bottle |
 | Xbox PC / Microsoft Store | ✅ | ✅ | Xodus 后端；游戏启动为实验功能（Retro Classics 可进入主菜单） |
 
@@ -61,12 +64,12 @@ curl -fsSL didimlabs.com/install.sh | bash
 
 ```bash
 brew install BCD1210/soju/soju
-soju install     # 然后：soju battlenet / soju d2r / soju steam / soju epic / soju gog
+soju install     # 然后：soju battlenet / soju d2r / soju steam / soju epic / soju gog / soju ea / soju rockstar / soju ubisoft
 ```
 
 安装器会**先询问要安装哪些启动器，再下载对应组件**。仅选择 Steam 时，不会下载 CX 引擎或 Apple GPTK。Steam 图形组件经过 SHA-256 校验后，自动安装到 Soju 专用的 Wine 11.0 环境中。战网、Epic 和 GOG 使用共享 CX 引擎及用户单独下载的 Apple GPTK。各客户端的 bottle、账户和游戏分别保留。
 
-[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.10.13/Soju-1.10.13-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
+[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.11.0/Soju-1.11.0-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
 
 ## 日常维护
 
@@ -144,6 +147,16 @@ scripts/play.sh epic-kill        # 停止 Epic bottle（关窗口会缩到菜单
 ```
 
 2026-08-30 验证：从登录器安装 71 GB 的《霍格沃茨之遗》（UE4，D3D12 走 D3DMetal），进入游戏。两点提示：中日韩输入法已经不影响了（engine-v1.5 起像 Windows 一样，用输入法底下的英文布局生成键表，游戏中切到中文再切回来也没问题）；如果游戏以全屏启动，请在游戏自己的显示设置里改成窗口模式（Soju 不强制）。wine 11.0 的一个已知问题：在多个 Wine 窗口（登录器、游戏、另一个 bottle）之间切换几次后，游戏可能收不到键盘输入，重启游戏即可；上游在 wine 11.11 修复。
+
+### EA app、Rockstar Games Launcher、Ubisoft Connect
+
+```bash
+soju ea-install        # 或 rockstar-install / ubisoft-install：独立 bottle，官方安装程序
+soju ea                # 或 rockstar / ubisoft：登录、安装和游玩
+soju ea-kill           # 或 rockstar-kill / ubisoft-kill
+```
+
+2026-11-10 验证：三个客户端都能安装并打开登录窗口（未登录账户，游戏尚未测试）。它们的窗口是 Chromium 浏览器，GPU 进程把画面画到另一个进程的窗口里，Wine 的 Mac 驱动无法显示，所以在 CX 引擎上窗口是白色或黑色。因此它们运行在第二个引擎上：在你的 Mac 上从 CX 引擎克隆（APFS 克隆，不额外占用空间），再加上 launcher-support 组件，即带 `patches/winemac-cross-process-swapchains.patch`（来自 Highball，Wine bug 60263）的 Mac 驱动，以及可跨进程显示的 Direct3D 10/11 DXMT。战网、Epic 和 GOG 仍使用原来的 CX 引擎。EA app 首次启动会自我更新；之后如果窗口是空的，退出再打开即可。
 
 ### GOG GALAXY
 
