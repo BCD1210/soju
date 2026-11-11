@@ -1,7 +1,7 @@
 {
-  "version": "launcher-support-v1",
-  "url": "https://github.com/BCD1210/soju/releases/download/launcher-support-v1/soju-launcher-support-v1.tar.gz",
-  "sha256": "6b572debf73e91b3e26f9bbe36c2247dccec5725f26abab6ab0d0412a8e3ab5a",
+  "version": "launcher-support-v2",
+  "url": "https://github.com/BCD1210/soju/releases/download/launcher-support-v2/soju-launcher-support-v2.tar.gz",
+  "sha256": "18cf24621a4b2fab07e93f9be18d438fbcdd599cce78c2fe61d06f84f1117db4",
   "files": {
     "SOURCES.txt": "b143443281cbc7d67480a326a13c7075013c7f6b68ae7673fa2778b00a184e1b",
     "dxmt/i386-windows/d3d10core.dll": "aa21a497d86a8970f4e708fead276fd7ba945de9bdbec488538df537a885d3ef",
@@ -16,7 +16,7 @@
     "licenses/DXMT.txt": "b87c35aef7b2cf14de854118ca55ce5c4b284c85b5f002421fb8d46d868c2d17",
     "licenses/LLVM.txt": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
     "licenses/Wine-LGPL.txt": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
-    "winemac.so": "ef1b6ec12c153a197f909e7badb2e48d537bbf1be239dcd712c7b8ac93d4859f"
+    "winemac.so": "69bb3f0b9508a31412a1215ed25e83821cfe0f4d9d05c27541d91fd69362b2ca"
   },
   "notes": "Mac driver with the cross-process swapchain patch and DXMT for the EA app, Rockstar Games Launcher and Ubisoft Connect (scripts/launcher-engine.sh). Built by scripts/build-launcher-support.sh."
 }

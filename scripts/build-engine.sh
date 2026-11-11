@@ -77,6 +77,13 @@ if ! grep -q "WM_MACDRV_CREATE_REMOTE_LAYER" "$WINE/dlls/winemac.drv/macdrv.h"; 
   echo "==> Applying patches/winemac-cross-process-swapchains.patch (EA, Rockstar and Ubisoft browser windows)"
   patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/winemac-cross-process-swapchains.patch"
 fi
+# Fixes from Highball (patches/highball/README.md). Each one is applied only if it is not in yet.
+for p in "$SCRIPT_DIR"/../patches/highball/*.patch; do
+  if ! patch -p1 -R -s -f --dry-run -d "$WINE" < "$p" >/dev/null 2>&1; then
+    echo "==> Applying patches/highball/$(basename "$p")"
+    patch -p1 -s -d "$WINE" < "$p"
+  fi
+done
 
 echo "==> Building x86_64 freetype (Rosetta)"
 fetch_checked "$FT_URL" "$WORK/ft.tar.gz" "$FT_SHA256"
@@ -107,7 +114,12 @@ grep -q '#define HAVE_SYS_INOTIFY_H 1' include/config.h \
 sed -i '' 's|#define SONAME_LIBGNUTLS.*|#define SONAME_LIBGNUTLS "libgnutls.30.dylib"|' include/config.h
 
 echo "==> wine make"
+# make can regenerate include/config.h (config.status); keep the soname fix in.
+sed -i '' 's|#define SONAME_LIBGNUTLS.*|#define SONAME_LIBGNUTLS "libgnutls.30.dylib"|' include/config.h
 arch -x86_64 make -j"$(sysctl -n hw.ncpu)"
+# Without the right soname every TLS connection fails (Battle.net, Steam sign-in).
+strings -a dlls/bcrypt/bcrypt.so 2>/dev/null | grep -qx 'libgnutls.30.dylib' \
+  || { echo "bcrypt.so does not name libgnutls.30.dylib; fix SONAME_LIBGNUTLS in include/config.h and rerun make"; exit 1; }
 arch -x86_64 make install DESTDIR="$WORK/install"
 
 echo "==> Assembling the engine (dylibs + D3DMetal + rpath + entitlement signing)"

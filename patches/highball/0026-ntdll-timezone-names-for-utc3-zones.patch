@@ -1,0 +1,63 @@
+A Mac set to Europe/Istanbul names its Windows time zone Turkey Standard Time,
+not Arab Standard Time.
+
+Wine picks the registry time zone whose rules match the host for the current
+year, taking the first match in the registry's order. Nine zones are UTC+3
+without daylight saving time today, and Arab Standard Time (Riyadh) comes
+first, so Turkey, Russia, Jordan, Syria, Kenya and Belarus all reported
+Riyadh. Rockstar's sign in refuses a client whose time zone disagrees with
+where it connects from: the Rockstar Games Launcher answered #1.000.7 (and
+#1.500.7 for a new account) to two players in Turkey whose accounts signed in
+from a Mac browser (highball#477, highball#478). Deleting the seven UTC+3
+zones listed before Turkey Standard Time from the prefix made Wine report
+Turkey Standard Time, and the launcher then signed in (confirmed by the
+reporter of highball#477, M1 Max, macOS 27.0.1, engine
+x64-crossover26.3-r27).
+
+CrossOver's tree already tells some same-rule zones apart in match_tz_name:
+by the host's zone abbreviation and, where those agree, by the host's offset
+at a past date (Korea and North Korea, Tokyo and Yakutsk). The UTC+3 zones go
+in the same table. Turkey was UTC+2 until September 2016, Jordan and Syria
+until October 2022, Riyadh, Baghdad and Minsk were UTC+3 at both dates, and
+Moscow (MSK) and Nairobi (EAT) have abbreviations of their own.
+
+Checked 2026-10-24 on macOS 27 with a C program that copies match_tz_name and
+match_past_tz_bias over the nine zones in registry order: Europe/Istanbul gets
+Turkey Standard Time; Asia/Riyadh, Asia/Qatar, Asia/Baghdad and Europe/Minsk
+keep Arab Standard Time as before; Africa/Nairobi and Africa/Addis_Ababa get
+E. Africa Standard Time; Asia/Amman and Asia/Damascus get Jordan Standard
+Time; Europe/Moscow, Europe/Volgograd and Europe/Simferopol get Russian
+Standard Time. Upstream Wine has no such table; not sent.
+
+diff -ruN a/dlls/ntdll/unix/system.c b/dlls/ntdll/unix/system.c
+--- a/dlls/ntdll/unix/system.c	2026-10-24 19:18:22
++++ b/dlls/ntdll/unix/system.c	2026-10-24 19:18:22
+@@ -2756,6 +2756,28 @@
+           "JST" },
+         { {'Y','a','k','u','t','s','k',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
+           "+09" }, /* YAKST was used until tzdata 2016f */
++        /* The UTC+3 zones without daylight saving time all match the same rules for the current
++         * year, and the first one in the registry won, so a Mac set to Europe/Istanbul named its
++         * zone Arab Standard Time (Riyadh). Each now also needs its abbreviation and, where those
++         * agree, its offset at a past date: Turkey was UTC+2 until September 2016, Jordan and
++         * Syria until October 2022, Riyadh, Baghdad and Minsk were UTC+3 at both dates, and
++         * Moscow and Nairobi have abbreviations of their own. */
++        { { 'A','r','a','b',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1451606400 /* 2016-01-01 00:00:00 UTC */, -180 },
++        { { 'A','r','a','b','i','c',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1451606400 /* 2016-01-01 00:00:00 UTC */, -180 },
++        { { 'B','e','l','a','r','u','s',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1451606400 /* 2016-01-01 00:00:00 UTC */, -180 },
++        { { 'E','.',' ','A','f','r','i','c','a',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "EAT" },
++        { { 'J','o','r','d','a','n',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1577836800 /* 2020-01-01 00:00:00 UTC */, -120 },
++        { { 'R','u','s','s','i','a','n',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "MSK" },
++        { { 'S','y','r','i','a',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1577836800 /* 2020-01-01 00:00:00 UTC */, -120 },
++        { { 'T','u','r','k','e','y',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1451606400 /* 2016-01-01 00:00:00 UTC */, -120 },
+     };
+     unsigned int i;
+ 
