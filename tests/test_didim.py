@@ -167,7 +167,11 @@ class DidimStore(unittest.TestCase):
         self.assertEqual(bundled, public)
         self.assertEqual(bundled['schema'], 1)
         for game in bundled['games']:
-            self.assertTrue(game['checkout'].startswith('https://buy.polar.sh/'))
+            # Not on sale yet (price to be announced): no checkout, and then there has to be a demo to show.
+            if game['checkout'] == '':
+                self.assertIn('demo', game)
+            else:
+                self.assertTrue(game['checkout'].startswith('https://buy.polar.sh/'))
             self.assertTrue(game['cover'].startswith('https://didimlabs.com/store/'))
             self.assertTrue((ROOT / 'docs/store' / game['cover'].rsplit('/', 1)[1]).is_file())
             if 'demo' in game:
