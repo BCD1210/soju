@@ -179,7 +179,12 @@ struct SojuLogo: View {
         installed = Set(Launcher.installable.filter {
             FileManager.default.fileExists(atPath: base.appendingPathComponent($0.executable).path)
         })
+        steamGPTK = FileManager.default.fileExists(atPath: base.appendingPathComponent("steam-gptk").path)
+            && FileManager.default.fileExists(atPath: base.appendingPathComponent(
+                "steam-gptk-bottle/drive_c/Program Files (x86)/Steam/steam.exe").path)
     }
+    /// soju steam-gptk: Steam and its games on Apple GPTK (scripts/steam-gptk.sh).
+    @Published var steamGPTK = false
 
     func task(_ args: [String], logName: String, environment extra: [String: String] = [:]) throws -> (Process, URL) {
         let dir = base.appendingPathComponent("logs")
@@ -358,6 +363,11 @@ struct PlatformsView: View {
                 Spacer()
                 Menu("Apple GPTK") {
                     Button("Download and install") { model.run(["gptk"], title: "Downloading Apple GPTK…") }
+                    Toggle("Use for Steam (Overwatch, Diablo II on Steam)", isOn: Binding(
+                        get: { model.steamGPTK },
+                        set: { on in model.run(["steam-gptk", on ? "on" : "off"],
+                                               title: on ? "Moving Steam to Apple GPTK…" : "Moving Steam back to Wine 11…") }))
+                        .disabled(!model.installed.contains(.steam))
                     Divider()
                     Button("Apple's download page") { open("https://developer.apple.com/games/game-porting-toolkit/") }
                     Button("Add mounted toolkit…", action: model.addGPTK)

@@ -68,6 +68,8 @@ Usage:
                      Choose a renderer for one 64-bit game (close Steam first)
   soju steam          Launch Steam
   soju steam-kill     Stop everything in the Steam bottle
+  soju steam-gptk on|off|status
+                     Run Steam and its games on Apple GPTK (D3D12 games, Overwatch and Diablo II on Steam); sign in once
 
   soju gptk           Install Apple's GPTK payload into the engine (downloads it; a mounted dmg or CrossOver is used if present)
   soju fps on|off     Show frame rate and frame time in games (Apple's Metal HUD), from the next launch
@@ -108,6 +110,7 @@ case "${1:-}" in
     case "$market" in US|KR|GB|DE|JP) ;; *) echo "soju: choose US, KR, GB, DE or JP" >&2; exit 64 ;; esac
     printf '{"market":"%s"}' "$market" | exec python3 "$ROOT/scripts/library-service.py" sync xbox ;;
   steam-games)    shift; exec bash "$ROOT/scripts/setup-steam-games.sh" "$@" ;;
+  steam-gptk)     shift; exec bash "$ROOT/scripts/steam-gptk.sh" "$@" ;;
   gptk)           shift
     # A path, a mounted dmg or CrossOver is used as it is; otherwise Soju downloads the payload.
     if [ "${1:-}" = "--download" ]; then exec python3 "$ROOT/scripts/fetch-gptk.py"; fi
