@@ -246,3 +246,10 @@ main > section.cta { max-width: var(--wide); margin: 96px 0 0; padding: 48px 28p
   main > section > h2 { margin-top: 60px; }
   main > section.cta { margin-top: 64px; padding: 36px 18px 30px; }
 }
+
+/* Game pages (/mac/) */
+.status{display:inline-block;padding:.25em .7em;border-radius:999px;font-weight:600;font-size:.95em}
+.status.ok{background:#1f6f43;color:#fff}.status.likely{background:#3d6b4f;color:#fff}
+.status.unknown{background:#5a5a5a;color:#fff}.status.no{background:#8a2b2b;color:#fff}
+.status.native{background:#2b4f8a;color:#fff}
+table.games td,table.games th{vertical-align:top}

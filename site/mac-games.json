@@ -1,0 +1,263 @@
+{
+ "_note": "One entry per game page under /mac/ (and /ko/mac/ when ko is set). status: verified (we ran it in Soju), untested (not run in Soju yet), blocked (its anti-cheat refuses Wine), native (the publisher ships a Mac version). Only write what was checked; site/mac_games.py builds the pages.",
+ "checked": "2026-11-11",
+ "games": [
+  {
+   "slug": "diablo-2-resurrected",
+   "name": "Diablo II: Resurrected",
+   "launcher": "battlenet",
+   "status": "verified",
+   "detail": "Played in-game and online on an M4 Pro with macOS 26.5. Direct3D 12 through Apple's D3DMetal. Needs macOS 26.4 or later: the game requires AVX, which Rosetta 2 offers from 26.4.",
+   "guide": "../guides/diablo-2-resurrected-apple-silicon.html",
+   "ko": {
+    "name": "디아블로 2 레저렉션",
+    "detail": "M4 Pro, macOS 26.5에서 게임 안까지 들어가 온라인으로 플레이했습니다. Direct3D 12를 애플 D3DMetal로 돌립니다. macOS 26.4 이상이 필요합니다(게임이 AVX를 요구하고, 로제타 2가 26.4부터 지원).",
+    "guide": "../../guides/ko/diablo-2-mac.html"
+   },
+   "verified_on": "2026-08-27"
+  },
+  {
+   "slug": "starcraft-remastered",
+   "name": "StarCraft: Remastered",
+   "launcher": "battlenet",
+   "status": "verified",
+   "detail": "Single-player match started and drew with the Remastered graphics on an M4 Pro with macOS 26.5. Multiplayer and sound not tested. Blizzard's own Mac build is an Intel build that runs through Rosetta 2.",
+   "guide": "../guides/starcraft-remastered-apple-silicon.html",
+   "ko": {
+    "name": "스타크래프트 리마스터",
+    "detail": "M4 Pro, macOS 26.5에서 싱글 플레이 경기가 리마스터 그래픽으로 시작됐습니다. 멀티플레이와 소리는 확인 안 했습니다. 블리자드 자체 맥 버전은 인텔용이라 로제타 2로 돕니다.",
+    "guide": "../../guides/ko/starcraft-mac.html"
+   },
+   "verified_on": "2026-11-10"
+  },
+  {
+   "slug": "diablo-4",
+   "name": "Diablo IV",
+   "launcher": "battlenet",
+   "status": "untested",
+   "detail": "Blizzard ships Diablo IV for Windows only. It has not been run in Soju yet. It installs from the Windows Battle.net client that Soju sets up, the same way as Diablo II: Resurrected.",
+   "ko": {
+    "name": "디아블로 4",
+    "detail": "디아블로 4는 윈도우판만 있습니다. 소주에서 아직 실행해 보지 않았습니다. 소주가 설치하는 윈도우 배틀넷에서 디아블로 2 레저렉션과 같은 방법으로 설치합니다."
+   }
+  },
+  {
+   "slug": "overwatch-2",
+   "name": "Overwatch 2",
+   "launcher": "battlenet",
+   "status": "untested",
+   "detail": "Windows only on PC. It has not been run in Soju yet. It installs from the Windows Battle.net client in Soju.",
+   "ko": {
+    "name": "오버워치 2",
+    "detail": "PC판은 윈도우만 있습니다. 소주에서 아직 실행해 보지 않았습니다. 소주의 윈도우 배틀넷에서 설치합니다."
+   }
+  },
+  {
+   "slug": "call-of-duty",
+   "name": "Call of Duty (Black Ops, Warzone)",
+   "launcher": "battlenet",
+   "status": "blocked",
+   "detail": "Activision's Ricochet anti-cheat uses a Windows kernel driver, which Wine cannot run, so these games do not start online under Wine on any Mac or Linux setup. Cloud services (GeForce NOW, Xbox Cloud Gaming) are the way to play them on a Mac."
+  },
+  {
+   "slug": "world-of-warcraft",
+   "name": "World of Warcraft",
+   "launcher": "battlenet",
+   "status": "native",
+   "detail": "Blizzard ships a native Apple Silicon version in Battle.net for Mac. Use that; it does not need Soju."
+  },
+  {
+   "slug": "starcraft-2",
+   "name": "StarCraft II",
+   "launcher": "battlenet",
+   "status": "native",
+   "detail": "Blizzard ships a Mac version in Battle.net for Mac. Use that; it does not need Soju."
+  },
+  {
+   "slug": "hearthstone",
+   "name": "Hearthstone",
+   "launcher": "battlenet",
+   "status": "native",
+   "detail": "Blizzard ships a Mac version in Battle.net for Mac. Use that; it does not need Soju."
+  },
+  {
+   "slug": "diablo-3",
+   "name": "Diablo III",
+   "launcher": "battlenet",
+   "status": "native",
+   "detail": "Blizzard ships a Mac version in Battle.net for Mac. Use that; it does not need Soju."
+  },
+  {
+   "slug": "gta-5",
+   "name": "Grand Theft Auto V",
+   "launcher": "rockstar",
+   "status": "blocked-online",
+   "detail": "GTA Online added BattlEye anti-cheat in September 2024 and since then refuses Wine and Proton, so online play does not work. Story mode has not been run in Soju yet; it installs from the Rockstar Games Launcher or Steam in Soju.",
+   "ko": {
+    "name": "GTA 5",
+    "detail": "GTA 온라인은 2024년 9월 배틀아이 안티치트를 넣은 뒤 Wine·Proton을 막아서 온라인은 안 됩니다. 스토리 모드는 소주에서 아직 실행해 보지 않았습니다. 소주의 락스타 게임즈 런처나 스팀에서 설치합니다."
+   }
+  },
+  {
+   "slug": "red-dead-redemption-2",
+   "name": "Red Dead Redemption 2",
+   "launcher": "rockstar",
+   "status": "untested",
+   "detail": "Windows only on PC. It has not been run in Soju yet. It installs from the Rockstar Games Launcher or Steam in Soju."
+  },
+  {
+   "slug": "apex-legends",
+   "name": "Apex Legends",
+   "launcher": "ea",
+   "status": "blocked",
+   "detail": "EA turned off Easy Anti-Cheat support for Linux and Steam Deck on 31 October 2024, so Apex Legends no longer starts under Wine or Proton."
+  },
+  {
+   "slug": "ea-sports-fc",
+   "name": "EA SPORTS FC",
+   "launcher": "ea",
+   "status": "blocked",
+   "detail": "EA's Javelin anti-cheat runs as a Windows kernel driver, which Wine cannot run, so EA SPORTS FC does not start under Wine or Proton."
+  },
+  {
+   "slug": "battlefield-6",
+   "name": "Battlefield 6",
+   "launcher": "ea",
+   "status": "blocked",
+   "detail": "Battlefield 6 requires EA's Javelin kernel anti-cheat and Secure Boot, neither of which Wine provides."
+  },
+  {
+   "slug": "the-sims-4",
+   "name": "The Sims 4",
+   "launcher": "ea",
+   "status": "native",
+   "detail": "EA ships The Sims 4 for Mac in the EA app for Mac. Use that; it does not need Soju."
+  },
+  {
+   "slug": "mass-effect-legendary-edition",
+   "name": "Mass Effect Legendary Edition",
+   "launcher": "ea",
+   "status": "untested",
+   "detail": "Windows only on PC. It has not been run in Soju yet. It installs from the EA app or Steam in Soju."
+  },
+  {
+   "slug": "rainbow-six-siege",
+   "name": "Rainbow Six Siege",
+   "launcher": "ubisoft",
+   "status": "blocked",
+   "detail": "Siege uses BattlEye, and Ubisoft has not enabled it for Wine or Proton, so the game does not get past its anti-cheat."
+  },
+  {
+   "slug": "assassins-creed-valhalla",
+   "name": "Assassin's Creed Valhalla",
+   "launcher": "ubisoft",
+   "status": "untested",
+   "detail": "Windows only on PC. It has not been run in Soju yet. It installs from Ubisoft Connect in Soju."
+  },
+  {
+   "slug": "far-cry-6",
+   "name": "Far Cry 6",
+   "launcher": "ubisoft",
+   "status": "untested",
+   "detail": "Windows only on PC. It has not been run in Soju yet. It installs from Ubisoft Connect in Soju."
+  },
+  {
+   "slug": "assassins-creed-shadows",
+   "name": "Assassin's Creed Shadows",
+   "launcher": "ubisoft",
+   "status": "native",
+   "detail": "Ubisoft ships a native Apple Silicon version on the Mac App Store. Use that; it does not need Soju."
+  },
+  {
+   "slug": "fortnite",
+   "name": "Fortnite",
+   "launcher": "epic",
+   "status": "blocked",
+   "detail": "Fortnite's Easy Anti-Cheat does not allow Wine or Proton, so the Windows version does not run through Soju. Fortnite is free on Xbox Cloud Gaming and GeForce NOW in a Mac browser.",
+   "ko": {
+    "name": "포트나이트",
+    "detail": "포트나이트의 이지 안티치트가 Wine·Proton을 허용하지 않아 윈도우판은 소주로 안 됩니다. 맥 브라우저에서 Xbox 클라우드 게이밍이나 GeForce NOW로 무료로 할 수 있습니다."
+   }
+  },
+  {
+   "slug": "hogwarts-legacy",
+   "name": "Hogwarts Legacy",
+   "launcher": "epic",
+   "status": "verified",
+   "detail": "Installed from the Epic Games Launcher in Soju (71 GB) and played in-game: Unreal Engine 4, Direct3D 12 through Apple's D3DMetal. The game's \"AMD driver\" warning at start is harmless. If it starts full screen and you want a window, set windowed mode in its own display settings.",
+   "verified_on": "2026-08-30",
+   "ko": {
+    "name": "호그와트 레거시",
+    "detail": "소주의 에픽 게임즈 런처에서 설치(71GB)해 게임 안까지 플레이했습니다. 언리얼 엔진 4, Direct3D 12를 애플 D3DMetal로 돌립니다. 시작할 때 나오는 \"AMD 드라이버\" 경고는 무시해도 됩니다. 창 모드로 하려면 게임 안 화면 설정에서 바꾸세요."
+   }
+  },
+  {
+   "slug": "pubg",
+   "name": "PUBG: Battlegrounds",
+   "launcher": "steam",
+   "status": "blocked",
+   "detail": "PUBG's BattlEye anti-cheat does not allow Wine or Proton, so it does not run through Soju or on Steam Deck.",
+   "ko": {
+    "name": "배틀그라운드",
+    "detail": "배틀그라운드의 배틀아이 안티치트가 Wine·Proton을 허용하지 않아 소주로도, 스팀덱에서도 안 됩니다."
+   }
+  },
+  {
+   "slug": "counter-strike-2",
+   "name": "Counter-Strike 2",
+   "launcher": "steam",
+   "status": "untested",
+   "detail": "Valve dropped the Mac version with Counter-Strike 2. It has not been run in Soju yet. It installs from the Windows Steam client in Soju (macOS 26 or later)."
+  },
+  {
+   "slug": "elden-ring",
+   "name": "Elden Ring",
+   "launcher": "steam",
+   "status": "untested",
+   "detail": "Windows only on PC. It has not been run in Soju yet. It installs from the Windows Steam client in Soju (macOS 26 or later)."
+  },
+  {
+   "slug": "cyberpunk-2077",
+   "name": "Cyberpunk 2077",
+   "launcher": "steam",
+   "status": "native",
+   "detail": "CD PROJEKT RED ships a native Apple Silicon version (Mac App Store, Steam and GOG). Use that; it does not need Soju."
+  },
+  {
+   "slug": "baldurs-gate-3",
+   "name": "Baldur's Gate 3",
+   "launcher": "steam",
+   "status": "native",
+   "detail": "Larian ships a native Mac version on Steam and GOG. Use that; it does not need Soju."
+  },
+  {
+   "slug": "dota-2",
+   "name": "Dota 2",
+   "launcher": "steam",
+   "status": "native",
+   "detail": "Valve ships a Mac version on Steam. Use that; it does not need Soju."
+  },
+  {
+   "slug": "valorant",
+   "name": "VALORANT",
+   "launcher": "none",
+   "status": "blocked",
+   "detail": "Riot Vanguard runs as a Windows kernel driver, which Wine cannot run, and Soju does not install the Riot Client. VALORANT does not run on a Mac this way.",
+   "ko": {
+    "name": "발로란트",
+    "detail": "라이엇 뱅가드가 윈도우 커널 드라이버로 돌아가는데 Wine은 이를 실행할 수 없고, 소주는 라이엇 클라이언트도 설치하지 않습니다. 이 방법으로는 맥에서 안 됩니다."
+   }
+  },
+  {
+   "slug": "league-of-legends",
+   "name": "League of Legends",
+   "launcher": "none",
+   "status": "native",
+   "detail": "Riot ships a Mac version of League of Legends. Use that; it does not need Soju.",
+   "ko": {
+    "name": "리그 오브 레전드",
+    "detail": "라이엇이 리그 오브 레전드 맥 버전을 냅니다. 그걸 쓰면 되고 소주는 필요 없습니다."
+   }
+  }
+ ]
+}

@@ -242,7 +242,7 @@
       "props": {
         "id": "works",
         "title": "Games we've run",
-        "intro": "Tested on an M4 Pro Mac with macOS 26.5. Other games may or may not work; please [report what you try](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)."
+        "intro": "Tested on an M4 Pro Mac with macOS 26.5. Other games may or may not work: [check a game](mac/) or [report what you try](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)."
       },
       "children": [
         {
@@ -394,6 +394,15 @@
           "type": "Links",
           "props": {
             "items": [
+              {
+                "label": "Does this game run on a Mac? Game-by-game list",
+                "href": "mac/"
+              },
+              {
+                "label": "맥에서 이 게임 되나요? (한국어)",
+                "href": "ko/mac/",
+                "lang": "ko"
+              },
               {
                 "label": "Diablo II: Resurrected on Apple Silicon",
                 "href": "guides/diablo-2-resurrected-apple-silicon.html"
