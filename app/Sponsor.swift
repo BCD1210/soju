@@ -65,43 +65,33 @@ struct SponsorFeed: Decodable {
     }
 }
 
-/// Bottom-left of the sidebar: the current sponsor, or an offer to buy the slot.
+/// Bottom-left of the sidebar: the current sponsor, if there is one. An empty slot
+/// shows nothing; the offer to buy it lives on didimlabs.com/sponsor.html.
 struct SponsorCard: View {
     @StateObject private var sponsors = SponsorModel()
     static let page = URL(string: "https://didimlabs.com/sponsor.html")!
 
     var body: some View {
-        Group {
-            if let slot = sponsors.slot, let link = slot.link {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("SPONSOR").font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
-                    Link(destination: link) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(slot.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(.primary)
-                            Text(slot.line).font(.system(size: 11)).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }.buttonStyle(.plain).help(link.host ?? "")
-                    Link(destination: Self.page) {
-                        Text("Advertise here").font(.system(size: 10)).foregroundStyle(.tertiary)
-                    }.buttonStyle(.plain)
-                }
-            } else {
-                Link(destination: Self.page) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Label("Advertise in Soju", systemImage: "megaphone")
-                            .font(.system(size: 12, weight: .medium)).foregroundStyle(.primary)
-                        Text("This spot is for sale. One sponsor at a time.")
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
+        if let slot = sponsors.slot, let link = slot.link {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("SPONSOR").font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
+                Link(destination: link) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(slot.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(.primary)
+                        Text(slot.line).font(.system(size: 11)).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                }.buttonStyle(.plain).help("Buy this spot or ask about a partnership")
+                }.buttonStyle(.plain).help(link.host ?? "")
+                Link(destination: Self.page) {
+                    Text("Advertise here").font(.system(size: 10)).foregroundStyle(.tertiary)
+                }.buttonStyle(.plain)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 13).padding(.vertical, 11)
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.1)))
+            .padding(.top, 10)
+        } else {
+            Color.clear.frame(height: 0).onAppear { sponsors.load() }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 13).padding(.vertical, 11)
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.1)))
-        .padding(.top, 10)
-        .onAppear { sponsors.load() }
     }
 }
