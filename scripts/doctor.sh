@@ -113,6 +113,8 @@ if [ -f "$BASE/steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
   fi
   [ -x "$WINESTABLE" ] && pass "Steam Wine runtime present" \
     || fail "Steam runtime is missing: run soju steam-install"
+  python3 "$ROOT/scripts/fetch-gstreamer.py" --check && pass "GStreamer for game voices (WMA)" \
+    || warn "GStreamer missing: Steam games with WMA voice lines have no dialogue (soju update adds it)"
   if [ "$(bash "$ROOT/scripts/steam-gptk.sh" status 2>/dev/null)" = on ]; then
     [ -f "$BASE/cx26-engine/lib/external/libd3dshared.dylib" ] \
       && pass "Steam runs on Apple GPTK (steam-gptk-bottle)" \

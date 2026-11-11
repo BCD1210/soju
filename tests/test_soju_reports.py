@@ -51,6 +51,12 @@ class Reports(unittest.TestCase):
         self.assertEqual((r["name"], r["appid"], r["works"], r["fps"]), ("eFootball", "1665460", True, "55-60 FPS at 1080p"))
         self.assertNotIn("played", r)
 
+    def test_note_after_result_and_plain_app_number(self):
+        body = BODY.replace("eFootball (Steam, App ID 1665460)", "The Elder Scrolls V: Skyrim Special Edition (Steam app 489830)")
+        body = body.replace("Works in-game\n", "Works in-game: played about 12 minutes with dialogue, after three changes (below).\n")
+        r = sr.parse(issue("[Compatibility]: Skyrim Special Edition (Steam) works on M5 Pro / macOS 27.2 after three fixes", body))
+        self.assertEqual((r["appid"], r["works"]), ("489830", True))
+
     def test_failure_title_wins(self):
         self.assertFalse(sr.parse(issue("eFootball (Steam) exits immediately on Apple M2"))["works"])
 
