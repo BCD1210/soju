@@ -9,7 +9,7 @@
 - [Soju home](https://didimlabs.com/): what Soju does, tested games, install steps, FAQ
 - [Soju in Korean / 소주 한국어](https://didimlabs.com/ko/)
 - [Game-by-game list](https://didimlabs.com/mac/): which Windows games were run in Soju, which are not checked yet, which anti-cheat blocks under Wine, and which have a Mac version. Korean: https://didimlabs.com/ko/mac/
-- [Source code and releases](https://github.com/BCD1210/soju): GPL-3.0-or-later; current version 1.14.1
+- [Source code and releases](https://github.com/BCD1210/soju): GPL-3.0-or-later; current version 1.14.2
 - Supported launchers: Steam, Battle.net, Epic Games, GOG GALAXY, EA app, Rockstar Games Launcher and Ubisoft Connect (new in 1.11: install and sign-in verified, games not yet), Xbox PC (experimental). Needs an Apple Silicon Mac (M1 or newer) and macOS 14+; Steam games need macOS 26+; Diablo II: Resurrected needs macOS 26.4+.
 - Tested on M4 Pro / macOS 26.5: Diablo II: Resurrected (Battle.net, online), Hogwarts Legacy (Epic, D3DMetal), StarCraft: Remastered (Battle.net, single-player match), Guilt Free (Steam, DXMT). Kernel anti-cheat games do not run.
 - Install: `curl -fsSL https://didimlabs.com/install.sh | bash` or `brew install BCD1210/soju/soju`
