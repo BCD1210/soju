@@ -8,7 +8,9 @@ struct StoreGame: Decodable, Identifiable {
     let title: String
     let publisher: String
     let price: String
+    /// Empty while the game is not on sale yet (price to be announced): the card then shows the price text and the demo only.
     let checkout: String
+    var forSale: Bool { !checkout.isEmpty }
     let cover: String?
     let summary: String
     let details: String
@@ -40,7 +42,7 @@ struct StoreCatalog: Decodable {
         // Only https links to the store's own checkout and images are used.
         return catalog.games.filter { game in
             game.id.range(of: "^[a-z0-9][a-z0-9-]{0,63}$", options: .regularExpression) != nil
-                && safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"]) != nil
+                && (game.checkout.isEmpty || safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"]) != nil)
                 && (game.cover == nil || safe(game.cover!, hosts: ["didimlabs.com"]) != nil)
                 && (game.steam == nil || safe(game.steam!, hosts: ["store.steampowered.com"]) != nil)
                 && (game.demo == nil || validDemo(game.demo!, of: game.id))
@@ -179,9 +181,16 @@ struct StoreView: View {
                             Label("Install", systemImage: "arrow.down.circle.fill")
                         }.buttonStyle(.borderedProminent).tint(.green).disabled(model.busy)
                     } else {
-                        Button { buy(game) } label: {
-                            Label("Buy · " + game.price, systemImage: "cart")
-                        }.buttonStyle(.borderedProminent).tint(accent).disabled(purchase.pending != nil)
+                        if game.forSale {
+                            Button { buy(game) } label: {
+                                Label("Buy · " + game.price, systemImage: "cart")
+                            }.buttonStyle(.borderedProminent).tint(accent).disabled(purchase.pending != nil)
+                        } else {
+                            Label(game.price, systemImage: "clock").font(.system(size: 12, weight: .semibold))
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(accent.opacity(0.18)))
+                                .help("Not on sale yet. Leave your email below to hear when it is.")
+                        }
                         if let demo = game.demo {
                             if let demoGame = installed(id: demo.id) {
                                 Button { model.play(demoGame) } label: { Label("Play demo", systemImage: "play") }
@@ -240,7 +249,7 @@ struct StoreView: View {
     private func buyRequested() {
         guard let id = model.requestedBuy, let game = store.games.first(where: { $0.id == id }) else { return }
         model.requestedBuy = nil
-        if installed(game) == nil && !account.owned.contains(game.id) && purchase.pending == nil { buy(game) }
+        if game.forSale && installed(game) == nil && !account.owned.contains(game.id) && purchase.pending == nil { buy(game) }
     }
 
     /// A purchase made on the website: pick up its key with the checkout ID and install.
