@@ -195,6 +195,8 @@ soju xbox-logout             # 退出登录（已下载的游戏保留）
 
 **Windows Media Audio 语音**（如 Skyrim SE 的对白）由 Wine 通过 GStreamer 解码。安装 Steam 时以及 `soju update` 时，Soju 会从 gstreamer.freedesktop.org 下载官方 macOS 包（固定 SHA-256，首次约 150 MB），只在 `~/.battlenet-macos/gstreamer` 保留 Wine 需要的 39 MB 音频插件和库，由 Soju 启动的 Steam 会使用它们。适用于 Wine 11 的 Steam；Apple GPTK 引擎目前还不支持 GStreamer。
 
+**立体声扬声器上的 5.1/7.1 声音。** 以 5.1 或 7.1 声道输出的游戏（如 Skyrim Special Edition）在 Mac 扬声器上会丢失中置和后置声道，大部分对白也随之消失。Steam 组件 v4 附带打了 Highball 补丁的 Wine 音频驱动，这类声音会先经 Apple 的空间混音器混成立体声再送到扬声器 (#93)。
+
 D2R 于 2026 年 2 月以 *Infernal Edition* 上架 Steam。Steam 支持用的是**另一个免费引擎**：新版 Steam 客户端的 CEF 界面在 CrossOver 源码构建上无法渲染（黑窗口，跨进程交换链 + CEF 沙箱问题），但在 Homebrew 的 `wine-stable` 11 上，配合一个强制 `--disable-gpu --single-process` 的小 `steamwebhelper` 包装器就能工作。该修复来自 [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)（MIT，包装器源码收录在 `third_party/`）。Steam 有自己独立的 bottle，两套栈互不干扰：
 
 ```bash

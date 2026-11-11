@@ -203,6 +203,8 @@ soju xbox-logout             # 로그아웃 (받은 게임은 유지)
 
 **WMA 음성**(스카이림 SE 대사 등)은 Wine이 GStreamer로 디코딩합니다. Steam을 설치할 때와 `soju update` 때 소주가 gstreamer.freedesktop.org의 공식 macOS 패키지(SHA-256 고정, 처음 한 번 약 150MB)를 받아 Wine이 쓰는 오디오 플러그인과 라이브러리 39MB만 `~/.battlenet-macos/gstreamer`에 남깁니다. 소주로 실행한 Steam이 이를 씁니다. Wine 11 Steam에 해당하며, Apple GPTK 엔진은 아직 GStreamer를 지원하지 않습니다.
 
+**스테레오 스피커에서 5.1·7.1 소리.** 5.1이나 7.1 채널로 소리를 내는 게임(Skyrim Special Edition 등)은 맥 스피커에서 가운데와 뒤 채널, 곧 대사 대부분이 들리지 않았습니다. Steam 부품 v4는 Highball 패치를 넣은 Wine 오디오 드라이버를 함께 깔아, 이런 소리를 Apple 공간 음향 믹서로 섞어 스피커로 보냅니다 (#93).
+
 D2R은 2026년 2월 Steam에도 *Infernal Edition*으로 출시됐습니다. Steam은 **다른 무료 엔진**을 씁니다: 최신 Steam 클라이언트의 CEF UI는 CrossOver 소스 계열 빌드에서 렌더링되지 않지만(검은 창, 크로스 프로세스 스왑체인 + CEF 샌드박스 문제), homebrew `wine-stable` 11 + `steamwebhelper` 래퍼(`--disable-gpu --single-process` 강제)로는 동작합니다. 이 해법은 [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)(MIT, 래퍼 소스는 `third_party/`에 동봉)에서 왔습니다. Steam은 별도 보틀이라 두 스택이 서로 간섭하지 않습니다:
 
 ```bash
