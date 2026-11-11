@@ -1,0 +1,23 @@
+Backport of upstream DXMT 66277b82e "fix(d3d11): make pure virtual call non-fatal"
+(Feifan He, MIT, 2026-09-16) to the pinned DXMT revision.
+
+Skyrim Special Edition releases a destroyed texture a second time, and the call lands on a pure
+virtual slot of a destroyed D3D11 object. The pinned revision answers that with __builtin_trap(), so
+the game dies about 12 seconds after launch with "err: Pure virtual function called". Windows and
+DXVK let the same stray call return harmlessly. This logs the message as before and then returns,
+except in debug builds (the release build defines NDEBUG: meson `b_ndebug=if-release`).
+Upstream issue: https://github.com/3Shain/dxmt/issues/231
+
+diff --git a/src/d3d11/d3d11.cpp b/src/d3d11/d3d11.cpp
+index 0550862..790b2d1 100644
+--- a/src/d3d11/d3d11.cpp
++++ b/src/d3d11/d3d11.cpp
+@@ -212,5 +212,7 @@ extern "C" void _massert(const char *_Message, const char *_File,
+ 
+ extern "C" void __cxa_pure_virtual() {
+   dxmt::Logger::err(dxmt::str::format("Pure virtual function called"));
++#ifndef NDEBUG
+   __builtin_trap();
++#endif
+ }
+\ No newline at end of file
