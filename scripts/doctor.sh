@@ -87,6 +87,10 @@ if [ -f "$ENGINE/lib/external/libd3dshared.dylib" ]; then
     if [ -f "$dll" ] && grep -q "D3DMetalDLLsBase" "$dll" 2>/dev/null; then pass "$f.dll is the D3DMetal shim"
     else fail "$f.dll is Wine's own, not Apple's D3DMetal shim: D3D runs on wined3d and the Epic launcher crashes (re-run: $SOJU gptk)"; fi
   done
+  for f in atidxx64 nvapi64; do
+    grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/$f.dll" 2>/dev/null && pass "$f.dll is Apple's driver shim" \
+      || warn "$f.dll missing: some games (Overwatch 2) stop at start; $SOJU update or $SOJU gptk adds it"
+  done
 else
   fail "GPTK not installed: games will not start (run: $SOJU gptk)"
 fi

@@ -225,6 +225,11 @@ def game_page(lang, g):
                  f'alt="{esc(name)}"></p>\n' + extra +
                  f'<p><a href="https://store.steampowered.com/app/{g["appid"]}/">'
                  + ("스팀 상점 페이지" if lang == "ko" else "Steam store page") + "</a></p>")
+    if g.get("screenshot"):
+        shot = ("../../assets/" if lang == "ko" else "../assets/") + g["screenshot"]
+        cap = ("소주에서 실행한 화면" if lang == "ko" else "Running in Soju") + (f', {g["verified_on"]}' if g.get("verified_on") else "")
+        extra = (f'<figure><img class="shot" src="{shot}" loading="lazy" alt="{esc(name)} {cap}">'
+                 f'<figcaption>{cap}</figcaption></figure>\n') + extra
     rel = [r for r in g.get("related", []) if lang == "en" or "ko" in r]
     related = ""
     if rel:

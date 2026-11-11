@@ -45,12 +45,14 @@
    "slug": "overwatch-2",
    "name": "Overwatch 2",
    "launcher": "battlenet",
-   "status": "untested",
-   "detail": "Windows only on PC. It has not been run in Soju yet. It installs from the Windows Battle.net client in Soju.",
+   "status": "verified",
+   "detail": "Reached the main menu signed in and online on an M4 Pro with macOS 26.5, drawn with D3DMetal (Apple's Game Porting Toolkit). It needs Apple's AMD and NVIDIA driver shims (atidxx64.dll, nvapi64.dll) from the toolkit; without them it stops at start with \"General Error (0xE0010110)\". soju update adds them. Blizzard asks for a phone number on the Battle.net account before the free install. A match was not played in this check.",
    "ko": {
     "name": "오버워치 2",
-    "detail": "PC판은 윈도우만 있습니다. 소주에서 아직 실행해 보지 않았습니다. 소주의 윈도우 배틀넷에서 설치합니다."
-   }
+    "detail": "M4 Pro, macOS 26.5에서 로그인한 채 온라인 메인 메뉴까지 떴습니다. 그래픽은 D3DMetal(애플 GPTK)입니다. GPTK의 AMD·NVIDIA 드라이버 흉내 파일(atidxx64.dll, nvapi64.dll)이 있어야 하고, 없으면 시작하자마자 \"General Error (0xE0010110)\"로 멈춥니다. soju update가 채워 줍니다. 무료 설치 전에 배틀넷 계정에 휴대폰 번호를 등록해야 합니다. 이번 확인에서 실제 경기는 해 보지 않았습니다."
+   },
+   "verified_on": "2026-11-11",
+   "screenshot": "overwatch-2-mac.jpg"
   },
   {
    "slug": "call-of-duty",
