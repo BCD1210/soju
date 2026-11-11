@@ -99,6 +99,26 @@ else
 fi
 fi
 
+# Engines set up from an older toolkit, or by an older Soju, can have only
+# d3d11/d3d12/dxgi of Apple's shims. Games that look for the AMD and NVIDIA
+# driver shims (Overwatch 2: "General Error 0xE0010110" without atidxx64.dll)
+# then stop at start. Fill in the rest from the pinned toolkit download.
+complete_gptk(){
+  local f missing=""
+  [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] || return 0
+  [ "${SOJU_GPTK_DOWNLOAD:-1}" = 1 ] || return 0
+  for f in atidxx64 nvapi64; do
+    grep -q "D3DMetalDLLsBase" "$ENGINE/lib/wine/x86_64-windows/$f.dll" 2>/dev/null || missing="$missing $f"
+  done
+  [ -n "$missing" ] || return 0
+  if pgrep -x wineserver >/dev/null 2>&1; then
+    echo "  Apple GPTK is missing$missing.dll; close launchers and games and run soju update again to add them"
+    return 0
+  fi
+  echo "  adding Apple's GPTK driver shims ($missing )"
+  ENGINE="$ENGINE" SOJU_BASE="$BASE" python3 "$ROOT/scripts/fetch-gptk.py" || echo "  could not add them; games that need them may not start (soju gptk retries)"
+}
+
 # ---------- 2. Engine ----------
 say "[2/2] Checking the engine"
 if [ ! -x "$ENGINE/bin/wine" ]; then
@@ -115,7 +135,7 @@ TAG="$ENGINE_TAG"
 CUR=$(cat "$ENGINE/.soju-engine-release" 2>/dev/null || echo "")
 
 if [ -n "$CUR" ] && [ "$CUR" = "$TAG" ]; then
-  echo "  engine is up to date ($TAG)"; exit 0
+  echo "  engine is up to date ($TAG)"; complete_gptk; exit 0
 fi
 if [ -z "$CUR" ]; then
   echo "  installed engine version is not recorded; latest is $TAG"
@@ -179,3 +199,4 @@ mv "$ENGINE" "$OLD"
 mv "$NEW" "$ENGINE"
 rm -rf "$OLD"
 echo "  engine updated to $TAG: $(DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ENGINE/bin/wine" --version)"
+complete_gptk
