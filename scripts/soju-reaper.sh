@@ -26,11 +26,11 @@
 # Accessibility permission needed, nothing to install. A minimized or hidden
 # (Cmd-H) window, or one on another Space, still counts as a window.
 #
-# Usage: soju-reaper.sh <WINEPREFIX> <wineserver-path> [battlenet|steam|epic|gog]
+# Usage: soju-reaper.sh <WINEPREFIX> <wineserver-path> [battlenet|steam|epic|gog|ea|rockstar|ubisoft]
 #        (backgrounded by play.sh / the app bundles)
 set -u
 
-PREFIX="${1:?usage: soju-reaper.sh <WINEPREFIX> <wineserver> [battlenet|steam|epic|gog]}"
+PREFIX="${1:?usage: soju-reaper.sh <WINEPREFIX> <wineserver> [battlenet|steam|epic|gog|ea|rockstar|ubisoft]}"
 WINESERVER="${2:?}"
 MODE="${3:-battlenet}"
 INTERVAL=20
@@ -57,6 +57,18 @@ case "$MODE" in
   gog)
     GAME_RE=''
     HELPER_RE="$(exe_re 'GalaxyClientService\.exe|GalaxyCommunication\.exe|GalaxyClientHelper\.exe|GOG Galaxy Notifications Renderer\.exe|QtWebEngineProcess\.exe|GalaxyClient Helper\.exe')"
+    ;;
+  ea)
+    GAME_RE=''
+    HELPER_RE="$(exe_re 'EABackgroundService\.exe|EACefSubProcess\.exe|EALocalHostSvc\.exe|EACrashReporter\.exe|ErrorReporter\.exe|EAConnect_microsoft\.exe')"
+    ;;
+  rockstar)
+    GAME_RE=''
+    HELPER_RE="$(exe_re 'RockstarService\.exe|SocialClubHelper\.exe|RockstarErrorHandler\.exe')"
+    ;;
+  ubisoft)
+    GAME_RE=''
+    HELPER_RE="$(exe_re 'UplayService\.exe|UplayWebCore\.exe|UbisoftExtension\.exe|UplayCrashReporter\.exe|UpcElevationService\.exe')"
     ;;
   *)
     GAME_RE="$(exe_re 'D2R\.exe')"

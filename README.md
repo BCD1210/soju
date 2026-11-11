@@ -4,11 +4,11 @@
 
 > **Play Windows games on Apple Silicon Macs. Free and open source.**
 
-Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games and GOG GALAXY** on M1-or-newer Macs, keeps each one in its own Wine setup, and lists your games in one Mac library. It began as a way to run Battle.net and Diablo II: Resurrected without CrossOver.
+Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games, GOG GALAXY, EA app, Rockstar Games Launcher and Ubisoft Connect** on M1-or-newer Macs, keeps each one in its own Wine setup, and lists your games in one Mac library. It began as a way to run Battle.net and Diablo II: Resurrected without CrossOver.
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
-**[Download Soju 1.10.13 for Mac](https://github.com/BCD1210/soju/releases/download/v1.10.13/Soju-1.10.13-macos-arm64.zip)**, or install from the terminal:
+**[Download Soju 1.11.0 for Mac](https://github.com/BCD1210/soju/releases/download/v1.11.0/Soju-1.11.0-macos-arm64.zip)**, or install from the terminal:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -37,6 +37,9 @@ All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher
 | Battle.net | ✅ | ✅ | Agent works; `BLZBNTBNA00000005` fixed by the caller-signature seed |
 | Epic Games Launcher | ✅ | ✅ | parks in the menu bar tray on close |
 | GOG GALAXY | ✅ | ✅ | login + library; games not broadly tested yet |
+| EA app | sign-in window | not tested yet | new in 1.11; launcher engine (DXMT) |
+| Rockstar Games Launcher | sign-in window | not tested yet | new in 1.11; launcher engine (DXMT) |
+| Ubisoft Connect | sign-in window | not tested yet | new in 1.11; launcher engine (DXMT) |
 | Steam (Windows client) | ✅ | ✅ | private Wine 11 + DXMT bottle |
 | Xbox PC / Microsoft Store | ✅ | ✅ | Xodus backend; game launch experimental (Retro Classics reaches its menu) |
 
@@ -65,12 +68,12 @@ Or via Homebrew:
 
 ```bash
 brew install BCD1210/soju/soju
-soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / soju gog
+soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / soju gog / soju ea / soju rockstar / soju ubisoft
 ```
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.10.13/Soju-1.10.13-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.11.0/Soju-1.11.0-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
@@ -154,6 +157,16 @@ scripts/play.sh epic-kill        # stop the Epic bottle (closing the window park
 ```
 
 Verified 2026-08-30: 71 GB install of Hogwarts Legacy (UE4, D3D12 through D3DMetal) from the launcher, then in-game. Two things to know: a Korean/Japanese/Chinese input source no longer matters (engine-v1.5 builds the key tables from the ASCII layout the input method sits on, as Windows does, so you can switch to Korean and back mid-game); and if a game starts full screen, set windowed mode in its own display settings (Soju does not force it). One known wine 11.0 issue: after switching between several Wine windows (a launcher, a game, another bottle) a game can stop receiving keyboard input until it is restarted; upstream fixed this in wine 11.11.
+
+### EA app, Rockstar Games Launcher, Ubisoft Connect
+
+```bash
+soju ea-install        # or rockstar-install / ubisoft-install: separate bottle, official installer
+soju ea                # or rockstar / ubisoft: log in, install and play
+soju ea-kill           # or rockstar-kill / ubisoft-kill
+```
+
+Verified 2026-11-10: install and sign-in window for all three (not signed in to an account; games not tested yet). Their windows are Chromium browsers whose GPU process draws into a window another process owns. Wine's Mac driver cannot present that, so on the CX engine these launchers stay white or black. They run on a second engine instead, made on your Mac from the CX engine (an APFS clone, no extra space) plus the launcher-support component: the Mac driver with `patches/winemac-cross-process-swapchains.patch` (from Highball, Wine bug 60263) and DXMT for Direct3D 10/11, which can present across processes. Battle.net, Epic and GOG keep the CX engine unchanged. The EA app updates itself on its first start; if its window then stays empty, quit it and open it again.
 
 ### GOG GALAXY
 

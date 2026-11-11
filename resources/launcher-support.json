@@ -1,0 +1,22 @@
+{
+  "version": "launcher-support-v1",
+  "url": "https://github.com/BCD1210/soju/releases/download/launcher-support-v1/soju-launcher-support-v1.tar.gz",
+  "sha256": "6b572debf73e91b3e26f9bbe36c2247dccec5725f26abab6ab0d0412a8e3ab5a",
+  "files": {
+    "SOURCES.txt": "b143443281cbc7d67480a326a13c7075013c7f6b68ae7673fa2778b00a184e1b",
+    "dxmt/i386-windows/d3d10core.dll": "aa21a497d86a8970f4e708fead276fd7ba945de9bdbec488538df537a885d3ef",
+    "dxmt/i386-windows/d3d11.dll": "34d83f6ef62ac10087d8b5030e633a6d46743c70fc73afff1621249f437e07df",
+    "dxmt/i386-windows/dxgi.dll": "c135d3b8f9becb54710342ce179281abbff4f1ce2edf934fab4a72bcfa2fdb1c",
+    "dxmt/i386-windows/winemetal.dll": "2d9004f151f11e9f1250a46038a2fc3fd253e660372b79c28d3786f00429fa88",
+    "dxmt/x86_64-unix/winemetal.so": "3d5cc9c4b8e5c9f5c12407d4726c5d93fc70535a43590a9c4799d7e00849fd5d",
+    "dxmt/x86_64-windows/d3d10core.dll": "2a9890170a64e2a27bf4f3e37aefc14b719573a8c91f062410b0efb666615d79",
+    "dxmt/x86_64-windows/d3d11.dll": "3d9452127d7cccf29f4dc80fac636e84aeccaa9a7936368b81292bf68c836b87",
+    "dxmt/x86_64-windows/dxgi.dll": "6f391e1c1e742c4c74657524cb6d2abcbd461d260f2aae828720ad54cb74300d",
+    "dxmt/x86_64-windows/winemetal.dll": "79b5fda6a25223729c5b6a41f3e9c2320550bd040fe1ed730a89f84426cc75e8",
+    "licenses/DXMT.txt": "b87c35aef7b2cf14de854118ca55ce5c4b284c85b5f002421fb8d46d868c2d17",
+    "licenses/LLVM.txt": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+    "licenses/Wine-LGPL.txt": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
+    "winemac.so": "ef1b6ec12c153a197f909e7badb2e48d537bbf1be239dcd712c7b8ac93d4859f"
+  },
+  "notes": "Mac driver with the cross-process swapchain patch and DXMT for the EA app, Rockstar Games Launcher and Ubisoft Connect (scripts/launcher-engine.sh). Built by scripts/build-launcher-support.sh."
+}
