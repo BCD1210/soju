@@ -102,7 +102,7 @@ def page(lang, title, desc, canonical, alternates, body, faq, base, game=None, i
                                                   "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in faq]},
                                  ensure_ascii=False, separators=(",", ":")))
     alt = "".join('<link rel="alternate" hreflang="%s" href="%s">\n' % (l, u) for l, u in alternates)
-    scripts = "".join('<script type="application/ld+json">\n%s\n</script>\n' % b for b in blocks)
+    scripts = "".join('<script type="application/ld+json">\n%s\n</script>\n' % b.replace("<", "\\u003c") for b in blocks)
     nav = ('<a href="%smac/">Games</a>\n  <a href="%sguides/soju-vs-whisky-crossover-heroic.html">Compare</a>\n'
            '  <a href="https://github.com/BCD1210/soju">GitHub</a>\n  <a href="%s">Discord</a>' % (base, base, DISCORD))
     if lang == "ko":

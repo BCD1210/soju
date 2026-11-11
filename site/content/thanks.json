@@ -3,6 +3,7 @@
   "lang": "en",
   "base": "../",
   "noindex": true,
+  "private": true,
   "title": "Thanks for your purchase | Didim Labs",
   "description": "Your purchase went through.",
   "nav": [

@@ -10,6 +10,8 @@ const tick = () => { const m = Math.floor(Date.now() / 60000); if (m !== minute)
 export async function notify(request, env) {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
   if (!env.AUTH) return json({ error: "Not available right now." }, 503);
+  const site = request.headers.get("sec-fetch-site");
+  if (site && site !== "same-origin") return json({ error: "Forbidden." }, 403);
   let input;
   const type = request.headers.get("content-type") || "";
   try { input = type.includes("json") ? await request.json() : Object.fromEntries(await request.formData()); } catch { return json({ error: "Send the form." }, 400); }
@@ -19,6 +21,8 @@ export async function notify(request, env) {
   tick();
   if (++notifyCount > 20) return json({ error: "Too many sign-ups right now. Try again in a minute." }, 429);
   const source = String(input.source || "site").replace(/[^a-z0-9-]/g, "").slice(0, 20) || "site";
+  // KV writes share a daily quota with sign-in, so a repeated address is not written again.
+  if (await env.AUTH.get("n:" + email)) return json({ ok: true });
   await env.AUTH.put("n:" + email, JSON.stringify({ at: new Date().toISOString(), source }));
   return json({ ok: true });
 }
