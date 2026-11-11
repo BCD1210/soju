@@ -24,11 +24,13 @@ enum Launcher: String, CaseIterable, Identifiable {
     }
     var detail: String {
         switch self {
-        case .steam: return "Windows library · D3D11 with DXMT"
-        case .ea, .rockstar, .ubisoft: return "Windows library · DXMT, new"
-        case .xbox: return "Microsoft Store library · experimental"
+        case .battlenet: return "Diablo, Overwatch, StarCraft and more"
+        case .steam: return "Your Steam games"
+        case .epic: return "Your Epic Games library"
+        case .gog: return "Your GOG library"
+        case .ea, .rockstar, .ubisoft: return "New: sign-in works, games not tested yet"
+        case .xbox: return "Game Pass and Microsoft Store · experimental"
         case .didim: return "Native Mac games"
-        default: return "Windows library · Apple D3DMetal"
         }
     }
     /// Xbox PC has no Windows client to open; sign-in and downloads run in Soju.
@@ -118,7 +120,6 @@ struct SojuLogo: View {
     @Published var activity = "Ready."
     @Published var log = "Choose a launcher to get started. Existing installations are detected automatically."
     @Published var failed = false
-    @Published var selection: Set<Launcher> = [.battlenet]
     @Published var launching: Set<Launcher> = []
     @Published var requestedPage: String?
     /// A game the store should start checking out, from a soju://store/<game>?buy=1 link.
@@ -253,11 +254,6 @@ struct SojuLogo: View {
         log = String((log + text).suffix(60000))
     }
 
-    func installSelection() {
-        let selected = Launcher.installable.filter { selection.contains($0) }.map(\.rawValue)
-        guard !selected.isEmpty else { return }
-        run(["install", selected.joined(separator: ",")], title: "Installing selected launchers…")
-    }
 
     func launch(_ launcher: Launcher) {
         guard launcher.opensAWindow else { requestedPage = "accounts"; return }
@@ -321,6 +317,8 @@ struct SojuLogo: View {
 
 struct PlatformsView: View {
     @EnvironmentObject var model: SojuModel
+    /// The raw log is for troubleshooting; it opens by itself while work runs or when something fails.
+    @State private var showLog = false
     @Environment(\.colorScheme) private var scheme
     private var green: Color { scheme == .dark ? Color(red: 0.42, green: 0.83, blue: 0.67) : Color(red: 0.12, green: 0.34, blue: 0.28) }
     // Three columns keep five platforms in two rows, so the log stays on screen.
@@ -350,10 +348,6 @@ struct PlatformsView: View {
                 }
             }
             HStack(spacing: 12) {
-                Button(action: model.installSelection) {
-                    Label("Install selected", systemImage: "arrow.down.circle")
-                }.buttonStyle(.borderedProminent).tint(green)
-                    .disabled(model.busy || model.selection.isEmpty)
                 Button("Diagnose") { model.run(["doctor"], title: "Checking your setup…") }
                     .disabled(model.busy)
                 Button("Update components") { model.run(["update"], title: "Checking component updates…") }
@@ -363,11 +357,6 @@ struct PlatformsView: View {
                 Spacer()
                 Menu("Apple GPTK") {
                     Button("Download and install") { model.run(["gptk"], title: "Downloading Apple GPTK…") }
-                    Toggle("Use for Steam (Overwatch, Diablo II on Steam)", isOn: Binding(
-                        get: { model.steamGPTK },
-                        set: { on in model.run(["steam-gptk", on ? "on" : "off"],
-                                               title: on ? "Moving Steam to Apple GPTK…" : "Moving Steam back to Wine 11…") }))
-                        .disabled(!model.installed.contains(.steam))
                     Divider()
                     Button("Apple's download page") { open("https://developer.apple.com/games/game-porting-toolkit/") }
                     Button("Add mounted toolkit…", action: model.addGPTK)
@@ -379,21 +368,24 @@ struct PlatformsView: View {
                     else { Image(systemName: model.failed ? "exclamationmark.circle" : "checkmark.circle").foregroundStyle(model.failed ? Color.orange : green) }
                     Text(model.activity).font(.system(size: 12, weight: .medium))
                     Spacer()
+                    if !model.busy && !model.failed {
+                        Button(showLog ? "Hide details" : "Details") { showLog.toggle() }
+                            .buttonStyle(.plain).foregroundStyle(.secondary)
+                    }
                     Button("Copy log", action: model.copyLog).buttonStyle(.plain).foregroundStyle(.secondary)
                 }
-                ScrollViewReader { proxy in
+                if showLog || model.failed || model.busy { ScrollViewReader { proxy in
                     ScrollView {
                         Text(model.log).font(.system(size: 11, design: .monospaced))
                             .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                         Color.clear.frame(height: 1).id("end")
                     }.frame(minHeight: 115, maxHeight: .infinity)
                         .onChange(of: model.log) { proxy.scrollTo("end", anchor: .bottom) }
-                }
+                } }
             }.padding(14).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
             HStack {
                 Text("Accounts, purchases and updates stay with each official store.")
                 Spacer()
-                Text("v" + model.version)
             }.font(.system(size: 10)).foregroundStyle(.secondary)
         }.padding(28).frame(minWidth: 730, idealWidth: 850, minHeight: 610, idealHeight: 680)
             .background(Color(nsColor: .windowBackgroundColor))
@@ -412,14 +404,17 @@ struct PlatformsView: View {
                         .foregroundStyle(installed ? green : Color.secondary)
                 }
                 Spacer()
-                Toggle("Select " + launcher.title, isOn: Binding(
-                    get: { model.selection.contains(launcher) },
-                    set: { if $0 { model.selection.insert(launcher) } else { model.selection.remove(launcher) } }
-                )).labelsHidden().toggleStyle(.checkbox).disabled(model.busy)
-                    .accessibilityLabel("Select " + launcher.title)
             }
-            Text(launcher == .steam && model.steamGPTK ? "Windows library · Apple D3DMetal" : launcher.detail)
-                .font(.system(size: 11)).foregroundStyle(.secondary)
+            Text(launcher.detail).font(.system(size: 11)).foregroundStyle(.secondary)
+            if launcher == .steam && installed {
+                // Steam games that need Apple's toolkit (D3D12, Blizzard games sold on Steam): scripts/steam-gptk.sh
+                Toggle("Overwatch and Diablo II mode", isOn: Binding(
+                    get: { model.steamGPTK },
+                    set: { on in model.run(["steam-gptk", on ? "on" : "off"],
+                                           title: on ? "Switching Steam to Overwatch and Diablo II mode…" : "Switching Steam back…") }))
+                    .toggleStyle(.checkbox).font(.system(size: 11)).disabled(model.busy)
+                    .help("Runs Steam and its games with Apple's Game Porting Toolkit, which Overwatch, Diablo II: Resurrected and other DirectX 12 games need. Steam asks you to sign in once the first time.")
+            }
             HStack {
                 Text(launcher.accountName)
                     .font(.system(size: 10)).foregroundStyle(.tertiary)

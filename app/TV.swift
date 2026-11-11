@@ -107,7 +107,7 @@ struct TVView: View {
                 }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
                 step(4, "Play", done: false) {
-                    Text("In Moonlight, open Desktop. You see this Mac's screen: start a game from Soju as usual. Mouse and keyboard work, and a controller on the TV acts as mouse and keys; games that only take a controller may not respond, because the Mac version of Sunshine can't create a virtual controller.")
+                    Text("In Moonlight, open Desktop. You see this Mac's screen: start a game from Soju as usual. Mouse and keyboard work, and a controller on the TV acts as mouse and keys; games that only take a controller may not respond yet.")
                 }
             }.padding(28).frame(maxWidth: 760, alignment: .leading)
         }

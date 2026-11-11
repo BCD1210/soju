@@ -63,7 +63,7 @@ struct DiscoverView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("Store search").font(.system(size: 30, weight: .bold, design: .rounded))
+                    Text("Discover").font(.system(size: 30, weight: .bold, design: .rounded))
                     Text("Search Steam, GOG and the Microsoft Store. Compare games and prices.").font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()

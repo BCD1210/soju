@@ -8,7 +8,7 @@ Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
-**[Download Soju 1.14.0 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.0/Soju-1.14.0-macos-arm64.zip)**, or install from the terminal:
+**[Download Soju 1.14.1 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.1/Soju-1.14.1-macos-arm64.zip)**, or install from the terminal:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -50,7 +50,7 @@ All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ in-game | UE4 "AMD driver" warning is harmless |
 | StarCraft: Remastered | Battle.net | not checked | ✅ in-game | single-player match against the computer starts after Battle.net updates the game; multiplayer not tried |
 | Unity D3D11 title | Steam | DXMT | ✅ in-game, windowed | via `soju steam-games`; see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
-| Overwatch 2 | Steam | D3DMetal (Steam with Apple GPTK) | ✅ main menu, online | `soju steam-gptk on` (or Platforms > Apple GPTK > Use for Steam); the game asks once to connect a Battle.net account |
+| Overwatch 2 | Steam | D3DMetal (Steam with Apple GPTK) | ✅ main menu, online | `soju steam-gptk on` (or Platforms > Steam > Overwatch and Diablo II mode); the game asks once to connect a Battle.net account |
 | Diablo II: Resurrected (Infernal Edition) | Steam | D3DMetal (Steam with Apple GPTK) | ⏳ not verified yet | needs `soju steam-gptk on`: GPTK and its `libd3dshared`, which D2R's loader needs, now reach Steam games the same way Overwatch 2 runs; not run here yet because we don't own the Steam edition |
 
 Will not run: anything with kernel anti-cheat (EAC, BattlEye, Vanguard). Game-by-game status: [didimlabs.com/mac](https://didimlabs.com/mac/). Questions or a quick report? Join the [Discord](https://discord.gg/ttBDcF5ftz). Got another game running? Post it in [Discussions](https://github.com/BCD1210/soju/discussions) or send a PR that adds a row.
@@ -74,7 +74,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.0/Soju-1.14.0-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.1/Soju-1.14.1-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
@@ -214,7 +214,7 @@ soju xbox-logout             # sign out; downloaded games stay
 
 ## Steam (including the Steam version of D2R)
 
-**Steam with Apple GPTK** (`soju steam-gptk on`, or Platforms > Apple GPTK > Use for Steam): Steam and its games run on the same engine and Apple GPTK as Battle.net, plus a Mac driver that can show Steam's browser window. Use it for D3D12 games and for Blizzard games sold on Steam (Overwatch 2 reaches its main menu online; Diablo II: Resurrected needs GPTK's `libd3dshared`). It uses its own bottle, made as a copy of the Steam bottle that takes no extra space, so installed games stay; Steam asks you to sign in once there. `soju steam-gptk off` goes back to Wine 11 + DXMT, still signed in.
+**Steam with Apple GPTK** (`soju steam-gptk on`, or Platforms > Steam > Overwatch and Diablo II mode): Steam and its games run on the same engine and Apple GPTK as Battle.net, plus a Mac driver that can show Steam's browser window. Use it for D3D12 games and for Blizzard games sold on Steam (Overwatch 2 reaches its main menu online; Diablo II: Resurrected needs GPTK's `libd3dshared`). It uses its own bottle, made as a copy of the Steam bottle that takes no extra space, so installed games stay; Steam asks you to sign in once there. `soju steam-gptk off` goes back to Wine 11 + DXMT, still signed in.
 
 D2R shipped on Steam in Feb 2026 as the *Infernal Edition*. Steam support uses a **different free engine**: the modern Steam client's CEF UI does not render on CrossOver-source builds (black window, cross-process swapchain + CEF sandbox issues), but it works on a pinned upstream Wine 11 build with a tiny `steamwebhelper` wrapper that forces `--disable-gpu --single-process`. That fix comes from [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) (MIT, wrapper source vendored in `third_party/`). Steam gets its own bottle so the two stacks never interfere:
 

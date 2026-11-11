@@ -411,11 +411,22 @@ struct AccountsView: View {
                 }, cancel: { showSteamLogin = false })
             }
     }
+    /// "1 game · updated Nov 2", without the internal account number some imports carry ("Galaxy · …1379").
+    private func summaryLine(_ value: AccountSummary) -> String {
+        let label = value.label.components(separatedBy: " · ").filter { !$0.hasPrefix("…") }.joined(separator: " · ")
+        let games = value.count == 1 ? "1 game" : "\(value.count) games"
+        var updated = String(value.updatedAt.prefix(10))
+        let parse = DateFormatter(); parse.dateFormat = "yyyy-MM-dd"; parse.locale = Locale(identifier: "en_US_POSIX")
+        if let date = parse.date(from: updated) {
+            let show = DateFormatter(); show.setLocalizedDateFormatFromTemplate("MMM d"); updated = show.string(from: date)
+        }
+        return [label, games, "updated " + updated].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
     private func accountHeader(_ platform: Launcher) -> some View {
         HStack {
             Label(platform.title, systemImage: platform.symbol).font(.headline)
             if let value = summary(platform) {
-                Text(verbatim: "\(value.label) · \(value.count) games · \(value.updatedAt.prefix(10))").font(.caption).foregroundStyle(.secondary)
+                Text(verbatim: summaryLine(value)).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button(platform == .xbox ? "Sign Out…" : "Disconnect") {
                     if platform == .xbox { confirmDisconnect = true } else { model.forgetAccount(platform) }
