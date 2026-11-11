@@ -19,12 +19,13 @@ fail(){ printf '  FAIL  %s\n' "$*"; nfail=$((nfail+1)); }
 info(){ printf '  -     %s\n' "$*"; }
 
 SCOPE="${1:-installed}"
-case "$SCOPE" in installed|all|steam|battlenet|d2r|epic|gog|xbox) ;; *) echo "Usage: soju doctor [steam|battlenet|d2r|epic|gog|xbox|all]"; exit 64 ;; esac
+case "$SCOPE" in installed|all|steam|battlenet|d2r|epic|gog|ea|rockstar|ubisoft|xbox) ;; *) echo "Usage: soju doctor [steam|battlenet|d2r|epic|gog|ea|rockstar|ubisoft|xbox|all]"; exit 64 ;; esac
 NEEDS_CX=0
 case "$SCOPE" in
-  all|battlenet|d2r|epic|gog) NEEDS_CX=1 ;;
+  all|battlenet|d2r|epic|gog|ea|rockstar|ubisoft) NEEDS_CX=1 ;;
   installed)
-    if [ -x "$ENGINE/bin/wine" ] || [ -d "$BASE/bottle" ] || [ -d "$BASE/epic-bottle" ] || [ -d "$BASE/gog-bottle" ]; then NEEDS_CX=1; fi ;;
+    if [ -x "$ENGINE/bin/wine" ] || [ -d "$BASE/bottle" ] || [ -d "$BASE/epic-bottle" ] || [ -d "$BASE/gog-bottle" ] \
+       || [ -d "$BASE/ea-bottle" ] || [ -d "$BASE/rockstar-bottle" ] || [ -d "$BASE/ubisoft-bottle" ]; then NEEDS_CX=1; fi ;;
 esac
 echo "soju doctor ($SCOPE)"
 
@@ -115,6 +116,23 @@ fi
   && pass "Epic Games Launcher bottle" || info "Epic not installed (soju epic-install)"
 [ -f "$BASE/gog-bottle/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe" ] \
   && pass "GOG GALAXY bottle" || info "GOG not installed (soju gog-install)"
+LAUNCHERS=0
+for l in "ea|EA app|Program Files/Electronic Arts/EA Desktop" \
+         "rockstar|Rockstar Games Launcher|Program Files/Rockstar Games/Launcher/Launcher.exe" \
+         "ubisoft|Ubisoft Connect|Program Files (x86)/Ubisoft/Ubisoft Game Launcher/UbisoftConnect.exe"; do
+  IFS='|' read -r id name client <<<"$l"
+  if [ -e "$BASE/$id-bottle/drive_c/$client" ]; then pass "$name bottle"; LAUNCHERS=1
+  else info "$name not installed (soju $id-install)"; fi
+done
+if [ "$LAUNCHERS" = 1 ]; then
+  if SOJU_BASE="$BASE" python3 "$(dirname "${BASH_SOURCE[0]}")/fetch-launcher-support.py" --check; then
+    pass "Launcher components (Mac driver + DXMT for EA, Rockstar, Ubisoft)"
+  else
+    info "Launcher components not downloaded yet (they are fetched when one of these launchers starts)"
+  fi
+  [ -f "$BASE/cx26-engine-launchers/.soju-launcher-engine" ] && pass "Launcher engine prepared" \
+    || info "Launcher engine not prepared yet (made from the engine when one of these launchers starts)"
+fi
 
 CHECK_XBOX=0
 case "$SCOPE" in

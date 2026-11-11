@@ -13,8 +13,8 @@ case "$ACTION" in
   game-doctor) exec python3 "$ROOT/scripts/game-library.py" diagnose "${1:?Choose a game}" ;;
   doctor) exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
   launch)
-    case "${1:-}" in battlenet|steam|epic|gog) exec bash "$ROOT/scripts/play.sh" "$1" ;;
-      *) echo "Choose one of the four launchers."; exit 64 ;; esac ;;
+    case "${1:-}" in battlenet|steam|epic|gog|ea|rockstar|ubisoft) exec bash "$ROOT/scripts/play.sh" "$1" ;;
+      *) echo "Choose one of the launchers."; exit 64 ;; esac ;;
   vr)
     case "${1:-}" in setup|play|status) exec python3 "$ROOT/scripts/d2r-vr.py" "$1" ;;
       flat) exec python3 "$ROOT/scripts/d2r-vr.py" play --flat ;;
@@ -49,7 +49,7 @@ case "$ACTION" in
     exec bash "$MANAGED/install.sh" ;;
   gptk)
     [ -x "$BASE/cx26-engine/bin/wine" ] || {
-      echo "Install Battle.net, Epic or GOG first to prepare its engine, then add GPTK."; exit 1;
+      echo "Install Battle.net, Epic, GOG, EA, Rockstar or Ubisoft first to prepare its engine, then add GPTK."; exit 1;
     }
     # With a folder the user picked, install from it; without one, download the payload.
     if [ -n "${1:-}" ]; then exec bash "$ROOT/scripts/get-gptk.sh" "$1"; fi

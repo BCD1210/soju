@@ -3,7 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 enum Launcher: String, CaseIterable, Identifiable {
-    case battlenet, steam, epic, gog, xbox, didim
+    case battlenet, steam, epic, gog, ea, rockstar, ubisoft, xbox, didim
     var id: String { rawValue }
     /// Platforms with something to install on the Platforms page (not native Didim Labs games).
     static var installable: [Launcher] { allCases.filter { $0 != .didim } }
@@ -15,6 +15,9 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .steam: return "Steam"
         case .epic: return "Epic Games"
         case .gog: return "GOG GALAXY"
+        case .ea: return "EA app"
+        case .rockstar: return "Rockstar Games"
+        case .ubisoft: return "Ubisoft Connect"
         case .xbox: return "Xbox PC"
         case .didim: return "Didim Labs"
         }
@@ -22,6 +25,7 @@ enum Launcher: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .steam: return "Windows library · D3D11 with DXMT"
+        case .ea, .rockstar, .ubisoft: return "Windows library · DXMT, new"
         case .xbox: return "Microsoft Store library · experimental"
         case .didim: return "Native Mac games"
         default: return "Windows library · Apple D3DMetal"
@@ -33,6 +37,9 @@ enum Launcher: String, CaseIterable, Identifiable {
         switch self {
         case .steam: return "Steam account"
         case .gog: return "GOG account"
+        case .ea: return "EA account"
+        case .rockstar: return "Rockstar Games account"
+        case .ubisoft: return "Ubisoft account"
         case .epic: return "Epic account"
         case .battlenet: return "Blizzard account"
         case .xbox: return "Microsoft account"
@@ -55,6 +62,9 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .steam: return "gamecontroller.fill"
         case .epic: return "shield.lefthalf.filled"
         case .gog: return "square.grid.2x2.fill"
+        case .ea: return "e.circle.fill"
+        case .rockstar: return "star.circle.fill"
+        case .ubisoft: return "u.circle.fill"
         case .xbox: return "xbox.logo"
         case .didim: return "cat.fill"
         }
@@ -65,6 +75,10 @@ enum Launcher: String, CaseIterable, Identifiable {
         case .steam: return "steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe"
         case .epic: return "epic-bottle/drive_c/Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe"
         case .gog: return "gog-bottle/drive_c/Program Files/GOG Galaxy/GalaxyClient.exe"
+        // The client sits behind a junction only Wine resolves; the folder is the install.
+        case .ea: return "ea-bottle/drive_c/Program Files/Electronic Arts/EA Desktop"
+        case .rockstar: return "rockstar-bottle/drive_c/Program Files/Rockstar Games/Launcher/Launcher.exe"
+        case .ubisoft: return "ubisoft-bottle/drive_c/Program Files (x86)/Ubisoft/Ubisoft Game Launcher/UbisoftConnect.exe"
         case .xbox: return "xbox-bottle/drive_c/ProgramData/Soju/xbox.json"
         case .didim: return "didim-games"
         }

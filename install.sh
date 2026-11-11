@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Soju one-line installer: Battle.net, Steam, Epic and GOG launchers (plus Xbox PC, experimental) on Apple Silicon, no CrossOver.
+# Soju one-line installer: Battle.net, Steam, Epic, GOG, EA app, Rockstar and Ubisoft Connect launchers (plus Xbox PC, experimental) on Apple Silicon, no CrossOver.
 #   curl -fsSL didimlabs.com/install.sh | bash
 #   curl -fsSL https://didimlabs.com/install.sh | SOJU_PLATFORMS=battlenet,epic,gog bash     (non-interactive selection)
 #
@@ -66,7 +66,7 @@ latest_release(){
 }
 
 # ---------- 1. Choose launchers before any download ----------
-ALL="battlenet steam epic gog xbox"
+ALL="battlenet steam epic gog xbox ea rockstar ubisoft"
 if [ -n "${SOJU_PLATFORMS:-}" ]; then
   PLATFORMS="$(echo "$SOJU_PLATFORMS" | tr ',' ' ')"
 else
@@ -78,6 +78,9 @@ else
   4) GOG GALAXY
   5) Xbox PC / Microsoft Store (Xodus backend, experimental: sign-in, library,
      downloads and play on the CX engine; builds from source, a few minutes)
+  6) EA app
+  7) Rockstar Games Launcher
+  8) Ubisoft Connect
 EOT
   read -r -p "  Your choice [1]: " choice < "$TTY" || choice=1
   [ -n "$choice" ] || choice=1
@@ -89,6 +92,9 @@ EOT
       3|epic)      PLATFORMS="$PLATFORMS epic" ;;
       4|gog)       PLATFORMS="$PLATFORMS gog" ;;
       5|xbox)      PLATFORMS="$PLATFORMS xbox" ;;
+      6|ea)        PLATFORMS="$PLATFORMS ea" ;;
+      7|rockstar)  PLATFORMS="$PLATFORMS rockstar" ;;
+      8|ubisoft)   PLATFORMS="$PLATFORMS ubisoft" ;;
       *) echo "Unknown choice: $c"; exit 64 ;;
     esac
   done
@@ -171,7 +177,7 @@ carry_gptk(){   # from, to
     fi
   done
 }
-# ---------- 2. Engine (Battle.net / Epic / GOG only) ----------
+# ---------- 2. Engine (every platform but Steam) ----------
 if [ "$NEEDS_CX" = 1 ]; then
 # bin/wine alone can be left behind by an interrupted extract; only an engine
 # that actually starts counts as present.
@@ -199,7 +205,7 @@ fi
 
 fi # NEEDS_CX
 
-# ---------- Apple GPTK (Battle.net / Epic / GOG only) ----------
+# ---------- Apple GPTK (every platform but Steam) ----------
 if [ "$NEEDS_CX" = 1 ]; then
 # scripts/get-gptk.sh finds the payload (mounted toolkit dmg, or CrossOver),
 # verifies every file (Apple's signature on the Mach-O parts, known Apple
@@ -276,6 +282,10 @@ for p in $PLATFORMS; do
     xbox)
       say "Xbox PC: building the Xodus backend from source (Rust; a few minutes the first time)"
       bash "$SOJU_DIR/scripts/xbox.sh" install ;;
+    ea|rockstar|ubisoft)
+      case "$p" in ea) n="EA app" ;; rockstar) n="Rockstar Games Launcher" ;; *) n="Ubisoft Connect" ;; esac
+      say "$n: creating the bottle + running the official installer"
+      SOJU_BASE="$BASE" SOJU_CX_ENGINE="$ENGINE" bash "$SOJU_DIR/scripts/create-launcher-bottle.sh" "$p" ;;
   esac
   # The client EXE does not prove its helper build completed.
   case "$p" in
@@ -314,12 +324,15 @@ for p in $PLATFORMS; do
     steam)     make_app "Steam (Windows)" steam app.soju.steam ;;
     epic)      make_app "Epic Games Launcher" epic app.soju.epic ;;
     gog)       make_app "GOG GALAXY" gog app.soju.gog ;;
+    ea)        make_app "EA app" ea app.soju.ea ;;
+    rockstar)  make_app "Rockstar Games Launcher" rockstar app.soju.rockstar ;;
+    ubisoft)   make_app "Ubisoft Connect" ubisoft app.soju.ubisoft ;;
     xbox)      echo "  Xbox PC has no launcher app: sign in from Soju > Accounts, or run soju xbox-login" ;;
   esac
 done
 
 say "Done! 🍶  Double-click the app(s) above, log in, install and play."
-echo "Command line: $SOJU_DIR/scripts/soju  (battlenet | d2r | kill | epic | epic-kill | gog | gog-kill | steam | steam-kill | doctor | update)"
+echo "Command line: $SOJU_DIR/scripts/soju  (battlenet | d2r | kill | epic | gog | ea | rockstar | ubisoft | steam | <name>-kill | doctor | update)"
 [ "$NEEDS_CX" = 0 ] || GPTK_OK || echo "NOTE: GPTK was skipped - before launching a game, mount the GPTK dmg and run:  $SOJU_DIR/scripts/soju gptk"
 echo
 echo "Something broke?  Run 'soju doctor' and paste its output in an issue: https://github.com/BCD1210/soju/issues"

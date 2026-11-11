@@ -16,7 +16,7 @@ usage() {
 soju: open-source Windows launchers on Apple Silicon
 
 Usage:
-  soju install        Choose and install any of the five platforms
+  soju install        Choose and install any of the eight platforms
   soju app            Build, install and open the native Soju app
   soju library        List installed and imported games as JSON
   soju game <id>      Play a game from the unified library
@@ -41,6 +41,16 @@ Usage:
   soju gog-install    Set up the GOG GALAXY bottle (same engine)
   soju gog            Launch GOG GALAXY
   soju gog-kill       Stop everything in the GOG bottle
+
+  soju ea-install      Set up the EA app bottle (launcher engine, EA's official installer)
+  soju ea              Launch the EA app
+  soju ea-kill         Stop everything in the EA app bottle
+  soju rockstar-install  Set up the Rockstar Games Launcher bottle
+  soju rockstar        Launch the Rockstar Games Launcher
+  soju rockstar-kill   Stop everything in the Rockstar bottle
+  soju ubisoft-install Set up the Ubisoft Connect bottle
+  soju ubisoft         Launch Ubisoft Connect
+  soju ubisoft-kill    Stop everything in the Ubisoft Connect bottle
 
   soju xbox-install   Build the Xodus backend for Xbox PC / Microsoft Store (Rust, a few minutes)
   soju xbox-login     Sign in with your Microsoft account (official page in a window)
@@ -79,6 +89,8 @@ case "${1:-}" in
   install)        shift; exec bash "$ROOT/install.sh" "$@" ;;
   epic-install)   shift; exec bash "$ROOT/scripts/create-epic-bottle.sh" "$@" ;;
   gog-install)    shift; exec bash "$ROOT/scripts/create-gog-bottle.sh" "$@" ;;
+  ea-install|rockstar-install|ubisoft-install)
+                  exec bash "$ROOT/scripts/create-launcher-bottle.sh" "${1%-install}" ;;
   steam-install)  shift; export SOJU_PLATFORMS=steam; exec bash "$ROOT/install.sh" "$@" ;;
   vr)             shift; exec python3 "$ROOT/scripts/d2r-vr.py" "$@" ;;
   xbox-install)   exec bash "$ROOT/scripts/xbox.sh" install ;;
@@ -102,7 +114,7 @@ case "${1:-}" in
   doctor)         shift; exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
   update)         shift; exec bash "$ROOT/scripts/update.sh" "$@" ;;
   uninstall)      shift; exec bash "$ROOT/scripts/uninstall.sh" "$@" ;;
-  battlenet|d2r|controllers|epic|epic-kill|gog|gog-kill|steam|kill|steam-kill)
+  battlenet|d2r|controllers|epic|epic-kill|gog|gog-kill|ea|ea-kill|rockstar|rockstar-kill|ubisoft|ubisoft-kill|steam|kill|steam-kill)
                   exec bash "$ROOT/scripts/play.sh" "$@" ;;
   -h|--help|help|"") usage ;;
   *) echo "soju: unknown command '$1'" >&2; usage >&2; exit 64 ;;

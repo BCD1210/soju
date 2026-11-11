@@ -44,9 +44,22 @@ elif [[ "$MODE" == epic* ]]; then
   export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/epic-bottle}"
 elif [[ "$MODE" == gog* ]]; then
   export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/gog-bottle}"
+elif [[ "$MODE" =~ ^(ea|rockstar|ubisoft)(-kill)?$ ]]; then
+  export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/${MODE%-kill}-bottle}"
 else
   export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/bottle}"
 fi
+
+# The EA app, Rockstar Games Launcher and Ubisoft Connect run on the launcher
+# engine: the CX engine plus a Mac driver and DXMT that let their browser UIs
+# present across processes (scripts/launcher-engine.sh). The others keep $ENGINE.
+case "$MODE" in
+  ea-kill|rockstar-kill|ubisoft-kill)
+    ENGINE="${SOJU_LAUNCHER_ENGINE:-${SOJU_BASE:-$HOME/.battlenet-macos}/cx26-engine-launchers}" ;;
+  ea|rockstar|ubisoft)
+    ENGINE=$(SOJU_CX_ENGINE="$ENGINE" bash "$(dirname "${BASH_SOURCE[0]}")/launcher-engine.sh") || exit 1
+    export DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN=1 ;;
+esac
 
 export WINEDEBUG="${WINEDEBUG:-fixme-all}"
 # SOJU_KEYLOG=1: record every key event the Mac driver sees and every focus
@@ -236,6 +249,28 @@ case "$MODE" in
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
+  ea|rockstar|ubisoft)   # EA app, Rockstar Games Launcher, Ubisoft Connect (verified 2026-11-10)
+    # Installed by create-launcher-bottle.sh. Closing a window parks EA and
+    # Ubisoft in the menu bar (tray); Rockstar quits.
+    case "$MODE" in
+      ea)       CLIENT='Program Files/Electronic Arts/EA Desktop/EA Desktop/EADesktop.exe'
+                # "EA Desktop\EA Desktop" is a junction only Wine resolves (the
+                # EA app's updater moves it): check for any installed version.
+                compgen -G "$WINEPREFIX/drive_c/Program Files/Electronic Arts/EA Desktop/*/EA Desktop/EADesktop.exe" >/dev/null \
+                  || { echo "Not installed yet, run: soju ea-install"; exit 1; } ;;
+      rockstar) CLIENT='Program Files/Rockstar Games/Launcher/Launcher.exe' ;;
+      ubisoft)  CLIENT='Program Files (x86)/Ubisoft/Ubisoft Game Launcher/UbisoftConnect.exe' ;;
+    esac
+    [[ "$MODE" = ea || -f "$WINEPREFIX/drive_c/$CLIENT" ]] || { echo "Not installed yet, run: soju $MODE-install"; exit 1; }
+    pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
+      { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" "$MODE" >/dev/null 2>&1 & ); }
+    exec "$ENGINE/bin/wine" "C:\\${CLIENT//\//\\}" "${@:2}"
+    ;;
+  ea-kill|rockstar-kill|ubisoft-kill)   # Stop everything in that launcher's bottle
+    pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
+    "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
+    ;;
   steam)       # Steam client, wine-stable + webhelper wrapper (verified 2026-08-27)
     # Steam's CEF does not render on the CX engine (black screen / SEGV storm).
     # The verified combination is Homebrew wine-stable 11 + the steamwebhelper
@@ -348,5 +383,5 @@ case "$MODE" in
     "$STEAM_WINE_ROOT/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
-  *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|gog|gog-kill|steam|kill|steam-kill]"; exit 1;;
+  *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|gog|gog-kill|ea|ea-kill|rockstar|rockstar-kill|ubisoft|ubisoft-kill|steam|kill|steam-kill]"; exit 1;;
 esac

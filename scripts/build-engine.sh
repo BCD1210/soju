@@ -73,6 +73,10 @@ if ! grep -q "WINE_XATTR_SD" "$WINE/server/file.c"; then
   echo "==> Applying patches/wineserver-stored-acls.patch (ACLs programs set read back as set)"
   patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/wineserver-stored-acls.patch"
 fi
+if ! grep -q "WM_MACDRV_CREATE_REMOTE_LAYER" "$WINE/dlls/winemac.drv/macdrv.h"; then
+  echo "==> Applying patches/winemac-cross-process-swapchains.patch (EA, Rockstar and Ubisoft browser windows)"
+  patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/winemac-cross-process-swapchains.patch"
+fi
 
 echo "==> Building x86_64 freetype (Rosetta)"
 fetch_checked "$FT_URL" "$WORK/ft.tar.gz" "$FT_SHA256"

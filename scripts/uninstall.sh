@@ -24,6 +24,9 @@ echo "soju uninstall: this removes things soju created. Nothing is touched witho
 stop_bottle() {
   local b="$1" ws="$ENGINE/bin/wineserver"
   [ -d "$BASE/$b" ] || return 0
+  case "$b" in ea-bottle|rockstar-bottle|ubisoft-bottle)
+    [ -x "$BASE/cx26-engine-launchers/bin/wineserver" ] && ws="$BASE/cx26-engine-launchers/bin/wineserver" ;;
+  esac
   if [ "$b" = steam-bottle ]; then
     # This resolves private, legacy and explicit runtimes exactly as play does.
     # A failed stop/wait aborts uninstall before any bottle files are removed.
@@ -38,7 +41,7 @@ stop_bottle() {
 # Only bundles install.sh wrote for this install (their launcher script names
 # this engine), so a custom SOJU_BASE never removes another install's apps.
 apps=()
-for a in "Battle.net" "Steam (Windows)" "Epic Games Launcher" "GOG GALAXY"; do
+for a in "Battle.net" "Steam (Windows)" "Epic Games Launcher" "GOG GALAXY" "EA app" "Rockstar Games Launcher" "Ubisoft Connect"; do
   l="$HOME/Applications/$a.app/Contents/MacOS/launcher"
   [ -f "$l" ] && grep -q "scripts/play.sh" "$l" && grep -qF "ENGINE=\"$ENGINE\"" "$l" && apps+=("$HOME/Applications/$a.app")
 done
@@ -48,7 +51,7 @@ if [ "${#apps[@]}" -gt 0 ]; then
 fi
 
 # 3. Bottles (this is where installed games live; can be tens of GB).
-for b in bottle steam-bottle epic-bottle gog-bottle xbox-bottle; do
+for b in bottle steam-bottle epic-bottle gog-bottle ea-bottle rockstar-bottle ubisoft-bottle xbox-bottle; do
   d="$BASE/$b"
   [ -d "$d" ] || continue
   sz=$(du -sh "$d" 2>/dev/null | cut -f1)
@@ -99,15 +102,15 @@ fi
 if [ -d "$ENGINE" ]; then
   sz=$(du -sh "$ENGINE" 2>/dev/null | cut -f1)
   if ask "Remove the engine ($sz, includes the GPTK payload; re-downloadable with soju install)?"; then
-    for b in bottle epic-bottle gog-bottle; do stop_bottle "$b"; done
-    rm -rf "$ENGINE"; REMOVED=1; echo "  removed"
+    for b in bottle epic-bottle gog-bottle ea-bottle rockstar-bottle ubisoft-bottle; do stop_bottle "$b"; done
+    rm -rf "$ENGINE" "$BASE/cx26-engine-launchers"; REMOVED=1; echo "  removed"
   fi
 fi
 
 # 5. Caches and support files: downloaded installers and sources (build/),
 #    compiled helpers (*-support/), logs, and leftovers of an interrupted update.
 extras=()
-for d in build steam-support epic-support gog-support logs cx26-engine.old cx26-engine.new soju.old; do
+for d in build steam-support epic-support gog-support launcher-support logs cx26-engine.old cx26-engine.new cx26-engine-launchers.new soju.old; do
   [ -e "$BASE/$d" ] && extras+=("$BASE/$d")
 done
 for d in "$BASE"/reaper-*.log "$BASE"/*.tar.xz "$BASE"/*.part; do
