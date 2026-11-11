@@ -114,7 +114,23 @@ if [ "${1:-}" = "--plan" ]; then
 fi
 
 [ "$(uname -m)" = "arm64" ] || { echo "This installer is for Apple Silicon Macs only."; exit 1; }
-/usr/bin/pgrep -q oahd || { echo "Rosetta 2 is required: softwareupdate --install-rosetta"; exit 1; }
+# Rosetta 2 runs the x86_64 engine. Without it, offer to install it: Apple's
+# softwareupdate needs an administrator, so the terminal asks for the password
+# with sudo, and the app (no terminal) shows macOS's own administrator dialog.
+rosetta_ok(){ /usr/bin/pgrep -q oahd || /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; }
+if ! rosetta_ok; then
+  say "Rosetta 2 is not installed. The Windows engine needs it."
+  RCMD="/usr/sbin/softwareupdate --install-rosetta --agree-to-license"
+  if ( : < "$TTY" ) 2>/dev/null; then
+    read -r -p "  Install Rosetta 2 now (Apple's license applies; asks for your password)? [Y/n]: " a < "$TTY" || a=n
+    case "$a" in n|N) echo "Run later: $RCMD"; exit 1 ;; esac
+    sudo $RCMD || true
+  else
+    /usr/bin/osascript -e "do shell script \"$RCMD\" with administrator privileges with prompt \"Soju needs Rosetta 2 from Apple to run Windows launchers.\"" >/dev/null || true
+  fi
+  rosetta_ok || { echo "Rosetta 2 is still missing. Install it with: $RCMD"; exit 1; }
+  echo "  Rosetta 2 installed"
+fi
 
 mkdir -p "$BASE"
 
