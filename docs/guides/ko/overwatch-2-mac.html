@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>맥북에서 오버워치 2 하기: M1·M2·M3·M4 애플 실리콘 (무료, 2026) | 소주</title>
+<meta name="description" content="애플 실리콘 맥에서 소주가 설치한 윈도우 배틀넷으로 오버워치 2를 실행하는 방법, General Error (0xE0010110) 해결법, M4 Pro·macOS 26.5에서 확인한 것과 안 한 것.">
+<link rel="canonical" href="https://didimlabs.com/guides/ko/overwatch-2-mac.html">
+<link rel="alternate" hreflang="ko" href="https://didimlabs.com/guides/ko/overwatch-2-mac.html">
+<link rel="alternate" hreflang="en" href="https://didimlabs.com/guides/overwatch-2-apple-silicon.html">
+<meta property="og:title" content="맥북에서 오버워치 2 하기">
+<meta property="og:description" content="소주가 설치한 윈도우 배틀넷으로 애플 실리콘 맥에서 오버워치 2 실행, General Error (0xE0010110) 해결법.">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://didimlabs.com/assets/overwatch-2-mac.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.png?v=20261110b">
+<link rel="stylesheet" href="../../style.css?v=20261111a">
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "inLanguage": "ko", "mainEntity": [
+ {"@type": "Question", "name": "맥북(애플 실리콘)에서 오버워치 2 되나요?", "acceptedAnswer": {"@type": "Answer", "text": "소주가 설치한 윈도우 배틀넷으로 M4 Pro, macOS 26.5에서 로그인한 채 온라인 메인 메뉴까지 떴습니다. 그래픽은 애플 D3DMetal입니다. 이번 확인에서 실제 경기는 해 보지 않았습니다."}},
+ {"@type": "Question", "name": "맥에서 오버워치 2 General Error (0xE0010110)은 어떻게 고치나요?", "acceptedAnswer": {"@type": "Answer", "text": "게임이 애플 GPTK의 AMD 드라이버 흉내 파일(atidxx64.dll)을 찾는데, 엔진에 d3d11·d3d12·dxgi 세 개만 있으면 시작하자마자 이 오류로 멈춥니다. 소주 1.13.0 이상에서 soju update나 soju gptk를 실행하면 빠진 파일이 채워집니다."}},
+ {"@type": "Question", "name": "오버워치 2 설치 전에 휴대폰 번호를 왜 등록하라고 하나요?", "acceptedAnswer": {"@type": "Answer", "text": "블리자드가 무료 설치 전에 배틀넷 계정에 휴대폰 번호를 요구합니다. account.battle.net의 보안 메뉴에서 등록하면 설치 버튼이 나옵니다."}}
+]}
+</script>
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../../ko/"><img src="../../assets/soju-logo-64.png?v=20261110b" width="28" height="28" alt="">소주<span> by Didim Labs</span></a>
+  <a href="diablo-2-mac.html">디아2 가이드</a>
+  <a href="starcraft-mac.html">스타크래프트 가이드</a>
+  <a href="../../ko/mac/">게임 목록</a>
+  <a href="https://discord.gg/eY6UHRCKZU">디스코드</a>
+</div></nav>
+<main>
+<p class="note">이 가이드는 애플 실리콘 맥에 윈도우용 배틀넷·스팀·에픽·GOG·EA·락스타·유비소프트 런처를 설치하는 무료 오픈소스 앱 <a href="../../ko/">소주</a>의 안내서입니다.</p>
+<h1>맥북에서 오버워치 2 하기</h1>
+<p class="lead">오버워치 2는 맥 버전이 없습니다. 소주가 설치한 윈도우 배틀넷으로 돌리면, M4 Pro·macOS 26.5에서 로그인한 채 온라인 메인 메뉴까지 떴습니다. 그래픽은 애플 D3DMetal로 그립니다.</p>
+
+<img class="shot" src="../../assets/overwatch-2-mac.jpg?v=20261111a" width="1200" height="673" alt="맥에서 실행한 오버워치 2 메인 메뉴, 로그인 상태">
+
+<h2>빠른 설치</h2>
+<pre><code>brew install BCD1210/soju/soju
+soju install          # 배틀넷 선택
+soju update           # 1.13.0 이상: 오버워치 2에 필요한 드라이버 흉내 파일 추가
+soju battlenet        # 로그인 → 오버워치 설치 → 플레이</code></pre>
+<p>또는 <a href="../../ko/#install">소주 앱을 받고</a> Platforms에서 Battle.net을 고르세요.</p>
+
+<h2>필요한 것</h2>
+<table>
+  <tr><th>항목</th><th>내용</th></tr>
+  <tr><td>맥</td><td>애플 실리콘. M4 Pro·macOS 26.5에서 확인했고 다른 맥은 아직입니다.</td></tr>
+  <tr><td>계정</td><td>휴대폰 번호가 등록된 배틀넷 계정. 블리자드가 무료 설치 전에 요구합니다(account.battle.net → 보안).</td></tr>
+  <tr><td>애플 GPTK</td><td><code>atidxx64.dll</code>, <code>nvapi64.dll</code>까지 포함한 전체 파일. 소주 1.13.0의 <code>soju update</code>가 채워 주고, 빠져 있으면 <code>soju doctor</code>가 알려 줍니다.</td></tr>
+  <tr><td>저장 공간</td><td>배틀넷 기준 약 85GB</td></tr>
+</table>
+
+<h2>General Error (0xE0010110)</h2>
+<p>플레이를 누르자마자 <strong>General Error (0xE0010110)</strong>이 뜨면 엔진에 애플의 AMD 드라이버 흉내 파일이 없는 겁니다. 예전 GPTK나 1.13.0 이전 소주로 설치한 엔진에는 <code>d3d11</code>·<code>d3d12</code>·<code>dxgi</code> 세 개만 있었습니다. 배틀넷을 끄고 실행하세요.</p>
+<pre><code>soju update     # 또는 soju gptk
+soju doctor     # atidxx64.dll, nvapi64.dll이 애플 파일로 나오면 정상</code></pre>
+
+<h2>확인한 것</h2>
+<ul>
+  <li>계정에 휴대폰 번호를 등록한 뒤 배틀넷에서 설치됨</li>
+  <li>파일이 없을 때는 General Error (0xE0010110)로 멈췄고, 채운 뒤에는 로그인·온라인 메인 메뉴·시즌 화면까지 뜸</li>
+  <li>같은 엔진에서 디아블로 2 레저렉션도 그대로 타이틀 화면까지 뜸</li>
+</ul>
+<h2>확인 안 한 것</h2>
+<ul>
+  <li>실제 경기, 연습장, 플레이 중 프레임, 음성 채팅</li>
+  <li>오래 플레이했을 때</li>
+  <li>다른 맥과 macOS 버전</li>
+</ul>
+<p>맥에서 경기를 해 보셨다면 Platforms의 <strong>Show FPS in games</strong>를 켜고 나온 숫자를 <a href="https://discord.gg/eY6UHRCKZU">디스코드 한국어 채널</a>이나 <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">호환성 보고</a>로 알려 주세요. <a href="../../ko/mac/overwatch-2.html">오버워치 2 페이지</a>에 반영합니다.</p>
+
+<h2 id="questions">자주 묻는 질문</h2>
+<div class="faq">
+  <details open><summary>맥북(애플 실리콘)에서 오버워치 2 되나요?</summary><p>소주가 설치한 윈도우 배틀넷으로 M4 Pro, macOS 26.5에서 로그인한 채 온라인 메인 메뉴까지 떴습니다. 그래픽은 애플 D3DMetal입니다. 이번 확인에서 실제 경기는 해 보지 않았습니다.</p></details>
+  <details><summary>General Error (0xE0010110)은 어떻게 고치나요?</summary><p>엔진에 <code>atidxx64.dll</code>이 없어서 생깁니다. 소주 1.13.0 이상에서 <code>soju update</code>나 <code>soju gptk</code>를 실행하세요.</p></details>
+  <details><summary>설치 전에 휴대폰 번호를 왜 등록하라고 하나요?</summary><p>블리자드가 무료 설치 전에 요구합니다. account.battle.net 보안 메뉴에서 등록하면 설치 버튼이 나옵니다.</p></details>
+</div>
+<p><a class="btn" href="../../ko/#install">소주 받기</a></p>
+</main>
+<footer>
+  소주는 GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> · 블리자드·애플·코드위버스와 관계없습니다. 오버워치는 블리자드 엔터테인먼트의 상표입니다.
+</footer>
+</body>
+</html>
