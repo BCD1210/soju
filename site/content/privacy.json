@@ -97,7 +97,7 @@
         {
           "type": "Text",
           "props": {
-            "text": "didimlabs.com runs on Cloudflare, which keeps standard request logs. The site sets no cookies. If you send the advertising form, we get what you type and reply by email."
+            "text": "didimlabs.com runs on Cloudflare, which keeps standard request logs. Pages load Cloudflare Web Analytics, which counts page views and load times without cookies and without identifying you. The site sets no cookies. If you send the advertising form, we get what you type and reply by email."
           }
         }
       ]
@@ -142,7 +142,7 @@
         {
           "type": "Text",
           "props": {
-            "text": "애플·구글 로그인은 이메일 주소만 받아, Polar에서 그 이메일로 산 게임의 라이선스 키를 찾는 데 한 번 씁니다. 서버에는 최대 10분만 남고 지워집니다. 결제 정보는 Polar가 처리하며 우리는 카드 번호를 보지 않습니다. 소주 앱에는 분석·추적 기능이 없습니다. 출시 알림을 신청한 이메일은 새 게임 소식에만 씁니다. 문의와 삭제 요청: hello@didimlabs.com"
+            "text": "애플·구글 로그인은 이메일 주소만 받아, Polar에서 그 이메일로 산 게임의 라이선스 키를 찾는 데 한 번 씁니다. 서버에는 최대 10분만 남고 지워집니다. 결제 정보는 Polar가 처리하며 우리는 카드 번호를 보지 않습니다. 소주 앱에는 분석·추적 기능이 없습니다. 웹사이트는 쿠키 없이 방문 수와 로딩 속도만 세는 Cloudflare Web Analytics를 씁니다. 출시 알림을 신청한 이메일은 새 게임 소식에만 씁니다. 문의와 삭제 요청: hello@didimlabs.com"
           }
         }
       ]

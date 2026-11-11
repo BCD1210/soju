@@ -130,7 +130,8 @@ def page(lang, title, desc, canonical, alternates, body, faq, base, game=None, i
 <link rel="apple-touch-icon" href="{base}assets/apple-touch-icon.png?v={CSS}">
 <link rel="stylesheet" href="{base}style.css?v={CSS}">
 {CSS_EXTRA}
-{scripts}</head>
+{scripts}<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{{"token": "a7048ad8ec7b480c9ad71182b1641147"}}'></script>
+</head>
 <body>
 <nav><div class="inner">
   <a class="brand" href="{base}{'ko/' if lang == 'ko' else ''}"><img src="{base}assets/soju-logo-64.png?v={CSS}" width="28" height="28" alt="">Soju<span> by Didim Labs</span></a>

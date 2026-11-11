@@ -22,6 +22,7 @@
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","inLanguage":"en","mainEntity":[{"@type":"Question","name":"Does The Last Flame run on an Apple Silicon Mac?","acceptedAnswer":{"@type":"Answer","text":"Runs on Mac (Highball test). Highball's maintainer ran it on an Apple Silicon Mac (M1 Pro 2026-09-14) with Highball's own Wine engine and dxmt. Not run in Soju yet; Soju's engines differ, so results can too. Their notes: Needs the Wine 11 engine x64-crossover26.3-r11 or later (the recipe names it). Two bugs sat behind the report, both in Wine on macOS and both fixed in r11. Start did nothing because the game's save code asks Windows for the last error after a file call and, on macOS, the place Unity's Mono reads it from (%gs:0x68) held a stray pointer instead of the error code, so a missing save file became an IOException that ended…"}},{"@type":"Question","name":"How do I install The Last Flame on a Mac?","acceptedAnswer":{"@type":"Answer","text":"Install the Windows Steam with Soju, a free open-source app, sign in, then install the game and press Play."}}]}
 </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "a7048ad8ec7b480c9ad71182b1641147"}'></script>
 </head>
 <body>
 <nav><div class="inner">
