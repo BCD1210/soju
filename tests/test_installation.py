@@ -251,10 +251,13 @@ class SupportManifestTests(unittest.TestCase):
 
     def test_every_dxmt_patch_is_applied_by_the_build(self):
         script = (ROOT/"scripts/build-steam-support.sh").read_text()
-        for patch in ("steam-dxmt-build.patch", "dxmt-max-tess-factor.patch"):
+        for patch in ("steam-dxmt-build.patch", "dxmt-max-tess-factor.patch", "dxmt-nonfatal-pure-virtual.patch"):
             self.assertTrue((ROOT/"patches"/patch).is_file())
             self.assertIn('apply_once dxmt "$ROOT/patches/' + patch + '"', script)
         self.assertIn("d3d11.maxTessFactor", (ROOT/"patches/dxmt-max-tess-factor.patch").read_text())
+        # Skyrim SE releases a destroyed texture twice; the handler must log and return, not trap.
+        pure_virtual = (ROOT/"patches/dxmt-nonfatal-pure-virtual.patch").read_text()
+        self.assertIn("+#ifndef NDEBUG\n   __builtin_trap();\n+#endif", pure_virtual)
 
 class EnginePatchTests(unittest.TestCase):
     def test_stored_acls_patch_is_applied_once_by_the_engine_build(self):

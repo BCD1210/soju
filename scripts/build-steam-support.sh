@@ -38,6 +38,7 @@ apply_once(){
 apply_once wine "$ROOT/patches/steam-winemac.patch"
 apply_once dxmt "$ROOT/patches/steam-dxmt-build.patch"
 apply_once dxmt "$ROOT/patches/dxmt-max-tess-factor.patch"
+apply_once dxmt "$ROOT/patches/dxmt-nonfatal-pure-virtual.patch"
 export MACOSX_DEPLOYMENT_TARGET=26.0
 [ -x venv/bin/meson ] || { python3 -m venv venv; venv/bin/pip install 'meson==1.10.2'; }
 mkdir -p dxmt/toolchains/wine

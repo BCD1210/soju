@@ -5,6 +5,8 @@ The package contains only these open-source components:
 - DXMT: notpop/dxmt commit `924a607e3eee06fad5be6f176d8510bb08bc418d`,
   plus `patches/steam-dxmt-build.patch` and `patches/dxmt-max-tess-factor.patch`
   (a backport of upstream DXMT ef116534, the `d3d11.maxTessFactor` option)
+  and `patches/dxmt-nonfatal-pure-virtual.patch` (a backport of upstream DXMT 66277b82e: a call on a
+  destroyed object, which Skyrim Special Edition makes at startup, is logged instead of aborting the game)
   (MIT; bundled DirectX headers retain their own notices).
 - Wine 11.0 winemac: `db11d0fe6a169c457e23d007e20404643d067aa8`,
   plus `patches/steam-winemac.patch`, built with public driver symbols
