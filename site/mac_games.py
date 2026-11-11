@@ -24,6 +24,8 @@ INDEX_ESTIMATES = 300
 CHECKED = DATA["checked"]
 REPORT = "https://github.com/BCD1210/soju/issues/new?template=compatibility.yml"
 DISCORD = "https://discord.gg/ttBDcF5ftz"
+DISCORD_COMPAT = "https://discord.gg/PwBjET6YZ3"  # lands in #compatibility
+DISCORD_KO = "https://discord.gg/eY6UHRCKZU"  # lands in #한국어
 
 LAUNCHER = {
     "battlenet": ("Battle.net", "battlenet"), "steam": ("Steam", "steam"), "epic": ("Epic Games Launcher", "epic"),
@@ -101,7 +103,7 @@ def page(lang, title, desc, canonical, alternates, body, faq, base, game=None, i
            '  <a href="https://github.com/BCD1210/soju">GitHub</a>\n  <a href="%s">Discord</a>' % (base, base, DISCORD))
     if lang == "ko":
         nav = ('<a href="%sko/mac/">게임</a>\n  <a href="%sko/">한국어 홈</a>\n'
-               '  <a href="https://github.com/BCD1210/soju">GitHub</a>\n  <a href="%s">디스코드</a>' % (base, base, DISCORD))
+               '  <a href="https://github.com/BCD1210/soju">GitHub</a>\n  <a href="%s">디스코드</a>' % (base, base, DISCORD_KO))
     foot = ("Soju is GPL-3.0 · <a href=\"https://github.com/BCD1210/soju\">github.com/BCD1210/soju</a> · "
             "not affiliated with the publishers named here. Game names are trademarks of their owners.")
     if lang == "ko":
@@ -184,7 +186,7 @@ def game_page(lang, g):
                         f"무료 오픈소스 앱 소주로 윈도우용 {launcher}을(를) 설치하고, 로그인한 뒤 게임을 설치해 실행합니다."))
         lead = "소주는 애플 실리콘 맥에 공식 윈도우 게임 런처를 설치하는 무료 오픈소스 앱입니다."
         checked = (f"{g['verified_on']}, M4 Pro · macOS 26.5에서 실행" if g["status"] == "verified" else f"{CHECKED} 갱신")
-        report = (f'해 보셨나요? <a href="{DISCORD}">디스코드</a>나 <a href="{REPORT}">호환성 보고</a>로 알려 주시면 이 페이지에 반영합니다.')
+        report = (f'해 보셨나요? <a href="{DISCORD_KO}">디스코드 한국어 채널</a>나 <a href="{REPORT}">호환성 보고</a>로 알려 주시면 이 페이지에 반영합니다.')
         more = f'<p><a href="./">다른 게임 목록</a></p>'
     else:
         verb = ("use the Mac version" if g["status"] == "native" else
@@ -198,7 +200,7 @@ def game_page(lang, g):
                         f"Install the Windows {launcher} with Soju, a free open-source app, sign in, then install the game and press Play."))
         lead = "Soju is a free, open-source app that installs the official Windows game launchers on Apple Silicon Macs."
         checked = (f"Run on {g['verified_on']}, M4 Pro with macOS 26.5" if g["status"] == "verified" else f"Page updated {CHECKED}")
-        report = (f'Tried it? Tell us in <a href="{DISCORD}">Discord</a> or <a href="{REPORT}">send a compatibility report</a> '
+        report = (f'Tried it? Tell us in <a href="{DISCORD_COMPAT}">#compatibility on Discord</a> or <a href="{REPORT}">send a compatibility report</a> '
                   "and this page gets updated.")
         more = '<p><a href="./">All games</a></p>'
     extra = ""
