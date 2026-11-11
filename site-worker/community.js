@@ -26,3 +26,25 @@ export async function notify(request, env) {
   await env.AUTH.put("n:" + email, JSON.stringify({ at: new Date().toISOString(), source }));
   return json({ ok: true });
 }
+
+// POST /api/wishlist {"email", "game"}: someone wants to hear when a game that isn't on sale yet comes out.
+// Kept in the AUTH KV namespace under "w:<game>:<email>"; one email per game at launch, nothing else.
+//   count: wrangler kv key list --binding AUTH --prefix w:<game>: --remote -c wrangler.didimlabs.toml
+export async function wishlist(request, env) {
+  if (request.method !== "POST") return json({ error: "Use POST." }, 405);
+  if (!env.AUTH) return json({ error: "Not available right now." }, 503);
+  const site = request.headers.get("sec-fetch-site");
+  if (site && site !== "same-origin") return json({ error: "Forbidden." }, 403);
+  let input;
+  try { input = await request.json(); } catch { return json({ error: "Send JSON." }, 400); }
+  const email = String(input.email || "").trim().toLowerCase().slice(0, 200);
+  if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(email)) return json({ error: "That email doesn't look right." }, 400);
+  const game = String(input.game || "");
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(game)) return json({ error: "Unknown game." }, 400);
+  tick();
+  if (++notifyCount > 20) return json({ error: "Too many sign-ups right now. Try again in a minute." }, 429);
+  const key = "w:" + game + ":" + email;
+  if (await env.AUTH.get(key)) return json({ ok: true });
+  await env.AUTH.put(key, JSON.stringify({ at: new Date().toISOString() }));
+  return json({ ok: true });
+}

@@ -189,7 +189,8 @@ struct StoreView: View {
                             Label(game.price, systemImage: "clock").font(.system(size: 12, weight: .semibold))
                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                 .background(RoundedRectangle(cornerRadius: 6).fill(accent.opacity(0.18)))
-                                .help("Not on sale yet. Leave your email below to hear when it is.")
+                                .help("Not on sale yet.")
+                            WishlistButton(game: game.id, signedInEmail: account.email, accent: accent)
                         }
                         if let demo = game.demo {
                             if let demoGame = installed(id: demo.id) {

@@ -27,13 +27,13 @@
       "checkout": "",
       "cover": "https://didimlabs.com/store/stakeholders-wide.jpg",
       "summary": "You owe ₩96,000,000. A day labor office down an alley that isn't on any map pays ₩300,000 a night, cash the same night, for jobs for the dead: carry a memorial meal across the alley before it goes cold, empty Room 204 while its owner dances, keep watch at a funeral that has no chief mourner, work the night shift at a convenience store where the second clerk isn't a person. The manager knows your name. You never told him.",
-      "details": "First-person horror · Korean and English · 2-player co-op on a local network · the demo ends after the first night at the convenience store",
+      "details": "First-person horror · Korean and English · single player · the demo ends after the first night at the convenience store",
       "requires": "Apple Silicon Mac, macOS 12 or later · demo 479 MB",
       "demo": {
         "id": "stakeholders-demo",
-        "url": "https://github.com/BCD1210/soju/releases/download/stakeholders-demo-0.1/Stakeholders-demo-mac-0.1.zip",
-        "size": 425502299,
-        "sha256": "eaf96209daa46fbeee5d926999927cb44cb4ecc68b2515e7a44a958d30037ff9"
+        "url": "https://github.com/BCD1210/soju/releases/download/stakeholders-demo-0.2/Stakeholders-demo-mac-0.2.zip",
+        "size": 425502376,
+        "sha256": "0ea9f199eb0311fcb2055e79b396cdc199121d9e867ce4c0dc349146d3f6cc97"
       }
     }
   ]
