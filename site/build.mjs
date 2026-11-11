@@ -68,7 +68,9 @@ function page(file) {
     `<link rel="icon" href="${b}assets/favicon.png">`,
     `<link rel="apple-touch-icon" href="${b}assets/apple-touch-icon.png">`,
     `<link rel="stylesheet" href="${b}style.css?v=${CSS_VERSION}">`,
-    `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "a7048ad8ec7b480c9ad71182b1641147"}'></script>`,
+    // Pages with private links in the address (the store's thanks page) load no outside script and send no referrer.
+    p.private && '<meta name="referrer" content="no-referrer">',
+    !p.private && `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "a7048ad8ec7b480c9ad71182b1641147"}'></script>`,
     graph.length && `<script type="application/ld+json">\n${JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }, null, 1).replace(/</g, '\\u003c')}\n</script>`,
   ].filter(Boolean).join('\n');
   const nav = (p.nav || []).map((l) => `<a href="${esc(l.href)}"${l.lang ? ` lang="${l.lang}" hreflang="${l.lang}"` : ''}${l.current ? ' aria-current="page"' : ''}>${esc(l.label)}</a>`).join('\n  ');
