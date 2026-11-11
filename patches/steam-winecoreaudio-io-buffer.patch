@@ -1,0 +1,42 @@
+Highball 0015 (winecoreaudio: each pull from the device stays under half a period), rebased onto
+plain wine-11.0 for the Steam runtime. Same code; only the context differs, because CrossOver's
+coreaudio.c has a capture-permission check before AudioUnitInitialize that wine-11.0 does not.
+See patches/highball/0015-winecoreaudio-io-buffer-under-half-a-period.patch for the measurements.
+
+diff --git a/dlls/winecoreaudio.drv/coreaudio.c b/dlls/winecoreaudio.drv/coreaudio.c
+index da2ae2d..c9500c8 100644
+--- a/dlls/winecoreaudio.drv/coreaudio.c
++++ b/dlls/winecoreaudio.drv/coreaudio.c
+@@ -775,6 +775,32 @@ static NTSTATUS unix_create_stream(void *args)
+         goto end;
+     }
+ 
++    if(stream->flow == eRender){
++        /* Highball: keep each pull from the device under half a period. The device asks for
++         * its whole I/O buffer at once, 512 frames by default, which at 48 kHz is 10.7 ms,
++         * longer than the 10 ms period a shared-mode client is woken for. A game that keeps
++         * about one period queued (Counter-Strike 2) then had too little at most pulls, and
++         * the rest of the pull was played as silence: 324 dropouts of about 8 ms in two minutes
++         * of its menu music on an M4 at 48 kHz, none at 96 kHz where the same 512 frames last
++         * 5.3 ms (highball#127). The buffer size is per process, so other apps keep theirs. */
++        AudioStreamBasicDescription hw;
++        UInt32 hw_size = sizeof(hw), cur = 0, cur_size = sizeof(cur), frames;
++        if(AudioUnitGetProperty(stream->unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0,
++                                &hw, &hw_size) == noErr && hw.mSampleRate > 0 &&
++           AudioUnitGetProperty(stream->unit, kAudioDevicePropertyBufferFrameSize, kAudioUnitScope_Global, 0,
++                                &cur, &cur_size) == noErr){
++            frames = muldiv(stream->period / 2, (int)hw.mSampleRate, 10000000);
++            if(frames > 0 && cur > frames){
++                sc = AudioUnitSetProperty(stream->unit, kAudioDevicePropertyBufferFrameSize, kAudioUnitScope_Global, 0,
++                                          &frames, sizeof(frames));
++                if(sc != noErr)
++                    WARN("Couldn't set the I/O buffer to %u frames: %x\n", (unsigned)frames, (int)sc);
++                else
++                    TRACE("I/O buffer %u -> %u frames at %u Hz\n", (unsigned)cur, (unsigned)frames, (unsigned)hw.mSampleRate);
++            }
++        }
++    }
++
+     sc = AudioUnitInitialize(stream->unit);
+     if(sc != noErr){
+         WARN("Couldn't initialize: %x\n", (int)sc);

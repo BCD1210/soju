@@ -36,6 +36,10 @@ apply_once(){
   git -C "$1" apply --reverse --check "$2" 2>/dev/null || git -C "$1" apply "$2"
 }
 apply_once wine "$ROOT/patches/steam-winemac.patch"
+# Surround audio on stereo Macs (#93): Highball's winecoreaudio/mmdevapi patches, as in the CX engine.
+apply_once wine "$ROOT/patches/steam-winecoreaudio-io-buffer.patch"
+apply_once wine "$ROOT/patches/highball/0022-mmdevapi-spatial-static-object-order.patch"
+apply_once wine "$ROOT/patches/highball/0023-winecoreaudio-spatial-mixer-for-surround-beds.patch"
 apply_once dxmt "$ROOT/patches/steam-dxmt-build.patch"
 apply_once dxmt "$ROOT/patches/dxmt-max-tess-factor.patch"
 apply_once dxmt "$ROOT/patches/dxmt-nonfatal-pure-virtual.patch"
@@ -70,7 +74,8 @@ cd build
 [ -f Makefile ] || arch -x86_64 ../configure --enable-win64 --disable-tests --without-freetype \
   CFLAGS='-fvisibility=default -O2 -Wno-error -mmacosx-version-min=14.0' \
   CXXFLAGS='-fvisibility=default -O2 -Wno-error -mmacosx-version-min=14.0'
-arch -x86_64 make -j"$JOBS" dlls/winemac.drv/winemac.so
+arch -x86_64 make -j"$JOBS" dlls/winemac.drv/winemac.so dlls/winecoreaudio.drv/winecoreaudio.so \
+  dlls/mmdevapi/x86_64-windows/mmdevapi.dll
 cd "$BUILD"
 mkdir -p output/dxmt-x64 output/licenses
 for dll in d3d11 dxgi d3d10core winemetal; do
@@ -79,6 +84,8 @@ for dll in d3d11 dxgi d3d10core winemetal; do
 done
 cp dxmt/build/src/winemetal/unix/winemetal.so output/dxmt-x64/
 cp wine/build/dlls/winemac.drv/winemac.so output/winemac-patched.so
+cp wine/build/dlls/winecoreaudio.drv/winecoreaudio.so output/winecoreaudio-patched.so
+x86_64-w64-mingw32-strip -o output/mmdevapi-x64.dll wine/build/dlls/mmdevapi/x86_64-windows/mmdevapi.dll
 x86_64-w64-mingw32-gcc -O2 -Wall -municode -DUNICODE -D_UNICODE \
   -o output/steamwebhelper-wrapper.exe "$ROOT/third_party/steam-on-m1-wine/steamwebhelper-wrapper.c" -static -lshell32 -mwindows
 cp "$ROOT/third_party/steam-on-m1-wine/LICENSE" output/licenses/wrapper-MIT.txt
