@@ -418,7 +418,8 @@ struct PlatformsView: View {
                 )).labelsHidden().toggleStyle(.checkbox).disabled(model.busy)
                     .accessibilityLabel("Select " + launcher.title)
             }
-            Text(launcher.detail).font(.system(size: 11)).foregroundStyle(.secondary)
+            Text(launcher == .steam && model.steamGPTK ? "Windows library · Apple D3DMetal" : launcher.detail)
+                .font(.system(size: 11)).foregroundStyle(.secondary)
             HStack {
                 Text(launcher.accountName)
                     .font(.system(size: 10)).foregroundStyle(.tertiary)
