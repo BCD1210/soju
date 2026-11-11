@@ -156,7 +156,7 @@
       "props": {
         "id": "works",
         "title": "직접 실행해 본 게임",
-        "intro": "M4 Pro 맥, macOS 26.5에서 확인했습니다. 다른 게임은 해 보기 전에는 모릅니다. [결과를 알려 주세요](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)."
+        "intro": "M4 Pro 맥, macOS 26.5에서 확인했습니다. 다른 게임은 해 보기 전에는 모릅니다. [게임별로 되는지 보기](mac/) · [결과를 알려 주세요](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)."
       },
       "children": [
         {
