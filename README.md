@@ -81,7 +81,12 @@ The installer asks which launchers you want **before downloading anything**. Ste
 soju doctor      # checks the whole stack and prints what is wrong (paste this into bug reports)
 soju update      # updates the scripts and the prebuilt engine, keeping GPTK and every bottle
 soju uninstall   # removes apps, bottles and the engine, asking before each one
+soju report "Elden Ring"   # opens a compatibility report with your Mac, macOS and engine filled in
 ```
+
+- **⌘C / ⌘V / ⌘A work inside Windows programs** (sign-in forms, chat): Command is sent as Ctrl and Option as Alt. To get Wine's default back for one bottle, set `LeftCommandIsCtrl` to `n` under `HKCU\Software\Wine\Mac Driver` in it, or start with `SOJU_COMMAND_IS_CTRL=0`.
+- **Updates install themselves:** when a new release is out, the app's sidebar card has **Update and Restart**. It downloads the release, accepts it only if it is signed with Didim Labs' Developer ID, notarized by Apple and carries the expected version, then swaps the app and reopens it.
+- **Rosetta 2** is offered by the installer when it is missing (it asks for your administrator password; Apple's license applies).
 
 ## More in the app
 
@@ -259,6 +264,6 @@ Every bottle start also spawns idle Windows service processes (`services.exe`, `
 
 ## Share your compatibility results
 
-Tried a game on your Mac? Report successes, partial support or failures with the game, store, Mac model, macOS and Soju setup. GitHub sign-in required; reports are public.
+Tried a game on your Mac? Report successes, partial support or failures with the game, store, Mac model, macOS and Soju setup. GitHub sign-in required; reports are public. In the app, right-click a game and choose **Report How It Ran…**, or run `soju report <game>`: both open the form with your Mac's details filled in, and nothing is sent until you press Submit. Reports end up on the game pages at [didimlabs.com/mac](https://didimlabs.com/mac/).
 
 [Share your compatibility results](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)
