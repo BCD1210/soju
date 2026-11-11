@@ -82,10 +82,13 @@ soju doctor      # checks the whole stack and prints what is wrong (paste this i
 soju update      # updates the scripts and the prebuilt engine, keeping GPTK and every bottle
 soju uninstall   # removes apps, bottles and the engine, asking before each one
 soju report "Elden Ring"   # opens a compatibility report with your Mac, macOS and engine filled in
+soju fps on      # frame rate and frame time in the corner of games (Apple's Metal HUD); soju fps off hides it
 ```
 
 - **⌘C / ⌘V / ⌘A work inside Windows programs** (sign-in forms, chat): Command is sent as Ctrl and Option as Alt. To get Wine's default back for one bottle, set `LeftCommandIsCtrl` to `n` under `HKCU\Software\Wine\Mac Driver` in it, or start with `SOJU_COMMAND_IS_CTRL=0`.
 - **Updates install themselves:** when a new release is out, the app's sidebar card has **Update and Restart**. It downloads the release, accepts it only if it is signed with Didim Labs' Developer ID, notarized by Apple and carries the expected version, then swaps the app and reopens it.
+- **Show FPS in games:** a checkbox under Platforms, or `soju fps on`. Games started after that show Apple's Metal HUD: frame rate, frame time, GPU and Rosetta. Handy for compatibility reports.
+- **Known settings per game:** Steam games known to run better on DXVK than on the default DXMT (Skyrim Special Edition, Dark Souls III and others in [resources/steam-profiles.json](resources/steam-profiles.json)) are switched to DXVK once, when Steam starts. Your own choice wins: `soju steam-games renderer reset <game.exe>` undoes it and it is not applied again.
 - **Rosetta 2** is offered by the installer when it is missing (it asks for your administrator password; Apple's license applies).
 
 ## More in the app

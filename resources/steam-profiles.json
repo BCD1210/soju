@@ -1,0 +1,19 @@
+{
+  "_note": "Steam games that run better on DXVK than on Soju's default DXMT. scripts/steam-profiles.py switches an installed one to DXVK when Steam starts, once, and never again after the player changes it (soju steam-games renderer ... reset/dxmt). Only Direct3D 11 games: the switch replaces d3d11/d3d10core/dxgi. Sources: Soju compatibility reports, and the Highball database (CC0) reports rated playable or better on DXVK.",
+  "profiles": {
+    "374320":  {"title": "DARK SOULS III", "renderer": "dxvk", "why": "Under DXMT the game freezes for about a minute on every enemy kill; DXVK plays at about 30 FPS (Soju report #48)."},
+    "489830":  {"title": "The Elder Scrolls V: Skyrim Special Edition", "renderer": "dxvk", "why": "DXMT and D3DMetal crash right after the menu; DXVK plays (Highball database)."},
+    "1158310": {"title": "Crusader Kings III", "renderer": "dxvk", "why": "Reported playable on DXVK over 73 minutes (Highball database)."},
+    "3450310": {"title": "Europa Universalis V", "renderer": "dxvk", "why": "Reported perfect twice on DXVK (Highball database)."},
+    "920210":  {"title": "LEGO Star Wars: The Skywalker Saga", "renderer": "dxvk", "why": "Reported playable on DXVK over an hour (Highball database)."},
+    "2144740": {"title": "Ghostrunner 2", "renderer": "dxvk", "why": "Reported playable on DXVK (Highball database)."},
+    "1577120": {"title": "The Quarry", "renderer": "dxvk", "why": "Reported playable on DXVK at the lowest settings (Highball database)."},
+    "739630":  {"title": "Phasmophobia", "renderer": "dxvk", "why": "Reported playable on DXVK over 84 minutes (Highball database)."},
+    "753640":  {"title": "Outer Wilds", "renderer": "dxvk", "why": "Reported perfect on DXVK (Highball database)."},
+    "3164500": {"title": "Schedule I", "renderer": "dxvk", "why": "Reported playable on DXVK over 65 minutes (Highball database)."},
+    "3527290": {"title": "PEAK", "renderer": "dxvk", "why": "Played on DXVK at about 30 FPS on an M1 Pro (Highball database)."},
+    "1229490": {"title": "ULTRAKILL", "renderer": "dxvk", "why": "Reported perfect on DXVK (Highball database)."},
+    "496300":  {"title": "Kingdom: New Lands", "renderer": "dxvk", "why": "Reported playable on DXVK for about two hours (Highball database)."},
+    "979120":  {"title": "Autonauts", "renderer": "dxvk", "why": "Reported playable on DXVK over 140 minutes (Highball database)."}
+  }
+}

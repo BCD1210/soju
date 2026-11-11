@@ -75,6 +75,10 @@ if [[ "${SOJU_KEYLOG:-0}" == 1 ]]; then
   echo "soju: key log -> $KEYLOG"
 fi
 export WINEMSYNC=1
+# soju fps on: Apple's Metal Performance HUD (frame rate, frame time, GPU
+# memory) in the corner of every game that draws with Metal, which is all of
+# them here (D3DMetal, DXMT). The setting is a file so the app can flip it.
+[ -f "${SOJU_BASE:-$HOME/.battlenet-macos}/fps-hud" ] && export MTL_HUD_ENABLED=1
 export ROSETTA_ADVERTISE_AVX=1
 # Battle.net's CEF renderer CHECKs that VirtualProtect() on a written .data page
 # of libcef.dll reports PAGE_READWRITE. Plain wine reports PAGE_WRITECOPY for
@@ -302,6 +306,10 @@ case "$MODE" in
     [[ -f "$ST" ]] || { echo "Steam not found, run scripts/create-steam-bottle.sh first"; exit 1; }
     # Repair a bootstrap-only installation before deploying the CEF wrapper.
     python3 "$(dirname "${BASH_SOURCE[0]}")/bootstrap-steam.py" "$WINESTABLE"
+    # Known DXVK games (resources/steam-profiles.json) get DXVK once, before Steam
+    # starts; the renderer switch refuses while this bottle is running anyway.
+    pgrep -f "$WINESTABLE_SERVER" >/dev/null 2>&1 || \
+      python3 "$(dirname "${BASH_SOURCE[0]}")/steam-profiles.py" apply || true
     # 1) Clean crash leftovers (a stale lock makes the next launch a windowless --silent one)
     find "$WINEPREFIX/drive_c/users/"*/AppData/Local/Steam/htmlcache -maxdepth 2 \
       \( -name "Singleton*" -o -name "*.lock" \) -delete 2>/dev/null || true
