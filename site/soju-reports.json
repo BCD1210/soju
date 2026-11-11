@@ -42,6 +42,20 @@
    "mac": "2022 MacBook Air, Apple M2, 16 GB RAM",
    "macos": "macOS Tahoe 26.5.1",
    "soju": "Soju 1.6.9"
+  },
+  {
+   "number": 95,
+   "url": "https://github.com/BCD1210/soju/issues/95",
+   "date": "2026-11-11",
+   "name": "The Elder Scrolls V: Skyrim Special Edition",
+   "appid": "489830",
+   "title": "Skyrim Special Edition (Steam) works on M5 Pro / macOS 27.2 after three fixes",
+   "works": true,
+   "store": "Steam",
+   "result": "Works in-game: played about 12 minutes with dialogue, after three changes (below).",
+   "mac": "MacBook Pro, M5 Pro, 64 GB",
+   "macos": "27.2",
+   "soju": "Tested on 1.11.0, then again on 1.12.0 (Homebrew). With the same three changes the game still works on 1.12.0. `steam-su"
   }
  ]
 }

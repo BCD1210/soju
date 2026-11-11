@@ -39,6 +39,8 @@ if version(platform.mac_ver()[0]) < version(m['minimum_macos']):
     sys.exit('This Steam component build requires macOS '+m['minimum_macos']+' or later.')
 PYVERSION
 python3 "$ROOT/scripts/fetch-steam-support.py"
+# Voice lines in Windows Media Audio need GStreamer (#94); a failed download only costs those voices.
+python3 "$ROOT/scripts/fetch-gstreamer.py" >/dev/null || echo "GStreamer could not be downloaded; Steam games with WMA voices stay silent until soju update retries"
 B="$WINEPREFIX/drive_c/windows"
 [ -d "$B/system32" ] || { echo "Install Steam first: soju steam-install"; exit 1; }
 unset DYLD_FALLBACK_LIBRARY_PATH WINEDLLOVERRIDES WINEMSYNC ROSETTA_ADVERTISE_AVX
