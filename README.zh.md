@@ -8,7 +8,7 @@ Soju 在 M1 及更新的 Mac 上安装 **Battle.net、Steam、Epic Games、GOG G
 
 ![Soju 统一游戏库](docs/assets/soju-library.png)
 
-**[下载 Soju 1.14.0（Mac）](https://github.com/BCD1210/soju/releases/download/v1.14.0/Soju-1.14.0-macos-arm64.zip)**，或在终端安装：
+**[下载 Soju 1.14.1（Mac）](https://github.com/BCD1210/soju/releases/download/v1.14.1/Soju-1.14.1-macos-arm64.zip)**，或在终端安装：
 
 ```bash
 brew install BCD1210/soju/soju
@@ -50,7 +50,7 @@ soju install
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 进入游戏 | UE4 的"AMD 驱动"警告无害 |
 | StarCraft: Remastered | 战网 | 未确认 | ✅ 进入游戏 | 战网更新游戏后可开始对电脑的单人对战；多人对战未测试 |
 | Unity D3D11 游戏 | Steam | DXMT | ✅ 进入游戏，窗口模式 | 需要 `soju steam-games`，见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
-| 守望先锋 2 | Steam | D3DMetal（Steam GPTK 模式） | ✅ 主菜单，在线 | `soju steam-gptk on`（或 Platforms > Apple GPTK > Use for Steam）；首次会要求连接一次 Battle.net 账号 |
+| 守望先锋 2 | Steam | D3DMetal（Steam GPTK 模式） | ✅ 主菜单，在线 | `soju steam-gptk on`（或 Platforms > Steam > Overwatch and Diablo II mode）；首次会要求连接一次 Battle.net 账号 |
 | Diablo II: Resurrected（Infernal Edition） | Steam | D3DMetal（Steam GPTK 模式） | ⏳ 尚未验证 | 需要 `soju steam-gptk on`：D2R 加载器需要的 GPTK `libd3dshared` 现在会像守望先锋 2 一样传给 Steam 游戏；我们没有 Steam 版，尚未实际运行 |
 
 跑不了的：任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。有问题或想简单反馈，欢迎加入 [Discord](https://discord.gg/ttBDcF5ftz)。跑通了别的游戏？欢迎发到 [Discussions](https://github.com/BCD1210/soju/discussions)，或提 PR 加一行。
@@ -70,7 +70,7 @@ soju install     # 然后：soju battlenet / soju d2r / soju steam / soju epic /
 
 安装器会**先询问要安装哪些启动器，再下载对应组件**。仅选择 Steam 时，不会下载 CX 引擎或 Apple GPTK。Steam 图形组件经过 SHA-256 校验后，自动安装到 Soju 专用的 Wine 11.0 环境中。战网、Epic 和 GOG 使用共享 CX 引擎及用户单独下载的 Apple GPTK。各客户端的 bottle、账户和游戏分别保留。
 
-[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.14.0/Soju-1.14.0-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
+[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.14.1/Soju-1.14.1-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
 
 ## 日常维护
 
@@ -191,7 +191,7 @@ soju xbox-logout             # 退出登录（已下载的游戏保留）
 
 ## Steam（包括 Steam 版 D2R）
 
-**Steam GPTK 模式**（`soju steam-gptk on`，或 Platforms > Apple GPTK > Use for Steam）：Steam 和 Steam 游戏使用与 Battle.net 相同的引擎和 Apple GPTK，并换用能显示 Steam 浏览器窗口的 Mac 驱动。适用于 D3D12 游戏和 Steam 上的暴雪游戏（守望先锋 2 已在线进入主菜单；D2R 需要 GPTK 的 `libd3dshared`）。它使用复制自 Steam bottle 的独立 bottle，不额外占用空间，已安装的游戏仍在；需要在其中登录一次 Steam。`soju steam-gptk off` 可回到 Wine 11 + DXMT，原登录仍在。
+**Steam GPTK 模式**（`soju steam-gptk on`，或 Platforms > Steam > Overwatch and Diablo II mode）：Steam 和 Steam 游戏使用与 Battle.net 相同的引擎和 Apple GPTK，并换用能显示 Steam 浏览器窗口的 Mac 驱动。适用于 D3D12 游戏和 Steam 上的暴雪游戏（守望先锋 2 已在线进入主菜单；D2R 需要 GPTK 的 `libd3dshared`）。它使用复制自 Steam bottle 的独立 bottle，不额外占用空间，已安装的游戏仍在；需要在其中登录一次 Steam。`soju steam-gptk off` 可回到 Wine 11 + DXMT，原登录仍在。
 
 D2R 于 2026 年 2 月以 *Infernal Edition* 上架 Steam。Steam 支持用的是**另一个免费引擎**：新版 Steam 客户端的 CEF 界面在 CrossOver 源码构建上无法渲染（黑窗口，跨进程交换链 + CEF 沙箱问题），但在 Homebrew 的 `wine-stable` 11 上，配合一个强制 `--disable-gpu --single-process` 的小 `steamwebhelper` 包装器就能工作。该修复来自 [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)（MIT，包装器源码收录在 `third_party/`）。Steam 有自己独立的 bottle，两套栈互不干扰：
 

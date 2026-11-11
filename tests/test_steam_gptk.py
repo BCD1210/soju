@@ -49,6 +49,17 @@ class SteamGPTKTests(unittest.TestCase):
         self.put('steam-gptk')
         self.assertEqual(library.Library(self.base).folders['steam'], 'steam-gptk-bottle')
 
+    def test_gptk_games_point_to_the_steam_mode(self):
+        self.put('steam-bottle/' + CLIENT)
+        root = self.base / 'steam-bottle/drive_c/Program Files (x86)/Steam'
+        for uid, folder in (('2357570', 'Overwatch'), ('70', 'Half-Life')):
+            (root / 'steamapps/common' / folder).mkdir(parents=True)
+            (root / 'steamapps' / f'appmanifest_{uid}.acf').write_text(
+                f'"AppState" {{ "appid" "{uid}" "name" "{folder}" "StateFlags" "4" "installdir" "{folder}" }}')
+        lib = library.Library(self.base); lib.steam()
+        self.assertIn('Overwatch and Diablo II mode', lib.games['steam:2357570']['issue'])
+        self.assertIsNone(lib.games['steam:70']['issue'])
+
     def test_play_sh_picks_the_gptk_bottle(self):
         text = (ROOT / 'scripts/play.sh').read_text()
         self.assertIn('steam-gptk.sh" status', text)

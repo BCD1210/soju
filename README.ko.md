@@ -8,7 +8,7 @@ Soju는 M1 이후 맥에 **Battle.net·Steam·Epic Games·GOG GALAXY·EA 앱·Ro
 
 ![Soju 통합 게임 라이브러리](docs/assets/soju-library.png)
 
-**[Soju 1.14.0 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.0/Soju-1.14.0-macos-arm64.zip)**, 또는 터미널에서 설치:
+**[Soju 1.14.1 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.1/Soju-1.14.1-macos-arm64.zip)**, 또는 터미널에서 설치:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -50,7 +50,7 @@ soju install
 | Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 인게임 | UE4 "AMD 드라이버" 경고는 무해, 입력 소스를 영어로 |
 | StarCraft: Remastered | Battle.net | 미확인 | ✅ 인게임 | 배틀넷에서 업데이트한 뒤 컴퓨터 상대 싱글 대전 시작까지 확인, 멀티플레이는 미확인 |
 | Unity D3D11 타이틀 | Steam | DXMT | ✅ 인게임, 창 모드 | `soju steam-games` 필요, [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
-| 오버워치 2 | Steam | D3DMetal (Steam GPTK 모드) | ✅ 메인 메뉴, 온라인 | `soju steam-gptk on` (또는 Platforms > Apple GPTK > Use for Steam). 처음 한 번 배틀넷 계정 연결을 묻습니다 |
+| 오버워치 2 | Steam | D3DMetal (Steam GPTK 모드) | ✅ 메인 메뉴, 온라인 | `soju steam-gptk on` (또는 Platforms > Steam > Overwatch and Diablo II mode). 처음 한 번 배틀넷 계정 연결을 묻습니다 |
 | Diablo II: Resurrected (Infernal Edition) | Steam | D3DMetal (Steam GPTK 모드) | ⏳ 미검증 | `soju steam-gptk on` 필요: D2R 로더가 쓰는 GPTK `libd3dshared`가 오버워치 2와 같은 방식으로 Steam 게임에 전달됩니다. Steam판을 갖고 있지 않아 직접 실행은 아직 못 했습니다 |
 
 안 되는 것: 커널 안티치트(EAC, BattlEye, Vanguard)가 붙은 게임 전부. 질문이나 간단한 제보는 [Discord](https://discord.gg/ttBDcF5ftz)에서 받습니다. 다른 게임을 돌리셨다면 [Discussions](https://github.com/BCD1210/soju/discussions)에 올리거나 표에 한 줄 추가하는 PR을 보내주세요.
@@ -70,7 +70,7 @@ soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / 
 
 설치기는 **다운로드 전에 원하는 런처부터 선택**합니다. Steam만 선택하면 CX 엔진과 애플 GPTK를 받지 않습니다. Steam 그래픽 구성요소는 SHA-256으로 검증한 뒤 Soju 전용 Wine 11.0 환경에 자동으로 설치합니다. Battle.net·Epic·GOG는 공통 CX 엔진과 사용자가 별도로 받은 애플 GPTK를 사용합니다. 각 런처의 보틀·로그인·게임은 독립적으로 유지합니다.
 
-[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.14.0/Soju-1.14.0-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
+[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.14.1/Soju-1.14.1-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
 
 ## 일상 명령
 
@@ -199,7 +199,7 @@ soju xbox-logout             # 로그아웃 (받은 게임은 유지)
 
 ## Steam 지원 (Steam판 D2R 포함)
 
-**Steam GPTK 모드** (`soju steam-gptk on`, 또는 Platforms > Apple GPTK > Use for Steam): Steam과 Steam 게임이 배틀넷과 같은 엔진·애플 GPTK에서 돌고, Steam 브라우저 창을 그릴 수 있는 Mac 드라이버를 씁니다. D3D12 게임과 Steam에서 파는 블리자드 게임(오버워치 2는 온라인 메인 메뉴까지 확인, D2R은 GPTK의 `libd3dshared`가 필요)에 씁니다. 기존 Steam 보틀을 복제한 별도 보틀을 써서 용량이 늘지 않고 설치한 게임도 그대로 보이며, 거기서 Steam 로그인을 한 번 합니다. `soju steam-gptk off`로 Wine 11 + DXMT로 돌아가면 기존 로그인이 그대로 있습니다.
+**Steam GPTK 모드** (`soju steam-gptk on`, 또는 Platforms > Steam > Overwatch and Diablo II mode): Steam과 Steam 게임이 배틀넷과 같은 엔진·애플 GPTK에서 돌고, Steam 브라우저 창을 그릴 수 있는 Mac 드라이버를 씁니다. D3D12 게임과 Steam에서 파는 블리자드 게임(오버워치 2는 온라인 메인 메뉴까지 확인, D2R은 GPTK의 `libd3dshared`가 필요)에 씁니다. 기존 Steam 보틀을 복제한 별도 보틀을 써서 용량이 늘지 않고 설치한 게임도 그대로 보이며, 거기서 Steam 로그인을 한 번 합니다. `soju steam-gptk off`로 Wine 11 + DXMT로 돌아가면 기존 로그인이 그대로 있습니다.
 
 D2R은 2026년 2월 Steam에도 *Infernal Edition*으로 출시됐습니다. Steam은 **다른 무료 엔진**을 씁니다: 최신 Steam 클라이언트의 CEF UI는 CrossOver 소스 계열 빌드에서 렌더링되지 않지만(검은 창, 크로스 프로세스 스왑체인 + CEF 샌드박스 문제), homebrew `wine-stable` 11 + `steamwebhelper` 래퍼(`--disable-gpu --single-process` 강제)로는 동작합니다. 이 해법은 [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)(MIT, 래퍼 소스는 `third_party/`에 동봉)에서 왔습니다. Steam은 별도 보틀이라 두 스택이 서로 간섭하지 않습니다:
 
