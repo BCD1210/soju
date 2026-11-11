@@ -119,6 +119,15 @@ complete_gptk(){
   ENGINE="$ENGINE" SOJU_BASE="$BASE" python3 "$ROOT/scripts/fetch-gptk.py" || echo "  could not add them; games that need them may not start (soju gptk retries)"
 }
 
+# Steam game voices: Wine decodes Windows Media Audio with GStreamer, which no
+# engine ships (#94). Add the parts it needs once; a failed download is not fatal.
+if [ -f "$BASE/steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe" ] && \
+   ! SOJU_BASE="$BASE" python3 "$ROOT/scripts/fetch-gstreamer.py" --check; then
+  echo "  adding GStreamer for Steam game voices"
+  SOJU_BASE="$BASE" python3 "$ROOT/scripts/fetch-gstreamer.py" >/dev/null || \
+    echo "  could not add it; Steam games with WMA voices stay silent until soju update retries"
+fi
+
 # ---------- 2. Engine ----------
 say "[2/2] Checking the engine"
 if [ ! -x "$ENGINE/bin/wine" ]; then

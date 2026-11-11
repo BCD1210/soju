@@ -42,7 +42,8 @@ def parse(issue):
     f = sections(issue.get("body"))
     if not f.get("game") or not f.get("result"):
         return None
-    appid = re.search(r"App ?ID[:\s]*(\d{2,8})", f["game"], re.I) or re.search(r"store\.steampowered\.com/app/(\d+)", issue.get("body") or "")
+    appid = (re.search(r"App ?ID[:\s]*(\d{2,8})", f["game"], re.I) or re.search(r"\bapp\s+(\d{2,8})\b", f["game"], re.I)
+             or re.search(r"store\.steampowered\.com/app/(\d+)", issue.get("body") or ""))
     name = re.sub(r"\s*\(.*?\)\s*", " ", f["game"]).strip()
     title = re.sub(r"^\[Compatibility\]:\s*", "", issue.get("title") or "").strip()
     # Maintainers retitle a report with what actually happened; a title that
@@ -51,7 +52,8 @@ def parse(issue):
                        title, re.I)
     return {"number": issue["number"], "url": issue["html_url"], "date": issue["created_at"][:10],
             "name": name, "appid": appid.group(1) if appid else None, "title": title[:160],
-            "works": f["result"] == WORKS and not failed,
+            # The form's choice may be followed by a note ("Works in-game: played 12 minutes ...").
+            "works": f["result"].startswith(WORKS) and not failed,
             **{k: f[k][:120] for k in ("store", "result", "mac", "macos", "soju", "fps", "played") if f.get(k)}}
 
 

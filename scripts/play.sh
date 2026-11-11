@@ -370,6 +370,13 @@ case "$MODE" in
     STEAM_ENV=(env -u DYLD_FALLBACK_LIBRARY_PATH -u CX_ACTIVE_GRAPHICS_BACKEND -u CX_GRAPHICS_BACKEND
                -u CX_APPLEGPTK_LIBD3DSHARED_PATH -u WINEMSYNC -u ROSETTA_ADVERTISE_AVX -u WINE_SIMULATE_WRITECOPY
                WINEPREFIX="$WINEPREFIX" WINEDEBUG="${WINEDEBUG:-fixme-all}")
+    # GStreamer for WMA voice lines (scripts/fetch-gstreamer.py, #94). winegstreamer
+    # looks for @rpath/libgst*; the fallback path is only searched when its own lookups fail.
+    GST="${SOJU_BASE:-$HOME/.battlenet-macos}/gstreamer"
+    if [ -f "$GST/.soju-gstreamer" ]; then
+      STEAM_ENV+=(DYLD_FALLBACK_LIBRARY_PATH="$GST/lib:/usr/lib" GST_PLUGIN_SYSTEM_PATH_1_0="$GST/lib/gstreamer-1.0"
+                  GST_PLUGIN_SCANNER_1_0="$GST/libexec/gstreamer-1.0/gst-plugin-scanner" GST_REGISTRY_1_0="$GST/registry.x86_64.bin")
+    fi
     # 4) Drop Steam's autostart entry. Steam adds itself to the prefix's Run key
     #    with -silent, so it comes back invisibly whenever anything boots this
     #    prefix. Steam re-adds it on update, so scrub it every launch.

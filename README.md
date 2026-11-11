@@ -8,7 +8,7 @@ Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
-**[Download Soju 1.14.5 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.5/Soju-1.14.5-macos-arm64.zip)**, or install from the terminal:
+**[Download Soju 1.14.6 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.6/Soju-1.14.6-macos-arm64.zip)**, or install from the terminal:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -74,7 +74,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.5/Soju-1.14.5-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.6/Soju-1.14.6-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
@@ -215,6 +215,8 @@ soju xbox-logout             # sign out; downloaded games stay
 ## Steam (including the Steam version of D2R)
 
 **Steam with Apple GPTK** (`soju steam-gptk on`, or Platforms > Steam > Overwatch and Diablo II mode): Steam and its games run on the same engine and Apple GPTK as Battle.net, plus a Mac driver that can show Steam's browser window. Use it for D3D12 games and for Blizzard games sold on Steam (Overwatch 2 reaches its main menu online; Diablo II: Resurrected needs GPTK's `libd3dshared`). It uses its own bottle, made as a copy of the Steam bottle that takes no extra space, so installed games stay; Steam asks you to sign in once there. `soju steam-gptk off` goes back to Wine 11 + DXMT, still signed in.
+
+**Game voices in Windows Media Audio** (Skyrim Special Edition's dialogue, among others) need GStreamer, which Wine uses to decode them. When Steam is set up, and on `soju update`, Soju downloads the official GStreamer macOS package from gstreamer.freedesktop.org (SHA-256 pinned, about 150 MB once) and keeps only the 39 MB of audio plugins and libraries Wine loads, in `~/.battlenet-macos/gstreamer`. Steam started by Soju finds them. This applies to Steam on Wine 11; the Apple GPTK engine has no GStreamer support yet.
 
 D2R shipped on Steam in Feb 2026 as the *Infernal Edition*. Steam support uses a **different free engine**: the modern Steam client's CEF UI does not render on CrossOver-source builds (black window, cross-process swapchain + CEF sandbox issues), but it works on a pinned upstream Wine 11 build with a tiny `steamwebhelper` wrapper that forces `--disable-gpu --single-process`. That fix comes from [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) (MIT, wrapper source vendored in `third_party/`). Steam gets its own bottle so the two stacks never interfere:
 

@@ -110,7 +110,7 @@ fi
 # 5. Caches and support files: downloaded installers and sources (build/),
 #    compiled helpers (*-support/), logs, and leftovers of an interrupted update.
 extras=()
-for d in build steam-support epic-support gog-support launcher-support logs cx26-engine.old cx26-engine.new cx26-engine-launchers.new soju.old; do
+for d in build steam-support gstreamer epic-support gog-support launcher-support logs cx26-engine.old cx26-engine.new cx26-engine-launchers.new soju.old; do
   [ -e "$BASE/$d" ] && extras+=("$BASE/$d")
 done
 for d in "$BASE"/reaper-*.log "$BASE"/*.tar.xz "$BASE"/*.part; do

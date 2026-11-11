@@ -26,6 +26,23 @@ replaced, so Apple's d3d11/d3d12/dxgi/atidxx64/nvapi64 shims and
 - `soju steam-gptk off` goes back to `steam-bottle` on Wine 11 + DXMT, still
   signed in. The DXVK profiles (`steam-profiles.json`) apply only there.
 
+## Game voices: GStreamer (`scripts/fetch-gstreamer.py`)
+
+Verified 2026-11-11 on M4 Pro / macOS 26.5. Wine's WMA decoder is a GStreamer
+pipeline (appsrc, avdec_wmav2 from gst-libav, audioconvert, audioresample,
+appsink). Without GStreamer, creating it fails ("GStreamer doesn't support WMA
+decoding", #94) and games with WMA voice lines have no dialogue. A test that
+creates `CLSID_CWMADecMediaObject` in the Steam runtime failed with 0xd0000005
+before and succeeded after; a DirectShow graph rendering a 2-second WMA file
+reached EC_COMPLETE only with GStreamer.
+
+The official package (pinned SHA-256) is expanded in a temporary folder; only
+the x86_64 slices of 14 plugins and the 32 libraries they load are kept (39 MB),
+and the package is deleted. `play.sh steam` adds `DYLD_FALLBACK_LIBRARY_PATH`
+(searched only when Wine's own lookups fail) and the `GST_*` paths after it drops
+the CX environment. The CX engine is built without winegstreamer, so Steam with
+Apple GPTK does not get this yet.
+
 ## Why not the Soju CX engine?
 
 The modern Steam client's CEF UI does not render on CrossOver-source builds:
