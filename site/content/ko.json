@@ -178,6 +178,13 @@
                 "result": "컴퓨터 상대 싱글 대전 시작까지 확인. 멀티플레이는 미확인. [가이드](../guides/ko/starcraft-mac.html)"
               },
               {
+                "title": "오버워치 2",
+                "store": "Battle.net",
+                "status": "메뉴까지",
+                "tone": "partial",
+                "result": "로그인 후 온라인 메인 메뉴까지 확인. 경기는 아직. [가이드](../guides/ko/overwatch-2-mac.html)"
+              },
+              {
                 "title": "호그와트 레거시",
                 "store": "에픽",
                 "status": "플레이 됨",

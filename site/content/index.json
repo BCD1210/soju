@@ -264,6 +264,13 @@
                 "result": "A single-player match starts. Multiplayer not tried. [Guide](guides/starcraft-remastered-apple-silicon.html)"
               },
               {
+                "title": "Overwatch 2",
+                "store": "Battle.net",
+                "status": "Menu",
+                "tone": "partial",
+                "result": "Signs in and reaches the online main menu. A match not tried yet. [Guide](guides/overwatch-2-apple-silicon.html)"
+              },
+              {
                 "title": "Hogwarts Legacy",
                 "store": "Epic",
                 "status": "Plays",
@@ -410,6 +417,10 @@
               {
                 "label": "StarCraft: Remastered on Apple Silicon",
                 "href": "guides/starcraft-remastered-apple-silicon.html"
+              },
+              {
+                "label": "Overwatch 2 on Apple Silicon",
+                "href": "guides/overwatch-2-apple-silicon.html"
               },
               {
                 "label": "The Windows Steam client on Apple Silicon",

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overwatch 2 on Apple Silicon Macs with Soju (free, 2026)</title>
+<meta name="description" content="How to run Overwatch 2 on an M-series Mac through the Windows Battle.net client that Soju installs, the fix for General Error 0xE0010110, and what was tested on an M4 Pro with macOS 26.5.">
+<link rel="canonical" href="https://didimlabs.com/guides/overwatch-2-apple-silicon.html">
+<link rel="alternate" hreflang="en" href="https://didimlabs.com/guides/overwatch-2-apple-silicon.html">
+<link rel="alternate" hreflang="ko" href="https://didimlabs.com/guides/ko/overwatch-2-mac.html">
+<meta property="og:title" content="Overwatch 2 on Apple Silicon Macs">
+<meta property="og:description" content="How to run Overwatch 2 on an M-series Mac through the Windows Battle.net client that Soju installs, and the fix for General Error 0xE0010110.">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://didimlabs.com/assets/overwatch-2-mac.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.png?v=20261110b">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=20261110b">
+<link rel="stylesheet" href="../style.css?v=20261111a">
+<meta property="og:url" content="https://didimlabs.com/guides/overwatch-2-apple-silicon.html">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Overwatch 2 on Apple Silicon Macs with Soju (free, 2026)",
+  "description": "How to run Overwatch 2 on an M-series Mac through the Windows Battle.net client that Soju installs, the fix for General Error 0xE0010110, and what was tested on an M4 Pro with macOS 26.5.",
+  "url": "https://didimlabs.com/guides/overwatch-2-apple-silicon.html",
+  "mainEntityOfPage": "https://didimlabs.com/guides/overwatch-2-apple-silicon.html",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "WebSite", "name": "Soju", "url": "https://didimlabs.com/"},
+  "dateModified": "2026-11-11",
+  "image": "https://didimlabs.com/assets/overwatch-2-mac.jpg"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {"@type": "Question", "name": "Does Overwatch 2 run on Apple Silicon Macs?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Through the Windows Battle.net client that Soju installs, Overwatch 2 reached its main menu, signed in and online, on an M4 Pro with macOS 26.5, drawn with Apple's D3DMetal. A match was not played in that check."}},
+    {"@type": "Question", "name": "How do I fix General Error (0xE0010110) in Overwatch 2 on a Mac?",
+     "acceptedAnswer": {"@type": "Answer", "text": "The game loads atidxx64.dll, Apple's AMD driver shim from the Game Porting Toolkit. When the Wine engine has only Apple's d3d11, d3d12 and dxgi shims, Overwatch 2 stops with this error at start. In Soju, run soju update (1.13.0 or later) or soju gptk to add the missing shims, then start the game again."}},
+    {"@type": "Question", "name": "Why does Battle.net ask for a phone number before installing Overwatch 2?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Blizzard requires a phone number on the Battle.net account before the free game can be installed. Add it on account.battle.net under Security; the install button appears afterwards."}}
+  ]
+}
+</script>
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../"><img src="../assets/soju-logo-64.png?v=20261110b" width="28" height="28" alt="">Soju<span> by Didim Labs</span></a>
+  <a href="diablo-2-resurrected-apple-silicon.html">D2R guide</a>
+  <a href="starcraft-remastered-apple-silicon.html">StarCraft guide</a>
+  <a href="../mac/">Games</a>
+  <a href="https://github.com/BCD1210/soju">GitHub</a>
+</div></nav>
+<main>
+<p class="note">This guide is part of <a href="../">Soju</a>, a free, open-source Mac app that installs the Windows Battle.net, Steam, Epic, GOG, EA, Rockstar and Ubisoft launchers on Apple Silicon.</p>
+<h1>Overwatch 2 on Apple Silicon</h1>
+<p class="lead">Overwatch 2 has no Mac version. It runs through the Windows Battle.net client that Soju sets up:
+on an M4 Pro with macOS 26.5 the game started, signed in and reached its online main menu, drawn with Apple's D3DMetal.</p>
+
+<img class="shot" src="../assets/overwatch-2-mac.jpg?v=20261111a" width="1200" height="673" alt="Overwatch 2 main menu on a Mac, signed in, with the season pass window open">
+
+<h2>The quick version</h2>
+<pre><code>brew install BCD1210/soju/soju
+soju install          # choose Battle.net
+soju update           # 1.13.0 or later adds the driver shims Overwatch 2 needs
+soju battlenet        # sign in, install Overwatch, press Play</code></pre>
+<p>Or <a href="../#install">download the Soju app</a>, open Platforms and choose Battle.net.</p>
+
+<h2>What you need</h2>
+<table>
+  <tr><th>Item</th><th>Detail</th></tr>
+  <tr><td>Mac</td><td>Apple Silicon. Checked on an M4 Pro with macOS 26.5; other Macs are untested.</td></tr>
+  <tr><td>Account</td><td>A Battle.net account with a phone number on it. Blizzard asks for one before the free install; add it at account.battle.net under Security.</td></tr>
+  <tr><td>Apple's Game Porting Toolkit</td><td>All of Apple's shims, including <code>atidxx64.dll</code> and <code>nvapi64.dll</code>. Soju 1.13.0 adds them with <code>soju update</code>; <code>soju doctor</code> says if they are missing.</td></tr>
+  <tr><td>Disk</td><td>About 85 GB for the game, as Battle.net reported it.</td></tr>
+</table>
+
+<h2>General Error (0xE0010110)</h2>
+<p>If Overwatch 2 shows <strong>General Error (0xE0010110)</strong> right after you press Play, the engine is missing Apple's AMD driver shim.
+The game loads <code>atidxx64.dll</code> while it sets up graphics; engines set up from an older toolkit, or by Soju before 1.13.0, had only the
+<code>d3d11</code>, <code>d3d12</code> and <code>dxgi</code> shims. Close Battle.net and run:</p>
+<pre><code>soju update     # or: soju gptk
+soju doctor     # should report atidxx64.dll and nvapi64.dll as Apple's shims</code></pre>
+
+<h2>What we checked</h2>
+<ul>
+  <li>Battle.net installed the game after the phone number was added to the account.</li>
+  <li>Without the shims the game stopped with General Error (0xE0010110). With them it loaded, signed in and showed the main menu online, with the season and pass screens.</li>
+  <li>Diablo II: Resurrected still reached its title screen on the same engine after the change.</li>
+</ul>
+
+<h2>What we did not check</h2>
+<ul>
+  <li>A match, the practice range, frame rate in play, or voice chat.</li>
+  <li>Long sessions.</li>
+  <li>Other Macs and macOS versions.</li>
+</ul>
+<p>Played a match on your Mac? Turn on <strong>Show FPS in games</strong> under Platforms and tell us the number in
+<a href="https://discord.gg/PwBjET6YZ3">#compatibility on Discord</a> or in a
+<a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">compatibility report</a>; it goes on the
+<a href="../mac/overwatch-2.html">Overwatch 2 page</a>.</p>
+
+<h2 id="questions">Questions</h2>
+<div class="faq">
+  <details open><summary>Does Overwatch 2 run on Apple Silicon Macs?</summary><p>Through the Windows Battle.net client that Soju installs, Overwatch 2 reached its main menu, signed in and online, on an M4 Pro with macOS 26.5, drawn with Apple's D3DMetal. A match was not played in that check.</p></details>
+  <details><summary>How do I fix General Error (0xE0010110) in Overwatch 2 on a Mac?</summary><p>The game loads <code>atidxx64.dll</code>, Apple's AMD driver shim from the Game Porting Toolkit. When the Wine engine has only Apple's d3d11, d3d12 and dxgi shims, Overwatch 2 stops with this error at start. In Soju, run <code>soju update</code> (1.13.0 or later) or <code>soju gptk</code> to add the missing shims, then start the game again.</p></details>
+  <details><summary>Why does Battle.net ask for a phone number before installing Overwatch 2?</summary><p>Blizzard requires a phone number on the Battle.net account before the free game can be installed. Add it on account.battle.net under Security; the install button appears afterwards.</p></details>
+</div>
+
+<p><a class="btn" href="../#install">Download Soju</a></p>
+</main>
+<footer>
+  Soju is GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
+  not affiliated with Blizzard, Apple or CodeWeavers. Overwatch is a trademark of Blizzard Entertainment.
+</footer>
+</body>
+</html>
