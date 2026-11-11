@@ -39,6 +39,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/steam-runtime.sh"
 
 # Bottle (virtual C: drive) path: per-mode default (Battle.net and Steam use separate bottles)
 if [[ "$MODE" == steam* ]]; then
+  # soju steam-gptk on: Steam runs from its own bottle on the GPTK engine (scripts/steam-gptk.sh).
+  if [ -z "${WINEPREFIX:-}" ] && [ "$(bash "$(dirname "${BASH_SOURCE[0]}")/steam-gptk.sh" status 2>/dev/null)" = on ]; then
+    SOJU_STEAM_GPTK=1
+    export WINEPREFIX="${SOJU_BASE:-$HOME/.battlenet-macos}/steam-gptk-bottle"
+  fi
   export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/steam-bottle}"
 elif [[ "$MODE" == epic* ]]; then
   export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/epic-bottle}"
@@ -299,6 +304,35 @@ case "$MODE" in
     # wrapper (forces --disable-gpu --single-process) + -no-cef-sandbox
     # -cef-single-process. Source: github.com/notpop/steam-on-m1-wine (MIT),
     # vendored in third_party/.
+    if [ "${SOJU_STEAM_GPTK:-0}" = 1 ]; then
+      # Steam with Apple GPTK: the CX engine plus the cross-process winemac
+      # (scripts/steam-gptk-engine.sh). Same wrapper and flags as below; games
+      # get D3DMetal like Battle.net games, and no Wine 11 steps apply.
+      ENGINE=$(bash "$(dirname "${BASH_SOURCE[0]}")/steam-gptk-engine.sh") || exit 1
+      export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
+      export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
+      ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
+      [[ -f "$ST" ]] || { echo "Steam not found in $WINEPREFIX; run: soju steam-gptk on"; exit 1; }
+      find "$WINEPREFIX/drive_c/users/"*/AppData/Local/Steam/htmlcache -maxdepth 2 \
+        \( -name "Singleton*" -o -name "*.lock" \) -delete 2>/dev/null || true
+      # Steam updates put the real steamwebhelper back; without the wrapper the window stays black.
+      WRAP="$STEAM_SUPPORT/steamwebhelper-wrapper.exe"
+      [ -f "$WRAP" ] || { echo "Steam support files missing; run: soju steam-install"; exit 1; }
+      for d in "$WINEPREFIX/drive_c/Program Files (x86)/Steam/bin/cef"/cef.win*; do
+        [[ -f "$d/steamwebhelper.exe" ]] || continue
+        if [[ $(stat -f%z "$d/steamwebhelper.exe") -gt 500000 ]]; then
+          mv -f "$d/steamwebhelper.exe" "$d/steamwebhelper_real.exe"
+          cp -f "$WRAP" "$d/steamwebhelper.exe"
+        fi
+      done
+      export WINEDLLOVERRIDES="winemenubuilder.exe=;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d"
+      "$ENGINE/bin/wine" reg delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run' /v Steam /f >/dev/null 2>&1 || true
+      pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
+        { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" steam >/dev/null 2>&1 & ); }
+      STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process)
+      [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steamui.dll" ] && STEAM_CMD+=(-noverifyfiles)
+      exec "$ENGINE/bin/wine" "${STEAM_CMD[@]}" "${@:2}"
+    fi
     WINESTABLE="$STEAM_WINE_ROOT/bin/wine"
     WINESTABLE_SERVER="$STEAM_WINE_ROOT/bin/wineserver"
     [[ -x "$WINESTABLE" ]] || { echo "Steam runtime not found. Reinstall Steam from Platforms or run: soju steam-install"; exit 1; }
@@ -405,8 +439,12 @@ case "$MODE" in
     # wine-stable, so it needs wine-stable's wineserver. Killing the CX engine's
     # wineserver here does nothing and leaves steam.exe alive, which then keeps
     # respawning steamwebhelper (it looks like "Steam relaunches itself").
-    pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
-    "$STEAM_WINE_ROOT/bin/wineserver" -k 2>/dev/null || true
+    # With Steam on GPTK the bottle and engine differ, so stop both kinds.
+    S_BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
+    for b in "$S_BASE/steam-bottle" "$S_BASE/steam-gptk-bottle"; do pkill -f "soju-reaper.sh $b" 2>/dev/null || true; done
+    WINEPREFIX="$S_BASE/steam-bottle" "$STEAM_WINE_ROOT/bin/wineserver" -k 2>/dev/null || true
+    [ ! -d "$S_BASE/steam-gptk-bottle" ] || [ ! -x "$S_BASE/cx26-engine-steam/bin/wineserver" ] || \
+      WINEPREFIX="$S_BASE/steam-gptk-bottle" "$S_BASE/cx26-engine-steam/bin/wineserver" -k 2>/dev/null || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
   *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|gog|gog-kill|ea|ea-kill|rockstar|rockstar-kill|ubisoft|ubisoft-kill|steam|kill|steam-kill]"; exit 1;;

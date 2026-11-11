@@ -113,6 +113,13 @@ if [ -f "$BASE/steam-bottle/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
   fi
   [ -x "$WINESTABLE" ] && pass "Steam Wine runtime present" \
     || fail "Steam runtime is missing: run soju steam-install"
+  if [ "$(bash "$ROOT/scripts/steam-gptk.sh" status 2>/dev/null)" = on ]; then
+    [ -f "$BASE/cx26-engine/lib/external/libd3dshared.dylib" ] \
+      && pass "Steam runs on Apple GPTK (steam-gptk-bottle)" \
+      || fail "Steam is set to Apple GPTK but GPTK is missing: soju gptk, or soju steam-gptk off"
+  else
+    info "Steam runs on Wine 11 + DXMT; D3D12 games and Blizzard games on Steam need: soju steam-gptk on"
+  fi
 else
   info "Steam not installed (soju steam-install)"
 fi

@@ -142,6 +142,11 @@ def first_file(paths):
 class Library:
     def __init__(self, base):
         self.base = Path(base).expanduser().absolute()
+        self.folders = dict(FOLDERS)
+        # soju steam-gptk on: Steam lives in its own bottle (scripts/steam-gptk.sh).
+        if (self.base / 'steam-gptk').is_file() and \
+                (self.base / 'steam-gptk-bottle/drive_c' / CLIENTS['steam']).is_file():
+            self.folders['steam'] = 'steam-gptk-bottle'
         self.games = {}
         self.warnings = []
 
@@ -156,7 +161,7 @@ class Library:
         if not location.is_dir(): return
         key = platform + ':' + uid
         issue = None
-        prefix = self.base / FOLDERS[platform]
+        prefix = self.base / self.folders[platform]
         if not (prefix / 'drive_c' / CLIENTS[platform]).is_file():
             issue = 'Install this platform in Platforms, then try again.'
         elif not ready: issue = 'Finish the installation or update in the official launcher.'
@@ -166,7 +171,7 @@ class Library:
                                issue=issue, arguments=arguments)
 
     def steam(self):
-        prefix = self.base / FOLDERS['steam']
+        prefix = self.base / self.folders['steam']
         client = prefix / 'drive_c/Program Files (x86)/Steam'
         roots = {client}
         for f in [client / 'steamapps/libraryfolders.vdf', client / 'config/libraryfolders.vdf']:
@@ -198,7 +203,7 @@ class Library:
                     self.warn('steam', 'An installation record could not be read. Refresh after Steam finishes updating.')
 
     def epic(self):
-        prefix = self.base / FOLDERS['epic']
+        prefix = self.base / self.folders['epic']
         manifests = prefix / 'drive_c/ProgramData/Epic/EpicGamesLauncher/Data/Manifests'
         for f in sorted(manifests.glob('*.item')):
             try:
@@ -225,7 +230,7 @@ class Library:
                 self.warn('epic', 'An installation record could not be read. Refresh after Epic finishes updating.')
 
     def battlenet(self):
-        prefix = self.base / FOLDERS['battlenet']
+        prefix = self.base / self.folders['battlenet']
         path = prefix / 'drive_c/ProgramData/Battle.net/Agent/product.db'
         if not path.is_file(): return
         records = protobuf(read_bytes(path)).get(1, [])
@@ -252,7 +257,7 @@ class Library:
                 self.warn('battlenet', 'An installation record could not be read. Refresh after Battle.net finishes updating.')
 
     def gog(self):
-        prefix = self.base / FOLDERS['gog']
+        prefix = self.base / self.folders['gog']
         cdrive = prefix / 'drive_c'
         entries = {}
         database = cdrive / 'ProgramData/GOG.com/Galaxy/storage/galaxy-2.0.db'
@@ -292,7 +297,7 @@ class Library:
         # Downloads may be on the Mac or on external drives (xbox_locations.py); a game whose
         # drive is unplugged stays listed as downloaded but not available.
         locations = xbox_locations
-        locations.BASE, locations.DEFAULT = self.base, self.base / FOLDERS['xbox'] / 'drive_c/XboxGames'
+        locations.BASE, locations.DEFAULT = self.base, self.base / self.folders['xbox'] / 'drive_c/XboxGames'
         locations.STATE = self.base / 'xbox-locations.json'
         notes = []
         found = locations.scan(warnings=notes)
@@ -384,7 +389,7 @@ class Library:
                 if game.get('downloaded'): raise ValueError('This game is already downloaded. Use Play instead.')
                 if game.get('owned') is not True and not game['install_path']: raise ValueError('This game is not in your Xbox library.')
                 if game['issue'] and not game['install_path']: raise ValueError(game['issue'])
-                if not (self.base / FOLDERS['xbox'] / 'drive_c' / CLIENTS['xbox']).is_file():
+                if not (self.base / self.folders['xbox'] / 'drive_c' / CLIENTS['xbox']).is_file():
                     raise ValueError('Set up Xbox PC in Platforms first.')
                 return ['/bin/bash', str(root / 'xbox.sh'), 'download', game_id.split(':', 1)[1]]
             if not game.get('downloaded'): raise ValueError(game['issue'] or 'This game is owned but not downloaded. Download it first.')
@@ -392,7 +397,7 @@ class Library:
             return ['/bin/bash', str(root / 'xbox.sh')] + game['arguments']
         if install:
             if game['install_path']: raise ValueError('This game is installed. Use Play instead.')
-            client = self.base / FOLDERS[game['platform']] / 'drive_c' / CLIENTS[game['platform']]
+            client = self.base / self.folders[game['platform']] / 'drive_c' / CLIENTS[game['platform']]
             if not client.is_file(): raise ValueError('Install this launcher in Platforms first.')
             args = ['steam://install/' + game_id.split(':', 1)[1]] if game['platform'] == 'steam' else []
             return ['/bin/bash', str(Path(__file__).resolve().parent / 'play.sh'), game['platform']] + args

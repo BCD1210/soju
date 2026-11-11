@@ -5,6 +5,27 @@ CEF 126) renders and authenticates, and a Unity D3D11 title launched from the
 library renders in-game, windowed, with a single Dock icon. Everything below is
 free software.
 
+## Steam with Apple GPTK (`soju steam-gptk on`)
+
+Verified 2026-11-11 on M4 Pro / macOS 26.5: the Steam client signs in and
+downloads on the CX engine, and Overwatch 2 from Steam reaches its main menu
+online with D3DMetal. The CX engine's problem below turned out to be the Mac
+driver, not the engine: with `winemac.so` built from
+`patches/winemac-cross-process-swapchains.patch` (the launcher-support
+component the EA app, Rockstar and Ubisoft already use) and the same
+steamwebhelper wrapper, Steam's window draws. `scripts/steam-gptk-engine.sh`
+makes that engine as an APFS clone of the CX engine with only `winemac.so`
+replaced, so Apple's d3d11/d3d12/dxgi/atidxx64/nvapi64 shims and
+`libd3dshared` stay, and Steam games get them the way Battle.net games do.
+
+- Own bottle, `steam-gptk-bottle`, an APFS clone of `steam-bottle`: installed
+  games carry over without downloading. Steam's saved sign-in does not (it is
+  tied to the engine), so Steam asks to sign in once there.
+- Steam updates put the real `steamwebhelper.exe` back; without the wrapper the
+  window is black. `play.sh` redeploys it on every launch, as on Wine 11.
+- `soju steam-gptk off` goes back to `steam-bottle` on Wine 11 + DXMT, still
+  signed in. The DXVK profiles (`steam-profiles.json`) apply only there.
+
 ## Why not the Soju CX engine?
 
 The modern Steam client's CEF UI does not render on CrossOver-source builds:
