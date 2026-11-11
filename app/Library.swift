@@ -477,6 +477,7 @@ struct LibraryView: View {
                     Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)
                 }
                 Button("Diagnose") { diagnose(game) }.disabled(model.busy)
+                Button("Report How It Ran…") { model.report(game) }
                 if game.id == "battlenet:osi" && game.isInstalled {
                     Divider()
                     Button("Set Up VR (offline)") { model.run(["vr", "setup"], title: "Setting up D2R VR…") }

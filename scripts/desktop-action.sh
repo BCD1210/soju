@@ -12,6 +12,12 @@ case "$ACTION" in
   game) exec python3 "$ROOT/scripts/game-library.py" launch "${1:?Choose a game}" ;;
   game-doctor) exec python3 "$ROOT/scripts/game-library.py" diagnose "${1:?Choose a game}" ;;
   doctor) exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
+  report) exec python3 "$ROOT/scripts/report.py" "${1:-}" ;;
+  self-update)
+    # Detached, so it outlives the app it is about to replace.
+    nohup /bin/bash "$ROOT/scripts/self-update.sh" "${1:?version}" "${2:?app}" "${3:?pid}" "${4:?state}" \
+      >>"$BASE/logs/self-update.log" 2>&1 </dev/null &
+    exit 0 ;;
   launch)
     case "${1:-}" in battlenet|steam|epic|gog|ea|rockstar|ubisoft) exec bash "$ROOT/scripts/play.sh" "$1" ;;
       *) echo "Choose one of the launchers."; exit 64 ;; esac ;;

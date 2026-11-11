@@ -16,6 +16,9 @@ SITE = "https://didimlabs.com/"
 CSS = re.search(r"CSS_VERSION = '([^']+)'", (ROOT / "site/build.mjs").read_text()).group(1)
 DATA = json.loads((ROOT / "site/mac-games.json").read_text())
 EST = json.loads((ROOT / "site/protondb-estimates.json").read_text())
+HB = json.loads((ROOT / "site/highball-mac.json").read_text())
+HB_URL = "https://gethighball.com/database/"
+AWACY = "https://areweanticheatyet.com/"
 KO_ESTIMATES = 3000   # Korean pages for the most-reported estimated games
 INDEX_ESTIMATES = 300
 CHECKED = DATA["checked"]
@@ -32,14 +35,37 @@ STATUS = {
            "blocked": ("Does not run: anti-cheat", "no"), "blocked-online": ("Online blocked by anti-cheat", "no"),
            "native": ("Has a Mac version", "native"),
            "likely": ("Estimate: likely runs", "likely"), "mixed": ("Estimate: may have problems", "unknown"),
-           "unlikely": ("Estimate: unlikely to run", "no"), "few": ("Estimate: few reports", "unknown")},
+           "unlikely": ("Estimate: unlikely to run", "no"), "few": ("Estimate: few reports", "unknown"),
+           "mac-verified": ("Runs on Mac (Highball test)", "ok"), "mac-reported": ("Mac players report it runs", "likely"),
+           "mac-problems": ("Mac players report problems", "no")},
     "ko": {"verified": ("소주에서 됨", "ok"), "untested": ("소주에서 아직 미확인", "unknown"),
            "blocked": ("안 됨: 안티치트", "no"), "blocked-online": ("온라인은 안티치트로 막힘", "no"),
            "native": ("맥 버전 있음", "native"),
            "likely": ("추정: 될 가능성 높음", "likely"), "mixed": ("추정: 문제 있을 수 있음", "unknown"),
-           "unlikely": ("추정: 안 될 가능성 높음", "no"), "few": ("추정: 보고 적음", "unknown")},
+           "unlikely": ("추정: 안 될 가능성 높음", "no"), "few": ("추정: 보고 적음", "unknown"),
+           "mac-verified": ("맥에서 됨 (Highball 실측)", "ok"), "mac-reported": ("맥 사용자 보고: 됨", "likely"),
+           "mac-problems": ("맥 사용자 보고: 문제 있음", "no")},
 }
 ESTIMATE = ("likely", "mixed", "unlikely", "few")
+MACDATA = ("mac-verified", "mac-reported", "mac-problems")
+
+
+def hb_text(h, lang):
+    """One paragraph about another project's Mac result, with its source."""
+    who = " ".join(x for x in (h.get("chip"), h.get("date")) if x)
+    rating = f" ({h['rating']}/5)" if h.get("rating") else ""
+    rend = h.get("renderer") or ""
+    if lang == "ko":
+        lead = {"verified": f"Highball 관리자가 애플 실리콘 맥{(' ' + who) if who else ''}에서 자체 Wine 엔진{(' ' + rend) if rend else ''}으로 직접 실행했습니다.",
+                "reported": f"맥 사용자가 Highball로 실행된다고 보고했습니다{rating}{(' (' + who + ')') if who else ''}. Highball 관리자 검증 전입니다.",
+                "problems": f"맥 사용자가 Highball에서 문제가 있다고 보고했습니다{rating}{(' (' + who + ')') if who else ''}.",
+                "blocked": "Highball 데이터베이스에서 안티치트 등으로 막힌 게임으로 분류합니다."}[h["kind"]]
+        return lead + " 소주에서는 아직 실행하지 않았고 엔진이 달라 결과가 다를 수 있습니다. 메모(영문): " + h.get("notes", "")
+    lead = {"verified": f"Highball's maintainer ran it on an Apple Silicon Mac{(' (' + who + ')') if who else ''} with Highball's own Wine engine{(' and ' + rend) if rend else ''}.",
+            "reported": f"A Mac player reported it running through Highball{rating}{(' (' + who + ')') if who else ''}; not verified by Highball's maintainer.",
+            "problems": f"A Mac player reported problems through Highball{rating}{(' (' + who + ')') if who else ''}.",
+            "blocked": "Highball's database lists it as blocked (anti-cheat or publisher)."}[h["kind"]]
+    return lead + " Not run in Soju yet; Soju's engines differ, so results can too. Their notes: " + h.get("notes", "")
 
 
 def header_image(appid):
@@ -145,7 +171,7 @@ def game_page(lang, g):
     alternates = [("en", SITE + "mac/" + g["slug"] + ".html")]
     if "ko" in g:
         alternates.append(("ko", SITE + "ko/mac/" + g["slug"] + ".html"))
-    runnable = g["status"] in ("verified", "untested", "blocked-online") + ESTIMATE
+    runnable = g["status"] in ("verified", "untested", "blocked-online") + ESTIMATE + MACDATA
     est = g["status"] in ESTIMATE
     if lang == "ko":
         title = (f"맥북에서 {name} 될까? M1·M2·M3·M4 맥 실행 추정 ({CHECKED[:4]}) | 소주" if est else
@@ -184,6 +210,14 @@ def game_page(lang, g):
         else:
             extra = (f"<p>Linux (Proton) reference: {y} of {n} player reports from the last two years say it runs "
                      f"(<a href=\"https://www.protondb.com/app/{g['appid']}\">ProtonDB</a>, as of {when}, ODbL).</p>")
+    h = g.get("hb")
+    if h:
+        if g["status"] not in MACDATA and g["status"] != "blocked":
+            extra += "<p>" + esc(hb_text(h, lang)) + "</p>"
+        extra += (f'<p>{"맥 자료" if lang == "ko" else "Mac data"}: <a href="{HB_URL}">Highball database</a> (CC0).</p>')
+    if g.get("ac"):
+        extra += (f'<p>{"안티치트 자료" if lang == "ko" else "Anti-cheat data"}: <a href="{AWACY}">Are We Anti-Cheat Yet?</a> (MIT), '
+                  f'via the Highball database.</p>')
     if g.get("appid"):
         extra = (f'<p><img class="shot" src="{header_image(g["appid"])}" width="460" height="215" loading="lazy" '
                  f'alt="{esc(name)}"></p>\n' + extra +
@@ -233,16 +267,44 @@ def slugify(title):
     return re.sub(r"[^a-z0-9]+", "-", t).strip("-")
 
 
+def apply_mac_data(g, h, ac, detail, ko):
+    """Mac results from Highball's database and the anti-cheat list outrank Linux estimates."""
+    g["_ko"] = ko
+    if ac:
+        names = ", ".join(ac.get("anticheats") or []) or "kernel anti-cheat"
+        g.update(status="blocked", ac=True,
+                 detail=f"Its anti-cheat ({names}) runs as a Windows kernel driver, which Wine cannot run, so it does not "
+                        "run on a Mac this way. " + ("The Linux numbers below are for Proton, where some anti-cheat is allowed." if detail else ""))
+        g["_ko"] = f"안티치트({names})가 윈도우 커널 드라이버로 돌아가는데 Wine은 이를 실행할 수 없어, 이 방법으로는 맥에서 안 됩니다."
+        return
+    if not h:
+        return
+    g["hb"] = h
+    if h["kind"] == "blocked":
+        g.update(status="blocked", detail=hb_text(h, "en"))
+        g["_ko"] = hb_text(h, "ko")
+    else:
+        g.update(status={"verified": "mac-verified", "reported": "mac-reported", "problems": "mac-problems"}[h["kind"]],
+                 detail=hb_text(h, "en"))
+        g["_ko"] = hb_text(h, "ko")
+
+
 def estimates(curated):
     """Pages for Steam games with ProtonDB reports; curated entries win and get the Linux line."""
     dump = EST["dump_newest_report"]
     by_slug = {g["slug"]: g for g in curated}
     by_name = {slugify(g["name"]): g for g in curated}
     out, used = [], set(by_slug)
+    hb_app = {h["appid"]: h for h in HB["games"].values() if h.get("appid")}
+    ac_app = {a["appid"]: a for a in HB["anticheat_blocked"].values() if a.get("appid")}
+    seen_apps = set()
     for appid, title, n, y, recent, _ in EST["apps"]:
+        seen_apps.add(appid)
         slug = slugify(title)
         if slug in by_name and "linux" not in by_name[slug] and recent:
             by_name[slug].update(appid=appid, linux=(n, y, dump))
+            if appid in hb_app:
+                by_name[slug]["hb"] = hb_app[appid]
             continue
         if not slug or slug in used:
             slug = (slug + "-" if slug else "steam-") + appid
@@ -261,9 +323,27 @@ def estimates(curated):
               "Direct3D 11은 DXMT로 처리합니다. Direct3D 12 게임은 소주 스팀 환경에서 아직 확인하지 않았고, "
               "안티치트나 맥 고유 문제로 리눅스와 결과가 다를 수 있습니다. 스팀 페이지에 macOS 버전이 있으면 그걸 쓰세요.")
         g = {"slug": slug, "name": title, "launcher": "steam", "status": status, "detail": detail,
-             "appid": appid, "reports": n}
+             "appid": appid, "reports": n, "linux": (n, y, dump) if recent else None}
+        apply_mac_data(g, hb_app.get(appid), ac_app.get(appid), detail, ko)
+        if g["status"] in ESTIMATE:
+            g["linux"] = None          # the estimate text already gives the Linux numbers
         if len([e for e in out if "ko" in e]) < KO_ESTIMATES:
-            g["ko"] = {"name": title, "detail": ko}
+            g["ko"] = {"name": title, "detail": g.pop("_ko")}
+        g.pop("_ko", None)
+        out.append(g)
+    # Games only Highball's database or the anti-cheat list knows about.
+    for h in list(HB["games"].values()) + [dict(a, kind="ac") for a in HB["anticheat_blocked"].values()]:
+        if h.get("appid") in seen_apps or slugify(h["title"] or "") in by_name:
+            continue
+        slug = slugify(h["title"] or "")
+        if not slug or slug in used:
+            continue
+        used.add(slug)
+        seen_apps.add(h.get("appid"))
+        g = {"slug": slug, "name": h["title"], "launcher": "steam" if h.get("appid") else "none",
+             "status": "untested", "detail": "", "appid": h.get("appid"), "reports": 0}
+        apply_mac_data(g, h if h["kind"] != "ac" else None, h if h["kind"] == "ac" else None, "", "")
+        g["ko"] = {"name": h["title"], "detail": g.pop("_ko")}
         out.append(g)
     alpha = sorted(out, key=lambda g: g["slug"])
     for i, g in enumerate(alpha):
@@ -294,12 +374,14 @@ def index_page(lang, curated, est, letters):
     canonical = SITE + ("ko/mac/" if lang == "ko" else "mac/")
     order = ["verified", "untested", "blocked-online", "blocked", "native"]
     cur = sorted(curated, key=lambda g: (order.index(g["status"]), g["name"]))
-    top = sorted(est, key=lambda g: -g["reports"])[:INDEX_ESTIMATES]
+    macdata = sorted([g for g in est if g["status"] in MACDATA], key=lambda g: (MACDATA.index(g["status"]), g["name"].lower()))
+    top = sorted([g for g in est if g["status"] in ESTIMATE], key=lambda g: -g["reports"])[:INDEX_ESTIMATES]
     if lang == "ko":
         title, h1 = f"맥에서 되는 윈도우 게임 목록 ({CHECKED[:4]}) | 소주", "맥(애플 실리콘)에서 이 게임 되나요?"
         desc = "디아블로, 오버워치, 배틀그라운드, 발로란트, GTA 5와 스팀 게임 수천 개가 애플 실리콘 맥에서 되는지: 직접 확인한 것과 리눅스 사용자 보고(ProtonDB) 기반 추정."
         intro = ("'됨'은 소주에서 직접 실행해 본 게임입니다. '추정'은 리눅스(Proton) 사용자 보고를 바탕으로 한 예상이고 맥에서는 아직 확인하지 않았습니다.")
         h_cur, h_est = "직접 확인했거나 확실한 게임", f"추정 (ProtonDB 보고가 많은 {INDEX_ESTIMATES}개)"
+        h_mac = "다른 맥 실측·보고 (Highball 데이터베이스)"
         more = "알파벳순 전체 목록(영문): " 
     else:
         title, h1 = f"Which Windows games run on Apple Silicon Macs ({CHECKED[:4]}) | Soju", "Does this game run on a Mac?"
@@ -307,6 +389,7 @@ def index_page(lang, curated, est, letters):
         intro = ("'Runs in Soju' means we ran it. 'Estimate' pages are based on Linux (Proton) player reports from "
                  "ProtonDB and have not been run on a Mac yet.")
         h_cur, h_est = "Checked or known", f"Estimates (the {INDEX_ESTIMATES} most reported)"
+        h_mac = "Other Mac tests and reports (Highball database)"
         more = "All estimated games A–Z: "
     lp = "../../mac/" if lang == "ko" else ""
     links = " ".join(f'<a href="{lp}list-{c}.html">{c.upper() if c != "0" else "0–9"}</a>' for c in letters)
@@ -314,6 +397,8 @@ def index_page(lang, curated, est, letters):
 <p class="lead">{intro}</p>
 <h2>{h_cur}</h2>
 {table(lang, cur)}
+<h2>{h_mac}</h2>
+{table(lang, [g for g in macdata if lang == 'en' or 'ko' in g])}
 <h2>{h_est}</h2>
 {table(lang, [g for g in top if lang == 'en' or 'ko' in g])}
 <p>{more}{links}</p>

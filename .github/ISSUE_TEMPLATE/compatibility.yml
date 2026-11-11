@@ -24,6 +24,10 @@ body:
         - Steam
         - Epic Games Launcher
         - GOG GALAXY
+        - EA app
+        - Rockstar Games Launcher
+        - Ubisoft Connect
+        - Xbox PC
         - Other (describe below)
     validations:
       required: true

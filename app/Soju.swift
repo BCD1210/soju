@@ -258,6 +258,12 @@ struct SojuLogo: View {
         }
     }
 
+    /// Opens a prefilled compatibility report (game, store, Mac, macOS, engine) in the browser.
+    func report(_ game: InstalledGame) {
+        guard let (p, _) = try? task(["report", game.id], logName: "desktop-report") else { return }
+        try? p.run()
+    }
+
     func addGPTK() {
         let panel = NSOpenPanel()
         panel.title = "Choose the mounted Game Porting Toolkit volume or payload"

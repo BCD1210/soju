@@ -110,6 +110,24 @@ start_reaper(){
 # remembers the input source per app, so switch to ABC before launching.
 case "$MODE" in *-kill) ;; *) python3 "$(dirname "${BASH_SOURCE[0]}")/soju-input-abc.py" 2>/dev/null || true ;; esac
 
+# Command+C / V / A / Z inside Windows programs: Wine's Mac driver sends the
+# Command keys as Alt, so nothing copies or pastes (a sign-in form, a chat box)
+# and macOS beeps. Map Command to Ctrl, and Option to Alt so Alt-based game
+# bindings still work (with both Command keys taken and Option left alone the
+# driver has no Alt at all). Written into the bottle's user.reg only while its
+# wineserver is down (a live server rewrites the file) and only when absent, so
+# setting LeftCommandIsCtrl to "n" in the bottle gives Wine's default back.
+# SOJU_COMMAND_IS_CTRL=0 skips it.
+case "$MODE" in *-kill|controllers) ;; *)
+  if [ "${SOJU_COMMAND_IS_CTRL:-1}" = 1 ] && [ -f "$WINEPREFIX/user.reg" ] \
+     && ! grep -q 'LeftCommandIsCtrl' "$WINEPREFIX/user.reg"; then
+    srv="$(/usr/bin/stat -L -f "/tmp/.wine-$(id -u)/server-%Xd-%Xi" "$WINEPREFIX" 2>/dev/null || true)"
+    if [ -z "$srv" ] || [ ! -S "$srv/socket" ]; then
+      printf '\n[Software\\\\Wine\\\\Mac Driver]\n"LeftCommandIsCtrl"="y"\n"RightCommandIsCtrl"="y"\n"LeftOptionIsAlt"="y"\n"RightOptionIsAlt"="y"\n' >> "$WINEPREFIX/user.reg"
+    fi
+  fi ;;
+esac
+
 # Preflight for the CX engine modes: without the GPTK payload, or with a
 # payload whose PE shims are missing (an engine refreshed by an older
 # update.sh, which carried only lib/external over), D3D runs on wined3d: the
