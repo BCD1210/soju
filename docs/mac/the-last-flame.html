@@ -49,7 +49,7 @@
 soju install          # choose Steam (macOS 26 or later)
 soju steam         # sign in, install the game, press Play</code></pre>
 <p>Or <a href="../#install">download the Soju app</a> and add Steam under Platforms. Needs an Apple Silicon Mac (M1 or newer) and macOS 14 or later.</p>
-<p>Tried it? Tell us in <a href="https://discord.gg/ttBDcF5ftz">Discord</a> or <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">send a compatibility report</a> and this page gets updated.</p>
+<p>Tried it? Tell us in <a href="https://discord.gg/PwBjET6YZ3">#compatibility on Discord</a> or <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">send a compatibility report</a> and this page gets updated.</p>
 <h2 id="questions">Questions</h2>
 <div class="faq">
   <details open><summary>Does The Last Flame run on an Apple Silicon Mac?</summary><p>Runs on Mac (Highball test). Highball&#x27;s maintainer ran it on an Apple Silicon Mac (M1 Pro 2026-09-14) with Highball&#x27;s own Wine engine and dxmt. Not run in Soju yet; Soju&#x27;s engines differ, so results can too. Their notes: Needs the Wine 11 engine x64-crossover26.3-r11 or later (the recipe names it). Two bugs sat behind the report, both in Wine on macOS and both fixed in r11. Start did nothing because the game&#x27;s save code asks Windows for the last error after a file call and, on macOS, the place Unity&#x27;s Mono reads it from (%gs:0x68) held a stray pointer instead of the error code, so a missing save file became an IOException that ended…</p></details>
