@@ -1,0 +1,86 @@
+Soju: on top of Highball 0028. Resolve page faults on threads Wine did not create the way
+virtual_handle_fault does for its own threads (Rosetta write-as-read faults, W^X-toggled pages,
+write watches) before 0028 ends the program. Without this, Diablo II: Resurrected hangs under
+D3DMetal with 0028 (D3DMetal threads hit those faults).
+
+
+diff -ruN a/dlls/ntdll/unix/signal_x86_64.c b/dlls/ntdll/unix/signal_x86_64.c
+--- a/dlls/ntdll/unix/signal_x86_64.c	2026-11-10 19:13:40
++++ b/dlls/ntdll/unix/signal_x86_64.c	2026-11-10 19:13:56
+@@ -2528,6 +2528,12 @@
+     struct xcontext context;
+ 
+ #ifdef __APPLE__
++    /* Soju: Rosetta's misreported write faults, and the write and exec faults on pages Wine
++     * keeps protected (write watches, W^X toggling), happen on D3DMetal's threads too and must be
++     * resolved there as on Wine's own threads; only what is left ends the program. */
++    if (!NtCurrentTeb() && TRAP_sig(ucontext) == TRAP_x86_PAGEFLT &&
++        virtual_handle_foreign_fault( siginfo->si_addr, (ERROR_sig(ucontext) >> 1) & 0x09 ))
++        return;
+     if (foreign_thread_fault( signal, TRUE )) return;
+ #endif
+ 
+diff -ruN a/dlls/ntdll/unix/unix_private.h b/dlls/ntdll/unix/unix_private.h
+--- a/dlls/ntdll/unix/unix_private.h	2026-11-10 19:13:40
++++ b/dlls/ntdll/unix/unix_private.h	2026-11-10 19:13:56
+@@ -299,6 +299,9 @@
+ extern void virtual_map_user_shared_data(void);
+ extern void virtual_init_user_shared_data(void);
+ extern NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack );
++#ifdef __APPLE__
++extern BOOL virtual_handle_foreign_fault( void *addr, ULONG_PTR err );
++#endif
+ extern unsigned int virtual_locked_server_call( void *req_ptr );
+ extern ssize_t virtual_locked_read( int fd, void *addr, size_t size );
+ extern ssize_t virtual_locked_pread( int fd, void *addr, size_t size, off_t offset );
+diff -ruN a/dlls/ntdll/unix/virtual.c b/dlls/ntdll/unix/virtual.c
+--- a/dlls/ntdll/unix/virtual.c	2026-11-10 19:13:40
++++ b/dlls/ntdll/unix/virtual.c	2026-11-10 19:13:56
+@@ -4627,6 +4627,47 @@
+ }
+ 
+ 
++#ifdef __APPLE__
++/***********************************************************************
++ *           virtual_handle_foreign_fault
++ *
++ * Soju: the part of virtual_handle_fault that needs no TEB, for a page fault on a thread Wine
++ * did not create (Metal's and D3DMetal's libdispatch workers). Returns TRUE when the access can
++ * be retried: Rosetta's write faults reported as reads, write and exec faults on W^X-toggled
++ * pages (CW Hacks 24945, 25719) and writes to write-watched pages.
++ */
++BOOL virtual_handle_foreign_fault( void *addr, ULONG_PTR err )
++{
++    char *page = ROUND_ADDR( addr, host_page_mask );
++    BOOL ret = FALSE;
++    BYTE vprot;
++
++    mutex_lock( &virtual_mutex );
++    vprot = get_host_page_vprot( page );
++    if (err == EXCEPTION_READ_FAULT && (get_unix_prot( vprot ) & PROT_READ)) err = EXCEPTION_WRITE_FAULT;
++    if ((err == EXCEPTION_WRITE_FAULT &&
++         (get_unix_prot( vprot ) & (PROT_WRITE | PROT_EXEC)) == (PROT_WRITE | PROT_EXEC)) ||
++        (err == EXCEPTION_EXECUTE_FAULT && (get_unix_prot( vprot ) & PROT_EXEC)))
++    {
++        mprotect_range( page, page_size, 0, VPROT_EXEC );
++        mprotect_range( page, page_size, VPROT_EXEC, 0 );
++        ret = TRUE;
++    }
++    else if (err == EXCEPTION_WRITE_FAULT)
++    {
++        if (vprot & VPROT_WRITEWATCH)
++        {
++            set_page_vprot_bits( page, host_page_size, 0, VPROT_WRITEWATCH );
++            mprotect_range( page, host_page_size, 0, 0 );
++        }
++        if (get_unix_prot( get_host_page_vprot( page )) & PROT_WRITE) ret = TRUE;
++    }
++    mutex_unlock( &virtual_mutex );
++    return ret;
++}
++#endif
++
++
+ /***********************************************************************
+  *           virtual_setup_exception
+  */
