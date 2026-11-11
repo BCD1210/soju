@@ -16,7 +16,7 @@ SITE = "https://didimlabs.com/"
 CSS = re.search(r"CSS_VERSION = '([^']+)'", (ROOT / "site/build.mjs").read_text()).group(1)
 DATA = json.loads((ROOT / "site/mac-games.json").read_text())
 EST = json.loads((ROOT / "site/protondb-estimates.json").read_text())
-KO_ESTIMATES = 1000   # Korean pages for the most-reported estimated games
+KO_ESTIMATES = 3000   # Korean pages for the most-reported estimated games
 INDEX_ESTIMATES = 300
 CHECKED = DATA["checked"]
 REPORT = "https://github.com/BCD1210/soju/issues/new?template=compatibility.yml"
@@ -32,14 +32,18 @@ STATUS = {
            "blocked": ("Does not run: anti-cheat", "no"), "blocked-online": ("Online blocked by anti-cheat", "no"),
            "native": ("Has a Mac version", "native"),
            "likely": ("Estimate: likely runs", "likely"), "mixed": ("Estimate: may have problems", "unknown"),
-           "unlikely": ("Estimate: unlikely to run", "no")},
+           "unlikely": ("Estimate: unlikely to run", "no"), "few": ("Estimate: few reports", "unknown")},
     "ko": {"verified": ("소주에서 됨", "ok"), "untested": ("소주에서 아직 미확인", "unknown"),
            "blocked": ("안 됨: 안티치트", "no"), "blocked-online": ("온라인은 안티치트로 막힘", "no"),
            "native": ("맥 버전 있음", "native"),
            "likely": ("추정: 될 가능성 높음", "likely"), "mixed": ("추정: 문제 있을 수 있음", "unknown"),
-           "unlikely": ("추정: 안 될 가능성 높음", "no")},
+           "unlikely": ("추정: 안 될 가능성 높음", "no"), "few": ("추정: 보고 적음", "unknown")},
 }
-ESTIMATE = ("likely", "mixed", "unlikely")
+ESTIMATE = ("likely", "mixed", "unlikely", "few")
+
+
+def header_image(appid):
+    return f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
 CSS_EXTRA = ""
 
 
@@ -51,16 +55,20 @@ def esc(s):
     return html.escape(s, quote=True)
 
 
-def page(lang, title, desc, canonical, alternates, body, faq, base):
+def page(lang, title, desc, canonical, alternates, body, faq, base, game=None, image=None):
     ld = {"@context": "https://schema.org", "@type": "TechArticle", "headline": title, "description": desc,
           "url": canonical, "mainEntityOfPage": canonical, "inLanguage": lang, "dateModified": CHECKED,
           "isPartOf": {"@type": "WebSite", "name": "Soju", "url": SITE}}
-    blocks = [json.dumps(ld, ensure_ascii=False, indent=2)]
+    if game:
+        ld["about"] = game
+    if image:
+        ld["image"] = image
+    blocks = [json.dumps(ld, ensure_ascii=False, separators=(",", ":"))]
     if faq:
         blocks.append(json.dumps({"@context": "https://schema.org", "@type": "FAQPage", "inLanguage": lang,
                                   "mainEntity": [{"@type": "Question", "name": q,
                                                   "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in faq]},
-                                 ensure_ascii=False, indent=2))
+                                 ensure_ascii=False, separators=(",", ":")))
     alt = "".join('<link rel="alternate" hreflang="%s" href="%s">\n' % (l, u) for l, u in alternates)
     scripts = "".join('<script type="application/ld+json">\n%s\n</script>\n' % b for b in blocks)
     nav = ('<a href="%smac/">Games</a>\n  <a href="%sguides/soju-vs-whisky-crossover-heroic.html">Compare</a>\n'
@@ -85,7 +93,7 @@ def page(lang, title, desc, canonical, alternates, body, faq, base):
 <meta property="og:description" content="{esc(desc)}">
 <meta property="og:type" content="article">
 <meta property="og:url" content="{canonical}">
-<meta property="og:image" content="{SITE}assets/soju-share.png">
+<meta property="og:image" content="{image or SITE + 'assets/soju-share.png'}">
 <link rel="icon" href="{base}assets/favicon.png?v={CSS}">
 <link rel="apple-touch-icon" href="{base}assets/apple-touch-icon.png?v={CSS}">
 <link rel="stylesheet" href="{base}style.css?v={CSS}">
@@ -140,8 +148,8 @@ def game_page(lang, g):
     runnable = g["status"] in ("verified", "untested", "blocked-online") + ESTIMATE
     est = g["status"] in ESTIMATE
     if lang == "ko":
-        title = (f"맥에서 {name} 될까? 애플 실리콘 실행 추정 ({CHECKED[:4]}) | 소주" if est else
-                 f"맥에서 {name} 되나요? 애플 실리콘 실행 여부 ({CHECKED[:4]}) | 소주")
+        title = (f"맥북에서 {name} 될까? M1·M2·M3·M4 맥 실행 추정 ({CHECKED[:4]}) | 소주" if est else
+                 f"맥북에서 {name} 되나요? M1·M2·M3·M4 맥 실행 여부 ({CHECKED[:4]}) | 소주")
         q1 = f"애플 실리콘 맥에서 {name} 되나요?"
         a1 = f"{label}. {detail}"
         faq = [(q1, a1)]
@@ -153,8 +161,9 @@ def game_page(lang, g):
         report = (f'해 보셨나요? <a href="{DISCORD}">디스코드</a>나 <a href="{REPORT}">호환성 보고</a>로 알려 주시면 이 페이지에 반영합니다.')
         more = f'<p><a href="./">다른 게임 목록</a></p>'
     else:
-        verb = "use the Mac version" if g["status"] == "native" else ("will it run? Estimate" if est else "does it run?")
-        title = f"{name} on Mac (Apple Silicon): {verb} ({CHECKED[:4]}) | Soju"
+        verb = ("use the Mac version" if g["status"] == "native" else
+                "will it run on M1, M2, M3, M4 MacBook? Estimate" if est else "does it run on M1, M2, M3, M4 MacBook?")
+        title = f"{name} on Mac: {verb} ({CHECKED[:4]}) | Soju"
         q1 = f"Does {name} run on an Apple Silicon Mac?"
         a1 = f"{label}. {detail}"
         faq = [(q1, a1)]
@@ -176,8 +185,16 @@ def game_page(lang, g):
             extra = (f"<p>Linux (Proton) reference: {y} of {n} player reports from the last two years say it runs "
                      f"(<a href=\"https://www.protondb.com/app/{g['appid']}\">ProtonDB</a>, as of {when}, ODbL).</p>")
     if g.get("appid"):
-        extra += (f'<p><a href="https://store.steampowered.com/app/{g["appid"]}/">'
-                  + ("스팀 상점 페이지" if lang == "ko" else "Steam store page") + "</a></p>")
+        extra = (f'<p><img class="shot" src="{header_image(g["appid"])}" width="460" height="215" loading="lazy" '
+                 f'alt="{esc(name)}"></p>\n' + extra +
+                 f'<p><a href="https://store.steampowered.com/app/{g["appid"]}/">'
+                 + ("스팀 상점 페이지" if lang == "ko" else "Steam store page") + "</a></p>")
+    rel = [r for r in g.get("related", []) if lang == "en" or "ko" in r]
+    related = ""
+    if rel:
+        related = (("<h2>다른 게임</h2>" if lang == "ko" else "<h2>Other games</h2>") + "\n<p>" +
+                   " · ".join(f'<a href="{r["slug"]}.html">{esc(r.get("ko", {}).get("name", r["name"]) if lang == "ko" else r["name"])}</a>' for r in rel)
+                   + "</p>")
     guide = k.get("guide") if lang == "ko" else g.get("guide")
     guide_html = ""
     if guide:
@@ -200,9 +217,14 @@ def game_page(lang, g):
 """ + "\n".join(f"  <details{' open' if i == 0 else ''}><summary>{esc(q)}</summary><p>{esc(a)}</p></details>"
                for i, (q, a) in enumerate(faq)) + f"""
 </div>
+{related}
 {more}"""
     desc = a1[:300]
-    return path, page(lang, title, desc, canonical, alternates, body, faq, base)
+    game = {"@type": "VideoGame", "name": name, "operatingSystem": "Windows"}
+    if g.get("appid"):
+        game["sameAs"] = f"https://store.steampowered.com/app/{g['appid']}/"
+    image = header_image(g["appid"]) if g.get("appid") else None
+    return path, page(lang, title, desc, canonical, alternates, body, faq, base, game, image)
 
 
 def slugify(title):
@@ -217,22 +239,24 @@ def estimates(curated):
     by_slug = {g["slug"]: g for g in curated}
     by_name = {slugify(g["name"]): g for g in curated}
     out, used = [], set(by_slug)
-    for appid, title, n, y, _ in EST["apps"]:
+    for appid, title, n, y, recent, _ in EST["apps"]:
         slug = slugify(title)
-        if slug in by_name and "linux" not in by_name[slug]:
+        if slug in by_name and "linux" not in by_name[slug] and recent:
             by_name[slug].update(appid=appid, linux=(n, y, dump))
             continue
         if not slug or slug in used:
             slug = (slug + "-" if slug else "steam-") + appid
         used.add(slug)
         r = y / n
-        status = "likely" if r >= 0.85 else "mixed" if r >= 0.6 else "unlikely"
-        detail = (f"Not run on a Mac yet; this is an estimate. On Linux with Proton, {y} of {n} player reports from the "
-                  f"last two years say the game runs (ProtonDB, as of {dump}). Soju runs Windows Steam games through "
+        status = "few" if n < 3 else "likely" if r >= 0.85 else "mixed" if r >= 0.6 else "unlikely"
+        span = "from the last two years" if recent else "in total"
+        span_ko = "최근 2년" if recent else "전체 기간"
+        detail = (f"Not run on a Mac yet; this is an estimate. On Linux with Proton, {y} of {n} player report{'s' if n != 1 else ''} {span} "
+                  f"say the game runs (ProtonDB, as of {dump}). Soju runs Windows Steam games through "
                   "Wine on macOS, with Direct3D 11 through DXMT. Direct3D 12 games are not checked in Soju's Steam "
                   "setup yet, and anti-cheat or Mac-specific problems can make the result differ from Linux. If the "
                   "game's Steam page lists macOS, use that version instead.")
-        ko = (f"맥에서는 아직 실행해 보지 않은 추정입니다. 리눅스(Proton)에서 최근 2년 사용자 보고 {n}건 중 {y}건이 "
+        ko = (f"맥에서는 아직 실행해 보지 않은 추정입니다. 리눅스(Proton)에서 {span_ko} 사용자 보고 {n}건 중 {y}건이 "
               f"실행된다고 했습니다(ProtonDB, {dump} 기준). 소주는 윈도우 스팀 게임을 맥의 Wine으로 돌리고, "
               "Direct3D 11은 DXMT로 처리합니다. Direct3D 12 게임은 소주 스팀 환경에서 아직 확인하지 않았고, "
               "안티치트나 맥 고유 문제로 리눅스와 결과가 다를 수 있습니다. 스팀 페이지에 macOS 버전이 있으면 그걸 쓰세요.")
@@ -241,12 +265,14 @@ def estimates(curated):
         if len([e for e in out if "ko" in e]) < KO_ESTIMATES:
             g["ko"] = {"name": title, "detail": ko}
         out.append(g)
+    alpha = sorted(out, key=lambda g: g["slug"])
+    for i, g in enumerate(alpha):
+        g["related"] = [alpha[j] for j in range(max(0, i - 3), min(len(alpha), i + 4)) if j != i]
     return out
 
 
 def table(lang, games, link_prefix=""):
     rows = []
-    order = ["verified", "untested", "blocked-online", "blocked", "native", "likely", "mixed", "unlikely"]
     for g in games:
         k = g.get("ko", {}) if lang == "ko" else {}
         label, cls = STATUS[lang][g["status"]]
