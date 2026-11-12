@@ -4,11 +4,13 @@
 
 > **Play Windows games on Apple Silicon Macs. Free and open source.**
 
+[![Discord: join the Soju server](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/ttBDcF5ftz)
+
 Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games, GOG GALAXY, EA app, Rockstar Games Launcher and Ubisoft Connect** on M1-or-newer Macs, keeps each one in its own Wine setup, and lists your games in one Mac library. It began as a way to run Battle.net and Diablo II: Resurrected without CrossOver.
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
-**[Download Soju 1.14.11 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.11/Soju-1.14.11-macos-arm64.zip)**, or install from the terminal:
+**[Download Soju 1.14.12 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.12/Soju-1.14.12-macos-arm64.zip)**, or install from the terminal:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -82,7 +84,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.11/Soju-1.14.11-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.12/Soju-1.14.12-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
