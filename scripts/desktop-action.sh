@@ -12,6 +12,7 @@ case "$ACTION" in
   game) exec python3 "$ROOT/scripts/game-library.py" launch "${1:?Choose a game}" ;;
   game-doctor) exec python3 "$ROOT/scripts/game-library.py" diagnose "${1:?Choose a game}" ;;
   game-settings) exec python3 "$ROOT/scripts/game-settings.py" "$@" ;;
+  game-storage) exec python3 "$ROOT/scripts/game-storage.py" "$@" ;;
   doctor) exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
   steam-gptk) exec bash "$ROOT/scripts/steam-gptk.sh" "${1:?on or off}" ;;
   report) exec python3 "$ROOT/scripts/report.py" "${1:-}" ;;

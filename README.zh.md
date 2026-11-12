@@ -92,6 +92,8 @@ soju update      # 更新脚本和预编译引擎（保留 GPTK 和所有 bottle
 soju uninstall   # 卸载：逐项确认后删除 app、bottle 和引擎
 ```
 
+- **把 Battle.net 游戏放到外置硬盘：** 在游戏库里打开已安装的游戏，点 **Move to Another Drive…**（或 `soju storage move battlenet:fenris "/Volumes/T7"`）。Soju 复制游戏、与原文件比对，然后释放 Mac 上的空间；**Move Back to This Mac** 可以移回。想把新游戏直接装到外置硬盘，先运行 `soju storage place battlenet "Diablo IV" "/Volumes/T7"`，在 Battle.net 里保持默认位置安装。已有的游戏文件夹（其他 Wine 应用或备份）可以原地使用：**Accounts → Use Existing Battle.net Game…**（或 `soju storage import battlenet <文件夹>`），然后在 Battle.net 里点 Install 或 Locate。支持 APFS、Mac OS 扩展和 exFAT。
+
 ## 应用里的其他功能
 
 - **导入已购游戏：** 通过 Steam 官方登录导入已购游戏（无需 API 密钥），也可导入 GOG GALAXY 本地缓存的游戏库。已安装和未安装的游戏显示在同一个游戏库里。暂不支持 Epic 和 Battle.net 的账户游戏库导入。[设置说明](docs/ACCOUNTS.md)

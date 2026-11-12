@@ -95,6 +95,7 @@ soju fps on      # 게임 화면 구석에 프레임(FPS)·프레임 시간 표�
 
 - **게임에서 FPS 보기:** Platforms의 체크박스나 `soju fps on`. 그다음 실행한 게임에 애플 Metal HUD(프레임, 프레임 시간, GPU)가 뜹니다. 호환성 보고할 때 숫자를 적기 좋습니다.
 - **게임별 알려진 설정:** 기본값인 DXMT보다 DXVK에서 더 잘 도는 것으로 알려진 스팀 게임(스카이림 SE, 다크소울 3 등, [resources/steam-profiles.json](resources/steam-profiles.json))은 스팀을 켤 때 한 번 DXVK로 바꿉니다. 직접 바꾼 설정이 우선이고, `soju steam-games renderer reset <game.exe>`로 되돌리면 다시 적용하지 않습니다.
+- **Battle.net 게임을 외장 드라이브에:** 라이브러리에서 설치된 게임을 열고 **Move to Another Drive…** 를 누르거나 `soju storage move battlenet:fenris "/Volumes/T7"`. 게임을 복사하고 원본과 비교한 다음 맥의 공간을 비웁니다. **Move Back to This Mac** 으로 되돌립니다. 새 게임을 처음부터 외장 드라이브에 설치하려면 `soju storage place battlenet "Diablo IV" "/Volumes/T7"` 을 먼저 실행하고 Battle.net에서는 기본 위치 그대로 설치합니다. 다른 Wine 앱이나 백업에 이미 있는 게임 폴더는 복사 없이 그대로 씁니다: **Accounts → Use Existing Battle.net Game…** (또는 `soju storage import battlenet <폴더>`) 후 Battle.net에서 Install 또는 Locate. APFS, Mac OS 확장, exFAT 드라이브를 지원합니다. 세이브와 런처는 맥에 남고, 드라이브를 뽑은 게임은 라이브러리에 남아 연결하라고 알려 줍니다.
 
 ## 앱에 더 있는 것
 
