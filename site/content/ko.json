@@ -178,6 +178,13 @@
                 "result": "컴퓨터 상대 싱글 대전 시작까지 확인. 멀티플레이는 미확인. [가이드](../guides/ko/starcraft-mac.html)"
               },
               {
+                "title": "디아블로 4",
+                "store": "Battle.net",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "무료 체험판으로 캐릭터 생성, 첫 지역 진입까지 확인. 소리와 프레임은 미확인. [가이드](../guides/ko/diablo-4-mac.html)"
+              },
+              {
                 "title": "오버워치 2",
                 "store": "Battle.net",
                 "status": "메뉴까지",
