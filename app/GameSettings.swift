@@ -77,7 +77,22 @@ extension SojuModel {
         panel.prompt = "Use This Folder"
         panel.canChooseDirectories = true; panel.canChooseFiles = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        run(["game-storage", "import", "battlenet", url.path], title: "Adding the game folder…")
+        accountMessage = "Adding " + url.lastPathComponent + "…"
+        Task {
+            guard let (p, log) = try? task(["game-storage", "import", "battlenet", url.path], logName: "game-storage-import") else {
+                accountMessage = "The folder could not be added."; return
+            }
+            let status: Int32? = try? await withCheckedThrowingContinuation { done in
+                p.terminationHandler = { done.resume(returning: $0.terminationStatus) }
+                do { try p.run() } catch { done.resume(throwing: error) }
+            }
+            let lines = ((try? String(contentsOf: log, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init)
+            if status == 0 {
+                accountMessage = url.lastPathComponent + " is linked. Open Battle.net, go to the game, press Install and keep the default location: it finds the files instead of downloading them."
+            } else {
+                accountMessage = lines.last(where: { $0.hasPrefix("soju: ") }).map { String($0.dropFirst(6)) } ?? "The folder could not be added."
+            }
+        }
     }
 }
 
