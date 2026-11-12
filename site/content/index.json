@@ -438,6 +438,14 @@
                 "href": "guides/steam-windows-client-apple-silicon.html"
               },
               {
+                "label": "Soju vs Highball",
+                "href": "guides/soju-vs-highball.html"
+              },
+              {
+                "label": "Soju vs Parallels Desktop",
+                "href": "guides/soju-vs-parallels.html"
+              },
+              {
                 "label": "Whisky is gone: what to use instead",
                 "href": "guides/whisky-alternative.html"
               },
