@@ -8,7 +8,7 @@ Soju는 M1 이후 맥에 **Battle.net·Steam·Epic Games·GOG GALAXY·EA 앱·Ro
 
 ![Soju 통합 게임 라이브러리](docs/assets/soju-library.png)
 
-**[Soju 1.14.8 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.8/Soju-1.14.8-macos-arm64.zip)**, 또는 터미널에서 설치:
+**[Soju 1.14.9 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.9/Soju-1.14.9-macos-arm64.zip)**, 또는 터미널에서 설치:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -70,7 +70,7 @@ soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / 
 
 설치기는 **다운로드 전에 원하는 런처부터 선택**합니다. Steam만 선택하면 CX 엔진과 애플 GPTK를 받지 않습니다. Steam 그래픽 구성요소는 SHA-256으로 검증한 뒤 Soju 전용 Wine 11.0 환경에 자동으로 설치합니다. Battle.net·Epic·GOG는 공통 CX 엔진과 사용자가 별도로 받은 애플 GPTK를 사용합니다. 각 런처의 보틀·로그인·게임은 독립적으로 유지합니다.
 
-[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.14.8/Soju-1.14.8-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
+[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.14.9/Soju-1.14.9-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
 
 ## 일상 명령
 
@@ -201,7 +201,7 @@ soju xbox-logout             # 로그아웃 (받은 게임은 유지)
 
 **Steam GPTK 모드** (`soju steam-gptk on`, 또는 Platforms > Steam > Overwatch and Diablo II mode): Steam과 Steam 게임이 배틀넷과 같은 엔진·애플 GPTK에서 돌고, Steam 브라우저 창을 그릴 수 있는 Mac 드라이버를 씁니다. D3D12 게임과 Steam에서 파는 블리자드 게임(오버워치 2는 온라인 메인 메뉴까지 확인, D2R은 GPTK의 `libd3dshared`가 필요)에 씁니다. 기존 Steam 보틀을 복제한 별도 보틀을 써서 용량이 늘지 않고 설치한 게임도 그대로 보이며, 거기서 Steam 로그인을 한 번 합니다. `soju steam-gptk off`로 Wine 11 + DXMT로 돌아가면 기존 로그인이 그대로 있습니다.
 
-**WMA 음성**(스카이림 SE 대사 등)은 Wine이 GStreamer로 디코딩합니다. Steam을 설치할 때와 `soju update` 때 소주가 gstreamer.freedesktop.org의 공식 macOS 패키지(SHA-256 고정, 처음 한 번 약 150MB)를 받아 Wine이 쓰는 오디오 플러그인과 라이브러리 39MB만 `~/.battlenet-macos/gstreamer`에 남깁니다. 소주로 실행한 Steam이 이를 씁니다. Wine 11 Steam에 해당하며, Apple GPTK 엔진은 아직 GStreamer를 지원하지 않습니다.
+**WMA 음성**(스카이림 SE 대사 등)은 Wine이 GStreamer로 디코딩합니다. Steam을 설치할 때와 `soju update` 때 소주가 gstreamer.freedesktop.org의 공식 macOS 패키지(SHA-256 고정, 처음 한 번 약 150MB)를 받아 Wine이 쓰는 오디오 플러그인과 라이브러리 42MB(음성·동영상 부품)만 `~/.battlenet-macos/gstreamer`에 남깁니다. 소주로 실행한 Steam이 이를 씁니다. Wine 11 Steam에 해당하며, Apple GPTK 엔진은 아직 GStreamer를 지원하지 않습니다.
 
 **스테레오 스피커에서 5.1·7.1 소리.** 5.1이나 7.1 채널로 소리를 내는 게임(Skyrim Special Edition 등)은 맥 스피커에서 가운데와 뒤 채널, 곧 대사 대부분이 들리지 않았습니다. Steam 부품 v4는 Highball 패치를 넣은 Wine 오디오 드라이버를 함께 깔아, 이런 소리를 Apple 공간 음향 믹서로 섞어 스피커로 보냅니다 (#93).
 

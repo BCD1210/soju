@@ -29,13 +29,21 @@ class GStreamerTests(unittest.TestCase):
         # libav carries the WMA decoder (avdec_wmav2); app/audioconvert/audioresample build Wine's pipeline.
         for plugin in ("libav", "app", "audioconvert", "audioresample", "coreelements"):
             self.assertIn(plugin, self.g.PLUGINS)
+        # Video (#94): winegstreamer creates videoconvert, videoflip and deinterlace; H.264 needs h264parse.
+        for plugin in ("videoconvertscale", "videofilter", "deinterlace", "videoparsersbad"):
+            self.assertIn(plugin, self.g.PLUGINS)
 
-    def test_installed_needs_marker_version_and_libav(self):
+    def test_installed_needs_marker_version_and_every_plugin(self):
         self.assertFalse(self.g.installed())
-        (self.base / "gstreamer/lib/gstreamer-1.0").mkdir(parents=True)
+        plugins = self.base / "gstreamer/lib/gstreamer-1.0"
+        plugins.mkdir(parents=True)
         (self.base / "gstreamer/.soju-gstreamer").write_text(self.g.VERSION + "\n")
         self.assertFalse(self.g.installed())
-        (self.base / "gstreamer/lib/gstreamer-1.0/libgstlibav.dylib").write_text("")
+        (plugins / "libgstlibav.dylib").write_text("")
+        # An audio-only install from 1.14.6 lacks the video plugins and is redone.
+        self.assertFalse(self.g.installed())
+        for name in self.g.PLUGINS:
+            (plugins / f"libgst{name}.dylib").write_text("")
         self.assertTrue(self.g.installed())
         (self.base / "gstreamer/.soju-gstreamer").write_text("1.0.0\n")
         self.assertFalse(self.g.installed())

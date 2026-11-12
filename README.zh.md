@@ -8,7 +8,7 @@ Soju 在 M1 及更新的 Mac 上安装 **Battle.net、Steam、Epic Games、GOG G
 
 ![Soju 统一游戏库](docs/assets/soju-library.png)
 
-**[下载 Soju 1.14.8（Mac）](https://github.com/BCD1210/soju/releases/download/v1.14.8/Soju-1.14.8-macos-arm64.zip)**，或在终端安装：
+**[下载 Soju 1.14.9（Mac）](https://github.com/BCD1210/soju/releases/download/v1.14.9/Soju-1.14.9-macos-arm64.zip)**，或在终端安装：
 
 ```bash
 brew install BCD1210/soju/soju
@@ -70,7 +70,7 @@ soju install     # 然后：soju battlenet / soju d2r / soju steam / soju epic /
 
 安装器会**先询问要安装哪些启动器，再下载对应组件**。仅选择 Steam 时，不会下载 CX 引擎或 Apple GPTK。Steam 图形组件经过 SHA-256 校验后，自动安装到 Soju 专用的 Wine 11.0 环境中。战网、Epic 和 GOG 使用共享 CX 引擎及用户单独下载的 Apple GPTK。各客户端的 bottle、账户和游戏分别保留。
 
-[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.14.8/Soju-1.14.8-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
+[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.14.9/Soju-1.14.9-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
 
 ## 日常维护
 
@@ -193,7 +193,7 @@ soju xbox-logout             # 退出登录（已下载的游戏保留）
 
 **Steam GPTK 模式**（`soju steam-gptk on`，或 Platforms > Steam > Overwatch and Diablo II mode）：Steam 和 Steam 游戏使用与 Battle.net 相同的引擎和 Apple GPTK，并换用能显示 Steam 浏览器窗口的 Mac 驱动。适用于 D3D12 游戏和 Steam 上的暴雪游戏（守望先锋 2 已在线进入主菜单；D2R 需要 GPTK 的 `libd3dshared`）。它使用复制自 Steam bottle 的独立 bottle，不额外占用空间，已安装的游戏仍在；需要在其中登录一次 Steam。`soju steam-gptk off` 可回到 Wine 11 + DXMT，原登录仍在。
 
-**Windows Media Audio 语音**（如 Skyrim SE 的对白）由 Wine 通过 GStreamer 解码。安装 Steam 时以及 `soju update` 时，Soju 会从 gstreamer.freedesktop.org 下载官方 macOS 包（固定 SHA-256，首次约 150 MB），只在 `~/.battlenet-macos/gstreamer` 保留 Wine 需要的 39 MB 音频插件和库，由 Soju 启动的 Steam 会使用它们。适用于 Wine 11 的 Steam；Apple GPTK 引擎目前还不支持 GStreamer。
+**Windows Media Audio 语音**（如 Skyrim SE 的对白）由 Wine 通过 GStreamer 解码。安装 Steam 时以及 `soju update` 时，Soju 会从 gstreamer.freedesktop.org 下载官方 macOS 包（固定 SHA-256，首次约 150 MB），只在 `~/.battlenet-macos/gstreamer` 保留 Wine 需要的 42 MB 音频、视频插件和库，由 Soju 启动的 Steam 会使用它们。适用于 Wine 11 的 Steam；Apple GPTK 引擎目前还不支持 GStreamer。
 
 **立体声扬声器上的 5.1/7.1 声音。** 以 5.1 或 7.1 声道输出的游戏（如 Skyrim Special Edition）在 Mac 扬声器上会丢失中置和后置声道，大部分对白也随之消失。Steam 组件 v4 附带打了 Highball 补丁的 Wine 音频驱动，这类声音会先经 Apple 的空间混音器混成立体声再送到扬声器 (#93)。
 
