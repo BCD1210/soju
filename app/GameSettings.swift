@@ -34,11 +34,61 @@ extension SojuModel {
     }
 }
 
+/// scripts/game-storage.py status <game id>
+struct GameStorage: Decodable {
+    let moved: Bool
+    let volume: String
+    let connected: Bool
+}
+
+extension SojuModel {
+    func gameStorage(_ id: String) async -> GameStorage? {
+        guard let (p, url) = try? task(["game-storage", "status", id], logName: "game-storage-status") else { return nil }
+        let status: Int32? = try? await withCheckedThrowingContinuation { done in
+            p.terminationHandler = { done.resume(returning: $0.terminationStatus) }
+            do { try p.run() } catch { done.resume(throwing: error) }
+        }
+        guard status == 0, let text = try? String(contentsOf: url, encoding: .utf8),
+              let line = text.split(separator: "\n").last else { return nil }
+        return try? JSONDecoder().decode(GameStorage.self, from: Data(line.utf8))
+    }
+
+    /// Battle.net games: copy the files to a folder on another drive and leave a link.
+    func moveGame(_ game: InstalledGame) {
+        let panel = NSOpenPanel()
+        panel.title = "Choose where to keep " + game.title
+        panel.message = "Pick a drive or a folder on it (APFS, Mac OS Extended or exFAT). Soju copies the game there, checks the copy, then frees the space on this Mac."
+        panel.prompt = "Move Here"
+        panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
+        panel.directoryURL = URL(fileURLWithPath: "/Volumes")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        run(["game-storage", "move", game.id, url.path], title: "Moving " + game.title + "… this can take a while")
+    }
+
+    func moveGameBack(_ game: InstalledGame) {
+        run(["game-storage", "back", game.id], title: "Moving " + game.title + " back to this Mac…")
+    }
+
+    /// A Battle.net game folder that already exists (another Wine app, a backup, an external drive).
+    func importBattlenetGame() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose a Battle.net game folder"
+        panel.message = "Pick the folder that holds the game (for example Diablo IV). Soju uses it where it is, without copying."
+        panel.prompt = "Use This Folder"
+        panel.canChooseDirectories = true; panel.canChooseFiles = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        run(["game-storage", "import", "battlenet", url.path], title: "Adding the game folder…")
+    }
+}
+
 /// The settings of one game, in its detail sheet: what used to be spread over
 /// Platforms and the command line.
 struct GameSettingsSection: View {
     @EnvironmentObject var model: SojuModel
     let game: InstalledGame
+    /// Closes the sheet, so a long move shows its progress in the main window.
+    var close: () -> Void = {}
+    @State private var storage: GameStorage?
     @State private var settings: GameSettings?
     @State private var saving = false
     @State private var problem: String?
@@ -53,6 +103,21 @@ struct GameSettingsSection: View {
             if game.platform != .didim {
                 Toggle("Show FPS while playing (applies to every game)", isOn: $model.fpsHUD)
                     .toggleStyle(.checkbox).font(.system(size: 12))
+            }
+            if game.platform == .battlenet, let storage {
+                HStack(spacing: 10) {
+                    Label(storage.moved ? "Files are on " + storage.volume : "Files are on this Mac",
+                          systemImage: storage.moved ? "externaldrive" : "internaldrive").font(.system(size: 12))
+                    if storage.moved {
+                        Button("Move Back to This Mac") { close(); model.moveGameBack(game) }
+                            .disabled(model.busy || !storage.connected)
+                    } else {
+                        Button("Move to Another Drive…") { close(); model.moveGame(game) }.disabled(model.busy)
+                    }
+                }
+                Text(storage.moved ? "Keep the drive connected to play. Close Battle.net before moving."
+                     : "Frees space on this Mac. Saves and settings stay here. Close Battle.net before moving.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
             }
             if let renderer = settings?.renderer {
                 if renderer.available {
@@ -83,6 +148,7 @@ struct GameSettingsSection: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .task(id: game.id) {
+            if game.platform == .battlenet, game.isInstalled { storage = await model.gameStorage(game.id) }
             guard game.platform == .steam, game.isInstalled else { return }
             if case .success(let value) = await model.gameSettings(["show", game.id]) { settings = value }
         }

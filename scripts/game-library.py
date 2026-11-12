@@ -161,12 +161,17 @@ class Library:
         if not isinstance(uid, str) or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,200}', uid):
             raise ValueError('invalid game identifier')
         if not isinstance(title, str) or not title.strip(): raise ValueError('missing game name')
-        if not location.is_dir(): return
+        unplugged = location.is_symlink() and not location.exists()
+        if not unplugged and not location.is_dir(): return
         key = platform + ':' + uid
         issue = None
         prefix = self.base / self.folders[platform]
         if not (prefix / 'drive_c' / CLIENTS[platform]).is_file():
             issue = 'Install this platform in Platforms, then try again.'
+        elif unplugged:
+            target = Path(os.readlink(location)).parts
+            drive = target[2] if len(target) > 2 and target[1] == 'Volumes' else 'its drive'
+            issue = 'This game is on ' + drive + '. Connect the drive, then try again.'
         elif not ready: issue = 'Finish the installation or update in the official launcher.'
         elif not arguments: issue = 'Open the official launcher to play this title.'
         elif platform == 'steam' and uid in STEAM_GPTK_GAMES and self.folders['steam'] == 'steam-bottle':
@@ -248,7 +253,9 @@ class Library:
                 settings = protobuf(fields[3][0])
                 location = windows_path(prefix, settings[1][0].decode('utf-8'))
                 # An Agent record can outlive an uninstall or partial download.
-                if not (location / '.build.info').is_file(): continue
+                # A game moved to another drive (scripts/game-storage.py) stays listed while unplugged.
+                unplugged = location.is_symlink() and not location.exists()
+                if not unplugged and not (location / '.build.info').is_file(): continue
                 title, code = BNET.get(uid.casefold(), (location.name, None))
                 arguments = ['--exec=launch ' + code] if code else []
                 art = first_file(sorted(location.glob('*.ico')))
