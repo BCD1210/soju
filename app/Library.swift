@@ -15,7 +15,7 @@ struct InstalledGame: Decodable, Identifiable {
     let available: Bool?
     /// Xbox PC: the drive the download is on ("this Mac" for the internal disk).
     let volume: String?
-    var isOnUnpluggedDrive: Bool { platform == .xbox && available == false }
+    var isOnUnpluggedDrive: Bool { available == false }
     /// Xbox PC: a folder with an unfinished download is not installed yet.
     var isInstalled: Bool { platform == .xbox ? downloaded == true : !installPath.isEmpty }
     var isPartialDownload: Bool { platform == .xbox && !installPath.isEmpty && downloaded != true }
@@ -504,8 +504,8 @@ struct LibraryView: View {
             let parts = progress.components(separatedBy: " · ")
             return parts.count > 1 ? parts.dropFirst().joined(separator: " · ") : progress
         }
+        if game.isOnUnpluggedDrive { return "Drive not connected" }
         if game.platform == .xbox {
-            if game.isOnUnpluggedDrive { return "Drive not connected" }
             if game.isPartialDownload { return "Paused" }
             if game.downloadBlocked { return "Not supported" }
         }
