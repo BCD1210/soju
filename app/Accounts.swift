@@ -179,7 +179,7 @@ extension SojuModel {
     }
     func installOwnedGame(_ game: InstalledGame) {
         guard !busy, !game.isInstalled else { return }
-        if !installed.contains(game.platform) { libraryIssue = "Set up " + game.platform.title + " in Platforms first."; return }
+        if !installed.contains(game.platform) { libraryIssue = game.platform.title + " is not installed in Soju yet. Open Platforms and press Install on the " + game.platform.title + " card, then come back to this game."; return }
         if game.platform == .xbox { download(game); return }
         run(["game-install", game.id], title: "Opening " + game.platform.title + " to install " + game.title + "…")
     }

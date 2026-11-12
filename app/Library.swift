@@ -282,6 +282,10 @@ struct LibraryView: View {
         .sheet(item: $selected) { game in detail(game) }
         .sheet(isPresented: $showDiagnostics) { diagnostics }
         .alert(model.issueTitle, isPresented: Binding(get: { model.libraryIssue != nil }, set: { if !$0 { model.libraryIssue = nil; model.issueTitle = "Game needs attention" } })) {
+            // A launcher that is not installed yet: take the player to where it is installed.
+            if model.libraryIssue?.contains("Platforms") == true {
+                Button("Open Platforms") { model.libraryIssue = nil; selected = nil; page = "platforms" }
+            }
             Button("Show Log") { model.libraryIssue = nil; showDiagnostics = true }
             Button("Ask on Discord") { model.libraryIssue = nil; NSWorkspace.shared.open(SojuModel.discord) }
             Button("OK", role: .cancel) { model.libraryIssue = nil }
