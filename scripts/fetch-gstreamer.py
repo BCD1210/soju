@@ -9,7 +9,8 @@ and effects but no dialogue: "GStreamer doesn't support WMA decoding" (#94).
 This downloads the official GStreamer macOS package from gstreamer.freedesktop.org
 (pinned by SHA-256), keeps only the x86_64 parts of the plugins Wine uses for audio
 (app, audioconvert, audioresample, coreelements, libav and the playback and
-container plugins) plus the libraries they load, and deletes the rest. Nothing is
+container plugins) and for video (videoconvert, videoflip, deinterlace, the H.264
+parser) plus the libraries they load, and deletes the rest. Nothing is
 redistributed by Soju; the files come from GStreamer's own release.
 
   fetch-gstreamer.py          install or verify   -> prints the install folder
@@ -27,14 +28,20 @@ VERSION = "1.28.9"
 URL = f"https://gstreamer.freedesktop.org/data/pkg/osx/{VERSION}/gstreamer-1.0-{VERSION}-universal.pkg"
 SHA256 = "05d27c8e9b4374bbcf1788cf1604bb4b1a4bdcbdc13bc37b67d3a225c8aa86a6"
 PLUGINS = ["coreelements", "app", "audioconvert", "audioresample", "audioparsers", "libav",
-           "playback", "typefindfunctions", "asf", "wavparse", "isomp4", "ogg", "vorbis", "opus"]
+           "playback", "typefindfunctions", "asf", "wavparse", "isomp4", "ogg", "vorbis", "opus",
+           # Video (cutscenes): winegstreamer creates videoconvert, videoflip and deinterlace, and
+           # H.264 needs a parser (h264parse) before libav's decoder. Without them Wine logs
+           # "failed to create videoconvert" and "GStreamer doesn't support H.264 decoding" (#94).
+           "videoconvertscale", "videofilter", "deinterlace", "videoparsersbad", "matroska"]
 BASE = Path(os.environ.get("SOJU_BASE", str(Path.home() / ".battlenet-macos")))
 DEST = BASE / "gstreamer"
 MARK = DEST / ".soju-gstreamer"
 
 
 def installed():
-    return MARK.is_file() and MARK.read_text().strip() == VERSION and (DEST / "lib/gstreamer-1.0/libgstlibav.dylib").is_file()
+    # Every plugin must be there, so an install from before the video plugins is redone.
+    return MARK.is_file() and MARK.read_text().strip() == VERSION and \
+        all((DEST / "lib/gstreamer-1.0" / f"libgst{name}.dylib").is_file() for name in PLUGINS)
 
 
 def deps(path):
