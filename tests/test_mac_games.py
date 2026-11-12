@@ -27,6 +27,13 @@ class MacGamePages(unittest.TestCase):
             if "ko" in g:
                 self.assertTrue((ROOT / "docs/ko/mac" / (g["slug"] + ".html")).is_file())
 
+    def test_every_sitemap_address_is_a_page(self):
+        # A slug ending in "index" (Valve Index games) once lost ".html" and led Google to 404s.
+        import re
+        for loc in re.findall(r"<loc>https://didimlabs\.com/([^<]*)</loc>", (ROOT / "docs/sitemap.xml").read_text()):
+            path = ROOT / "docs" / (loc + "index.html" if loc == "" or loc.endswith("/") else loc)
+            self.assertTrue(path.is_file(), loc)
+
 
 if __name__ == "__main__":
     unittest.main()

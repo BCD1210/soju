@@ -492,7 +492,8 @@ def main():
     s = sm.read_text()
     urls = []
     for p in sorted(out):
-        loc = SITE + (p[:-len("index.html")] if p.endswith("index.html") else p)
+        # Only a folder index loses its file name: valve-index.html is a page of its own.
+        loc = SITE + (p[:-len("index.html")] if p == "index.html" or p.endswith("/index.html") else p)
         urls.append(f"  <url><loc>{loc}</loc><lastmod>{CHECKED}</lastmod></url>")
     block = "  <!-- mac-games -->\n" + "\n".join(urls) + "\n  <!-- /mac-games -->\n"
     if "<!-- mac-games -->" in s:
