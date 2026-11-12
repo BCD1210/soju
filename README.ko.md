@@ -17,43 +17,54 @@ soju install
 
 앱은 macOS 14 이상에서 돌아갑니다. 디아블로 2: 레저렉션은 macOS 26.4 이상, Steam 게임은 macOS 26 이상이 필요합니다.
 
-[되는 것](#되는-것) · [설치 안내](#설치-한-줄) · [30초 게임 플레이 영상](https://didimlabs.com/#demo) · [맥에서 디아2 돌리기](https://didimlabs.com/guides/ko/diablo-2-mac.html) · [Discord](https://discord.gg/ttBDcF5ftz) · [English](README.md) · [简体中文](README.zh.md)
+[Soju가 해 주는 것](#soju가-해-주는-것) · [되는 것](#되는-것) · [설치 안내](#설치-한-줄) · [30초 게임 플레이 영상](https://didimlabs.com/#demo) · [맥에서 디아2 돌리기](https://didimlabs.com/guides/ko/diablo-2-mac.html) · [Discord](https://discord.gg/ttBDcF5ftz) · [English](README.md) · [简体中文](README.zh.md)
 
 게임마다 호환성이 다르고, 커널 안티치트가 붙은 게임은 실행되지 않습니다. 게임과 스토어 클라이언트는 포함하지 않습니다. Apple GPTK 파일은 설치할 때 Soju가 받아 옵니다.
 
+## Soju가 해 주는 것
+
+**스토어가 달라도 라이브러리는 하나.** Battle.net, Steam, Epic, GOG, EA, Rockstar, Ubisoft, Xbox PC 게임이 표지와 함께 한 창에 모입니다. Play를 누르면 Soju가 맞는 런처를 엽니다.
+
+**공식 런처, 내 계정 그대로.** 각 스토어의 Windows 클라이언트를 스토어가 배포하는 설치 파일로 깝니다. 로그인은 스토어 화면에서 직접 하고, 구매·다운로드·업데이트는 스토어가 처리합니다.
+
+**스스로 점검하는 설치.** 설치할 때 쓸 스토어를 먼저 고르고, 거기에 필요한 것만 받습니다. 받는 파일은 모두 검증합니다(SHA-256, GPTK는 Apple 서명). 문제가 생기면 `soju doctor`가 무엇이 잘못됐는지 알려 줍니다.
+
+**설정은 게임 화면에서.** 게임 상세 창에서 마지막 플레이 시각, FPS 표시, Steam 게임의 그래픽 방식을 바꿉니다. DXVK가 더 잘 맞는 게임은 자동으로 바꾸고 이유를 보여 줍니다.
+
+**Steam 게임 소리.** WMA로 저장된 음성이 나오고, 5.1·7.1 소리는 맥 스테레오 스피커에 맞게 섞여 나옵니다. 둘 다 사용자가 Skyrim Special Edition에서 제보하고 확인했습니다. 컷신용 H.264 디코더도 함께 설치합니다.
+
+**TV나 아이패드로 플레이.** 스트리밍을 켜고 다른 화면에 무료 Moonlight 앱을 깔면, 게임은 맥에서 돌고 화면만 넘어갑니다.
+
+**무료, 그리고 내 맥 안에만.** 오픈 소스이고 Soju 계정이 필요 없습니다. 라이브러리, 로그인 정보, 로그는 맥에만 저장합니다. 앱은 서명·공증된 릴리스로 스스로 업데이트합니다.
+
 ## 되는 것
 
-<!-- 스크린샷: docs/images/ 에 PNG(d2r-ingame.png, battlenet-login.png, hogwarts-ingame.png)를 넣고 주석을 푸세요.
-<p align="center">
-  <img src="docs/images/d2r-ingame.png" width="49%" alt="M4 Pro에서 실행 중인 Diablo II: Resurrected">
-  <img src="docs/images/battlenet-login.png" width="49%" alt="Apple Silicon에서 로그인된 Battle.net">
-</p>
--->
+따로 적지 않은 줄은 M4 Pro / macOS 26.5에서 직접 확인했습니다. "사용자 제보"는 사용자가 확인한 결과입니다.
 
-모두 M4 Pro / macOS 26.5에서 검증. 런처마다 별도 보틀을 사용하며, Steam은 엔진도 별도입니다.
+| 게임 | 스토어 | 상태 | 비고 |
+| --- | --- | :-: | --- |
+| Diablo II: Resurrected | Battle.net | ✅ 인게임, 온라인 | **macOS 26.4 이상** 필요, [가이드](https://didimlabs.com/guides/ko/diablo-2-mac.html) |
+| Hogwarts Legacy | Epic | ✅ 인게임 | 시작할 때 뜨는 "AMD 드라이버" 경고는 무시해도 됩니다. 입력 소스는 영어로 |
+| StarCraft: Remastered | Battle.net | ✅ 인게임 | 컴퓨터 상대 대전까지 확인, 멀티플레이는 미확인, [가이드](https://didimlabs.com/guides/ko/starcraft-mac.html) |
+| 오버워치 2 | Steam | ✅ 메인 메뉴, 온라인 | Platforms > Steam > **Overwatch and Diablo II mode**를 켭니다(`soju steam-gptk on`). 처음 한 번 배틀넷 계정 연결을 묻습니다. [가이드](https://didimlabs.com/guides/ko/overwatch-2-mac.html) |
+| The Elder Scrolls V: Skyrim Special Edition | Steam | ✅ 인게임 (사용자 제보) | M5 Pro, macOS 27.2, Soju 1.14.8. 대사와 서라운드 소리 확인 ([#95](https://github.com/BCD1210/soju/issues/95)) |
+| Guilt Free (Unity Direct3D 11 게임) | Steam | ✅ 인게임, 창 모드 | [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
+| The Witcher 3 (Remastered) | Steam | 🟡 메뉴까지 (사용자 제보) | Apple GPTK 4.0 beta 3 필요. Soju 1.14.10부터 설치됩니다 ([#112](https://github.com/BCD1210/soju/issues/112)) |
+| Diablo II: Resurrected (Steam판) | Steam | ⏳ 미검증 | Overwatch and Diablo II mode에서 될 것으로 보지만, Steam판이 없어 실행해 보지 못했습니다 |
+| Diablo II: Resurrected VR (오프라인) | Battle.net | 🧪 시뮬레이터만 확인 | `soju vr setup` 다음 `soju vr play`, [docs/VR.md](docs/VR.md) |
+
+**안 되는 것:** 커널 안티치트(EAC, BattlEye, Vanguard)가 붙은 게임 전부.
 
 | 런처 | 로그인 | 게임 설치 | 비고 |
 | --- | :-: | :-: | --- |
-| Battle.net | ✅ | ✅ | Agent 동작, `BLZBNTBNA00000005`는 서명 exe 시딩으로 해결 |
-| Epic Games Launcher | ✅ | ✅ | 창을 닫으면 메뉴바 트레이로 |
-| GOG GALAXY | ✅ | ✅ | 로그인·라이브러리까지, 게임은 아직 폭넓게 테스트 안 됨 |
-| EA 앱 | 로그인 창 | 아직 테스트 안 함 | 1.11 신규, 런처 엔진(DXMT) |
-| Rockstar Games Launcher | 로그인 창 | 아직 테스트 안 함 | 1.11 신규, 런처 엔진(DXMT) |
-| Ubisoft Connect | 로그인 창 | 아직 테스트 안 함 | 1.11 신규, 런처 엔진(DXMT) |
-| Steam (Windows 클라이언트) | ✅ | ✅ | 별도 Wine 11 + DXMT 보틀 |
-| Xbox PC / Microsoft Store | ✅ | ✅ | Xodus 백엔드, 게임 실행은 실험 기능 (Retro Classics 메뉴까지 확인) |
+| Battle.net | ✅ | ✅ | |
+| Steam (Windows 클라이언트) | ✅ | ✅ | 별도 Wine 11 환경 사용 |
+| Epic Games Launcher | ✅ | ✅ | 창을 닫으면 메뉴 막대에 남습니다 |
+| GOG GALAXY | ✅ | ✅ | 게임은 아직 폭넓게 확인하지 못했습니다 |
+| Xbox PC / Microsoft Store | ✅ | ✅ | 실험 기능. Retro Classics가 메뉴까지 들어갑니다 |
+| EA 앱, Rockstar Games Launcher, Ubisoft Connect | 로그인 창까지 | 아직 확인 못 함 | |
 
-| 게임 | 스토어 | 그래픽 | 상태 | 비고 |
-| --- | --- | --- | :-: | --- |
-| Diablo II: Resurrected | Battle.net | D3DMetal (D3D12) | ✅ 인게임, 온라인 | **macOS 26.4 이상**(전제조건 참고); `play.sh`가 `ROSETTA_ADVERTISE_AVX=1` 설정; [가이드](https://didimlabs.com/guides/ko/diablo-2-mac.html) |
-| Diablo II: Resurrected VR(오프라인) | Battle.net | D3DMetal (D3D12) + OpenXR | 🧪 시뮬레이터만 확인 | `soju vr setup` / `soju vr play`: 오프라인 캐릭터용 D2R VR Unleashed, OXRSys 헤드셋 클라이언트로 스트리밍; [docs/VR.md](docs/VR.md) |
-| Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 인게임 | UE4 "AMD 드라이버" 경고는 무해, 입력 소스를 영어로 |
-| StarCraft: Remastered | Battle.net | 미확인 | ✅ 인게임 | 배틀넷에서 업데이트한 뒤 컴퓨터 상대 싱글 대전 시작까지 확인, 멀티플레이는 미확인 |
-| Unity D3D11 타이틀 | Steam | DXMT | ✅ 인게임, 창 모드 | `soju steam-games` 필요, [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
-| 오버워치 2 | Steam | D3DMetal (Steam GPTK 모드) | ✅ 메인 메뉴, 온라인 | `soju steam-gptk on` (또는 Platforms > Steam > Overwatch and Diablo II mode). 처음 한 번 배틀넷 계정 연결을 묻습니다 |
-| Diablo II: Resurrected (Infernal Edition) | Steam | D3DMetal (Steam GPTK 모드) | ⏳ 미검증 | `soju steam-gptk on` 필요: D2R 로더가 쓰는 GPTK `libd3dshared`가 오버워치 2와 같은 방식으로 Steam 게임에 전달됩니다. Steam판을 갖고 있지 않아 직접 실행은 아직 못 했습니다 |
-
-안 되는 것: 커널 안티치트(EAC, BattlEye, Vanguard)가 붙은 게임 전부. 질문이나 간단한 제보는 [Discord](https://discord.gg/ttBDcF5ftz)에서 받습니다. 다른 게임을 돌리셨다면 [Discussions](https://github.com/BCD1210/soju/discussions)에 올리거나 표에 한 줄 추가하는 PR을 보내주세요.
+다른 게임은 [게임별 상태](https://didimlabs.com/ko/mac/)와 [사용자 제보](docs/COMPATIBILITY.md)에 있습니다. 다른 게임을 돌렸거나 막힌 게임이 있으면 게임 상세 창의 **Report How It Ran**을 누르거나, [Discussions](https://github.com/BCD1210/soju/discussions)에 올리거나, [Discord](https://discord.gg/ttBDcF5ftz)에서 물어봐 주세요.
 
 ## 설치 (한 줄)
 
