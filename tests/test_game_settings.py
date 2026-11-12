@@ -47,7 +47,7 @@ class GameSettingsTests(unittest.TestCase):
         self.assertIn('game-settings) exec python3 "$ROOT/scripts/game-settings.py" "$@"',
                       (ROOT / "scripts/desktop-action.sh").read_text())
         self.assertIn('"$ROOT/app/GameSettings.swift"', (ROOT / "scripts/build-app.sh").read_text())
-        self.assertIn("GameSettingsSection(game: game)", (ROOT / "app/Library.swift").read_text())
+        self.assertIn("GameSettingsSection(game: game", (ROOT / "app/Library.swift").read_text())
 
 
 class HelpEntryPointTests(unittest.TestCase):
