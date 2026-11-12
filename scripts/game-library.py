@@ -180,6 +180,11 @@ class Library:
         self.games[key] = dict(id=key, platform=platform, title=title.strip()[:300],
                                install_path=str(location), artwork=artwork,
                                issue=issue, arguments=arguments)
+        if location.is_symlink():
+            # Moved to another drive with scripts/game-storage.py: say where it is.
+            target = Path(os.readlink(location)).parts
+            if len(target) > 2 and target[1] == 'Volumes':
+                self.games[key].update(volume=target[2], available=not unplugged)
 
     def steam(self):
         prefix = self.base / self.folders['steam']

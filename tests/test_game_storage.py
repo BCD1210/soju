@@ -131,6 +131,8 @@ class UnpluggedDriveTests(unittest.TestCase):
         source = (ROOT / "scripts/game-library.py").read_text()
         self.assertIn("unplugged = location.is_symlink() and not location.exists()", source)
         self.assertIn("Connect the drive, then try again.", source)
+        self.assertIn("self.games[key].update(volume=target[2], available=not unplugged)", source)
+        self.assertIn("var isOnUnpluggedDrive: Bool { available == false }", (ROOT / "app/Library.swift").read_text())
 
 
 if __name__ == "__main__":
