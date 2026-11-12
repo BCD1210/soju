@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>맥북에서 디아블로 4 하기: M1·M2·M3·M4 애플 실리콘 (무료 체험판 확인, 2026) | 소주</title>
+<meta name="description" content="애플 실리콘 맥에서 소주가 설치한 윈도우 배틀넷으로 디아블로 4를 실행하는 방법. 무료 체험판으로 M4 Pro·macOS 26.5에서 캐릭터를 만들고 첫 지역에 들어가는 것까지 확인했습니다.">
+<link rel="canonical" href="https://didimlabs.com/guides/ko/diablo-4-mac.html">
+<link rel="alternate" hreflang="ko" href="https://didimlabs.com/guides/ko/diablo-4-mac.html">
+<link rel="alternate" hreflang="en" href="https://didimlabs.com/guides/diablo-4-apple-silicon.html">
+<meta property="og:title" content="맥북에서 디아블로 4 하기">
+<meta property="og:description" content="소주가 설치한 윈도우 배틀넷으로 애플 실리콘 맥에서 디아블로 4 실행. 무료 체험판으로 확인.">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://didimlabs.com/assets/diablo-4-mac.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.png?v=20261110b">
+<link rel="stylesheet" href="../../style.css?v=20261111a">
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "inLanguage": "ko", "mainEntity": [
+ {"@type": "Question", "name": "맥북(애플 실리콘)에서 디아블로 4 되나요?", "acceptedAnswer": {"@type": "Answer", "text": "소주가 설치한 윈도우 배틀넷으로 M4 Pro, macOS 26.5에서 실행했습니다. 오프닝 영상이 나오고, 캐릭터를 만들고, 첫 지역에 들어가 캐릭터가 움직이는 것까지 확인했습니다. 그래픽은 애플 D3DMetal입니다. 소리, 프레임, 장시간 플레이는 확인하지 않았습니다."}},
+ {"@type": "Question", "name": "디아블로 4를 사지 않고 맥에서 해 볼 수 있나요?", "acceptedAnswer": {"@type": "Answer", "text": "블리자드가 무료 체험판을 제공하는 동안은 됩니다. 배틀넷에서 디아블로 4를 열고 Try For Free를 누릅니다. 체험판은 블리자드가 정한 레벨까지만 할 수 있습니다."}},
+ {"@type": "Question", "name": "맥에서 디아블로 4 용량은 얼마나 되나요?", "acceptedAnswer": {"@type": "Answer", "text": "배틀넷이 표시한 용량은 고해상도 에셋 포함 181GB, 제외 97.4GB입니다. 다운로드가 73%쯤 됐을 때 Play 버튼이 켜졌습니다."}}
+]}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "a7048ad8ec7b480c9ad71182b1641147"}'></script>
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../../ko/"><img src="../../assets/soju-logo-64.png?v=20261110b" width="28" height="28" alt="">소주<span> by Didim Labs</span></a>
+  <a href="diablo-2-mac.html">디아2 가이드</a>
+  <a href="overwatch-2-mac.html">오버워치 2 가이드</a>
+  <a href="../../ko/mac/">게임 목록</a>
+  <a href="https://discord.gg/eY6UHRCKZU">디스코드</a>
+</div></nav>
+<main>
+<p class="note">이 가이드는 애플 실리콘 맥에 윈도우용 배틀넷·스팀·에픽·GOG·EA·락스타·유비소프트 런처를 설치하는 무료 오픈소스 앱 <a href="../../ko/">소주</a>의 안내서입니다.</p>
+<h1>맥북에서 디아블로 4 하기</h1>
+<p class="lead">디아블로 4는 맥 버전이 없습니다. 소주가 설치한 윈도우 배틀넷으로 돌리면, M4 Pro·macOS 26.5에서 무료 체험판이 실행되고 오프닝 영상, 캐릭터 생성, 첫 지역 진입까지 됐습니다. 그래픽은 애플 D3DMetal로 그립니다.</p>
+
+<img class="shot" src="../../assets/diablo-4-mac.jpg?v=20261111a" width="1200" height="675" alt="맥에서 실행한 디아블로 4 첫 지역. 눈보라 치는 밤, 체력·자원 구슬과 기술 칸, 미니맵, 퀘스트가 보인다">
+
+<h2>빠른 설치</h2>
+<pre><code>brew install BCD1210/soju/soju
+soju install          # Battle.net 선택
+soju battlenet        # 로그인 → 디아블로 4 → Try For Free(또는 Install) → Play</code></pre>
+<p>또는 <a href="../../ko/#install">소주 앱을 받아</a> Platforms에서 Battle.net을 고릅니다.</p>
+
+<h2>필요한 것</h2>
+<table>
+  <tr><th>항목</th><th>내용</th></tr>
+  <tr><td>맥</td><td>애플 실리콘. M4 Pro, macOS 26.5에서 확인했고 다른 맥은 확인하지 못했습니다.</td></tr>
+  <tr><td>계정</td><td>배틀넷 계정. 무료 체험판은 구매 없이 됩니다. 레벨 제한과 제공 기간은 블리자드가 정합니다.</td></tr>
+  <tr><td>애플 GPTK</td><td>소주가 설치할 때 받아 옵니다. 빠진 것이 있으면 <code>soju doctor</code>가 알려 줍니다.</td></tr>
+  <tr><td>용량</td><td>배틀넷 표시 기준 고해상도 에셋 제외 97.4GB, 포함 181GB. 설치 화면에서 High-Resolution Assets 체크를 풀면 줄어듭니다.</td></tr>
+</table>
+
+<h2>설치 순서</h2>
+<ol>
+  <li>배틀넷 게임 줄에서 디아블로 4를 고르고 <strong>Try For Free</strong>를 누릅니다(구매했다면 Install).</li>
+  <li>두 번째 설치 화면에서 공간이 넉넉하지 않으면 <strong>High-Resolution Assets</strong> 체크를 풉니다.</li>
+  <li>다운로드가 끝나기 전에 <strong>Play</strong>가 켜집니다. 여기서는 73%쯤에서 켜졌고, 나머지를 받는 동안 게임이 실행됐습니다.</li>
+</ol>
+<p>게임은 전체 화면으로 열립니다. 처음에 스크린 리더, 밝기, 접근성 설정을 묻고, 이어서 오프닝 영상이 몇 분 동안 나옵니다.</p>
+
+<h2>확인한 것</h2>
+<ul>
+  <li>배틀넷에서 체험판을 설치하고 게임을 실행했습니다.</li>
+  <li>설정 화면, 자막이 나오는 오프닝 영상, 직업 선택, 캐릭터 생성이 모두 정상으로 그려졌습니다.</li>
+  <li>첫 지역(Icehowl Taiga)에 들어가 인터페이스, 미니맵, 퀘스트가 표시됐고 캐릭터가 움직였습니다.</li>
+</ul>
+
+<h2>확인하지 않은 것</h2>
+<ul>
+  <li>소리, 프레임, 전투, 장시간 플레이</li>
+  <li>다른 사람과 함께 하는 플레이, 체험판 범위를 넘는 본편</li>
+  <li>다른 맥과 다른 macOS 버전</li>
+</ul>
+<p>맥에서 더 해 보셨다면 소주의 게임 상세 창에서 <strong>Show FPS</strong>를 켜고 나온 숫자를 <a href="https://discord.gg/eY6UHRCKZU">디스코드 한국어 채널</a>이나 <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">호환성 제보</a>로 알려 주세요. <a href="../../ko/mac/diablo-4.html">디아블로 4 페이지</a>에 올립니다.</p>
+
+<h2 id="questions">자주 묻는 질문</h2>
+<div class="faq">
+  <details open><summary>맥북(애플 실리콘)에서 디아블로 4 되나요?</summary><p>소주가 설치한 윈도우 배틀넷으로 M4 Pro, macOS 26.5에서 실행했습니다. 오프닝 영상이 나오고, 캐릭터를 만들고, 첫 지역에 들어가 캐릭터가 움직이는 것까지 확인했습니다. 그래픽은 애플 D3DMetal입니다. 소리, 프레임, 장시간 플레이는 확인하지 않았습니다.</p></details>
+  <details><summary>디아블로 4를 사지 않고 맥에서 해 볼 수 있나요?</summary><p>블리자드가 무료 체험판을 제공하는 동안은 됩니다. 배틀넷에서 디아블로 4를 열고 Try For Free를 누릅니다. 체험판은 블리자드가 정한 레벨까지만 할 수 있습니다.</p></details>
+  <details><summary>맥에서 디아블로 4 용량은 얼마나 되나요?</summary><p>배틀넷이 표시한 용량은 고해상도 에셋 포함 181GB, 제외 97.4GB입니다. 다운로드가 73%쯤 됐을 때 Play 버튼이 켜졌습니다.</p></details>
+</div>
+
+<p><a class="btn" href="../../ko/#install">소주 받기</a></p>
+</main>
+<footer>
+  소주는 GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> · 블리자드·애플·코드위버스와 관계없습니다. 디아블로는 블리자드 엔터테인먼트의 상표입니다.
+</footer>
+</body>
+</html>

@@ -264,6 +264,13 @@
                 "result": "A single-player match starts. Multiplayer not tried. [Guide](guides/starcraft-remastered-apple-silicon.html)"
               },
               {
+                "title": "Diablo IV",
+                "store": "Battle.net",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Free trial: character created and in the first area. Sound and frame rate not checked. [Guide](guides/diablo-4-apple-silicon.html)"
+              },
+              {
                 "title": "Overwatch 2",
                 "store": "Battle.net",
                 "status": "Menu",
@@ -417,6 +424,10 @@
               {
                 "label": "StarCraft: Remastered on Apple Silicon",
                 "href": "guides/starcraft-remastered-apple-silicon.html"
+              },
+              {
+                "label": "Diablo IV on Apple Silicon",
+                "href": "guides/diablo-4-apple-silicon.html"
               },
               {
                 "label": "Overwatch 2 on Apple Silicon",

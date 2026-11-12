@@ -44,6 +44,7 @@ Tested by us on an M4 Pro with macOS 26.5, unless a row says it is a player's re
 | Game | Store | Status | Notes |
 | --- | --- | :-: | --- |
 | Diablo II: Resurrected | Battle.net | ✅ in-game, online | needs **macOS 26.4 or later**; [guide](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) |
+| Diablo IV | Battle.net | ✅ in-game (free trial) | character created and in the first area; sound and frame rate not checked; 97 GB without High-Resolution Assets; [guide](https://didimlabs.com/guides/diablo-4-apple-silicon.html) |
 | Hogwarts Legacy | Epic | ✅ in-game | the "AMD driver" warning at start is harmless |
 | StarCraft: Remastered | Battle.net | ✅ in-game | a match against the computer; multiplayer not tried; [guide](https://didimlabs.com/guides/starcraft-remastered-apple-silicon.html) |
 | Overwatch 2 | Steam | ✅ main menu, online | turn on Platforms > Steam > **Overwatch and Diablo II mode** (`soju steam-gptk on`); the game asks once to connect a Battle.net account; [guide](https://didimlabs.com/guides/overwatch-2-apple-silicon.html) |

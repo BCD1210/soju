@@ -44,6 +44,7 @@ soju install
 | 游戏 | 商店 | 状态 | 备注 |
 | --- | --- | :-: | --- |
 | Diablo II: Resurrected | Battle.net | ✅ 进入游戏，在线 | 需要 **macOS 26.4 或更高**；[指南](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) |
+| Diablo IV | Battle.net | ✅ 进入游戏（免费试玩） | 已创建角色并进入第一个区域；声音和帧率未测试；不含高清素材约 97 GB；[指南](https://didimlabs.com/guides/diablo-4-apple-silicon.html) |
 | Hogwarts Legacy | Epic | ✅ 进入游戏 | 启动时的“AMD 驱动”警告可以忽略 |
 | StarCraft: Remastered | Battle.net | ✅ 进入游戏 | 已确认与电脑对战；多人未测试 |
 | 守望先锋 2 | Steam | ✅ 主菜单，在线 | 打开 Platforms > Steam > **Overwatch and Diablo II mode**（`soju steam-gptk on`）；首次会要求连接一次 Battle.net 账号 |

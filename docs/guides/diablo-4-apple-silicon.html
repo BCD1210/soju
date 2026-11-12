@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diablo IV on Apple Silicon Macs with Soju (free trial tested, 2026)</title>
+<meta name="description" content="How to run Diablo IV on an M-series Mac through the Windows Battle.net client that Soju installs. Tested with the free trial on an M4 Pro with macOS 26.5: character created and in the first area.">
+<link rel="canonical" href="https://didimlabs.com/guides/diablo-4-apple-silicon.html">
+<link rel="alternate" hreflang="en" href="https://didimlabs.com/guides/diablo-4-apple-silicon.html">
+<link rel="alternate" hreflang="ko" href="https://didimlabs.com/guides/ko/diablo-4-mac.html">
+<meta property="og:title" content="Diablo IV on Apple Silicon Macs">
+<meta property="og:description" content="How to run Diablo IV on an M-series Mac through the Windows Battle.net client that Soju installs. Tested with the free trial on an M4 Pro.">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://didimlabs.com/assets/diablo-4-mac.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.png?v=20261110b">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=20261110b">
+<link rel="stylesheet" href="../style.css?v=20261111a">
+<meta property="og:url" content="https://didimlabs.com/guides/diablo-4-apple-silicon.html">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Diablo IV on Apple Silicon Macs with Soju (free trial tested, 2026)",
+  "description": "How to run Diablo IV on an M-series Mac through the Windows Battle.net client that Soju installs. Tested with the free trial on an M4 Pro with macOS 26.5: character created and in the first area.",
+  "url": "https://didimlabs.com/guides/diablo-4-apple-silicon.html",
+  "mainEntityOfPage": "https://didimlabs.com/guides/diablo-4-apple-silicon.html",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "WebSite", "name": "Soju", "url": "https://didimlabs.com/"},
+  "dateModified": "2026-11-11",
+  "image": "https://didimlabs.com/assets/diablo-4-mac.jpg"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {"@type": "Question", "name": "Does Diablo IV run on Apple Silicon Macs?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Through the Windows Battle.net client that Soju installs, Diablo IV started on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. It is drawn with Apple's D3DMetal. Sound, frame rate and long sessions were not checked."}},
+    {"@type": "Question", "name": "Can I try Diablo IV on a Mac without buying it?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes, while Blizzard offers its free trial. In Battle.net, open Diablo IV and press Try For Free. The trial stops at a level cap that Blizzard sets."}},
+    {"@type": "Question", "name": "How much disk space does Diablo IV need on a Mac?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Battle.net asked for 181 GB with High-Resolution Assets and 97.4 GB without them. The Play button turned on at about 73 percent of the download."}}
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "a7048ad8ec7b480c9ad71182b1641147"}'></script>
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../"><img src="../assets/soju-logo-64.png?v=20261110b" width="28" height="28" alt="">Soju<span> by Didim Labs</span></a>
+  <a href="diablo-2-resurrected-apple-silicon.html">D2R guide</a>
+  <a href="overwatch-2-apple-silicon.html">Overwatch 2 guide</a>
+  <a href="../mac/">Games</a>
+  <a href="https://github.com/BCD1210/soju">GitHub</a>
+</div></nav>
+<main>
+<p class="note">This guide is part of <a href="../">Soju</a>, a free, open-source Mac app that installs the Windows Battle.net, Steam, Epic, GOG, EA, Rockstar and Ubisoft launchers on Apple Silicon.</p>
+<h1>Diablo IV on Apple Silicon</h1>
+<p class="lead">Diablo IV has no Mac version. It runs through the Windows Battle.net client that Soju sets up:
+on an M4 Pro with macOS 26.5 the free trial started, played its opening cinematic, let us create a character and loaded into the first area, drawn with Apple's D3DMetal.</p>
+
+<img class="shot" src="../assets/diablo-4-mac.jpg?v=20261111a" width="1200" height="675" alt="Diablo IV in the first area on a Mac, at night in a snowstorm, with the health and resource globes, skill bar, minimap and the quest Dusk on the Mountain">
+
+<h2>The quick version</h2>
+<pre><code>brew install BCD1210/soju/soju
+soju install          # choose Battle.net
+soju battlenet        # sign in, open Diablo IV, press Try For Free or Install, then Play</code></pre>
+<p>Or <a href="../#install">download the Soju app</a>, open Platforms and choose Battle.net.</p>
+
+<h2>What you need</h2>
+<table>
+  <tr><th>Item</th><th>Detail</th></tr>
+  <tr><td>Mac</td><td>Apple Silicon. Checked on an M4 Pro with macOS 26.5; other Macs are untested.</td></tr>
+  <tr><td>Account</td><td>A Battle.net account. The free trial needs no purchase; Blizzard sets its level cap and how long it is offered.</td></tr>
+  <tr><td>Apple's Game Porting Toolkit</td><td>Soju downloads it during setup. <code>soju doctor</code> says if anything is missing.</td></tr>
+  <tr><td>Disk</td><td>97.4 GB without High-Resolution Assets, 181 GB with them, as Battle.net reported it. Untick High-Resolution Assets on the install screen to save the space.</td></tr>
+</table>
+
+<h2>Installing</h2>
+<ol>
+  <li>In Battle.net, pick Diablo IV in the game row and press <strong>Try For Free</strong> (or Install if you own it).</li>
+  <li>On the second install screen, untick <strong>High-Resolution Assets</strong> unless you have the space.</li>
+  <li><strong>Play</strong> turns on before the download ends. Here it did at about 73 percent, and the game started while the rest downloaded.</li>
+</ol>
+<p>The game opens full screen. The first screens ask about the screen reader, brightness and accessibility options, then the opening cinematic plays for several minutes.</p>
+
+<h2>What we checked</h2>
+<ul>
+  <li>Battle.net installed the trial and started the game.</li>
+  <li>The setup screens, the opening cinematic with subtitles, class selection and character creation all drew correctly.</li>
+  <li>The game loaded into the first area (Icehowl Taiga) with the interface, minimap and quest shown, and the character moved.</li>
+</ul>
+
+<h2>What we did not check</h2>
+<ul>
+  <li>Sound, frame rate, combat and long sessions.</li>
+  <li>Playing with other people, and the full game beyond the trial.</li>
+  <li>Other Macs and macOS versions.</li>
+</ul>
+<p>Played further on your Mac? Turn on <strong>Show FPS</strong> in the game's sheet in Soju and tell us the number in
+<a href="https://discord.gg/PwBjET6YZ3">#compatibility on Discord</a> or in a
+<a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">compatibility report</a>; it goes on the
+<a href="../mac/diablo-4.html">Diablo IV page</a>.</p>
+
+<h2 id="questions">Questions</h2>
+<div class="faq">
+  <details open><summary>Does Diablo IV run on Apple Silicon Macs?</summary><p>Through the Windows Battle.net client that Soju installs, Diablo IV started on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. It is drawn with Apple's D3DMetal. Sound, frame rate and long sessions were not checked.</p></details>
+  <details><summary>Can I try Diablo IV on a Mac without buying it?</summary><p>Yes, while Blizzard offers its free trial. In Battle.net, open Diablo IV and press Try For Free. The trial stops at a level cap that Blizzard sets.</p></details>
+  <details><summary>How much disk space does Diablo IV need on a Mac?</summary><p>Battle.net asked for 181 GB with High-Resolution Assets and 97.4 GB without them. The Play button turned on at about 73 percent of the download.</p></details>
+</div>
+
+<p><a class="btn" href="../#install">Download Soju</a></p>
+</main>
+<footer>
+  Soju is GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
+  not affiliated with Blizzard, Apple or CodeWeavers. Diablo is a trademark of Blizzard Entertainment.
+</footer>
+</body>
+</html>

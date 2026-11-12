@@ -44,6 +44,7 @@ soju install
 | 게임 | 스토어 | 상태 | 비고 |
 | --- | --- | :-: | --- |
 | Diablo II: Resurrected | Battle.net | ✅ 인게임, 온라인 | **macOS 26.4 이상** 필요, [가이드](https://didimlabs.com/guides/ko/diablo-2-mac.html) |
+| 디아블로 4 | Battle.net | ✅ 인게임 (무료 체험판) | 캐릭터 생성, 첫 지역 진입까지 확인. 소리와 프레임은 미확인. 고해상도 에셋 제외 97GB. [가이드](https://didimlabs.com/guides/ko/diablo-4-mac.html) |
 | Hogwarts Legacy | Epic | ✅ 인게임 | 시작할 때 뜨는 "AMD 드라이버" 경고는 무시해도 됩니다. 입력 소스는 영어로 |
 | StarCraft: Remastered | Battle.net | ✅ 인게임 | 컴퓨터 상대 대전까지 확인, 멀티플레이는 미확인, [가이드](https://didimlabs.com/guides/ko/starcraft-mac.html) |
 | 오버워치 2 | Steam | ✅ 메인 메뉴, 온라인 | Platforms > Steam > **Overwatch and Diablo II mode**를 켭니다(`soju steam-gptk on`). 처음 한 번 배틀넷 계정 연결을 묻습니다. [가이드](https://didimlabs.com/guides/ko/overwatch-2-mac.html) |
