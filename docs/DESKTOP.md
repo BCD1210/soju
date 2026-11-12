@@ -1,6 +1,6 @@
 # Soju for Mac
 
-[Download v1.14.10](https://github.com/BCD1210/soju/releases/download/v1.14.10/Soju-1.14.10-macos-arm64.zip)
+[Download v1.14.11](https://github.com/BCD1210/soju/releases/download/v1.14.11/Soju-1.14.11-macos-arm64.zip)
 
 1. Unzip and move **Soju.app** into Applications or ~/Applications.
 2. Open **Platforms** to install or open Battle.net, Steam, Epic Games or GOG GALAXY.
@@ -11,7 +11,7 @@
    Use the **Installed / Not installed** filter to choose what to play or install.
 6. Open **Discover** to search Steam and GOG, select a price region, and visit
    the official product page. Epic and Battle.net have direct store search links.
-7. Open a game's details for **Diagnose**, **Show files** and its official launcher.
+7. Open a game's details for **Diagnose**, **Show files** and its official launcher. The same sheet has the game's **Settings**: when it was last played, the FPS display, and for Steam games the graphics choice (Standard or DXVK; quit Steam before changing it). Games on the DXVK list in `resources/steam-profiles.json` show why DXVK is recommended.
 
 ![Soju unified library](assets/soju-library.png)
 
