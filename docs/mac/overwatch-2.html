@@ -52,6 +52,30 @@
 soju install          # choose Battle.net
 soju battlenet     # sign in, install the game, press Play</code></pre>
 <p>Or <a href="../#install">download the Soju app</a> and add Battle.net under Platforms. Needs an Apple Silicon Mac (M1 or newer) and macOS 14 or later.</p>
+<h2>What you need</h2>
+<table>
+  <tr><th>Item</th><th>Detail</th></tr>
+  <tr><td>Mac</td><td>Apple Silicon. Checked on an M4 Pro with macOS 26.5; other Macs are untested.</td></tr>
+  <tr><td>Account</td><td>A Battle.net account with a phone number on it. Blizzard asks for one before the free install; add it at account.battle.net under Security.</td></tr>
+  <tr><td>Apple's Game Porting Toolkit</td><td>All of Apple's shims, including <code>atidxx64.dll</code> and <code>nvapi64.dll</code>. Soju 1.13.0 adds them with <code>soju update</code>; <code>soju doctor</code> says if they are missing.</td></tr>
+  <tr><td>Disk</td><td>About 85 GB for the game, as Battle.net reported it.</td></tr>
+</table>
+<h2>What we checked</h2>
+<ul>
+  <li>Battle.net installed the game after the phone number was added to the account.</li>
+  <li>Without the shims the game stopped with General Error (0xE0010110). With them it loaded, signed in and showed the main menu online, with the season and pass screens.</li>
+  <li>Diablo II: Resurrected still reached its title screen on the same engine after the change.</li>
+</ul>
+<h2>What we did not check</h2>
+<ul>
+  <li>A match, the practice range, frame rate in play, or voice chat.</li>
+  <li>Long sessions.</li>
+  <li>Other Macs and macOS versions.</li>
+</ul>
+<p>Played a match on your Mac? Turn on <strong>Show FPS in games</strong> under Platforms and tell us the number in
+<a href="https://discord.gg/PwBjET6YZ3">#compatibility on Discord</a> or in a
+<a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">compatibility report</a>; it goes on the
+<a href="../mac/overwatch-2.html">Overwatch 2 page</a>.</p>
 <p>Tried it? Tell us in <a href="https://discord.gg/PwBjET6YZ3">#compatibility on Discord</a> or <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">send a compatibility report</a> and this page gets updated.</p>
 <h2 id="questions">Questions</h2>
 <div class="faq">
