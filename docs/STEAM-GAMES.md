@@ -36,8 +36,13 @@ creates `CLSID_CWMADecMediaObject` in the Steam runtime failed with 0xd0000005
 before and succeeded after; a DirectShow graph rendering a 2-second WMA file
 reached EC_COMPLETE only with GStreamer.
 
+Since 1.14.9 the video plugins winegstreamer creates are kept too (videoconvert,
+videoflip, deinterlace, the H.264 parser and Matroska), so cutscenes in H.264 can
+decode: Media Foundation's H.264 decoder failed to create before ("GStreamer doesn't
+support H.264 decoding", #94) and creates after.
+
 The official package (pinned SHA-256) is expanded in a temporary folder; only
-the x86_64 slices of 14 plugins and the 32 libraries they load are kept (39 MB),
+the x86_64 slices of 19 plugins and the 32 libraries they load are kept (42 MB),
 and the package is deleted. `play.sh steam` adds `DYLD_FALLBACK_LIBRARY_PATH`
 (searched only when Wine's own lookups fail) and the `GST_*` paths after it drops
 the CX environment. The CX engine is built without winegstreamer, so Steam with
