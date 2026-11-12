@@ -20,6 +20,8 @@ class DigestTests(unittest.TestCase):
             release("v1.14.16", "2026-11-12T19:11:00Z"), release("v1.14.13", "2026-11-12T07:53:00Z"),
             release("steam-support-v4", "2026-11-12T10:00:00Z"), release("v1.14.8", "2026-11-11T05:00:00Z")])
         self.assertEqual([r["tag_name"] for r in found], ["v1.14.13", "v1.14.16"])
+        early = dict(release("v1.15.0", "2026-11-12T19:30:00Z"), prerelease=True)
+        self.assertEqual(d.recent_releases(24, NOW, [early]), [])
 
     def test_release_message_has_the_notes_and_no_checksums(self):
         text = d.releases_message([release("v1.14.15", "2026-11-12T16:00:00Z", "- Older change."),
