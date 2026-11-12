@@ -542,12 +542,17 @@ struct LibraryView: View {
                     Spacer()
                 }
             }
+            if game.isInstalled {
+                Divider()
+                GameSettingsSection(game: game)
+            }
             HStack {
                 Button("Show files") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled || game.isOnUnpluggedDrive)
                 Button("Diagnose") { diagnose(game) }.disabled(model.busy)
                 if game.platform.opensAWindow {
                     Button("Open " + game.platform.title) { model.launch(game.platform) }.disabled(model.busy)
                 }
+                if game.isInstalled { Button("Report How It Ran…") { model.report(game) } }
                 Spacer()
             }
             Divider()
