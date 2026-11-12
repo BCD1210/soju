@@ -21,7 +21,7 @@
 {"@context":"https://schema.org","@type":"TechArticle","headline":"Diablo IV on Mac: does it run on M1, M2, M3, M4 MacBook? (2026) | Soju","description":"Runs in Soju. Played with Blizzard's free trial on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. Direct3D 12 through Apple's D3DMetal. Battle.net asked for 97.4 GB without High-Resolution Assets (1","url":"https://didimlabs.com/mac/diablo-4.html","mainEntityOfPage":"https://didimlabs.com/mac/diablo-4.html","inLanguage":"en","dateModified":"2026-11-11","isPartOf":{"@type":"WebSite","name":"Soju","url":"https://didimlabs.com/"},"about":{"@type":"VideoGame","name":"Diablo IV","operatingSystem":"Windows","sameAs":"https://store.steampowered.com/app/2344520/"},"image":"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2344520/header.jpg"}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","inLanguage":"en","mainEntity":[{"@type":"Question","name":"Does Diablo IV run on an Apple Silicon Mac?","acceptedAnswer":{"@type":"Answer","text":"Runs in Soju. Played with Blizzard's free trial on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. Direct3D 12 through Apple's D3DMetal. Battle.net asked for 97.4 GB without High-Resolution Assets (181 GB with them), and Play turned on at about 73 percent of the download. Sound, frame rate, combat and long sessions were not checked."}},{"@type":"Question","name":"How do I install Diablo IV on a Mac?","acceptedAnswer":{"@type":"Answer","text":"Install the Windows Battle.net with Soju, a free open-source app, sign in, then install the game and press Play."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","inLanguage":"en","mainEntity":[{"@type":"Question","name":"Does Diablo IV run on an Apple Silicon Mac?","acceptedAnswer":{"@type":"Answer","text":"Runs in Soju. Played with Blizzard's free trial on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. Direct3D 12 through Apple's D3DMetal. Battle.net asked for 97.4 GB without High-Resolution Assets (181 GB with them), and Play turned on at about 73 percent of the download. On 2026-11-12 it held 50 fps at 3440×1440 with default settings for 10 minutes of walking in the first area and stayed open for 22 minutes, running from an external USB drive. Sound by ear, combat and longer sessions were not checked."}},{"@type":"Question","name":"How do I install Diablo IV on a Mac?","acceptedAnswer":{"@type":"Answer","text":"Install the Windows Battle.net with Soju, a free open-source app, sign in, then install the game and press Play."}}]}
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "a7048ad8ec7b480c9ad71182b1641147"}'></script>
 </head>
@@ -37,7 +37,7 @@
 <p class="note">Soju is a free, open-source app that installs the official Windows game launchers on Apple Silicon Macs.</p>
 <h1>Diablo IV on Mac</h1>
 <p><span class="status ok">Runs in Soju</span></p>
-<p class="lead">Played with Blizzard&#x27;s free trial on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. Direct3D 12 through Apple&#x27;s D3DMetal. Battle.net asked for 97.4 GB without High-Resolution Assets (181 GB with them), and Play turned on at about 73 percent of the download. Sound, frame rate, combat and long sessions were not checked.</p>
+<p class="lead">Played with Blizzard&#x27;s free trial on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. Direct3D 12 through Apple&#x27;s D3DMetal. Battle.net asked for 97.4 GB without High-Resolution Assets (181 GB with them), and Play turned on at about 73 percent of the download. On 2026-11-12 it held 50 fps at 3440×1440 with default settings for 10 minutes of walking in the first area and stayed open for 22 minutes, running from an external USB drive. Sound by ear, combat and longer sessions were not checked.</p>
 <p><a class="btn" href="../guides/diablo-4-apple-silicon.html">Full guide</a></p>
 <figure><img class="shot" src="../assets/diablo-4-mac.jpg" loading="lazy" alt="Diablo IV Running in Soju, 2026-11-11"><figcaption>Running in Soju, 2026-11-11</figcaption></figure>
 <p><img class="shot" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2344520/header.jpg" width="460" height="215" loading="lazy" alt="Diablo IV"></p>
@@ -65,10 +65,12 @@ soju battlenet     # sign in, install the game, press Play</code></pre>
   <li>Battle.net installed the trial and started the game.</li>
   <li>The setup screens, the opening cinematic with subtitles, class selection and character creation all drew correctly.</li>
   <li>The game loaded into the first area (Icehowl Taiga) with the interface, minimap and quest shown, and the character moved.</li>
+  <li>Frame rate: a steady 50 fps at 3440×1440 with the default settings while walking around the first area for 10 minutes (Apple's Metal HUD, <code>soju fps on</code>). The character screen ran at 44 fps. No freeze in that time, and the game stayed open for 22 minutes.</li>
+  <li>It runs from an external drive: installed on a USB SSD (exFAT) with <code>soju storage place</code>, started from there, and moved to the Mac and back (96.2 GB, about 10 minutes each way).</li>
 </ul>
 <h2>What we did not check</h2>
 <ul>
-  <li>Sound, frame rate, combat and long sessions.</li>
+  <li>Sound by ear (the game opened an audio output, but nobody listened), combat, and sessions longer than about 20 minutes.</li>
   <li>Playing with other people, and the full game beyond the trial.</li>
   <li>Other Macs and macOS versions.</li>
 </ul>
@@ -79,7 +81,7 @@ soju battlenet     # sign in, install the game, press Play</code></pre>
 <p>Tried it? Tell us in <a href="https://discord.gg/PwBjET6YZ3">#compatibility on Discord</a> or <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">send a compatibility report</a> and this page gets updated.</p>
 <h2 id="questions">Questions</h2>
 <div class="faq">
-  <details open><summary>Does Diablo IV run on an Apple Silicon Mac?</summary><p>Runs in Soju. Played with Blizzard&#x27;s free trial on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. Direct3D 12 through Apple&#x27;s D3DMetal. Battle.net asked for 97.4 GB without High-Resolution Assets (181 GB with them), and Play turned on at about 73 percent of the download. Sound, frame rate, combat and long sessions were not checked.</p></details>
+  <details open><summary>Does Diablo IV run on an Apple Silicon Mac?</summary><p>Runs in Soju. Played with Blizzard&#x27;s free trial on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. Direct3D 12 through Apple&#x27;s D3DMetal. Battle.net asked for 97.4 GB without High-Resolution Assets (181 GB with them), and Play turned on at about 73 percent of the download. On 2026-11-12 it held 50 fps at 3440×1440 with default settings for 10 minutes of walking in the first area and stayed open for 22 minutes, running from an external USB drive. Sound by ear, combat and longer sessions were not checked.</p></details>
   <details><summary>How do I install Diablo IV on a Mac?</summary><p>Install the Windows Battle.net with Soju, a free open-source app, sign in, then install the game and press Play.</p></details>
 </div>
 

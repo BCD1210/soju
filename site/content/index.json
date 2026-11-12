@@ -94,8 +94,8 @@
       "@id": "https://didimlabs.com/#soju",
       "name": "Soju",
       "url": "https://didimlabs.com/",
-      "downloadUrl": "https://github.com/BCD1210/soju/releases/download/v1.14.14/Soju-1.14.14-macos-arm64.zip",
-      "softwareVersion": "1.14.14",
+      "downloadUrl": "https://github.com/BCD1210/soju/releases/download/v1.14.15/Soju-1.14.15-macos-arm64.zip",
+      "softwareVersion": "1.14.15",
       "description": "Free, open-source Mac app that installs the official Windows launchers for Steam, Battle.net, Epic Games, GOG GALAXY, EA app, Rockstar Games Launcher, Ubisoft Connect and Xbox PC on Apple Silicon and shows every installed game in one library.",
       "applicationCategory": "GameApplication",
       "operatingSystem": "macOS 14 or later, Apple Silicon (M1 or newer)",
@@ -129,7 +129,7 @@
           "@type": "HowToStep",
           "position": 1,
           "name": "Download the app",
-          "text": "Soju-1.14.14-macos-arm64.zip. Unzip it and move Soju to Applications. Signing notes."
+          "text": "Soju-1.14.15-macos-arm64.zip. Unzip it and move Soju to Applications. Signing notes."
         },
         {
           "@type": "HowToStep",
@@ -154,8 +154,8 @@
         "lead": "A free Mac app for playing Windows games on Apple Silicon. It installs the real Steam, Battle.net, Epic, GOG GALAXY, EA app, Rockstar, Ubisoft Connect and Xbox PC launchers, keeps each in its own Wine setup, and lists every installed game in one library.",
         "actions": [
           {
-            "label": "Download Soju 1.14.14",
-            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.14/Soju-1.14.14-macos-arm64.zip",
+            "label": "Download Soju 1.14.15",
+            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.15/Soju-1.14.15-macos-arm64.zip",
             "primary": true
           },
           {
@@ -363,7 +363,7 @@
             "items": [
               {
                 "title": "Download the app",
-                "text": "[Soju-1.14.14-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.14.14/Soju-1.14.14-macos-arm64.zip). Unzip it and move Soju to Applications. [Signing notes](https://github.com/BCD1210/soju/blob/main/docs/DESKTOP.md)."
+                "text": "[Soju-1.14.15-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.14.15/Soju-1.14.15-macos-arm64.zip). Unzip it and move Soju to Applications. [Signing notes](https://github.com/BCD1210/soju/blob/main/docs/DESKTOP.md)."
               },
               {
                 "title": "Pick launchers",
@@ -525,8 +525,8 @@
         },
         "actions": [
           {
-            "label": "Download Soju 1.14.14",
-            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.14/Soju-1.14.14-macos-arm64.zip",
+            "label": "Download Soju 1.14.15",
+            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.15/Soju-1.14.15-macos-arm64.zip",
             "primary": true
           },
           {
