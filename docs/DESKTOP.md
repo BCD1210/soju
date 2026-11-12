@@ -1,6 +1,6 @@
 # Soju for Mac
 
-[Download v1.14.12](https://github.com/BCD1210/soju/releases/download/v1.14.12/Soju-1.14.12-macos-arm64.zip)
+[Download v1.14.13](https://github.com/BCD1210/soju/releases/download/v1.14.13/Soju-1.14.13-macos-arm64.zip)
 
 1. Unzip and move **Soju.app** into Applications or ~/Applications.
 2. Open **Platforms** to install or open Battle.net, Steam, Epic Games or GOG GALAXY.
@@ -48,7 +48,7 @@ This release detects games installed in Soju's four Windows environments:
 
 - Steam: app manifests and mapped library folders, including external drives.
 - Epic: local installation manifests, excluding DLC-only records.
-- Battle.net: Agent's product database and installed game build records.
+- Battle.net: Agent's product database and installed game build records. A game moved to another drive with **Move to Another Drive…** stays listed while the drive is unplugged.
 - GOG: Galaxy's installation database, with a fallback for standard game folders.
 
 Steam account imports use **Accounts → Sign in to Steam**; Windows Steam does not

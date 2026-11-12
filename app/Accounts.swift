@@ -391,6 +391,9 @@ struct AccountsView: View {
                             Button("Open Epic Games") { model.launch(.epic) }.disabled(model.busy)
                             Button("Open Battle.net") { model.launch(.battlenet) }.disabled(model.busy)
                         }
+                        Text("Already have a Battle.net game on this Mac or an external drive, from another app or a backup? Soju can use that folder instead of downloading again.")
+                            .font(.callout).foregroundStyle(.secondary)
+                        Button("Use Existing Battle.net Game…") { model.importBattlenetGame() }.disabled(model.busy)
                     }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
                 }
                 Text("Imports are snapshots stored on this Mac. Sync again after purchases or account changes. Disconnect removes the import (and Soju’s saved Steam web session or Microsoft sign-in), without removing installed games.")

@@ -547,7 +547,7 @@ struct LibraryView: View {
             }
             if game.isInstalled {
                 Divider()
-                GameSettingsSection(game: game)
+                GameSettingsSection(game: game, close: { selected = nil })
             }
             HStack {
                 Button("Show files") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled || game.isOnUnpluggedDrive)

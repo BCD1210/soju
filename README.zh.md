@@ -8,7 +8,7 @@ Soju 在 M1 及更新的 Mac 上安装 **Battle.net、Steam、Epic Games、GOG G
 
 ![Soju 统一游戏库](docs/assets/soju-library.png)
 
-**[下载 Soju 1.14.12（Mac）](https://github.com/BCD1210/soju/releases/download/v1.14.12/Soju-1.14.12-macos-arm64.zip)**，或在终端安装：
+**[下载 Soju 1.14.13（Mac）](https://github.com/BCD1210/soju/releases/download/v1.14.13/Soju-1.14.13-macos-arm64.zip)**，或在终端安装：
 
 ```bash
 brew install BCD1210/soju/soju
@@ -82,7 +82,7 @@ soju install     # 然后：soju battlenet / soju d2r / soju steam / soju epic /
 
 安装器会**先询问要安装哪些启动器，再下载对应组件**。仅选择 Steam 时，不会下载 CX 引擎或 Apple GPTK。Steam 图形组件经过 SHA-256 校验后，自动安装到 Soju 专用的 Wine 11.0 环境中。战网、Epic 和 GOG 使用共享 CX 引擎及用户单独下载的 Apple GPTK。各客户端的 bottle、账户和游戏分别保留。
 
-[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.14.12/Soju-1.14.12-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
+[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.14.13/Soju-1.14.13-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
 
 ## 日常维护
 
@@ -91,6 +91,8 @@ soju doctor      # 体检：检查整个栈，指出哪里不对（提 issue 时
 soju update      # 更新脚本和预编译引擎（保留 GPTK 和所有 bottle）
 soju uninstall   # 卸载：逐项确认后删除 app、bottle 和引擎
 ```
+
+- **把 Battle.net 游戏放到外置硬盘：** 在游戏库里打开已安装的游戏，点 **Move to Another Drive…**（或 `soju storage move battlenet:fenris "/Volumes/T7"`）。Soju 复制游戏、与原文件比对，然后释放 Mac 上的空间；**Move Back to This Mac** 可以移回。想把新游戏直接装到外置硬盘，先运行 `soju storage place battlenet "Diablo IV" "/Volumes/T7"`，在 Battle.net 里保持默认位置安装。已有的游戏文件夹（其他 Wine 应用或备份）可以原地使用：**Accounts → Use Existing Battle.net Game…**（或 `soju storage import battlenet <文件夹>`），然后在 Battle.net 里点 Install 或 Locate。支持 APFS、Mac OS 扩展和 exFAT。
 
 ## 应用里的其他功能
 

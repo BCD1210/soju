@@ -8,7 +8,7 @@ Soju는 M1 이후 맥에 **Battle.net·Steam·Epic Games·GOG GALAXY·EA 앱·Ro
 
 ![Soju 통합 게임 라이브러리](docs/assets/soju-library.png)
 
-**[Soju 1.14.12 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.12/Soju-1.14.12-macos-arm64.zip)**, 또는 터미널에서 설치:
+**[Soju 1.14.13 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.13/Soju-1.14.13-macos-arm64.zip)**, 또는 터미널에서 설치:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -82,7 +82,7 @@ soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / 
 
 설치기는 **다운로드 전에 원하는 런처부터 선택**합니다. Steam만 선택하면 CX 엔진과 애플 GPTK를 받지 않습니다. Steam 그래픽 구성요소는 SHA-256으로 검증한 뒤 Soju 전용 Wine 11.0 환경에 자동으로 설치합니다. Battle.net·Epic·GOG는 공통 CX 엔진과 사용자가 별도로 받은 애플 GPTK를 사용합니다. 각 런처의 보틀·로그인·게임은 독립적으로 유지합니다.
 
-[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.14.12/Soju-1.14.12-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
+[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.14.13/Soju-1.14.13-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
 
 ## 일상 명령
 
@@ -95,6 +95,7 @@ soju fps on      # 게임 화면 구석에 프레임(FPS)·프레임 시간 표�
 
 - **게임에서 FPS 보기:** Platforms의 체크박스나 `soju fps on`. 그다음 실행한 게임에 애플 Metal HUD(프레임, 프레임 시간, GPU)가 뜹니다. 호환성 보고할 때 숫자를 적기 좋습니다.
 - **게임별 알려진 설정:** 기본값인 DXMT보다 DXVK에서 더 잘 도는 것으로 알려진 스팀 게임(스카이림 SE, 다크소울 3 등, [resources/steam-profiles.json](resources/steam-profiles.json))은 스팀을 켤 때 한 번 DXVK로 바꿉니다. 직접 바꾼 설정이 우선이고, `soju steam-games renderer reset <game.exe>`로 되돌리면 다시 적용하지 않습니다.
+- **Battle.net 게임을 외장 드라이브에:** 라이브러리에서 설치된 게임을 열고 **Move to Another Drive…** 를 누르거나 `soju storage move battlenet:fenris "/Volumes/T7"`. 게임을 복사하고 원본과 비교한 다음 맥의 공간을 비웁니다. **Move Back to This Mac** 으로 되돌립니다. 새 게임을 처음부터 외장 드라이브에 설치하려면 `soju storage place battlenet "Diablo IV" "/Volumes/T7"` 을 먼저 실행하고 Battle.net에서는 기본 위치 그대로 설치합니다. 다른 Wine 앱이나 백업에 이미 있는 게임 폴더는 복사 없이 그대로 씁니다: **Accounts → Use Existing Battle.net Game…** (또는 `soju storage import battlenet <폴더>`) 후 Battle.net에서 Install 또는 Locate. APFS, Mac OS 확장, exFAT 드라이브를 지원합니다. 세이브와 런처는 맥에 남고, 드라이브를 뽑은 게임은 라이브러리에 남아 연결하라고 알려 줍니다.
 
 ## 앱에 더 있는 것
 
