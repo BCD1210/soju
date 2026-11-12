@@ -21,6 +21,7 @@ _rep = ROOT / "site/soju-reports.json"
 REPORTS = json.loads(_rep.read_text())["reports"] if _rep.exists() else []
 HB_URL = "https://gethighball.com/database/"
 AWACY = "https://areweanticheatyet.com/"
+HIDDEN = set()            # canonical URLs of noindex pages, left out of the sitemap
 KO_ESTIMATES = 3000   # Korean pages for the most-reported estimated games
 INDEX_ESTIMATES = 300
 CHECKED = DATA["checked"]
@@ -87,7 +88,7 @@ def esc(s):
     return html.escape(s, quote=True)
 
 
-def page(lang, title, desc, canonical, alternates, body, faq, base, game=None, image=None):
+def page(lang, title, desc, canonical, alternates, body, faq, base, game=None, image=None, noindex=False):
     ld = {"@context": "https://schema.org", "@type": "TechArticle", "headline": title, "description": desc,
           "url": canonical, "mainEntityOfPage": canonical, "inLanguage": lang, "dateModified": CHECKED,
           "isPartOf": {"@type": "WebSite", "name": "Soju", "url": SITE}}
@@ -102,6 +103,11 @@ def page(lang, title, desc, canonical, alternates, body, faq, base, game=None, i
                                                   "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in faq]},
                                  ensure_ascii=False, separators=(",", ":")))
     alt = "".join('<link rel="alternate" hreflang="%s" href="%s">\n' % (l, u) for l, u in alternates)
+    # Pages that only carry a Linux-based estimate stay out of search: thousands of near-identical
+    # pages with no Mac evidence make a search engine trust the checked pages less.
+    robots = '<meta name="robots" content="noindex,follow">\n' if noindex else ""
+    if noindex:
+        HIDDEN.add(canonical)
     scripts = "".join('<script type="application/ld+json">\n%s\n</script>\n' % b.replace("<", "\\u003c") for b in blocks)
     nav = ('<a href="%smac/">Games</a>\n  <a href="%sguides/soju-vs-whisky-crossover-heroic.html">Compare</a>\n'
            '  <a href="https://github.com/BCD1210/soju">GitHub</a>\n  <a href="%s">Discord</a>' % (base, base, DISCORD))
@@ -121,7 +127,7 @@ def page(lang, title, desc, canonical, alternates, body, faq, base, game=None, i
 <title>{esc(title)}</title>
 <meta name="description" content="{esc(desc)}">
 <link rel="canonical" href="{canonical}">
-{alt}<meta property="og:title" content="{esc(title)}">
+{robots}{alt}<meta property="og:title" content="{esc(title)}">
 <meta property="og:description" content="{esc(desc)}">
 <meta property="og:type" content="article">
 <meta property="og:url" content="{canonical}">
@@ -279,7 +285,7 @@ def game_page(lang, g):
     if g.get("appid"):
         game["sameAs"] = f"https://store.steampowered.com/app/{g['appid']}/"
     image = header_image(g["appid"]) if g.get("appid") else None
-    return path, page(lang, title, desc, canonical, alternates, body, faq, base, game, image)
+    return path, page(lang, title, desc, canonical, alternates, body, faq, base, game, image, noindex=est)
 
 
 def slugify(title):
@@ -438,7 +444,7 @@ def letter_page(c, games, letters):
 <p>Linux data: <a href="https://github.com/bdefore/protondb-data">ProtonDB</a> (ODbL).</p>"""
     return f"mac/list-{c}.html", page("en", f"Windows games on Mac starting with {label} | Soju",
                                       f"Which Windows games starting with {label} may run on Apple Silicon Macs, estimated from ProtonDB reports.",
-                                      SITE + f"mac/list-{c}.html", [], body, None, "../")
+                                      SITE + f"mac/list-{c}.html", [], body, None, "../", noindex=True)
 
 
 def attach_reports(games):
@@ -494,6 +500,8 @@ def main():
     for p in sorted(out):
         # Only a folder index loses its file name: valve-index.html is a page of its own.
         loc = SITE + (p[:-len("index.html")] if p == "index.html" or p.endswith("/index.html") else p)
+        if loc in HIDDEN:
+            continue
         urls.append(f"  <url><loc>{loc}</loc><lastmod>{CHECKED}</lastmod></url>")
     block = "  <!-- mac-games -->\n" + "\n".join(urls) + "\n  <!-- /mac-games -->\n"
     if "<!-- mac-games -->" in s:
@@ -501,7 +509,7 @@ def main():
     else:
         s = s.replace("</urlset>", block + "</urlset>")
     sm.write_text(s)
-    print("built", len(out), "pages,", len(est), "estimates")
+    print("built", len(out), "pages,", len(est), "estimates,", len(HIDDEN), "kept out of search")
 
 
 if __name__ == "__main__":

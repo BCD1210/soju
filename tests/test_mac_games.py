@@ -35,5 +35,28 @@ class MacGamePages(unittest.TestCase):
             self.assertTrue(path.is_file(), loc)
 
 
+    def test_estimate_pages_stay_out_of_search(self):
+        # Pages with only a Linux-based estimate are noindex and absent from the sitemap;
+        # checked pages and pages with Mac reports are indexable and listed.
+        import re
+        sitemap = (ROOT / "docs/sitemap.xml").read_text()
+        hidden = listed = 0
+        for page in sorted((ROOT / "docs/mac").glob("*.html"))[:4000]:
+            text = page.read_text()
+            noindex = '<meta name="robots" content="noindex,follow">' in text
+            in_sitemap = ("https://didimlabs.com/mac/%s</loc>" % page.name) in sitemap
+            if page.name == "index.html":
+                continue
+            self.assertNotEqual(noindex, in_sitemap, page.name)
+            estimate_only = bool(re.search(r"Estimate: (likely runs|may have problems|unlikely to run|few reports)", text))
+            if estimate_only or page.name.startswith("list-"):
+                self.assertTrue(noindex, page.name)
+            hidden += noindex; listed += in_sitemap
+        self.assertGreater(hidden, 1000)
+        self.assertGreater(listed, 20)
+        for g in DATA["games"]:
+            self.assertNotIn("noindex", (ROOT / "docs/mac" / (g["slug"] + ".html")).read_text())
+
+
 if __name__ == "__main__":
     unittest.main()
