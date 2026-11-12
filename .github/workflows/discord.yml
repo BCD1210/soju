@@ -1,0 +1,53 @@
+name: Discord posts
+# Posts to the Soju Discord: the day's releases, new compatibility reports, a weekly summary.
+on:
+  schedule:
+    - cron: "7 17 * * *"   # daily, 09:07 Pacific: releases of the last 24 hours
+    - cron: "37 18 * * 1"  # Mondays: the week
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: releases or weekly
+        default: releases
+      hours:
+        description: hours to look back (releases)
+        default: "24"
+permissions:
+  contents: read
+  issues: read
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Releases of the day
+        if: github.event_name == 'schedule' && github.event.schedule == '7 17 * * *'
+        env:
+          DISCORD_ANNOUNCE_WEBHOOK: ${{ secrets.DISCORD_ANNOUNCE_WEBHOOK }}
+        run: python3 scripts/discord-digest.py releases --hours 24
+      - name: The week
+        if: github.event_name == 'schedule' && github.event.schedule == '37 18 * * 1'
+        env:
+          DISCORD_GENERAL_WEBHOOK: ${{ secrets.DISCORD_GENERAL_WEBHOOK }}
+        run: python3 scripts/discord-digest.py weekly
+      - name: New compatibility report
+        if: github.event_name == 'issues'
+        env:
+          DISCORD_COMPAT_WEBHOOK: ${{ secrets.DISCORD_COMPAT_WEBHOOK }}
+        run: python3 scripts/discord-digest.py issue
+      - name: Run by hand
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DISCORD_ANNOUNCE_WEBHOOK: ${{ secrets.DISCORD_ANNOUNCE_WEBHOOK }}
+          DISCORD_GENERAL_WEBHOOK: ${{ secrets.DISCORD_GENERAL_WEBHOOK }}
+          MODE: ${{ inputs.mode }}
+          HOURS: ${{ inputs.hours }}
+        run: |
+          case "$MODE" in
+            weekly) python3 scripts/discord-digest.py weekly ;;
+            *) python3 scripts/discord-digest.py releases --hours "$((HOURS + 0))" ;;
+          esac
