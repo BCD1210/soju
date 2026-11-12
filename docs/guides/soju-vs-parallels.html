@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soju vs Parallels Desktop for Windows games on Apple Silicon (2026)</title>
+<meta name="description" content="Parallels Desktop runs all of Windows 11 on a Mac for a yearly fee; Soju is a free app that runs the Windows game launchers without Windows. What each costs and is for, as of November 2026.">
+<link rel="canonical" href="https://didimlabs.com/guides/soju-vs-parallels.html">
+<meta property="og:title" content="Soju vs Parallels Desktop">
+<meta property="og:description" content="Parallels Desktop runs all of Windows 11 on a Mac for a yearly fee; Soju is a free app that runs the Windows game launchers without Windows. What each costs and is for, as of November 2026.">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://didimlabs.com/assets/soju-share.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.png?v=20261110b">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=20261110b">
+<link rel="stylesheet" href="../style.css?v=20261111a">
+<meta property="og:url" content="https://didimlabs.com/guides/soju-vs-parallels.html">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Soju vs Parallels Desktop for Windows games on Apple Silicon (2026)",
+  "description": "Parallels Desktop runs all of Windows 11 on a Mac for a yearly fee; Soju is a free app that runs the Windows game launchers without Windows. What each costs and is for, as of November 2026.",
+  "url": "https://didimlabs.com/guides/soju-vs-parallels.html",
+  "mainEntityOfPage": "https://didimlabs.com/guides/soju-vs-parallels.html",
+  "inLanguage": "en",
+  "dateModified": "2026-11-11",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Soju",
+    "url": "https://didimlabs.com/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is Soju a free alternative to Parallels for games?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "For games from Battle.net, Steam, Epic, GOG and a few other launchers, yes: Soju is free and needs no Windows licence. It does not run general Windows programs, which Parallels does."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How much does Parallels Desktop cost?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Parallels' own page lists the Standard edition at $99.99 a year and Pro at $119.99 a year in November 2026. Windows 11 is licensed separately."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Diablo IV run in Parallels on an Apple Silicon Mac?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "We have not tested it. A player on Blizzard's forum reported in October 2026 that it would not start on an M5 Mac in Parallels. In Soju, the Diablo IV free trial reached the first area on an M4 Pro."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need to buy Windows to use Soju?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Soju runs the Windows launchers through Wine and Apple's Game Porting Toolkit. Windows is not installed."
+      }
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "a7048ad8ec7b480c9ad71182b1641147"}'></script>
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../"><img src="../assets/soju-logo-64.png?v=20261110b" width="28" height="28" alt="">Soju<span> by Didim Labs</span></a>
+  <a href="soju-vs-whisky-crossover-heroic.html">All comparisons</a>
+  <a href="../mac/">Games</a>
+  <a href="https://github.com/BCD1210/soju">GitHub</a>
+</div></nav>
+<main>
+<p class="note">This page is part of <a href="../">Soju</a>, a free, open-source Mac app for Windows game launchers on Apple Silicon. Soju is ours. What we say about the other product comes from its own pages, and we say where we have not tested something.</p>
+<h1>Soju vs Parallels Desktop</h1>
+<p><em>Checked November 11, 2026</em></p>
+<p class="lead">Parallels Desktop runs a whole copy of Windows 11 inside your Mac. Soju runs only the Windows game launchers, without Windows. One is a paid general tool, the other a free tool for games.</p>
+<h2>At a glance</h2>
+<table>
+  <tr><th></th><th>Soju</th><th>Parallels Desktop</th></tr>
+  <tr><td>Cost</td><td>Free, GPL-3.0</td><td>Subscription. Parallels' own page lists Standard at $99.99 a year and Pro at $119.99 a year</td></tr>
+  <tr><td>Windows licence</td><td>Not needed. There is no Windows installation</td><td>Windows 11 is installed in the virtual machine and licensed separately</td></tr>
+  <tr><td>What runs</td><td>The Windows launchers for Battle.net, Steam, Epic, GOG, EA, Rockstar, Ubisoft and Xbox PC, and the games they start</td><td>Windows 11 for ARM, and the Windows programs that run on it: office software, developer tools, games</td></tr>
+  <tr><td>How</td><td>Wine and Apple's Game Porting Toolkit translate what a game asks of Windows</td><td>A virtual machine: Windows itself runs next to macOS</td></tr>
+  <tr><td>Memory and disk</td><td>The game and its launcher</td><td>The game, plus Windows itself. The Standard edition gives a virtual machine up to 8 GB of memory and 4 processor cores</td></tr>
+  <tr><td>Games we checked</td><td>Diablo II: Resurrected online, <a href="diablo-4-apple-silicon.html">Diablo IV</a> (free trial), StarCraft: Remastered, Overwatch 2 (main menu), Hogwarts Legacy</td><td>None. We have not tested games in Parallels</td></tr>
+  <tr><td>Support</td><td>Community: GitHub issues and Discord</td><td>Commercial support from Parallels</td></tr>
+</table>
+
+<h2>Which one fits</h2>
+<ul>
+  <li><strong>You need Windows programs for work as well as games:</strong> Parallels. Soju does not run general Windows software.</li>
+  <li><strong>You only want games from Battle.net, Steam, Epic or GOG, and do not want to pay or install Windows:</strong> Soju.</li>
+  <li><strong>You want someone to call when it breaks:</strong> Parallels has paid support. Soju has a community.</li>
+</ul>
+
+<h2>Games in a virtual machine</h2>
+<p>We have not tested games in Parallels, so we make no claim about which run there. Two things are worth checking on Parallels' own pages before you buy it for a game: which DirectX versions its Windows on ARM supports, and whether the game's anti-cheat accepts a virtual machine. On Blizzard's forum in October 2026, a player reported that Diablo IV would not start on an M5 Mac in a new Parallels installation.</p>
+<p>Soju has the same limit as every Wine-based tool: games with kernel anti-cheat (Easy Anti-Cheat in kernel mode, BattlEye, Vanguard) do not run.</p>
+
+<h2>What we have not done</h2>
+<ul>
+  <li>No side-by-side speed test.</li>
+  <li>Prices are from Parallels' page on November 11, 2026 and change with promotions.</li>
+</ul>
+<h2 id="questions">Questions</h2>
+<div class="faq">
+  <details open><summary>Is Soju a free alternative to Parallels for games?</summary><p>For games from Battle.net, Steam, Epic, GOG and a few other launchers, yes: Soju is free and needs no Windows licence. It does not run general Windows programs, which Parallels does.</p></details>
+  <details><summary>How much does Parallels Desktop cost?</summary><p>Parallels&#x27; own page lists the Standard edition at $99.99 a year and Pro at $119.99 a year in November 2026. Windows 11 is licensed separately.</p></details>
+  <details><summary>Does Diablo IV run in Parallels on an Apple Silicon Mac?</summary><p>We have not tested it. A player on Blizzard&#x27;s forum reported in October 2026 that it would not start on an M5 Mac in Parallels. In Soju, the Diablo IV free trial reached the first area on an M4 Pro.</p></details>
+  <details><summary>Do I need to buy Windows to use Soju?</summary><p>No. Soju runs the Windows launchers through Wine and Apple&#x27;s Game Porting Toolkit. Windows is not installed.</p></details>
+</div>
+
+<p><a class="btn" href="../#install">Download Soju</a></p>
+</main>
+<footer>
+  Soju is GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
+  not affiliated with Blizzard, Valve, Epic, GOG, Apple, CodeWeavers or Parallels.
+</footer>
+</body>
+</html>

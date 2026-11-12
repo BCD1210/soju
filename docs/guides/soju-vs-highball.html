@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soju vs Highball: free ways to run Windows games on Apple Silicon (2026)</title>
+<meta name="description" content="Soju and Highball are both free, open-source Mac apps for Windows games on M-series Macs. Which stores each one runs, what each has tested, and how they relate, as of November 2026.">
+<link rel="canonical" href="https://didimlabs.com/guides/soju-vs-highball.html">
+<meta property="og:title" content="Soju vs Highball">
+<meta property="og:description" content="Soju and Highball are both free, open-source Mac apps for Windows games on M-series Macs. Which stores each one runs, what each has tested, and how they relate, as of November 2026.">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://didimlabs.com/assets/soju-share.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.png?v=20261110b">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=20261110b">
+<link rel="stylesheet" href="../style.css?v=20261111a">
+<meta property="og:url" content="https://didimlabs.com/guides/soju-vs-highball.html">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Soju vs Highball: free ways to run Windows games on Apple Silicon (2026)",
+  "description": "Soju and Highball are both free, open-source Mac apps for Windows games on M-series Macs. Which stores each one runs, what each has tested, and how they relate, as of November 2026.",
+  "url": "https://didimlabs.com/guides/soju-vs-highball.html",
+  "mainEntityOfPage": "https://didimlabs.com/guides/soju-vs-highball.html",
+  "inLanguage": "en",
+  "dateModified": "2026-11-11",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Soju",
+    "url": "https://didimlabs.com/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is Soju or Highball better for Diablo IV on a Mac?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Soju has run Diablo IV through Battle.net: with the free trial on an M4 Pro, a character was created and the game loaded into the first area. Highball's README says Battle.net shows its sign-in window and that no game has been played through it yet."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Are Soju and Highball both free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Both are free and open source under GPL-3.0. Neither needs a Windows licence."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I install Soju and Highball on the same Mac?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Each keeps its engine and Windows environments in its own folder, so they do not interfere with each other."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Soju use Highball's code?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Soju's engine applies fourteen Wine patches from Highball's engine repository, and Soju's game pages show results from Highball's open database. Both are credited in Soju's repository."
+      }
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "a7048ad8ec7b480c9ad71182b1641147"}'></script>
+</head>
+<body>
+<nav><div class="inner">
+  <a class="brand" href="../"><img src="../assets/soju-logo-64.png?v=20261110b" width="28" height="28" alt="">Soju<span> by Didim Labs</span></a>
+  <a href="soju-vs-whisky-crossover-heroic.html">All comparisons</a>
+  <a href="../mac/">Games</a>
+  <a href="https://github.com/BCD1210/soju">GitHub</a>
+</div></nav>
+<main>
+<p class="note">This page is part of <a href="../">Soju</a>, a free, open-source Mac app for Windows game launchers on Apple Silicon. Soju is ours. What we say about the other product comes from its own pages, and we say where we have not tested something.</p>
+<h1>Soju vs Highball</h1>
+<p><em>Checked November 11, 2026</em></p>
+<p class="lead">Both are free, open-source apps that run Windows games on Apple Silicon without a Windows licence. Highball is the larger project, built around an open compatibility database. Soju is built around the stores' own Windows launchers, Battle.net and Xbox PC included.</p>
+<h2>At a glance</h2>
+<table>
+  <tr><th></th><th>Soju</th><th>Highball</th></tr>
+  <tr><td>Cost and licence</td><td>Free, GPL-3.0</td><td>Free, GPL-3.0</td></tr>
+  <tr><td>Main idea</td><td>Install each store's official Windows launcher and list every game in one Mac library</td><td>Tell you whether a game runs before you download it, from an open database, then set up the right graphics mode</td></tr>
+  <tr><td>Battle.net</td><td>Runs. Diablo II: Resurrected online, <a href="diablo-4-apple-silicon.html">Diablo IV</a> (free trial, in the first area), StarCraft: Remastered and Overwatch 2 (main menu) were checked</td><td>Its README says Battle.net shows its sign-in window, and that no game has been played through it yet</td></tr>
+  <tr><td>Steam</td><td>Windows Steam client. A Unity Direct3D 11 game and Overwatch 2 (Steam) were checked; a player confirmed Skyrim Special Edition</td><td>Windows Steam client, with far more games tested. Its README gives Cyberpunk 2077 at 60 to 82 fps on an M5 and Red Dead Redemption 2 on an M1 Pro</td></tr>
+  <tr><td>Epic</td><td>The Epic Games Launcher itself. Hogwarts Legacy was checked</td><td>Your Epic library through Legendary, without the launcher</td></tr>
+  <tr><td>GOG</td><td>GOG GALAXY signs in and installs</td><td>Its README says GOG Galaxy comes up black; your library installs through gogdl instead</td></tr>
+  <tr><td>EA, Rockstar, Ubisoft</td><td>The launchers open their sign-in windows. No game checked yet</td><td>Rockstar runs GTA V and Red Dead Redemption 2, the EA app runs The Sims 4; Ubisoft Connect shows its sign-in window</td></tr>
+  <tr><td>Xbox PC / Microsoft Store</td><td>Experimental: sign in, download, and Retro Classics reaches its menu</td><td>Not listed in its README</td></tr>
+  <tr><td>Compatibility data</td><td>About 30 pages we checked ourselves, plus pages built from Highball's database and players' reports</td><td>An open CC0 database: curated games, community reports and labelled predictions</td></tr>
+  <tr><td>macOS</td><td>The app needs macOS 14. Diablo II: Resurrected needs 26.4, Steam games need 26</td><td>macOS 14 or later</td></tr>
+  <tr><td>Extras</td><td>Play on a TV or iPad through Moonlight, per-game settings, Diablo II: Resurrected in VR (experimental)</td><td>Discord game activity, ReShade, a full command-line tool</td></tr>
+</table>
+
+<h2>Which one fits</h2>
+<ul>
+  <li><strong>You play Blizzard games</strong> (Diablo IV, Diablo II: Resurrected, Overwatch 2, StarCraft): Soju. These are the games we have run through Battle.net.</li>
+  <li><strong>You want the widest tested Steam catalogue and to check a game before downloading it:</strong> Highball. Its database is much larger than our list.</li>
+  <li><strong>You have PC Game Pass or Microsoft Store games:</strong> Soju has an experimental path. Expect most games not to work yet.</li>
+  <li><strong>You want both:</strong> they keep their files in separate folders and do not interfere with each other.</li>
+</ul>
+
+<h2>How the two relate</h2>
+<p>Soju uses Highball's work and says so. Soju's engine applies fourteen of Highball's Wine patches (audio dropouts at 48 kHz, surround sound on stereo speakers, in-game video and others), and Soju's game pages show results from Highball's CC0 database next to our own. Both projects build on Wine, CodeWeavers' published sources and Apple's Game Porting Toolkit.</p>
+
+<h2>What we have not done</h2>
+<ul>
+  <li>We have not run the same game in both apps side by side, so this page makes no speed comparison.</li>
+  <li>The Highball column is from its README on November 11, 2026. It changes often; check its page for the current state.</li>
+</ul>
+<h2 id="questions">Questions</h2>
+<div class="faq">
+  <details open><summary>Is Soju or Highball better for Diablo IV on a Mac?</summary><p>Soju has run Diablo IV through Battle.net: with the free trial on an M4 Pro, a character was created and the game loaded into the first area. Highball&#x27;s README says Battle.net shows its sign-in window and that no game has been played through it yet.</p></details>
+  <details><summary>Are Soju and Highball both free?</summary><p>Yes. Both are free and open source under GPL-3.0. Neither needs a Windows licence.</p></details>
+  <details><summary>Can I install Soju and Highball on the same Mac?</summary><p>Yes. Each keeps its engine and Windows environments in its own folder, so they do not interfere with each other.</p></details>
+  <details><summary>Does Soju use Highball&#x27;s code?</summary><p>Soju&#x27;s engine applies fourteen Wine patches from Highball&#x27;s engine repository, and Soju&#x27;s game pages show results from Highball&#x27;s open database. Both are credited in Soju&#x27;s repository.</p></details>
+</div>
+
+<p><a class="btn" href="../#install">Download Soju</a></p>
+</main>
+<footer>
+  Soju is GPL-3.0 · <a href="https://github.com/BCD1210/soju">github.com/BCD1210/soju</a> ·
+  not affiliated with Blizzard, Valve, Epic, GOG, Apple, CodeWeavers or the Highball project.
+</footer>
+</body>
+</html>
