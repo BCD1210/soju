@@ -17,47 +17,54 @@ soju install
 
 The app runs on macOS 14 or later. Diablo II: Resurrected needs macOS 26.4 or later, and Steam games need macOS 26 or later.
 
-[What runs](#what-runs) · [Install details](#install-one-line) · [30-second gameplay demo](https://didimlabs.com/#demo) · [Guides](https://didimlabs.com/#guides) · [Discord](https://discord.gg/ttBDcF5ftz) · [한국어](README.ko.md) · [简体中文](README.zh.md)
+[What you get](#what-you-get) · [What runs](#what-runs) · [Install details](#install-one-line) · [30-second gameplay demo](https://didimlabs.com/#demo) · [Guides](https://didimlabs.com/#guides) · [Discord](https://discord.gg/ttBDcF5ftz) · [한국어](README.ko.md) · [简体中文](README.zh.md)
 
 Compatibility varies by game, and games with kernel anti-cheat will not run. Games and store clients are not included. Soju downloads Apple's Game Porting Toolkit files during setup.
 
+## What you get
+
+**One library for every store.** Games from Battle.net, Steam, Epic, GOG, EA, Rockstar, Ubisoft and Xbox PC sit in one window with their cover art. Press Play and Soju opens the right launcher.
+
+**The official launchers, with your own accounts.** Soju installs each store's Windows client from the store's own installer. You sign in on the store's page, and purchases, downloads and updates stay with the store.
+
+**Setup that checks itself.** The installer asks which stores you want and downloads only what those need. Every download is verified (SHA-256, and Apple's signature on the Game Porting Toolkit). When something is wrong, `soju doctor` says what.
+
+**Settings where the game is.** A game's sheet shows when you last played it, the FPS display and, for Steam games, the graphics choice. Games known to run better on DXVK are switched for you, and the sheet says why.
+
+**Sound that works in Steam games.** Voice lines stored as WMA play, and 5.1 or 7.1 sound is mixed down for a Mac's stereo speakers. Both were reported and confirmed by a player in Skyrim Special Edition. The H.264 decoder for cutscenes is installed too.
+
+**Play on a TV or iPad.** Turn on streaming, install the free Moonlight app on the other screen, and the game runs on your Mac.
+
+**Free, and it stays on your Mac.** Soju is open source and needs no account with us. Your library, logins and logs are stored locally. The app updates itself from signed, notarized releases.
+
 ## What runs
 
-<!-- Screenshots: drop PNGs into docs/images/ (d2r-ingame.png, battlenet-login.png, hogwarts-ingame.png) and uncomment.
-<p align="center">
-  <img src="docs/images/d2r-ingame.png" width="49%" alt="Diablo II: Resurrected in-game on an M4 Pro">
-  <img src="docs/images/battlenet-login.png" width="49%" alt="Battle.net logged in on Apple Silicon">
-</p>
--->
+Tested by us on an M4 Pro with macOS 26.5, unless a row says it is a player's report.
 
-All verified on an M4 Pro running macOS 26.5. Separate bottles for each launcher; Steam uses its own engine.
+| Game | Store | Status | Notes |
+| --- | --- | :-: | --- |
+| Diablo II: Resurrected | Battle.net | ✅ in-game, online | needs **macOS 26.4 or later**; [guide](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) |
+| Hogwarts Legacy | Epic | ✅ in-game | the "AMD driver" warning at start is harmless |
+| StarCraft: Remastered | Battle.net | ✅ in-game | a match against the computer; multiplayer not tried; [guide](https://didimlabs.com/guides/starcraft-remastered-apple-silicon.html) |
+| Overwatch 2 | Steam | ✅ main menu, online | turn on Platforms > Steam > **Overwatch and Diablo II mode** (`soju steam-gptk on`); the game asks once to connect a Battle.net account; [guide](https://didimlabs.com/guides/overwatch-2-apple-silicon.html) |
+| The Elder Scrolls V: Skyrim Special Edition | Steam | ✅ in-game (player's report) | M5 Pro, macOS 27.2, Soju 1.14.8; dialogue and surround sound confirmed ([#95](https://github.com/BCD1210/soju/issues/95)) |
+| Guilt Free (a Unity Direct3D 11 game) | Steam | ✅ in-game, windowed | see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
+| The Witcher 3 (Remastered) | Steam | 🟡 reaches its menu (player's report) | needs Apple GPTK 4.0 beta 3, which Soju accepts since 1.14.10 ([#112](https://github.com/BCD1210/soju/issues/112)) |
+| Diablo II: Resurrected (Steam edition) | Steam | ⏳ not verified | should run in Overwatch and Diablo II mode; we don't own the Steam edition |
+| Diablo II: Resurrected in VR (offline) | Battle.net | 🧪 simulator only | `soju vr setup`, then `soju vr play`; [docs/VR.md](docs/VR.md) |
 
-| Launcher | Login | Install games | Notes |
+**Will not run:** anything with kernel anti-cheat (EAC, BattlEye, Vanguard).
+
+| Launcher | Sign in | Install games | Notes |
 | --- | :-: | :-: | --- |
-| Battle.net | ✅ | ✅ | Agent works; `BLZBNTBNA00000005` fixed by the caller-signature seed |
-| Epic Games Launcher | ✅ | ✅ | parks in the menu bar tray on close |
-| GOG GALAXY | ✅ | ✅ | login + library; games not broadly tested yet |
-| EA app | sign-in window | not tested yet | new in 1.11; launcher engine (DXMT) |
-| Rockstar Games Launcher | sign-in window | not tested yet | new in 1.11; launcher engine (DXMT) |
-| Ubisoft Connect | sign-in window | not tested yet | new in 1.11; launcher engine (DXMT) |
-| Steam (Windows client) | ✅ | ✅ | private Wine 11 + DXMT bottle |
-| Xbox PC / Microsoft Store | ✅ | ✅ | Xodus backend; game launch experimental (Retro Classics reaches its menu) |
+| Battle.net | ✅ | ✅ | |
+| Steam (Windows client) | ✅ | ✅ | has its own Wine 11 setup |
+| Epic Games Launcher | ✅ | ✅ | closing the window keeps it in the menu bar |
+| GOG GALAXY | ✅ | ✅ | games not broadly tested yet |
+| Xbox PC / Microsoft Store | ✅ | ✅ | experimental; Retro Classics reaches its menu |
+| EA app, Rockstar Games Launcher, Ubisoft Connect | sign-in window opens | not tested yet | |
 
-| Game | Store | Graphics | Status | Notes |
-| --- | --- | --- | :-: | --- |
-| Diablo II: Resurrected | Battle.net | D3DMetal (D3D12) | ✅ in-game, online | **macOS 26.4 or later** (see prerequisites); `play.sh` sets `ROSETTA_ADVERTISE_AVX=1`; [guide](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) |
-| Diablo II: Resurrected in VR (offline) | Battle.net | D3DMetal (D3D12) + OpenXR | 🧪 simulator only | `soju vr setup` / `soju vr play`: D2R VR Unleashed for offline characters, streamed to an OXRSys headset client; [docs/VR.md](docs/VR.md) |
-| Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ in-game | UE4 "AMD driver" warning is harmless |
-| StarCraft: Remastered | Battle.net | not checked | ✅ in-game | single-player match against the computer starts after Battle.net updates the game; multiplayer not tried |
-| Unity D3D11 title | Steam | DXMT | ✅ in-game, windowed | via `soju steam-games`; see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
-| Overwatch 2 | Steam | D3DMetal (Steam with Apple GPTK) | ✅ main menu, online | `soju steam-gptk on` (or Platforms > Steam > Overwatch and Diablo II mode); the game asks once to connect a Battle.net account |
-| Diablo II: Resurrected (Infernal Edition) | Steam | D3DMetal (Steam with Apple GPTK) | ⏳ not verified yet | needs `soju steam-gptk on`: GPTK and its `libd3dshared`, which D2R's loader needs, now reach Steam games the same way Overwatch 2 runs; not run here yet because we don't own the Steam edition |
-
-Will not run: anything with kernel anti-cheat (EAC, BattlEye, Vanguard). Game-by-game status: [didimlabs.com/mac](https://didimlabs.com/mac/). Questions or a quick report? Join the [Discord](https://discord.gg/ttBDcF5ftz). Got another game running? Post it in [Discussions](https://github.com/BCD1210/soju/discussions) or send a PR that adds a row.
-
-[Community compatibility reports](docs/COMPATIBILITY.md) track additional user
-results separately from the maintainer-tested examples, including D2R on M5,
-the Dark Souls III renderer workaround, and unresolved launch failures.
+More games: [status game by game](https://didimlabs.com/mac/) and [players' reports](docs/COMPATIBILITY.md). Got another game running, or stuck on one? Use **Report How It Ran** in the game's sheet, post in [Discussions](https://github.com/BCD1210/soju/discussions), or ask on [Discord](https://discord.gg/ttBDcF5ftz).
 
 ## Install (one line)
 

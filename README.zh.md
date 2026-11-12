@@ -17,43 +17,54 @@ soju install
 
 应用需要 macOS 14 或更高版本。Diablo II: Resurrected 需要 macOS 26.4 或更高，Steam 游戏需要 macOS 26 或更高。
 
-[能跑什么](#能跑什么) · [安装说明](#安装一行命令) · [30 秒游戏演示](https://didimlabs.com/#demo) · [Discord](https://discord.gg/ttBDcF5ftz) · [English](README.md) · [한국어](README.ko.md)
+[Soju 能做什么](#soju-能做什么) · [能跑什么](#能跑什么) · [安装说明](#安装一行命令) · [30 秒游戏演示](https://didimlabs.com/#demo) · [Discord](https://discord.gg/ttBDcF5ftz) · [English](README.md) · [한국어](README.ko.md)
 
 各游戏的兼容性不同，带内核级反作弊的游戏无法运行。项目不包含游戏和商店客户端。Apple GPTK 文件由 Soju 在安装时下载。
 
+## Soju 能做什么
+
+**不同商店，一个游戏库。** Battle.net、Steam、Epic、GOG、EA、Rockstar、Ubisoft 和 Xbox PC 的游戏连同封面放在同一个窗口里。按 Play，Soju 会打开对应的启动器。
+
+**官方启动器，用你自己的账号。** Soju 用各商店自己的安装程序安装 Windows 客户端。登录在商店页面上完成，购买、下载和更新都由商店处理。
+
+**会自检的安装。** 安装时先选要用的商店，只下载它们需要的东西。每个下载都会校验（SHA-256，GPTK 还校验 Apple 签名）。出问题时，`soju doctor` 会指出哪里不对。
+
+**设置就在游戏页里。** 游戏详情里可以看到上次游玩时间、FPS 显示，Steam 游戏还能选图形方式。已知用 DXVK 更好的游戏会自动切换，并说明原因。
+
+**Steam 游戏的声音。** 以 WMA 保存的语音可以播放，5.1/7.1 声音会混成适合 Mac 立体声扬声器的输出。这两点都由玩家在 Skyrim Special Edition 中反馈并确认。过场动画用的 H.264 解码器也会一并安装。
+
+**在电视或 iPad 上玩。** 打开串流，在另一块屏幕上安装免费的 Moonlight，游戏仍在 Mac 上运行。
+
+**免费，而且只留在你的 Mac 上。** Soju 开源，不需要注册我们的账号。游戏库、登录信息和日志都保存在本机。应用通过已签名、已公证的版本自动更新。
+
 ## 能跑什么
 
-<!-- 截图：把 PNG（d2r-ingame.png、battlenet-login.png、hogwarts-ingame.png）放进 docs/images/ 后取消注释。
-<p align="center">
-  <img src="docs/images/d2r-ingame.png" width="49%" alt="M4 Pro 上运行的 Diablo II: Resurrected">
-  <img src="docs/images/battlenet-login.png" width="49%" alt="Apple Silicon 上已登录的战网">
-</p>
--->
+未另行说明的条目由我们在 M4 Pro / macOS 26.5 上测试；“玩家反馈”表示由玩家确认。
 
-均在 M4 Pro / macOS 26.5 上验证。每个启动器使用独立 bottle；Steam 的引擎也独立。
+| 游戏 | 商店 | 状态 | 备注 |
+| --- | --- | :-: | --- |
+| Diablo II: Resurrected | Battle.net | ✅ 进入游戏，在线 | 需要 **macOS 26.4 或更高**；[指南](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) |
+| Hogwarts Legacy | Epic | ✅ 进入游戏 | 启动时的“AMD 驱动”警告可以忽略 |
+| StarCraft: Remastered | Battle.net | ✅ 进入游戏 | 已确认与电脑对战；多人未测试 |
+| 守望先锋 2 | Steam | ✅ 主菜单，在线 | 打开 Platforms > Steam > **Overwatch and Diablo II mode**（`soju steam-gptk on`）；首次会要求连接一次 Battle.net 账号 |
+| The Elder Scrolls V: Skyrim Special Edition | Steam | ✅ 进入游戏（玩家反馈） | M5 Pro，macOS 27.2，Soju 1.14.8；对白和环绕声已确认（[#95](https://github.com/BCD1210/soju/issues/95)） |
+| Guilt Free（Unity Direct3D 11 游戏） | Steam | ✅ 进入游戏，窗口模式 | 见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
+| The Witcher 3（Remastered） | Steam | 🟡 能到菜单（玩家反馈） | 需要 Apple GPTK 4.0 beta 3，Soju 自 1.14.10 起可安装（[#112](https://github.com/BCD1210/soju/issues/112)） |
+| Diablo II: Resurrected（Steam 版） | Steam | ⏳ 尚未验证 | 预计可在 Overwatch and Diablo II mode 下运行；我们没有 Steam 版 |
+| Diablo II: Resurrected VR（离线） | Battle.net | 🧪 仅模拟器 | 先 `soju vr setup`，再 `soju vr play`；[docs/VR.md](docs/VR.md) |
 
-| 登录器 | 登录 | 安装游戏 | 说明 |
+**跑不了的：** 任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。
+
+| 启动器 | 登录 | 安装游戏 | 备注 |
 | --- | :-: | :-: | --- |
-| 战网（Battle.net） | ✅ | ✅ | Agent 正常；`BLZBNTBNA00000005` 通过签名 exe 播种解决 |
-| Epic Games Launcher | ✅ | ✅ | 关闭窗口后驻留菜单栏托盘 |
-| GOG GALAXY | ✅ | ✅ | 登录和游戏库可用；游戏尚未广泛测试 |
-| EA app | 登录窗口 | 尚未测试 | 1.11 新增，启动器引擎（DXMT） |
-| Rockstar Games Launcher | 登录窗口 | 尚未测试 | 1.11 新增，启动器引擎（DXMT） |
-| Ubisoft Connect | 登录窗口 | 尚未测试 | 1.11 新增，启动器引擎（DXMT） |
-| Steam（Windows 客户端） | ✅ | ✅ | 独立的 Wine 11 + DXMT bottle |
-| Xbox PC / Microsoft Store | ✅ | ✅ | Xodus 后端；游戏启动为实验功能（Retro Classics 可进入主菜单） |
+| Battle.net | ✅ | ✅ | |
+| Steam（Windows 客户端） | ✅ | ✅ | 使用独立的 Wine 11 环境 |
+| Epic Games Launcher | ✅ | ✅ | 关闭窗口后留在菜单栏 |
+| GOG GALAXY | ✅ | ✅ | 游戏尚未广泛测试 |
+| Xbox PC / Microsoft Store | ✅ | ✅ | 实验性功能；Retro Classics 能到菜单 |
+| EA app、Rockstar Games Launcher、Ubisoft Connect | 能打开登录窗口 | 尚未测试 | |
 
-| 游戏 | 平台 | 图形 | 状态 | 说明 |
-| --- | --- | --- | :-: | --- |
-| Diablo II: Resurrected | 战网 | D3DMetal (D3D12) | ✅ 进入游戏，可联网 | **需要 macOS 26.4 或更高**（见前提条件）；`play.sh` 设置 `ROSETTA_ADVERTISE_AVX=1`；[指南](https://didimlabs.com/guides/diablo-2-resurrected-apple-silicon.html) |
-| Diablo II: Resurrected VR（离线） | 战网 | D3DMetal (D3D12) + OpenXR | 🧪 仅在模拟器验证 | `soju vr setup` / `soju vr play`：离线角色的 D2R VR Unleashed，串流到 OXRSys 头显客户端；[docs/VR.md](docs/VR.md) |
-| Hogwarts Legacy | Epic | D3DMetal (D3D12) | ✅ 进入游戏 | UE4 的"AMD 驱动"警告无害 |
-| StarCraft: Remastered | 战网 | 未确认 | ✅ 进入游戏 | 战网更新游戏后可开始对电脑的单人对战；多人对战未测试 |
-| Unity D3D11 游戏 | Steam | DXMT | ✅ 进入游戏，窗口模式 | 需要 `soju steam-games`，见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
-| 守望先锋 2 | Steam | D3DMetal（Steam GPTK 模式） | ✅ 主菜单，在线 | `soju steam-gptk on`（或 Platforms > Steam > Overwatch and Diablo II mode）；首次会要求连接一次 Battle.net 账号 |
-| Diablo II: Resurrected（Infernal Edition） | Steam | D3DMetal（Steam GPTK 模式） | ⏳ 尚未验证 | 需要 `soju steam-gptk on`：D2R 加载器需要的 GPTK `libd3dshared` 现在会像守望先锋 2 一样传给 Steam 游戏；我们没有 Steam 版，尚未实际运行 |
-
-跑不了的：任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。有问题或想简单反馈，欢迎加入 [Discord](https://discord.gg/ttBDcF5ftz)。跑通了别的游戏？欢迎发到 [Discussions](https://github.com/BCD1210/soju/discussions)，或提 PR 加一行。
+更多游戏见[逐个游戏的状态](https://didimlabs.com/mac/)和[玩家反馈](docs/COMPATIBILITY.md)。跑通了别的游戏，或卡在某个游戏上？在游戏详情里点 **Report How It Ran**，发到 [Discussions](https://github.com/BCD1210/soju/discussions)，或到 [Discord](https://discord.gg/ttBDcF5ftz) 提问。
 
 ## 安装（一行命令）
 
