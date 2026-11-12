@@ -35,7 +35,7 @@
    "name": "Diablo IV",
    "launcher": "battlenet",
    "status": "verified",
-   "detail": "Played with Blizzard's free trial on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. Direct3D 12 through Apple's D3DMetal. Battle.net asked for 97.4 GB without High-Resolution Assets (181 GB with them), and Play turned on at about 73 percent of the download. Sound, frame rate, combat and long sessions were not checked.",
+   "detail": "Played with Blizzard's free trial on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. Direct3D 12 through Apple's D3DMetal. Battle.net asked for 97.4 GB without High-Resolution Assets (181 GB with them), and Play turned on at about 73 percent of the download. On 2026-11-12 it held 50 fps at 3440×1440 with default settings for 10 minutes of walking in the first area and stayed open for 22 minutes, running from an external USB drive. Sound by ear, combat and longer sessions were not checked.",
    "ko": {
     "name": "디아블로 4",
     "detail": "블리자드 무료 체험판으로 M4 Pro, macOS 26.5에서 실행했습니다. 오프닝 영상이 나오고, 캐릭터를 만들고, 첫 지역에 들어가 캐릭터가 움직이는 것까지 확인했습니다. Direct3D 12를 애플 D3DMetal로 돌립니다. 배틀넷 표시 용량은 고해상도 에셋 제외 97.4GB(포함 181GB)이고, 다운로드 73%쯤에서 Play가 켜졌습니다. 소리, 프레임, 전투, 장시간 플레이는 확인하지 않았습니다.",
