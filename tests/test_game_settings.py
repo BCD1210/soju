@@ -50,5 +50,15 @@ class GameSettingsTests(unittest.TestCase):
         self.assertIn("GameSettingsSection(game: game)", (ROOT / "app/Library.swift").read_text())
 
 
+class HelpEntryPointTests(unittest.TestCase):
+    def test_discord_is_offered_where_people_get_stuck(self):
+        invite = "https://discord.gg/ttBDcF5ftz"
+        self.assertIn(invite, (ROOT / ".github/ISSUE_TEMPLATE/config.yml").read_text())
+        library = (ROOT / "app/Library.swift").read_text()
+        self.assertIn('static let discord = URL(string: "' + invite + '")!', library)
+        # The launch-failure alert and the Diagnostics sheet both offer it.
+        self.assertEqual(library.count('Button("Ask on Discord")'), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

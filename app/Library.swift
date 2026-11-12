@@ -61,6 +61,8 @@ struct LibraryPreferences: Codable {
 }
 
 extension SojuModel {
+    /// Where people ask for help: linked from the launch-failure alert and Diagnostics.
+    static let discord = URL(string: "https://discord.gg/ttBDcF5ftz")!
     func savePreferences() {
         if let data = try? JSONEncoder().encode(preferences) {
             UserDefaults.standard.set(data, forKey: "soju.library.v1")
@@ -281,6 +283,7 @@ struct LibraryView: View {
         .sheet(isPresented: $showDiagnostics) { diagnostics }
         .alert(model.issueTitle, isPresented: Binding(get: { model.libraryIssue != nil }, set: { if !$0 { model.libraryIssue = nil; model.issueTitle = "Game needs attention" } })) {
             Button("Show Log") { model.libraryIssue = nil; showDiagnostics = true }
+            Button("Ask on Discord") { model.libraryIssue = nil; NSWorkspace.shared.open(SojuModel.discord) }
             Button("OK", role: .cancel) { model.libraryIssue = nil }
         } message: { Text(model.libraryIssue ?? "") }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -600,6 +603,8 @@ struct LibraryView: View {
             HStack {
                 Button("Check all platforms") { model.run(["doctor"], title: "Checking your setup…") }.disabled(model.busy)
                 Spacer()
+                Button("Ask on Discord") { model.copyLog(); NSWorkspace.shared.open(SojuModel.discord) }
+                    .help("Copies the log, then opens the Soju Discord so you can paste it")
                 Button("Copy log", action: model.copyLog)
                 Button("Open logs") { NSWorkspace.shared.open(model.base.appendingPathComponent("logs")) }
             }
