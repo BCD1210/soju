@@ -43,7 +43,7 @@ def when(text):
 def recent_releases(hours, now=None, releases=None):
     now = now or datetime.now(timezone.utc)
     releases = github("/releases?per_page=40") if releases is None else releases
-    found = [r for r in releases if APP_TAG.match(r.get("tag_name", "")) and not r.get("draft")
+    found = [r for r in releases if APP_TAG.match(r.get("tag_name", "")) and not r.get("draft") and not r.get("prerelease")
              and r.get("published_at") and now - when(r["published_at"]) <= timedelta(hours=hours)]
     return sorted(found, key=lambda r: when(r["published_at"]))
 
