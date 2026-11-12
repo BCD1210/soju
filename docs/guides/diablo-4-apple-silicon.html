@@ -105,6 +105,14 @@ soju battlenet        # sign in, open Diablo IV, press Try For Free or Install, 
 <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">compatibility report</a>; it goes on the
 <a href="../mac/diablo-4.html">Diablo IV page</a>.</p>
 
+<h2>Problems others have reported</h2>
+<p>We did not see these in our short check. They come from <a href="https://github.com/MichaelLod/D4Mac#known-issues">D4Mac</a>, a project that runs Diablo IV the same way (Wine with Apple's Game Porting Toolkit), and from CodeWeavers:</p>
+<ul>
+  <li><strong>Freezes after minutes or hours on macOS older than 26.5.</strong> CodeWeavers wrote in May 2026 that Diablo IV needs the Rosetta changes in macOS 26.5. Update macOS before a long session.</li>
+  <li><strong>The first launch can hang while shaders compile.</strong> Force-quit the game and start it again; the second launch gets past it.</li>
+  <li><strong>Switching Spaces or opening Mission Control in full screen can freeze the game.</strong> Borderless windowed mode avoids it.</li>
+</ul>
+
 <h2 id="questions">Questions</h2>
 <div class="faq">
   <details open><summary>Does Diablo IV run on Apple Silicon Macs?</summary><p>Through the Windows Battle.net client that Soju installs, Diablo IV started on an M4 Pro with macOS 26.5: the opening cinematic played, a character was created and the game loaded into the first area, where the character moved. It is drawn with Apple's D3DMetal. Sound, frame rate and long sessions were not checked.</p></details>

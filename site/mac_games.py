@@ -272,7 +272,7 @@ def game_page(lang, g):
   <tr><th>{'날짜' if lang == 'ko' else 'Date'}</th><td>{esc(checked)}</td></tr>
 </table>
 {steps(lang, g) if runnable else ''}
-<p>{report}</p>
+{guide_sections(path, guide)}<p>{report}</p>
 <h2 id="questions">{'자주 묻는 질문' if lang == 'ko' else 'Questions'}</h2>
 <div class="faq">
 """ + "\n".join(f"  <details{' open' if i == 0 else ''}><summary>{esc(q)}</summary><p>{esc(a)}</p></details>"
@@ -286,6 +286,29 @@ def game_page(lang, g):
         game["sameAs"] = f"https://store.steampowered.com/app/{g['appid']}/"
     image = header_image(g["appid"]) if g.get("appid") else None
     return path, page(lang, title, desc, canonical, alternates, body, faq, base, game, image, noindex=est)
+
+
+GUIDE_SECTIONS = ("What you need", "Requirements", "What we checked", "What we did not check",
+                  "필요한 것", "준비물", "확인한 것", "확인하지 않은 것", "확인 안 한 것", "확인하지 못한 것")
+
+
+def guide_sections(page_path, guide):
+    """The requirements and checked / not checked sections of a game's guide, for its game page.
+
+    The guide stays the one place they are written. Links that were relative to the guide's
+    folder are pointed back at it."""
+    if not guide:
+        return ""
+    src = (DOCS / page_path).parent / guide
+    if not src.is_file():
+        return ""
+    folder = guide.rsplit("/", 1)[0] + "/"
+    out = []
+    for m in re.finditer(r"<h2[^>]*>(.*?)</h2>(.*?)(?=<h2|</main>)", src.read_text(), re.S):
+        if m.group(1).strip() in GUIDE_SECTIONS:
+            block = re.sub(r'(href|src)="(?!https?:|mailto:|#|\.\./)([^"]+)"', lambda x: f'{x.group(1)}="{folder}{x.group(2)}"', m.group(2).strip())
+            out.append(f"<h2>{m.group(1).strip()}</h2>\n{block}")
+    return "\n".join(out) + ("\n" if out else "")
 
 
 def slugify(title):

@@ -50,6 +50,29 @@
 soju install          # choose Battle.net
 soju battlenet     # sign in, install the game, press Play</code></pre>
 <p>Or <a href="../#install">download the Soju app</a> and add Battle.net under Platforms. Needs an Apple Silicon Mac (M1 or newer) and macOS 14 or later.</p>
+<h2>What you need</h2>
+<table>
+  <tr><th>Item</th><th>Detail</th></tr>
+  <tr><td>Mac</td><td>Apple Silicon. We ran it on an M4 Pro with macOS 26.5; other versions are untested.</td></tr>
+  <tr><td>Account</td><td>A Battle.net account. StarCraft itself is free there; the Remastered graphics are a paid upgrade, and our test account has them.</td></tr>
+  <tr><td>Apple's Game Porting Toolkit</td><td>Battle.net in Soju uses it. Soju downloads Apple's files during setup and checks Apple's signature before installing them.</td></tr>
+  <tr><td>Disk</td><td>About 5.5 GB for the game in our install, on top of Battle.net and the engine.</td></tr>
+</table>
+<h2>What we checked</h2>
+<ul>
+  <li>Battle.net showed <strong>Update</strong> for an older install; the update finished and the button changed to <strong>Play</strong>.</li>
+  <li>The intro video played and a click skipped it.</li>
+  <li>The main menu came up signed in to Battle.net, version 1.23.10.</li>
+  <li>Single Player, Expansion, a new character name typed on the keyboard, Play Custom, a melee game on the Bottleneck map against one computer player.</li>
+  <li>The match loaded with the Remastered graphics: command centre, SCVs, minerals and the console all drew correctly.</li>
+</ul>
+<h2>What we did not check</h2>
+<ul>
+  <li>Multiplayer and ladder games.</li>
+  <li>Sound.</li>
+  <li>Sessions longer than a few minutes.</li>
+  <li>Which graphics path the game uses under Wine.</li>
+</ul>
 <p>Tried it? Tell us in <a href="https://discord.gg/PwBjET6YZ3">#compatibility on Discord</a> or <a href="https://github.com/BCD1210/soju/issues/new?template=compatibility.yml">send a compatibility report</a> and this page gets updated.</p>
 <h2 id="questions">Questions</h2>
 <div class="faq">
