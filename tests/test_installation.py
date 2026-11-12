@@ -276,6 +276,22 @@ class SupportManifestTests(unittest.TestCase):
         self.assertIn("winecoreaudio-patched.so", files)
         self.assertIn("mmdevapi-x64.dll", files)
 
+class GptkShimListTests(unittest.TestCase):
+    def test_known_shims_are_well_formed_and_cover_4_0_beta_3(self):
+        import re
+        text = (ROOT/"scripts/get-gptk.sh").read_text()
+        block = text.split("KNOWN_SHIMS='", 1)[1].split("'", 1)[0]
+        entries = [l.split() for l in block.splitlines() if l and not l.startswith("#")]
+        for entry in entries:
+            self.assertEqual(len(entry), 2, entry)
+            self.assertRegex(entry[0], "^[0-9a-f]{64}$")
+            self.assertRegex(entry[1], r"^[a-z0-9-]+\.dll$")
+        self.assertEqual(len(entries), len({tuple(e) for e in entries}))
+        # #112: 4.0 beta 3 ships d3d12core, and its d3d12/d3d11/dxgi must pass without SOJU_GPTK_UNVERIFIED.
+        beta3 = block.split("4.0 beta 3", 1)[1].split("\n# ", 1)[0]
+        for shim in ("d3d11.dll", "d3d12.dll", "d3d12core.dll", "dxgi.dll"):
+            self.assertIn(" " + shim, beta3)
+
 class EnginePatchTests(unittest.TestCase):
     def test_stored_acls_patch_is_applied_once_by_the_engine_build(self):
         script = (ROOT/"scripts/build-engine.sh").read_text()

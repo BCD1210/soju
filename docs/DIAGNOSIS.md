@@ -277,7 +277,7 @@ override가 적용되는 것은 regsvr32로 확인했다. `SOJU_EPIC_OVERLAY=1`�
   확인된다. 임의 인증서로 재서명한 사본은 거부된다(실측: ad-hoc 재서명본 거부).
 - **PE shim(d3d11/d3d12/dxgi 등)**: Windows 바이너리라 macOS에 검증기가 없다(Authenticode 블록은 있음).
   Apple이 실제로 배포한 빌드의 SHA-256 고정 목록으로 검증한다. 목록 출처: Apple 개발자 다운로드의
-  "Evaluation environment for Windows games" 2.1 / 3.0 / 4.0 beta 2 dmg(직접 받아 `hdiutil verify` 후
+  "Evaluation environment for Windows games" 2.1 / 3.0 / 4.0 beta 2 / 4.0 beta 3 dmg(직접 받아 `hdiutil verify` 후
   해시), CrossOver 26.3의 `lib64/apple_gptk`(Apple이 CodeWeavers에 공급한 별도 빌드, 해시가 전부 다름).
   목록에 없으면 복사하지 않고, 필수 3종(d3d11/d3d12/dxgi) 중 하나라도 빠지면 설치를 중단한다.
   `SOJU_GPTK_UNVERIFIED=1`은 경고를 찍고 강제 설치한다.
