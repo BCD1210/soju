@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Quick question or help
+    url: https://discord.gg/ttBDcF5ftz
+    about: "The Soju Discord, for setup questions and quick answers. Bugs still go in an issue here, so the fix is on record."
