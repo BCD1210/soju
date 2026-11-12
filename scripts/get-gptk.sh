@@ -62,6 +62,14 @@ d7c0df74d9bb4de5e2a3cc357b2309148fd3fdc824fe7941e4d789dbd072ff99 nvngx-on-metalf
 522a8b37216afb09e614489d88a74118076f4d7e08d2b289df6a6eb6f3e817af dxgi.dll
 05eedf19e75c6b4c0dce918577aa6ca3fe5da79d04e42145cf66f498fad3556a nvapi64.dll
 f6bc9d77fd1e898fec8c6339d367bd8e0f338992c9c0c66d59b30c6e9e0743e4 nvngx-on-metalfx.dll
+# Evaluation environment for Windows games 4.0 beta 3 (2026-11; adds d3d12core)
+78c2cd82697dde7081bae72c0ebd82eb41131e7c80b1f99d16ca5f54e5e962e1 d3d10.dll
+39b05a887598697d46225f998354c41582d12b3d35fceb4509df9b2386a10b2e d3d11.dll
+3174fac027d3ff10971645ac41b665cd53949c87d6d2d7d53b0073bf4bb36981 d3d12.dll
+8fee579ce538f5a56de72d8ff64dec9d2f018496358069a0216f29a9330ff7fd d3d12core.dll
+d53d9ea91935f0de126ba528264fc4c9b4dfea8bfe43f3f1256bd3e8963d67ee dxgi.dll
+de4872e71e6b3f54775b3e564cc487d984c52fec6711bfee250228843ba762d0 nvapi64.dll
+2e522873d2dec412c29f73096f1c1dc6bd8016dc40fd76fbeddd2eb7e226d3cb nvngx-on-metalfx.dll
 # CrossOver 26.3 (lib64/apple_gptk, the build Apple supplies to CodeWeavers)
 7c2bfeb66b18e3ec10c3ee92c9d42f4e3123692d568d14c831aec1a13aa03f79 d3d11.dll
 bbda1c4e94ee70255c528c5689b28333ca9bece2d755ede7c4197977a534704f d3d12.dll
@@ -141,8 +149,8 @@ if [ "$MODE" = find ]; then echo "$SRC"; exit 0; fi
 echo "==> GPTK payload: $SRC"
 # The payload is three parts, and D3DMetal only engages with all three:
 #   external/               libd3dshared.dylib + D3DMetal.framework (the Metal side)
-#   wine/x86_64-windows/    d3d11.dll, d3d12.dll, dxgi.dll, atidxx64.dll, nvapi64.dll,
-#                           nvngx.dll: Apple's PE shims that replace Wine's own DLLs
+#   wine/x86_64-windows/    d3d11.dll, d3d12.dll (and d3d12core.dll from 4.0 beta 3),
+#                           dxgi.dll, atidxx64.dll, nvapi64.dll, nvngx.dll: Apple's PE shims that replace Wine's own DLLs
 #                           and call into libd3dshared through the unixlib below
 #   wine/x86_64-unix/       one entry per shim, a symlink to libd3dshared
 # With only the first part, Wine keeps its own d3d11.dll (wined3d on Vulkan):
