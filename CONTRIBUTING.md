@@ -41,6 +41,7 @@ python3 -m unittest discover -s tests -q
 node --test tests/test_steam_login.cjs
 swiftc app/PurchaseLinks.swift tests/test_purchase_links.swift -o /tmp/t1 && /tmp/t1
 swiftc app/UpdateCheck.swift tests/test_update_check.swift -o /tmp/t2 && /tmp/t2
+swiftc app/StarAsk.swift tests/test_star_ask.swift -o /tmp/t3 && /tmp/t3
 bash scripts/build-app.sh
 ```
 

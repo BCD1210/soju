@@ -24,5 +24,7 @@ jobs:
         run: |
           swiftc app/UpdateCheck.swift tests/test_update_check.swift -o /tmp/soju-update-tests
           /tmp/soju-update-tests
+          swiftc app/StarAsk.swift tests/test_star_ask.swift -o /tmp/soju-star-tests
+          /tmp/soju-star-tests
       - name: Build and verify the native app
         run: bash scripts/build-app.sh
