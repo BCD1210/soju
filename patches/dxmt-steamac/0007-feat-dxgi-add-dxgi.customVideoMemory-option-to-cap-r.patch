@@ -1,0 +1,104 @@
+From e050ed38e2e923472cc7c5989f0dcdf61276679b Mon Sep 17 00:00:00 2001
+From: NerRobDog <nik@MBPSH.local>
+Date: Mon, 31 Aug 2026 19:47:29 +0200
+Subject: [PATCH 7/8] feat(dxgi): add dxgi.customVideoMemory option to cap
+ reported VRAM
+
+By default QueryVideoMemoryInfo reports recommendedMaxWorkingSetSize
+(~75% of system RAM on unified-memory Macs) as the budget, while the
+adapter descriptor reports half of it. Games sizing their streaming
+pools from the budget can oversubscribe memory shared with the OS and
+push the system into swap.
+
+The new option caps both values consistently (megabytes; 0 = default).
+
+(cherry picked from commit dbcc2318738ed80986f105d9e3110cbb72e434bd)
+---
+ dxmt.conf                 | 11 +++++++++++
+ src/dxgi/dxgi_adapter.cpp |  9 +++++++--
+ src/dxgi/dxgi_options.cpp |  2 ++
+ src/dxgi/dxgi_options.hpp |  8 ++++++++
+ 4 files changed, 28 insertions(+), 2 deletions(-)
+
+diff --git a/dxmt.conf b/dxmt.conf
+index 1fba266c..4f38802a 100644
+--- a/dxmt.conf
++++ b/dxmt.conf
+@@ -14,6 +14,17 @@
+ # dxgi.customDeviceDesc = ""
+ 
+ 
++# Override the amount of video memory reported to the application, in megabytes.
++# Affects both the adapter descriptor (DedicatedVideoMemory) and the budget
++# returned by IDXGIAdapter3::QueryVideoMemoryInfo. By default the budget equals
++# recommendedMaxWorkingSetSize, which on unified-memory systems is ~75% of
++# system RAM and lets games oversubscribe memory shared with the OS.
++#
++# Supported values: Any positive integer (megabytes). 0 keeps the default.
++
++# dxgi.customVideoMemory = 0
++
++
+ # Force to report a SDR display, in case of unintended behavior in HDR mode
+ # This option only affects DXGI, and does not change what games see through nvapi
+ # Setting to False does not imply the display will be reported as HDR
+diff --git a/src/dxgi/dxgi_adapter.cpp b/src/dxgi/dxgi_adapter.cpp
+index 6af6c64d..96b89760 100644
+--- a/src/dxgi/dxgi_adapter.cpp
++++ b/src/dxgi/dxgi_adapter.cpp
+@@ -165,7 +165,9 @@ public:
+ 
+     pDesc->SubSysId = 0;
+     pDesc->Revision = 0;
+-    if (device_.hasUnifiedMemory())
++    if (options_.customVideoMemory > 0)
++      pDesc->DedicatedVideoMemory = uint64_t(options_.customVideoMemory) << 20;
++    else if (device_.hasUnifiedMemory())
+       pDesc->DedicatedVideoMemory = device_.recommendedMaxWorkingSetSize() / 2; // FIXME: use a more appropriate value
+     else
+       pDesc->DedicatedVideoMemory = device_.recommendedMaxWorkingSetSize();
+@@ -236,7 +238,10 @@ public:
+       return E_INVALIDARG;
+ 
+     // we don't actually care about MemorySegmentGroup
+-    pVideoMemoryInfo->Budget = device_.recommendedMaxWorkingSetSize();
++    if (options_.customVideoMemory > 0)
++      pVideoMemoryInfo->Budget = uint64_t(options_.customVideoMemory) << 20;
++    else
++      pVideoMemoryInfo->Budget = device_.recommendedMaxWorkingSetSize();
+     pVideoMemoryInfo->CurrentUsage = device_.currentAllocatedSize();
+     pVideoMemoryInfo->AvailableForReservation = 0;
+     pVideoMemoryInfo->CurrentReservation =
+diff --git a/src/dxgi/dxgi_options.cpp b/src/dxgi/dxgi_options.cpp
+index 81c4b1cb..9606154e 100644
+--- a/src/dxgi/dxgi_options.cpp
++++ b/src/dxgi/dxgi_options.cpp
+@@ -33,6 +33,8 @@ DxgiOptions::DxgiOptions(const Config &config) {
+   this->customDeviceDesc =
+       config.getOption<std::string>("dxgi.customDeviceDesc", "");
+   this->forceSDR = config.getOption<bool>("dxgi.forceSDR", false);
++  this->customVideoMemory =
++      config.getOption<int>("dxgi.customVideoMemory", 0);
+ }
+ 
+ } // namespace dxmt
+diff --git a/src/dxgi/dxgi_options.hpp b/src/dxgi/dxgi_options.hpp
+index b5f8408f..af097a66 100644
+--- a/src/dxgi/dxgi_options.hpp
++++ b/src/dxgi/dxgi_options.hpp
+@@ -20,6 +20,14 @@ struct DxgiOptions {
+   int32_t customDeviceId;
+   std::string customDeviceDesc;
+   bool forceSDR;
++
++  /// Override the amount of video memory reported to the
++  /// application, in megabytes. Affects both the adapter
++  /// descriptor and the budget returned by
++  /// QueryVideoMemoryInfo. 0 or negative keeps the default
++  /// behaviour. Useful on unified-memory systems where the
++  /// default budget lets games oversubscribe system RAM.
++  int32_t customVideoMemory;
+ };
+ 
+ } // namespace dxmt
+\ No newline at end of file
