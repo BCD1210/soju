@@ -113,6 +113,7 @@ struct SojuLogo: View {
     @Published var stoppingGames: Set<String> = []
     @Published var libraryIssue: String?
     @Published var preferences = LibraryPreferences.load()
+    @Published var starAsk = StarAsk.load()
     var gameLaunches: [String: Process] = [:]
     var scanner: Process?
     @Published var installed: Set<Launcher> = []

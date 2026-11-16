@@ -166,6 +166,7 @@ extension SojuModel {
             try p.run()
             failed = false
             preferences.opened[game.id] = Date(); savePreferences()
+            starAsk.launched(game.id); starAsk.save()
             activity = game.platform == .didim ? "Playing " + game.title + "…" : "Opening " + game.title + " through " + game.platform.title + "…"
             // An Xbox game runs inside this process, so it counts as running until it exits.
             // Other clients may stay alive for hours: there it is only a launch request.
@@ -366,6 +367,9 @@ struct LibraryView: View {
                 } label: {
                     Label("Add Didim Labs game", systemImage: "plus")
                 }.disabled(model.busy).help("Install a native Mac game from a downloaded .zip")
+            }
+            if page == "library", model.starAsk.shouldAsk(), let id = model.starAsk.favorite() {
+                StarCard(title: model.games.first(where: { $0.id == id })?.title)
             }
             HStack(spacing: 12) {
                 HStack(spacing: 8) {
@@ -654,5 +658,37 @@ struct GameArtwork: View {
             if let result { Self.cache.setObject(result, forKey: path as NSString, cost: Int(result.size.width * result.size.height * 4)) }
             artwork = result
         }
+    }
+}
+
+/// Shown only to players who keep coming back to a game (StarAsk). One click opens the repository.
+struct StarCard: View {
+    @EnvironmentObject var model: SojuModel
+    let title: String?
+    var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Image(systemName: "star.fill").font(.system(size: 30)).foregroundStyle(.yellow)
+            VStack(alignment: .leading, spacing: 5) {
+                Text((title.map { $0 + " keeps running on Soju." } ?? "Soju keeps working for you.") + " Would you star it on GitHub?")
+                    .font(.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+                Text("Soju is free and open source. Stars are how other Mac players find it, and it takes one click.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 6) {
+                Button {
+                    NSWorkspace.shared.open(StarAsk.repo); model.starAsk.finish(); model.starAsk.save()
+                } label: { Label("Star on GitHub", systemImage: "star") }
+                    .buttonStyle(.borderedProminent).controlSize(.large).keyboardShortcut(.defaultAction)
+                HStack(spacing: 10) {
+                    Button("Join Discord") { NSWorkspace.shared.open(SojuModel.discord) }.buttonStyle(.link)
+                    Button("Later") { model.starAsk.later(); model.starAsk.save() }.buttonStyle(.link)
+                    Button("Don't ask again") { model.starAsk.finish(); model.starAsk.save() }.buttonStyle(.link)
+                }.font(.system(size: 11))
+            }
+        }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.yellow.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.yellow.opacity(0.35)))
+            .accessibilityElement(children: .contain)
     }
 }
