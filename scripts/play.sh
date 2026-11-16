@@ -344,6 +344,9 @@ case "$MODE" in
     # starts; the renderer switch refuses while this bottle is running anyway.
     pgrep -f "$WINESTABLE_SERVER" >/dev/null 2>&1 || \
       python3 "$(dirname "${BASH_SOURCE[0]}")/steam-profiles.py" apply || true
+    # NW.js games (RPG Maker MV/MZ) need --in-process-gpu or their window stays empty;
+    # Steam restores package.json on updates, so check every launch.
+    python3 "$(dirname "${BASH_SOURCE[0]}")/steam-profiles.py" nwjs || true
     # 1) Clean crash leftovers (a stale lock makes the next launch a windowless --silent one)
     find "$WINEPREFIX/drive_c/users/"*/AppData/Local/Steam/htmlcache -maxdepth 2 \
       \( -name "Singleton*" -o -name "*.lock" \) -delete 2>/dev/null || true
