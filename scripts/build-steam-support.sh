@@ -43,6 +43,8 @@ apply_once wine "$ROOT/patches/highball/0023-winecoreaudio-spatial-mixer-for-sur
 apply_once dxmt "$ROOT/patches/steam-dxmt-build.patch"
 apply_once dxmt "$ROOT/patches/dxmt-max-tess-factor.patch"
 apply_once dxmt "$ROOT/patches/dxmt-nonfatal-pure-virtual.patch"
+# Fixes from other DXMT forks, collected on the steamac branch (StonkGuy/dxmt, LGPL-2.1+); see its README.
+for patch in "$ROOT"/patches/dxmt-steamac/*.patch; do apply_once dxmt "$patch"; done
 export MACOSX_DEPLOYMENT_TARGET=26.0
 [ -x venv/bin/meson ] || { python3 -m venv venv; venv/bin/pip install 'meson==1.10.2'; }
 mkdir -p dxmt/toolchains/wine
@@ -91,6 +93,7 @@ x86_64-w64-mingw32-gcc -O2 -Wall -municode -DUNICODE -D_UNICODE \
 cp "$ROOT/third_party/steam-on-m1-wine/LICENSE" output/licenses/wrapper-MIT.txt
 cp wine/COPYING.LIB output/licenses/Wine-LGPL.txt
 cp dxmt/LICENSE output/licenses/DXMT-MIT.txt
+cp wine/COPYING.LIB output/licenses/DXMT-patches-LGPL.txt
 cp llvm-project/llvm/LICENSE.TXT output/licenses/LLVM.txt
 cp dxmt/include/native/directx/COPYING.MinGW-w64.txt output/licenses/DirectX-headers.txt
 if [ "${SOJU_SOURCE_ARCHIVE:-0}" = 1 ]; then

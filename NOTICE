@@ -14,6 +14,9 @@ Built or downloaded by the scripts (open-source component releases include corre
   pinned URL and checksum in resources/steam-wine.json
 - DXMT pinned notpop fork: MIT, Copyright (c) 2023 Feifan He
   (built from the notpop fork of github.com/3Shain/dxmt)
+  with patches/dxmt-steamac/: eight fixes collected on the steamac branch of DXMT
+  (github.com/StonkGuy/dxmt, branch steamac, LGPL-2.1-or-later). Each patch names its author and source
+  (utmapp/dxmt, hollyhamilton/dxmt, SteveTanSaMa/DXMT, Mybono/dxmt, NerRobDog/dxmt, gamesir-labs/dxmt, StonkGuy).
 - wine-mono: MIT (dotnet parts MIT/BSD-like); MoltenVK: Apache-2.0; gnutls: LGPL-2.1+;
   freetype: FTL/GPL-2.0 dual
 - Apple Game Porting Toolkit payload (libd3dshared/D3DMetal): Apple proprietary,
