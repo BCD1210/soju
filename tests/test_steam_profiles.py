@@ -56,5 +56,40 @@ class Profiles(unittest.TestCase):
         self.assertTrue(all(p["renderer"] == "dxvk" and p["why"] for p in data.values()))
 
 
+class NWJS(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.prefix = Path(self.tmp.name)
+        self.apps = self.prefix / "drive_c/Program Files (x86)/Steam/steamapps"
+        (self.apps / "common/Termina").mkdir(parents=True)
+        (self.apps / "appmanifest_2171440.acf").write_text(
+            '"AppState"\n{\n\t"appid"\t\t"2171440"\n\t"installdir"\t\t"Termina"\n}\n')
+        game = self.apps / "common/Termina"
+        (game / "nw.dll").write_bytes(b"MZ")
+        self.manifest = game / "package.json"
+        self.original = '\ufeff{"name":"rmmz-game","main":"index.html","chromium-args":"--force-color-profile=srgb"}'
+        self.manifest.write_text(self.original, encoding="utf-8")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+        os.environ.pop("WINEPREFIX", None)
+
+    def test_adds_flag_once_and_keeps_original(self):
+        m = load(self.prefix)
+        found = list(m.nwjs_games(self.apps))
+        self.assertEqual(found, [self.manifest])
+        self.assertTrue(m.nwjs_fix(self.manifest))
+        data = json.loads(self.manifest.read_text())
+        self.assertEqual(data["chromium-args"], "--force-color-profile=srgb --in-process-gpu")
+        self.assertEqual(data["main"], "index.html")
+        self.assertFalse(m.nwjs_fix(self.manifest))
+        self.assertEqual((self.manifest.parent / "package.json.soju-orig").read_text(encoding="utf-8"), self.original)
+
+    def test_leaves_unreadable_manifest(self):
+        self.manifest.write_text("not json")
+        self.assertFalse(load(self.prefix).nwjs_fix(self.manifest))
+        self.assertEqual(self.manifest.read_text(), "not json")
+
+
 if __name__ == "__main__":
     unittest.main()
