@@ -3,12 +3,20 @@
 
     steam-profiles.py apply      switch matching games (play.sh runs this before Steam starts)
     steam-profiles.py list       show what would change, change nothing
+    steam-profiles.py nwjs       NW.js games (RPG Maker MV/MZ): draw in the game's own process
 
 resources/steam-profiles.json lists Direct3D 11 games that run better on DXVK
 than on the default DXMT. A game is switched once, through steam-renderer.py
 (which keeps the original files and can reset them). A game the player already
 set up with `soju steam-games renderer`, or switched back, is left alone: the
 choice is recorded in <bottle>/.soju-auto-profiles.json.
+
+NW.js games (RPG Maker MV and MZ ship as nw.dll + package.json next to Game.exe)
+open an empty window: Chromium draws in a separate GPU process, and DXMT cannot
+make a swap chain for a window that belongs to another process. `nwjs` adds
+--in-process-gpu to the game's "chromium-args" (the original package.json is kept
+as package.json.soju-orig). Steam restores the file on updates, so it runs before
+every Steam start.
 """
 import json
 import os
@@ -56,6 +64,38 @@ def installed(steamapps):
             yield appid.group(1), steamapps / "common" / folder.group(1)
 
 
+NWJS_FLAG = "--in-process-gpu"
+
+
+def nwjs_games(steamapps):
+    """package.json files of installed NW.js games: next to nw.dll, at most two folders deep."""
+    for _, folder in installed(steamapps) if steamapps.is_dir() else []:
+        for depth in range(3):
+            for dll in folder.glob("/".join(["*"] * depth + ["nw.dll"])):
+                manifest = dll.parent / "package.json"
+                if manifest.is_file() and not manifest.is_symlink():
+                    yield manifest
+
+
+def nwjs_fix(manifest):
+    """Add NWJS_FLAG to chromium-args; True when the file changed."""
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    args = data.get("chromium-args", "")
+    if not isinstance(args, str) or NWJS_FLAG in args.split():
+        return False
+    backup = manifest.with_name("package.json.soju-orig")
+    if not backup.exists():
+        backup.write_bytes(manifest.read_bytes())
+    data["chromium-args"] = (args + " " + NWJS_FLAG).strip()
+    manifest.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return True
+
+
 def plan():
     profiles = json.loads((ROOT / "resources/steam-profiles.json").read_text())["profiles"]
     steamapps = PREFIX / "drive_c/Program Files (x86)/Steam/steamapps"
@@ -81,13 +121,18 @@ def plan():
 
 def main():
     action = sys.argv[1] if len(sys.argv) > 1 else "list"
+    if action == "nwjs":
+        for manifest in nwjs_games(PREFIX / "drive_c/Program Files (x86)/Steam/steamapps"):
+            if nwjs_fix(manifest):
+                print(f"soju: {manifest.parent.name}: NW.js game set to draw in its own process ({NWJS_FLAG})")
+        return
     todo, state, state_file = plan()
     if action == "list":
         for appid, p, exe in todo:
             print(f"{p['title']} ({appid}): {p['renderer']} for {exe.name} - {p['why']}")
         return
     if action != "apply":
-        sys.exit("usage: steam-profiles.py apply|list")
+        sys.exit("usage: steam-profiles.py apply|list|nwjs")
     if not (PREFIX / ".soju-steam-games").is_file():
         return   # renderer components not prepared yet (soju steam-games)
     for appid, p, exe in todo:
