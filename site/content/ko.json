@@ -57,7 +57,7 @@
     },
     {
       "label": "다운로드",
-      "href": "https://github.com/BCD1210/soju/releases/download/v1.14.24/Soju-1.14.24-macos-arm64.zip",
+      "href": "https://github.com/BCD1210/soju/releases/download/v1.14.25/Soju-1.14.25-macos-arm64.zip",
       "button": true
     }
   ],
@@ -73,8 +73,8 @@
         "lead": "소주는 애플 실리콘 맥에 진짜 스팀, 배틀넷, 에픽, GOG GALAXY, EA 앱, 락스타, 유비소프트 커넥트, Xbox PC 런처를 설치하고, 설치한 게임을 한 라이브러리에 모아 줍니다. 계정과 구매는 각 스토어에 그대로 있습니다.",
         "actions": [
           {
-            "label": "소주 1.14.24 다운로드",
-            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.24/Soju-1.14.24-macos-arm64.zip",
+            "label": "소주 1.14.25 다운로드",
+            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.25/Soju-1.14.25-macos-arm64.zip",
             "primary": true
           },
           {
@@ -121,56 +121,79 @@
                 "store": "배틀넷",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "온라인 플레이 됨. macOS 26.4 이상. [가이드](../guides/ko/diablo-2-mac.html)"
+                "result": "온라인 플레이 됨. macOS 26.4 이상. [가이드](../guides/ko/diablo-2-mac.html)",
+                "game": "battlenet:osi"
               },
               {
                 "title": "스타크래프트: 리마스터",
                 "store": "배틀넷",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "컴퓨터 상대 싱글 대전 시작까지 확인. 멀티플레이는 미확인. [가이드](../guides/ko/starcraft-mac.html)"
+                "result": "컴퓨터 상대 싱글 대전 시작까지 확인. 멀티플레이는 미확인. [가이드](../guides/ko/starcraft-mac.html)",
+                "game": "battlenet:s1"
               },
               {
                 "title": "디아블로 4",
                 "store": "Battle.net",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "무료 체험판으로 캐릭터 생성, 첫 지역 진입까지 확인. 소리와 프레임은 미확인. [가이드](../guides/ko/diablo-4-mac.html)"
+                "result": "무료 체험판으로 캐릭터 생성, 첫 지역 진입까지 확인. 소리와 프레임은 미확인. [가이드](../guides/ko/diablo-4-mac.html)",
+                "game": "battlenet:fen"
               },
               {
                 "title": "오버워치 2",
                 "store": "Battle.net",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "로그인 후 온라인 플레이 됨. [가이드](../guides/ko/overwatch-2-mac.html)"
+                "result": "로그인 후 온라인 플레이 됨. [가이드](../guides/ko/overwatch-2-mac.html)",
+                "game": "battlenet:prometheus"
               },
               {
                 "title": "호그와트 레거시",
                 "store": "에픽",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "D3DMetal로 설치·플레이 됨"
+                "result": "D3DMetal로 설치·플레이 됨",
+                "game": "epic:fa4240e57a3c46b39f169041b7811293"
               },
               {
                 "title": "Guilt Free (Unity, D3D11)",
                 "store": "스팀",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "DXMT 설정으로 플레이 됨"
+                "result": "DXMT 설정으로 플레이 됨",
+                "game": "steam:1385950"
+              },
+              {
+                "title": "Retro Classics",
+                "store": "Xbox PC",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "Xbox PC 앱에서 플레이 됨.",
+                "game": "xbox:9MTVJ3HHTQGS"
+              },
+              {
+                "title": "GOG GALAXY 게임",
+                "store": "GOG",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "로그인 후 라이브러리에서 설치·플레이 됨."
               },
               {
                 "title": "디아블로 II: 레저렉션 (스팀판)",
                 "store": "스팀",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "소주 사용자 확인: 스팀 카드에서 오버워치·디아블로 II 모드를 켜고 플레이."
+                "result": "소주 사용자 확인: 스팀 카드에서 오버워치·디아블로 II 모드를 켜고 플레이.",
+                "game": "steam:2536520"
               },
               {
                 "title": "엘더스크롤 5: 스카이림 스페셜 에디션",
                 "store": "스팀",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "소주 사용자 확인(M5 Pro): 대화 포함 약 12분 플레이. [보고](https://github.com/BCD1210/soju/issues/95)"
+                "result": "소주 사용자 확인(M5 Pro): 대화 포함 약 12분 플레이. [보고](https://github.com/BCD1210/soju/issues/95)",
+                "game": "steam:489830"
               },
               {
                 "title": "콜 오브 듀티 4: 모던 워페어 (데모)",
@@ -209,7 +232,7 @@
             "items": [
               {
                 "title": "앱 받기",
-                "text": "[Soju-1.14.24-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.14.24/Soju-1.14.24-macos-arm64.zip)을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
+                "text": "[Soju-1.14.25-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.14.25/Soju-1.14.25-macos-arm64.zip)을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
               },
               {
                 "title": "런처 고르기",
@@ -388,8 +411,8 @@
         "text": "무료 오픈소스입니다. macOS 14 이상, M1 이상 맥. 해 보신 게임은 디스코드에 알려 주세요.",
         "actions": [
           {
-            "label": "소주 1.14.24 다운로드",
-            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.24/Soju-1.14.24-macos-arm64.zip",
+            "label": "소주 1.14.25 다운로드",
+            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.25/Soju-1.14.25-macos-arm64.zip",
             "primary": true
           },
           {
@@ -433,7 +456,7 @@
           "@type": "HowToStep",
           "position": 1,
           "name": "앱 받기",
-          "text": "Soju-1.14.24-macos-arm64.zip을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
+          "text": "Soju-1.14.25-macos-arm64.zip을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
         },
         {
           "@type": "HowToStep",

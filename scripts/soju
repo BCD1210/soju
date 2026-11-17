@@ -23,6 +23,7 @@ Usage:
   soju game-install <id>  Open the official launcher to install an owned game
   soju search <term>  Search Steam, GOG and the Microsoft Store (--country US|KR|GB|DE|JP)
   soju report [<id>|<title>]  Open a compatibility report with this Mac's details filled in
+  soju stats on|off|status    Share which games you play (anonymous; feeds didimlabs.com)
   soju didim install <game.zip>  Install a native Mac game from Didim Labs
   soju didim list|remove <id>    List or remove installed Didim Labs games
   soju didim demo <id>           Download and install a game's free demo
@@ -92,6 +93,7 @@ case "${1:-}" in
   game)           shift; exec python3 "$ROOT/scripts/game-library.py" launch "$@" ;;
   didim)          shift; exec python3 "$ROOT/scripts/didim_games.py" "$@" ;;
   report)         shift; exec python3 "$ROOT/scripts/report.py" "$@" ;;
+  stats)          shift; exec python3 "$ROOT/scripts/play-stats.py" "$@" ;;
   --version)      cat "$ROOT/VERSION" ;;
   app)            exec bash "$ROOT/scripts/install-app.sh" ;;
   install)        shift; exec bash "$ROOT/install.sh" "$@" ;;

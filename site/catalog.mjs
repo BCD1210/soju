@@ -30,7 +30,7 @@ export const components = {
     Features: { props: z.object({ items: z.array(z.object({ title: str, text: str })) }), description: 'Grid of short facts' },
     Steps: { props: z.object({ row: opt(z.boolean()), items: z.array(z.object({ title: str, text: opt(str), code: opt(str) })) }), description: 'Numbered steps; row lays them out side by side' },
     Proof: {
-      props: z.object({ head: opt(z.array(str)), items: z.array(z.object({ title: str, store: str, status: str, tone: z.enum(['plays', 'partial']), result: str })) }),
+      props: z.object({ head: opt(z.array(str)), items: z.array(z.object({ title: str, store: str, status: str, tone: z.enum(['plays', 'partial']), result: str, game: opt(str) })) }),
       description: 'Cards for games that were run, with a status pill',
     },
     Cta: { props: z.object({ title: str, text: opt(str), icon: opt(image), actions: z.array(link) }), description: 'Closing call to action' },
@@ -119,7 +119,7 @@ export const { registry } = defineRegistry(catalog, {
     Proof: ({ props }) => h('div', { className: 'table-scroll', role: 'region', 'aria-label': (props.head || [])[0] || 'Games', tabIndex: 0 },
       h('table', { className: 'proof' },
         h('thead', null, h('tr', null, (props.head || ['Game', 'Store', 'Result', 'What we saw']).map((c, k) => h('th', { key: k, scope: 'col' }, c)))),
-        h('tbody', null, props.items.map((g, k) => h('tr', { key: k },
+        h('tbody', null, props.items.map((g, k) => h('tr', { key: k, 'data-game': g.game },
           h('th', { scope: 'row' }, g.title),
           h('td', null, g.store),
           h('td', null, h('span', { className: 'pill ' + g.tone }, g.status)),
