@@ -27,33 +27,38 @@
   },
   "nav": [
     {
-      "label": "다운로드",
-      "href": "#install"
+      "label": "게임 검색",
+      "href": "mac/"
     },
     {
-      "label": "실행된 게임",
+      "label": "되는 게임",
       "href": "#works"
     },
     {
-      "label": "게임",
-      "href": "../games/dont-sell-the-cat.html#ko"
+      "label": "가이드",
+      "href": "#guides"
     },
     {
       "label": "자주 묻는 질문",
       "href": "#faq"
     },
     {
-      "label": "GitHub",
-      "href": "https://github.com/BCD1210/soju"
+      "label": "디스코드",
+      "href": "https://discord.gg/ttBDcF5ftz"
     },
     {
-      "label": "Discord",
-      "href": "https://discord.gg/ttBDcF5ftz"
+      "label": "GitHub",
+      "href": "https://github.com/BCD1210/soju"
     },
     {
       "label": "English",
       "href": "../",
       "lang": "en"
+    },
+    {
+      "label": "다운로드",
+      "href": "https://github.com/BCD1210/soju/releases/download/v1.14.24/Soju-1.14.24-macos-arm64.zip",
+      "button": true
     }
   ],
   "footer": [
@@ -65,7 +70,7 @@
       "type": "Hero",
       "props": {
         "title": "소주 (Soju)",
-        "lead": "애플 실리콘 맥에서 윈도우 게임을 하기 위한 무료 맥 앱입니다. 진짜 스팀, 배틀넷, 에픽, GOG GALAXY, EA 앱, 락스타, 유비소프트 커넥트, Xbox PC 런처를 각각 따로 된 Wine 환경에 설치하고, 설치된 게임을 한 라이브러리에 모아 보여 줍니다.",
+        "lead": "소주는 애플 실리콘 맥에 진짜 스팀, 배틀넷, 에픽, GOG GALAXY, EA 앱, 락스타, 유비소프트 커넥트, Xbox PC 런처를 설치하고, 설치한 게임을 한 라이브러리에 모아 줍니다. 계정과 구매는 각 스토어에 그대로 있습니다.",
         "actions": [
           {
             "label": "소주 1.14.24 다운로드",
@@ -73,89 +78,37 @@
             "primary": true
           },
           {
-            "label": "실행해 본 게임",
-            "href": "#works"
-          },
-          {
-            "label": "디스코드",
-            "href": "https://discord.gg/ttBDcF5ftz"
+            "label": "내 게임 되는지 보기",
+            "href": "#check"
           }
         ],
-        "meta": "macOS 14 이상, M1 이상 · 오픈소스(GPL-3.0)",
+        "meta": "macOS 14 이상, M1 이상 애플 실리콘 맥 · 스팀 게임은 macOS 26 이상 · 무료 오픈소스(GPL-3.0)",
         "image": {
           "src": "../assets/soju-library.png",
           "alt": "디아블로 II: 레저렉션, 고양이는 팔지 마세요, Guilt Free, 호그와트 레거시가 있는 소주 1.10 라이브러리",
           "width": 1140,
           "height": 780
         },
-        "logo": "../assets/soju-logo.png",
-        "headline": "윈도우 게임을 **맥에서.**",
-        "eyebrow": "무료 · 오픈소스 · 애플 실리콘 맥",
-        "command": "brew install BCD1210/soju/soju",
-        "icon": {
-          "src": "../assets/soju-app-icon.png",
-          "alt": "",
-          "width": 640,
-          "height": 640
-        },
-        "stores": {
-          "label": "소주가 설치하는 런처",
-          "items": [
-            "스팀",
-            "배틀넷",
-            "에픽게임즈",
-            "GOG GALAXY",
-            "EA app",
-            "Rockstar",
-            "Ubisoft Connect",
-            "Xbox PC"
-          ]
-        }
+        "headline": "맥에서 윈도우 게임을 하는 무료 앱",
+        "alt": "터미널을 쓰신다면: `brew install BCD1210/soju/soju`"
+      }
+    },
+    {
+      "type": "GameSearch",
+      "props": {
+        "label": "내 게임이 맥에서 되나요?",
+        "placeholder": "영문 게임 이름 (예: Elden Ring)",
+        "button": "찾기",
+        "action": "mac/",
+        "hint": "약 3만 5천 개 게임: 저희가 직접 돌려 본 게임, 소주 사용자 보고, 리눅스 사용자 보고 기반 추정. 한글 이름은 일부 게임만 있으니 영문 이름으로 찾아 주세요. [전체 목록 보기](mac/)",
+        "id": "check"
       }
     },
     {
       "type": "Section",
       "props": {
-        "id": "what",
-        "title": "하는 일"
-      },
-      "children": [
-        {
-          "type": "Features",
-          "props": {
-            "items": [
-              {
-                "title": "진짜 런처",
-                "text": "배틀넷·에픽·GOG는 [CodeWeavers 소스](https://www.codeweavers.com/crossover/source)로 만든 Wine 엔진과 애플 D3DMetal을 같이 씁니다. 스팀은 D3D11 게임용 DXMT가 들어간 Wine 11 환경을 따로 씁니다."
-              },
-              {
-                "title": "라이브러리 하나",
-                "text": "모든 런처에 설치된 게임을 찾고, 스팀과 GOG에서 산 게임 목록을 가져옵니다."
-              },
-              {
-                "title": "스토어 검색",
-                "text": "스팀, GOG, 마이크로소프트 스토어를 지역 가격으로 검색합니다."
-              },
-              {
-                "title": "Xbox PC",
-                "text": "실험 기능입니다. 보유 게임과 게임 패스 게임을 가져와 Xodus 백엔드로 내려받습니다."
-              }
-            ]
-          }
-        },
-        {
-          "type": "Text",
-          "props": {
-            "text": "로그인, 구매, 게임 업데이트는 각 스토어가 그대로 맡습니다. 소주는 게임, 스토어 프로그램, 애플 게임 포팅 툴킷을 포함하지 않습니다."
-          }
-        }
-      ]
-    },
-    {
-      "type": "Section",
-      "props": {
         "id": "works",
-        "title": "직접 실행해 본 게임",
+        "title": "직접 돌려 본 게임",
         "intro": "M4 Pro 맥, macOS 26.5에서 확인했습니다. 다른 게임은 해 보기 전에는 모릅니다. [게임별로 되는지 보기](mac/) · [결과를 알려 주세요](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)."
       },
       "children": [
@@ -219,6 +172,12 @@
                 "tone": "partial",
                 "result": "로그인·라이브러리 됨, 게임은 아직 조금만 시험"
               }
+            ],
+            "head": [
+              "게임",
+              "런처",
+              "결과",
+              "확인한 내용"
             ]
           }
         },
@@ -226,30 +185,6 @@
           "type": "Text",
           "props": {
             "text": "커널 안티치트를 쓰는 게임은 실행되지 않습니다."
-          }
-        }
-      ]
-    },
-    {
-      "type": "Section",
-      "props": {
-        "id": "store",
-        "title": "Didim Labs 게임"
-      },
-      "children": [
-        {
-          "type": "GameCard",
-          "props": {
-            "href": "../games/dont-sell-the-cat.html#ko",
-            "image": {
-              "src": "../store/dont-sell-the-cat-wide.jpg",
-              "alt": "고양이는 팔지 마세요: 전당포 카운터 위의 노란 눈 검은 고양이",
-              "width": 920,
-              "height": 430
-            },
-            "title": "고양이는 팔지 마세요",
-            "meta": "$2.99 · 맥·윈도우 · 약 2시간",
-            "text": "1958년 전당포 야간 카운터에서 보내는 일곱 밤. 확대경, UV 램프, 저울, 가게 고양이로 물건을 확인하고, 뒷문 셔터는 열지 마세요."
           }
         }
       ]
@@ -304,6 +239,108 @@
     {
       "type": "Section",
       "props": {
+        "id": "what",
+        "title": "소주에 들어 있는 것"
+      },
+      "children": [
+        {
+          "type": "Features",
+          "props": {
+            "items": [
+              {
+                "title": "진짜 런처",
+                "text": "배틀넷·에픽·GOG는 [CodeWeavers 소스](https://www.codeweavers.com/crossover/source)로 만든 Wine 엔진과 애플 D3DMetal을 같이 씁니다. 스팀은 D3D11 게임용 DXMT가 들어간 Wine 11 환경을 따로 씁니다."
+              },
+              {
+                "title": "라이브러리 하나",
+                "text": "모든 런처에 설치된 게임을 찾고, 스팀과 GOG에서 산 게임 목록을 가져옵니다."
+              },
+              {
+                "title": "스토어 검색",
+                "text": "스팀, GOG, 마이크로소프트 스토어를 지역 가격으로 검색합니다."
+              },
+              {
+                "title": "Xbox PC",
+                "text": "실험 기능입니다. 보유 게임과 게임 패스 게임을 가져와 Xodus 백엔드로 내려받습니다."
+              }
+            ]
+          }
+        },
+        {
+          "type": "Text",
+          "props": {
+            "text": "로그인, 구매, 게임 업데이트는 각 스토어가 그대로 맡습니다. 소주는 게임, 스토어 프로그램, 애플 게임 포팅 툴킷을 포함하지 않습니다."
+          }
+        }
+      ]
+    },
+    {
+      "type": "Section",
+      "props": {
+        "id": "store",
+        "title": "Didim Labs 게임"
+      },
+      "children": [
+        {
+          "type": "GameCard",
+          "props": {
+            "href": "../games/dont-sell-the-cat.html#ko",
+            "image": {
+              "src": "../store/dont-sell-the-cat-wide.jpg",
+              "alt": "고양이는 팔지 마세요: 전당포 카운터 위의 노란 눈 검은 고양이",
+              "width": 920,
+              "height": 430
+            },
+            "title": "고양이는 팔지 마세요",
+            "meta": "$2.99 · 맥·윈도우 · 약 2시간",
+            "text": "1958년 전당포 야간 카운터에서 보내는 일곱 밤. 확대경, UV 램프, 저울, 가게 고양이로 물건을 확인하고, 뒷문 셔터는 열지 마세요."
+          }
+        }
+      ]
+    },
+    {
+      "type": "Section",
+      "props": {
+        "id": "guides",
+        "title": "가이드"
+      },
+      "children": [
+        {
+          "type": "Links",
+          "props": {
+            "items": [
+              {
+                "label": "맥에서 디아블로 II 레저렉션",
+                "href": "../guides/ko/diablo-2-mac.html"
+              },
+              {
+                "label": "맥에서 디아블로 4",
+                "href": "../guides/ko/diablo-4-mac.html"
+              },
+              {
+                "label": "맥에서 오버워치 2",
+                "href": "../guides/ko/overwatch-2-mac.html"
+              },
+              {
+                "label": "맥에서 스타크래프트 리마스터",
+                "href": "../guides/ko/starcraft-mac.html"
+              },
+              {
+                "label": "윈도우용 스팀을 맥에서 (영문)",
+                "href": "../guides/steam-windows-client-apple-silicon.html"
+              },
+              {
+                "label": "소주, Whisky, CrossOver, Heroic 비교 (영문)",
+                "href": "../guides/soju-vs-whisky-crossover-heroic.html"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "Section",
+      "props": {
         "id": "faq",
         "title": "자주 묻는 질문"
       },
@@ -340,14 +377,8 @@
     {
       "type": "Cta",
       "props": {
-        "title": "맥에서 바로 해 보세요",
-        "text": "소주는 무료 오픈소스입니다. 앱을 받아 쓰는 런처를 고르고, 어떤 게임이 되는지 알려 주세요.",
-        "icon": {
-          "src": "../assets/soju-app-icon.png",
-          "alt": "",
-          "width": 640,
-          "height": 640
-        },
+        "title": "소주 받기",
+        "text": "무료 오픈소스입니다. macOS 14 이상, M1 이상 맥. 해 보신 게임은 디스코드에 알려 주세요.",
         "actions": [
           {
             "label": "소주 1.14.24 다운로드",
