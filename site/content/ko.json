@@ -57,7 +57,7 @@
     },
     {
       "label": "다운로드",
-      "href": "https://github.com/BCD1210/soju/releases/download/v1.14.25/Soju-1.14.25-macos-arm64.zip",
+      "href": "https://github.com/BCD1210/soju/releases/download/v1.14.26/Soju-1.14.26-macos-arm64.zip",
       "button": true
     }
   ],
@@ -73,8 +73,8 @@
         "lead": "소주는 애플 실리콘 맥에 진짜 스팀, 배틀넷, 에픽, GOG GALAXY, EA 앱, 락스타, 유비소프트 커넥트, Xbox PC 런처를 설치하고, 설치한 게임을 한 라이브러리에 모아 줍니다. 계정과 구매는 각 스토어에 그대로 있습니다.",
         "actions": [
           {
-            "label": "소주 1.14.25 다운로드",
-            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.25/Soju-1.14.25-macos-arm64.zip",
+            "label": "소주 1.14.26 다운로드",
+            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.26/Soju-1.14.26-macos-arm64.zip",
             "primary": true
           },
           {
@@ -232,7 +232,7 @@
             "items": [
               {
                 "title": "앱 받기",
-                "text": "[Soju-1.14.25-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.14.25/Soju-1.14.25-macos-arm64.zip)을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
+                "text": "[Soju-1.14.26-macos-arm64.zip](https://github.com/BCD1210/soju/releases/download/v1.14.26/Soju-1.14.26-macos-arm64.zip)을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
               },
               {
                 "title": "런처 고르기",
@@ -411,8 +411,8 @@
         "text": "무료 오픈소스입니다. macOS 14 이상, M1 이상 맥. 해 보신 게임은 디스코드에 알려 주세요.",
         "actions": [
           {
-            "label": "소주 1.14.25 다운로드",
-            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.25/Soju-1.14.25-macos-arm64.zip",
+            "label": "소주 1.14.26 다운로드",
+            "href": "https://github.com/BCD1210/soju/releases/download/v1.14.26/Soju-1.14.26-macos-arm64.zip",
             "primary": true
           },
           {
@@ -456,7 +456,7 @@
           "@type": "HowToStep",
           "position": 1,
           "name": "앱 받기",
-          "text": "Soju-1.14.25-macos-arm64.zip을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
+          "text": "Soju-1.14.26-macos-arm64.zip을 받아 압축을 풀고 응용 프로그램 폴더로 옮깁니다."
         },
         {
           "@type": "HowToStep",
