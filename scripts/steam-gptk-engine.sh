@@ -4,7 +4,7 @@
 # in and downloads, and Overwatch 2 from Steam reaches its main menu online.
 #
 # It is a copy of the CX engine (an APFS clone: no extra disk space) with one
-# file replaced: winemac.so with patches/winemac-cross-process-swapchains.patch
+# file replaced: winemac.so with patches/engine/0007-remote-child-layers.patch
 # from the launcher-support component (scripts/build-launcher-support.sh).
 # Steam's browser UI draws from a helper process into a window steam.exe owns;
 # the stock driver leaves that window black. Everything else, Apple's d3d11,

@@ -1,25 +1,20 @@
-App packages from the registry: GetPackagesByPackageFamily lists the packages registered under
-HKLM\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\PackageRepository\Packages,
-GetPackagePath reads a package's Path there, and PackageFullNameFromId builds the full name they need. wine.inf
-registers the Visual C++ libraries framework package (Microsoft.VCLibs.140.00, pointing at system32, syswow64 for
-WoW64) the way Proton does.
-
-Wine's GetPackagesByPackageFamily is a stub that answers success with zero packages (since Wine 8.8), and Forza
-Horizon 4, a former Microsoft Store game whose Steam build still looks up Microsoft.VCLibs.140.00_8wekyb3d8bbwe,
-then never gets past its start with no window (Wine bug 55397, highball#268, also Steelrising). Proton has had
-real implementations since 2021. GetPackagesByPackageFamily, GetPackagePath and PackageFullNameFromId are taken
-from Proton (ValveSoftware/wine, Paul Gofman, LGPL), with the WCHAR ** parameter Windows has; the wine.inf
-entries are Proton's. CrossOver 26.3 had neither GetPackagePath nor PackageFullNameFromId.
+Proton (ValveSoftware/wine, Paul Gofman): app packages from the registry, for games that look
+up the Visual C++ framework package (Forza Horizon 4, Steelrising). Commits 7b4037421e ("kernel32:
+Implement GetPackagesByPackageFamily()"), 8089c27dae ("kernel32: Implement GetPackagePath()"),
+c18ebc392d ("kernel32: Implement PackageFullNameFromId()") and 09fbb2c010 ("wine.inf: Create
+package repository for VCLibs.140."), fitted to the CrossOver 26.3 tree, tests left out.
 
 diff --git a/dlls/kernel32/kernel32.spec b/dlls/kernel32/kernel32.spec
-index 6a35f53..852ee11 100644
+index 6a35f53..8bc12e4 100644
 --- a/dlls/kernel32/kernel32.spec
 +++ b/dlls/kernel32/kernel32.spec
-@@ -783,6 +783,7 @@
+@@ -782,7 +782,8 @@
+ @ stdcall -import GetUserPreferredUILanguages(long ptr ptr ptr)
  @ stdcall GetPackageFamilyName(long ptr ptr) kernelbase.GetPackageFamilyName
  @ stdcall GetPackageFullName(long ptr ptr) kernelbase.GetPackageFullName
- @ stdcall GetPackagesByPackageFamily(wstr ptr ptr ptr ptr) kernelbase.GetPackagesByPackageFamily
-+@ stdcall GetPackagePath(ptr long ptr ptr) kernelbase.GetPackagePath
+-@ stdcall GetPackagesByPackageFamily(wstr ptr ptr ptr ptr) kernelbase.GetPackagesByPackageFamily
++@ stdcall -import GetPackagePath(ptr long ptr ptr)
++@ stdcall -import GetPackagesByPackageFamily(wstr ptr ptr ptr ptr)
  @ stdcall GetPackagePathByFullName(wstr ptr wstr) kernelbase.GetPackagePathByFullName
  @ stdcall -import GetPhysicallyInstalledSystemMemory(ptr)
  @ stdcall -import GetPriorityClass(long)
@@ -54,38 +49,111 @@ index 3c880bf..1610ad5 100644
  @ stdcall PackageIdFromFullName(wstr long ptr ptr)
  # @ stub PackageIdFromProductId
 diff --git a/dlls/kernelbase/version.c b/dlls/kernelbase/version.c
-index 495325b..6d09a97 100644
+index 495325b..966ec9c 100644
 --- a/dlls/kernelbase/version.c
 +++ b/dlls/kernelbase/version.c
-@@ -32,6 +32,7 @@
- #define WIN32_NO_STATUS
- #include "windef.h"
- #include "winbase.h"
-+#include "winreg.h"
- #include "winver.h"
- #include "winuser.h"
+@@ -37,6 +37,7 @@
  #include "winnls.h"
-@@ -44,6 +45,10 @@
+ #include "winternl.h"
+ #include "winerror.h"
++#include "winreg.h"
+ #include "appmodel.h"
  
- WINE_DEFAULT_DEBUG_CHANNEL(ver);
+ #include "kernelbase.h"
+@@ -159,6 +160,8 @@ static const struct
+     }
+ };
  
-+/* Where installed app packages are registered (Highball: from Proton, Paul Gofman). */
 +static const WCHAR packages_key_name[] = L"Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows"
 +        L"\\CurrentVersion\\AppModel\\PackageRepository\\Packages";
-+
- typedef struct
- {
-     WORD offset;
-@@ -1647,17 +1652,111 @@ LONG WINAPI /* DECLSPEC_HOTPATCH */ GetPackageFamilyName( HANDLE process, UINT32
- /***********************************************************************
-  *         GetPackagesByPackageFamily   (kernelbase.@)
-  */
+ 
+ /******************************************************************************
+  *  init_current_version
+@@ -1644,22 +1647,6 @@ LONG WINAPI /* DECLSPEC_HOTPATCH */ GetPackageFamilyName( HANDLE process, UINT32
+     return APPMODEL_ERROR_NO_PACKAGE;
+ }
+ 
+-/***********************************************************************
+- *         GetPackagesByPackageFamily   (kernelbase.@)
+- */
 -LONG WINAPI DECLSPEC_HOTPATCH GetPackagesByPackageFamily(const WCHAR *family_name, UINT32 *count,
 -                                                         WCHAR *full_names, UINT32 *buffer_len, WCHAR *buffer)
+-{
+-    FIXME( "(%s %p %p %p %p): stub\n", debugstr_w(family_name), count, full_names, buffer_len, buffer );
+-
+-    if (!count || !buffer_len)
+-        return ERROR_INVALID_PARAMETER;
+-
+-    *count = 0;
+-    *buffer_len = 0;
+-    return ERROR_SUCCESS;
+-}
+-
+ /***********************************************************************
+  *         GetPackagePathByFullName   (kernelbase.@)
+  */
+@@ -1698,6 +1685,16 @@ static UINT32 processor_arch_from_string(const WCHAR *str, unsigned int len)
+     return ~0u;
+ }
+ 
++const WCHAR *string_from_processor_arch(UINT32 code)
++{
++    unsigned int i;
++
++    for (i = 0; i < ARRAY_SIZE(arch_names); ++i)
++        if (code == arch_names[i].code)
++            return arch_names[i].name;
++    return NULL;
++}
++
+ /***********************************************************************
+  *         PackageIdFromFullName   (kernelbase.@)
+  */
+@@ -1786,3 +1783,229 @@ LONG WINAPI PackageIdFromFullName(const WCHAR *full_name, UINT32 flags, UINT32 *
+ 
+     return ERROR_SUCCESS;
+ }
++
++
++/***********************************************************************
++ *         PackageFullNameFromId   (kernelbase.@)
++ */
++LONG WINAPI PackageFullNameFromId(const PACKAGE_ID *package_id, UINT32 *length, WCHAR *full_name)
++{
++    WCHAR ver_str[5 * 4 + 3 + 1];
++    const WCHAR *arch_str;
++    UINT32 have_length;
++
++    TRACE("package_id %p, length %p, full_name %p.\n", package_id, length, full_name);
++
++    if (!package_id || !length)
++        return ERROR_INVALID_PARAMETER;
++    if (!full_name && *length)
++        return ERROR_INVALID_PARAMETER;
++    if (!package_id->name || !package_id->resourceId || !package_id->publisherId
++            || !(arch_str = string_from_processor_arch(package_id->processorArchitecture)))
++        return ERROR_INVALID_PARAMETER;
++
++    swprintf(ver_str, ARRAY_SIZE(ver_str), L"%u.%u.%u.%u", package_id->version.Major,
++            package_id->version.Minor, package_id->version.Build, package_id->version.Revision);
++    have_length = *length;
++    *length = lstrlenW(package_id->name) + 1 + lstrlenW(ver_str) + 1 + lstrlenW(arch_str) + 1
++            + lstrlenW(package_id->resourceId) + 1 + lstrlenW(package_id->publisherId) + 1;
++
++    if (have_length < *length)
++        return ERROR_INSUFFICIENT_BUFFER;
++
++    swprintf(full_name, *length, L"%s_%s_%s_%s_%s", package_id->name, ver_str, arch_str, package_id->resourceId, package_id->publisherId);
++    return ERROR_SUCCESS;
++}
++
++
++/***********************************************************************
++ *         GetPackagesByPackageFamily   (kernelbase.@)
++ */
 +LONG WINAPI GetPackagesByPackageFamily(const WCHAR *family_name, UINT32 *count, WCHAR **full_names,
 +        UINT32 *buffer_length, WCHAR *buffer)
- {
--    FIXME( "(%s %p %p %p %p): stub\n", debugstr_w(family_name), count, full_names, buffer_len, buffer );
++{
 +    UINT32 curr_count, curr_length, package_id_buf_size, size;
 +    unsigned int i, name_len, publisher_id_len;
 +    DWORD subkey_count, max_key_len, length;
@@ -100,14 +168,10 @@ index 495325b..6d09a97 100644
 +
 +    if (!buffer_length || !count || !family_name)
 +        return ERROR_INVALID_PARAMETER;
- 
--    if (!count || !buffer_len)
++
 +    if ((*buffer_length || *count) && (!full_names || !buffer))
-         return ERROR_INVALID_PARAMETER;
- 
--    *count = 0;
--    *buffer_len = 0;
--    return ERROR_SUCCESS;
++        return ERROR_INVALID_PARAMETER;
++
 +    if (!(publisher_id = wcschr(family_name, L'_')))
 +        return ERROR_INVALID_PARAMETER;
 +
@@ -192,62 +256,8 @@ index 495325b..6d09a97 100644
 +    *buffer_length = curr_length;
 +
 +    return short_buffer ? ERROR_INSUFFICIENT_BUFFER : ERROR_SUCCESS;
- }
- 
- /***********************************************************************
-@@ -1698,6 +1797,16 @@ static UINT32 processor_arch_from_string(const WCHAR *str, unsigned int len)
-     return ~0u;
- }
- 
-+static const WCHAR *string_from_processor_arch(UINT32 code)
-+{
-+    unsigned int i;
-+
-+    for (i = 0; i < ARRAY_SIZE(arch_names); ++i)
-+        if (code == arch_names[i].code)
-+            return arch_names[i].name;
-+    return NULL;
 +}
 +
- /***********************************************************************
-  *         PackageIdFromFullName   (kernelbase.@)
-  */
-@@ -1786,3 +1895,116 @@ LONG WINAPI PackageIdFromFullName(const WCHAR *full_name, UINT32 flags, UINT32 *
- 
-     return ERROR_SUCCESS;
- }
-+
-+/***********************************************************************
-+ *         PackageFullNameFromId   (kernelbase.@)
-+ */
-+LONG WINAPI PackageFullNameFromId(const PACKAGE_ID *package_id, UINT32 *length, WCHAR *full_name)
-+{
-+    WCHAR ver_str[5 * 4 + 3 + 1];
-+    const WCHAR *arch_str;
-+    UINT32 have_length;
-+
-+    TRACE("package_id %p, length %p, full_name %p.\n", package_id, length, full_name);
-+
-+    if (!package_id || !length)
-+        return ERROR_INVALID_PARAMETER;
-+    if (!full_name && *length)
-+        return ERROR_INVALID_PARAMETER;
-+    if (!package_id->name || !package_id->resourceId || !package_id->publisherId
-+            || !(arch_str = string_from_processor_arch(package_id->processorArchitecture)))
-+        return ERROR_INVALID_PARAMETER;
-+
-+    swprintf(ver_str, ARRAY_SIZE(ver_str), L"%u.%u.%u.%u", package_id->version.Major,
-+            package_id->version.Minor, package_id->version.Build, package_id->version.Revision);
-+    have_length = *length;
-+    *length = lstrlenW(package_id->name) + 1 + lstrlenW(ver_str) + 1 + lstrlenW(arch_str) + 1
-+            + lstrlenW(package_id->resourceId) + 1 + lstrlenW(package_id->publisherId) + 1;
-+
-+    if (have_length < *length)
-+        return ERROR_INSUFFICIENT_BUFFER;
-+
-+    swprintf(full_name, *length, L"%s_%s_%s_%s_%s", package_id->name, ver_str, arch_str, package_id->resourceId, package_id->publisherId);
-+    return ERROR_SUCCESS;
-+}
 +
 +/***********************************************************************
 + *         GetPackagePath   (kernelbase.@)
@@ -329,8 +339,23 @@ index 495325b..6d09a97 100644
 +    HeapFree(GetProcessHeap(), 0, key_name);
 +    return ret;
 +}
+diff --git a/include/appmodel.h b/include/appmodel.h
+index 8a2e85e..be465bd 100644
+--- a/include/appmodel.h
++++ b/include/appmodel.h
+@@ -92,6 +92,10 @@ LONG WINAPI AppPolicyGetProcessTerminationMethod(HANDLE token, AppPolicyProcessT
+ LONG WINAPI AppPolicyGetShowDeveloperDiagnostic(HANDLE token, AppPolicyShowDeveloperDiagnostic *policy);
+ LONG WINAPI AppPolicyGetThreadInitializationType(HANDLE token, AppPolicyThreadInitializationType *policy);
+ LONG WINAPI AppPolicyGetWindowingModel(HANDLE processToken, AppPolicyWindowingModel *policy);
++LONG WINAPI GetPackagePath(const PACKAGE_ID *package_id, const UINT32 reserved, UINT32 *length, WCHAR *path);
++LONG WINAPI GetPackagesByPackageFamily(const WCHAR *family_name, UINT32 *count, WCHAR **full_names,
++        UINT32 *buffer_length, WCHAR *buffer);
++LONG WINAPI PackageFullNameFromId(const PACKAGE_ID *package_id, UINT32 *length, WCHAR *full_name);
+ LONG WINAPI PackageIdFromFullName(const WCHAR *full_name, UINT32 flags, UINT32 *buffer_length, BYTE *buffer);
+ 
+ #if defined(__cplusplus)
 diff --git a/loader/wine.inf.in b/loader/wine.inf.in
-index 942a2cf..10ded28 100644
+index 942a2cf..45630fc 100644
 --- a/loader/wine.inf.in
 +++ b/loader/wine.inf.in
 @@ -82,6 +82,7 @@ AddReg=\
@@ -353,7 +378,7 @@ index 942a2cf..10ded28 100644
  WineFakeDlls=FakeDllsWin64
  AddReg=\
      CurrentVersionWow64.ntarm64,\
-+    Packages.ntarm64,\
++    Packages.arm64,\
      VCRuntime.ntamd64,\
      VCRuntime.ntarm64,\
      VersionInfo
@@ -365,17 +390,17 @@ index 942a2cf..10ded28 100644
      VCRuntime.ntamd64,\
      VCRuntime.ntx86
  
-@@ -214,6 +218,7 @@ AddService=NDIS,0x800,NDISService
- AddService=nsiproxy,0x800,NsiProxyService
- 
- [Strings]
+@@ -220,6 +224,7 @@ CurrentVersion="Software\Microsoft\Windows\CurrentVersion"
+ CurrentVersionNT="Software\Microsoft\Windows NT\CurrentVersion"
+ FontSubStr="Software\Microsoft\Windows NT\CurrentVersion\FontSubstitutes"
+ Control="System\CurrentControlSet\Control"
 +Packages="Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\PackageRepository\Packages"
- MciExtStr="Software\Microsoft\Windows NT\CurrentVersion\MCI Extensions"
- Mci32Str="Software\Microsoft\Windows NT\CurrentVersion\MCI32"
- CurrentVersion="Software\Microsoft\Windows\CurrentVersion"
-@@ -637,6 +642,18 @@ HKCU,Software\Microsoft\Windows\Shell\Associations\UrlAssociations\ftp\UserChoic
- HKCU,Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice,"ProgId",,"http"
- HKCU,Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice,"ProgId",,"https"
+ 
+ [Classes]
+ HKCR,.chm,,2,"chm.file"
+@@ -641,6 +646,18 @@ HKCU,Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserCho
+ HKLM,"Software\Microsoft\OLE","EnableDCOM",,"Y"
+ HKLM,"Software\Microsoft\OLE","EnableRemoteConnect",,"N"
  
 +[Packages]
 +HKLM,"%Packages%\Microsoft.VCLibs.140.00_14.0.29231.0_x86__8wekyb3d8bbwe","Path",0x00020002,"%SystemRoot%\system32"
@@ -386,9 +411,9 @@ index 942a2cf..10ded28 100644
 +[Packages.wow64]
 +HKLM,"%Packages%\Microsoft.VCLibs.140.00_14.0.29231.0_x86__8wekyb3d8bbwe","Path",0x00020002,"%SystemRoot%\syswow64"
 +
-+[Packages.ntarm64]
++[Packages.arm64]
 +HKLM,"%Packages%\Microsoft.VCLibs.140.00_14.0.29231.0_arm64__8wekyb3d8bbwe","Path",0x00020002,"%SystemRoot%\system32"
 +
- [OLE]
- HKLM,"Software\Microsoft\OLE","EnableDCOM",,"Y"
- HKLM,"Software\Microsoft\OLE","EnableRemoteConnect",,"N"
+ [Printing]
+ HKLM,%Control%\Print\Monitors\Local Port,"Driver",2,"localspl.dll"
+ HKLM,%Control%\Print\Printers,"DefaultSpoolDirectory",2,"%11%\spool\printers"

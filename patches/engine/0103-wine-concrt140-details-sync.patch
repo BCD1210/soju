@@ -1,33 +1,11 @@
-concrt140 and msvcp90: the concurrent_vector fixes from upstream Wine.
+Upstream Wine de43f5434fe (Piotr Caban, "concrt140: Sync details.c file with msvcp90."), the
+dlls/concrt140 part; its msvcp90 hunk is already in this tree with 0102.
 
-Backport of two upstream commits by Piotr Caban, unchanged:
-de43f5434fe "concrt140: Sync details.c file with msvcp90." (2026-05-01) and
-the msvcp90 half of d5c7ea9089e "msvcp120: Don't count segments being
-allocated when reporting vector capacity." (2026-04-30). CrossOver 26.3's
-dlls/concrt140/details.c is the upstream file from before de43f5434fe, byte
-for byte, so the first applies as is.
-
-concrt140's copy of the concurrent_vector code had missed msvcp90's 2025 fixes:
-it sized segments as element_size times the count the allocator already
-multiplies, and placed segments and elements with BYTE** arithmetic, eight
-times too far. And in both copies _Internal_capacity counted a segment another
-thread was still allocating (SEGMENT_ALLOC_MARKER, the value 1) as allocated,
-so _Internal_reserve could return early and _Internal_push_back handed out the
-marker plus an offset as the new element's address.
-
-Forza Horizon 6's Steam build of 2026-11-03 (26261073) imports
-?_Internal_push_back@_Concurrent_vector_base_v4@details@Concurrency@@IEAAPEAX_KAEA_K@Z
-from concrt140 and stores through the result at forzahorizon6.exe+0xeb33ff.
-On the Wine 11 engines r28 and r30 it crashed in its first minute with an
-unhandled write to 0x9 or 0x29 (the marker plus 8, the marker plus two
-16-byte elements plus 8): 5 of 10 cold starts on r28 and every one on r30, an
-M4 with macOS 27.0, 2026-11-04. With Microsoft's concrt140 (concrt140=n,b) the
-same environment ran 6 of 6, three on each, to the game's next screen. The
-arm64 engines' Wine 11.18 already carries both commits.
-diff -ru a/dlls/concrt140/details.c b/dlls/concrt140/details.c
---- a/dlls/concrt140/details.c	2026-11-04 02:35:28
-+++ b/dlls/concrt140/details.c	2026-11-04 02:35:28
-@@ -483,12 +483,11 @@
+diff --git a/dlls/concrt140/details.c b/dlls/concrt140/details.c
+index f8c2fad..ceed46a 100644
+--- a/dlls/concrt140/details.c
++++ b/dlls/concrt140/details.c
+@@ -483,12 +483,11 @@ static void concurrent_vector_alloc_segment(_Concurrent_vector_base_v4 *this,
              __TRY
              {
                  if(seg == 0)
@@ -43,7 +21,7 @@ diff -ru a/dlls/concrt140/details.c b/dlls/concrt140/details.c
              }
              __EXCEPT_ALL
              {
-@@ -528,7 +527,7 @@
+@@ -528,7 +527,7 @@ size_t __thiscall _Concurrent_vector_base_v4__Internal_capacity(
      last_block = (this->segment == this->storage ? STORAGE_SIZE : SEGMENT_SIZE);
      for(i = 0; i < last_block; i++)
      {
@@ -52,7 +30,7 @@ diff -ru a/dlls/concrt140/details.c b/dlls/concrt140/details.c
              return !i ? 0 : 1 << i;
      }
      return 1 << i;
-@@ -714,7 +713,7 @@
+@@ -714,7 +713,7 @@ void __thiscall _Concurrent_vector_base_v4__Internal_assign(
      if(this->early_size > v_size)
      {
          if((i ? 1 << i : 2) - remain_element > 0)
@@ -61,7 +39,7 @@ diff -ru a/dlls/concrt140/details.c b/dlls/concrt140/details.c
                      (i ? 1 << i : 2) - remain_element);
          if(i < seg_no)
          {
-@@ -726,8 +725,8 @@
+@@ -726,8 +725,8 @@ void __thiscall _Concurrent_vector_base_v4__Internal_assign(
      else if(this->early_size < v_size)
      {
          if((i ? 1 << i : 2) - remain_element > 0)
@@ -72,7 +50,7 @@ diff -ru a/dlls/concrt140/details.c b/dlls/concrt140/details.c
                      (i ? 1 << i : 2) - remain_element);
          if(i < v_seg_no)
          {
-@@ -763,7 +762,7 @@
+@@ -763,7 +762,7 @@ size_t __thiscall _Concurrent_vector_base_v4__Internal_grow_by(
      last_seg_no = _vector_base_v4__Segment_index_of(size + count - 1);
      remain_size = min(size + count, 1 << (seg_no + 1)) - size;
      if(remain_size > 0)
@@ -81,7 +59,7 @@ diff -ru a/dlls/concrt140/details.c b/dlls/concrt140/details.c
              remain_size);
      if(seg_no != last_seg_no)
      {
-@@ -796,7 +795,7 @@
+@@ -796,7 +795,7 @@ size_t __thiscall _Concurrent_vector_base_v4__Internal_grow_to_at_least_with_res
      last_seg_no = _vector_base_v4__Segment_index_of(count - 1);
      remain_size = min(count, 1 << (seg_no + 1)) - size;
      if(remain_size > 0)
@@ -90,7 +68,7 @@ diff -ru a/dlls/concrt140/details.c b/dlls/concrt140/details.c
              remain_size);
      if(seg_no != last_seg_no)
      {
-@@ -862,7 +861,7 @@
+@@ -862,7 +861,7 @@ void __thiscall _Concurrent_vector_base_v4__Internal_resize(
              clear(this->segment[seg_no], 1 << seg_no);
          clear_element = (1 << (end_seg_no + 1)) - resize;
          if(clear_element > 0)
@@ -99,15 +77,3 @@ diff -ru a/dlls/concrt140/details.c b/dlls/concrt140/details.c
                      clear_element);
          this->early_size = resize;
      }
-diff -ru a/dlls/msvcp90/details.c b/dlls/msvcp90/details.c
---- a/dlls/msvcp90/details.c	2026-11-04 02:35:28
-+++ b/dlls/msvcp90/details.c	2026-11-04 02:35:28
-@@ -541,7 +541,7 @@
-     last_block = (this->segment == this->storage ? STORAGE_SIZE : SEGMENT_SIZE);
-     for(i = 0; i < last_block; i++)
-     {
--        if(!this->segment[i])
-+        if(!this->segment[i] || this->segment[i] == SEGMENT_ALLOC_MARKER)
-             return !i ? 0 : 1 << i;
-     }
-     return 1 << i;

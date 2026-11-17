@@ -1,0 +1,34 @@
+Soju: a Mac in a UTC+3 zone without daylight saving time gets its own Windows time zone, not
+the first UTC+3 zone in the registry (Arab Standard Time). Rockstar's sign-in refused a Mac in
+Istanbul that said it was in Riyadh.
+
+diff --git a/dlls/ntdll/unix/system.c b/dlls/ntdll/unix/system.c
+index 438e671..a4f09b2 100644
+--- a/dlls/ntdll/unix/system.c
++++ b/dlls/ntdll/unix/system.c
+@@ -2756,6 +2756,25 @@ static BOOL match_tz_name( const char *tz_name, const RTL_DYNAMIC_TIME_ZONE_INFO
+           "JST" },
+         { {'Y','a','k','u','t','s','k',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
+           "+09" }, /* YAKST was used until tzdata 2016f */
++        /* Soju: zones at UTC+3 all year. The first in the registry (Arab, Riyadh) used to win for
++         * all of them, and Rockstar's sign-in refuses a Mac in Istanbul that says Riyadh. Moscow
++         * and East Africa have abbreviations of their own; the rest say "+03" and differ by their
++         * past offsets: Amman and Damascus were still UTC+2 in winter 2020 (until 2022), Istanbul
++         * in winter 2015 (until 2016), while Riyadh, Baghdad and Minsk were UTC+3 at both. */
++        { {'R','u','s','s','i','a','n',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 }, "MSK" },
++        { {'E','.',' ','A','f','r','i','c','a',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 }, "EAT" },
++        { {'T','u','r','k','e','y',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1420070400 /* 2015-01-01 00:00:00 UTC */, -120 },
++        { {'J','o','r','d','a','n',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1577836800 /* 2020-01-01 00:00:00 UTC */, -120 },
++        { {'S','y','r','i','a',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1577836800, -120 },
++        { {'A','r','a','b',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1420070400, -180 },
++        { {'A','r','a','b','i','c',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1420070400, -180 },
++        { {'B','e','l','a','r','u','s',' ','S','t','a','n','d','a','r','d',' ','T','i','m','e',0 },
++          "+03", 1420070400, -180 },
+     };
+     unsigned int i;
+ 

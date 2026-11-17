@@ -1,20 +1,13 @@
-mfreadwrite/reader: rely on the video processor's sample allocator (Proton 164af86d, CW-Bug-Id 20833).
+From 164af86dd770f975cdff3e09884f14ebc14b856b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?R=C3=A9mi=20Bernon?= <rbernon@codeweavers.com>
+Date: Mon, 4 Mar 2024 09:54:09 +0100
+Subject: [PATCH] mfreadwrite/reader: Rely on the video processor sample
+ allocator.
 
-What it fixes: a game that plays video through a Media Foundation source reader with a D3D11
-device manager (Unity's WindowsVideoMedia, Unreal's WmfMedia) asks DXGI for a shared handle on
-each decoded frame's texture. The reader in this tree allocates those textures itself, without
-the shared flags the video processor's own allocator would set from MF_SA_D3D11_SHARED, so DXMT
-(which implements sharing through D3DKMT since 0.72) answers a null handle and the frame never
-reaches the game: The Last Flame's menu video logs "Got null handle from
-IDXGIResource::GetSharedHandle" ~14 times a second and never shows (highball#99, measured
-2026-09-19 on x64-crossover26.3-r10, DXMT 0.80). 3Shain's diagnosis on 3Shain/dxmt#135 (Blue
-Archive cutscenes) names this patch as the fix. The two companion leak fixes from Proton
-(7bb1b147, e21244f7) are already in CrossOver 26.3's reader.c.
-
-Verification: pending the first engine built with it (target: The Last Flame Prologue, Steam
-2517810, menu video visible under DXMT; then Blue Archive-class Unity titles).
-
-Upstream status: Proton-only as of 2026-09; not in upstream Wine 11.0 or CrossOver 26.3.
+CW-Bug-Id: #20833
+---
+ dlls/mfreadwrite/reader.c | 143 --------------------------------------
+ 1 file changed, 143 deletions(-)
 
 diff --git a/dlls/mfreadwrite/reader.c b/dlls/mfreadwrite/reader.c
 index 19e1bf6b1f93..fcb8d8dec949 100644

@@ -5,12 +5,12 @@
 #
 # It is a copy of the CX engine (an APFS clone: no extra disk space) with the
 # launcher-support component on top (scripts/build-launcher-support.sh):
-#  - winemac.so with patches/winemac-cross-process-swapchains.patch. These
+#  - winemac.so with patches/engine/0007-remote-child-layers.patch. These
 #    launchers draw their browser UI from a GPU process into a window another
 #    process owns; the stock driver cannot present that, so the windows stay
 #    white (Ubisoft) or black (Rockstar, EA).
-#  - DXMT for d3d10core/d3d11/dxgi, which presents across processes when
-#    DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN=1. D3DMetal cannot. D3D12 stays on D3DMetal.
+#  - DXMT for d3d10core/d3d11/dxgi, with patches/dxmt-cross-process-window.patch
+#    so it accepts that window. D3D12 stays on D3DMetal.
 # Battle.net, Epic and GOG keep the CX engine exactly as it is.
 #
 # The copy is rebuilt when the CX engine, its GPTK payload or the component

@@ -1,0 +1,26 @@
+Soju: winemac's GetDeviceCaps no longer doubles HORZRES and VERTRES in retina mode; they come
+back in pixels already, so they disagreed with GetSystemMetrics and EnumDisplaySettings.
+
+diff --git a/dlls/winemac.drv/gdi.c b/dlls/winemac.drv/gdi.c
+index 7342494..2f9b2c7 100644
+--- a/dlls/winemac.drv/gdi.c
++++ b/dlls/winemac.drv/gdi.c
+@@ -213,15 +213,12 @@ static INT macdrv_GetDeviceCaps(PHYSDEV dev, INT cap)
+     case VERTSIZE:
+         ret = vert_size;
+         break;
+-    case HORZRES:
+-    case VERTRES:
+     default:
++        /* Soju: HORZRES and VERTRES come back in pixels already, so doubling them in retina mode
++         * reported four times the screen area, unlike GetSystemMetrics and EnumDisplaySettings. */
+         pthread_mutex_unlock(&device_data_mutex);
+         dev = GET_NEXT_PHYSDEV( dev, pGetDeviceCaps );
+-        ret = dev->funcs->pGetDeviceCaps( dev, cap );
+-        if ((cap == HORZRES || cap == VERTRES) && retina_on)
+-            ret *= 2;
+-        return ret;
++        return dev->funcs->pGetDeviceCaps( dev, cap );
+     }
+ 
+     TRACE("cap %d -> %d\n", cap, ret);

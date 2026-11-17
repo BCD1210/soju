@@ -1,0 +1,28 @@
+Soju: CredEnumerate() keeps the registry's matches when the macOS Keychain has none for the
+filter. Programs that keep their own generic credentials and look them up by prefix (Xbox sign-in
+keeps its device key so) never found them and asked to sign in at every launch.
+
+diff --git a/dlls/advapi32/cred.c b/dlls/advapi32/cred.c
+index dd8d7ce..b85b3a0 100644
+--- a/dlls/advapi32/cred.c
++++ b/dlls/advapi32/cred.c
+@@ -1059,7 +1059,9 @@ BOOL WINAPI CredEnumerateW(LPCWSTR Filter, DWORD Flags, DWORD *Count, PCREDENTIA
+     if (ret == ERROR_SUCCESS)
+     {
+         ret = host_enumerate_credentials(Filter, NULL, NULL, &len, Count);
+-        if (ret == ERROR_NOT_SUPPORTED) ret = ERROR_SUCCESS;
++        /* Soju: the Keychain having no match (ERROR_NOT_FOUND on macOS) is no reason to drop
++         * the registry's matches; only an empty result overall is ERROR_NOT_FOUND. */
++        if (ret == ERROR_NOT_SUPPORTED || ret == ERROR_NOT_FOUND) ret = ERROR_SUCCESS;
+     }
+     if (ret == ERROR_SUCCESS && *Count == 0)
+         ret = ERROR_NOT_FOUND;
+@@ -1085,7 +1087,7 @@ BOOL WINAPI CredEnumerateW(LPCWSTR Filter, DWORD Flags, DWORD *Count, PCREDENTIA
+             if (ret == ERROR_SUCCESS)
+             {
+                 ret = host_enumerate_credentials(Filter, *Credentials, buffer, &len, Count);
+-                if (ret == ERROR_NOT_SUPPORTED) ret = ERROR_SUCCESS;
++                if (ret == ERROR_NOT_SUPPORTED || ret == ERROR_NOT_FOUND) ret = ERROR_SUCCESS;
+             }
+         }
+         else ret = ERROR_OUTOFMEMORY;
