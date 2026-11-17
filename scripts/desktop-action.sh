@@ -15,6 +15,11 @@ case "$ACTION" in
   game-storage) exec python3 "$ROOT/scripts/game-storage.py" "$@" ;;
   doctor) exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
   steam-gptk) exec bash "$ROOT/scripts/steam-gptk.sh" "${1:?on or off}" ;;
+  uninstall)
+    case "${1:-}" in
+      launcher) exec bash "$ROOT/scripts/uninstall.sh" launcher "${2:?Choose a launcher}" ;;
+      all) exec bash "$ROOT/scripts/uninstall.sh" --yes ;;
+      *) echo "Unknown uninstall action."; exit 64 ;; esac ;;
   report) exec python3 "$ROOT/scripts/report.py" "${1:-}" ;;
   self-update)
     # Detached, so it outlives the app it is about to replace.
