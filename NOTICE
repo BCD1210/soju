@@ -14,6 +14,10 @@ Built or downloaded by the scripts (open-source component releases include corre
   pinned URL and checksum in resources/steam-wine.json
 - DXMT pinned notpop fork: MIT, Copyright (c) 2023 Feifan He
   (built from the notpop fork of github.com/3Shain/dxmt)
+- MoltenVK v1.4.2 in the Steam support package (libMoltenVK.dylib): Apache-2.0, built by
+  scripts/build-moltenvk.sh with patches/moltenvk/*.patch. Those two patches come from Highball
+  (github.com/gauthierpiarrette/highball, GPL-3.0-or-later), ported there from DiAvisoo's MoltenVK-Detroit
+  (work by alexdremov and squidbus in KhronosGroup/MoltenVK#2054).
 - wine-mono: MIT (dotnet parts MIT/BSD-like); MoltenVK: Apache-2.0; gnutls: LGPL-2.1+;
   freetype: FTL/GPL-2.0 dual
 - Apple Game Porting Toolkit payload (libd3dshared/D3DMetal): Apple proprietary,
