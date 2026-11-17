@@ -37,7 +37,9 @@ mkdir "$WORK/x" && ditto -x -k "$WORK/$ZIP" "$WORK/x" || fail "could not unpack"
 NEW="$WORK/x/Soju.app"
 [ -d "$NEW" ] || fail "no Soju.app in the download"
 codesign --verify --deep --strict "$NEW" 2>/dev/null || fail "signature does not verify"
-codesign -dv "$NEW" 2>&1 | grep -qx "TeamIdentifier=$TEAM" || fail "not signed by Didim Labs"
+# No pipe into grep -q here: with pipefail, grep closing the pipe early made the check fail at random.
+sig=$(codesign -dv "$NEW" 2>&1 || true)
+[[ $'\n'"$sig"$'\n' == *$'\n'"TeamIdentifier=$TEAM"$'\n'* ]] || fail "not signed by Didim Labs"
 spctl -a -t exec "$NEW" 2>/dev/null || fail "Gatekeeper does not accept it"
 v=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$NEW/Contents/Info.plist" 2>/dev/null || true)
 [ "$v" = "$VERSION" ] || fail "version is $v, expected $VERSION"
