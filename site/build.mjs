@@ -11,7 +11,7 @@ import { components, registry } from './catalog.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const docs = join(here, '..', 'docs');
-const CSS_VERSION = '20261111a';
+const CSS_VERSION = '20261117a';
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const plain = (s) => s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
 
@@ -64,7 +64,9 @@ function page(file) {
     p.og?.imageAlt && `<meta property="og:image:alt" content="${esc(p.og.imageAlt)}">`,
     p.lang === 'ko' && '<meta property="og:locale" content="ko_KR">',
     '<meta name="twitter:card" content="summary_large_image">',
-    '<meta name="theme-color" content="#121413">',
+    '<meta name="theme-color" content="#fbfbf8" media="(prefers-color-scheme: light)">',
+    '<meta name="theme-color" content="#161816" media="(prefers-color-scheme: dark)">',
+    '<meta name="color-scheme" content="light dark">',
     `<link rel="icon" href="${b}assets/favicon.png">`,
     `<link rel="apple-touch-icon" href="${b}assets/apple-touch-icon.png">`,
     `<link rel="stylesheet" href="${b}style.css?v=${CSS_VERSION}">`,
@@ -73,7 +75,7 @@ function page(file) {
     !p.private && `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "a7048ad8ec7b480c9ad71182b1641147"}'></script>`,
     graph.length && `<script type="application/ld+json">\n${JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }, null, 1).replace(/</g, '\\u003c')}\n</script>`,
   ].filter(Boolean).join('\n');
-  const nav = (p.nav || []).map((l) => `<a href="${esc(l.href)}"${l.lang ? ` lang="${l.lang}" hreflang="${l.lang}"` : ''}${l.current ? ' aria-current="page"' : ''}>${esc(l.label)}</a>`).join('\n  ');
+  const nav = (p.nav || []).map((l) => `<a href="${esc(l.href)}"${l.button ? ' class="nav-download"' : ''}${l.lang ? ` lang="${l.lang}" hreflang="${l.lang}"` : ''}${l.current ? ' aria-current="page"' : ''}>${esc(l.label)}</a>`).join('\n  ');
   const footer = (p.footer || []).map((line) => `<p>${renderToStaticMarkup(h('span', null, ...inlineNodes(line)))}</p>`).join('\n');
   const html = `<!DOCTYPE html>
 <html lang="${p.lang}">

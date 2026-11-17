@@ -17,7 +17,7 @@ export const components = {
       props: z.object({
         title: str, lead: str, logo: opt(str), actions: opt(z.array(link)), meta: opt(str), image: opt(image),
         // Home pages: a large headline with the app icon beside it. Other pages give only title/lead.
-        headline: opt(str), eyebrow: opt(str), icon: opt(image), command: opt(str),
+        headline: opt(str), eyebrow: opt(str), icon: opt(image), command: opt(str), alt: opt(str),
         stores: opt(z.object({ label: str, items: z.array(str) })),
       }),
       description: 'Page heading',
@@ -28,10 +28,14 @@ export const components = {
     Features: { props: z.object({ items: z.array(z.object({ title: str, text: str })) }), description: 'Grid of short facts' },
     Steps: { props: z.object({ row: opt(z.boolean()), items: z.array(z.object({ title: str, text: opt(str), code: opt(str) })) }), description: 'Numbered steps; row lays them out side by side' },
     Proof: {
-      props: z.object({ items: z.array(z.object({ title: str, store: str, status: str, tone: z.enum(['plays', 'partial']), result: str })) }),
+      props: z.object({ head: opt(z.array(str)), items: z.array(z.object({ title: str, store: str, status: str, tone: z.enum(['plays', 'partial']), result: str })) }),
       description: 'Cards for games that were run, with a status pill',
     },
     Cta: { props: z.object({ title: str, text: opt(str), icon: opt(image), actions: z.array(link) }), description: 'Closing call to action' },
+    GameSearch: {
+      props: z.object({ id: opt(str), label: str, placeholder: str, button: str, action: str, hint: opt(str) }),
+      description: 'Search box that opens the game list filtered by the name typed',
+    },
     Table: { props: z.object({ label: str, head: z.array(str), rows: z.array(z.array(str)) }), description: 'Data table' },
     Code: { props: z.object({ code: str }), description: 'Code block' },
     Note: { props: z.object({ text: str }), description: 'Side note' },
@@ -80,16 +84,12 @@ export const { registry } = defineRegistry(catalog, {
     Hero: ({ props }) => props.headline
       ? h('header', { className: 'hero hero-home' },
         h('div', { className: 'hero-copy' },
-          props.eyebrow && h('p', { className: 'eyebrow' }, props.eyebrow),
-          h('h1', { className: 'headline' }, inline(props.headline)),
+          h('h1', null, inline(props.headline)),
           h('p', { className: 'lead' }, inline(props.lead)),
           props.actions && h('p', { className: 'actions' }, props.actions.map(button)),
-          props.command && h('p', { className: 'cmd' }, h('code', null, props.command)),
-          props.meta && h('p', { className: 'meta' }, props.meta),
-          props.stores && h('ul', { className: 'stores', 'aria-label': props.stores.label },
-            props.stores.items.map((s, k) => h('li', { key: k }, s)))),
-        props.icon && img(props.icon, { className: 'hero-icon' }),
-        props.image && h('div', { className: 'shot-wrap' }, img(props.image, { className: 'shot', fetchPriority: 'high' })))
+          props.meta && h('p', { className: 'meta' }, inline(props.meta)),
+          props.alt && h('p', { className: 'alt' }, inline(props.alt))),
+        props.image && h('figure', { className: 'hero-shot' }, img(props.image, { fetchPriority: 'high' })))
       : h('header', { className: 'hero' },
         props.logo ? h('h1', { className: 'with-logo' }, h('img', { src: props.logo, width: 72, height: 72, alt: '' }), props.title) : h('h1', null, props.title),
         h('p', { className: 'lead' }, inline(props.lead)),
@@ -101,8 +101,8 @@ export const { registry } = defineRegistry(catalog, {
       children),
     Text: ({ props }) => h('p', null, inline(props.text)),
     Bullets: ({ props }) => h('ul', null, props.items.map((t, k) => h('li', { key: k }, inline(t)))),
-    Features: ({ props }) => h('div', { className: 'features' }, props.items.map((f, k) =>
-      h('div', { key: k, className: 'feature' }, h('h3', null, f.title), h('p', null, inline(f.text))))),
+    Features: ({ props }) => h('dl', { className: 'facts' }, props.items.map((f, k) =>
+      h(Fragment, { key: k }, h('dt', null, f.title), h('dd', null, inline(f.text))))),
     Steps: ({ props }) => h('ol', { className: props.row ? 'steps row' : 'steps' }, props.items.map((s, k) =>
       h('li', { key: k }, h('b', null, s.title), s.text && h('p', null, inline(s.text)), s.code && h('pre', null, h('code', null, s.code))))),
     Table: ({ props }) => h('div', { className: 'table-scroll', role: 'region', 'aria-label': props.label, tabIndex: 0 },
@@ -110,14 +110,21 @@ export const { registry } = defineRegistry(catalog, {
         h('thead', null, h('tr', null, props.head.map((c, k) => h('th', { key: k, scope: 'col' }, c)))),
         h('tbody', null, props.rows.map((r, i) => h('tr', { key: i }, r.map((c, k) => k === 0
           ? h('th', { key: k, scope: 'row' }, inline(c)) : h('td', { key: k }, inline(c)))))))),
-    Proof: ({ props }) => h('ul', { className: 'proof' }, props.items.map((g, k) =>
-      h('li', { key: k, className: 'proof-card' },
-        h('span', { className: 'store' }, g.store),
-        h('b', null, g.title),
-        h('span', { className: 'pill ' + g.tone }, g.status),
-        h('p', { className: 'result' }, inline(g.result))))),
+    Proof: ({ props }) => h('div', { className: 'table-scroll', role: 'region', 'aria-label': (props.head || [])[0] || 'Games', tabIndex: 0 },
+      h('table', { className: 'proof' },
+        h('thead', null, h('tr', null, (props.head || ['Game', 'Store', 'Result', 'What we saw']).map((c, k) => h('th', { key: k, scope: 'col' }, c)))),
+        h('tbody', null, props.items.map((g, k) => h('tr', { key: k },
+          h('th', { scope: 'row' }, g.title),
+          h('td', null, g.store),
+          h('td', null, h('span', { className: 'pill ' + g.tone }, g.status)),
+          h('td', null, inline(g.result))))))),
+    GameSearch: ({ props }) => h('form', { id: props.id, className: 'game-search', method: 'get', action: props.action, role: 'search', 'aria-labelledby': 'game-q-title' },
+      h('h2', { id: 'game-q-title' }, h('label', { htmlFor: 'game-q' }, props.label)),
+      h('span', { className: 'search-row' },
+        h('input', { id: 'game-q', name: 'q', type: 'search', placeholder: props.placeholder, autoComplete: 'off', required: true }),
+        h('button', { className: 'btn', type: 'submit' }, props.button)),
+      props.hint && h('p', { className: 'hint' }, inline(props.hint))),
     Cta: ({ props }) => h('section', { className: 'cta' },
-      props.icon && img(props.icon, { loading: 'lazy' }),
       h('h2', null, props.title),
       props.text && h('p', null, inline(props.text)),
       h('p', { className: 'actions' }, props.actions.map(button))),
