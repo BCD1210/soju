@@ -51,7 +51,7 @@ soju install
 | The Elder Scrolls V: Skyrim Special Edition | Steam | ✅ 进入游戏（玩家反馈） | M5 Pro，macOS 27.2，Soju 1.14.8；对白和环绕声已确认（[#95](https://github.com/BCD1210/soju/issues/95)） |
 | Guilt Free（Unity Direct3D 11 游戏） | Steam | ✅ 进入游戏，窗口模式 | 见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | The Witcher 3（Remastered） | Steam | 🟡 能到菜单（玩家反馈） | 需要 Apple GPTK 4.0 beta 3，Soju 自 1.14.10 起可安装（[#112](https://github.com/BCD1210/soju/issues/112)） |
-| Diablo II: Resurrected（Steam 版） | Steam | ⏳ 尚未验证 | 预计可在 Overwatch and Diablo II mode 下运行；我们没有 Steam 版 |
+| Diablo II: Resurrected（Steam 版） | Steam | 🟡 可运行（用户反馈） | 在 Overwatch and Diablo II mode 下；有玩家在 Discord 反馈可以运行（2026-11-17）。我们没有 Steam 版，未亲自验证 |
 | Diablo II: Resurrected VR（离线） | Battle.net | 🧪 仅模拟器 | 先 `soju vr setup`，再 `soju vr play`；[docs/VR.md](docs/VR.md) |
 
 **跑不了的：** 任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。

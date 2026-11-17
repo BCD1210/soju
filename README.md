@@ -53,7 +53,7 @@ Tested by us on an M4 Pro with macOS 26.5, unless a row says it is a player's re
 | The Elder Scrolls V: Skyrim Special Edition | Steam | ✅ in-game (player's report) | M5 Pro, macOS 27.2, Soju 1.14.8; dialogue and surround sound confirmed ([#95](https://github.com/BCD1210/soju/issues/95)) |
 | Guilt Free (a Unity Direct3D 11 game) | Steam | ✅ in-game, windowed | see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | The Witcher 3 (Remastered) | Steam | 🟡 reaches its menu (player's report) | needs Apple GPTK 4.0 beta 3, which Soju accepts since 1.14.10 ([#112](https://github.com/BCD1210/soju/issues/112)) |
-| Diablo II: Resurrected (Steam edition) | Steam | ⏳ not verified | should run in Overwatch and Diablo II mode; we don't own the Steam edition |
+| Diablo II: Resurrected (Steam edition) | Steam | 🟡 runs (user report) | in Overwatch and Diablo II mode; a player reported it running on Discord (2026-11-17). Not checked by us: we don't own the Steam edition |
 | Diablo II: Resurrected in VR (offline) | Battle.net | 🧪 simulator only | `soju vr setup`, then `soju vr play`; [docs/VR.md](docs/VR.md) |
 
 **Will not run:** anything with kernel anti-cheat (EAC, BattlEye, Vanguard).
