@@ -73,5 +73,31 @@ class PlayStats(unittest.TestCase):
                 self.assertEqual(sent[0]['id'], (base / 'stats-id').read_text().strip())
 
 
+    def test_library_is_sent_only_when_it_changes(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            (base / 'logs').mkdir()
+            snap = {'games': [{'id': 'steam:1', 'platform': 'steam', 'title': 'A', 'install_path': '/x/A'}]}
+            (base / 'logs/library-scan.log').write_text(json.dumps(snap))
+            sent = []
+            with mock.patch.object(ps, 'BASE', base), mock.patch.object(ps, 'OFF', base / 'off'), \
+                 mock.patch.object(ps, 'send', side_effect=lambda p: sent.append(p) or True):
+                ps.main(['library']); ps.main(['library'])
+                self.assertEqual(len(sent), 1)
+                snap['games'].append({'id': 'steam:2', 'platform': 'steam', 'title': 'B', 'install_path': '/x/B'})
+                (base / 'logs/library-scan.log').write_text(json.dumps(snap))
+                ps.main(['library'])
+                self.assertEqual(len(sent), 2)
+
+    def test_a_game_is_counted_once_at_a_time(self):
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(ps, 'BASE', Path(d)):
+                first = ps.claim('steam:1')
+                self.assertIsNotNone(first)
+                self.assertIsNone(ps.claim('steam:1'))
+                first.write_text('999999')          # a count that died without cleaning up
+                self.assertIsNotNone(ps.claim('steam:1'))
+
+
 if __name__ == '__main__':
     unittest.main()

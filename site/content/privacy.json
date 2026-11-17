@@ -82,7 +82,7 @@
               "When it opens, Soju asks GitHub for the list of Soju releases to tell you if a newer version is out. The request says nothing about you or your games.",
               "Account connections you add (Steam, GOG and others) talk to those services directly from your Mac.",
               "If you turn on TV & iPad streaming, Soju installs Sunshine (open source, LizardByte) on your Mac. It streams only to devices you pair with a PIN on your own network, keeps its settings page on your Mac, and only contacts GitHub to check for new versions.",
-              "Play counts (on unless you turn them off): Soju sends which games are installed (once a day) and how many minutes a game stayed open, with your Mac model, chip, macOS and Soju version and a random id made on your Mac, to soju-stats.mikey9220.workers.dev (Cloudflare). No account, email, name or file path. We use it only to see which games run, and publish no one's data. Turn it off under Platforms (Share which games I play) or with soju stats off.",
+              "Play counts (on unless you turn them off): Soju sends which games are installed (once a day) and how many minutes a game stayed open, with your Mac model, chip, macOS and Soju version and a random id made on your Mac. No account, email, name or file path. We use it only to see which games run, and publish no one's data. Turn it off under Platforms (Share which games I play) or with soju stats off.",
               "Soju has no ads tracking or crash reporting."
             ]
           }

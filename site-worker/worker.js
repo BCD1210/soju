@@ -17,6 +17,7 @@
 import { EmailMessage } from "cloudflare:email";
 import { auth } from "./auth.js";
 import { notify, wishlist } from "./community.js";
+import { stats } from "./stats.js";
 const HOME = "didimlabs.com";
 const POLAR = "https://api.polar.sh/v1";
 const ORG = "e7dd3a2e-a0ac-4b52-ad53-b7c7d7064420";
@@ -105,7 +106,8 @@ async function startCheckout(request, env) {
   // Polar refuses some addresses (domains that take no mail): open the checkout without one then.
   if (res.status === 422 && customer) res = await create(false);
   if (!res.ok) {
-    console.log("checkout", res.status, (await res.text()).slice(0, 300));
+    // Status only: Polar's error text repeats the customer's email.
+    console.log("checkout failed", res.status);
     return json({ error: "The store could not start the checkout. Try again shortly." }, 502);
   }
   const checkout = await res.json();
@@ -193,6 +195,7 @@ export default {
     if (url.pathname === "/api/didim/download") return download(request, env);
     if (url.pathname === "/api/notify") return notify(request, env);
     if (url.pathname === "/api/wishlist") return wishlist(request, env);
+    if (url.pathname === "/api/stats") return stats(request, env, url);
     if (url.pathname.startsWith("/auth/")) return auth(request, env, url, { home: HOME, games: GAMES, polar, org: ORG });
     if (url.pathname === "/api/didim/checkout") return startCheckout(request, env);
     const checkoutPath = url.pathname.match(/^\/api\/didim\/checkout\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);
