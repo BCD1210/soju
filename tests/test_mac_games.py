@@ -48,7 +48,10 @@ class MacGamePages(unittest.TestCase):
             if page.name == "index.html":
                 continue
             self.assertNotEqual(noindex, in_sitemap, page.name)
-            estimate_only = bool(re.search(r"Estimate: (likely runs|may have problems|unlikely to run|few reports)", text))
+            estimate_only = bool(re.search(r"Estimate: (may have problems|unlikely to run|few reports)", text))
+            m = re.search(r"Estimate: likely runs.*?(\d+) of (\d+) player report", text, re.S)
+            if m and int(m.group(2)) < 40:
+                estimate_only = True
             if estimate_only or page.name.startswith("list-"):
                 self.assertTrue(noindex, page.name)
             hidden += noindex; listed += in_sitemap
