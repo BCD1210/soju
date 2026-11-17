@@ -241,6 +241,20 @@
                 "result": "Plays with the DXMT setup. [Guide](guides/steam-windows-client-apple-silicon.html)"
               },
               {
+                "title": "Retro Classics",
+                "store": "Xbox PC",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Plays from the Xbox PC app."
+              },
+              {
+                "title": "GOG GALAXY games",
+                "store": "GOG",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Sign in, install from the library and play."
+              },
+              {
                 "title": "Diablo II: Resurrected (Steam)",
                 "store": "Steam",
                 "status": "Plays",
