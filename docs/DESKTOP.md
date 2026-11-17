@@ -21,6 +21,9 @@ before 1.10.11 were ad-hoc signed; if macOS blocks one of those, update, or use
 Privacy & Security's Open Anyway.
 A local source build is also available: `bash scripts/install-app.sh`.
 Soju does not collect telemetry or upload diagnostic logs. Copy log is manual.
+To remove one launcher and the games in it, press **Remove…** on its card in Platforms. **Uninstall Soju…**
+at the bottom of Platforms removes every launcher, engine and download, then moves the app to the Trash
+(the same as `soju uninstall --yes`). Games moved to another drive stay on that drive.
 
 ## Requirements
 

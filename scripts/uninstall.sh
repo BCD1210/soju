@@ -2,6 +2,8 @@
 # soju uninstall: remove what soju created, asking per category.
 #   soju uninstall          interactive
 #   soju uninstall --yes    remove everything without asking
+#   soju uninstall launcher <battlenet|steam|epic|gog|ea|rockstar|ubisoft|xbox>
+#                           remove one launcher, its games and its app; nothing else
 set -euo pipefail
 
 BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
@@ -18,7 +20,7 @@ ask(){
   case "$a" in y|Y|yes) return 0;; *) return 1;; esac
 }
 
-echo "soju uninstall: this removes things soju created. Nothing is touched without a yes."
+[ "${1:-}" = launcher ] || echo "soju uninstall: this removes things soju created. Nothing is touched without a yes."
 
 # Stop only after this bottle's removal (or engine removal) was accepted.
 stop_bottle() {
@@ -36,6 +38,44 @@ stop_bottle() {
   WINEPREFIX="$BASE/$b" DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ws" -k 2>/dev/null || true
   WINEPREFIX="$BASE/$b" DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib" "$ws" -w 2>/dev/null || true
 }
+
+# One launcher (the app's Remove button): its bottle(s), with the games inside, and its
+# ~/Applications shortcut. Engines, runtimes and the other launchers stay.
+if [ "${1:-}" = launcher ]; then
+  case "${2:-}" in
+    battlenet) bottles=(bottle); app="Battle.net" ;;
+    steam) bottles=(steam-bottle steam-gptk-bottle); app="Steam (Windows)" ;;
+    epic) bottles=(epic-bottle); app="Epic Games Launcher" ;;
+    gog) bottles=(gog-bottle); app="GOG GALAXY" ;;
+    ea) bottles=(ea-bottle); app="EA app" ;;
+    rockstar) bottles=(rockstar-bottle); app="Rockstar Games Launcher" ;;
+    ubisoft) bottles=(ubisoft-bottle); app="Ubisoft Connect" ;;
+    xbox) bottles=(xbox-bottle); app="" ;;
+    *) echo "Choose one of the launchers."; exit 64 ;;
+  esac
+  found=0
+  for b in "${bottles[@]}"; do
+    d="$BASE/$b"
+    [ -d "$d" ] || continue
+    found=1
+    echo "Removing $b ($(du -sh "$d" 2>/dev/null | cut -f1), with the games installed in it)…"
+    if [ "$b" = xbox-bottle ]; then
+      bash "$ROOT/scripts/xbox.sh" kill >/dev/null 2>&1 || true
+      sh "$ROOT/scripts/xbox-wine.sh" --soju-stop-prefix 2>/dev/null || true
+    fi
+    stop_bottle "$b"
+    # Games moved to another drive are links here: rm removes the link, not the files on the drive.
+    rm -rf "$d"
+  done
+  [ "${2}" != steam ] || rm -f "$BASE/steam-gptk"
+  l="$HOME/Applications/$app.app/Contents/MacOS/launcher"
+  if [ -n "$app" ] && [ -f "$l" ] && grep -q "scripts/play.sh" "$l" && grep -qF "ENGINE=\"$ENGINE\"" "$l"; then
+    rm -rf "$HOME/Applications/$app.app"; found=1
+  fi
+  [ "$found" = 1 ] || { echo "Nothing to remove for ${2}."; exit 0; }
+  echo "Removed. Your account and purchases stay with the store; install it again from Platforms any time."
+  exit 0
+fi
 
 # 2. App bundles.
 # Only bundles install.sh wrote for this install (their launcher script names
