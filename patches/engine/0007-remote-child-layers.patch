@@ -7,7 +7,7 @@ the window's client area, kept in place as either side moves, resizes, shows or 
 removed when the drawing ends or the window is destroyed.
 
 diff --git a/dlls/winemac.drv/cocoa_window.m b/dlls/winemac.drv/cocoa_window.m
-index ffb7c6a..3ca2be6 100644
+index ffb7c6a..9350a74 100644
 --- a/dlls/winemac.drv/cocoa_window.m
 +++ b/dlls/winemac.drv/cocoa_window.m
 @@ -25,6 +25,7 @@
@@ -18,7 +18,7 @@ index ffb7c6a..3ca2be6 100644
  
  #import "cocoa_window.h"
  
-@@ -4033,6 +4034,175 @@ void macdrv_release_metal_device(macdrv_metal_device d)
+@@ -4033,6 +4034,178 @@ void macdrv_release_metal_device(macdrv_metal_device d)
  }
  }
  
@@ -144,6 +144,9 @@ index ffb7c6a..3ca2be6 100644
 +            host.contextId = context_id;
 +            host.anchorPoint = CGPointZero;
 +            host.masksToBounds = YES;
++            /* a child window is drawn over its parent: keep it above the views this window adds
++             * later for its own drawing (the EA app draws its Qt frame with Direct3D too) */
++            host.zPosition = 1000000;
 +            [view.layer addSublayer:host];
 +            [hosts setObject:host forKey:@(context_id)];
 +        }
@@ -195,22 +198,27 @@ index ffb7c6a..3ca2be6 100644
  {
      id<MTLDevice> device = (id<MTLDevice>)d;
 diff --git a/dlls/winemac.drv/d3dmetal.c b/dlls/winemac.drv/d3dmetal.c
-index b003607..eeebf93 100644
+index b003607..65cf013 100644
 --- a/dlls/winemac.drv/d3dmetal.c
 +++ b/dlls/winemac.drv/d3dmetal.c
-@@ -115,8 +115,20 @@ static struct d3dmetal_macdrv_win_data *my_get_win_data(HWND hwnd)
-     data = get_win_data(hwnd);
-     if (!data)
-     {
--        client_surface_release((struct client_surface *)client_surface);
--        return NULL;
-+        macdrv_view remote;
+@@ -102,6 +102,7 @@ static struct d3dmetal_macdrv_win_data *my_get_win_data(HWND hwnd)
+     struct macdrv_win_data *data;
+     struct d3dmetal_macdrv_win_data *d3dm_data;
+     struct macdrv_client_surface *client_surface;
++    macdrv_view remote;
+     TRACE("get_win_data %p\n", hwnd);
+ 
+     /* Creating a client surface on each call to get_win_data() means it's no longer idempotent,
+@@ -109,6 +110,21 @@ static struct d3dmetal_macdrv_win_data *my_get_win_data(HWND hwnd)
+      * They do:
+      * get_win_data() -> create_metal_device() -> create_metal_view() -> get_metal_layer() -> release_win_data()
+      */
++    /* Soju: a window whose top-level window another process owns (Chromium's GPU process). Hand
++     * over a view that my_macdrv_view_create_metal_view turns into a layer shown by that process. */
++    if ((remote = macdrv_remote_child_view(hwnd)))
++    {
 +        RECT rect;
 +
-+        if (client_surface) client_surface_release((struct client_surface *)client_surface);
-+        /* Soju: a child of another process's window (Chromium's GPU process). Hand over a view
-+         * that my_macdrv_view_create_metal_view turns into a layer shown by that process. */
-+        if (!(remote = macdrv_remote_child_view(hwnd))) return NULL;
 +        NtUserGetClientRect(hwnd, &rect, NtUserGetWinMonitorDpi(hwnd, MDT_RAW_DPI));
 +        d3dm_data = calloc(1, sizeof(*d3dm_data));
 +        d3dm_data->hwnd = hwnd;
@@ -218,10 +226,12 @@ index b003607..eeebf93 100644
 +        d3dm_data->window_rect = d3dm_data->whole_rect = d3dm_data->client_rect = rect;
 +        d3dm_data->on_screen = 1;
 +        return d3dm_data;
-     }
++    }
++
+     client_surface = macdrv_client_surface_create(hwnd);
  
-     macdrv_set_view_d3dmetal_client_surface(client_surface->cocoa_view, &client_surface->client);
-@@ -160,7 +172,7 @@ static void my_release_win_data(struct d3dmetal_macdrv_win_data *data)
+     /* get_win_data() needs to happen after client_surface creation to avoid deadlocks */
+@@ -160,7 +176,7 @@ static void my_release_win_data(struct d3dmetal_macdrv_win_data *data)
      if (!data)
          return;
  
@@ -230,7 +240,7 @@ index b003607..eeebf93 100644
      free(data);
  }
  
-@@ -185,18 +197,21 @@ static void my_macdrv_release_metal_device(macdrv_metal_device d)
+@@ -185,18 +201,21 @@ static void my_macdrv_release_metal_device(macdrv_metal_device d)
  static macdrv_metal_view my_macdrv_view_create_metal_view(macdrv_view v, macdrv_metal_device d)
  {
      TRACE("macdrv_view_create_metal_view %p %p\n", v, d);
@@ -302,11 +312,73 @@ index 477efe9..107d3c9 100644
  extern macdrv_metal_layer macdrv_view_get_metal_layer(macdrv_metal_view v);
  extern void macdrv_view_release_metal_view(macdrv_metal_view v);
  extern bool macdrv_get_view_backing_size(macdrv_view v, int backing_size[2]);
+diff --git a/dlls/winemac.drv/vulkan.c b/dlls/winemac.drv/vulkan.c
+index d146a45..e56791f 100644
+--- a/dlls/winemac.drv/vulkan.c
++++ b/dlls/winemac.drv/vulkan.c
+@@ -48,12 +48,25 @@ static VkResult macdrv_vulkan_surface_create(HWND hwnd, const struct vulkan_inst
+ {
+     VkResult res;
+     struct macdrv_client_surface *surface;
++    macdrv_view remote;
++    macdrv_metal_layer layer;
+ 
+     TRACE("%p %p %p %p\n", hwnd, instance, handle, client);
+ 
+     if (!(surface = macdrv_client_surface_create(hwnd))) return VK_ERROR_OUT_OF_HOST_MEMORY;
+     if (!(surface->metal_device = macdrv_create_metal_device())) goto err;
+-    if (!(surface->metal_view = macdrv_view_create_metal_view(surface->cocoa_view, surface->metal_device))) goto err;
++    /* Soju: a window whose top-level window another process owns draws into a layer that process
++     * shows (Steam's and other Chromium GPU processes drawing for their browser process). */
++    if ((remote = macdrv_remote_child_view(hwnd)))
++    {
++        if (!(surface->metal_view = macdrv_remote_child_create_metal_view(remote, surface->metal_device))) goto err;
++        layer = macdrv_remote_child_metal_layer(surface->metal_view);
++    }
++    else
++    {
++        if (!(surface->metal_view = macdrv_view_create_metal_view(surface->cocoa_view, surface->metal_device))) goto err;
++        layer = macdrv_view_get_metal_layer(surface->metal_view);
++    }
+ 
+     if (instance->p_vkCreateMetalSurfaceEXT)
+     {
+@@ -61,7 +74,7 @@ static VkResult macdrv_vulkan_surface_create(HWND hwnd, const struct vulkan_inst
+         create_info_host.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+         create_info_host.pNext = NULL;
+         create_info_host.flags = 0; /* reserved */
+-        create_info_host.pLayer = macdrv_view_get_metal_layer(surface->metal_view);
++        create_info_host.pLayer = layer;
+ 
+         res = instance->p_vkCreateMetalSurfaceEXT(instance->host.instance, &create_info_host, NULL /* allocator */, handle);
+     }
+@@ -71,7 +84,7 @@ static VkResult macdrv_vulkan_surface_create(HWND hwnd, const struct vulkan_inst
+         create_info_host.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
+         create_info_host.pNext = NULL;
+         create_info_host.flags = 0; /* reserved */
+-        create_info_host.pView = macdrv_view_get_metal_layer(surface->metal_view);
++        create_info_host.pView = layer;
+ 
+         res = instance->p_vkCreateMacOSSurfaceMVK(instance->host.instance, &create_info_host, NULL /* allocator */, handle);
+     }
 diff --git a/dlls/winemac.drv/window.c b/dlls/winemac.drv/window.c
-index 6e09399..bc61ca7 100644
+index 6e09399..87c5490 100644
 --- a/dlls/winemac.drv/window.c
 +++ b/dlls/winemac.drv/window.c
-@@ -1361,6 +1361,7 @@ void macdrv_DestroyWindow(HWND hwnd)
+@@ -1181,7 +1181,11 @@ static void macdrv_client_surface_destroy(struct client_surface *client)
+ 
+     TRACE("%s\n", debugstr_client_surface(client));
+ 
+-    if (surface->metal_view) macdrv_view_release_metal_view(surface->metal_view);
++    if (surface->metal_view)
++    {
++        if (macdrv_is_remote_child(surface->metal_view)) macdrv_remote_child_release(surface->metal_view);
++        else macdrv_view_release_metal_view(surface->metal_view);
++    }
+     if (surface->metal_device) macdrv_release_metal_device(surface->metal_device);
+ }
+ 
+@@ -1361,6 +1365,7 @@ void macdrv_DestroyWindow(HWND hwnd)
  
      TRACE("%p\n", hwnd);
  
@@ -314,7 +386,7 @@ index 6e09399..bc61ca7 100644
      if (!(data = get_win_data(hwnd))) return;
  
      if (hwnd == get_capture()) macdrv_SetCapture(0, 0);
-@@ -1633,6 +1634,173 @@ void macdrv_UpdateLayeredWindow(HWND hwnd, BYTE alpha, UINT flags)
+@@ -1633,6 +1638,173 @@ void macdrv_UpdateLayeredWindow(HWND hwnd, BYTE alpha, UINT flags)
  /**********************************************************************
   *              WindowMessage   (MACDRV.@)
   */
@@ -488,7 +560,7 @@ index 6e09399..bc61ca7 100644
  LRESULT macdrv_WindowMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
  {
      struct macdrv_win_data *data;
-@@ -1652,6 +1820,22 @@ LRESULT macdrv_WindowMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+@@ -1652,6 +1824,22 @@ LRESULT macdrv_WindowMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
          activate_on_following_focus();
          TRACE("WM_MACDRV_ACTIVATE_ON_FOLLOWING_FOCUS time %u\n", activate_on_focus_time);
          return 0;
@@ -511,7 +583,7 @@ index 6e09399..bc61ca7 100644
      }
  
      FIXME("unrecognized window msg %x hwnd %p wp %lx lp %lx\n", msg, hwnd, (unsigned long)wp, lp);
-@@ -1720,12 +1904,14 @@ void macdrv_WindowPosChanged(HWND hwnd, HWND insert_after, HWND owner_hint, UINT
+@@ -1720,12 +1908,14 @@ void macdrv_WindowPosChanged(HWND hwnd, HWND insert_after, HWND owner_hint, UINT
      unsigned int new_style = NtUserGetWindowLongW(hwnd, GWL_STYLE);
      struct window_rects old_rects;
  
