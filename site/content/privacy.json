@@ -44,7 +44,8 @@
             "items": [
               "We ask Apple or Google only for your email address. We don't ask for contacts, files or anything else.",
               "Soju asks you to sign in before buying a game or getting a demo in the Didim Labs Store. We use that email to find games you bought from us through Polar, and hand the license keys back to your copy of Soju.",
-              "Our server keeps the result for at most 10 minutes, then deletes it. Soju keeps your email and keys on your Mac (keys in the macOS Keychain).",
+              "Our server keeps the sign-in result for at most 10 minutes, then deletes it. Soju keeps your email and keys on your Mac (keys in the macOS Keychain).",
+              "Your Didim Labs account is that email, the provider (Apple or Google) and the days you first and last signed in. We keep it so your games and demos stay with you; a purchase made from Soju uses the same email. Write to us to delete it.",
               "If you use Apple's Hide My Email, we only see the relay address, so purchases made with your real email won't be found."
             ]
           }
@@ -143,7 +144,7 @@
         {
           "type": "Text",
           "props": {
-            "text": "디딤랩스 스토어에서 게임을 사거나 데모를 받을 때 애플·구글 로그인을 합니다. 이메일 주소만 받아, Polar에서 그 이메일로 산 게임의 라이선스 키를 찾는 데 한 번 씁니다. 서버에는 최대 10분만 남고 지워집니다. 결제 정보는 Polar가 처리하며 우리는 카드 번호를 보지 않습니다. 소주 앱은 설치한 게임 목록(하루 한 번)과 게임별 플레이 시간을 맥 기종·macOS·소주 버전, 맥에서 만든 무작위 번호와 함께 보냅니다. 계정, 이메일, 이름, 파일 경로는 보내지 않고, 어떤 게임이 되는지 보는 데만 쓰고 개인별 기록은 공개하지 않습니다. Platforms의 Share which games I play나 soju stats off로 끌 수 있습니다. 웹사이트는 쿠키 없이 방문 수와 로딩 속도만 세는 Cloudflare Web Analytics를 씁니다. 출시 알림을 신청한 이메일은 새 게임 소식에만 씁니다. 문의와 삭제 요청: hello@didimlabs.com"
+            "text": "디딤랩스 스토어에서 게임을 사거나 데모를 받을 때 애플·구글 로그인을 합니다. 이메일 주소만 받아, Polar에서 그 이메일로 산 게임의 라이선스 키를 찾는 데 한 번 씁니다. 로그인 결과는 서버에 최대 10분만 남고, 디딤랩스 계정으로 이메일·로그인 방식·처음과 마지막 로그인 날짜를 보관합니다. 소주에서 결제할 때도 같은 이메일을 씁니다. 결제 정보는 Polar가 처리하며 우리는 카드 번호를 보지 않습니다. 소주 앱은 설치한 게임 목록(하루 한 번)과 게임별 플레이 시간을 맥 기종·macOS·소주 버전, 맥에서 만든 무작위 번호와 함께 보냅니다. 계정, 이메일, 이름, 파일 경로는 보내지 않고, 어떤 게임이 되는지 보는 데만 쓰고 개인별 기록은 공개하지 않습니다. Platforms의 Share which games I play나 soju stats off로 끌 수 있습니다. 웹사이트는 쿠키 없이 방문 수와 로딩 속도만 세는 Cloudflare Web Analytics를 씁니다. 출시 알림을 신청한 이메일은 새 게임 소식에만 씁니다. 문의와 삭제 요청: hello@didimlabs.com"
           }
         }
       ]
