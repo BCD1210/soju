@@ -36,10 +36,8 @@ apply_once(){
   git -C "$1" apply --reverse --check "$2" 2>/dev/null || git -C "$1" apply "$2"
 }
 apply_once wine "$ROOT/patches/steam-winemac.patch"
-# Surround audio on stereo Macs (#93): Highball's winecoreaudio/mmdevapi patches, as in the CX engine.
-apply_once wine "$ROOT/patches/steam-winecoreaudio-io-buffer.patch"
-apply_once wine "$ROOT/patches/highball/0022-mmdevapi-spatial-static-object-order.patch"
-apply_once wine "$ROOT/patches/highball/0023-winecoreaudio-spatial-mixer-for-surround-beds.patch"
+# Surround audio on stereo Macs and short dropouts at 48 kHz (#93).
+apply_once wine "$ROOT/patches/steam-wine-audio.patch"
 apply_once dxmt "$ROOT/patches/steam-dxmt-build.patch"
 apply_once dxmt "$ROOT/patches/dxmt-max-tess-factor.patch"
 apply_once dxmt "$ROOT/patches/dxmt-nonfatal-pure-virtual.patch"

@@ -262,11 +262,11 @@ class SupportManifestTests(unittest.TestCase):
     def test_surround_audio_patches_are_built_and_installed(self):
         # #93: 5.1/7.1 output lost centre and back on stereo Macs in the Steam runtime.
         script = (ROOT/"scripts/build-steam-support.sh").read_text()
-        for patch in ("steam-winecoreaudio-io-buffer.patch",
-                      "highball/0022-mmdevapi-spatial-static-object-order.patch",
-                      "highball/0023-winecoreaudio-spatial-mixer-for-surround-beds.patch"):
-            self.assertTrue((ROOT/"patches"/patch).is_file())
-            self.assertIn('apply_once wine "$ROOT/patches/' + patch + '"', script)
+        self.assertTrue((ROOT/"patches/steam-wine-audio.patch").is_file())
+        self.assertIn('apply_once wine "$ROOT/patches/steam-wine-audio.patch"', script)
+        audio = (ROOT/"patches/steam-wine-audio.patch").read_text()
+        for needed in ("ca_setup_fold", "ca_fit_io_buffer", "static_mask_to_channels"):
+            self.assertIn(needed, audio)
         for out in ("output/winecoreaudio-patched.so", "output/mmdevapi-x64.dll"):
             self.assertIn(out, script)
         setup = (ROOT/"scripts/setup-steam-games.sh").read_text()
