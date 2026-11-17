@@ -4,7 +4,8 @@
 //   GET  /auth/poll/<state>                                            -> Soju picks the result up once
 //   GET  /auth/providers                                               -> which buttons Soju should show
 // The result (email and license keys) sits in the AUTH KV namespace for 10 minutes under the state
-// that only that Soju knows. Secrets: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APPLE_SERVICES_ID,
+// that only that Soju knows. The Didim Labs account (email, provider, first and last sign-in day) is kept
+// under a:<email>; list them with: wrangler kv key list --binding AUTH --prefix a: --remote. Secrets: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APPLE_SERVICES_ID,
 // APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY (the .p8 text).
 const STATE = /^[A-Za-z0-9_-]{32,64}$/;
 const TTL = 600;
@@ -120,6 +121,15 @@ export async function auth(request, env, url, { home, games, polar, org }) {
     // soju://auth/done, and the poll must show that code. Someone who sent this person a sign-in
     // link with their own state never sees the code, so they cannot read the email or keys.
     const handoff = b64url(crypto.getRandomValues(new Uint8Array(32)));
+    // Didim Labs account: the email, the provider and when it first and last signed in. KV writes share a
+    // daily quota, so the record is written at most once a day per account.
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const old = JSON.parse((await env.AUTH.get("a:" + email)) || "null");
+      if (!old || old.last !== today) {
+        await env.AUTH.put("a:" + email, JSON.stringify({ first: old?.first || today, last: today, provider: name }));
+      }
+    } catch {}
     await env.AUTH.put("s:" + state, JSON.stringify({ status: "done", handoff, email, private: c.is_private_email === true || c.is_private_email === "true", owned }), { expirationTtl: TTL });
     const open = `soju://auth/done?${new URLSearchParams({ state, code: handoff })}`;
     return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
