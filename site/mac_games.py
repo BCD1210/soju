@@ -29,6 +29,9 @@ REPORT = "https://github.com/BCD1210/soju/issues/new?template=compatibility.yml"
 DISCORD = "https://discord.gg/ttBDcF5ftz"
 DISCORD_COMPAT = "https://discord.gg/PwBjET6YZ3"  # lands in #compatibility
 DISCORD_KO = "https://discord.gg/eY6UHRCKZU"  # lands in #한국어
+# The download the home page offers (scripts bump its version in content/index.json).
+_hero = next(x for x in json.loads((ROOT / "site/content/index.json").read_text())["body"] if x["type"] == "Hero")
+DOWNLOAD = next(a["href"] for a in _hero["props"]["actions"] if a.get("primary"))
 
 LAUNCHER = {
     "battlenet": ("Battle.net", "battlenet"), "steam": ("Steam", "steam"), "epic": ("Epic Games Launcher", "epic"),
@@ -91,11 +94,14 @@ def page(lang, title, desc, canonical, alternates, body, faq, base, game=None, i
     if noindex:
         HIDDEN.add(canonical)
     scripts = "".join('<script type="application/ld+json">\n%s\n</script>\n' % b.replace("<", "\\u003c") for b in blocks)
-    nav = ('<a href="%smac/">Games</a>\n  <a href="%sguides/soju-vs-whisky-crossover-heroic.html">Compare</a>\n'
-           '  <a href="https://github.com/BCD1210/soju">GitHub</a>\n  <a href="%s">Discord</a>' % (base, base, DISCORD))
+    # Same bar as the home page: find a game, guides, help, and the download on the right.
+    nav = (f'<a href="{base}mac/">Find a game</a>\n  <a href="{base}#guides">Guides</a>\n  <a href="{base}#faq">FAQ</a>\n'
+           f'  <a href="{DISCORD}">Discord</a>\n  <a href="https://github.com/BCD1210/soju">GitHub</a>\n'
+           f'  <a href="{base}ko/mac/" lang="ko" hreflang="ko">한국어</a>\n  <a class="nav-download" href="{DOWNLOAD}">Download</a>')
     if lang == "ko":
-        nav = ('<a href="%sko/mac/">게임</a>\n  <a href="%sko/">한국어 홈</a>\n'
-               '  <a href="https://github.com/BCD1210/soju">GitHub</a>\n  <a href="%s">디스코드</a>' % (base, base, DISCORD_KO))
+        nav = (f'<a href="{base}ko/mac/">게임 검색</a>\n  <a href="{base}ko/#guides">가이드</a>\n  <a href="{base}ko/#faq">자주 묻는 질문</a>\n'
+               f'  <a href="{DISCORD_KO}">디스코드</a>\n  <a href="https://github.com/BCD1210/soju">GitHub</a>\n'
+               f'  <a href="{base}mac/" lang="en" hreflang="en">English</a>\n  <a class="nav-download" href="{DOWNLOAD}">다운로드</a>')
     foot = ("Soju is GPL-3.0 · <a href=\"https://github.com/BCD1210/soju\">github.com/BCD1210/soju</a> · "
             "not affiliated with the publishers named here. Game names are trademarks of their owners.")
     if lang == "ko":
@@ -116,6 +122,7 @@ def page(lang, title, desc, canonical, alternates, body, faq, base, game=None, i
 <meta property="og:image" content="{image or SITE + 'assets/soju-share.png'}">
 <link rel="icon" href="{base}assets/favicon.png?v={CSS}">
 <link rel="apple-touch-icon" href="{base}assets/apple-touch-icon.png?v={CSS}">
+<meta name="color-scheme" content="light dark">
 <link rel="stylesheet" href="{base}style.css?v={CSS}">
 {CSS_EXTRA}
 {scripts}<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{{"token": "a7048ad8ec7b480c9ad71182b1641147"}}'></script>
@@ -382,6 +389,50 @@ def bucket(name):
     return c if c.isalpha() else "0"
 
 
+def search_box(lang):
+    """A search over every game page (docs/mac/search.json, fetched the first time someone types)."""
+    ko = lang == "ko"
+    labels = {k: v[0] for k, v in STATUS[lang].items()}
+    classes = {k: v[1] for k, v in STATUS[lang].items()}
+    launchers = {k: lname(lang, k) for k in LAUNCHER}
+    data = json.dumps({"labels": labels, "classes": classes, "launchers": launchers, "ko": ko,
+                       "index": "../../mac/search.json" if ko else "search.json",
+                       "en": "../../mac/" if ko else "", "none": "목록에 아직 없는 게임입니다." if ko else "Not in the list yet.", "hangul": "한글 이름이 없는 게임이 많습니다. 영문 이름으로 찾아 보세요 (예: Elden Ring).",
+                       "report": REPORT, "reportLabel": "해 보신 결과 알려 주기" if ko else "Tell us how it goes",
+                       "more": "개 더 있습니다. 이름을 더 길게 입력해 보세요." if ko else " more. Type more of the name."},
+                      ensure_ascii=False).replace("<", "\\u003c")
+    return f"""<form class="game-search" role="search" onsubmit="return false">
+<label for="game-q">{'게임 이름으로 찾기' if ko else 'Search by game name'}</label>
+<span class="search-row"><input id="game-q" name="q" type="search" autocomplete="off" placeholder="{'영문 이름 (예: Elden Ring). 한글 이름은 일부만' if ko else 'For example Elden Ring'}"></span>
+<ul id="search-results" aria-live="polite"></ul>
+</form>
+<script>
+(function(){{var C={data},q=document.getElementById('game-q'),out=document.getElementById('search-results'),all=null,t;
+function norm(s){{return (s||'').normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').normalize('NFC').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]+/g,'');}}
+function load(cb){{if(all)return cb();fetch(C.index).then(function(r){{return r.json();}}).then(function(j){{all=j.map(function(g){{return g.concat([norm(g[0]),norm(g[1])]);}});cb();}});}}
+function el(tag,cls,text){{var e=document.createElement(tag);if(cls)e.className=cls;if(text)e.textContent=text;return e;}}
+function show(){{var v=norm(q.value);out.textContent='';if(v.length<2)return;load(function(){{
+ var hit=all.filter(function(g){{return g[6].indexOf(v)>=0||(g[7]&&g[7].indexOf(v)>=0);}});
+ hit.sort(function(a,b){{var pa=(a[6].indexOf(v)===0||a[7].indexOf(v)===0)?0:1,pb=(b[6].indexOf(v)===0||b[7].indexOf(v)===0)?0:1;return pa-pb;}});
+ if(!hit.length){{var li=el('li',null,(C.hangul&&/[\uac00-\ud7a3]/.test(q.value)?C.hangul:C.none)+' ');var a=el('a',null,C.reportLabel);a.href=C.report;li.appendChild(a);out.appendChild(li);return;}}
+ hit.slice(0,25).forEach(function(g){{var li=el('li'),a=el('a',null,C.ko&&g[1]?g[1]:g[0]);
+  a.href=(C.ko&&g[5]?'':C.en)+g[2]+'.html';li.appendChild(a);
+  li.appendChild(el('span','status '+(C.classes[g[3]]||'unknown'),C.labels[g[3]]||g[3]));
+  li.appendChild(el('span','launcher',C.launchers[g[4]]||''));out.appendChild(li);}});
+ if(hit.length>25)out.appendChild(el('li','launcher',(hit.length-25)+C.more));}});}}
+q.addEventListener('input',function(){{clearTimeout(t);t=setTimeout(show,150);}});
+var m=location.search.match(/[?&]q=([^&]*)/);if(m){{q.value=decodeURIComponent(m[1].replace(/[+]/g,' '));show();}}}})();
+</script>"""
+
+
+def search_index(curated, macdata_and_est):
+    """[name, Korean name, slug, status, launcher, has a Korean page] for every game page."""
+    rows = []
+    for g in curated + macdata_and_est:
+        rows.append([g["name"], g.get("ko", {}).get("name", ""), g["slug"], g["status"], g["launcher"], 1 if "ko" in g else 0])
+    return json.dumps(rows, ensure_ascii=False, separators=(",", ":"))
+
+
 def index_page(lang, curated, est, letters):
     base = "../../" if lang == "ko" else "../"
     path = "ko/mac/index.html" if lang == "ko" else "mac/index.html"
@@ -409,6 +460,7 @@ def index_page(lang, curated, est, letters):
     links = " ".join(f'<a href="{lp}list-{c}.html">{c.upper() if c != "0" else "0–9"}</a>' for c in letters)
     body = f"""<h1>{h1}</h1>
 <p class="lead">{intro}</p>
+{search_box(lang)}
 <h2>{h_cur}</h2>
 {table(lang, cur)}
 <h2>{h_mac}</h2>
@@ -472,6 +524,8 @@ def main():
     for c in letters:
         p, h = letter_page(c, groups[c], letters); out[p] = h
     p, h = index_page("en", curated, est, letters); out[p] = h
+    # curated first, then estimates with the most reports first
+    (DOCS / "mac/search.json").write_text(search_index(curated, sorted(est, key=lambda g: -g.get("reports", 0))))
     p, h = index_page("ko", [g for g in curated if "ko" in g], [g for g in est if "ko" in g], letters); out[p] = h
     for old in list((DOCS / "mac").glob("*.html")) + list((DOCS / "ko/mac").glob("*.html")):
         if str(old.relative_to(DOCS)) not in out:
