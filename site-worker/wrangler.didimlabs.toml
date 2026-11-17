@@ -19,3 +19,9 @@ name = "MAILER"
 [[kv_namespaces]]
 binding = "AUTH"
 
+
+# Anonymous play counts from the Soju app (stats.js), at didimlabs.com/api/stats.
+[[d1_databases]]
+binding = "STATS"
+database_name = "soju-stats"
+database_id = "b05a49d9-36d2-4731-89ab-d3951243de0a"

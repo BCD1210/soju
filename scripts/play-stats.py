@@ -5,7 +5,7 @@
       Waits for the game to start, counts the minutes it stays open, then sends the
       game, its store and the minutes, with the Mac model, chip, macOS and Soju version.
   soju stats library
-      At most once a day: which games are installed (library id, title, store).
+      Which games are installed (library id, title, store), only when that list changed.
   soju stats on | off | status
 
 Nothing else leaves the Mac: no account, email, user name or file path. A random id
@@ -22,12 +22,11 @@ import sys
 import time
 import urllib.request
 import uuid
-from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE = Path(os.environ.get("SOJU_BASE", str(Path.home() / ".battlenet-macos")))
-URL = os.environ.get("SOJU_STATS_URL", "https://soju-stats.mikey9220.workers.dev/api/stats")
+URL = os.environ.get("SOJU_STATS_URL", "https://didimlabs.com/api/stats")
 OFF = BASE / "stats-off"
 QUEUE = BASE / "stats-queue.jsonl"
 POLL = 20                # seconds between process checks
@@ -162,6 +161,32 @@ def library_payload(snapshot):
     return {"kind": "library", "games": games[:500]}
 
 
+def library_digest(payload):
+    import hashlib
+    ids = sorted(g["game"] for g in payload["games"])
+    return hashlib.sha256("\n".join(ids).encode()).hexdigest()
+
+
+def claim(game):
+    """A lock file per game, so starting a game twice does not count its minutes twice."""
+    folder = BASE / "stats-running"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / ("".join(c if c.isalnum() or c in "-_" else "-" for c in game)[:100] + ".pid")
+    for _ in range(2):
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            return path
+        except FileExistsError:
+            try:
+                os.kill(int(path.read_text().strip() or 0), 0)
+                return None            # another count of this game is running
+            except (OSError, ValueError):
+                path.unlink(missing_ok=True)   # left by a count that ended without cleaning up
+    return None
+
+
 def main(argv):
     ap = argparse.ArgumentParser(prog="soju stats")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -191,23 +216,30 @@ def main(argv):
     if not enabled():
         return 0
     if a.cmd == "library":
-        stamp = BASE / "stats-library-day"
-        today = date.today().isoformat()
-        if stamp.exists() and stamp.read_text().strip() == today:
-            return 0
         try:
             snapshot = json.loads((BASE / "logs/library-scan.log").read_text())
         except (OSError, ValueError):
             return 0
         payload = library_payload(snapshot)
-        if payload["games"] and send(payload):
-            stamp.write_text(today + "\n")
+        # Sent only when the list of installed games changed since the last time it went through.
+        stamp = BASE / "stats-library-sent"
+        digest = library_digest(payload)
+        if not payload["games"] or (stamp.exists() and stamp.read_text().strip() == digest):
+            return 0
+        if send(payload):
+            stamp.write_text(digest + "\n")
         return 0
     found = needles(a.path)
     pid = a.pid if a.launcher in RUNS_IN_SOJU else None
     if not found and not pid:
         return 0
-    minutes = track(found, pid)
+    lock = claim(a.game)
+    if lock is None:
+        return 0   # this game is already being counted
+    try:
+        minutes = track(found, pid)
+    finally:
+        lock.unlink(missing_ok=True)
     if minutes >= 1:
         send({"kind": "play", "games": [{"game": a.game[:120], "title": a.title[:120], "launcher": a.launcher[:20],
                                          "minutes": min(minutes, MAX_HOURS * 60)}]})
