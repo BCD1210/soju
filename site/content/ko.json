@@ -138,6 +138,13 @@
                 "result": "무료 체험판으로 캐릭터 생성, 첫 지역 진입까지 확인. 소리와 프레임은 미확인. [가이드](../guides/ko/diablo-4-mac.html)"
               },
               {
+                "title": "오버워치 2",
+                "store": "Battle.net",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "로그인 후 온라인 플레이 됨. [가이드](../guides/ko/overwatch-2-mac.html)"
+              },
+              {
                 "title": "호그와트 레거시",
                 "store": "에픽",
                 "status": "플레이 됨",

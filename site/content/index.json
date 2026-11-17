@@ -220,6 +220,13 @@
                 "result": "Free trial: character created and in the first area. Sound and frame rate not checked. [Guide](guides/diablo-4-apple-silicon.html)"
               },
               {
+                "title": "Overwatch 2",
+                "store": "Battle.net",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Signs in and plays online. [Guide](guides/overwatch-2-apple-silicon.html)"
+              },
+              {
                 "title": "Hogwarts Legacy",
                 "store": "Epic",
                 "status": "Plays",
