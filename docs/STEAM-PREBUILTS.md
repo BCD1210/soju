@@ -1,4 +1,4 @@
-# Steam support release v5
+# Steam support release v6
 
 The package contains only these open-source components:
 
@@ -19,15 +19,16 @@ The package contains only these open-source components:
   (LGPL-2.1-or-later).
 - Steam webhelper wrapper: vendored notpop source (MIT).
 - MoltenVK v1.4.2: `db66022459ffb663aa2b50f6b018bc2e124f5edf` (Apache-2.0), x86_64, with
-  `patches/moltenvk/cache-drawid-present.patch` and `patches/moltenvk/lenient-interfaces.patch` from Highball
-  (GPL-3.0-or-later), built by `scripts/build-moltenvk.sh`. It replaces the Steam runtime's MoltenVK 1.4.1, which
-  could not compile Detroit: Become Human's pipelines (`DrawIndex is not supported in MSL`). Steam starts with
-  `HB_MVK_LENIENT_INTERFACES=1`, `MVK_CONFIG_SHOULD_MAXIMIZE_CONCURRENT_COMPILATION=1` and
-  `MVK_CONFIG_SHADER_COMPRESSION_ALGORITHM=1`, Highball's settings for that game.
+  `patches/moltenvk/zero-missing-vertex-attributes.patch`, built by `scripts/build-moltenvk.sh`. It replaces the
+  Steam runtime's MoltenVK 1.4.1, which could not compile Detroit: Become Human's shaders
+  (`DrawIndex is not supported in MSL`, fixed in 1.4.2). The patch lets a pipeline build when its vertex shader
+  reads a location the vertex input state does not describe (Vulkan allows it, Metal refuses the pipeline):
+  those inputs read zero. Steam starts with `MVK_CONFIG_SHOULD_MAXIMIZE_CONCURRENT_COMPILATION=1` and
+  `MVK_CONFIG_SHADER_COMPRESSION_ALGORITHM=1`.
 - LLVM 15.0.7: `8dfdcc7b7bf66834a761bd8de445840ef68e4d1a`
   (Apache-2.0 with LLVM exceptions), statically linked into the renderer.
 
-[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v5)
+[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v6)
 ([v4](https://github.com/BCD1210/soju/releases/tag/steam-support-v4) is the same without MoltenVK; [v3](https://github.com/BCD1210/soju/releases/tag/steam-support-v3) is the same without the audio components;
 [v2](https://github.com/BCD1210/soju/releases/tag/steam-support-v2) is the same without the pure virtual
 backport; [v1](https://github.com/BCD1210/soju/releases/tag/steam-support-v1) also lacks the tessellation backport.)

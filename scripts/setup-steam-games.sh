@@ -100,7 +100,7 @@ if [ -f "$SUP/winecoreaudio-patched.so" ]; then
   cp -f "$SUP/winecoreaudio-patched.so" "$WLIB/x86_64-unix/winecoreaudio.so"
   cp -f "$SUP/mmdevapi-x64.dll" "$WLIB/x86_64-windows/mmdevapi.dll"
 fi
-# MoltenVK 1.4.2 with Highball's Detroit: Become Human patches (scripts/build-moltenvk.sh), for
+# MoltenVK 1.4.2 with Soju's patch for undescribed vertex inputs (scripts/build-moltenvk.sh), for
 # games that draw with Vulkan and for DXVK. Older support packages have none: the runtime's stays.
 if [ -f "$SUP/libMoltenVK.dylib" ]; then
   [ -f "$WAPP/lib/libMoltenVK.dylib.vanilla" ] || cp -f "$WAPP/lib/libMoltenVK.dylib" "$WAPP/lib/libMoltenVK.dylib.vanilla"
