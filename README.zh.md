@@ -47,7 +47,7 @@ soju install
 | Diablo IV | Battle.net | ✅ 进入游戏（免费试玩） | 已创建角色并进入第一个区域；声音和帧率未测试；不含高清素材约 97 GB；[指南](https://didimlabs.com/guides/diablo-4-apple-silicon.html) |
 | Hogwarts Legacy | Epic | ✅ 进入游戏 | 启动时的“AMD 驱动”警告可以忽略 |
 | StarCraft: Remastered | Battle.net | ✅ 进入游戏 | 已确认与电脑对战；多人未测试 |
-| Detroit: Become Human（试玩版） | Steam | ✅ 游戏内 | Mac mini M4 Pro，macOS 26.5。通过 Steam 支持包 v5 中的 MoltenVK 用 Vulkan 绘制；首次启动需要几分钟编译着色器。出现“显卡未受官方支持”提示时按 OK |
+| Detroit: Become Human（试玩版） | Steam | ✅ 游戏内 | Mac mini M4 Pro，macOS 26.5。通过 Steam 支持包 v6 中的 MoltenVK 用 Vulkan 绘制；首次启动需要几分钟编译着色器。出现“显卡未受官方支持”提示时按 OK |
 | 守望先锋 2 | Steam | ✅ 主菜单，在线 | 打开 Platforms > Steam > **Overwatch and Diablo II mode**（`soju steam-gptk on`）；首次会要求连接一次 Battle.net 账号 |
 | The Elder Scrolls V: Skyrim Special Edition | Steam | ✅ 进入游戏（玩家反馈） | M5 Pro，macOS 27.2，Soju 1.14.8；对白和环绕声已确认（[#95](https://github.com/BCD1210/soju/issues/95)） |
 | Guilt Free（Unity Direct3D 11 游戏） | Steam | ✅ 进入游戏，窗口模式 | 见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |

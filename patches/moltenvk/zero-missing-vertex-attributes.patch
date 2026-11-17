@@ -1,0 +1,122 @@
+Soju: let a pipeline build when its vertex shader reads a location the vertex input state does not describe.
+Vulkan allows it (the value is undefined); Metal refuses the pipeline ("Vertex attribute ... is missing from
+the vertex descriptor"). Such inputs get an attribute in a constant buffer the encoder fills with zeros.
+Applies to MoltenVK v1.4.2. Apache-2.0, like MoltenVK.
+
+diff --git a/MoltenVK/MoltenVK/Commands/MVKCommandEncoderState.mm b/MoltenVK/MoltenVK/Commands/MVKCommandEncoderState.mm
+index 7d16b94..1f98fbd 100644
+--- a/MoltenVK/MoltenVK/Commands/MVKCommandEncoderState.mm
++++ b/MoltenVK/MoltenVK/Commands/MVKCommandEncoderState.mm
+@@ -1446,6 +1446,13 @@ static bool shouldEmulateReversedDepthViewport(const MVKPhysicalDevice* physical
+ 	} else {
+ 		bindVulkanGraphicsToMetalGraphics(encoder, mvkEncoder, vk, vkShared, *this, pipeline, kMVKShaderStageVertex,   MVKMetalGraphicsStage::Vertex);
+ 		bindVertexBuffers(encoder, vk, _exists.vertex(), _bindings.vertex(), MVKVertexBufferBinder::Vertex());
++		// SOJU zero-missing-vertex-attributes: the zero-filled buffer behind undescribed vertex shader inputs.
++		uint32_t zeroIdx = pipeline->getZeroVertexAttributeBufferIndex();
++		if (zeroIdx != kMVKUndefinedLargeUInt32) {
++			static const uint32_t zeros[4] = {};
++			[encoder setVertexBytes:zeros length:sizeof(zeros) atIndex:zeroIdx];
++			_bindings.vertex().buffers[zeroIdx] = MVKStageResourceBindings::InvalidBuffer();
++		}
+ 	}
+ 	bindVulkanGraphicsToMetalGraphics(encoder, mvkEncoder, vk, vkShared, *this, pipeline, kMVKShaderStageFragment, MVKMetalGraphicsStage::Fragment);
+ 	mvkEncoder.getState().mtlShared()._useResource.bindAndResetGraphics(encoder);
+diff --git a/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.h b/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.h
+index e385e9b..f86bd1c 100644
+--- a/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.h
++++ b/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.h
+@@ -316,6 +316,9 @@ public:
+ 	const MVKStaticBitSet<kMVKMaxBufferCount>& getVkVertexBuffers() const { return _vkVertexBuffers; }
+ 	/** Returns a list of the vertex buffers used by this pipeline by Metal buffer ID */
+ 	const MVKStaticBitSet<kMVKMaxBufferCount>& getMtlVertexBuffers() const { return _mtlVertexBuffers; }
++
++	/** Metal vertex buffer index of the zero-filled buffer for shader inputs the pipeline does not describe, or kMVKUndefinedLargeUInt32. */
++	uint32_t getZeroVertexAttributeBufferIndex() const { return _zeroVertexAttributeBufferIndex; }
+ 	const VkViewport* getViewports() const { return _viewports; }
+ 	const VkRect2D* getScissors() const { return _scissors; }
+ 	const MTLSamplePosition* getSampleLocations() const { return _sampleLocations; }
+@@ -364,6 +367,7 @@ protected:
+     bool isDepthClipNegativeOneToOne(const VkGraphicsPipelineCreateInfo* pCreateInfo);
+ 	bool verifyImplicitBuffers(MVKShaderStage stage);
+ 	uint32_t getTranslatedVertexBinding(uint32_t binding, uint32_t translationOffset, uint32_t maxBinding);
++	void addZeroVertexAttributes(MTLVertexDescriptor* inputDesc, const VkPipelineVertexInputStateCreateInfo* pVI, const SPIRVShaderInputs& vtxInputs);
+ 	uint32_t getImplicitBufferIndex(MVKShaderStage stage, uint32_t bufferIndexOffset);
+ 	MVKMTLFunction getMTLFunction(mvk::SPIRVToMSLConversionConfiguration& shaderConfig,
+ 								  const VkPipelineShaderStageCreateInfo* pShaderStage,
+@@ -386,6 +390,7 @@ protected:
+ 	std::unordered_map<uint32_t, id<MTLRenderPipelineState>> _multiviewMTLPipelineStates;
+ 	MVKStaticBitSet<kMVKMaxBufferCount> _vkVertexBuffers;
+ 	MVKStaticBitSet<kMVKMaxBufferCount> _mtlVertexBuffers;
++	uint32_t _zeroVertexAttributeBufferIndex = kMVKUndefinedLargeUInt32;
+ 	MVKPipelineStageResourceInfo _stageResources[kMVKShaderStageFragment + 1] = {};
+ 
+ 	id<MTLComputePipelineState> _mtlTessVertexStageState = nil;
+diff --git a/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm b/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm
+index 7eae64c..30473fb 100644
+--- a/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm
++++ b/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm
+@@ -1192,6 +1192,16 @@ static bool usesConstantColor(MVKRenderStateFlags dynamic, const VkPipelineColor
+ 	// This needs to happen before compiling the fragment shader, or we'll lose information on vertex attributes.
+ 	if (!addVertexInputToPipeline(plDesc.vertexDescriptor, pCreateInfo->pVertexInputState, shaderConfig)) { return nil; }
+ 
++	// SOJU zero-missing-vertex-attributes: Vulkan lets a vertex shader read a location the pipeline's
++	// vertex input state does not describe (the value is undefined), but Metal refuses to build such a
++	// pipeline ("Vertex attribute ... is missing from the vertex descriptor"). Read those as zero instead.
++	if (pCreateInfo->pVertexInputState) {
++		SPIRVShaderInputs vtxInputs;
++		if (getShaderInputs(_vertexModule->getSPIRV(), spv::ExecutionModelVertex, pVertexSS->pName, vtxInputs, errorLog)) {
++			addZeroVertexAttributes(plDesc.vertexDescriptor, pCreateInfo->pVertexInputState, vtxInputs);
++		}
++	}
++
+ 	// Fragment shader - only add if rasterization is enabled
+ 	if (!addFragmentShaderToPipeline(plDesc, pCreateInfo, shaderConfig, vtxOutputs, pFragmentSS, pFragmentFB)) { return nil; }
+ 
+@@ -1891,6 +1901,47 @@ static void setEmulatedReversedDepthViewportConfig(SPIRVToMSLConversionConfigura
+ }
+ 
+ // Returns a translated binding for the existing binding and translation offset, creating it if needed.
++// SOJU zero-missing-vertex-attributes: give every used, undescribed vertex shader input an attribute
++// in a dedicated constant-step buffer that the encoder fills with zeros at draw time.
++void MVKGraphicsPipeline::addZeroVertexAttributes(MTLVertexDescriptor* inputDesc,
++												  const VkPipelineVertexInputStateCreateInfo* pVI,
++												  const SPIRVShaderInputs& vtxInputs) {
++	uint32_t zeroIdx = kMVKUndefinedLargeUInt32;
++	for (auto& input : vtxInputs) {
++		// Every declared input that has no Metal attribute yet. MoltenVK leaves out locations it judges unused,
++		// even when the Vulkan pipeline describes them, but Metal still checks the shader's declared inputs.
++		if (input.builtin != spv::BuiltInMax || input.location >= 31 || inputDesc.attributes[input.location].format != MTLVertexFormatInvalid) { continue; }
++		if (zeroIdx == kMVKUndefinedLargeUInt32) {
++			// The first Vulkan binding number above every binding this pipeline uses, including translated ones.
++			for (uint32_t b = 0; b < kMVKMaxBufferCount; b++) {
++				uint32_t idx = getMetalBufferIndexForVertexAttributeBinding(b);
++				bool taken = _mtlVertexBuffers.get(idx) || inputDesc.layouts[idx].stride != 0;
++				for (uint32_t j = 0; j < pVI->vertexBindingDescriptionCount; j++) {
++					if (pVI->pVertexBindingDescriptions[j].binding >= b) { taken = true; }
++				}
++				if (!taken) { zeroIdx = idx; break; }
++			}
++			if (zeroIdx == kMVKUndefinedLargeUInt32) { return; }
++			inputDesc.layouts[zeroIdx].stride = 16;	// Metal wants a stride even for a constant step; 16 bytes covers a 4-component input.
++			inputDesc.layouts[zeroIdx].stepFunction = MTLVertexStepFunctionConstant;
++			inputDesc.layouts[zeroIdx].stepRate = 0;
++		}
++		uint32_t width = std::max(1u, std::min(input.vecWidth, 4u)) - 1;
++		static const MTLVertexFormat floats[] = { MTLVertexFormatFloat, MTLVertexFormatFloat2, MTLVertexFormatFloat3, MTLVertexFormatFloat4 };
++		static const MTLVertexFormat ints[]   = { MTLVertexFormatInt, MTLVertexFormatInt2, MTLVertexFormatInt3, MTLVertexFormatInt4 };
++		static const MTLVertexFormat uints[]  = { MTLVertexFormatUInt, MTLVertexFormatUInt2, MTLVertexFormatUInt3, MTLVertexFormatUInt4 };
++		MTLVertexFormat format = floats[width];
++		if (input.baseType == SPIRV_CROSS_NAMESPACE::SPIRType::Int) { format = ints[width]; }
++		if (input.baseType == SPIRV_CROSS_NAMESPACE::SPIRType::UInt) { format = uints[width]; }
++		auto vaDesc = inputDesc.attributes[input.location];
++		vaDesc.format = format;
++		vaDesc.bufferIndex = zeroIdx;
++		vaDesc.offset = 0;
++		reportMessage(MVK_CONFIG_LOG_LEVEL_INFO, "Vertex shader input at location %u is not in the vertex input state; it reads zero.", input.location);
++	}
++	_zeroVertexAttributeBufferIndex = zeroIdx;
++}
++
+ uint32_t MVKGraphicsPipeline::getTranslatedVertexBinding(uint32_t binding, uint32_t translationOffset, uint32_t maxBinding) {
+ 	// See if a translated binding already exists (for example if more than one VA needs the same translation).
+ 	for (auto& xltdBind : _translatedVertexBindings) {
