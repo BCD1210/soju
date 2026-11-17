@@ -125,6 +125,10 @@ struct SojuLogo: View {
     @Published var requestedPage: String?
     /// A game the store should start checking out, from a soju://store/<game>?buy=1 link.
     @Published var requestedBuy: String?
+    /// A Didim Labs demo started while nobody is signed in: the store asks for Apple or Google sign-in, then plays it.
+    @Published var requestedDemoPlay: String?
+    /// Signed in to Didim Labs (Apple or Google) in the store.
+    var didimSignedIn: Bool { !(UserDefaults.standard.string(forKey: "didimAccountEmail") ?? "").isEmpty }
     /// A checkout paid on the website, from the thanks page's "Install in Soju" button.
     @Published var requestedClaim: String?
     /// The website's sign-in result handoff, from soju://auth/done?state=…&code=… ([state, code]).

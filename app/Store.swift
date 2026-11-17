@@ -84,6 +84,9 @@ struct StoreView: View {
     @StateObject private var purchase = PurchaseWatcher()
     @StateObject private var account = AccountModel()
     @State private var keyFor: StoreGame?
+    /// What to do once the sign-in asked for by Buy or a demo finishes.
+    @State private var afterSignIn: (() -> Void)?
+    @State private var askSignIn: String?
     @State private var key = ""
     private let accent = Color(red: 0.79, green: 0.36, blue: 0.27)
 
@@ -128,14 +131,14 @@ struct StoreView: View {
             }
             NotifyRow()
             HStack(spacing: 6) {
-                Text("Press Buy, pay in your browser, and Soju installs the game by itself.")
+                Text("Sign in with Apple or Google, press Buy, pay in your browser, and Soju installs the game by itself.")
                 if let game = store.games.first(where: { installed($0) == nil }) {
                     Button("Have a license key?") { key = ""; keyFor = game }.buttonStyle(.link)
                 }
             }.font(.system(size: 11)).foregroundStyle(.secondary)
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { store.load(root: model.root); account.loadProviders(); buyRequested(); claimRequested() }
+        .onAppear { store.load(root: model.root); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
         .onChange(of: model.requestedBuy) { buyRequested() }
         .onChange(of: model.requestedClaim) { claimRequested() }
         .onChange(of: model.requestedAuth) {
@@ -144,7 +147,14 @@ struct StoreView: View {
             account.received(state: handoff[0], code: handoff[1])
         }
         .onChange(of: store.games.count) { buyRequested() }
+        .onChange(of: model.requestedDemoPlay) { demoPlayRequested() }
+        .onChange(of: model.games.count) { demoPlayRequested() }
+        .onChange(of: account.email) {
+            guard !account.email.isEmpty, let action = afterSignIn else { return }
+            afterSignIn = nil; askSignIn = nil; action()
+        }
         .sheet(item: $keyFor) { game in keySheet(game) }
+        .sheet(isPresented: Binding(get: { askSignIn != nil }, set: { if !$0 { askSignIn = nil } })) { signInSheet }
     }
 
     private var lastLine: String {
@@ -182,7 +192,7 @@ struct StoreView: View {
                         }.buttonStyle(.borderedProminent).tint(.green).disabled(model.busy)
                     } else {
                         if game.forSale {
-                            Button { buy(game) } label: {
+                            Button { signedIn("Sign in to buy " + game.title + ".") { buy(game) } } label: {
                                 Label("Buy · " + game.price, systemImage: "cart")
                             }.buttonStyle(.borderedProminent).tint(accent).disabled(purchase.pending != nil)
                         } else {
@@ -194,10 +204,10 @@ struct StoreView: View {
                         }
                         if let demo = game.demo {
                             if let demoGame = installed(id: demo.id) {
-                                Button { model.play(demoGame) } label: { Label("Play demo", systemImage: "play") }
+                                Button { signedIn("Sign in to play the demo.") { model.play(demoGame) } } label: { Label("Play demo", systemImage: "play") }
                                     .disabled(model.launchingGames.contains(demoGame.id))
                             } else {
-                                Button { model.run(["didim", "demo", game.id], title: "Downloading the " + game.title + " demo…") } label: {
+                                Button { signedIn("Sign in to get the free demo.") { model.run(["didim", "demo", game.id], title: "Downloading the " + game.title + " demo…") } } label: {
                                     Label("Free demo · " + demo.megabytes, systemImage: "arrow.down.circle")
                                 }.disabled(model.busy).help("The first nights of the game, free")
                             }
@@ -231,7 +241,7 @@ struct StoreView: View {
                 Text("Signed in as " + account.email).font(.system(size: 12))
                 Button("Sign out") { account.signOut() }
             } else if !account.providers.isEmpty {
-                Text("Bought a game already?").font(.system(size: 12)).foregroundStyle(.secondary)
+                Text("Sign in to buy games and play demos.").font(.system(size: 12)).foregroundStyle(.secondary)
                 if account.providers.contains("apple") {
                     Button { account.signIn("apple") } label: { Label("Sign in with Apple", systemImage: "apple.logo") }
                 }
@@ -250,7 +260,47 @@ struct StoreView: View {
     private func buyRequested() {
         guard let id = model.requestedBuy, let game = store.games.first(where: { $0.id == id }) else { return }
         model.requestedBuy = nil
-        if game.forSale && installed(game) == nil && !account.owned.contains(game.id) && purchase.pending == nil { buy(game) }
+        if game.forSale && installed(game) == nil && !account.owned.contains(game.id) && purchase.pending == nil {
+            signedIn("Sign in to buy " + game.title + ".") { buy(game) }
+        }
+    }
+
+    /// A demo started from the library before signing in.
+    private func demoPlayRequested() {
+        guard let id = model.requestedDemoPlay, let demo = model.games.first(where: { $0.id == id && $0.isInstalled }) else { return }
+        model.requestedDemoPlay = nil
+        signedIn("Sign in to play the demo.") { model.play(demo) }
+    }
+
+    /// Buying and demos need an Apple or Google sign-in; the action runs once it is done.
+    private func signedIn(_ reason: String, _ action: @escaping () -> Void) {
+        if !account.email.isEmpty { action(); return }
+        afterSignIn = action; askSignIn = reason
+        if account.providers.isEmpty { account.loadProviders() }
+    }
+
+    private var signInSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Sign in to Didim Labs").font(.system(size: 18, weight: .bold))
+            Text((askSignIn ?? "") + " We get only your email address, and use it to keep your games and demos with you.")
+                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if account.signingIn != nil {
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Finish signing in in your browser.").font(.system(size: 12)) }
+            } else if account.providers.isEmpty {
+                Text("Sign-in is not available right now. Check the internet connection and try again.").font(.system(size: 12))
+            } else {
+                HStack(spacing: 10) {
+                    if account.providers.contains("apple") {
+                        Button { account.signIn("apple") } label: { Label("Sign in with Apple", systemImage: "apple.logo") }.buttonStyle(.borderedProminent)
+                    }
+                    if account.providers.contains("google") {
+                        Button { account.signIn("google") } label: { Label("Sign in with Google", systemImage: "g.circle") }.buttonStyle(.borderedProminent)
+                    }
+                }
+            }
+            if !account.message.isEmpty { Text(account.message).font(.system(size: 11)).foregroundStyle(.secondary) }
+            HStack { Spacer(); Button("Cancel") { account.cancel(); afterSignIn = nil; askSignIn = nil } }
+        }.padding(24).frame(width: 460)
     }
 
     /// A purchase made on the website: pick up its key with the checkout ID and install.
@@ -492,7 +542,7 @@ struct StoreView: View {
         if found.isEmpty {
             message = (body["private"] as? Bool) == true
                 ? "No purchases for this Apple relay address. Sign in with Google, or with Apple sharing your real email."
-                : "No purchases found for " + address + ". Sign in with the email you paid with."
+                : "Signed in as " + address + ". No purchases with this email yet."
         } else {
             message = "Found " + String(found.count) + (found.count == 1 ? " game" : " games") + " for " + address + "."
         }

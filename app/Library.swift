@@ -136,6 +136,9 @@ extension SojuModel {
         guard game.isInstalled else { libraryIssue = "Install this game through its official launcher first."; return }
         guard !busy, !launchingGames.contains(game.id) else { return }
         if let issue = launchIssue(for: game) { libraryIssue = issue; return }
+        if game.platform == .didim, game.id.hasSuffix("-demo"), !didimSignedIn {
+            requestedPage = "store"; requestedDemoPlay = game.id; return
+        }
         do {
             let (p, url) = try task(["game", game.id], logName: "game-" + game.id.replacingOccurrences(of: ":", with: "-"))
             launchingGames.insert(game.id); gameLaunches[game.id] = p
