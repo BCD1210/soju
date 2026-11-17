@@ -1,0 +1,5589 @@
+{
+ "_source": "https://areweanticheatyet.com/ (https://raw.githubusercontent.com/AreWeAntiCheatYet/AreWeAntiCheatYet/master/games.json)",
+ "_license": "MIT, notice below",
+ "_notice": "MIT License\n\nCopyright © 2021 Starz0r, Curve\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.",
+ "games": {
+  "12sky2": {
+   "title": "TwelveSky 2",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "12sky2-classic": {
+   "title": "TwelveSky 2 Classic",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "12tails": {
+   "title": "12Tails",
+   "appid": null,
+   "anticheats": [
+    "Fredaikis Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "2xko": {
+   "title": "2XKO",
+   "appid": null,
+   "anticheats": [
+    "Vanguard"
+   ],
+   "status": "Denied"
+  },
+  "3on3-freestyle": {
+   "title": "3on3 FreeStyle",
+   "appid": "624910",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "3on3-freestyle-rebound": {
+   "title": "3on3 FreeStyle: Rebound",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "9dragons": {
+   "title": "9Dragons",
+   "appid": "390100",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "a-twisted-path-to-renown": {
+   "title": "A Twisted Path to Renown",
+   "appid": "2304660",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "absolver": {
+   "title": "Absolver",
+   "appid": "473690",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "ace-online": {
+   "title": "ACE Online",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "aew-fight-forever": {
+   "title": "AEW Fight Forever",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "aika-online-global": {
+   "title": "AIKA Online Global",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "aion-classic": {
+   "title": "AION Classic",
+   "appid": null,
+   "anticheats": [
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "alara-prime": {
+   "title": "ALARA Prime",
+   "appid": "971700",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "aliance-of-valiant-arms-dog-tag": {
+   "title": "AVA: Dog Tag",
+   "appid": "815940",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "alien-arena-warriors-of-mars": {
+   "title": "Alien Arena: Warriors of Mars",
+   "appid": "629540",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "alliance-of-valiant-arms": {
+   "title": "A.V.A. Alliance of Valiant Arms",
+   "appid": "102700",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "allods-online": {
+   "title": "Allods Online",
+   "appid": "459160",
+   "anticheats": [
+    "Mail.ru Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "alvo": {
+   "title": "Alvo VR",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "americas-army": {
+   "title": "America's Army",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "americas-army-3": {
+   "title": "America's Army 3",
+   "appid": "13140",
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "anarchy-legends-online": {
+   "title": "Anarchy Legends Online",
+   "appid": "1587100",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "anarchy-wolfs-law": {
+   "title": "Anarchy: Wolf's Law",
+   "appid": "1133060",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "another-eden": {
+   "title": "ANOTHER EDEN",
+   "appid": "1252600",
+   "anticheats": [
+    "Crackproof",
+    "WFSDrv"
+   ],
+   "status": "Broken"
+  },
+  "apb-reloaded": {
+   "title": "APB Reloaded",
+   "appid": "113400",
+   "anticheats": [
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "apex-legends": {
+   "title": "Apex Legends",
+   "appid": "1172470",
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "Hyperion"
+   ],
+   "status": "Denied"
+  },
+  "apex-legends-for-challengermode": {
+   "title": "Apex Legends (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "arcane-saga-online": {
+   "title": "Arcane Saga Online",
+   "appid": null,
+   "anticheats": [
+    "AhnLab HackShield"
+   ],
+   "status": "Broken"
+  },
+  "archeage": {
+   "title": "ArcheAge",
+   "appid": "304030",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "archeage-chronicles": {
+   "title": "ArcheAge Chronicles",
+   "appid": "3218230",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "archeage-unchained": {
+   "title": "Archeage: Unchained",
+   "appid": "1147660",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "archon-24": {
+   "title": "Archon 24",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "archon-og": {
+   "title": "Archon OG",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "arctic-combat": {
+   "title": "Arctic Combat",
+   "appid": null,
+   "anticheats": [
+    "AhnLab HackShield"
+   ],
+   "status": "Broken"
+  },
+  "arena-breakout-infinite": {
+   "title": "Arena Breakout: Infinite",
+   "appid": "2073620",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Denied"
+  },
+  "argentum-online": {
+   "title": "Argentum Online",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "argo": {
+   "title": "Argo",
+   "appid": "2562000",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "ark-2": {
+   "title": "ARK 2",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "arma-2": {
+   "title": "ArmA 2",
+   "appid": "33900",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "arma-2-operation-arrowhead": {
+   "title": "ArmA 2: Operation Arrowhead",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "ashes-of-creation": {
+   "title": "Ashes of Creation",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "ashes-of-creation-apocalypse": {
+   "title": "Ashes of Creation Apocalypse",
+   "appid": "1133430",
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "MY.GAMES Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "ashfall": {
+   "title": "Ashfall",
+   "appid": "2131860",
+   "anticheats": [
+    "NEAC Protect",
+    "NetEase Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "assassins-creed-revelations": {
+   "title": "Assassin's Creed: Revelations",
+   "appid": "201870",
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "astellia": {
+   "title": "Astellia",
+   "appid": "1185560",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "astellia-royal": {
+   "title": "Astellia Royal",
+   "appid": "1524370",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "astra-knights-of-veda": {
+   "title": "ASTRA: Knights of Veda",
+   "appid": "2484250",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "atlantica": {
+   "title": "Atlantica Global",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "atlantica-europe": {
+   "title": "Atlantica Europe",
+   "appid": "1563940",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "atlas": {
+   "title": "Atlas",
+   "appid": "834910",
+   "anticheats": [
+    "VAC",
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "atrix": {
+   "title": "ATrix",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "audition-next-level": {
+   "title": "Audition Next Level",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "audition-online": {
+   "title": "Audition Online",
+   "appid": "349720",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "audition2": {
+   "title": "Audition 2",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "audition3-wia": {
+   "title": "Audition 3 WIA",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "aura-kingdom": {
+   "title": "Aura Kingdom",
+   "appid": "268420",
+   "anticheats": [
+    "Unknown (Custom)"
+   ],
+   "status": "Broken"
+  },
+  "ava-global": {
+   "title": "A.V.A Global",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "babylons-fall": {
+   "title": "Babylon's Fall",
+   "appid": "889750",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "battalion-1944": {
+   "title": "Battalion 1944",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "battle-crush": {
+   "title": "Battle Crush",
+   "appid": "2287920",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "battle-teams-2": {
+   "title": "Battle Teams 2",
+   "appid": "1969870",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "battlefield-1": {
+   "title": "Battlefield 1",
+   "appid": "1238840",
+   "anticheats": [
+    "FairFight",
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "battlefield-1942": {
+   "title": "Battlefield 1942",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "battlefield-2042": {
+   "title": "Battlefield™ 2042",
+   "appid": "1517290",
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "battlefield-2142": {
+   "title": "Battlefield 2142",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "battlefield-6": {
+   "title": "Battlefield 6",
+   "appid": "2807960",
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "battlefield-heroes": {
+   "title": "Battlefield Heroes",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "battlefield-play4free": {
+   "title": "Battlefield Play4Free",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "battlefield-v": {
+   "title": "Battlefield V",
+   "appid": "1238810",
+   "anticheats": [
+    "FairFight",
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "battlefield-vietnam": {
+   "title": "Battlefield Vietnam",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "battlefleet-gothic-armada-2": {
+   "title": "Battlefleet Gothic: Armada 2",
+   "appid": "573100",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "battleteams1-classic-china": {
+   "title": "生死狙击：战火重燃（国际版）",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "beasts-of-bermuda": {
+   "title": "Beasts of Bermuda",
+   "appid": "719890",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "beautiful-light": {
+   "title": "Beautiful Light",
+   "appid": "1313230",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "beyond-the-wire": {
+   "title": "Beyond the Wire",
+   "appid": "1058650",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "bf6-redsec": {
+   "title": "Battlefield REDSEC",
+   "appid": null,
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "black-clover-quartet-knights": {
+   "title": "Black Clover: Quartet Knights",
+   "appid": "714080",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "black-stigma": {
+   "title": "Black Stigma",
+   "appid": "1277530",
+   "anticheats": [
+    "Cheat Blocker"
+   ],
+   "status": "Broken"
+  },
+  "blacklight-retribution": {
+   "title": "Blacklight: Retribution",
+   "appid": "209870",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "blackshot-mercenary-warfare-fps": {
+   "title": "BlackShot: Mercenary Warfare FPS",
+   "appid": null,
+   "anticheats": [
+    "BattlEye",
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "blackshot-revolution": {
+   "title": "BlackShot Revolution",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard",
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "blade-and-soul": {
+   "title": "Blade & Soul",
+   "appid": null,
+   "anticheats": [
+    "VIOLET",
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "blade-and-soul-heroes": {
+   "title": "Blade & Soul Heroes",
+   "appid": "3616890",
+   "anticheats": [
+    "Anti-Cheat Solution"
+   ],
+   "status": "Broken"
+  },
+  "blade-soul-neo": {
+   "title": "Blade & Soul NEO",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Solution"
+   ],
+   "status": "Broken"
+  },
+  "blankos-block-party": {
+   "title": "Blankos: Block Party",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "bleeding-edge": {
+   "title": "Bleeding Edge",
+   "appid": "1189800",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "bless-online": {
+   "title": "Bless Online",
+   "appid": "681660",
+   "anticheats": [
+    "BattlEye",
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "block-n-load": {
+   "title": "Block N Load",
+   "appid": "299360",
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "block-n-load-2": {
+   "title": "Block N Load 2",
+   "appid": "1551810",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "blockade": {
+   "title": "Blockade",
+   "appid": "2393590",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "bots": {
+   "title": "Bots",
+   "appid": "1184780",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "boundary": {
+   "title": "Boundary",
+   "appid": "1364020",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "brawlhalla-for-esl": {
+   "title": "Brawlhalla (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "breach": {
+   "title": "Breach",
+   "appid": "421650",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "breachers-vr": {
+   "title": "Breachers",
+   "appid": "1922010",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Denied"
+  },
+  "brick-force": {
+   "title": "Brick-Force",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "bullet-run": {
+   "title": "Bullet Run",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "cabal-online": {
+   "title": "Cabal Online",
+   "appid": "253490",
+   "anticheats": [
+    "X-Trap",
+    "nProtect GameGuard",
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "cabbageball": {
+   "title": "CabbageBall",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "call-of-duty-mobile": {
+   "title": "Call of Duty: Mobile",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "call-of-duty-modern-warfare-2-2022": {
+   "title": "Call of Duty: Modern Warfare II (2022)",
+   "appid": "1938090",
+   "anticheats": [
+    "RICOCHET"
+   ],
+   "status": "Broken"
+  },
+  "call-of-duty-modern-warfare-2019": {
+   "title": "Call of Duty: Modern Warfare (2019)",
+   "appid": null,
+   "anticheats": [
+    "RICOCHET"
+   ],
+   "status": "Broken"
+  },
+  "call-of-duty-online": {
+   "title": "Call of Duty: Online",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "call-of-duty-vanguard": {
+   "title": "Call of Duty: Vanguard",
+   "appid": "1985820",
+   "anticheats": [
+    "RICOCHET"
+   ],
+   "status": "Broken"
+  },
+  "call-of-duty-warzone": {
+   "title": "Call of Duty: Warzone",
+   "appid": "1962663",
+   "anticheats": [
+    "RICOCHET"
+   ],
+   "status": "Broken"
+  },
+  "captain-tsubasa-rise-of-new-champions": {
+   "title": "Captain Tsubasa: Rise of New Champions",
+   "appid": "1163550",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "century-age-of-ashes": {
+   "title": "Century: Age of Ashes",
+   "appid": "918570",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "chimeraland": {
+   "title": "Chimeraland",
+   "appid": "1913730",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "citybattle-virtual-earth": {
+   "title": "CityBattle | Virtual_Earth",
+   "appid": "876460",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "citybattle-virtual-earth-europe": {
+   "title": "CityBattle | Virtual Earth (EU)",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "clickr": {
+   "title": "Clickr",
+   "appid": "45500",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "closers": {
+   "title": "Closers",
+   "appid": "215830",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "club-audition": {
+   "title": "Club Audition",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "cod-blackops7": {
+   "title": "Call of Duty: Black Ops 7",
+   "appid": "3606480",
+   "anticheats": [
+    "Ricochet"
+   ],
+   "status": "Denied"
+  },
+  "cod-blops3-for-challengermode": {
+   "title": "Call of Duty: Black Ops 3 (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "cod-mw3-2023": {
+   "title": "Call of Duty: Modern Warfare III (2023)",
+   "appid": null,
+   "anticheats": [
+    "RICOCHET"
+   ],
+   "status": "Broken"
+  },
+  "cod-warzone-2": {
+   "title": "Call of Duty: Warzone 2.0",
+   "appid": null,
+   "anticheats": [
+    "RICOCHET"
+   ],
+   "status": "Broken"
+  },
+  "cod21-blops6": {
+   "title": "Call of Duty: Black Ops 6",
+   "appid": "2933620",
+   "anticheats": [
+    "Treyarch Anti-Cheat",
+    "RICOCHET"
+   ],
+   "status": "Broken"
+  },
+  "code-of-ashes": {
+   "title": "Code of Ashes",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "code2040": {
+   "title": "CODE2040",
+   "appid": "993870",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "combat-arms": {
+   "title": "Combat Arms",
+   "appid": null,
+   "anticheats": [
+    "AhnLab HackShield",
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "combat-arms-reloaded": {
+   "title": "Combat Arms: Reloaded",
+   "appid": null,
+   "anticheats": [
+    "BattlEye",
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "comeonbaby": {
+   "title": "COMEONBABY",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "conan-exiles": {
+   "title": "Conan Exiles",
+   "appid": "440900",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "concord": {
+   "title": "Concord",
+   "appid": "907630",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Denied"
+  },
+  "contenders-arena": {
+   "title": "Contenders: Arena",
+   "appid": "2445510",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "continent-of-the-ninth-golden": {
+   "title": "Continent of the Ninth Golden",
+   "appid": "2356310",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "continent-of-the-ninth-seal": {
+   "title": "Continent of the Ninth Seal",
+   "appid": "212390",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "contractors-showdown": {
+   "title": "Contractors Showdown",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "counter-strike-for-pdxplay": {
+   "title": "Counter-Strike (pDxPlay)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "counter-strike-online": {
+   "title": "Counter-Strike Online",
+   "appid": null,
+   "anticheats": [
+    "AhnLab HackShield"
+   ],
+   "status": "Broken"
+  },
+  "counterstrike-nexon": {
+   "title": "Counter-Strike Nexon",
+   "appid": "273110",
+   "anticheats": [
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "crasher": {
+   "title": "Crasher",
+   "appid": null,
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "crazy-arcade": {
+   "title": "Crazy Arcade",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "crimecraft": {
+   "title": "CrimeCraft",
+   "appid": null,
+   "anticheats": [
+    "X-Trap",
+    "AhnLab HackShield"
+   ],
+   "status": "Broken"
+  },
+  "cronous": {
+   "title": "Cronous",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "crossfire": {
+   "title": "CrossFire",
+   "appid": null,
+   "anticheats": [
+    "X-Trap",
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "crowz": {
+   "title": "Crowz",
+   "appid": "1692070",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "crsed-cuisine-royale": {
+   "title": "CRSED: Cuisine Royale",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Denied"
+  },
+  "crysis": {
+   "title": "Crysis",
+   "appid": "17300",
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "crysis-warhead": {
+   "title": "Crysis: Warhead",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "crysis-wars": {
+   "title": "Crysis Wars",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "cs-online2": {
+   "title": "Counter-Strike Online 2",
+   "appid": null,
+   "anticheats": [
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "cs2-esea": {
+   "title": "Counter-Strike 2 (ESEA)",
+   "appid": null,
+   "anticheats": [
+    "ESEA"
+   ],
+   "status": "Denied"
+  },
+  "cs2-esl": {
+   "title": "Counter-Strike 2 (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Denied"
+  },
+  "cs2-faceit": {
+   "title": "Counter-Strike 2 (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Denied"
+  },
+  "cs2-for-challengermode": {
+   "title": "Counter-Strike 2 (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "cs2-for-esgplay": {
+   "title": "Counter-Strike 2 (ESGPLAY)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "cs2-for-esportal": {
+   "title": "Counter-Strike 2 (Esportal)",
+   "appid": null,
+   "anticheats": [
+    "Esportal"
+   ],
+   "status": "Broken"
+  },
+  "cs2-for-gamersclub": {
+   "title": "Counter-Strike 2 (GamersClub)",
+   "appid": null,
+   "anticheats": [
+    "EMAC LAB"
+   ],
+   "status": "Broken"
+  },
+  "csgo-challengermode": {
+   "title": "Counter-Strike: Global Offensive (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "csgo-esl": {
+   "title": "Counter-Strike: Global Offensive (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "csgo-for-esgplay": {
+   "title": "Counter-Strike: Global Offensive (ESGPLAY)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "csgo-for-esportal": {
+   "title": "Counter-Strike: Global Offensive (Esportal)",
+   "appid": null,
+   "anticheats": [
+    "Esportal"
+   ],
+   "status": "Broken"
+  },
+  "csgo-for-gamersclub": {
+   "title": "Counter-Strike: Global Offensive (GamersClub)",
+   "appid": null,
+   "anticheats": [
+    "EMAC LAB"
+   ],
+   "status": "Broken"
+  },
+  "ctracer-online": {
+   "title": "CTRACER ONLINE",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "dance-online": {
+   "title": "Dance! Online",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "dark-blood-online": {
+   "title": "Dark Blood Online",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "dark-eden": {
+   "title": "Dark Eden",
+   "appid": "548290",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "dark-eden-origin": {
+   "title": "Dark Eden Origin",
+   "appid": "658510",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "darkfall-rise-of-agon": {
+   "title": "Rise of Agon",
+   "appid": "2077110",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "darwin-project": {
+   "title": "Darwin Project",
+   "appid": "544920",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dead-cide-club": {
+   "title": "DEAD CIDE CLUB",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "deadside": {
+   "title": "Deadside",
+   "appid": "895400",
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "deathgarden-bloodharvest": {
+   "title": "Deathgarden: Bloodharvest",
+   "appid": "555440",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "decimated": {
+   "title": "Decimated",
+   "appid": "1354980",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "decksplash": {
+   "title": "Decksplash",
+   "appid": "499470",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dekaron": {
+   "title": "Dekaron",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "dekaron-online-thiland": {
+   "title": "Dekaron Online TH",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "delta-force-hawk-ops": {
+   "title": "Delta Force: Hawk Ops",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Denied"
+  },
+  "destiny-2": {
+   "title": "Destiny 2",
+   "appid": "1085660",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Denied"
+  },
+  "diabotical-for-challengermode": {
+   "title": "Diabotical (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "digimonrpg": {
+   "title": "DigimonRPG",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "district-187": {
+   "title": "District 187",
+   "appid": null,
+   "anticheats": [
+    "AhnLab HackShield"
+   ],
+   "status": "Broken"
+  },
+  "dizzel": {
+   "title": "Dizzel",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "dominance": {
+   "title": "Dominance",
+   "appid": "2175780",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dota-2-for-faceit": {
+   "title": "Dota 2 (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Broken"
+  },
+  "dota2-for-challengermode": {
+   "title": "DotA 2 (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "dota2-for-esportal": {
+   "title": "Dota 2 (Esportal)",
+   "appid": null,
+   "anticheats": [
+    "Esportal"
+   ],
+   "status": "Broken"
+  },
+  "dragomon-hunter": {
+   "title": "Dragomon Hunter",
+   "appid": "356330",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "dragon-ball-fighterz": {
+   "title": "DRAGON BALL FighterZ",
+   "appid": "678950",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dragon-ball-the-breakers": {
+   "title": "DRAGON BALL: THE BREAKERS",
+   "appid": "1692200",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dragon-ball-xenoverse-2": {
+   "title": "DRAGON BALL XENOVERSE 2",
+   "appid": "454650",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dragon-saga": {
+   "title": "Dragon Saga",
+   "appid": "381990",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dragon-sky": {
+   "title": "Dragon Sky",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "dragona": {
+   "title": "Dragona",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "dragonheir-silent-gods": {
+   "title": "Dragonheir: Silent Gods",
+   "appid": "2203070",
+   "anticheats": [
+    "Proxima Game Anti Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dreadlands": {
+   "title": "Dreadlands",
+   "appid": "1054690",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dreadnought": {
+   "title": "Dreadnought",
+   "appid": "835860",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dual-universe": {
+   "title": "Dual Universe",
+   "appid": "2000270",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "duckside": {
+   "title": "DUCKSIDE",
+   "appid": "2682580",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dungeon-done": {
+   "title": "Dungeon Done",
+   "appid": "2939830",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dungeonborne": {
+   "title": "Dungeonborne",
+   "appid": "2448970",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "dust-ii-the-infinite-zero-point": {
+   "title": "DUST II | The Infinite Zero Point",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dying-light-bad-blood": {
+   "title": "Dying Light: Bad Blood",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "dysterra": {
+   "title": "Dysterra",
+   "appid": "1562450",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "ea-sports-fc-25": {
+   "title": "EA SPORTS FC™ 25",
+   "appid": "2669320",
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "ea-sports-fc26": {
+   "title": "EA SPORTS FC™ 26",
+   "appid": null,
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "ea-sports-wrc": {
+   "title": "EA SPORTS™ WRC 24",
+   "appid": "1849250",
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "eden-eternal": {
+   "title": "Eden Eternal",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "elsword": {
+   "title": "Elsword",
+   "appid": "1011810",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "elsword-japan": {
+   "title": "Elsword (JPN)",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "elyon": {
+   "title": "Elyon",
+   "appid": "1695900",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "empyrion-galactic-survival": {
+   "title": "Empyrion - Galactic Survival",
+   "appid": "383120",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "enemy-territory-quake-wars": {
+   "title": "Enemy Territory: Quake Wars",
+   "appid": null,
+   "anticheats": [
+    "Punkbuster"
+   ],
+   "status": "Broken"
+  },
+  "enlisted": {
+   "title": "Enlisted",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "eos-ragnarok": {
+   "title": "EOS Ragnarok",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "ernis-and-fricky": {
+   "title": "Ernis&Fricky",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "escape-from-tarkov-arena": {
+   "title": "Escape from Tarkov: Arena",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "esea-counterstrike-global-offensive": {
+   "title": "Counter-Strike: Global Offensive (ESEA)",
+   "appid": null,
+   "anticheats": [
+    "ESEA"
+   ],
+   "status": "Denied"
+  },
+  "eternal-kingdom-battle-peak": {
+   "title": "Eternal Kingdom Battle Peak",
+   "appid": "1175210",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "eternal-magic": {
+   "title": "Eternal Magic",
+   "appid": "1153700",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "eternalcity-the-acceleration": {
+   "title": "ETERNALCITY THE ACCELERATION",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "exoborne": {
+   "title": "Exoborne",
+   "appid": "2705130",
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "AnyBrain"
+   ],
+   "status": "Denied"
+  },
+  "exos-heroes": {
+   "title": "Exos Heroes",
+   "appid": "1687760",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "extreme-soccer": {
+   "title": "Extreme Soccer",
+   "appid": "1477730",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "ez-fighter": {
+   "title": "EZ Fighter",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "f1-24": {
+   "title": "F1® 24",
+   "appid": "2488620",
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "faceit-counterstrike-global-offensive": {
+   "title": "Counter-Strike: Global Offensive (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Denied"
+  },
+  "fangs-for-challengermode": {
+   "title": "Fangs (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "fanta-tennis": {
+   "title": "Fanta-Tennis",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "farlight84": {
+   "title": "Farlight 84",
+   "appid": "1928420",
+   "anticheats": [
+    "NetEase Yidun"
+   ],
+   "status": "Denied"
+  },
+  "farlight84-for-challengermode": {
+   "title": "Farlight 84 (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "fate-trigger-the-novita": {
+   "title": "Fate Trigger：The Novita",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "fault-elder-orb": {
+   "title": "Fault: Elder Orb",
+   "appid": "1106750",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "fc24-for-challengermode": {
+   "title": "EA Sports FC™ 24 (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "fc24-for-faceit": {
+   "title": "EA SPORTS™ FC 24 (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Broken"
+  },
+  "fc25-for-challengermode": {
+   "title": "EA Sports FC™ 25 (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "fc25-for-faceit": {
+   "title": "EA SPORTS™ FC 25 (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Broken"
+  },
+  "fear": {
+   "title": "F.E.A.R.",
+   "appid": "21090",
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "fear-online": {
+   "title": "F.E.A.R. Online",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "fear-perseus-mandate": {
+   "title": "F.E.A.R.: Perseus Mandate",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "fear-the-night": {
+   "title": "Fear the Night",
+   "appid": "764920",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "fear-the-wolves": {
+   "title": "Fear the Wolves",
+   "appid": "819500",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "fifa-23": {
+   "title": "EA SPORTS™ FIFA 23",
+   "appid": "1811260",
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "fifa-23-for-esl": {
+   "title": "FIFA 23 (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "fifa-23-for-faceit": {
+   "title": "EA SPORTS™ FIFA 23 (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Broken"
+  },
+  "fifa-24": {
+   "title": "EA SPORTS FC™ 24",
+   "appid": null,
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "finalcypher": {
+   "title": "FinalCypher",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "fivem": {
+   "title": "FiveM",
+   "appid": null,
+   "anticheats": [
+    "Unknown (Custom)"
+   ],
+   "status": "Denied"
+  },
+  "flea-madness": {
+   "title": "Flea Madness",
+   "appid": "1025560",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "flippin-misfits": {
+   "title": "Flippin Misfits",
+   "appid": "1765520",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "florensia": {
+   "title": "Florensia",
+   "appid": "384030",
+   "anticheats": [
+    "AhnLab HackShield"
+   ],
+   "status": "Broken"
+  },
+  "flyff": {
+   "title": "Flyff",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "forefront": {
+   "title": "Forefront",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Denied"
+  },
+  "formula1-25": {
+   "title": "F1® 25",
+   "appid": null,
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "fortnite": {
+   "title": "Fortnite",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Denied"
+  },
+  "fortress-forever": {
+   "title": "Fortress Forever",
+   "appid": "253530",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "forts-for-challengermode": {
+   "title": "Forts (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "fractured-lands": {
+   "title": "Fractured Lands",
+   "appid": "751240",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "freestyle2-street-basketball": {
+   "title": "Freestyle 2: Street Basketball",
+   "appid": "339610",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "freestylefootball": {
+   "title": "FreeStyleFootball",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "frontlines-fuel-of-war": {
+   "title": "Frontlines: Fuel of War",
+   "appid": "9460",
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "frozen-flame": {
+   "title": "Frozen Flame",
+   "appid": "715400",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "gersang": {
+   "title": "Gersang",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "ggst-for-challengermode": {
+   "title": "Guilty Gear: Strive (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "ggst-for-esl": {
+   "title": "Guilty Gear: Strive (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "ghost-in-the-shell-stand-alone-complex-first-assault-online": {
+   "title": "Ghost in the Shell: Stand Alone Complex - First Assault Online",
+   "appid": "369200",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "ghost-of-tsushima-directors-cut": {
+   "title": "Ghost of Tsushima Director's Cut",
+   "appid": "2215430",
+   "anticheats": [
+    "PlayStation Overlay"
+   ],
+   "status": "Denied"
+  },
+  "ghost-online-thailand": {
+   "title": "Ghost Online TH",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "ghosts-of-tabor": {
+   "title": "Ghosts of Tabor",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Denied"
+  },
+  "gigantic": {
+   "title": "Gigantic",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "golf-king": {
+   "title": "Golf King",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "granado-espada-europe": {
+   "title": "Granado Espada (EUR)",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "grand-mar": {
+   "title": "Grand mar",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "grand-theft-auto-v": {
+   "title": "Grand Theft Auto V",
+   "appid": "271590",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Denied"
+  },
+  "grand-theft-auto-vi": {
+   "title": "Grand Theft Auto VI",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Denied"
+  },
+  "grando-espada-japan": {
+   "title": "Granado Espada Japan",
+   "appid": "1219160",
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "grando-espada-korea": {
+   "title": "Granado Espada (KOR)",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "grasen": {
+   "title": "GRASEN",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "guardian-chronicle": {
+   "title": "Guardian Chronicle",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "gunbound": {
+   "title": "GunBound",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "gunster": {
+   "title": "GUNSTER",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "gunz-the-duel": {
+   "title": "GunZ: The Duel",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "gunz2-the-second-duel": {
+   "title": "GunZ 2: The Second Duel",
+   "appid": "242720",
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "half-life-vr-mod": {
+   "title": "Half-Life: VR Mod",
+   "appid": "1908720",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "have-online": {
+   "title": "Microvolts",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "hawked": {
+   "title": "HAWKED",
+   "appid": "1955960",
+   "anticheats": [
+    "MY.GAMES Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "hazrd-ops": {
+   "title": "Hazard Ops",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "hearthstone-for-challengermode": {
+   "title": "Hearthstone (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "heat": {
+   "title": "Heat",
+   "appid": "656240",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "heatproject": {
+   "title": "HeatProject",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "hero-online": {
+   "title": "Hero Plus",
+   "appid": "747920",
+   "anticheats": [
+    "X-Trap",
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "heroes-generals": {
+   "title": "Heroes & Generals",
+   "appid": "227940",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "hide-or-die": {
+   "title": "Hide or Die",
+   "appid": "731620",
+   "anticheats": [
+    "EQU8"
+   ],
+   "status": "Broken"
+  },
+  "his-heroes-in-the-sky": {
+   "title": "HIS (Heroes In the Sky)",
+   "appid": "342570",
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "honkai-impact-3rd": {
+   "title": "Honkai Impact 3rd",
+   "appid": "1671200",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "honkai-impact-3rd-china": {
+   "title": "Honkai Impact 3rd (CHN)",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "honkai-star-rail": {
+   "title": "Honkai Star Rail",
+   "appid": null,
+   "anticheats": [
+    "miHoYo Protect"
+   ],
+   "status": "Broken"
+  },
+  "hood-outlaws-legends": {
+   "title": "Hood: Outlaws & Legends",
+   "appid": "927350",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "hyper-scape": {
+   "title": "Hyper Scape",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "hyper-universe": {
+   "title": "Hyper Universe",
+   "appid": "591530",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "hyperrelay": {
+   "title": "HyperRelay",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "hypesquad": {
+   "title": "HypeSquad",
+   "appid": "1688720",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "icarus-online": {
+   "title": "Icarus Online",
+   "appid": "921940",
+   "anticheats": [
+    "XIGNCODE3",
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "il-2-sturmovik-cliffs-of-dover": {
+   "title": "IL-2 Sturmovik: Cliffs of Dover",
+   "appid": "63950",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "inazuma-eleven-victory-road": {
+   "title": "INAZUMA ELEVEN: Victory Road",
+   "appid": "2799860",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "infestation-battle-royale": {
+   "title": "Infestation: Battle Royale",
+   "appid": "1240290",
+   "anticheats": [
+    "Fredaikis Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "infestation-survivor-stories-2020": {
+   "title": "Infestation: Survivor Stories 2020",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster",
+    "Easy Anti-Cheat",
+    "Fredaikis Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "infestation-survivor-stories-classic": {
+   "title": "Infestation: Survivor Stories Classic",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "infestation-survivor-stories-revival": {
+   "title": "Infestation: Survivor Stories Revival",
+   "appid": null,
+   "anticheats": [
+    "Fredaikis Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "infestation-the-new-z": {
+   "title": "Infestation: The New Z",
+   "appid": "555570",
+   "anticheats": [
+    "Fredaikis Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "infestation-world": {
+   "title": "Infestation World",
+   "appid": null,
+   "anticheats": [
+    "Punkbuster",
+    "Easy Anti-Cheat",
+    "Fredaikis Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "infinity-nikki": {
+   "title": "Infinity Nikki",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "infinity-wars-classic-for-challengermode": {
+   "title": "Infinity Wars Classic (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "insurgency-modern-infantry-combat": {
+   "title": "Insurgency: Modern Infantry Combat",
+   "appid": "17700",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "intershelter": {
+   "title": "Intershelter",
+   "appid": "520530",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "iracing": {
+   "title": "iRacing",
+   "appid": "266410",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "iracing-for-challengermode": {
+   "title": "iRacing (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "isekaiisekai-which-title-should-i-collect-next": {
+   "title": "異世界∞異世界 ～次はどの作品を、集めよう～",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "island-games": {
+   "title": "Island games",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "islands-of-nyne-battle-royale": {
+   "title": "Islands of Nyne: Battle Royale",
+   "appid": "728540",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "istorm": {
+   "title": "iStorm",
+   "appid": "610940",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "joint-operations-combined-arms": {
+   "title": "Joint Operations: Combined Arms Gold",
+   "appid": "32770",
+   "anticheats": [
+    "Punkbuster"
+   ],
+   "status": "Broken"
+  },
+  "joint-operations-escalation": {
+   "title": "Joint Operations: Escalation",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "joint-operations-typhoon-rising": {
+   "title": "Joint Operations: Typhoon Rising",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "journeymans-inn": {
+   "title": "江湖客栈-单人模式 (Journeyman's Inn)",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "jump-force": {
+   "title": "JUMP FORCE",
+   "appid": "816020",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "just-survive": {
+   "title": "Just Survive",
+   "appid": "2394590",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "kalonline": {
+   "title": "KAL Online",
+   "appid": "475100",
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "karos": {
+   "title": "Karos",
+   "appid": "337410",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "karos-classic": {
+   "title": "Karos Classic",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "kartrider": {
+   "title": "KartRider",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "khan-absolute-power": {
+   "title": "Khan: Absolute Power",
+   "appid": "451130",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "king-arthur-legends-rise": {
+   "title": "King Arthur: Legends Rise",
+   "appid": "2279730",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "kingdom-the-blood": {
+   "title": "Kingdom: The Blood",
+   "appid": "2258870",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "kingdom-under-fire-2": {
+   "title": "Kingdom Under Fire 2",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "kingshunt": {
+   "title": "Kingshunt",
+   "appid": "922620",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "knight-online": {
+   "title": "Knight Online",
+   "appid": "389430",
+   "anticheats": [
+    "X-Trap",
+    "PunkBuster",
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "kof-allstar": {
+   "title": "The King of Fighters All Star",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "kogama": {
+   "title": "KoGaMa",
+   "appid": null,
+   "anticheats": [
+    "Unknown (Custom)"
+   ],
+   "status": "Broken"
+  },
+  "kop": {
+   "title": "KOP",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "kritika-global": {
+   "title": "Kritika Global",
+   "appid": "2088180",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "kritika-online-sea": {
+   "title": "Kritika Online SEA",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "kritika-zero": {
+   "title": "KRITIKA:Zero",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "kritikareboot": {
+   "title": "Kritika:Reboot",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "krunker-for-challengermode": {
+   "title": "Krunker (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "last-flag": {
+   "title": "Last Flag",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "last-oasis": {
+   "title": "Last Oasis",
+   "appid": "903950",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "last-year": {
+   "title": "Last Year",
+   "appid": "1195460",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "lastchaos": {
+   "title": "LastChaos",
+   "appid": null,
+   "anticheats": [
+    "X-Trap",
+    "nProtect GameGuard",
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "lastchaos-thiland": {
+   "title": "Last Chaos TH",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "latale": {
+   "title": "LaTale",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "lawbreakers": {
+   "title": "LawBreakers",
+   "appid": "350280",
+   "anticheats": [
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "league-of-legends": {
+   "title": "League of Legends",
+   "appid": null,
+   "anticheats": [
+    "Vanguard"
+   ],
+   "status": "Denied"
+  },
+  "league-of-legends-china": {
+   "title": "League of Legends (CHN)",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "legend-of-ares": {
+   "title": "Legend of Ares",
+   "appid": "536950",
+   "anticheats": [
+    "X-Trap",
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "legend-of-edda-pegasus": {
+   "title": "Legend of Edda: Pegasus",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "legend-of-mir2": {
+   "title": "Legend of mir2",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "legend-of-mir3": {
+   "title": "Legend of mir3",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "legends-of-kailrate": {
+   "title": "Legends of Kailrate",
+   "appid": "3126860",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "legends-of-runeterra": {
+   "title": "Legends of Runeterra",
+   "appid": null,
+   "anticheats": [
+    "Packman"
+   ],
+   "status": "Broken"
+  },
+  "lemnis-gate": {
+   "title": "Lemnis Gate",
+   "appid": "950180",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "life-is-feudal-mmo": {
+   "title": "Life is Feudal: MMO",
+   "appid": "700030",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "lifeless": {
+   "title": "Lifeless",
+   "appid": "419520",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "lightning": {
+   "title": "Lightning",
+   "appid": "2137090",
+   "anticheats": [
+    "GuardenAC"
+   ],
+   "status": "Broken"
+  },
+  "lineage": {
+   "title": "Lineage",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "lineage-2": {
+   "title": "Lineage II",
+   "appid": null,
+   "anticheats": [
+    "4game Guard / Frost Security",
+    "Active Anticheat",
+    "nProtect GameGuard",
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "lineage-ii-essence": {
+   "title": "Lineage II Essence",
+   "appid": null,
+   "anticheats": [
+    "Active Anticheat",
+    "4game Guard / Frost Security",
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "loadout": {
+   "title": "Loadout",
+   "appid": "208090",
+   "anticheats": [
+    "Valve Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "lol-for-challengermode": {
+   "title": "League of Legends (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "lol-for-faceit": {
+   "title": "League of Legends (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Broken"
+  },
+  "longvinter": {
+   "title": "Longvinter",
+   "appid": "1635450",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "lost-ark-for-challengermode": {
+   "title": "Lost Ark (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "lost-light": {
+   "title": "Lost Light",
+   "appid": "1797880",
+   "anticheats": [
+    "NetEase Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "lost-light-for-challengermode": {
+   "title": "Lost Light (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "lost-region": {
+   "title": "Lost Region",
+   "appid": "331810",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "lostsaga": {
+   "title": "Lost Saga",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "luna-online": {
+   "title": "Luna Online",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "luniaz-global": {
+   "title": "Lunia Z Global",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "luniaz-revival": {
+   "title": "LUNIA Z: Revival",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "m-a-r-s": {
+   "title": "M.A.R.S.",
+   "appid": "314430",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "madden-23-for-esl": {
+   "title": "Madden 23 (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "madden-24-for-esl": {
+   "title": "Madden 24 (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "madden-nfl-24": {
+   "title": "EA SPORTS™ Madden NFL 24",
+   "appid": "2140330",
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "madden-nfl-25": {
+   "title": "EA SPORTS™ Madden NFL 25",
+   "appid": null,
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "madden-nfl-26": {
+   "title": "EA SPORTS™ Madden NFL 26",
+   "appid": "3230400",
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "madoka-magica-magia-exedra": {
+   "title": "Madoka Magica Magia Exedra",
+   "appid": null,
+   "anticheats": [
+    "CrackProof"
+   ],
+   "status": "Broken"
+  },
+  "magicka-wizard-wars": {
+   "title": "Magicka: Wizard Wars",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "maplestory": {
+   "title": "MapleStory",
+   "appid": "216150",
+   "anticheats": [
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "maplestory-worlds": {
+   "title": "MapleStory Worlds",
+   "appid": null,
+   "anticheats": [
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "maplestory2": {
+   "title": "MapleStory 2",
+   "appid": "560380",
+   "anticheats": [
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "marathon": {
+   "title": "Marathon",
+   "appid": "3065800",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Denied"
+  },
+  "marvel-end-time-arena": {
+   "title": "MARVEL End Time Arena",
+   "appid": "790650",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "me_ion": {
+   "title": "ME_iON",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "mecha-break": {
+   "title": "Mecha BREAK",
+   "appid": "2452280",
+   "anticheats": [
+    "Anti-Cheat Expert",
+    "Seasun Protect"
+   ],
+   "status": "Broken"
+  },
+  "mechabellum-for-challengermode": {
+   "title": "Mechabellum (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "mechwarrior-living-legends": {
+   "title": "MechWarrior: Living Legends",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "metal-revolution": {
+   "title": "Metal Revolution",
+   "appid": "994560",
+   "anticheats": [
+    "TenProtect"
+   ],
+   "status": "Broken"
+  },
+  "metal-slug-awakening": {
+   "title": "Metal Slug: Awakening",
+   "appid": "2963870",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "metin2-korea": {
+   "title": "Metin2 (KOR)",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "metro-conflict": {
+   "title": "Metro Conflict",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "metro-conflict-the-origin": {
+   "title": "Metro Conflict: The Origin",
+   "appid": "662320",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "microvolts-surge": {
+   "title": "MicroVolts Surge",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "midair-2": {
+   "title": "Midair 2",
+   "appid": "1469060",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "midnight-guns": {
+   "title": "Midnight Guns",
+   "appid": "1877600",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "midnight-murder-club": {
+   "title": "Midnight Murder Club",
+   "appid": "2698870",
+   "anticheats": [
+    "PlayStation Overlay"
+   ],
+   "status": "Broken"
+  },
+  "milkchoco": {
+   "title": "MilkChoco",
+   "appid": "871120",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "minifighter": {
+   "title": "minifighter",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "mir4": {
+   "title": "MIR4",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "mirror-war": {
+   "title": "Mirror War",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "miscreated": {
+   "title": "Miscreated",
+   "appid": "299740",
+   "anticheats": [
+    "VAC",
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "mission花札": {
+   "title": "Mission花札",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "mixmaster": {
+   "title": "Mixmaster",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "mobile-suit-gundam-battle-operation2": {
+   "title": "Mobile Suit Gundam Battle Operation 2",
+   "appid": "1367080",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "monstrum-2": {
+   "title": "Monstrum 2",
+   "appid": "1093170",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "moonbase-alpha": {
+   "title": "Moonbase Alpha",
+   "appid": "39000",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "moonbreaker-for-challengermode": {
+   "title": "Moonbreaker (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "mortal-kombat-11-for-esl": {
+   "title": "Mortal Kombat 11 (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "mortal-kombat-x-for-esl": {
+   "title": "Mortal Kombat X (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "motogp-25": {
+   "title": "MotoGP™25",
+   "appid": "3077390",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "mu": {
+   "title": "Mu",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "mu-legend": {
+   "title": "MU Legend",
+   "appid": "874240",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "mu-legend-evo": {
+   "title": "MU Legend: EVO",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "mu-legend-philippines": {
+   "title": "MU Legend PH",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "mu-online-philippines": {
+   "title": "Mu Online PH",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "mumu-player": {
+   "title": "MuMu Player",
+   "appid": null,
+   "anticheats": [
+    "NEAC Protect"
+   ],
+   "status": "Broken"
+  },
+  "myth-of-empires": {
+   "title": "Myth of Empires",
+   "appid": "1371580",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "n-age": {
+   "title": "N-Age",
+   "appid": "1863390",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "naraka-bladepoint-for-challengermode": {
+   "title": "Naraka: Bladepoint (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "naruto-to-boruto-shinobi-striker": {
+   "title": "NARUTO TO BORUTO: SHINOBI STRIKER",
+   "appid": "633230",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "national-street-basketball": {
+   "title": "全民街篮 (National Street Basketball)",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "navy-field2-conqueror-of-the-ocean": {
+   "title": "Navy Field 2 : Conqueror of the Ocean",
+   "appid": "338540",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "navy-field3-china": {
+   "title": "大海战3 Navy Field III",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "navyfield": {
+   "title": "NAVYFIELD",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "navyfield4-hongkong": {
+   "title": "大海战 Navy Field IV",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "nba-2k23-for-esl": {
+   "title": "NBA 2K23 (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "nba-2k24-for-esl": {
+   "title": "NBA 2K24 (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "need-for-speed-mobile": {
+   "title": "Need For Speed Mobile",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "need-for-speed-prostreet": {
+   "title": "Need for Speed: ProStreet",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "neo-steam": {
+   "title": "NEO STEAM",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "neotokyo": {
+   "title": "NEOTOKYO",
+   "appid": "244630",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "nether-resurrected": {
+   "title": "Nether: Resurrected",
+   "appid": null,
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "nether-the-untold-chapter": {
+   "title": "Nether: The Untold Chapter",
+   "appid": "1010270",
+   "anticheats": [
+    "Fredaikis Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "newbaseball": {
+   "title": "NewBaseBall",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "next-day-survival": {
+   "title": "Next Day: Survival",
+   "appid": "519190",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "nine-to-five": {
+   "title": "Nine to Five",
+   "appid": "1504620",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "o2jam-online": {
+   "title": "O2Jam Online",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "offensive-combat-redux": {
+   "title": "Offensive Combat: Redux!",
+   "appid": "622170",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "onair-online": {
+   "title": "Onair Online",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "once-human-china": {
+   "title": "Once Human (CHN)",
+   "appid": null,
+   "anticheats": [
+    "NEAC Protect",
+    "NetEase Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "one-punch-man-a-hero-nobody-knows": {
+   "title": "One Punch Man: A Hero Nobody Knows",
+   "appid": "991560",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "operation7": {
+   "title": "Operation7",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "ow2-for-challengermode": {
+   "title": "Overwatch 2 (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "ow2-for-faceit": {
+   "title": "Overwatch 2 (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Broken"
+  },
+  "p-a-s": {
+   "title": "P.A.S.",
+   "appid": "805110",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "p53-monarch": {
+   "title": "P53:MONARCH",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "pandemic-express-zombie-escape": {
+   "title": "Pandemic Express - Zombie Escape",
+   "appid": "939510",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "pang-online": {
+   "title": "Pang Online",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "pangya": {
+   "title": "PangYa",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "panzer-arena": {
+   "title": "Panzer Arena: Coop",
+   "appid": "763420",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "parapa": {
+   "title": "Para Pa",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "perfect-new-world": {
+   "title": "Perfect New World",
+   "appid": "2359600",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "perfect-world-m": {
+   "title": "Perfect World M",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "pfamily-new-heavenly-monument-taiwan": {
+   "title": "新天上碑",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "phantasy-star-online-2-jp": {
+   "title": "Phantasy Star Online 2 (JP)",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "phantasy-star-online-blue-burst": {
+   "title": "Phantasy Star Online Blue Burst",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "phantasy-star-universe": {
+   "title": "Phantasy Star Universe",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "phantasy-star-universe-ambition-of-the-illuminus": {
+   "title": "Phantasy Star Universe: Ambition of the Illuminus",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "phantomers": {
+   "title": "Phantomers",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "pixark": {
+   "title": "PixARK",
+   "appid": "593600",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "plants-vs-zombies-battle-for-neighborville": {
+   "title": "Plants vs. Zombies: Battle for Neighborville",
+   "appid": "1262240",
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "plants-vs-zombies-garden-warfare-2": {
+   "title": "Plants vs Zombies: Garden Warfare 2",
+   "appid": null,
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "playm2m": {
+   "title": "Magic to Master",
+   "appid": null,
+   "anticheats": [
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "point-blank": {
+   "title": "Point Blank",
+   "appid": null,
+   "anticheats": [
+    "X-Trap",
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "post-scriptum": {
+   "title": "Post Scriptum",
+   "appid": "736220",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Denied"
+  },
+  "princess-connect-redive": {
+   "title": "Princess Connect! Re:Dive",
+   "appid": null,
+   "anticheats": [
+    "CrackProof"
+   ],
+   "status": "Broken"
+  },
+  "priston-tale": {
+   "title": "Priston Tale",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "project-cumberland": {
+   "title": "Project Cumberland",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "project-ethos": {
+   "title": "Project ETHOS",
+   "appid": "2139090",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "project-n": {
+   "title": "Project N",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "project-nebula": {
+   "title": "Project Nebula",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "project-wraith": {
+   "title": "Project Wraith",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "project-zero": {
+   "title": "Project Zero",
+   "appid": "2257910",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "propnight": {
+   "title": "Propnight",
+   "appid": "1743770",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "pubg-battlegrounds": {
+   "title": "PUBG: Battlegrounds",
+   "appid": "578080",
+   "anticheats": [
+    "Zakynthos",
+    "BattlEye",
+    "UNCHEATER"
+   ],
+   "status": "Broken"
+  },
+  "pubg-bg-for-challengermode": {
+   "title": "PUBG: Battlegrounds (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "pubg-black-budget": {
+   "title": "PUBG: Black Budget",
+   "appid": null,
+   "anticheats": [
+    "Zakynthos"
+   ],
+   "status": "Broken"
+  },
+  "pubg-lite": {
+   "title": "PUBG Lite",
+   "appid": null,
+   "anticheats": [
+    "Uncheater"
+   ],
+   "status": "Broken"
+  },
+  "qplay": {
+   "title": "Qplay",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "quake-3-arena-for-challengermode": {
+   "title": "Quake 3 Arena (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "quantum-league": {
+   "title": "Quantum League",
+   "appid": "1227800",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "r2beat": {
+   "title": "R2BEAT (アールツービート)",
+   "appid": "2340400",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "r2beat-china": {
+   "title": "R2Beat: 音速觉醒",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "r6siege-for-faceit": {
+   "title": "Rainbow Six: Siege (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Broken"
+  },
+  "radikal-fighters": {
+   "title": "Radikal Fighters",
+   "appid": "2073930",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "ragnarok-begins": {
+   "title": "Ragnarok Begins",
+   "appid": "2176770",
+   "anticheats": [
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "ragnarok-landverse": {
+   "title": "Ragnarok Landverse",
+   "appid": null,
+   "anticheats": [
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "ragnarok-online": {
+   "title": "Ragnarok Online",
+   "appid": "215100",
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "ragnarok-online-prime": {
+   "title": "Ragnarok Online Prime",
+   "appid": null,
+   "anticheats": [
+    "SARD",
+    "4game Guard / Frost Security"
+   ],
+   "status": "Broken"
+  },
+  "ragnarok-online2": {
+   "title": "Ragnarok Online 2",
+   "appid": "231060",
+   "anticheats": [
+    "AhnLab HackShield"
+   ],
+   "status": "Broken"
+  },
+  "ragnarok-re-start": {
+   "title": "Ragnarok RE:START",
+   "appid": "660330",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "ragnarok-the-lost-memories": {
+   "title": "Ragnarok: The Lost Memories",
+   "appid": "1379750",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "ragnarok-v-returns": {
+   "title": "Ragnarok V: Returns",
+   "appid": null,
+   "anticheats": [
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "raiderz": {
+   "title": "RaiderZ",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "rainbow-six-siege": {
+   "title": "Tom Clancy's Rainbow Six® Siege",
+   "appid": "359550",
+   "anticheats": [
+    "FairFight",
+    "BattlEye"
+   ],
+   "status": "Denied"
+  },
+  "rainbow-six-siege-x": {
+   "title": "Tom Clancy's Rainbow Six® Siege X",
+   "appid": "359550",
+   "anticheats": [
+    "FairFight",
+    "BattlEye",
+    "R6 ShieldGuard"
+   ],
+   "status": "Denied"
+  },
+  "raise-your-tribe": {
+   "title": "Raise Your Tribe",
+   "appid": "1908530",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "rakion-chaos-force": {
+   "title": "Rakion Chaos Force",
+   "appid": "1218740",
+   "anticheats": [
+    "nProtect GameGuard",
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "ran-online": {
+   "title": "Ran Online",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "rappelz": {
+   "title": "Rappelz",
+   "appid": "1342630",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "realm-royale": {
+   "title": "Realm Royale",
+   "appid": "813820",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "realm-royale-reforged": {
+   "title": "Realm Royale Reforged",
+   "appid": "813820",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "record-of-lodoss-war-online": {
+   "title": "Record of Lodoss War Online",
+   "appid": "949690",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "red-stone-online": {
+   "title": "Red Stone Online",
+   "appid": "350700",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "reign-of-dwarf": {
+   "title": "Reign Of Dwarf",
+   "appid": "1442910",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "reign-of-kings": {
+   "title": "Reign of Kings",
+   "appid": "344760",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "rend": {
+   "title": "Rend",
+   "appid": "547860",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "return-alive": {
+   "title": "Return Alive",
+   "appid": "1759220",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "revenblade": {
+   "title": "Revenblade",
+   "appid": "2247220",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "rhythmnjoy": {
+   "title": "RhythmNjoy",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "ride5": {
+   "title": "RIDE 5",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "riders-of-icarus": {
+   "title": "Riders of Icarus",
+   "appid": "442080",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "riders-of-icarus-southeast-asia": {
+   "title": "Riders of Icarus: SEA",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "ring-of-elysium": {
+   "title": "Ring of Elysium",
+   "appid": "755790",
+   "anticheats": [
+    "TenProtect"
+   ],
+   "status": "Broken"
+  },
+  "rising-storm": {
+   "title": "Rising Storm",
+   "appid": null,
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "risingforce-online": {
+   "title": "RF Online",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard",
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "risingforce-online-next": {
+   "title": "RF ONLINE NEXT",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "rl-for-challengermode": {
+   "title": "Rocket League (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "roblox": {
+   "title": "Roblox",
+   "appid": null,
+   "anticheats": [
+    "Hyperion"
+   ],
+   "status": "Denied"
+  },
+  "robocraft-royale": {
+   "title": "Robocraft Royale",
+   "appid": "804810",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "robocraft2": {
+   "title": "Robocraft 2",
+   "appid": "1991140",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "rocket-arena": {
+   "title": "Rocket Arena",
+   "appid": "630700",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "rocket-league-for-faceit": {
+   "title": "Rocket League (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Broken"
+  },
+  "rockshot": {
+   "title": "RockShot",
+   "appid": "653120",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "rohan": {
+   "title": "ROHAN",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "roller-coaster-rampage": {
+   "title": "Roller Coaster Rampage",
+   "appid": "209610",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "romance-of-the-three-kingdoms-the-legend-of-caocao": {
+   "title": "Romance of the Three Kingdoms: The Legend of CaoCao",
+   "appid": "927130",
+   "anticheats": [
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "romeros-aftermath": {
+   "title": "Romero's Aftermath",
+   "appid": null,
+   "anticheats": [
+    "Fredaikis Anti-Cheat",
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "royal-crown": {
+   "title": "Royal Crown",
+   "appid": "1094710",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "rumble-fighter-unleashed": {
+   "title": "Rumble Fighter: Unleashed",
+   "appid": "357500",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "rumbleverse": {
+   "title": "Rumbleverse",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "run-and-fire": {
+   "title": "Run and Fire",
+   "appid": "360760",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "ruse": {
+   "title": "R.U.S.E.™",
+   "appid": "21979",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "rust": {
+   "title": "Rust",
+   "appid": "252490",
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "VAC"
+   ],
+   "status": "Denied"
+  },
+  "rusty-hearts": {
+   "title": "Rusty Hearts",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "ryl-online": {
+   "title": "Risk Your Life",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "s4-league": {
+   "title": "S4 League",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "sabotaj": {
+   "title": "Sabotaj",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "sabotaj-turkey": {
+   "title": "Sabotaj TR",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "sands-of-reincarnation": {
+   "title": "轮回之沙 (Sands of Reincarnation)",
+   "appid": null,
+   "anticheats": [
+    "TenProtect"
+   ],
+   "status": "Broken"
+  },
+  "sangokushi-online": {
+   "title": "Sangokushi Online",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "scavengers": {
+   "title": "Scavengers",
+   "appid": "1183940",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "scum": {
+   "title": "SCUM",
+   "appid": "513710",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "sd-gundam-online": {
+   "title": "SD Gundam Online",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "seal-online": {
+   "title": "Seal Online",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "sentry-obelisk-of-dawn": {
+   "title": "Sentry：Obelisk Of Dawn",
+   "appid": "1608220",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "sf6-for-esl": {
+   "title": "Street Fighter 6 (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "sfv-for-esl": {
+   "title": "Street Fighter V (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "shadow-arena": {
+   "title": "Shadow Arena",
+   "appid": "1226470",
+   "anticheats": [
+    "nProtect GameGuard",
+    "XIGNCODE3",
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "shaiya": {
+   "title": "shaiya",
+   "appid": "2690190",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "shaiya-philippines": {
+   "title": "Shaiya PH",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "shattered-horizon": {
+   "title": "Shattered Horizon",
+   "appid": "18110",
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "shoot-on-sight": {
+   "title": "Shoot on Sight",
+   "appid": "1204040",
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "AnyBrain"
+   ],
+   "status": "Broken"
+  },
+  "shot-online": {
+   "title": "Shot Online",
+   "appid": "390090",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "silkroad-online": {
+   "title": "Silkroad Online",
+   "appid": null,
+   "anticheats": [
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "skate.": {
+   "title": "skate.",
+   "appid": null,
+   "anticheats": [
+    "EA anticheat"
+   ],
+   "status": "Denied"
+  },
+  "skidrush": {
+   "title": "SkidRush",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "smelogs-playground": {
+   "title": "Smelogs Playground",
+   "appid": "1799530",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "smite-for-challengermode": {
+   "title": "SMITE (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "smite2-for-challengermode": {
+   "title": "SMITE 2 (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "snowbreak-containment-zone-china": {
+   "title": "Snowbreak: Containment Zone (CN)",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "soldier-front-2": {
+   "title": "Soldier Front 2",
+   "appid": "239660",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "soldier-front-2-playpark-philippines": {
+   "title": "Special Force 2 - PlayPark PH",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "soldier-front2-european": {
+   "title": "S.K.I.L.L. - Special Force 2",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "soldier-one": {
+   "title": "Solider One",
+   "appid": null,
+   "anticheats": [
+    "SARD"
+   ],
+   "status": "Broken"
+  },
+  "solider-of-fortune-ii-double-helix": {
+   "title": "Soldier of Fortune II: Double Helix",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "sonic-rumble": {
+   "title": "Sonic Rumble",
+   "appid": "2951690",
+   "anticheats": [
+    "Uncheater"
+   ],
+   "status": "Broken"
+  },
+  "sos": {
+   "title": "SOS",
+   "appid": "619080",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "soul-dossier": {
+   "title": "Soul Dossier",
+   "appid": "1383550",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "soulsaveronline": {
+   "title": "SoulSaverOnline",
+   "appid": "542590",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "space-gears": {
+   "title": "Space Gears",
+   "appid": "2302770",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "space-junkies": {
+   "title": "Space Junkies",
+   "appid": "647590",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "space-nations-battlearena": {
+   "title": "Space Nations - Battlearena",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "sparkball": {
+   "title": "Sparkball",
+   "appid": "672890",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "spectre-divide": {
+   "title": "Spectre Divide",
+   "appid": "2641470",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Denied"
+  },
+  "spellbreak": {
+   "title": "Spellbreak",
+   "appid": "1399780",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "spirit-detective": {
+   "title": "Spirit Detective",
+   "appid": "1872760",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "starship-troopers-extermination": {
+   "title": "Starship Troopers: Extermination",
+   "appid": "1268750",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "stay-out": {
+   "title": "Stay Out",
+   "appid": "1180380",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "stoneage": {
+   "title": "StoneAge",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "stormdivers": {
+   "title": "Stormdivers",
+   "appid": "883120",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "stylia": {
+   "title": "STYLIA",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "sudden-attack": {
+   "title": "Sudden Attack",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "summoners-war": {
+   "title": "Summoners War",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "summoners-war-chronicles": {
+   "title": "Summoners War: Chronicles",
+   "appid": "2167580",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "summum-aeterna": {
+   "title": "Summum Aeterna",
+   "appid": "1815230",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "super-people": {
+   "title": "SUPER PEOPLE",
+   "appid": "1190340",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "super-people-2": {
+   "title": "SUPER PEOPLE 2",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "super-people-2025": {
+   "title": "SUPER PEOPLE (2025)",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "survarium": {
+   "title": "Survarium",
+   "appid": "355840",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "sweet-time": {
+   "title": "Sweet Time",
+   "appid": "2730410",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "sword-art-online-alicization-lycoris": {
+   "title": "SWORD ART ONLINE Alicization Lycoris",
+   "appid": "1009290",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "sword-art-online-fatal-bullet": {
+   "title": "Sword Art Online: Fatal Bullet",
+   "appid": "626690",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "sword-art-online-integral-factor": {
+   "title": "Sword Art Online: Integral Factor",
+   "appid": "2371630",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "sword-of-justice": {
+   "title": "Sword of Justice",
+   "appid": null,
+   "anticheats": [
+    "NEAC Protect"
+   ],
+   "status": "Broken"
+  },
+  "synced": {
+   "title": "SYNCED",
+   "appid": "1722080",
+   "anticheats": [
+    "Proxima Game Anti Cheat",
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "synduality-echo-of-ada": {
+   "title": "SYNDUALITY Echo of Ada",
+   "appid": "1245480",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "tales-runner": {
+   "title": "Tales Runner",
+   "appid": "328060",
+   "anticheats": [
+    "X-Trap",
+    "AhnLab HackShield",
+    "nProtect GameGuard",
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "talesweaver": {
+   "title": "Talesweaver",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "tarisland": {
+   "title": "Tarisland",
+   "appid": "3126180",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "tasty-shame-in-silver-soul": {
+   "title": "Tasty Shame in Silver Soul!",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "teamfight-tactics": {
+   "title": "Teamfight Tactics",
+   "appid": null,
+   "anticheats": [
+    "Vanguard"
+   ],
+   "status": "Denied"
+  },
+  "teamfight-tactics-for-challengermode": {
+   "title": "Teamfight Tactics (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "tekken-7-for-esl": {
+   "title": "Tekken 7 (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Broken"
+  },
+  "tempest-tower-of-probatio": {
+   "title": "TEMPEST: Tower of Probatio",
+   "appid": "2552340",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "tera": {
+   "title": "TERA",
+   "appid": "212740",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "tf2-for-challengermode": {
+   "title": "Team Fortress 2 (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "the-bornless": {
+   "title": "The Bornless",
+   "appid": "2411280",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "the-crew-2": {
+   "title": "The Crew™ 2",
+   "appid": "646910",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "the-culling2": {
+   "title": "The Culling 2",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "the-finals-china": {
+   "title": "The Finals (CN)",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "the-finals-for-challengermode": {
+   "title": "The Finals (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "the-midnight-walkers": {
+   "title": "The Midnight Walkers",
+   "appid": null,
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "the-mythical-realm": {
+   "title": "仙侠世界 (The Mythical Realm)",
+   "appid": null,
+   "anticheats": [
+    "TenProtect",
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "the-mythical-realm-2": {
+   "title": "仙侠世界2 (The Mythical Realm 2)",
+   "appid": null,
+   "anticheats": [
+    "TenProtect",
+    "nProtect GameGuard",
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "the-rifleman": {
+   "title": "The Riflemen",
+   "appid": "2022330",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "tom-clancys-ghost-recon-wildlands": {
+   "title": "Tom Clancy's Ghost Recon Wildlands",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "tom-clancys-rainbow-six-lockdown": {
+   "title": "Tom Clancy's Rainbow Six: Lockdown",
+   "appid": "15000",
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "tom-clancys-splinter-cell-pandora-tomorrow": {
+   "title": "Tom Clancy's Splinter Cell: Pandora Tomorrow",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "total-lockdown": {
+   "title": "Total Lockdown",
+   "appid": "1121710",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "tower-alliance-online": {
+   "title": "Tower Alliance Online",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "travia": {
+   "title": "Travia",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "tree-of-life": {
+   "title": "Tree of Life",
+   "appid": "361800",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "tree-of-life2": {
+   "title": "Tree of Life 2",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "tree-of-savior-korea": {
+   "title": "Tree of Savior (Korean Ver.)",
+   "appid": null,
+   "anticheats": [
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "trials-rising": {
+   "title": "Trials Rising",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "trickster": {
+   "title": "Trickster",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "trinium-wars": {
+   "title": "Trinium Wars",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "twin-saga": {
+   "title": "Twin Saga",
+   "appid": "454910",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "umbrella-corps": {
+   "title": "Umbrella Corps",
+   "appid": "390340",
+   "anticheats": [
+    "Unknown (Custom)"
+   ],
+   "status": "Broken"
+  },
+  "uncharted-waters-online-age-of-revolution": {
+   "title": "Uncharted Waters Online: Age of Revolution",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "undawn": {
+   "title": "Undawn",
+   "appid": "1881700",
+   "anticheats": [
+    "Anti-Cheat Expert"
+   ],
+   "status": "Broken"
+  },
+  "undefeated-online": {
+   "title": "Undefeated Online",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "united-1944": {
+   "title": "United 1944",
+   "appid": "2152790",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "unreal-tournament-2004-for-challengermode": {
+   "title": "Unreal Tournament 2004 (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "valorant": {
+   "title": "Valorant",
+   "appid": null,
+   "anticheats": [
+    "Vanguard"
+   ],
+   "status": "Denied"
+  },
+  "valorant-for-faceit": {
+   "title": "Valorant (FACEIT)",
+   "appid": null,
+   "anticheats": [
+    "FACEIT"
+   ],
+   "status": "Broken"
+  },
+  "vampire-the-masquerade-bloodhunt": {
+   "title": "Vampire: The Masquerade - Bloodhunt",
+   "appid": "760160",
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "Anti-Cheat Expert"
+   ],
+   "status": "Denied"
+  },
+  "vegas-infinite-by-pokerstars": {
+   "title": "Vegas Infinite by PokerStars",
+   "appid": "886250",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "velev": {
+   "title": "Velev",
+   "appid": "2790930",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "vicious-circle": {
+   "title": "Vicious Circle",
+   "appid": "556440",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "vindictus-defying-fate": {
+   "title": "Vindictus: Defying Fate",
+   "appid": null,
+   "anticheats": [
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "voids-adrift": {
+   "title": "Voids Adrift",
+   "appid": "1123160",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "wakerunners": {
+   "title": "Wakerunners",
+   "appid": null,
+   "anticheats": [
+    "Nexon Game Security"
+   ],
+   "status": "Broken"
+  },
+  "war-of-the-roses": {
+   "title": "War of the Roses",
+   "appid": null,
+   "anticheats": [
+    "VAC"
+   ],
+   "status": "Broken"
+  },
+  "war-of-the-vikings": {
+   "title": "War of the Vikings",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "war-rock": {
+   "title": "War Rock",
+   "appid": "880850",
+   "anticheats": [
+    "AhnLab HackShield",
+    "PunkBuster",
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "war-rock2": {
+   "title": "War Rock 2",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "war-thunder-for-challengermode": {
+   "title": "War Thunder (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "warcos": {
+   "title": "Warcos",
+   "appid": "1769930",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "warcos2": {
+   "title": "Warcos 2",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "warcraft-iii-reforged-for-challengermode": {
+   "title": "WarCraft III: Reforged (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "warface": {
+   "title": "Warface",
+   "appid": "291480",
+   "anticheats": [
+    "FairFight",
+    "Mail.ru Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "warface-clutch": {
+   "title": "Warface: Clutch",
+   "appid": null,
+   "anticheats": [
+    "FairFight",
+    "MY.GAMES Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "warface-turkey": {
+   "title": "Warface Turkey",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "warhammer-40k-eternal-crusade": {
+   "title": "Warhammer 40,000: Eternal Crusade",
+   "appid": "375230",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "warhammer-age-of-sigmar-realms-of-ruin-for-challengermode": {
+   "title": "Warhammer Age of Sigmar: Realms of Ruin (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "warhammer40k-space-marine2": {
+   "title": "Warhammer 40,000: Space Marine 2",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "warlords-awakening": {
+   "title": "Warlords Awakening",
+   "appid": "838330",
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "wayfinder": {
+   "title": "Wayfinder",
+   "appid": "1171690",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "wbtr-welcome-back-to-reality": {
+   "title": "WBTR - Welcome Back To Reality",
+   "appid": null,
+   "anticheats": [
+    "Valve Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "wc3-for-challengermode": {
+   "title": "WarCraft III (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "wild-card-football": {
+   "title": "Wild Card Football",
+   "appid": "1206370",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "wolfenstein-2009": {
+   "title": "Wolfenstein (2009)",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "wolfteam": {
+   "title": "WolfTeam",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat",
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "wolfteam-classic": {
+   "title": "WolfTeam: Classic",
+   "appid": null,
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "wolfteam-reboot": {
+   "title": "WolfTeam: Reboot",
+   "appid": "2170050",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "wolfteam-turkey": {
+   "title": "WolfTeam Turkey",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "wonderking": {
+   "title": "Wonderking",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "woori-ongame": {
+   "title": "Woori Ongame",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "world-of-warcraft-for-challengermode": {
+   "title": "World of Warcraft (ChallengerMode)",
+   "appid": null,
+   "anticheats": [
+    "Arkos"
+   ],
+   "status": "Broken"
+  },
+  "world-war-ii-combat-iwo-jima": {
+   "title": "World War II Combat: Iwo Jima",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "worlds-adrift": {
+   "title": "Worlds Adrift",
+   "appid": "322780",
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "worms-rumble": {
+   "title": "Worms Rumble",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "wot-for-esl": {
+   "title": "World of Tanks (ESL)",
+   "appid": null,
+   "anticheats": [
+    "ESL Wire"
+   ],
+   "status": "Denied"
+  },
+  "ww-ii-combat-road-to-berlin": {
+   "title": "World War II Combat: Road to Berlin",
+   "appid": null,
+   "anticheats": [
+    "PunkBuster"
+   ],
+   "status": "Broken"
+  },
+  "x-beat": {
+   "title": "X-beat",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "yaburi": {
+   "title": "Yaburi",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "yogurting": {
+   "title": "Yogurting",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  },
+  "yulgang-global": {
+   "title": "Scions of Fate",
+   "appid": "747970",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "yulgang-thailand": {
+   "title": "Yulgang TH",
+   "appid": null,
+   "anticheats": [
+    "Easy Anti-Cheat"
+   ],
+   "status": "Broken"
+  },
+  "zmr": {
+   "title": "ZMR",
+   "appid": null,
+   "anticheats": [
+    "X-Trap"
+   ],
+   "status": "Broken"
+  },
+  "zone4": {
+   "title": "Zone4",
+   "appid": "518660",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "zula": {
+   "title": "Zula Global",
+   "appid": "747610",
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "zula-europe": {
+   "title": "Zula Europe",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "zula-turkey": {
+   "title": "Zula Türkiye",
+   "appid": null,
+   "anticheats": [
+    "BattlEye"
+   ],
+   "status": "Broken"
+  },
+  "zyconix": {
+   "title": "Zyconix",
+   "appid": "1658740",
+   "anticheats": [
+    "XIGNCODE3"
+   ],
+   "status": "Broken"
+  },
+  "zzanggu-springs": {
+   "title": "zzanggu-springs",
+   "appid": null,
+   "anticheats": [
+    "nProtect GameGuard"
+   ],
+   "status": "Broken"
+  }
+ }
+}
