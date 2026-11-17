@@ -20,8 +20,8 @@
 #     split is mandatory
 #   - winemac-patched.so: -fvisibility=default (DXMT dlsyms macdrv APIs) +
 #     WINE_NO_DOCK_ICON support (single Dock icon)
-#   - winecoreaudio-patched.so + mmdevapi-x64.dll: Highball 0015/0022/0023, so a game's
-#     5.1/7.1 output is mixed down for stereo speakers instead of losing centre and back (#93)
+#   - winecoreaudio-patched.so + mmdevapi-x64.dll: patches/steam-wine-audio.patch, so a game's
+#     5.1/7.1 output is folded to stereo instead of losing centre and back (#93)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

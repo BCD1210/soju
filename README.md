@@ -10,7 +10,7 @@ Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
-**[Download Soju 1.14.20 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.20/Soju-1.14.20-macos-arm64.zip)**, or install from the terminal:
+**[Download Soju 1.14.21 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.21/Soju-1.14.21-macos-arm64.zip)**, or install from the terminal:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -85,7 +85,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.20/Soju-1.14.20-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.21/Soju-1.14.21-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
@@ -230,7 +230,7 @@ soju xbox-logout             # sign out; downloaded games stay
 
 **Game voices in Windows Media Audio** (Skyrim Special Edition's dialogue, among others) need GStreamer, which Wine uses to decode them. When Steam is set up, and on `soju update`, Soju downloads the official GStreamer macOS package from gstreamer.freedesktop.org (SHA-256 pinned, about 150 MB once) and keeps only the 42 MB of audio and video plugins and libraries Wine loads, in `~/.battlenet-macos/gstreamer`. Steam started by Soju finds them. This applies to Steam on Wine 11; the Apple GPTK engine has no GStreamer support yet.
 
-**Surround sound on stereo speakers.** A game that opens a 5.1 or 7.1 output (Skyrim Special Edition does) used to lose its centre and back channels on a Mac's speakers, and with them most dialogue. Steam support v4 adds Wine's audio driver with Highball's patches, so such output is mixed down through Apple's spatial mixer before it reaches the speakers (#93).
+**Surround sound on stereo speakers.** A game that opens a 5.1 or 7.1 output (Skyrim Special Edition does) used to lose its centre and back channels on a Mac's speakers, and with them most dialogue. Steam support installs Wine's audio driver with Soju's patch, which folds such output to stereo before it reaches the speakers: centre to both sides, each surround channel to its side (#93).
 
 D2R shipped on Steam in Feb 2026 as the *Infernal Edition*. Steam support uses a **different free engine**: the modern Steam client's CEF UI does not render on CrossOver-source builds (black window, cross-process swapchain + CEF sandbox issues), but it works on a pinned upstream Wine 11 build with a tiny `steamwebhelper` wrapper that forces `--disable-gpu --single-process`. That fix comes from [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine) (MIT, wrapper source vendored in `third_party/`). Steam gets its own bottle so the two stacks never interfere:
 

@@ -12,10 +12,8 @@ The package contains only these open-source components:
   plus `patches/steam-winemac.patch`, built with public driver symbols
   (LGPL-2.1-or-later).
 - Wine 11.0 winecoreaudio (Unix side) and x86_64 mmdevapi, same revision, with
-  `patches/steam-winecoreaudio-io-buffer.patch` (Highball 0015 rebased onto wine-11.0),
-  `patches/highball/0022-mmdevapi-spatial-static-object-order.patch` and
-  `patches/highball/0023-winecoreaudio-spatial-mixer-for-surround-beds.patch`: a 5.1/7.1 stream on a
-  stereo device is rendered through Apple's AUSpatialMixer, so centre and back channels are heard (#93)
+  `patches/steam-wine-audio.patch`: a 5.1/7.1 stream on a stereo device is folded to stereo, so centre
+  and back channels are heard, and the device's I/O buffer stays under half a period (#93)
   (LGPL-2.1-or-later).
 - Steam webhelper wrapper: vendored notpop source (MIT).
 - MoltenVK v1.4.2: `db66022459ffb663aa2b50f6b018bc2e124f5edf` (Apache-2.0), x86_64, with
