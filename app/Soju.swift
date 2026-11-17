@@ -245,6 +245,57 @@ struct SojuLogo: View {
         }
     }
 
+    /// Platforms → a launcher's Remove…: its bottle with the games in it, and its app shortcut.
+    func confirmRemove(_ launcher: Launcher) {
+        let alert = NSAlert()
+        alert.messageText = "Remove " + launcher.title + "?"
+        alert.informativeText = "This deletes " + launcher.title + " from Soju together with the games installed in it and their local saves. "
+            + "Games you moved to another drive stay on that drive. Your account and purchases stay with the store, "
+            + "and you can install it again from Platforms. Other launchers are not touched."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Remove " + launcher.title)
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons.first?.hasDestructiveAction = true
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        run(["uninstall", "launcher", launcher.rawValue], title: "Removing " + launcher.title + "…")
+    }
+
+    /// Platforms → Uninstall Soju…: everything soju uninstall --yes removes, then the app goes to the Trash.
+    func confirmUninstallAll() {
+        let alert = NSAlert()
+        alert.messageText = "Uninstall Soju?"
+        alert.informativeText = "This deletes every launcher Soju installed, all games inside them and their local saves, "
+            + "Soju's engines and downloads (in ~/.battlenet-macos), and then moves Soju to the Trash. "
+            + "Games you moved to another drive stay on that drive. Accounts and purchases stay with each store."
+        alert.alertStyle = .critical
+        alert.addButton(withTitle: "Uninstall Soju")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons.first?.hasDestructiveAction = true
+        guard alert.runModal() == .alertFirstButtonReturn, !busy else { return }
+        busy = true; failed = false; activity = "Uninstalling Soju…"; log = ""
+        do {
+            let (p, url) = try task(["uninstall", "all"], logName: "uninstall")
+            p.terminationHandler = { [weak self] process in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.busy = false
+                    guard process.terminationStatus == 0 else {
+                        self.failed = true; self.activity = "Uninstall stopped. See the details below."
+                        self.log = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+                        return
+                    }
+                    UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier ?? "app.soju.desktop")
+                    NSWorkspace.shared.recycle([Bundle.main.bundleURL]) { _, _ in
+                        DispatchQueue.main.async { NSApp.terminate(nil) }
+                    }
+                }
+            }
+            try p.run()
+        } catch {
+            busy = false; failed = true; activity = "Could not start the uninstall."; log = error.localizedDescription
+        }
+    }
+
     private func readLog() {
         guard let reader = logReader else { return }
         let data = reader.readDataToEndOfFile()
@@ -387,6 +438,8 @@ struct PlatformsView: View {
             HStack {
                 Text("Accounts, purchases and updates stay with each official store.")
                 Spacer()
+                Button("Uninstall Soju…") { model.confirmUninstallAll() }
+                    .buttonStyle(.link).disabled(model.busy)
             }.font(.system(size: 10)).foregroundStyle(.secondary)
         }.padding(28).frame(minWidth: 730, idealWidth: 850, minHeight: 610, idealHeight: 680)
             .background(Color(nsColor: .windowBackgroundColor))
@@ -430,6 +483,14 @@ struct PlatformsView: View {
                 } else {
                     Button("Install") { model.run(["install", launcher.rawValue], title: "Installing " + launcher.title + "…") }
                         .disabled(model.busy).accessibilityLabel("Install " + launcher.title)
+                }
+            }
+            if installed {
+                HStack {
+                    Spacer()
+                    Button("Remove…") { model.confirmRemove(launcher) }
+                        .buttonStyle(.link).font(.system(size: 10)).disabled(model.busy)
+                        .accessibilityLabel("Remove " + launcher.title)
                 }
             }
         }.padding(18).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
