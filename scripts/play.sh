@@ -338,6 +338,21 @@ case "$MODE" in
     [[ -x "$WINESTABLE" ]] || { echo "Steam runtime not found. Reinstall Steam from Platforms or run: soju steam-install"; exit 1; }
     ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
     [[ -f "$ST" ]] || { echo "Steam not found, run scripts/create-steam-bottle.sh first"; exit 1; }
+    # A newer Steam support package (resources/steam-support.json) is set up before Steam
+    # starts, so an app update brings its components without Update components.
+    if [ -f "$STEAM_WINE_ROOT/.soju-runtime" ] && ! pgrep -f "$WINESTABLE_SERVER" >/dev/null 2>&1; then
+      want=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
+        "$(dirname "${BASH_SOURCE[0]}")/../resources/steam-support.json" 2>/dev/null || true)
+      if [ -n "$want" ] && [ "$(cat "$STEAM_WINE_ROOT/.soju-runtime")" != "$want" ]; then
+        echo "Updating Steam components to $want"
+        bash "$(dirname "${BASH_SOURCE[0]}")/setup-steam-games.sh" || echo "soju: Steam component update failed; Steam starts with the previous ones" >&2
+      fi
+    fi
+    # Vulkan games through MoltenVK (Detroit: Become Human, Highball's settings): compile shaders
+    # on every core, keep their source compressed, and let pipelines whose vertex inputs or color
+    # outputs do not match exactly still build (the patched MoltenVK in the support package).
+    export MVK_CONFIG_SHOULD_MAXIMIZE_CONCURRENT_COMPILATION=1 MVK_CONFIG_SHADER_COMPRESSION_ALGORITHM=1
+    export HB_MVK_LENIENT_INTERFACES=1
     # Repair a bootstrap-only installation before deploying the CEF wrapper.
     python3 "$(dirname "${BASH_SOURCE[0]}")/bootstrap-steam.py" "$WINESTABLE"
     # Known DXVK games (resources/steam-profiles.json) get DXVK once, before Steam
