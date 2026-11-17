@@ -1,22 +1,22 @@
 {
-  "version": "launcher-support-v3",
-  "url": "https://github.com/BCD1210/soju/releases/download/launcher-support-v3/soju-launcher-support-v3.tar.gz",
-  "sha256": "3cc20e0861a3733e0b7f0d0cd47beadd0daeb855c54a5dee3419a6e9df7dbbd4",
+  "version": "launcher-support-v4",
+  "url": "https://github.com/BCD1210/soju/releases/download/launcher-support-v4/soju-launcher-support-v4.tar.gz",
+  "sha256": "e1753107ad4ecf75c803332ab27a22a5e2f1350f793d9285505d0843ec4e36ec",
   "files": {
     "SOURCES.txt": "726ed7e76e17b774e5c7be87b229dee855e68b624f8ec172008fa05cfce31df3",
-    "dxmt/i386-windows/d3d10core.dll": "429a1255bd85bf26c926271b94a8d9b92d92bb9b5e9a94300ba8ea192b73a19f",
-    "dxmt/i386-windows/d3d11.dll": "cf336077cf324cc72050bb3755c4b7b3eddc357597aaef2af74dc458406fe514",
-    "dxmt/i386-windows/dxgi.dll": "782f52d52b0e5e053462f9ba66ccedebe101654ca90aa9f188b77ef7d28d0921",
-    "dxmt/i386-windows/winemetal.dll": "ab8d80c30967a8f08b37117a776a66e0483483ba1a455efdfa6fc6f8dc23436b",
+    "dxmt/i386-windows/d3d10core.dll": "94bdcfc7efd6b88fbf77de30e99fcfa9bff75bcfcc6ffa48b02b4b5356a0a596",
+    "dxmt/i386-windows/d3d11.dll": "112b3926dbc5fdda2a51bc7e664a1adc37e1af66047efa58feeed32fcb580b71",
+    "dxmt/i386-windows/dxgi.dll": "4b20ab1c4c0f36ddd926ee7388db878561d4b1aedfac82a0468d3f4ca38b4747",
+    "dxmt/i386-windows/winemetal.dll": "d8e4734898ab99b0499b7b049557f9ba3fcd1769445f1755ccfbad8a39d6d11b",
     "dxmt/x86_64-unix/winemetal.so": "5a7be27d041fe553b481266abdb4c83724a76bd2d0a33f5bbde11ca29d451ff0",
-    "dxmt/x86_64-windows/d3d10core.dll": "bc34f535d9e775afa62098175cd6313c9e9339c5b0b2d9a409155a7db138b2cb",
-    "dxmt/x86_64-windows/d3d11.dll": "3e77e84166deef9288dc841535a5d8040908a59e439a5d946467586465c91784",
-    "dxmt/x86_64-windows/dxgi.dll": "6eb5bf4f4858d9ef583b6e11eaa48f7bf57684b36a1d3555b581bf0fba4950a2",
-    "dxmt/x86_64-windows/winemetal.dll": "75e3f4de70ef86f203869aece3fc5f6b393ca271e19f586b99a1c071f7bf8a2f",
+    "dxmt/x86_64-windows/d3d10core.dll": "46e951749ecff67dccbde5a93635c16f37ff29714a7812a46e44ae2f40989404",
+    "dxmt/x86_64-windows/d3d11.dll": "cdf6484df32e005b7bec54762bf3fabc35a0fc5441e06b1f831a64e9f8604194",
+    "dxmt/x86_64-windows/dxgi.dll": "e162e9d4cd827c4d3d7779302e4ba6c85d16abb518c3ef94764d98e9e8d53720",
+    "dxmt/x86_64-windows/winemetal.dll": "c70191fbe60c32fbbd155278342b4a45722e45db491def087fd139df061f0393",
     "licenses/DXMT.txt": "b87c35aef7b2cf14de854118ca55ce5c4b284c85b5f002421fb8d46d868c2d17",
     "licenses/LLVM.txt": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
     "licenses/Wine-LGPL.txt": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
-    "winemac.so": "f15dc63e5ecb4708c2dc5d1800bc7a908f3263710dc040230f30a486abd4b975"
+    "winemac.so": "20b02decbd89add8270666247bcddd6a78a3edcebd0301969988d085b4461d51"
   },
   "notes": "Mac driver with Soju's remote child layers (patches/engine/0007-remote-child-layers.patch) and DXMT for the EA app, Rockstar Games Launcher and Ubisoft Connect (scripts/launcher-engine.sh). Built by scripts/build-launcher-support.sh."
 }
