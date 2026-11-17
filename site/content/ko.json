@@ -165,6 +165,21 @@
                 "game": "steam:1385950"
               },
               {
+                "title": "Retro Classics",
+                "store": "Xbox PC",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "Xbox PC 앱에서 플레이 됨.",
+                "game": "xbox:9MTVJ3HHTQGS"
+              },
+              {
+                "title": "GOG GALAXY 게임",
+                "store": "GOG",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "로그인 후 라이브러리에서 설치·플레이 됨."
+              },
+              {
                 "title": "디아블로 II: 레저렉션 (스팀판)",
                 "store": "스팀",
                 "status": "플레이 됨",

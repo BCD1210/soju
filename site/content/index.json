@@ -247,6 +247,21 @@
                 "game": "steam:1385950"
               },
               {
+                "title": "Retro Classics",
+                "store": "Xbox PC",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Plays from the Xbox PC app.",
+                "game": "xbox:9MTVJ3HHTQGS"
+              },
+              {
+                "title": "GOG GALAXY games",
+                "store": "GOG",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Sign in, install from the library and play."
+              },
+              {
                 "title": "Diablo II: Resurrected (Steam)",
                 "store": "Steam",
                 "status": "Plays",
