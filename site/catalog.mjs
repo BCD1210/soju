@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 // Components for didimlabs.com. Content lives in content/*.json; build.mjs renders it to static HTML.
 // Strings support a small inline syntax: [label](url), **bold**, `code`.
 import { createElement as h, Fragment } from 'react';
@@ -56,6 +58,10 @@ export const components = {
       description: 'Inquiry form posted to the site worker',
     },
 };
+
+let searchJs = '';
+try { searchJs = readFileSync(new URL('../docs/game-search.js', import.meta.url)); } catch {}
+const SEARCH_JS = '/game-search.js?v=' + createHash('sha256').update(searchJs).digest('hex').slice(0, 8);
 
 export const catalog = defineCatalog(schema, { components, actions: {} });
 
@@ -121,9 +127,11 @@ export const { registry } = defineRegistry(catalog, {
     GameSearch: ({ props }) => h('form', { id: props.id, className: 'game-search', method: 'get', action: props.action, role: 'search', 'aria-labelledby': 'game-q-title' },
       h('h2', { id: 'game-q-title' }, h('label', { htmlFor: 'game-q' }, props.label)),
       h('span', { className: 'search-row' },
-        h('input', { id: 'game-q', name: 'q', type: 'search', placeholder: props.placeholder, autoComplete: 'off', required: true }),
+        h('input', { id: 'game-q', name: 'q', type: 'search', placeholder: props.placeholder, autoComplete: 'off' }),
         h('button', { className: 'btn', type: 'submit' }, props.button)),
-      props.hint && h('p', { className: 'hint' }, inline(props.hint))),
+      h('ul', { id: 'search-results', 'aria-live': 'polite', hidden: true }),
+      props.hint && h('p', { className: 'hint' }, inline(props.hint)),
+      h('script', { src: SEARCH_JS, defer: true })),
     Cta: ({ props }) => h('section', { className: 'cta' },
       h('h2', null, props.title),
       props.text && h('p', null, inline(props.text)),
