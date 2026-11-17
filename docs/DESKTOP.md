@@ -1,6 +1,6 @@
 # Soju for Mac
 
-[Download v1.14.24](https://github.com/BCD1210/soju/releases/download/v1.14.24/Soju-1.14.24-macos-arm64.zip)
+[Download v1.14.25](https://github.com/BCD1210/soju/releases/download/v1.14.25/Soju-1.14.25-macos-arm64.zip)
 
 1. Unzip and move **Soju.app** into Applications or ~/Applications.
 2. Open **Platforms** to install or open Battle.net, Steam, Epic Games or GOG GALAXY.
