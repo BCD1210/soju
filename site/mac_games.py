@@ -413,9 +413,11 @@ function show(){var v=norm(q.value);first=null;if(v.length<2){out.textContent=''
  if(!hit.length){var li=el('li','none',(L.hangul&&/[가-힣]/.test(q.value)?L.hangul:L.none)+' ');var a=el('a',null,L.reportLabel);a.href=L.report;li.appendChild(a);out.appendChild(li);return;}
  hit.slice(0,max).forEach(function(g){var li=el('li'),a=el('a',null,L.ko&&g[1]?g[1]:g[0]);
   a.href=(L.ko&&g[5]?'/ko/mac/':'/mac/')+g[2]+'.html';if(!first)first=a.href;li.appendChild(a);
-  li.appendChild(el('span','status '+(L.classes[g[3]]||'unknown'),L.labels[g[3]]||g[3]));
+  var n=played[g[6]];if(n&&L.classes[g[3]]!=='ok')li.appendChild(el('span','status ok',L.played.replace('{n}',n)));
+  else li.appendChild(el('span','status '+(L.classes[g[3]]||'unknown'),L.labels[g[3]]||g[3]));
   li.appendChild(el('span','launcher',L.launchers[g[4]]||''));out.appendChild(li);});
  if(hit.length>max)out.appendChild(el('li','more',(hit.length-max)+L.more));});}
+var played={};if(window.fetch)fetch('https://soju-stats.mikey9220.workers.dev/api/stats/summary').then(function(r){return r.ok?r.json():{};}).then(function(d){(d.played||[]).forEach(function(g){played[norm(g.title)]=g.players;});}).catch(function(){});
 q.addEventListener('input',function(){clearTimeout(t);t=setTimeout(show,150);});
 f.addEventListener('submit',function(e){e.preventDefault();if(norm(q.value).length<2){q.focus();return;}if(first&&!out.hidden){location.href=first;return;}clearTimeout(t);show();});
 var m=location.search.match(/[?&]q=([^&]*)/);if(m){q.value=decodeURIComponent(m[1].replace(/[+]/g,' '));show();}})();
@@ -432,7 +434,8 @@ def search_js():
                       "none": "목록에 아직 없는 게임입니다." if ko else "Not in the list yet.",
                       "hangul": "한글 이름이 없는 게임이 많습니다. 영문 이름으로 찾아 보세요 (예: Elden Ring)." if ko else "",
                       "report": REPORT, "reportLabel": "해 보신 결과 알려 주기" if ko else "Tell us how it goes",
-                      "more": "개 더 있습니다. 이름을 더 길게 입력해 보세요." if ko else " more. Type more of the name."}
+                      "more": "개 더 있습니다. 이름을 더 길게 입력해 보세요." if ko else " more. Type more of the name.",
+                      "played": "소주 사용자 {n}명 플레이" if ko else "{n} Soju players play it"}
     return SEARCH_JS.replace("__DATA__", json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c"))
 
 

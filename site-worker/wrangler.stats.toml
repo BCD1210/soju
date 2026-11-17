@@ -1,0 +1,10 @@
+# Anonymous play counts from the Soju app (stats.js), at soju-stats.<account>.workers.dev.
+name = "soju-stats"
+main = "stats-worker.js"
+compatibility_date = "2026-04-08"
+workers_dev = true
+
+[[d1_databases]]
+binding = "STATS"
+database_name = "soju-stats"
+database_id = "412e47ec-2fc1-4ad0-afe1-1426fb3a2843"

@@ -21,6 +21,7 @@ case "$ACTION" in
       all) exec bash "$ROOT/scripts/uninstall.sh" --yes ;;
       *) echo "Unknown uninstall action."; exit 64 ;; esac ;;
   report) exec python3 "$ROOT/scripts/report.py" "${1:-}" ;;
+  stats) exec python3 "$ROOT/scripts/play-stats.py" "$@" ;;
   self-update)
     # Detached, so it outlives the app it is about to replace.
     nohup /bin/bash "$ROOT/scripts/self-update.sh" "${1:?version}" "${2:?app}" "${3:?pid}" "${4:?state}" \

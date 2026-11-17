@@ -203,56 +203,64 @@
                 "store": "Battle.net",
                 "status": "Plays",
                 "tone": "plays",
-                "result": "Plays online. Needs macOS 26.4+. [Guide](guides/diablo-2-resurrected-apple-silicon.html)"
+                "result": "Plays online. Needs macOS 26.4+. [Guide](guides/diablo-2-resurrected-apple-silicon.html)",
+                "game": "battlenet:osi"
               },
               {
                 "title": "StarCraft: Remastered",
                 "store": "Battle.net",
                 "status": "Plays",
                 "tone": "plays",
-                "result": "A single-player match starts. Multiplayer not tried. [Guide](guides/starcraft-remastered-apple-silicon.html)"
+                "result": "A single-player match starts. Multiplayer not tried. [Guide](guides/starcraft-remastered-apple-silicon.html)",
+                "game": "battlenet:s1"
               },
               {
                 "title": "Diablo IV",
                 "store": "Battle.net",
                 "status": "Plays",
                 "tone": "plays",
-                "result": "Free trial: character created and in the first area. Sound and frame rate not checked. [Guide](guides/diablo-4-apple-silicon.html)"
+                "result": "Free trial: character created and in the first area. Sound and frame rate not checked. [Guide](guides/diablo-4-apple-silicon.html)",
+                "game": "battlenet:fen"
               },
               {
                 "title": "Overwatch 2",
                 "store": "Battle.net",
                 "status": "Plays",
                 "tone": "plays",
-                "result": "Signs in and plays online. [Guide](guides/overwatch-2-apple-silicon.html)"
+                "result": "Signs in and plays online. [Guide](guides/overwatch-2-apple-silicon.html)",
+                "game": "battlenet:prometheus"
               },
               {
                 "title": "Hogwarts Legacy",
                 "store": "Epic",
                 "status": "Plays",
                 "tone": "plays",
-                "result": "Installs and plays with D3DMetal."
+                "result": "Installs and plays with D3DMetal.",
+                "game": "epic:fa4240e57a3c46b39f169041b7811293"
               },
               {
                 "title": "Guilt Free (Unity, D3D11)",
                 "store": "Steam",
                 "status": "Plays",
                 "tone": "plays",
-                "result": "Plays with the DXMT setup. [Guide](guides/steam-windows-client-apple-silicon.html)"
+                "result": "Plays with the DXMT setup. [Guide](guides/steam-windows-client-apple-silicon.html)",
+                "game": "steam:1385950"
               },
               {
                 "title": "Diablo II: Resurrected (Steam)",
                 "store": "Steam",
                 "status": "Plays",
                 "tone": "plays",
-                "result": "Soju user: plays the Steam edition after turning on Overwatch and Diablo II mode on the Steam card."
+                "result": "Soju user: plays the Steam edition after turning on Overwatch and Diablo II mode on the Steam card.",
+                "game": "steam:2536520"
               },
               {
                 "title": "The Elder Scrolls V: Skyrim Special Edition",
                 "store": "Steam",
                 "status": "Plays",
                 "tone": "plays",
-                "result": "Soju user, M5 Pro: about 12 minutes of play with dialogue. [Report](https://github.com/BCD1210/soju/issues/95)"
+                "result": "Soju user, M5 Pro: about 12 minutes of play with dialogue. [Report](https://github.com/BCD1210/soju/issues/95)",
+                "game": "steam:489830"
               },
               {
                 "title": "Call of Duty 4: Modern Warfare (demo)",

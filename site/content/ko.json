@@ -121,56 +121,64 @@
                 "store": "배틀넷",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "온라인 플레이 됨. macOS 26.4 이상. [가이드](../guides/ko/diablo-2-mac.html)"
+                "result": "온라인 플레이 됨. macOS 26.4 이상. [가이드](../guides/ko/diablo-2-mac.html)",
+                "game": "battlenet:osi"
               },
               {
                 "title": "스타크래프트: 리마스터",
                 "store": "배틀넷",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "컴퓨터 상대 싱글 대전 시작까지 확인. 멀티플레이는 미확인. [가이드](../guides/ko/starcraft-mac.html)"
+                "result": "컴퓨터 상대 싱글 대전 시작까지 확인. 멀티플레이는 미확인. [가이드](../guides/ko/starcraft-mac.html)",
+                "game": "battlenet:s1"
               },
               {
                 "title": "디아블로 4",
                 "store": "Battle.net",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "무료 체험판으로 캐릭터 생성, 첫 지역 진입까지 확인. 소리와 프레임은 미확인. [가이드](../guides/ko/diablo-4-mac.html)"
+                "result": "무료 체험판으로 캐릭터 생성, 첫 지역 진입까지 확인. 소리와 프레임은 미확인. [가이드](../guides/ko/diablo-4-mac.html)",
+                "game": "battlenet:fen"
               },
               {
                 "title": "오버워치 2",
                 "store": "Battle.net",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "로그인 후 온라인 플레이 됨. [가이드](../guides/ko/overwatch-2-mac.html)"
+                "result": "로그인 후 온라인 플레이 됨. [가이드](../guides/ko/overwatch-2-mac.html)",
+                "game": "battlenet:prometheus"
               },
               {
                 "title": "호그와트 레거시",
                 "store": "에픽",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "D3DMetal로 설치·플레이 됨"
+                "result": "D3DMetal로 설치·플레이 됨",
+                "game": "epic:fa4240e57a3c46b39f169041b7811293"
               },
               {
                 "title": "Guilt Free (Unity, D3D11)",
                 "store": "스팀",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "DXMT 설정으로 플레이 됨"
+                "result": "DXMT 설정으로 플레이 됨",
+                "game": "steam:1385950"
               },
               {
                 "title": "디아블로 II: 레저렉션 (스팀판)",
                 "store": "스팀",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "소주 사용자 확인: 스팀 카드에서 오버워치·디아블로 II 모드를 켜고 플레이."
+                "result": "소주 사용자 확인: 스팀 카드에서 오버워치·디아블로 II 모드를 켜고 플레이.",
+                "game": "steam:2536520"
               },
               {
                 "title": "엘더스크롤 5: 스카이림 스페셜 에디션",
                 "store": "스팀",
                 "status": "플레이 됨",
                 "tone": "plays",
-                "result": "소주 사용자 확인(M5 Pro): 대화 포함 약 12분 플레이. [보고](https://github.com/BCD1210/soju/issues/95)"
+                "result": "소주 사용자 확인(M5 Pro): 대화 포함 약 12분 플레이. [보고](https://github.com/BCD1210/soju/issues/95)",
+                "game": "steam:489830"
               },
               {
                 "title": "콜 오브 듀티 4: 모던 워페어 (데모)",

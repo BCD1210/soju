@@ -90,6 +90,7 @@ extension SojuModel {
                         self.games = result.games; self.scanWarnings = result.warnings
                         self.accountSummaries = result.accounts ?? []
                         self.xboxLocation = result.xboxLocation
+                        self.sendStats(["library"], logName: "stats-library")
                     } else {
                         self.scanWarnings = ["Could not refresh your library. Check that Python 3 is installed, then retry."]
                     }
@@ -164,6 +165,9 @@ extension SojuModel {
                 }
             }
             try p.run()
+            sendStats(["play", game.id, "--launcher", game.platform.rawValue, "--title", game.title,
+                        "--path", game.installPath, "--pid", String(p.processIdentifier)],
+                       logName: "stats-" + game.id.replacingOccurrences(of: ":", with: "-"))
             failed = false
             preferences.opened[game.id] = Date(); savePreferences()
             starAsk.launched(game.id); starAsk.save()

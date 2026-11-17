@@ -169,6 +169,22 @@ struct SojuLogo: View {
             } else { try? FileManager.default.removeItem(at: file) }
         }
     }
+    /// Anonymous play counts for didimlabs.com (scripts/play-stats.py); on unless the stats-off file exists.
+    @Published var shareStats = !FileManager.default.fileExists(atPath: FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".battlenet-macos/stats-off").path) {
+        didSet {
+            let file = base.appendingPathComponent("stats-off")
+            if shareStats { try? FileManager.default.removeItem(at: file) } else {
+                try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+                FileManager.default.createFile(atPath: file.path, contents: nil)
+            }
+        }
+    }
+    /// Starts a background count of one session or of the installed games. Never shows errors.
+    func sendStats(_ args: [String], logName: String) {
+        guard shareStats, ProcessInfo.processInfo.environment["SOJU_NO_STATS"] != "1" else { return }
+        if let (p, _) = try? task(["stats"] + args, logName: logName) { try? p.run() }
+    }
     private var operation: Process?
     private var launches: [Launcher: Process] = [:]
     private var logReader: FileHandle?
@@ -437,6 +453,8 @@ struct PlatformsView: View {
                     .disabled(model.busy)
                 Toggle("Show FPS in games", isOn: $model.fpsHUD).toggleStyle(.checkbox)
                     .help("Apple's Metal HUD: frame rate and frame time in the corner of games started after this")
+                Toggle("Share which games I play", isOn: $model.shareStats).toggleStyle(.checkbox)
+                    .help("Anonymous: the games you install and how long they stay open, with your Mac model and macOS. No account, email or file paths. It shows players which games run, at didimlabs.com")
                 Spacer()
                 Menu("Apple GPTK") {
                     Button("Download and install") { model.run(["gptk"], title: "Downloading Apple GPTK…") }
