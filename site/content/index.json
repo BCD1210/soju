@@ -190,8 +190,8 @@
       "type": "Section",
       "props": {
         "id": "works",
-        "title": "Games we've run",
-        "intro": "Tested on an M4 Pro Mac with macOS 26.5. Other games may or may not work: [check a game](mac/) or [report what you try](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)."
+        "title": "Games that run",
+        "intro": "Played by us on an M4 Pro Mac (macOS 26.5) or by Soju users. For any other game: [check a game](mac/) or [tell us how it goes](https://github.com/BCD1210/soju/issues/new?template=compatibility.yml)."
       },
       "children": [
         {
@@ -220,13 +220,6 @@
                 "result": "Free trial: character created and in the first area. Sound and frame rate not checked. [Guide](guides/diablo-4-apple-silicon.html)"
               },
               {
-                "title": "Overwatch 2",
-                "store": "Battle.net",
-                "status": "Menu",
-                "tone": "partial",
-                "result": "Signs in and reaches the online main menu. A match not tried yet. [Guide](guides/overwatch-2-apple-silicon.html)"
-              },
-              {
                 "title": "Hogwarts Legacy",
                 "store": "Epic",
                 "status": "Plays",
@@ -241,32 +234,39 @@
                 "result": "Plays with the DXMT setup. [Guide](guides/steam-windows-client-apple-silicon.html)"
               },
               {
-                "title": "Retro Classics",
-                "store": "Xbox PC",
-                "status": "Menu only",
-                "tone": "partial",
-                "result": "Reaches the main menu."
+                "title": "Diablo II: Resurrected (Steam)",
+                "store": "Steam",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Soju user: plays the Steam edition after turning on Overwatch and Diablo II mode on the Steam card."
               },
               {
-                "title": "GOG GALAXY",
-                "store": "GOG",
-                "status": "Launcher only",
-                "tone": "partial",
-                "result": "Login and library work; few games tried yet."
+                "title": "The Elder Scrolls V: Skyrim Special Edition",
+                "store": "Steam",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Soju user, M5 Pro: about 12 minutes of play with dialogue. [Report](https://github.com/BCD1210/soju/issues/95)"
+              },
+              {
+                "title": "Call of Duty 4: Modern Warfare (demo)",
+                "store": "Steam",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "The demo mission loads and plays."
               }
             ],
             "head": [
               "Game",
               "Store",
               "Result",
-              "What we saw"
+              "What was seen"
             ]
           }
         },
         {
           "type": "Text",
           "props": {
-            "text": "Games with kernel-level anti-cheat won't run. The Steam edition of Diablo II: Resurrected hasn't been checked."
+            "text": "Games with kernel-level anti-cheat won't run."
           }
         },
         {
