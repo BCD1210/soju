@@ -13,10 +13,10 @@
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://didimlabs.com/mac/">
 <meta property="og:image" content="https://didimlabs.com/assets/soju-share.png">
-<link rel="icon" href="../assets/favicon.png?v=20261117a">
-<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=20261117a">
+<link rel="icon" href="../assets/favicon.png?v=20261117c">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=20261117c">
 <meta name="color-scheme" content="light dark">
-<link rel="stylesheet" href="../style.css?v=20261117a">
+<link rel="stylesheet" href="../style.css?v=20261117c">
 
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"TechArticle","headline":"Which Windows games run on Apple Silicon Macs (2026) | Soju","description":"Diablo, Overwatch, GTA V, Apex, Fortnite, Valorant and 34,819 Steam games on Apple Silicon: what was run in Soju, and estimates from Linux player reports (ProtonDB).","url":"https://didimlabs.com/mac/","mainEntityOfPage":"https://didimlabs.com/mac/","inLanguage":"en","dateModified":"2026-11-11","isPartOf":{"@type":"WebSite","name":"Soju","url":"https://didimlabs.com/"}}
@@ -25,7 +25,7 @@
 </head>
 <body>
 <nav><div class="inner">
-  <a class="brand" href="../"><img src="../assets/soju-logo-64.png?v=20261117a" width="28" height="28" alt="">Soju<span> by Didim Labs</span></a>
+  <a class="brand" href="../"><img src="../assets/soju-logo-64.png?v=20261117c" width="28" height="28" alt="">Soju<span> by Didim Labs</span></a>
   <a href="../mac/">Find a game</a>
   <a href="../#guides">Guides</a>
   <a href="../#faq">FAQ</a>
@@ -37,28 +37,12 @@
 <main>
 <h1>Does this game run on a Mac?</h1>
 <p class="lead">'Runs in Soju' means we ran it. 'Estimate' pages are based on Linux (Proton) player reports from ProtonDB and have not been run on a Mac yet.</p>
-<form class="game-search" role="search" onsubmit="return false">
+<form class="game-search" role="search" method="get" action="/mac/" data-limit="25">
 <label for="game-q">Search by game name</label>
-<span class="search-row"><input id="game-q" name="q" type="search" autocomplete="off" placeholder="For example Elden Ring"></span>
-<ul id="search-results" aria-live="polite"></ul>
+<span class="search-row"><input id="game-q" name="q" type="search" autocomplete="off" placeholder="For example Elden Ring"><button class="btn" type="submit">Search</button></span>
+<ul id="search-results" aria-live="polite" hidden></ul>
 </form>
-<script>
-(function(){var C={"labels": {"verified": "Runs in Soju", "untested": "Not checked in Soju yet", "blocked": "Does not run: anti-cheat", "blocked-online": "Online blocked by anti-cheat", "native": "Has a Mac version", "likely": "Estimate: likely runs", "mixed": "Estimate: may have problems", "unlikely": "Estimate: unlikely to run", "few": "Estimate: few reports", "mac-verified": "Runs on Mac", "mac-reported": "Mac players report it runs", "mac-problems": "Mac players report problems", "soju-works": "Soju users report it runs", "soju-problems": "Soju users report problems"}, "classes": {"verified": "ok", "untested": "unknown", "blocked": "no", "blocked-online": "no", "native": "native", "likely": "likely", "mixed": "unknown", "unlikely": "no", "few": "unknown", "mac-verified": "ok", "mac-reported": "likely", "mac-problems": "no", "soju-works": "likely", "soju-problems": "no"}, "launchers": {"battlenet": "Battle.net", "steam": "Steam", "epic": "Epic Games Launcher", "ea": "EA app", "rockstar": "Rockstar Games Launcher", "ubisoft": "Ubisoft Connect", "none": "its own launcher"}, "ko": false, "index": "search.json", "en": "", "none": "Not in the list yet.", "hangul": "한글 이름이 없는 게임이 많습니다. 영문 이름으로 찾아 보세요 (예: Elden Ring).", "report": "https://github.com/BCD1210/soju/issues/new?template=compatibility.yml", "reportLabel": "Tell us how it goes", "more": " more. Type more of the name."},q=document.getElementById('game-q'),out=document.getElementById('search-results'),all=null,t;
-function norm(s){return (s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').normalize('NFC').toLowerCase().replace(/[^a-z0-9가-힣]+/g,'');}
-function load(cb){if(all)return cb();fetch(C.index).then(function(r){return r.json();}).then(function(j){all=j.map(function(g){return g.concat([norm(g[0]),norm(g[1])]);});cb();});}
-function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text)e.textContent=text;return e;}
-function show(){var v=norm(q.value);out.textContent='';if(v.length<2)return;load(function(){
- var hit=all.filter(function(g){return g[6].indexOf(v)>=0||(g[7]&&g[7].indexOf(v)>=0);});
- hit.sort(function(a,b){var pa=(a[6].indexOf(v)===0||a[7].indexOf(v)===0)?0:1,pb=(b[6].indexOf(v)===0||b[7].indexOf(v)===0)?0:1;return pa-pb;});
- if(!hit.length){var li=el('li',null,(C.hangul&&/[가-힣]/.test(q.value)?C.hangul:C.none)+' ');var a=el('a',null,C.reportLabel);a.href=C.report;li.appendChild(a);out.appendChild(li);return;}
- hit.slice(0,25).forEach(function(g){var li=el('li'),a=el('a',null,C.ko&&g[1]?g[1]:g[0]);
-  a.href=(C.ko&&g[5]?'':C.en)+g[2]+'.html';li.appendChild(a);
-  li.appendChild(el('span','status '+(C.classes[g[3]]||'unknown'),C.labels[g[3]]||g[3]));
-  li.appendChild(el('span','launcher',C.launchers[g[4]]||''));out.appendChild(li);});
- if(hit.length>25)out.appendChild(el('li','launcher',(hit.length-25)+C.more));});}
-q.addEventListener('input',function(){clearTimeout(t);t=setTimeout(show,150);});
-var m=location.search.match(/[?&]q=([^&]*)/);if(m){q.value=decodeURIComponent(m[1].replace(/[+]/g,' '));show();}})();
-</script>
+<script src="/game-search.js?v=5f773c85" defer></script>
 <h2>Checked or known</h2>
 <table class="games">
   <tr><th>Game</th><th>Launcher</th><th>Status</th></tr>
