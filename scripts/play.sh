@@ -340,7 +340,10 @@ case "$MODE" in
     [[ -f "$ST" ]] || { echo "Steam not found, run scripts/create-steam-bottle.sh first"; exit 1; }
     # A newer Steam support package (resources/steam-support.json) is set up before Steam
     # starts, so an app update brings its components without Update components.
-    if [ -f "$STEAM_WINE_ROOT/.soju-runtime" ] && ! pgrep -f "$WINESTABLE_SERVER" >/dev/null 2>&1; then
+    # steam-session.py idle looks at running wineservers themselves (the reaper's command line names the
+    # server path too, so pgrep -f on it is never empty while the reaper runs).
+    if [ -f "$STEAM_WINE_ROOT/.soju-runtime" ] && \
+       python3 "$(dirname "${BASH_SOURCE[0]}")/steam-session.py" idle "$STEAM_WINE_ROOT" >/dev/null 2>&1; then
       want=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
         "$(dirname "${BASH_SOURCE[0]}")/../resources/steam-support.json" 2>/dev/null || true)
       if [ -n "$want" ] && [ "$(cat "$STEAM_WINE_ROOT/.soju-runtime")" != "$want" ]; then
