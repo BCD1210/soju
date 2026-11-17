@@ -1,0 +1,144 @@
+Soju: a fault on a thread Wine did not create (Metal's and D3DMetal's dispatch workers have no
+TEB) no longer hangs the program at full CPU. Page faults Wine fixes on its own threads that need
+no TEB (Rosetta reporting writes as reads, pages Wine keeps writable and executable, write
+watches) are fixed and retried; anything else gets the default action, so the process crashes
+with a crash report that names the real fault.
+
+diff --git a/dlls/ntdll/unix/signal_x86_64.c b/dlls/ntdll/unix/signal_x86_64.c
+index 91926a8..d79dfbe 100644
+--- a/dlls/ntdll/unix/signal_x86_64.c
++++ b/dlls/ntdll/unix/signal_x86_64.c
+@@ -2490,6 +2490,36 @@ static inline BOOL check_invalid_gsbase( ucontext_t *ucontext )
+ }
+ 
+ 
++#ifdef __APPLE__
++/**********************************************************************
++ *		unowned_thread_signal
++ *
++ * Soju: a SIGSEGV, SIGBUS, SIGTRAP or SIGFPE on a thread Wine did not create. The handlers read
++ * the TEB first, and on a thread without one that faults again inside the handler, which macOS
++ * keeps retrying: the program hangs at full CPU and never draws again. Page faults Wine can fix
++ * without a TEB are fixed and retried; anything else gets the default action, so the process
++ * crashes and its crash report names the real fault. Returns FALSE on Wine's own threads.
++ */
++static BOOL unowned_thread_signal( int signal, siginfo_t *siginfo, ucontext_t *ucontext )
++{
++    struct sigaction dfl;
++
++    if (NtCurrentTeb()) return FALSE;
++    if ((signal == SIGSEGV || signal == SIGBUS) && TRAP_sig(ucontext) == TRAP_x86_PAGEFLT &&
++        virtual_retry_unowned_fault( siginfo->si_addr, (ERROR_sig(ucontext) >> 1) & 0x09 ))
++        return TRUE;
++
++    memset( &dfl, 0, sizeof(dfl) );
++    dfl.sa_handler = SIG_DFL;
++    sigemptyset( &dfl.sa_mask );
++    sigaction( signal, &dfl, NULL );
++    /* a faulting instruction runs again and faults again; a trap has already gone past */
++    if (signal == SIGTRAP) raise( signal );
++    return TRUE;
++}
++#endif
++
++
+ /**********************************************************************
+  *		segv_handler
+  *
+@@ -2501,6 +2531,9 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+     EXCEPTION_RECORD rec = { 0 };
+     struct xcontext context;
+ 
++#ifdef __APPLE__
++    if (unowned_thread_signal( signal, siginfo, ucontext )) return;
++#endif
+     rec.ExceptionAddress = (void *)RIP_sig(ucontext);
+     save_context( &context, ucontext );
+ 
+@@ -2597,6 +2630,9 @@ static void trap_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+     EXCEPTION_RECORD rec = { 0 };
+     struct xcontext context;
+ 
++#ifdef __APPLE__
++    if (unowned_thread_signal( signal, siginfo, ucontext )) return;
++#endif
+     if (handle_syscall_trap( ucontext, siginfo )) return;
+ 
+     rec.ExceptionAddress = (void *)RIP_sig(ucontext);
+@@ -2631,6 +2667,9 @@ static void fpe_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+     EXCEPTION_RECORD rec = { .ExceptionAddress = (void *)RIP_sig(ucontext) };
+     struct xcontext context;
+ 
++#ifdef __APPLE__
++    if (unowned_thread_signal( signal, siginfo, ucontext )) return;
++#endif
+     save_context( &context, sigcontext );
+ 
+     switch (siginfo->si_code)
+diff --git a/dlls/ntdll/unix/unix_private.h b/dlls/ntdll/unix/unix_private.h
+index 0c68ca4..ccf539d 100644
+--- a/dlls/ntdll/unix/unix_private.h
++++ b/dlls/ntdll/unix/unix_private.h
+@@ -299,6 +299,9 @@ extern NTSTATUS virtual_alloc_thread_stack( INITIAL_TEB *stack, ULONG_PTR limit_
+ extern void virtual_map_user_shared_data(void);
+ extern void virtual_init_user_shared_data(void);
+ extern NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack );
++#ifdef __APPLE__
++extern BOOL virtual_retry_unowned_fault( void *addr, ULONG_PTR err );
++#endif
+ extern unsigned int virtual_locked_server_call( void *req_ptr );
+ extern ssize_t virtual_locked_read( int fd, void *addr, size_t size );
+ extern ssize_t virtual_locked_pread( int fd, void *addr, size_t size, off_t offset );
+diff --git a/dlls/ntdll/unix/virtual.c b/dlls/ntdll/unix/virtual.c
+index 4f8b03d..51de542 100644
+--- a/dlls/ntdll/unix/virtual.c
++++ b/dlls/ntdll/unix/virtual.c
+@@ -4542,6 +4542,48 @@ static NTSTATUS grow_thread_stack( char *page, struct thread_stack_info *stack_i
+ /***********************************************************************
+  *           virtual_handle_fault
+  */
++#ifdef __APPLE__
++/***********************************************************************
++ *           virtual_retry_unowned_fault
++ *
++ * Soju: a page fault on a thread Wine did not create (Metal's and D3DMetal's dispatch workers have
++ * no TEB). Fix up the faults Wine fixes for its own threads that need no TEB, and say whether the
++ * access can simply run again: Rosetta reporting a write as a read, writes and executes on pages Wine
++ * keeps writable and executable (CrossOver's hacks 24945 and 25719), writes to write-watched pages.
++ */
++BOOL virtual_retry_unowned_fault( void *addr, ULONG_PTR err )
++{
++    char *page = ROUND_ADDR( addr, host_page_mask );
++    BOOL retry = FALSE;
++    BYTE vprot;
++    int prot;
++
++    mutex_lock( &virtual_mutex );
++    vprot = get_host_page_vprot( page );
++    prot = get_unix_prot( vprot );
++    if (err == EXCEPTION_READ_FAULT && (prot & PROT_READ)) err = EXCEPTION_WRITE_FAULT;
++
++    if ((err == EXCEPTION_WRITE_FAULT && (prot & PROT_WRITE) && (prot & PROT_EXEC)) ||
++        (err == EXCEPTION_EXECUTE_FAULT && (prot & PROT_EXEC)))
++    {
++        mprotect_range( page, page_size, 0, VPROT_EXEC );
++        mprotect_range( page, page_size, VPROT_EXEC, 0 );
++        retry = TRUE;
++    }
++    else if (err == EXCEPTION_WRITE_FAULT)
++    {
++        if (vprot & VPROT_WRITEWATCH)
++        {
++            set_page_vprot_bits( page, host_page_size, 0, VPROT_WRITEWATCH );
++            mprotect_range( page, host_page_size, 0, 0 );
++        }
++        retry = (get_unix_prot( get_host_page_vprot( page ) ) & PROT_WRITE) != 0;
++    }
++    mutex_unlock( &virtual_mutex );
++    return retry;
++}
++#endif
++
+ NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack )
+ {
+     NTSTATUS ret = STATUS_ACCESS_VIOLATION;

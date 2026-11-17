@@ -8,7 +8,7 @@ Soju는 M1 이후 맥에 **Battle.net·Steam·Epic Games·GOG GALAXY·EA 앱·Ro
 
 ![Soju 통합 게임 라이브러리](docs/assets/soju-library.png)
 
-**[Soju 1.14.21 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.21/Soju-1.14.21-macos-arm64.zip)**, 또는 터미널에서 설치:
+**[Soju 1.14.22 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.22/Soju-1.14.22-macos-arm64.zip)**, 또는 터미널에서 설치:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -83,7 +83,7 @@ soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / 
 
 설치기는 **다운로드 전에 원하는 런처부터 선택**합니다. Steam만 선택하면 CX 엔진과 애플 GPTK를 받지 않습니다. Steam 그래픽 구성요소는 SHA-256으로 검증한 뒤 Soju 전용 Wine 11.0 환경에 자동으로 설치합니다. Battle.net·Epic·GOG는 공통 CX 엔진과 사용자가 별도로 받은 애플 GPTK를 사용합니다. 각 런처의 보틀·로그인·게임은 독립적으로 유지합니다.
 
-[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.14.21/Soju-1.14.21-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
+[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.14.22/Soju-1.14.22-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
 
 ## 일상 명령
 
@@ -169,7 +169,7 @@ soju ea                # 또는 rockstar / ubisoft: 로그인, 게임 설치, �
 soju ea-kill           # 또는 rockstar-kill / ubisoft-kill
 ```
 
-검증 2026-11-10: 세 런처 모두 설치와 로그인 창까지(계정 로그인과 게임은 아직 테스트 안 함). 이 런처들의 창은 Chromium 브라우저이고, GPU 프로세스가 다른 프로세스의 창에 그림을 그립니다. Wine의 맥 드라이버는 이걸 화면에 못 내보내서 CX 엔진에서는 창이 하얗거나 까맣게 나옵니다. 그래서 맥에서 CX 엔진을 복제(APFS 복제라 디스크를 더 쓰지 않음)한 두 번째 엔진에서 돌립니다. 여기에 launcher-support 구성요소, 즉 `patches/winemac-cross-process-swapchains.patch`(Highball, Wine 버그 60263)를 넣은 맥 드라이버와 프로세스 간 출력이 되는 Direct3D 10/11용 DXMT를 얹습니다. Battle.net·Epic·GOG는 CX 엔진을 그대로 씁니다. EA 앱은 처음 켤 때 스스로 업데이트하는데, 그 뒤 창이 비어 있으면 껐다가 다시 여세요.
+검증 2026-11-10: 세 런처 모두 설치와 로그인 창까지(계정 로그인과 게임은 아직 테스트 안 함). 이 런처들의 창은 Chromium 브라우저이고, GPU 프로세스가 다른 프로세스의 창에 그림을 그립니다. Wine의 맥 드라이버는 이걸 화면에 못 내보내서 CX 엔진에서는 창이 하얗거나 까맣게 나옵니다. 그래서 맥에서 CX 엔진을 복제(APFS 복제라 디스크를 더 쓰지 않음)한 두 번째 엔진에서 돌립니다. 여기에 launcher-support 구성요소, 즉 GPU 프로세스가 그린 화면을 다른 프로세스의 브라우저 창에 보여 주는 소주 패치 `patches/engine/0007-remote-child-layers.patch`를 넣은 맥 드라이버와 Direct3D 10/11용 DXMT를 얹습니다. Battle.net·Epic·GOG는 CX 엔진을 그대로 씁니다. EA 앱은 처음 켤 때 스스로 업데이트하는데, 그 뒤 창이 비어 있으면 껐다가 다시 여세요.
 
 ### GOG GALAXY
 

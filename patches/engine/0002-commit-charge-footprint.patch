@@ -1,0 +1,29 @@
+Soju: on macOS a process's commit charge (PagefileUsage, PrivateUsage) is its memory footprint,
+not the size of its address space, which under Rosetta is tens of GB whatever the program uses.
+Games that compare it with RAM warned of low memory or lowered their textures.
+
+diff --git a/dlls/ntdll/unix/process.c b/dlls/ntdll/unix/process.c
+index 1f550a6..32dc934 100644
+--- a/dlls/ntdll/unix/process.c
++++ b/dlls/ntdll/unix/process.c
+@@ -1497,6 +1497,20 @@ void fill_vm_counters( VM_COUNTERS_EX *pvmi, int unix_pid )
+         pvmi->PeakWorkingSetSize = info.resident_size_max;
+     }
+ #endif
++#if defined(TASK_VM_INFO)
++    {
++        /* Soju: virtual_size is address space, tens of GB under Rosetta whatever the program
++         * uses, and games that compare the commit charge with RAM warn of low memory or cut
++         * their textures. Report what the kernel charges the task instead (its footprint, as
++         * Activity Monitor shows), like the RssAnon + VmSwap sum on Linux. */
++        task_vm_info_data_t vm;
++        mach_msg_type_number_t n = TASK_VM_INFO_COUNT;
++
++        if (unix_pid == -1 &&
++            task_info( mach_task_self(), TASK_VM_INFO, (task_info_t)&vm, &n ) == KERN_SUCCESS)
++            pvmi->PagefileUsage = pvmi->PeakPagefileUsage = vm.phys_footprint;
++    }
++#endif
+ }
+ 
+ #elif defined(linux)

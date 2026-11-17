@@ -10,7 +10,7 @@ Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
-**[Download Soju 1.14.21 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.21/Soju-1.14.21-macos-arm64.zip)**, or install from the terminal:
+**[Download Soju 1.14.22 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.22/Soju-1.14.22-macos-arm64.zip)**, or install from the terminal:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -85,7 +85,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.21/Soju-1.14.21-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.22/Soju-1.14.22-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
@@ -187,7 +187,7 @@ soju ea                # or rockstar / ubisoft: log in, install and play
 soju ea-kill           # or rockstar-kill / ubisoft-kill
 ```
 
-Verified 2026-11-10: install and sign-in window for all three (not signed in to an account; games not tested yet). Their windows are Chromium browsers whose GPU process draws into a window another process owns. Wine's Mac driver cannot present that, so on the CX engine these launchers stay white or black. They run on a second engine instead, made on your Mac from the CX engine (an APFS clone, no extra space) plus the launcher-support component: the Mac driver with `patches/winemac-cross-process-swapchains.patch` (from Highball, Wine bug 60263) and DXMT for Direct3D 10/11, which can present across processes. Battle.net, Epic and GOG keep the CX engine unchanged. The EA app updates itself on its first start; if its window then stays empty, quit it and open it again.
+Verified 2026-11-10: install and sign-in window for all three (not signed in to an account; games not tested yet). Their windows are Chromium browsers whose GPU process draws into a window another process owns. Wine's Mac driver cannot present that, so on the CX engine these launchers stay white or black. They run on a second engine instead, made on your Mac from the CX engine (an APFS clone, no extra space) plus the launcher-support component: the Mac driver with Soju's `patches/engine/0007-remote-child-layers.patch`, which shows a GPU process's drawing in the browser window another process owns, and DXMT for Direct3D 10/11. Battle.net, Epic and GOG keep the CX engine unchanged. The EA app updates itself on its first start; if its window then stays empty, quit it and open it again.
 
 ### GOG GALAXY
 
