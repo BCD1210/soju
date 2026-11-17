@@ -1,0 +1,37 @@
+From c68ed23672ab70b2da85d88797fc7462dc637aa7 Mon Sep 17 00:00:00 2001
+From: Paul Gofman <pgofman@codeweavers.com>
+Date: Thu, 20 Nov 2025 20:50:05 -0600
+Subject: [PATCH] kernelbase: Add stub for GetIntegratedDisplaySize().
+
+---
+ dlls/kernelbase/kernelbase.spec | 2 +-
+ dlls/kernelbase/main.c          | 6 ++++++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/dlls/kernelbase/kernelbase.spec b/dlls/kernelbase/kernelbase.spec
+index 2c5906a29c22..6c1d14e7dca6 100644
+--- a/dlls/kernelbase/kernelbase.spec
++++ b/dlls/kernelbase/kernelbase.spec
+@@ -569,7 +569,7 @@
+ @ stdcall GetGeoInfoEx(ptr long ptr long)
+ @ stdcall GetHandleInformation(long ptr)
+ # @ stub GetHivePath
+-# @ stub GetIntegratedDisplaySize
++@ stdcall GetIntegratedDisplaySize(ptr)
+ # @ stub GetIsEdpEnabled
+ @ stdcall GetKernelObjectSecurity(long long ptr long ptr)
+ @ stdcall GetLargePageMinimum()
+diff --git a/dlls/kernelbase/main.c b/dlls/kernelbase/main.c
+index 456bcf5e7d78..8c37e5da1ab5 100644
+--- a/dlls/kernelbase/main.c
++++ b/dlls/kernelbase/main.c
+@@ -635,3 +635,9 @@ HRESULT WINAPI GetAcceptLanguagesW(WCHAR *langbuf, DWORD *buflen)
+     *buflen = 0;
+     return E_NOT_SUFFICIENT_BUFFER;
+ }
++
++HRESULT WINAPI GetIntegratedDisplaySize( double *sz_inches )
++{
++    FIXME( "%p stub.\n", sz_inches );
++    return E_NOTIMPL;
++}

@@ -12,8 +12,8 @@ TTY=/dev/tty
 say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 # Same pin and helpers as install.sh (tests/test_installation.py keeps them equal).
-ENGINE_TAG="engine-v1.8"
-ENGINE_SHA256="6e45b119cb01bf9e6ca8bca7cd1f1dd74a88611c6bb5146e33ec98cfc17a3dbf"
+ENGINE_TAG="engine-v1.9"
+ENGINE_SHA256="35daeaf595f906f2a6338dee05c953e133b820ffbd95beab3caf73ade6018d61"
 ENGINE_URL="https://github.com/$REPO/releases/download/$ENGINE_TAG/wine-engine-x86_64.tar.xz"
 
 fetch_verified(){   # url, dest, sha256

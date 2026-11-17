@@ -1,0 +1,63 @@
+Soju: msync (CrossOver's in-process sync): a multi-object wait that finds an object free while
+the wineserver is still registering it takes the registration back, like every other exit does.
+Before, each such race left the thread on the lists of the objects that were not signaled, the
+wineserver's node pool ran out ("msync: warn: node memory pool exhausted" on every allocation after)
+and it grew for as long as the game ran. The server also unregistered objects 0..i-1 only for i > 1,
+and the pool warning now prints once.
+
+diff --git a/dlls/ntdll/unix/msync.c b/dlls/ntdll/unix/msync.c
+index ae46bf3..0303a28 100644
+--- a/dlls/ntdll/unix/msync.c
++++ b/dlls/ntdll/unix/msync.c
+@@ -375,19 +375,13 @@ static NTSTATUS msync_wait_multiple( const int *objs, void **objs_shm, int alert
+ 
+     while (__atomic_load_n( addr, __ATOMIC_ACQUIRE ) == 2)
+     {
+-        if (check_shm_contention( objs_shm, alert_obj_shm, count, tid ))
+-        {
+-            int i;
+-            for (i = 0; i < count; i++)
+-            {
+-                struct event *obj = (struct event *)objs_shm[i];
+-
+-                int refs = __atomic_sub_fetch( &obj->multiple_waiters, 1, __ATOMIC_SEQ_CST);
+-                if (refs < 0)
+-                    __atomic_store_n( &obj->multiple_waiters, 0, __ATOMIC_SEQ_CST);
+-            }
+-            return STATUS_PENDING;
+-        }
++        if (!check_shm_contention( objs_shm, alert_obj_shm, count, tid )) continue;
++        /* Soju: an object came free before the server answered. The registration is already on
++         * its way and the server keeps this thread on the objects it finds unsignaled, so take it
++         * back the same way the other exits do. Only lowering the waiter counts here left those
++         * entries behind, one per lost race, and the wineserver grew for as long as the game ran. */
++        server_remove_wait( msgh_id, objs, objs_shm, alert_obj, alert_obj_shm, count );
++        return STATUS_PENDING;
+     }
+ 
+     do
+diff --git a/server/msync.c b/server/msync.c
+index eecf9b3..7396313 100644
+--- a/server/msync.c
++++ b/server/msync.c
+@@ -177,7 +177,9 @@ static inline struct tid_node *pool_alloc(void)
+ {
+     if (pool->count == 0)
+     {
+-        fprintf( stderr, "msync: warn: node memory pool exhausted\n" );
++        static unsigned int exhausted;
++        if (!exhausted++)  /* Soju: say it once, not on every allocation after it */
++            fprintf( stderr, "msync: warn: node memory pool exhausted\n" );
+         return malloc( sizeof(struct tid_node) );
+     }
+     return pool->free_nodes[--pool->count];
+@@ -508,7 +510,8 @@ static void *mach_message_pump( void *args )
+             val = __atomic_load_n( &obj->low, __ATOMIC_SEQ_CST );
+             if ((is_mutex && (val == 0 || val == ~0 || val == tid)) || (!is_mutex && val != 0))
+             {
+-                if (i > 1) unregister_wait( &receive_message, tid, i );
++                /* Soju: objects 0 .. i-1 were registered above, also when i is 1 */
++                if (i) unregister_wait( &receive_message, tid, i );
+                 wake_tid( tid );
+                 break;
+             }

@@ -1,0 +1,528 @@
+Soju: winemac shows Metal drawing of a window whose top-level window another process owns.
+Chromium's GPU process (the EA app, Rockstar Games Launcher, Ubisoft Connect) draws with DXMT or
+D3DMetal into a window of the browser process; the driver had no view for it there and the
+launcher stayed white or black. The drawing process now renders into a CAMetalLayer it exports
+through a CAContext, and the owner of the top-level window shows it with a CALayerHost placed on
+the window's client area, kept in place as either side moves, resizes, shows or hides it, and
+removed when the drawing ends or the window is destroyed.
+
+diff --git a/dlls/winemac.drv/cocoa_window.m b/dlls/winemac.drv/cocoa_window.m
+index ffb7c6a..3ca2be6 100644
+--- a/dlls/winemac.drv/cocoa_window.m
++++ b/dlls/winemac.drv/cocoa_window.m
+@@ -25,6 +25,7 @@
+ #import <Metal/Metal.h>
+ #import <QuartzCore/QuartzCore.h>
+ #include <dlfcn.h>
++#include <objc/runtime.h>
+ 
+ #import "cocoa_window.h"
+ 
+@@ -4033,6 +4034,175 @@ void macdrv_release_metal_device(macdrv_metal_device d)
+ }
+ }
+ 
++/* Soju: cross-process layers. A Chromium-based launcher draws its pages in a GPU process, into a
++ * child window of a top-level window that its browser process owns. The GPU process has no
++ * NSWindow for it, so it draws into a CAMetalLayer of its own that it exports through a CAContext,
++ * and the browser process shows that layer in its window with a CALayerHost (both private
++ * QuartzCore classes, the same pair upstream Wine uses for cross-process top-level windows). */
++extern uint32_t CGSMainConnectionID(void);
++
++@interface CAContext : NSObject
+++ (id) contextWithCGSConnection:(uint32_t)connection options:(NSDictionary*)options;
++@property (readonly) uint32_t contextId;
++@property (retain) CALayer* layer;
++@end
++
++@interface CALayerHost : CALayer
++@property uint32_t contextId;
++@end
++
++@interface SojuRemoteLayer : NSObject
++@property (retain) CAMetalLayer* metalLayer;
++@property (retain) CAContext* context;
++@end
++
++@implementation SojuRemoteLayer
++- (void) observeValueForKeyPath:(NSString*)keyPath ofObject:(id)object change:(NSDictionary*)change context:(void*)ctx
++{
++    CAMetalLayer* layer = _metalLayer;
++    CGSize size = layer.drawableSize;
++    CGFloat scale = layer.contentsScale > 0 ? layer.contentsScale : 1.0;
++
++    if (size.width <= 0 || size.height <= 0) return;
++    dispatch_async(dispatch_get_main_queue(), ^{
++        [CATransaction begin];
++        [CATransaction setDisableActions:YES];
++        layer.bounds = CGRectMake(0, 0, size.width / scale, size.height / scale);
++        [CATransaction commit];
++    });
++}
++
++- (void) dealloc
++{
++    [_metalLayer removeObserver:self forKeyPath:@"drawableSize"];
++    [_context setLayer:nil];
++    [_context release];
++    [_metalLayer release];
++    [super dealloc];
++}
++@end
++
++static char soju_remote_hosts_key;
++
++macdrv_remote_layer macdrv_remote_layer_create(macdrv_metal_device d, CGRect bounds, unsigned int *context_id)
++{
++    __block SojuRemoteLayer* remote = nil;
++
++    OnMainThread(^{
++        CAMetalLayer* layer = [CAMetalLayer layer];
++        CAContext* context = [CAContext contextWithCGSConnection:CGSMainConnectionID() options:@{}];
++
++        if (!layer || !context || !context.contextId) return;
++        layer.device = (id<MTLDevice>)d;
++        layer.anchorPoint = CGPointZero;
++        layer.contentsScale = retina_on ? 2.0 : 1.0;
++        layer.bounds = cgrect_mac_from_win(CGRectMake(0, 0, bounds.size.width, bounds.size.height));
++        context.layer = layer;
++        remote = [[SojuRemoteLayer alloc] init];
++        remote.metalLayer = layer;
++        remote.context = context;
++        [layer addObserver:remote forKeyPath:@"drawableSize" options:0 context:NULL];
++    });
++    if (!remote) return NULL;
++    *context_id = remote.context.contextId;
++    return (macdrv_remote_layer)remote;
++}
++
++macdrv_metal_layer macdrv_remote_layer_get_metal_layer(macdrv_remote_layer r)
++{
++    return (macdrv_metal_layer)((SojuRemoteLayer*)r).metalLayer;
++}
++
++void macdrv_remote_layer_set_bounds(macdrv_remote_layer r, CGRect bounds)
++{
++    SojuRemoteLayer* remote = (SojuRemoteLayer*)r;
++
++    OnMainThread(^{
++        [CATransaction begin];
++        [CATransaction setDisableActions:YES];
++        remote.metalLayer.bounds = cgrect_mac_from_win(CGRectMake(0, 0, bounds.size.width, bounds.size.height));
++        [CATransaction commit];
++    });
++}
++
++void macdrv_remote_layer_destroy(macdrv_remote_layer r)
++{
++    SojuRemoteLayer* remote = (SojuRemoteLayer*)r;
++    OnMainThreadAsync(^{ [remote release]; });
++}
++
++/* The top-level window's side: one CALayerHost per context id, kept on its content view. */
++void macdrv_window_place_remote_layer(macdrv_window w, unsigned int context_id, void *hwnd, CGRect frame, int visible)
++{
++    WineWindow* window = (WineWindow*)w;
++
++    OnMainThread(^{
++        NSView* view = [window contentView];
++        NSMutableDictionary* hosts;
++        CALayerHost* host;
++
++        if (!view) return;
++        if (!view.layer) view.wantsLayer = YES;
++        if (!(hosts = objc_getAssociatedObject(view, &soju_remote_hosts_key)))
++        {
++            hosts = [NSMutableDictionary dictionary];
++            objc_setAssociatedObject(view, &soju_remote_hosts_key, hosts, OBJC_ASSOCIATION_RETAIN);
++        }
++        [CATransaction begin];
++        [CATransaction setDisableActions:YES];
++        if (!(host = [hosts objectForKey:@(context_id)]))
++        {
++            host = [CALayerHost layer];
++            host.contextId = context_id;
++            host.anchorPoint = CGPointZero;
++            host.masksToBounds = YES;
++            [view.layer addSublayer:host];
++            [hosts setObject:host forKey:@(context_id)];
++        }
++        [host setValue:@((uintptr_t)hwnd) forKey:@"sojuHwnd"];
++        host.contentsScale = retina_on ? 2.0 : 1.0;
++        host.frame = [view convertRectToLayer:NSRectFromCGRect(cgrect_mac_from_win(frame))];
++        host.hidden = !visible;
++        [CATransaction commit];
++        if ([window respondsToSelector:@selector(windowDidDrawContent)])
++            [window windowDidDrawContent];
++    });
++}
++
++void macdrv_window_remove_remote_layer(macdrv_window w, unsigned int context_id)
++{
++    WineWindow* window = (WineWindow*)w;
++
++    OnMainThread(^{
++        NSView* view = [window contentView];
++        NSMutableDictionary* hosts = view ? objc_getAssociatedObject(view, &soju_remote_hosts_key) : nil;
++        CALayerHost* host = [hosts objectForKey:@(context_id)];
++
++        [host removeFromSuperlayer];
++        [hosts removeObjectForKey:@(context_id)];
++    });
++}
++
++int macdrv_window_remote_layers(macdrv_window w, unsigned int *context_ids, void **hwnds, int max)
++{
++    WineWindow* window = (WineWindow*)w;
++    __block int count = 0;
++
++    OnMainThread(^{
++        NSView* view = [window contentView];
++        NSMutableDictionary* hosts = view ? objc_getAssociatedObject(view, &soju_remote_hosts_key) : nil;
++
++        for (NSNumber* key in hosts)
++        {
++            if (count == max) break;
++            context_ids[count] = key.unsignedIntValue;
++            hwnds[count] = (void *)(uintptr_t)[[hosts[key] valueForKey:@"sojuHwnd"] unsignedLongLongValue];
++            count++;
++        }
++    });
++    return count;
++}
++
+ macdrv_metal_view macdrv_view_create_metal_view(macdrv_view v, macdrv_metal_device d)
+ {
+     id<MTLDevice> device = (id<MTLDevice>)d;
+diff --git a/dlls/winemac.drv/d3dmetal.c b/dlls/winemac.drv/d3dmetal.c
+index b003607..eeebf93 100644
+--- a/dlls/winemac.drv/d3dmetal.c
++++ b/dlls/winemac.drv/d3dmetal.c
+@@ -115,8 +115,20 @@ static struct d3dmetal_macdrv_win_data *my_get_win_data(HWND hwnd)
+     data = get_win_data(hwnd);
+     if (!data)
+     {
+-        client_surface_release((struct client_surface *)client_surface);
+-        return NULL;
++        macdrv_view remote;
++        RECT rect;
++
++        if (client_surface) client_surface_release((struct client_surface *)client_surface);
++        /* Soju: a child of another process's window (Chromium's GPU process). Hand over a view
++         * that my_macdrv_view_create_metal_view turns into a layer shown by that process. */
++        if (!(remote = macdrv_remote_child_view(hwnd))) return NULL;
++        NtUserGetClientRect(hwnd, &rect, NtUserGetWinMonitorDpi(hwnd, MDT_RAW_DPI));
++        d3dm_data = calloc(1, sizeof(*d3dm_data));
++        d3dm_data->hwnd = hwnd;
++        d3dm_data->client_cocoa_view = remote;
++        d3dm_data->window_rect = d3dm_data->whole_rect = d3dm_data->client_rect = rect;
++        d3dm_data->on_screen = 1;
++        return d3dm_data;
+     }
+ 
+     macdrv_set_view_d3dmetal_client_surface(client_surface->cocoa_view, &client_surface->client);
+@@ -160,7 +172,7 @@ static void my_release_win_data(struct d3dmetal_macdrv_win_data *data)
+     if (!data)
+         return;
+ 
+-    release_win_data(data->padding[0]);
++    if (data->padding[0]) release_win_data(data->padding[0]);
+     free(data);
+ }
+ 
+@@ -185,18 +197,21 @@ static void my_macdrv_release_metal_device(macdrv_metal_device d)
+ static macdrv_metal_view my_macdrv_view_create_metal_view(macdrv_view v, macdrv_metal_device d)
+ {
+     TRACE("macdrv_view_create_metal_view %p %p\n", v, d);
++    if (macdrv_is_remote_child(v)) return macdrv_remote_child_create_metal_view(v, d);
+     return macdrv_view_create_metal_view(v, d);
+ }
+ 
+ static macdrv_metal_layer my_macdrv_view_get_metal_layer(macdrv_metal_view v)
+ {
+     TRACE("macdrv_view_get_metal_layer %p\n", v);
++    if (macdrv_is_remote_child(v)) return macdrv_remote_child_metal_layer(v);
+     return macdrv_view_get_metal_layer(v);
+ }
+ 
+ static void my_macdrv_view_release_metal_view(macdrv_metal_view v)
+ {
+     TRACE("macdrv_view_release_metal_view %p\n", v);
++    if (macdrv_is_remote_child(v)) return macdrv_remote_child_release(v);
+     return macdrv_view_release_metal_view(v);
+ }
+ 
+diff --git a/dlls/winemac.drv/macdrv.h b/dlls/winemac.drv/macdrv.h
+index 5735ff7..f6121e2 100644
+--- a/dlls/winemac.drv/macdrv.h
++++ b/dlls/winemac.drv/macdrv.h
+@@ -100,6 +100,10 @@ static inline RECT rect_from_cgrect(CGRect cgrect)
+ {
+     WM_MACDRV_SET_WIN_REGION = WM_WINE_FIRST_DRIVER_MSG,
+     WM_MACDRV_ACTIVATE_ON_FOLLOWING_FOCUS,
++    /* Soju: sent to a top-level window by the process that draws one of its child windows;
++     * wParam is the child, lParam the CAContext id of the layer it draws into. */
++    WM_MACDRV_PLACE_REMOTE_LAYER,
++    WM_MACDRV_REMOVE_REMOTE_LAYER,
+ };
+ 
+ struct macdrv_thread_data
+@@ -213,6 +217,14 @@ extern BOOL macdrv_SystemParametersInfo(UINT action, UINT int_param, void *ptr_p
+ }
+ 
+ extern struct macdrv_client_surface *macdrv_client_surface_create(HWND hwnd);
++/* Soju: child windows whose top-level window belongs to another process */
++extern macdrv_view macdrv_remote_child_view(HWND hwnd);
++extern BOOL macdrv_is_remote_child(const void *v);
++extern macdrv_metal_view macdrv_remote_child_create_metal_view(macdrv_view v, macdrv_metal_device d);
++extern macdrv_metal_layer macdrv_remote_child_metal_layer(macdrv_metal_view v);
++extern void macdrv_remote_child_release(macdrv_metal_view v);
++extern void macdrv_remote_child_moved(HWND hwnd);
++extern void macdrv_remote_child_destroyed(HWND hwnd);
+ 
+ extern struct macdrv_win_data *get_win_data(HWND hwnd);
+ extern void release_win_data(struct macdrv_win_data *data);
+diff --git a/dlls/winemac.drv/macdrv_cocoa.h b/dlls/winemac.drv/macdrv_cocoa.h
+index 477efe9..107d3c9 100644
+--- a/dlls/winemac.drv/macdrv_cocoa.h
++++ b/dlls/winemac.drv/macdrv_cocoa.h
+@@ -557,6 +557,15 @@ extern void macdrv_order_cocoa_window(macdrv_window w, macdrv_window prev,
+ extern macdrv_metal_device macdrv_create_metal_device(void);
+ extern void macdrv_release_metal_device(macdrv_metal_device d);
+ extern macdrv_metal_view macdrv_view_create_metal_view(macdrv_view v, macdrv_metal_device d);
++/* Soju: a Metal layer drawn in this process and shown in another process's window */
++typedef struct opaque_macdrv_remote_layer* macdrv_remote_layer;
++extern macdrv_remote_layer macdrv_remote_layer_create(macdrv_metal_device d, CGRect bounds, unsigned int *context_id);
++extern macdrv_metal_layer macdrv_remote_layer_get_metal_layer(macdrv_remote_layer r);
++extern void macdrv_remote_layer_set_bounds(macdrv_remote_layer r, CGRect bounds);
++extern void macdrv_remote_layer_destroy(macdrv_remote_layer r);
++extern void macdrv_window_place_remote_layer(macdrv_window w, unsigned int context_id, void *hwnd, CGRect frame, int visible);
++extern void macdrv_window_remove_remote_layer(macdrv_window w, unsigned int context_id);
++extern int macdrv_window_remote_layers(macdrv_window w, unsigned int *context_ids, void **hwnds, int max);
+ extern macdrv_metal_layer macdrv_view_get_metal_layer(macdrv_metal_view v);
+ extern void macdrv_view_release_metal_view(macdrv_metal_view v);
+ extern bool macdrv_get_view_backing_size(macdrv_view v, int backing_size[2]);
+diff --git a/dlls/winemac.drv/window.c b/dlls/winemac.drv/window.c
+index 6e09399..bc61ca7 100644
+--- a/dlls/winemac.drv/window.c
++++ b/dlls/winemac.drv/window.c
+@@ -1361,6 +1361,7 @@ void macdrv_DestroyWindow(HWND hwnd)
+ 
+     TRACE("%p\n", hwnd);
+ 
++    macdrv_remote_child_destroyed(hwnd);  /* Soju */
+     if (!(data = get_win_data(hwnd))) return;
+ 
+     if (hwnd == get_capture()) macdrv_SetCapture(0, 0);
+@@ -1633,6 +1634,173 @@ void macdrv_UpdateLayeredWindow(HWND hwnd, BYTE alpha, UINT flags)
+ /**********************************************************************
+  *              WindowMessage   (MACDRV.@)
+  */
++/***********************************************************************
++ * Soju: child windows drawn here whose top-level window another process owns
++ *
++ * Chromium's GPU process (the EA app, Rockstar Games Launcher, Ubisoft Connect) has DXMT or D3DMetal
++ * draw into a window whose top-level window the browser process owns. This process keeps no window
++ * data for such a child, so there was no view to draw into and the launcher stayed black. Here the
++ * child gets a layer exported to the window server (macdrv_remote_layer_*), and the owner of the
++ * top-level window is told where to show it (WM_MACDRV_PLACE_REMOTE_LAYER) whenever it is made,
++ * moved, resized, shown or hidden, and to drop it (WM_MACDRV_REMOVE_REMOTE_LAYER) when it goes.
++ */
++struct remote_child
++{
++    struct list entry;
++    HWND hwnd;
++    HWND root;
++    macdrv_remote_layer layer;      /* NULL until DXMT or D3DMetal asks for a Metal view */
++    unsigned int context_id;
++};
++
++static struct list remote_children = LIST_INIT(remote_children);
++static pthread_mutex_t remote_children_mutex = PTHREAD_MUTEX_INITIALIZER;
++
++static struct remote_child *find_remote_child(const void *ptr, HWND hwnd)
++{
++    struct remote_child *child;
++    LIST_FOR_EACH_ENTRY(child, &remote_children, struct remote_child, entry)
++        if (child == ptr || (hwnd && child->hwnd == hwnd)) return child;
++    return NULL;
++}
++
++static RECT remote_child_client_rect(HWND hwnd)
++{
++    RECT rect;
++    if (!NtUserGetClientRect(hwnd, &rect, NtUserGetWinMonitorDpi(hwnd, MDT_RAW_DPI))) SetRectEmpty(&rect);
++    return rect;
++}
++
++macdrv_view macdrv_remote_child_view(HWND hwnd)
++{
++    HWND root = NtUserGetAncestor(hwnd, GA_ROOT);
++    struct remote_child *child;
++    DWORD pid = 0;
++
++    if (!root) return NULL;
++    NtUserGetWindowThread(root, &pid);
++    if (!pid || pid == GetCurrentProcessId()) return NULL;
++
++    pthread_mutex_lock(&remote_children_mutex);
++    if (!(child = find_remote_child(NULL, hwnd)) && (child = calloc(1, sizeof(*child))))
++    {
++        child->hwnd = hwnd;
++        child->root = root;
++        list_add_tail(&remote_children, &child->entry);
++    }
++    pthread_mutex_unlock(&remote_children_mutex);
++    TRACE("child %p of %p (process %04x) -> %p\n", hwnd, root, (unsigned)pid, child);
++    return (macdrv_view)child;
++}
++
++BOOL macdrv_is_remote_child(const void *v)
++{
++    BOOL ret;
++    if (!v || list_empty(&remote_children)) return FALSE;
++    pthread_mutex_lock(&remote_children_mutex);
++    ret = find_remote_child(v, NULL) != NULL;
++    pthread_mutex_unlock(&remote_children_mutex);
++    return ret;
++}
++
++macdrv_metal_view macdrv_remote_child_create_metal_view(macdrv_view v, macdrv_metal_device d)
++{
++    struct remote_child *child = (struct remote_child *)v;
++    RECT rect = remote_child_client_rect(child->hwnd);
++    macdrv_remote_layer layer;
++    unsigned int id = 0;
++
++    if (!(layer = macdrv_remote_layer_create(d, cgrect_from_rect(rect), &id))) return NULL;
++    pthread_mutex_lock(&remote_children_mutex);
++    if (child->layer) macdrv_remote_layer_destroy(child->layer);
++    child->layer = layer;
++    child->context_id = id;
++    pthread_mutex_unlock(&remote_children_mutex);
++    TRACE("child %p draws into context %u, shown by %p\n", child->hwnd, id, child->root);
++    NtUserPostMessage(child->root, WM_MACDRV_PLACE_REMOTE_LAYER, (WPARAM)child->hwnd, id);
++    return (macdrv_metal_view)child;
++}
++
++macdrv_metal_layer macdrv_remote_child_metal_layer(macdrv_metal_view v)
++{
++    struct remote_child *child = (struct remote_child *)v;
++    return child->layer ? macdrv_remote_layer_get_metal_layer(child->layer) : NULL;
++}
++
++static void remote_child_free(struct remote_child *child)
++{
++    list_remove(&child->entry);
++    if (child->layer)
++    {
++        NtUserPostMessage(child->root, WM_MACDRV_REMOVE_REMOTE_LAYER, (WPARAM)child->hwnd, child->context_id);
++        macdrv_remote_layer_destroy(child->layer);
++    }
++    free(child);
++}
++
++void macdrv_remote_child_release(macdrv_metal_view v)
++{
++    struct remote_child *child;
++    pthread_mutex_lock(&remote_children_mutex);
++    if ((child = find_remote_child(v, NULL))) remote_child_free(child);
++    pthread_mutex_unlock(&remote_children_mutex);
++}
++
++void macdrv_remote_child_moved(HWND hwnd)
++{
++    struct remote_child *child;
++    if (list_empty(&remote_children)) return;
++    pthread_mutex_lock(&remote_children_mutex);
++    if ((child = find_remote_child(NULL, hwnd)) && child->layer)
++    {
++        macdrv_remote_layer_set_bounds(child->layer, cgrect_from_rect(remote_child_client_rect(hwnd)));
++        NtUserPostMessage(child->root, WM_MACDRV_PLACE_REMOTE_LAYER, (WPARAM)hwnd, child->context_id);
++    }
++    pthread_mutex_unlock(&remote_children_mutex);
++}
++
++void macdrv_remote_child_destroyed(HWND hwnd)
++{
++    struct remote_child *child;
++    if (list_empty(&remote_children)) return;
++    pthread_mutex_lock(&remote_children_mutex);
++    if ((child = find_remote_child(NULL, hwnd))) remote_child_free(child);
++    pthread_mutex_unlock(&remote_children_mutex);
++}
++
++/* The top-level window's side: where the child is now, in the content view's coordinates. */
++static void place_remote_layer(struct macdrv_win_data *data, HWND child, unsigned int id)
++{
++    RECT rect;
++    BOOL visible;
++
++    if (!NtUserIsWindow(child))
++    {
++        macdrv_window_remove_remote_layer(data->cocoa_window, id);
++        return;
++    }
++    rect = remote_child_client_rect(child);
++    visible = NtUserIsWindowVisible(child) && rect.right > rect.left && rect.bottom > rect.top;
++    NtUserMapWindowPoints(child, data->hwnd, (POINT *)&rect, 2, NtUserGetWinMonitorDpi(data->hwnd, MDT_RAW_DPI));
++    OffsetRect(&rect, data->rects.client.left - data->rects.visible.left,
++               data->rects.client.top - data->rects.visible.top);
++    TRACE("context %u of child %p at %s%s\n", id, child, wine_dbgstr_rect(&rect), visible ? "" : " (hidden)");
++    macdrv_window_place_remote_layer(data->cocoa_window, id, child, cgrect_from_rect(rect), visible);
++}
++
++static BOOL hosts_remote_layers;  /* set once this process shows a layer drawn by another */
++
++static void replace_remote_layers(struct macdrv_win_data *data)
++{
++    unsigned int ids[16];
++    void *hwnds[16];
++    int i, count;
++
++    if (!hosts_remote_layers || !data->cocoa_window) return;
++    count = macdrv_window_remote_layers(data->cocoa_window, ids, hwnds, ARRAY_SIZE(ids));
++    for (i = 0; i < count; i++) place_remote_layer(data, hwnds[i], ids[i]);
++}
++
+ LRESULT macdrv_WindowMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+ {
+     struct macdrv_win_data *data;
+@@ -1652,6 +1820,22 @@ LRESULT macdrv_WindowMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+         activate_on_following_focus();
+         TRACE("WM_MACDRV_ACTIVATE_ON_FOLLOWING_FOCUS time %u\n", activate_on_focus_time);
+         return 0;
++    case WM_MACDRV_PLACE_REMOTE_LAYER:
++    case WM_MACDRV_REMOVE_REMOTE_LAYER:
++        if ((data = get_win_data(hwnd)))
++        {
++            if (data->cocoa_window)
++            {
++                if (msg == WM_MACDRV_PLACE_REMOTE_LAYER)
++                {
++                    hosts_remote_layers = TRUE;
++                    place_remote_layer(data, (HWND)wp, (unsigned int)lp);
++                }
++                else macdrv_window_remove_remote_layer(data->cocoa_window, (unsigned int)lp);
++            }
++            release_win_data(data);
++        }
++        return 0;
+     }
+ 
+     FIXME("unrecognized window msg %x hwnd %p wp %lx lp %lx\n", msg, hwnd, (unsigned long)wp, lp);
+@@ -1720,12 +1904,14 @@ void macdrv_WindowPosChanged(HWND hwnd, HWND insert_after, HWND owner_hint, UINT
+     unsigned int new_style = NtUserGetWindowLongW(hwnd, GWL_STYLE);
+     struct window_rects old_rects;
+ 
++    macdrv_remote_child_moved(hwnd);  /* Soju */
+     if (!(data = get_win_data(hwnd))) return;
+ 
+     thread_data = macdrv_thread_data();
+ 
+     old_rects = data->rects;
+     data->rects = *new_rects;
++    replace_remote_layers(data);  /* Soju */
+ 
+     TRACE("win %p/%p new_rects %s style %08x flags %08x surface %p\n", hwnd, data->cocoa_window,
+           debugstr_window_rects(new_rects), new_style, swp_flags, surface);

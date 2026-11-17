@@ -1,0 +1,25 @@
+Soju: DXMT accepts a swapchain on a window another process owns (Chromium's GPU process drawing
+for its browser process in the EA app, Rockstar Games Launcher and Ubisoft Connect); Soju's Wine
+Mac driver shows it in the owner's window (patches/engine/0007-remote-child-layers.patch).
+
+diff --git a/src/d3d11/d3d11_swapchain.cpp b/src/d3d11/d3d11_swapchain.cpp
+index 53559c8..40acbd5 100644
+--- a/src/d3d11/d3d11_swapchain.cpp
++++ b/src/d3d11/d3d11_swapchain.cpp
+@@ -1104,12 +1104,12 @@ CreateSwapChain(
+     return DXGI_ERROR_INVALID_CALL;
+   InitReturnPtr(ppSwapChain);
+ 
++  /* Soju: a window of another process (Chromium's GPU process drawing for its browser process) is
++   * allowed. Soju's Wine Mac driver gives such a window a layer that the window's owner shows. */
+   DWORD window_process_id;
+   GetWindowThreadProcessId(hWnd, &window_process_id);
+-  if (GetProcessId(GetCurrentProcess()) != window_process_id) {
+-    ERR("CreateSwapChain: cross-process swapchain not supported yet");
+-    return E_FAIL;
+-  }
++  if (GetProcessId(GetCurrentProcess()) != window_process_id)
++    WARN("CreateSwapChain: window belongs to process ", window_process_id, ", presenting through the Mac driver");
+ 
+   Com<IMTLDXGIDevice> layer_factory;
+   if (FAILED(pDevice->QueryInterface(IID_PPV_ARGS(&layer_factory)))) {

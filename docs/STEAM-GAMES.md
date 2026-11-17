@@ -11,7 +11,7 @@ Verified 2026-11-11 on M4 Pro / macOS 26.5: the Steam client signs in and
 downloads on the CX engine, and Overwatch 2 from Steam reaches its main menu
 online with D3DMetal. The CX engine's problem below turned out to be the Mac
 driver, not the engine: with `winemac.so` built from
-`patches/winemac-cross-process-swapchains.patch` (the launcher-support
+`patches/engine/0007-remote-child-layers.patch` (the launcher-support
 component the EA app, Rockstar and Ubisoft already use) and the same
 steamwebhelper wrapper, Steam's window draws. `scripts/steam-gptk-engine.sh`
 makes that engine as an APFS clone of the CX engine with only `winemac.so`

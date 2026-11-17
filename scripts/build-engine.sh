@@ -73,14 +73,11 @@ if ! grep -q "WINE_XATTR_SD" "$WINE/server/file.c"; then
   echo "==> Applying patches/wineserver-stored-acls.patch (ACLs programs set read back as set)"
   patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/wineserver-stored-acls.patch"
 fi
-if ! grep -q "WM_MACDRV_CREATE_REMOTE_LAYER" "$WINE/dlls/winemac.drv/macdrv.h"; then
-  echo "==> Applying patches/winemac-cross-process-swapchains.patch (EA, Rockstar and Ubisoft browser windows)"
-  patch -p1 -d "$WINE" < "$SCRIPT_DIR/../patches/winemac-cross-process-swapchains.patch"
-fi
-# Fixes from Highball (patches/highball/README.md). Each one is applied only if it is not in yet.
-for p in "$SCRIPT_DIR"/../patches/highball/*.patch; do
+# Soju's Wine fixes (patches/engine/00xx), backports from upstream Wine and Proton (patches/engine/01xx)
+# and the audio patch the Steam runtime uses too. Each one is applied only if it is not in yet.
+for p in "$SCRIPT_DIR"/../patches/steam-wine-audio.patch "$SCRIPT_DIR"/../patches/engine/*.patch; do
   if ! patch -p1 -R -s -f --dry-run -d "$WINE" < "$p" >/dev/null 2>&1; then
-    echo "==> Applying patches/highball/$(basename "$p")"
+    echo "==> Applying patches/${p#*/patches/}"
     patch -p1 -s -d "$WINE" < "$p"
   fi
 done

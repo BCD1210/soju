@@ -36,7 +36,6 @@ if installed; then echo "==> $NAME already installed"; exit 0; fi
 
 ENGINE=$(bash "$ROOT/scripts/launcher-engine.sh")
 export WINEDEBUG="${WINEDEBUG:-fixme-all}" WINEMSYNC=1 ROSETTA_ADVERTISE_AVX=1 WINE_SIMULATE_WRITECOPY=1
-export DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN=1
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 W="$ENGINE/bin/wine"

@@ -62,8 +62,7 @@ case "$MODE" in
   ea-kill|rockstar-kill|ubisoft-kill)
     ENGINE="${SOJU_LAUNCHER_ENGINE:-${SOJU_BASE:-$HOME/.battlenet-macos}/cx26-engine-launchers}" ;;
   ea|rockstar|ubisoft)
-    ENGINE=$(SOJU_CX_ENGINE="$ENGINE" bash "$(dirname "${BASH_SOURCE[0]}")/launcher-engine.sh") || exit 1
-    export DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN=1 ;;
+    ENGINE=$(SOJU_CX_ENGINE="$ENGINE" bash "$(dirname "${BASH_SOURCE[0]}")/launcher-engine.sh") || exit 1 ;;
 esac
 
 export WINEDEBUG="${WINEDEBUG:-fixme-all}"
