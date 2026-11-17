@@ -100,6 +100,12 @@ if [ -f "$SUP/winecoreaudio-patched.so" ]; then
   cp -f "$SUP/winecoreaudio-patched.so" "$WLIB/x86_64-unix/winecoreaudio.so"
   cp -f "$SUP/mmdevapi-x64.dll" "$WLIB/x86_64-windows/mmdevapi.dll"
 fi
+# MoltenVK 1.4.2 with Highball's Detroit: Become Human patches (scripts/build-moltenvk.sh), for
+# games that draw with Vulkan and for DXVK. Older support packages have none: the runtime's stays.
+if [ -f "$SUP/libMoltenVK.dylib" ]; then
+  [ -f "$WAPP/lib/libMoltenVK.dylib.vanilla" ] || cp -f "$WAPP/lib/libMoltenVK.dylib" "$WAPP/lib/libMoltenVK.dylib.vanilla"
+  cp -f "$SUP/libMoltenVK.dylib" "$WAPP/lib/libMoltenVK.dylib"
+fi
 # i386 stays vanilla (protects the 32-bit steam.exe composer)
 
 BACKUP="$BASE/steam-support/prefix-backup-$(date +%Y%m%d-%H%M%S)"

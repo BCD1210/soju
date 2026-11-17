@@ -1,0 +1,96 @@
+From Highball (github.com/gauthierpiarrette/highball, spike/patches/moltenvk-cache-drawid-present.patch, GPL-3.0-or-later),
+ported there from DiAvisoo's MoltenVK-Detroit (alexdremov's and squidbus's work in KhronosGroup/MoltenVK#2054).
+Applied by scripts/build-moltenvk.sh on MoltenVK v1.4.2 for Detroit: Become Human.
+
+diff --git a/MoltenVK/MoltenVK/Commands/MVKCmdDraw.mm b/MoltenVK/MoltenVK/Commands/MVKCmdDraw.mm
+index 664276b..f7b99b5 100644
+--- a/MoltenVK/MoltenVK/Commands/MVKCmdDraw.mm
++++ b/MoltenVK/MoltenVK/Commands/MVKCmdDraw.mm
+@@ -209,7 +209,10 @@
+         tempDrawIDBuff = cmdEncoder->getTempMTLBuffer(sizeof(uint32_t));
+ 
+         // We don't currently support non-indirect multi-draw commands, so just 0.
+-        memset([tempDrawIDBuff->_mtlBuffer contents], 0, sizeof(uint32_t));
++        // HIGHBALL cache-drawid-present: at this allocation's offset, where the shader reads it. The memset
++        // wrote the start of the shared temporary MTLBuffer, over another allocation, and left the draw ID
++        // unset (alexdremov in MoltenVK-Detroit, highball#125; upstream fixed it after 1.4.2 in bc0d5bf7).
++        *(uint32_t*)tempDrawIDBuff->getContents() = 0;
+     }
+     for (uint32_t s : stages) {
+         auto stage = MVKGraphicsStage(s);
+@@ -492,7 +495,10 @@
+         tempDrawIDBuff = cmdEncoder->getTempMTLBuffer(sizeof(uint32_t));
+ 
+         // We don't currently support non-indirect multi-draw commands, so just 0.
+-        memset([tempDrawIDBuff->_mtlBuffer contents], 0, sizeof(uint32_t));
++        // HIGHBALL cache-drawid-present: at this allocation's offset, where the shader reads it. The memset
++        // wrote the start of the shared temporary MTLBuffer, over another allocation, and left the draw ID
++        // unset (alexdremov in MoltenVK-Detroit, highball#125; upstream fixed it after 1.4.2 in bc0d5bf7).
++        *(uint32_t*)tempDrawIDBuff->getContents() = 0;
+     }
+     for (uint32_t s : stages) {
+         auto stage = MVKGraphicsStage(s);
+diff --git a/MoltenVK/MoltenVK/GPUObjects/MVKImage.mm b/MoltenVK/MoltenVK/GPUObjects/MVKImage.mm
+index 28eb255..804a8fb 100644
+--- a/MoltenVK/MoltenVK/GPUObjects/MVKImage.mm
++++ b/MoltenVK/MoltenVK/GPUObjects/MVKImage.mm
+@@ -1684,9 +1684,16 @@ static void signalAndUntrack(const MVKSwapchainSignaler& signaler) {
+ 	[mtlCmdBuff addCompletedHandler: ^(id<MTLCommandBuffer> mcb) {
+ 		signal(fence);
+ 		if (fence) { fence->release(); }
++		// HIGHBALL cache-drawid-present: tell the swapchain before letting go of this image. When the swapchain
++		// was destroyed meanwhile (a window, fullscreen or resolution change), release() can free this image,
++		// and _swapchain was then read from freed memory. The detachment lock keeps the swapchain from being
++		// detached and freed during the call (DiAvisoo in MoltenVK-Detroit, highball#125).
++		{
++			lock_guard<mutex> lock(_detachmentLock);
++			if (_swapchain) { _swapchain->notifyPresentComplete(presentInfo); }
++		}
+ 		[mtlDrwbl release];
+ 		release();
+-		if (_swapchain) { _swapchain->notifyPresentComplete(presentInfo); }
+ 	}];
+ 
+ 	signal(signaler.semaphore, signaler.semaphoreSignalToken, mtlCmdBuff);
+diff --git a/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm b/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm
+index 7eae64c..9019727 100644
+--- a/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm
++++ b/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm
+@@ -2656,6 +2656,24 @@ static void setEmulatedReversedDepthViewportConfig(SPIRVToMSLConversionConfigura
+ 
+ 		if ( !pDataSize ) { return VK_SUCCESS; }
+ 
++		// HIGHBALL cache-drawid-present: the size is known only after a size query, and any pipeline added
++		// since then resets it to zero. A call that passed a buffer in that state serialized into zero bytes,
++		// threw, and returned VK_INCOMPLETE with nothing written, so a game that saves its pipeline cache while
++		// other threads still compile, or without asking the size first (both valid Vulkan), saved nothing.
++		// Compute the size first for both forms of the call (alexdremov's fix in DiAvisoo's MoltenVK-Detroit,
++		// highball#125).
++		if (_dataSize == 0) {
++			mvk::countbuf cb;
++			ostream outStream(&cb);
++			writeData(outStream, true);
++			_dataSize = cb.buffSize;
++			static bool reported = false;
++			if (pData && !reported) {
++				reported = true;
++				reportMessage(MVK_CONFIG_LOG_LEVEL_INFO, "HIGHBALL cache-drawid-present: vkGetPipelineCacheData() got a buffer while the cache size was unknown; the size was computed first (reported once).");
++			}
++		}
++
+ 		if (pData) {
+ 			if (*pDataSize >= _dataSize) {
+ 				mvk::membuf mb((char*)pData, _dataSize);
+@@ -2668,12 +2686,6 @@ static void setEmulatedReversedDepthViewportConfig(SPIRVToMSLConversionConfigura
+ 				return VK_INCOMPLETE;
+ 			}
+ 		} else {
+-			if (_dataSize == 0) {
+-				mvk::countbuf cb;
+-				ostream outStream(&cb);
+-				writeData(outStream, true);
+-				_dataSize = cb.buffSize;
+-			}
+ 			*pDataSize = _dataSize;
+ 			return VK_SUCCESS;
+ 		}

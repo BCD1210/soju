@@ -1,0 +1,242 @@
+From Highball (github.com/gauthierpiarrette/highball, spike/patches/moltenvk-lenient-interfaces.patch, GPL-3.0-or-later),
+ported there from DiAvisoo's MoltenVK-Detroit (alexdremov's and squidbus's work in KhronosGroup/MoltenVK#2054).
+Applied by scripts/build-moltenvk.sh on MoltenVK v1.4.2 for Detroit: Become Human.
+
+diff --git a/MoltenVK/MoltenVK/GPUObjects/MVKDevice.mm b/MoltenVK/MoltenVK/GPUObjects/MVKDevice.mm
+index ca05b5e..4bbc2e5 100644
+--- a/MoltenVK/MoltenVK/GPUObjects/MVKDevice.mm
++++ b/MoltenVK/MoltenVK/GPUObjects/MVKDevice.mm
+@@ -3276,6 +3276,11 @@ static uint32_t mvkGetEntryProperty(io_registry_entry_t entry, CFStringRef prope
+ 	// might affect the contents of the pipeline cache (mostly MSL content).
+ 	uint32_t mtlFeatures = 0;
+ 	mtlFeatures |= _isUsingMetalArgumentBuffers << 0;
++	// HIGHBALL lenient-interfaces: HB_MVK_LENIENT_INTERFACES=1 changes what a cached vertex shader library
++	// records (MVKPipeline.mm), so cache data saved with and without it must not be mixed: a game's cache from
++	// before the switch would otherwise serve libraries without the placeholders and keep failing pipelines.
++	const char* hbLenient = getenv("HB_MVK_LENIENT_INTERFACES");
++	mtlFeatures |= (uint32_t)(hbLenient && hbLenient[0] == '1') << 31;
+ 	*(uint32_t*)&_properties.pipelineCacheUUID[uuidComponentOffset] = NSSwapHostIntToBig(mtlFeatures);
+ 	uuidComponentOffset += sizeof(mtlFeatures);
+ }
+diff --git a/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.h b/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.h
+index e385e9b..f0a6de2 100644
+--- a/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.h
++++ b/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.h
+@@ -358,7 +358,7 @@ protected:
+ 	bool addVertexInputToPipeline(T* inputDesc, const VkPipelineVertexInputStateCreateInfo* pVI, const mvk::SPIRVToMSLConversionConfiguration& shaderConfig);
+ 	void adjustVertexInputForMultiview(MTLVertexDescriptor* inputDesc, const VkPipelineVertexInputStateCreateInfo* pVI, uint32_t viewCount, uint32_t oldViewCount = 1);
+     void addTessellationToPipeline(MTLRenderPipelineDescriptor* plDesc, const mvk::SPIRVTessReflectionData& reflectData, const VkPipelineTessellationStateCreateInfo* pTS);
+-    void addFragmentOutputToPipeline(MTLRenderPipelineDescriptor* plDesc, const VkGraphicsPipelineCreateInfo* pCreateInfo);
++    void addFragmentOutputToPipeline(MTLRenderPipelineDescriptor* plDesc, const VkGraphicsPipelineCreateInfo* pCreateInfo, const SPIRVShaderOutputs* pFragOutputs = nullptr);
+     bool isRenderingPoints();
+     bool isRasterizationDisabled(const VkGraphicsPipelineCreateInfo* pCreateInfo);
+     bool isDepthClipNegativeOneToOne(const VkGraphicsPipelineCreateInfo* pCreateInfo);
+diff --git a/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm b/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm
+index 9019727..3804f9c 100644
+--- a/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm
++++ b/MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm
+@@ -43,6 +43,56 @@
+ using namespace mvk;
+ using namespace SPIRV_CROSS_NAMESPACE;
+ 
++// HIGHBALL lenient-interfaces: some games build pipelines whose stages disagree in ways Metal refuses and PC
++// drivers tolerate. Detroit: Become Human's vertex shaders read attributes the pipeline never describes
++// ("Vertex attribute in_vfMsBindPosePosition(12) is missing from the vertex descriptor"), and some of its
++// fragment shaders write float4 into an R32Uint color attachment. MoltenVK then fails the pipeline and the
++// game stops at the end of its shader preparation or crashes in a scene (highball#125). With
++// HB_MVK_LENIENT_INTERFACES=1, an attribute the shader reads but the pipeline does not describe reads four bytes
++// from the start of a vertex buffer the pipeline already uses, and a color attachment whose integer or float
++// kind differs from the fragment output takes a format of the output's kind and the same size. This is the code
++// squidbus and alexdremov wrote in KhronosGroup/MoltenVK#2054 and DiAvisoo shipped in MoltenVK-Detroit, with
++// which players finished the game. It is invalid Vulkan made to work, so it stays off unless a game's recipe
++// sets the variable; unset, nothing changes.
++static bool mvkHighballLenientInterfaces() {
++	static const bool enabled = [] {
++		const char* val = getenv("HB_MVK_LENIENT_INTERFACES");
++		bool on = val && val[0] == '1';
++		if (on) {
++			MVKBaseObject::reportMessage(nullptr, MVK_CONFIG_LOG_LEVEL_WARNING,
++										 "HIGHBALL lenient-interfaces: undescribed vertex attributes and color attachments of another kind than the fragment output are allowed (HB_MVK_LENIENT_INTERFACES=1).");
++		}
++		return on;
++	}();
++	return enabled;
++}
++
++// HIGHBALL lenient-interfaces: adds each vertex input location the shader declares and the pipeline does not
++// describe, before the conversion, which then reports whether the MSL reads it, so addVertexInputToPipeline()
++// can give it a placeholder. Added before the conversion, the entries are part of the shader library's cache
++// key, so a later pipeline with the same shader and attributes still finds the converted library.
++static void mvkHighballAddUndescribedVertexInputs(SPIRVToMSLConversionConfiguration& shaderConfig,
++												  MVKShaderModule* vtxModule,
++												  const VkPipelineShaderStageCreateInfo* pVertexSS) {
++	if ( !mvkHighballLenientInterfaces() || !vtxModule || !pVertexSS ) { return; }
++	MVKSmallVector<SPIRVShaderInterfaceVariable, 32> vtxInputs;
++	std::string errorLog;
++	if ( !getShaderInputs(vtxModule->getSPIRV(), spv::ExecutionModelVertex, pVertexSS->pName, vtxInputs, errorLog) ) { return; }
++	for (auto& vi : vtxInputs) {
++		if (vi.builtin != spv::BuiltInMax || vi.location >= kMVKMaxBufferCount) { continue; }
++		bool isDescribed = false;
++		for (auto& si : shaderConfig.shaderInputs) {
++			if (si.shaderVar.builtin == spv::BuiltInMax && si.shaderVar.location == vi.location) { isDescribed = true; break; }
++		}
++		if ( !isDescribed ) {
++			mvk::MSLShaderInput si;
++			si.shaderVar.location = vi.location;
++			si.binding = 0;
++			shaderConfig.shaderInputs.push_back(si);
++		}
++	}
++}
++
+ 
+ #pragma mark - MVKPipelineLayout
+ 
+@@ -1196,7 +1246,11 @@ static bool usesConstantColor(MVKRenderStateFlags dynamic, const VkPipelineColor
+ 	if (!addFragmentShaderToPipeline(plDesc, pCreateInfo, shaderConfig, vtxOutputs, pFragmentSS, pFragmentFB)) { return nil; }
+ 
+ 	// Output
+-	addFragmentOutputToPipeline(plDesc, pCreateInfo);
++	SPIRVShaderOutputs fragOutputs;	// HIGHBALL lenient-interfaces
++	if (mvkHighballLenientInterfaces() && pFragmentSS && _fragmentModule) {
++		getShaderOutputs(_fragmentModule->getSPIRV(), spv::ExecutionModelFragment, pFragmentSS->pName, fragOutputs, errorLog);
++	}
++	addFragmentOutputToPipeline(plDesc, pCreateInfo, &fragOutputs);
+ 
+ 	// Metal does not allow the name of the pipeline to be changed after it has been created,
+ 	// and we need to create the Metal pipeline immediately to provide error feedback to app.
+@@ -1430,7 +1484,11 @@ static MTLVertexFormat mvkAdjustFormatVectorToSize(MTLVertexFormat format, uint3
+ 	addTessellationToPipeline(plDesc, reflectData, pCreateInfo->pTessellationState);
+ 
+ 	// Output
+-	addFragmentOutputToPipeline(plDesc, pCreateInfo);
++	SPIRVShaderOutputs fragOutputs;	// HIGHBALL lenient-interfaces
++	if (mvkHighballLenientInterfaces() && pFragmentSS && _fragmentModule) {
++		getShaderOutputs(_fragmentModule->getSPIRV(), spv::ExecutionModelFragment, pFragmentSS->pName, fragOutputs, errorLog);
++	}
++	addFragmentOutputToPipeline(plDesc, pCreateInfo, &fragOutputs);
+ 
+ 	return plDesc;
+ }
+@@ -1507,6 +1565,7 @@ static void setEmulatedReversedDepthViewportConfig(SPIRVToMSLConversionConfigura
+ 	shaderConfig.options.mslOptions.disable_rasterization = !_isRasterizing;
+ 	setEmulatedReversedDepthViewportConfig(shaderConfig, implicit, getPhysicalDevice()->shouldEmulateReversedDepthViewport());
+ 	addVertexInputToShaderConversionConfig(shaderConfig, pCreateInfo);
++	mvkHighballAddUndescribedVertexInputs(shaderConfig, _vertexModule, pVertexSS);	// HIGHBALL lenient-interfaces
+ 
+ 	MVKMTLFunction func = getMTLFunction(shaderConfig, pVertexSS, pVertexFB, _vertexModule, "Vertex");
+ 	id<MTLFunction> mtlFunc = func.getMTLFunction();
+@@ -1545,6 +1604,7 @@ static void setEmulatedReversedDepthViewportConfig(SPIRVToMSLConversionConfigura
+ 	shaderConfig.options.mslOptions.disable_rasterization = true;
+ 	setEmulatedReversedDepthViewportConfig(shaderConfig, implicit, false);
+     addVertexInputToShaderConversionConfig(shaderConfig, pCreateInfo);
++	mvkHighballAddUndescribedVertexInputs(shaderConfig, _vertexModule, pVertexSS);	// HIGHBALL lenient-interfaces
+ 	addNextStageInputToShaderConversionConfig(shaderConfig, tcInputs);
+ 
+ 	// We need to compile this function three times, with no indexing, 16-bit indices, and 32-bit indices.
+@@ -1774,10 +1834,12 @@ static void setEmulatedReversedDepthViewportConfig(SPIRVToMSLConversionConfigura
+     }
+ 
+ 	// Vertex attributes
++	std::vector<uint32_t> boundLocations;	// HIGHBALL lenient-interfaces
+ 	uint32_t vaCnt = pVI->vertexAttributeDescriptionCount;
+ 	for (uint32_t i = 0; i < vaCnt; i++) {
+ 		const VkVertexInputAttributeDescription* pVKVA = &pVI->pVertexAttributeDescriptions[i];
+ 		if (shaderConfig.isShaderInputLocationUsed(pVKVA->location)) {
++			boundLocations.push_back(pVKVA->location);
+ 			uint32_t vaBinding = pVKVA->binding;
+ 			uint32_t vaOffset = pVKVA->offset;
+ 			auto vaDesc = inputDesc.attributes[pVKVA->location];
+@@ -1834,6 +1896,41 @@ static void setEmulatedReversedDepthViewportConfig(SPIRVToMSLConversionConfigura
+ 		}
+ 	}
+ 
++	// HIGHBALL lenient-interfaces: Metal requires every attribute the vertex shader reads to be in the vertex
++	// descriptor. Describe each one the app left out as four bytes at offset 0 of the first vertex buffer
++	// the pipeline uses, or of a constant one-byte-stride layout when it uses none.
++	if (mvkHighballLenientInterfaces()) {
++		uint32_t dummyBufferIndex = 0;
++		bool foundUsedBuffer = false;
++		for (uint32_t i = 0; i < kMVKMaxBufferCount; i++) {
++			if (_mtlVertexBuffers.get(i)) {
++				dummyBufferIndex = i;
++				foundUsedBuffer = true;
++				break;
++			}
++		}
++		bool addedDummy = false;
++		for (auto& ctxSI : shaderConfig.shaderInputs) {
++			if (ctxSI.outIsUsedByShader && ctxSI.shaderVar.builtin == spv::BuiltInMax &&
++				ctxSI.shaderVar.location < kMVKMaxBufferCount &&
++				std::find(boundLocations.begin(), boundLocations.end(), ctxSI.shaderVar.location) == boundLocations.end()) {
++				auto vaDesc = inputDesc.attributes[ctxSI.shaderVar.location];
++				if ((uint32_t)vaDesc.format == 0) {
++					vaDesc.format = (decltype(vaDesc.format))MTLVertexFormatUChar4;
++					vaDesc.bufferIndex = dummyBufferIndex;
++					vaDesc.offset = 0;
++					addedDummy = true;
++				}
++			}
++		}
++		if (addedDummy && !foundUsedBuffer) {
++			auto vbDesc = inputDesc.layouts[dummyBufferIndex];
++			vbDesc.stride = 1;	// Metal requires a non-zero stride
++			vbDesc.stepFunction = (decltype(vbDesc.stepFunction))MTLStepFunctionConstant;
++			vbDesc.stepRate = 0;
++		}
++	}
++
+ 	// Run through the vertex bindings. Add a new Metal vertex layout for each translated binding,
+ 	// identical to the original layout. The translated binding will index into the same MTLBuffer,
+ 	// but at an offset that is one or more strides away from the original.
+@@ -1940,7 +2037,8 @@ static void setEmulatedReversedDepthViewportConfig(SPIRVToMSLConversionConfigura
+ }
+ 
+ void MVKGraphicsPipeline::addFragmentOutputToPipeline(MTLRenderPipelineDescriptor* plDesc,
+-													  const VkGraphicsPipelineCreateInfo* pCreateInfo) {
++													  const VkGraphicsPipelineCreateInfo* pCreateInfo,
++													  const SPIRVShaderOutputs* pFragOutputs) {
+ 	// Topology
+ 	if (pCreateInfo->pInputAssemblyState)
+ 		plDesc.inputPrimitiveTopology = getPrimitiveTopologyClass();
+@@ -1957,6 +2055,40 @@ static void setEmulatedReversedDepthViewportConfig(SPIRVToMSLConversionConfigura
+ 
+ 			VkFormat attachFmt = pRendInfo->pColorAttachmentFormats[caIdx];
+ 			MTLPixelFormat mtlPixFmt = getPixelFormats()->getMTLPixelFormat(attachFmt);
++
++			// HIGHBALL lenient-interfaces: Metal refuses a pipeline whose fragment output is float and whose
++			// color attachment is an unsigned integer format, or the reverse ("output of type float4 is not
++			// compatible with a MTLPixelFormatR32Uint color attachment"). Take a format of the output's kind
++			// with the same bytes per pixel. pFragOutputs is filled only under HB_MVK_LENIENT_INTERFACES=1.
++			if (pFragOutputs && mtlPixFmt) {
++				for (const auto& so : *pFragOutputs) {
++					if (so.builtin != spv::BuiltInMax || so.location != caLoc) { continue; }
++					MVKFormatType fmtType = getPixelFormats()->getFormatType(mtlPixFmt);
++					bool isFloatFmt = (fmtType == kMVKFormatColorHalf || fmtType == kMVKFormatColorFloat);
++					bool isUIntFmt = (fmtType == kMVKFormatColorUInt8 || fmtType == kMVKFormatColorUInt16 || fmtType == kMVKFormatColorUInt32);
++					MTLPixelFormat subFmt = MTLPixelFormatInvalid;
++					if (so.baseType == SPIRV_CROSS_NAMESPACE::SPIRType::Float && isUIntFmt) {
++						switch (getPixelFormats()->getBytesPerBlock(attachFmt)) {
++							case 4:  subFmt = MTLPixelFormatR32Float; break;
++							case 8:  subFmt = MTLPixelFormatRG32Float; break;
++							case 16: subFmt = MTLPixelFormatRGBA32Float; break;
++						}
++					} else if (so.baseType == SPIRV_CROSS_NAMESPACE::SPIRType::UInt && isFloatFmt) {
++						switch (getPixelFormats()->getBytesPerBlock(attachFmt)) {
++							case 4:  subFmt = MTLPixelFormatR32Uint; break;
++							case 8:  subFmt = MTLPixelFormatRG32Uint; break;
++							case 16: subFmt = MTLPixelFormatRGBA32Uint; break;
++						}
++					}
++					if (subFmt != MTLPixelFormatInvalid) {
++						reportWarning(VK_ERROR_VALIDATION_FAILED, "HIGHBALL lenient-interfaces: fragment output %u does not match the kind of color attachment format %s; using %s.",
++									  caLoc, getPixelFormats()->getName(attachFmt), getPixelFormats()->getName(subFmt));
++						mtlPixFmt = subFmt;
++					}
++					break;
++				}
++			}
++
+ 			bool supportsBlend = getPixelFormats()->getCapabilities(mtlPixFmt) & kMVKMTLFmtCapsBlend;
+ 			MTLRenderPipelineColorAttachmentDescriptor* colorDesc = plDesc.colorAttachments[caLoc];
+             colorDesc.pixelFormat = mtlPixFmt;
