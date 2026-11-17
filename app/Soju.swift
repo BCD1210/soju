@@ -177,6 +177,37 @@ struct SojuLogo: View {
 
     init() { refresh(); refreshLibrary() }
 
+    /// The engine this app's scripts pin (ENGINE_TAG in scripts/update.sh) and the one installed.
+    private func engineBehind() -> Bool {
+        guard let script = try? String(contentsOf: root.appendingPathComponent("scripts/update.sh"), encoding: .utf8),
+              let line = script.split(separator: "\n").first(where: { $0.hasPrefix("ENGINE_TAG=") }) else { return false }
+        let want = line.dropFirst("ENGINE_TAG=".count).trimmingCharacters(in: CharacterSet(charactersIn: "\" "))
+        let engine = base.appendingPathComponent("cx26-engine")
+        guard FileManager.default.fileExists(atPath: engine.appendingPathComponent("bin/wine").path) else { return false }
+        let have = (try? String(contentsOf: engine.appendingPathComponent(".soju-engine-release"), encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return !want.isEmpty && have != want
+    }
+    private var componentTimer: Timer?
+
+    /// Called once Soju knows it is the newest release: if the installed engine is older than the one
+    /// this release pins, run Update components as soon as no launcher or game runs.
+    /// SOJU_NO_AUTO_UPDATE=1 leaves it to the button.
+    func startComponentUpdateWhenIdle() {
+        guard ProcessInfo.processInfo.environment["SOJU_NO_AUTO_UPDATE"] != "1", engineBehind() else { return }
+        let attempt = { [weak self] in
+            guard let self, !self.busy, self.engineBehind(), wineIsIdle() else { return }
+            self.componentTimer?.invalidate(); self.componentTimer = nil
+            self.run(["update"], title: "Updating the Wine engine…")
+        }
+        attempt()
+        if engineBehind() && componentTimer == nil && !busy {
+            componentTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+                Task { @MainActor in attempt() }
+            }
+        }
+    }
+
     func refresh() {
         installed = Set(Launcher.installable.filter {
             FileManager.default.fileExists(atPath: base.appendingPathComponent($0.executable).path)
