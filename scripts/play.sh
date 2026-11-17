@@ -348,11 +348,9 @@ case "$MODE" in
         bash "$(dirname "${BASH_SOURCE[0]}")/setup-steam-games.sh" || echo "soju: Steam component update failed; Steam starts with the previous ones" >&2
       fi
     fi
-    # Vulkan games through MoltenVK (Detroit: Become Human, Highball's settings): compile shaders
-    # on every core, keep their source compressed, and let pipelines whose vertex inputs or color
-    # outputs do not match exactly still build (the patched MoltenVK in the support package).
+    # Vulkan games through MoltenVK: compile shaders on every core and keep their source compressed
+    # (Detroit: Become Human prepares thousands of pipelines on its first start).
     export MVK_CONFIG_SHOULD_MAXIMIZE_CONCURRENT_COMPILATION=1 MVK_CONFIG_SHADER_COMPRESSION_ALGORITHM=1
-    export HB_MVK_LENIENT_INTERFACES=1
     # Repair a bootstrap-only installation before deploying the CEF wrapper.
     python3 "$(dirname "${BASH_SOURCE[0]}")/bootstrap-steam.py" "$WINESTABLE"
     # Known DXVK games (resources/steam-profiles.json) get DXVK once, before Steam
