@@ -5,6 +5,7 @@ import AppKit
 /// The request carries nothing about this Mac beyond what any download from GitHub does.
 @MainActor final class UpdateModel: ObservableObject {
     @Published var available: String?
+    @Published var checked = false
     private var loaded = false
 
     func load(current: String) {
@@ -14,6 +15,7 @@ import AppKit
         if let path = ProcessInfo.processInfo.environment["SOJU_UPDATE_FILE"],
            let data = FileManager.default.contents(atPath: path) {
             available = UpdateCheck.latest(from: data).flatMap { UpdateCheck.isNewer($0, than: current) ? $0 : nil }
+            checked = true
             return
         }
         var request = URLRequest(url: UpdateCheck.feed)
@@ -24,6 +26,7 @@ import AppKit
             let latest = (response as? HTTPURLResponse)?.statusCode == 200 ? data.flatMap { UpdateCheck.latest(from: $0) } : nil
             DispatchQueue.main.async {
                 self.available = latest.flatMap { UpdateCheck.isNewer($0, than: current) ? $0 : nil }
+                self.checked = true
             }
         }.resume()
     }
@@ -68,11 +71,38 @@ import AppKit
     }
 }
 
-/// Sidebar card shown only when a newer release exists: installs it in place, or opens the release page.
+/// True when no Wine server runs, so no launcher or game would be cut off by an update.
+func wineIsIdle() -> Bool {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+    p.arguments = ["-x", "wineserver"]
+    p.standardOutput = FileHandle.nullDevice
+    p.standardError = FileHandle.nullDevice
+    guard (try? p.run()) != nil else { return false }
+    p.waitUntilExit()
+    return p.terminationStatus != 0
+}
+
+/// Sidebar card shown only when a newer release exists. The update installs itself as soon as no
+/// launcher or game runs (and Soju is not installing something), then Soju restarts; the button
+/// does it at once. SOJU_NO_AUTO_UPDATE=1 leaves it to the button. When Soju is up to date,
+/// `upToDate` runs once, for the component check.
 struct UpdateCard: View {
     let current: String
+    var busy = false
+    var upToDate: () -> Void = {}
     @StateObject private var updates = UpdateModel()
     @StateObject private var installer = SelfUpdate()
+    @State private var autoTimer: Timer?
+    @State private var reported = false
+
+    private func tryAutoInstall() {
+        guard let version = updates.available, installer.state.isEmpty,
+              ProcessInfo.processInfo.environment["SOJU_NO_AUTO_UPDATE"] != "1",
+              !busy, wineIsIdle() else { return }
+        autoTimer?.invalidate(); autoTimer = nil
+        installer.start(version)
+    }
 
     var body: some View {
         // An empty view never gets onAppear, so keep a zero-height placeholder until there is something to show.
@@ -81,7 +111,7 @@ struct UpdateCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Soju \(version) is out", systemImage: "arrow.down.circle.fill")
                         .font(.system(size: 12, weight: .semibold)).foregroundStyle(.primary)
-                    Text(installer.state.isEmpty ? "You have \(current)." :
+                    Text(installer.state.isEmpty ? "You have \(current). It installs by itself once your games and launchers are closed." :
                          installer.state == "downloading" ? "Downloading and checking the signature…" :
                          installer.state.hasPrefix("failed") ? installer.state.replacingOccurrences(of: "failed: ", with: "Could not update: ") : "Installing…")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
@@ -102,5 +132,19 @@ struct UpdateCard: View {
             }
         }
         .onAppear { updates.load(current: current) }
+        .onChange(of: updates.checked) { _, done in
+            guard done else { return }
+            if updates.available != nil {
+                tryAutoInstall()
+                if installer.state.isEmpty && autoTimer == nil {
+                    autoTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+                        Task { @MainActor in tryAutoInstall() }
+                    }
+                }
+            } else if !reported {
+                reported = true
+                upToDate()
+            }
+        }
     }
 }
