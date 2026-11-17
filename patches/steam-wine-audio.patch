@@ -1,0 +1,315 @@
+Soju: Wine 11.0 audio for the Steam runtime (#93).
+
+- winecoreaudio: a render stream with more channels than the output device (5.1 or 7.1 on a Mac's
+  stereo speakers) is folded to stereo in the render callback. Core Audio otherwise plays only the
+  first two channels, so the centre (most dialogue) and the back channels were lost. Float32 and
+  16-bit PCM streams; SOJU_SURROUND_FOLD=0 turns it off.
+- winecoreaudio: the device's I/O buffer is lowered to half a period (within the device's range), so a
+  game that keeps about one period queued does not run dry in the middle of a pull (short dropouts at
+  48 kHz).
+- mmdevapi: spatial audio static objects get their channel by speaker-bit order, which is the order of a
+  WAVEFORMATEXTENSIBLE bed (back before side), and are filed under their own object index.
+
+diff --git a/dlls/mmdevapi/spatialaudio.c b/dlls/mmdevapi/spatialaudio.c
+index 8ae37cb..5b52c70 100644
+--- a/dlls/mmdevapi/spatialaudio.c
++++ b/dlls/mmdevapi/spatialaudio.c
+@@ -673,31 +673,39 @@ static WAVEFORMATEX *clone_fmtex(const WAVEFORMATEX *src)
+ 
+ static void static_mask_to_channels(AudioObjectType static_mask, WORD *count, DWORD *mask, UINT32 *map)
+ {
+-    UINT32 out_chan = 0, map_idx = 0;
++    /* Soju: the stream is a WAVEFORMATEXTENSIBLE bed, whose channels come in the order of their
++     * speaker bits. Walk the speaker bits from the lowest up and number the channels as they come,
++     * then file each number under the object's own index, which is how objects look it up. */
++    static const struct { DWORD speaker; AudioObjectType type; } speakers[] = {
++        { SPEAKER_FRONT_LEFT,     AudioObjectType_FrontLeft },
++        { SPEAKER_FRONT_RIGHT,    AudioObjectType_FrontRight },
++        { SPEAKER_FRONT_CENTER,   AudioObjectType_FrontCenter },
++        { SPEAKER_LOW_FREQUENCY,  AudioObjectType_LowFrequency },
++        { SPEAKER_BACK_LEFT,      AudioObjectType_BackLeft },
++        { SPEAKER_BACK_RIGHT,     AudioObjectType_BackRight },
++        { SPEAKER_BACK_CENTER,    AudioObjectType_BackCenter },
++        { SPEAKER_SIDE_LEFT,      AudioObjectType_SideLeft },
++        { SPEAKER_SIDE_RIGHT,     AudioObjectType_SideRight },
++        { SPEAKER_TOP_FRONT_LEFT, AudioObjectType_TopFrontLeft },
++        { SPEAKER_TOP_FRONT_RIGHT, AudioObjectType_TopFrontRight },
++        { SPEAKER_TOP_BACK_LEFT,  AudioObjectType_TopBackLeft },
++        { SPEAKER_TOP_BACK_RIGHT, AudioObjectType_TopBackRight },
++    };   /* in ascending speaker-bit order */
++    UINT32 i, next = 0;
++
+     *count = 0;
+     *mask = 0;
+-#define CONVERT_MASK(f, t) \
+-    if(static_mask & f){ \
+-        *count += 1; \
+-        *mask |= t; \
+-        map[map_idx++] = out_chan++; \
+-        TRACE("mapping 0x%x to %u\n", f, out_chan - 1); \
+-    }else{ \
+-        map[map_idx++] = ~0; \
+-    }
+-    CONVERT_MASK(AudioObjectType_FrontLeft, SPEAKER_FRONT_LEFT);
+-    CONVERT_MASK(AudioObjectType_FrontRight, SPEAKER_FRONT_RIGHT);
+-    CONVERT_MASK(AudioObjectType_FrontCenter, SPEAKER_FRONT_CENTER);
+-    CONVERT_MASK(AudioObjectType_LowFrequency, SPEAKER_LOW_FREQUENCY);
+-    CONVERT_MASK(AudioObjectType_SideLeft, SPEAKER_SIDE_LEFT);
+-    CONVERT_MASK(AudioObjectType_SideRight, SPEAKER_SIDE_RIGHT);
+-    CONVERT_MASK(AudioObjectType_BackLeft, SPEAKER_BACK_LEFT);
+-    CONVERT_MASK(AudioObjectType_BackRight, SPEAKER_BACK_RIGHT);
+-    CONVERT_MASK(AudioObjectType_TopFrontLeft, SPEAKER_TOP_FRONT_LEFT);
+-    CONVERT_MASK(AudioObjectType_TopFrontRight, SPEAKER_TOP_FRONT_RIGHT);
+-    CONVERT_MASK(AudioObjectType_TopBackLeft, SPEAKER_TOP_BACK_LEFT);
+-    CONVERT_MASK(AudioObjectType_TopBackRight, SPEAKER_TOP_BACK_RIGHT);
+-    CONVERT_MASK(AudioObjectType_BackCenter, SPEAKER_BACK_CENTER);
++    for(i = 0; i < 17; i++)
++        map[i] = ~0u;
++    for(i = 0; i < ARRAY_SIZE(speakers); i++){
++        if(!(static_mask & speakers[i].type))
++            continue;
++        map[AudioObjectType_to_index(speakers[i].type)] = next;
++        TRACE("mapping 0x%x to %u\n", speakers[i].type, next);
++        next++;
++        *mask |= speakers[i].speaker;
++    }
++    *count = next;
+ }
+ 
+ static HRESULT activate_stream(SpatialAudioStreamImpl *stream)
+diff --git a/dlls/winecoreaudio.drv/coreaudio.c b/dlls/winecoreaudio.drv/coreaudio.c
+index da2ae2d..67dbc8d 100644
+--- a/dlls/winecoreaudio.drv/coreaudio.c
++++ b/dlls/winecoreaudio.drv/coreaudio.c
+@@ -100,8 +100,15 @@ struct coreaudio_stream
+     INT32 getbuf_last;
+     WAVEFORMATEX *fmt;
+     BYTE *local_buffer, *cap_buffer, *wrap_buffer, *resamp_buffer, *tmp_buffer;
++
++    /* Soju: a stream with more channels than the output device is folded to stereo here,
++     * because Core Audio drops the channels the device lacks. */
++    float fold[2][32];      /* gain of each stream channel into left and right */
++    BYTE *fold_scratch;     /* FOLD_CHUNK frames in the stream's own format */
+ };
+ 
++#define FOLD_CHUNK 1024
++
+ static const REFERENCE_TIME def_period = 100000;
+ static const REFERENCE_TIME min_period = 50000;
+ 
+@@ -719,6 +726,189 @@ static AudioDeviceID dev_id_from_device(const char *device)
+     return id;
+ }
+ 
++/* Soju: how loud each Windows speaker is in a stereo fold. Front left/right stay as they are;
++ * the centre goes to both sides at -3 dB, where most game dialogue lives; every speaker that
++ * sits to one side goes to that side at -3 dB; speakers on the middle line at -6 dB; LFE at
++ * -10 dB, enough to keep explosions from vanishing on small speakers. */
++static void fold_gain(DWORD speaker, float *l, float *r)
++{
++    const DWORD left = SPEAKER_BACK_LEFT | SPEAKER_SIDE_LEFT | SPEAKER_FRONT_LEFT_OF_CENTER |
++                       SPEAKER_TOP_FRONT_LEFT | SPEAKER_TOP_BACK_LEFT;
++    const DWORD right = SPEAKER_BACK_RIGHT | SPEAKER_SIDE_RIGHT | SPEAKER_FRONT_RIGHT_OF_CENTER |
++                        SPEAKER_TOP_FRONT_RIGHT | SPEAKER_TOP_BACK_RIGHT;
++    const DWORD middle = SPEAKER_BACK_CENTER | SPEAKER_TOP_CENTER | SPEAKER_TOP_FRONT_CENTER |
++                         SPEAKER_TOP_BACK_CENTER;
++
++    *l = *r = 0.0f;
++    if(speaker == SPEAKER_FRONT_LEFT) *l = 1.0f;
++    else if(speaker == SPEAKER_FRONT_RIGHT) *r = 1.0f;
++    else if(speaker == SPEAKER_FRONT_CENTER) *l = *r = 0.7071f;
++    else if(speaker == SPEAKER_LOW_FREQUENCY) *l = *r = 0.3162f;
++    else if(speaker & left) *l = 0.7071f;
++    else if(speaker & right) *r = 0.7071f;
++    else if(speaker & middle) *l = *r = 0.5f;
++}
++
++static UInt32 output_channel_count(AudioDeviceID dev)
++{
++    AudioObjectPropertyAddress addr = { kAudioDevicePropertyStreamConfiguration,
++                                        kAudioObjectPropertyScopeOutput, kAudioObjectPropertyElementMain };
++    UInt32 size = 0, total = 0, i;
++    AudioBufferList *list;
++
++    if(AudioObjectGetPropertyDataSize(dev, &addr, 0, NULL, &size) != noErr || !size) return 0;
++    if(!(list = malloc(size))) return 0;
++    if(AudioObjectGetPropertyData(dev, &addr, 0, NULL, &size, list) == noErr)
++        for(i = 0; i < list->mNumberBuffers; i++) total += list->mBuffers[i].mNumberChannels;
++    free(list);
++    return total;
++}
++
++/* 0 for a format the fold does not read, else the sample size in bytes. */
++static UINT32 fold_sample_bytes(const WAVEFORMATEX *fmt)
++{
++    const WAVEFORMATEXTENSIBLE *ext = (const WAVEFORMATEXTENSIBLE *)fmt;
++    BOOL is_float = fmt->wFormatTag == WAVE_FORMAT_IEEE_FLOAT ||
++                    (fmt->wFormatTag == WAVE_FORMAT_EXTENSIBLE &&
++                     IsEqualGUID(&ext->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT));
++    BOOL is_pcm = fmt->wFormatTag == WAVE_FORMAT_PCM ||
++                  (fmt->wFormatTag == WAVE_FORMAT_EXTENSIBLE &&
++                   IsEqualGUID(&ext->SubFormat, &KSDATAFORMAT_SUBTYPE_PCM));
++
++    if(is_float && fmt->wBitsPerSample == 32) return 4;
++    if(is_pcm && fmt->wBitsPerSample == 16 && fmt->nBlockAlign == fmt->nChannels * 2) return 2;
++    return 0;
++}
++
++static OSStatus ca_fold_render_cb(void *user, AudioUnitRenderActionFlags *flags,
++        const AudioTimeStamp *ts, UInt32 bus, UInt32 nframes, AudioBufferList *data)
++{
++    struct coreaudio_stream *stream = user;
++    UINT32 nch = stream->fmt->nChannels, bytes = fold_sample_bytes(stream->fmt);
++    float *out = data->mBuffers[0].mData;
++    AudioBufferList chunk;
++    UInt32 done = 0, n, f, c;
++
++    chunk.mNumberBuffers = 1;
++    chunk.mBuffers[0].mNumberChannels = nch;
++    chunk.mBuffers[0].mData = stream->fold_scratch;
++    while(done < nframes){
++        n = min(nframes - done, FOLD_CHUNK);
++        chunk.mBuffers[0].mDataByteSize = n * stream->fmt->nBlockAlign;
++        ca_render_cb(stream, flags, ts, bus, n, &chunk);
++        for(f = 0; f < n; f++){
++            float l = 0.0f, r = 0.0f, v;
++            for(c = 0; c < nch; c++){
++                if(bytes == 4) v = ((const float *)stream->fold_scratch)[f * nch + c];
++                else v = ((const INT16 *)stream->fold_scratch)[f * nch + c] * (1.0f / 32768.0f);
++                l += v * stream->fold[0][c];
++                r += v * stream->fold[1][c];
++            }
++            out[(done + f) * 2] = l > 1.0f ? 1.0f : l < -1.0f ? -1.0f : l;
++            out[(done + f) * 2 + 1] = r > 1.0f ? 1.0f : r < -1.0f ? -1.0f : r;
++        }
++        done += n;
++    }
++    return noErr;
++}
++
++/* Turns the fold on when the output device has fewer channels than the stream. The device unit
++ * then takes interleaved stereo float, and ca_fold_render_cb mixes the stream into it. */
++static BOOL ca_setup_fold(struct coreaudio_stream *stream)
++{
++    const WAVEFORMATEX *fmt = stream->fmt;
++    UINT32 nch = fmt->nChannels, have, c;
++    DWORD mask, bit;
++    AudioStreamBasicDescription stereo;
++    AudioChannelLayout layout;
++    const char *env = getenv("SOJU_SURROUND_FOLD");
++
++    if(env && env[0] == '0') return FALSE;
++    if(nch < 3 || nch > 32 || !fold_sample_bytes(fmt)) return FALSE;
++    have = output_channel_count(stream->dev_id);
++    if(!have || have >= nch) return FALSE;
++
++    if(fmt->wFormatTag == WAVE_FORMAT_EXTENSIBLE)
++        mask = ((const WAVEFORMATEXTENSIBLE *)fmt)->dwChannelMask;
++    else
++        mask = 0;
++    if((UINT32)__builtin_popcount(mask) != nch){
++        /* no usable mask: take the usual layout for the channel count */
++        if(nch == 6) mask = 0x3f;          /* 5.1 */
++        else if(nch == 8) mask = 0x63f;    /* 7.1 */
++        else if(nch == 4) mask = 0x33;     /* quad */
++        else if(nch == 3) mask = 0x7;
++        else if(nch == 5) mask = 0x37;
++        else if(nch == 7) mask = 0x13f;
++        else return FALSE;
++    }
++
++    memset(stream->fold, 0, sizeof(stream->fold));
++    for(c = 0, bit = 1; bit && c < nch; bit <<= 1)
++        if(mask & bit){
++            fold_gain(bit, &stream->fold[0][c], &stream->fold[1][c]);
++            c++;
++        }
++
++    if(!(stream->fold_scratch = malloc(FOLD_CHUNK * fmt->nBlockAlign))) return FALSE;
++
++    memset(&stereo, 0, sizeof(stereo));
++    stereo.mSampleRate = fmt->nSamplesPerSec;
++    stereo.mFormatID = kAudioFormatLinearPCM;
++    stereo.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
++    stereo.mFramesPerPacket = 1;
++    stereo.mChannelsPerFrame = 2;
++    stereo.mBitsPerChannel = 32;
++    stereo.mBytesPerFrame = stereo.mBytesPerPacket = 8;
++    if(AudioUnitSetProperty(stream->unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0,
++                            &stereo, sizeof(stereo)) != noErr){
++        WARN("Couldn't give the unit a stereo format; leaving the stream as it is\n");
++        AudioUnitSetProperty(stream->unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0,
++                             &stream->dev_desc, sizeof(stream->dev_desc));
++        free(stream->fold_scratch);
++        stream->fold_scratch = NULL;
++        return FALSE;
++    }
++    memset(&layout, 0, sizeof(layout));
++    layout.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo;
++    AudioUnitSetProperty(stream->unit, kAudioUnitProperty_AudioChannelLayout, kAudioUnitScope_Input, 0,
++                         &layout, sizeof(layout));
++
++    MESSAGE("winecoreaudio: folding a %u-channel stream (mask %#x) to stereo for a %u-channel device\n",
++            (unsigned)nch, (unsigned)mask, (unsigned)have);
++    return TRUE;
++}
++
++/* Soju: the device pulls its whole I/O buffer at once (512 frames, 10.7 ms at 48 kHz). That is
++ * longer than the 10 ms period a client refills on, so a game that keeps about one period queued
++ * runs dry in the middle of a pull and the rest plays as silence. Ask for a buffer of at most
++ * half a period, within what the device allows. This only affects this process. */
++static void ca_fit_io_buffer(struct coreaudio_stream *stream)
++{
++    AudioObjectPropertyAddress addr = { kAudioDevicePropertyBufferFrameSizeRange,
++                                        kAudioObjectPropertyScopeOutput, kAudioObjectPropertyElementMain };
++    AudioValueRange range = { 0, 0 };
++    Float64 rate = 0;
++    UInt32 size = sizeof(range), now = 0, want;
++
++    if(AudioObjectGetPropertyData(stream->dev_id, &addr, 0, NULL, &size, &range) != noErr) return;
++    addr.mSelector = kAudioDevicePropertyNominalSampleRate;
++    addr.mScope = kAudioObjectPropertyScopeGlobal;
++    size = sizeof(rate);
++    if(AudioObjectGetPropertyData(stream->dev_id, &addr, 0, NULL, &size, &rate) != noErr || rate <= 0) return;
++    size = sizeof(now);
++    if(AudioUnitGetProperty(stream->unit, kAudioDevicePropertyBufferFrameSize, kAudioUnitScope_Global, 0,
++                            &now, &size) != noErr) return;
++
++    want = (UInt32)(rate * stream->period / 20000000.0);   /* half a period, in device frames */
++    want &= ~15u;
++    if(want < range.mMinimum) want = (UInt32)range.mMinimum;
++    if(!want || want >= now) return;
++    if(AudioUnitSetProperty(stream->unit, kAudioDevicePropertyBufferFrameSize, kAudioUnitScope_Global, 0,
++                            &want, sizeof(want)) == noErr)
++        TRACE("I/O buffer %u -> %u frames\n", (unsigned)now, (unsigned)want);
++}
++
+ static NTSTATUS unix_create_stream(void *args)
+ {
+     struct create_stream_params *params = args;
+@@ -765,7 +955,8 @@ static NTSTATUS unix_create_stream(void *args)
+         sc = AudioUnitSetProperty(stream->unit, kAudioOutputUnitProperty_SetInputCallback,
+                                   kAudioUnitScope_Output, 1, &input, sizeof(input));
+     }else{
+-        input.inputProc = ca_render_cb;
++        input.inputProc = ca_setup_fold(stream) ? ca_fold_render_cb : ca_render_cb;
++        ca_fit_io_buffer(stream);
+         sc = AudioUnitSetProperty(stream->unit, kAudioUnitProperty_SetRenderCallback,
+                                   kAudioUnitScope_Input, 0, &input, sizeof(input));
+     }
+@@ -809,6 +1000,7 @@ end:
+     if(FAILED(params->result)){
+         if(stream->converter) AudioConverterDispose(stream->converter);
+         if(stream->unit) AudioComponentInstanceDispose(stream->unit);
++        free(stream->fold_scratch);
+         free(stream->fmt);
+         free(stream);
+     } else {
+@@ -837,6 +1029,7 @@ static NTSTATUS unix_release_stream( void *args )
+     }
+ 
+     if(stream->converter) AudioConverterDispose(stream->converter);
++    free(stream->fold_scratch);
+     free(stream->resamp_buffer);
+     free(stream->wrap_buffer);
+     free(stream->cap_buffer);
