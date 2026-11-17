@@ -86,18 +86,28 @@ async function startCheckout(request, env) {
   const id = input && input.game;
   const game = Object.hasOwn(GAMES, id) ? GAMES[id] : null;
   if (!game || !game.product) return json({ error: "Unknown game." }, 404);
+  // Soju signs in before buying; the checkout then uses that email so the purchase belongs to the account.
+  const email = typeof input.email === "string" ? input.email.trim().toLowerCase().slice(0, 200) : "";
+  const customer = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(email) ? email : "";
   const minute = Math.floor(Date.now() / 60000);
   if (minute !== checkoutMinute) { checkoutMinute = minute; checkoutsThisMinute = 0; }
   if (++checkoutsThisMinute > 30) return json({ error: "Too many checkouts right now. Try again in a minute." }, 429);
-  const res = await polar(env, "/checkouts/", {
+  const create = (withEmail) => polar(env, "/checkouts/", {
     method: "POST",
     body: JSON.stringify({
       products: [game.product],
       success_url: "https://" + HOME + "/store/thanks.html?checkout_id={CHECKOUT_ID}",
       metadata: { source: "soju", game: id },
+      ...(withEmail ? { customer_email: customer } : {}),
     }),
   });
-  if (!res.ok) return json({ error: "The store could not start the checkout. Try again shortly." }, 502);
+  let res = await create(!!customer);
+  // Polar refuses some addresses (domains that take no mail): open the checkout without one then.
+  if (res.status === 422 && customer) res = await create(false);
+  if (!res.ok) {
+    console.log("checkout", res.status, (await res.text()).slice(0, 300));
+    return json({ error: "The store could not start the checkout. Try again shortly." }, 502);
+  }
   const checkout = await res.json();
   return json({ id: checkout.id, url: checkout.url });
 }

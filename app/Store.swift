@@ -314,7 +314,7 @@ struct StoreView: View {
     }
 
     private func buy(_ game: StoreGame) {
-        purchase.start(game, fallback: StoreCatalog.safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"])) { id, title, key in
+        purchase.start(game, email: account.email, fallback: StoreCatalog.safe(game.checkout, hosts: ["buy.polar.sh", "polar.sh"])) { id, title, key in
             account.markOwned(id)
             install(id: id, title: title, key: key)
         }
@@ -361,12 +361,12 @@ struct StoreView: View {
     private var started = Date()
     private static let api = "https://didimlabs.com/api/didim/checkout"
 
-    func start(_ game: StoreGame, fallback: URL?, ready: @escaping (String, String, String) -> Void) {
+    func start(_ game: StoreGame, email: String = "", fallback: URL?, ready: @escaping (String, String, String) -> Void) {
         message = "Opening checkout…"
         var request = URLRequest(url: URL(string: Self.api)!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: ["game": game.id])
+        request.httpBody = try? JSONSerialization.data(withJSONObject: email.isEmpty ? ["game": game.id] : ["game": game.id, "email": email])
         request.timeoutInterval = 20
         URLSession.shared.dataTask(with: request) { data, response, _ in
             let body = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
