@@ -81,7 +81,7 @@
               "When it opens, Soju asks GitHub for the list of Soju releases to tell you if a newer version is out. The request says nothing about you or your games.",
               "Account connections you add (Steam, GOG and others) talk to those services directly from your Mac.",
               "If you turn on TV & iPad streaming, Soju installs Sunshine (open source, LizardByte) on your Mac. It streams only to devices you pair with a PIN on your own network, keeps its settings page on your Mac, and only contacts GitHub to check for new versions.",
-              "Play counts (on unless you turn them off): Soju sends which games are installed (once a day) and how many minutes a game stayed open, with your Mac model, chip, macOS and Soju version and a random id made on your Mac, to soju-stats.mikey9220.workers.dev (Cloudflare). No account, email, name or file path. didimlabs.com shows only games two or more players have, never one person's data. Turn it off under Platforms (Share which games I play) or with soju stats off.",
+              "Play counts (on unless you turn them off): Soju sends which games are installed (once a day) and how many minutes a game stayed open, with your Mac model, chip, macOS and Soju version and a random id made on your Mac, to soju-stats.mikey9220.workers.dev (Cloudflare). No account, email, name or file path. We use it only to see which games run, and publish no one's data. Turn it off under Platforms (Share which games I play) or with soju stats off.",
               "Soju has no ads tracking or crash reporting."
             ]
           }
@@ -143,7 +143,7 @@
         {
           "type": "Text",
           "props": {
-            "text": "애플·구글 로그인은 이메일 주소만 받아, Polar에서 그 이메일로 산 게임의 라이선스 키를 찾는 데 한 번 씁니다. 서버에는 최대 10분만 남고 지워집니다. 결제 정보는 Polar가 처리하며 우리는 카드 번호를 보지 않습니다. 소주 앱은 설치한 게임 목록(하루 한 번)과 게임별 플레이 시간을 맥 기종·macOS·소주 버전, 맥에서 만든 무작위 번호와 함께 보냅니다. 계정, 이메일, 이름, 파일 경로는 보내지 않고, 사이트에는 두 명 이상이 가진 게임만 보입니다. Platforms의 Share which games I play나 soju stats off로 끌 수 있습니다. 웹사이트는 쿠키 없이 방문 수와 로딩 속도만 세는 Cloudflare Web Analytics를 씁니다. 출시 알림을 신청한 이메일은 새 게임 소식에만 씁니다. 문의와 삭제 요청: hello@didimlabs.com"
+            "text": "애플·구글 로그인은 이메일 주소만 받아, Polar에서 그 이메일로 산 게임의 라이선스 키를 찾는 데 한 번 씁니다. 서버에는 최대 10분만 남고 지워집니다. 결제 정보는 Polar가 처리하며 우리는 카드 번호를 보지 않습니다. 소주 앱은 설치한 게임 목록(하루 한 번)과 게임별 플레이 시간을 맥 기종·macOS·소주 버전, 맥에서 만든 무작위 번호와 함께 보냅니다. 계정, 이메일, 이름, 파일 경로는 보내지 않고, 어떤 게임이 되는지 보는 데만 쓰고 개인별 기록은 공개하지 않습니다. Platforms의 Share which games I play나 soju stats off로 끌 수 있습니다. 웹사이트는 쿠키 없이 방문 수와 로딩 속도만 세는 Cloudflare Web Analytics를 씁니다. 출시 알림을 신청한 이메일은 새 게임 소식에만 씁니다. 문의와 삭제 요청: hello@didimlabs.com"
           }
         }
       ]

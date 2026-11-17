@@ -4,9 +4,7 @@
 // POST /api/stats {id, kind: "play" | "library", games: [...], mac, chip, macos, soju}
 //   play:    games [{game, title, launcher, minutes}]  adds minutes to that install's total for the game
 //   library: games [{game, title, launcher}]           replaces that install's list of installed games
-// GET /api/stats/summary
-//   Games played 10+ minutes by at least MIN players, and games installed by at least MIN players.
-//   Nothing about a single install is ever returned.
+// Nothing is published: the counts are read with wrangler (below).
 //
 // Read everything: wrangler d1 execute soju-stats --remote --command "select * from plays" -c wrangler.stats.toml
 
@@ -14,8 +12,6 @@ const json = (body, status = 200, extra = {}) => new Response(JSON.stringify(bod
   status, headers: { "content-type": "application/json", "cache-control": "no-store", ...extra },
 });
 const LAUNCHERS = new Set(["battlenet", "steam", "epic", "gog", "ea", "rockstar", "ubisoft", "xbox", "didim"]);
-const MIN = 2;          // players before a game shows up in the summary
-const PLAYED = 10;      // minutes that count as having played a game
 const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS plays (install TEXT NOT NULL, game TEXT NOT NULL, title TEXT, launcher TEXT, minutes INTEGER NOT NULL DEFAULT 0, sessions INTEGER NOT NULL DEFAULT 0, mac TEXT, chip TEXT, macos TEXT, soju TEXT, updated TEXT, PRIMARY KEY (install, game))",
   "CREATE TABLE IF NOT EXISTS library (install TEXT NOT NULL, game TEXT NOT NULL, title TEXT, launcher TEXT, mac TEXT, chip TEXT, macos TEXT, soju TEXT, updated TEXT, PRIMARY KEY (install, game))",
@@ -32,7 +28,6 @@ async function schema(db) {
 
 export async function stats(request, env, url) {
   if (!env.STATS) return json({ error: "Not available right now." }, 503);
-  if (url.pathname === "/api/stats/summary") return summary(request, env);
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
   const m = Math.floor(Date.now() / 60000);
   if (m !== minute) { minute = m; count = 0; }
@@ -63,22 +58,4 @@ export async function stats(request, env, url) {
     ).bind(id, g.game, g.title, g.launcher, ...machine, now))]);
   }
   return json({ ok: true });
-}
-
-async function summary(request, env) {
-  if (request.method !== "GET") return json({ error: "Use GET." }, 405);
-  const cache = caches.default;
-  const key = new Request(new URL("/api/stats/summary", request.url));
-  const hit = await cache.match(key);
-  if (hit) return hit;
-  const db = env.STATS;
-  await schema(db);
-  const [played, installed] = await db.batch([
-    db.prepare(`SELECT game, MAX(title) AS title, MAX(launcher) AS launcher, COUNT(*) AS players, SUM(minutes) AS minutes FROM plays WHERE minutes >= ${PLAYED} GROUP BY game HAVING players >= ${MIN} ORDER BY players DESC, minutes DESC LIMIT 300`),
-    db.prepare(`SELECT game, MAX(title) AS title, MAX(launcher) AS launcher, COUNT(*) AS players FROM library GROUP BY game HAVING players >= ${MIN} ORDER BY players DESC LIMIT 300`),
-  ]);
-  const res = json({ updated: new Date().toISOString(), played: played.results, installed: installed.results }, 200,
-    { "cache-control": "public, max-age=900", "access-control-allow-origin": "*" });
-  await cache.put(key, res.clone());
-  return res;
 }

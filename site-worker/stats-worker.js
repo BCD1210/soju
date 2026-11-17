@@ -5,7 +5,7 @@ import { stats } from "./stats.js";
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === "/api/stats" || url.pathname === "/api/stats/summary") return stats(request, env, url);
+    if (url.pathname === "/api/stats") return stats(request, env, url);
     return new Response("Soju play counts: https://didimlabs.com/privacy.html\n", { status: 404 });
   },
 };
