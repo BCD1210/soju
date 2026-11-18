@@ -22,6 +22,9 @@
 #     WINE_NO_DOCK_ICON support (single Dock icon)
 #   - winecoreaudio-patched.so + mmdevapi-x64.dll: patches/steam-wine-audio.patch, so a game's
 #     5.1/7.1 output is folded to stereo instead of losing centre and back (#93)
+#   - winemac-patched.so also lists low fullscreen modes (640x480 and up) that macOS does not
+#     mark "safe", so GoldSrc games switch to them instead of staying black (#153)
+#   - wow64cpu-x64.dll: lretq back to 32-bit code under Rosetta 2 (#153)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -99,6 +102,13 @@ cp -f "$SUP/winemac-patched.so" "$WLIB/x86_64-unix/winemac.so"
 if [ -f "$SUP/winecoreaudio-patched.so" ]; then
   cp -f "$SUP/winecoreaudio-patched.so" "$WLIB/x86_64-unix/winecoreaudio.so"
   cp -f "$SUP/mmdevapi-x64.dll" "$WLIB/x86_64-windows/mmdevapi.dll"
+fi
+# 32-bit games (#153): wow64cpu that leaves 64-bit code with lretq under Rosetta 2. With Wine's
+# ljmp a 32-bit thread could reach the next system call still in 32-bit mode and crash reading
+# 0x4ecd (Counter-Strike 1.6, Sven Co-op on map load). Older support packages have none.
+if [ -f "$SUP/wow64cpu-x64.dll" ]; then
+  [ -f "$WLIB/x86_64-windows/wow64cpu.dll.vanilla" ] || cp -f "$WLIB/x86_64-windows/wow64cpu.dll" "$WLIB/x86_64-windows/wow64cpu.dll.vanilla"
+  cp -f "$SUP/wow64cpu-x64.dll" "$WLIB/x86_64-windows/wow64cpu.dll"
 fi
 # MoltenVK 1.4.2 with Soju's patch for undescribed vertex inputs (scripts/build-moltenvk.sh), for
 # games that draw with Vulkan and for DXVK. Older support packages have none: the runtime's stays.
