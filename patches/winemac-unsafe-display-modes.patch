@@ -1,0 +1,60 @@
+winemac: list valid display modes that macOS does not mark "safe" when running
+under Rosetta 2.
+
+From CrossOver 26 (Hack #18576, LGPL-2.1-or-later), rebased onto Wine 11.0.
+On Apple Silicon Macs the low modes old fullscreen games ask for (640x480 and
+up) lack kDisplayModeSafeFlag, so the mode change failed and GoldSrc games
+(Counter-Strike 1.6, Sven Co-op) showed a black screen in fullscreen (#153).
+
+diff --git a/dlls/winemac.drv/display.c b/dlls/winemac.drv/display.c
+index 506335a..13bb1e3 100644
+--- a/dlls/winemac.drv/display.c
++++ b/dlls/winemac.drv/display.c
+@@ -25,6 +25,10 @@
+ 
+ #include "config.h"
+ 
++#include <pthread.h>
++#include <sys/types.h>
++#include <sys/sysctl.h>
++
+ #include "macdrv.h"
+ #include "winuser.h"
+ #include "winreg.h"
+@@ -34,6 +38,26 @@
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(display);
+ 
++/* Soju (from CrossOver Hack #18576): macOS marks the low resolutions that old
++ * fullscreen games ask for (640x480, 800x600, 1024x768) as not "safe" on Apple
++ * Silicon displays, so the mode change failed and those games showed a black
++ * screen (GoldSrc: Counter-Strike 1.6, Half-Life, Sven Co-op). Accept valid
++ * modes without the safe flag when the process runs translated (Rosetta). */
++static int is_translated_status;
++static void init_is_translated(void)
++{
++    int ret = 0;
++    size_t size = sizeof(ret);
++    if (sysctlbyname("sysctl.proc_translated", &ret, &size, NULL, 0) == -1) ret = 0;
++    is_translated_status = ret;
++}
++static int is_translated(void)
++{
++    static pthread_once_t init_once = PTHREAD_ONCE_INIT;
++    pthread_once(&init_once, init_is_translated);
++    return is_translated_status;
++}
++
+ #define NEXT_DEVMODEW(mode) ((DEVMODEW *)((char *)((mode) + 1) + (mode)->dmDriverExtra))
+ 
+ struct display_mode_descriptor
+@@ -93,7 +117,8 @@ static int display_mode_bits_per_pixel(CGDisplayModeRef display_mode)
+ static BOOL display_mode_is_supported(CGDisplayModeRef display_mode)
+ {
+     uint32_t io_flags = CGDisplayModeGetIOFlags(display_mode);
+-    return (io_flags & kDisplayModeValidFlag) && (io_flags & kDisplayModeSafeFlag);
++    return (io_flags & kDisplayModeValidFlag) &&
++           ((io_flags & kDisplayModeSafeFlag) || is_translated());
+ }
+ 
+ 
