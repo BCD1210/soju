@@ -1,4 +1,4 @@
-# Steam support release v6
+# Steam support release v8
 
 The package contains only these open-source components:
 
@@ -15,6 +15,10 @@ The package contains only these open-source components:
   `patches/steam-wine-audio.patch`: a 5.1/7.1 stream on a stereo device is folded to stereo, so centre
   and back channels are heard, and the device's I/O buffer stays under half a period (#93)
   (LGPL-2.1-or-later).
+- Wine 11.0 x86_64 wow64cpu, same revision, with `patches/wow64cpu-rosetta2-far-jump.patch`, and winemac
+  also with `patches/winemac-unsafe-display-modes.patch` (both rebased from CrossOver 26, LGPL-2.1-or-later):
+  32-bit games return from system calls with `lretq` under Rosetta 2, and low fullscreen modes such as
+  640x480 can be selected (#153).
 - Steam webhelper wrapper: vendored notpop source (MIT).
 - MoltenVK v1.4.2: `db66022459ffb663aa2b50f6b018bc2e124f5edf` (Apache-2.0), x86_64, with
   `patches/moltenvk/zero-missing-vertex-attributes.patch`, built by `scripts/build-moltenvk.sh`. It replaces the
@@ -26,8 +30,8 @@ The package contains only these open-source components:
 - LLVM 15.0.7: `8dfdcc7b7bf66834a761bd8de445840ef68e4d1a`
   (Apache-2.0 with LLVM exceptions), statically linked into the renderer.
 
-[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v6)
-([v4](https://github.com/BCD1210/soju/releases/tag/steam-support-v4) is the same without MoltenVK; [v3](https://github.com/BCD1210/soju/releases/tag/steam-support-v3) is the same without the audio components;
+[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v8)
+([v7](https://github.com/BCD1210/soju/releases/tag/steam-support-v7) is the same without the wow64cpu and display-mode patches; [v4](https://github.com/BCD1210/soju/releases/tag/steam-support-v4) is the same without MoltenVK; [v3](https://github.com/BCD1210/soju/releases/tag/steam-support-v3) is the same without the audio components;
 [v2](https://github.com/BCD1210/soju/releases/tag/steam-support-v2) is the same without the pure virtual
 backport; [v1](https://github.com/BCD1210/soju/releases/tag/steam-support-v1) also lacks the tessellation backport.)
 
@@ -82,3 +86,12 @@ does not play on stereo speakers (as measured in #93). With v4 the log shows
 and the centre tone reached both speakers (RMS 0.025 each for a 0.035 input); back left and back right
 went mostly to their side. The Overwatch/Diablo II Steam mode uses the CX engine, which already has
 these patches.
+
+v8, on M4 Pro / macOS 26: only `winemac-patched.so`, `SOURCES.txt` and the new `wow64cpu-x64.dll` differ
+from v7 (a rebuild of `winecoreaudio-patched.so` from the same tree matched v7 byte for byte). Sven Co-op
+(free on Steam, GoldSrc `hw.dll`/`vgui2.dll` like Counter-Strike 1.6) loading the map `crystal` crashed
+twice in a row on v7 with `page fault on read access to 0x00004ecd ... at address 7BE01139`, the address
+in #153: `syscall_32to64`'s `movl cs32_sel(%rip),%edx` decoded as 32-bit code. With v8 it reached gameplay
+from the command line and from Steam's Play button. Fullscreen at 640x480 showed only black on v7 and the
+scaled menu on v8; the desktop mode came back after the game quit. The Steam client (32-bit) still signed in
+and installed games. Counter-Strike 1.6 itself was not run (not owned on the test account).
