@@ -30,6 +30,10 @@ case "$ACTION" in
   launch)
     case "${1:-}" in battlenet|steam|epic|gog|ea|rockstar|ubisoft) exec bash "$ROOT/scripts/play.sh" "$1" ;;
       *) echo "Choose one of the launchers."; exit 64 ;; esac ;;
+  quit)   # Platforms > Force Quit: everything in that launcher's bottle, leftovers of a dead server included
+    case "${1:-}" in battlenet) exec bash "$ROOT/scripts/play.sh" kill ;;
+      steam|epic|gog|ea|rockstar|ubisoft) exec bash "$ROOT/scripts/play.sh" "$1-kill" ;;
+      *) echo "Choose one of the launchers."; exit 64 ;; esac ;;
   vr)
     case "${1:-}" in setup|play|status) exec python3 "$ROOT/scripts/d2r-vr.py" "$1" ;;
       flat) exec python3 "$ROOT/scripts/d2r-vr.py" play --flat ;;
