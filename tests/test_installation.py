@@ -288,6 +288,30 @@ class SupportManifestTests(unittest.TestCase):
         self.assertIn('cp -f "$SUP/wow64cpu-x64.dll" "$WLIB/x86_64-windows/wow64cpu.dll"', setup)
         self.assertIn("wow64cpu-x64.dll", json.loads((ROOT/"resources/steam-support.json").read_text())["files"])
 
+    def test_goldsrc_frame_rate_fixes_are_built_and_installed(self):
+        # #153: Counter-Strike 1.6 ran at 20-25 fps at 1440p; lightmap uploads ended a render pass each.
+        script = (ROOT/"scripts/build-steam-support.sh").read_text()
+        self.assertIn('apply_once wine "$ROOT/patches/opengl32-wow64-batch.patch"', script)
+        self.assertIn("--enable-archs=i386,x86_64", script)
+        for out in ("output/opengl32-i386.dll", "output/opengl32-unix.so"):
+            self.assertIn(out, script)
+        patch = (ROOT/"patches/opengl32-wow64-batch.patch").read_text()
+        for needed in ("unix_wine_gl_batch", "gl_batch_flush", "SOJU_GL_BATCH", "wow64_wine_gl_batch"):
+            self.assertIn(needed, patch)
+        setup = (ROOT/"scripts/setup-steam-games.sh").read_text()
+        # Both halves or neither, and never rewritten in place.
+        self.assertIn('if [ -f "$SUP/opengl32-i386.dll" ] && [ -f "$SUP/opengl32-unix.so" ]; then', setup)
+        self.assertIn('rm -f "$WLIB/i386-windows/opengl32.dll" "$WLIB/x86_64-unix/opengl32.so"', setup)
+        self.assertIn('bash "$ROOT/scripts/gl-app-defaults.sh" "$WINE"', setup)
+        defaults = (ROOT/"scripts/gl-app-defaults.sh").read_text()
+        self.assertIn("for APP in hl.exe svencoop.exe; do", defaults)
+        self.assertIn("reg query", defaults)   # a value the player set is kept
+        self.assertIn("GL_ARB_multitexture", defaults)
+        self.assertIn("gl-app-defaults.sh", (ROOT/"scripts/play.sh").read_text())
+        files = json.loads((ROOT/"resources/steam-support.json").read_text())["files"]
+        self.assertIn("opengl32-i386.dll", files)
+        self.assertIn("opengl32-unix.so", files)
+
 class GptkShimListTests(unittest.TestCase):
     def test_known_shims_are_well_formed_and_cover_4_0_beta_3(self):
         import re

@@ -332,6 +332,10 @@ case "$MODE" in
       done
       export WINEDLLOVERRIDES="winemenubuilder.exe=;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d"
       "$ENGINE/bin/wine" reg delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run' /v Steam /f >/dev/null 2>&1 || true
+      # GoldSrc OpenGL setting (#153), once per bottle; the Wine 11 bottle gets it from setup-steam-games.sh.
+      if [ ! -f "$WINEPREFIX/.soju-gl-defaults" ]; then
+        bash "$(dirname "${BASH_SOURCE[0]}")/gl-app-defaults.sh" "$ENGINE/bin/wine" && : > "$WINEPREFIX/.soju-gl-defaults"
+      fi
       pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
         { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" steam >/dev/null 2>&1 & ); }
       STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process)
