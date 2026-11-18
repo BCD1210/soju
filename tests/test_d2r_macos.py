@@ -16,7 +16,7 @@ class D2RMacOSTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.scripts = self.root / 'scripts'
         self.scripts.mkdir()
-        for name in ('doctor.sh', 'play.sh', 'steam-runtime.sh', 'd2r-macos.sh'):
+        for name in ('doctor.sh', 'play.sh', 'steam-runtime.sh', 'd2r-macos.sh', 'bottle-leftovers.sh'):
             source = ROOT / 'scripts' / name
             if source.exists(): shutil.copy(source, self.scripts / name)
         # The production doctor uses an absolute read-only process query.
