@@ -18,6 +18,31 @@ def run(code, env=None, args=()):
         timeout=15, start_new_session=True, env={**os.environ, **(env or {})})
 
 
+class BottleLeftoverTests(unittest.TestCase):
+    """Processes whose wineserver died ignored `soju kill`, blocked a Mac shutdown and ran
+    beside the next launch (Reddit report)."""
+
+    def test_kill_modes_stop_leftovers_and_launch_clears_orphans(self):
+        play = (ROOT / "scripts/play.sh").read_text()
+        self.assertIn('source "$(dirname "${BASH_SOURCE[0]}")/bottle-leftovers.sh"', play)
+        start = play.split("start_reaper(){", 1)[1].split("}", 1)[0]
+        self.assertIn('bottle_clear_orphans "$WINEPREFIX"', start)
+        for mode in ("  kill)", "  epic-kill)", "  gog-kill)", "  ea-kill|rockstar-kill|ubisoft-kill)   # Stop", "  steam-kill)"):
+            body = play.split(mode, 1)[1].split(";;", 1)[0]
+            self.assertIn("bottle_kill_leftovers", body, mode)
+
+    def test_leftover_scan_skips_unix_programs_and_is_set_e_safe(self):
+        text = (ROOT / "scripts/bottle-leftovers.sh").read_text()
+        self.assertIn("case \"$first\" in /*|\"\") continue ;; esac", text)
+        self.assertIn('bottle_server_alive "$1" || alive=$?', text)
+        app = (ROOT / "app/Soju.swift").read_text()
+        self.assertIn('run(["quit", launcher.rawValue]', app)
+        action = (ROOT / "scripts/desktop-action.sh").read_text()
+        quit = action.split("  quit)", 1)[1].split(";; esac ;;", 1)[0]
+        self.assertIn('battlenet) exec bash "$ROOT/scripts/play.sh" kill', quit)
+        self.assertIn('exec bash "$ROOT/scripts/play.sh" "$1-kill"', quit)
+
+
 class ReaperTests(unittest.TestCase):
     def probe(self, frames, identities=None):
         with tempfile.TemporaryDirectory(prefix="soju-test-") as t:

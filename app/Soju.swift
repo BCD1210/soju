@@ -311,6 +311,22 @@ struct SojuLogo: View {
         run(["uninstall", "launcher", launcher.rawValue], title: "Removing " + launcher.title + "…")
     }
 
+    /// Platforms → a launcher's Force Quit…: stops every process in its bottle, the launcher and its
+    /// games included, also ones whose Wine server already died (they ignore Quit and block a Mac
+    /// shutdown). Unsaved game progress is lost.
+    func confirmForceQuit(_ launcher: Launcher) {
+        let alert = NSAlert()
+        alert.messageText = "Force quit " + launcher.title + "?"
+        alert.informativeText = "This closes " + launcher.title + " and every game started from it right away, "
+            + "including ones that no longer respond or keep the Mac from shutting down. Progress that the game has not saved is lost."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Force Quit")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons.first?.hasDestructiveAction = true
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        run(["quit", launcher.rawValue], title: "Closing " + launcher.title + " and its games…")
+    }
+
     /// Platforms → Uninstall Soju…: everything soju uninstall --yes removes, then the app goes to the Trash.
     func confirmUninstallAll() {
         let alert = NSAlert()
@@ -540,6 +556,12 @@ struct PlatformsView: View {
             }
             if installed {
                 HStack {
+                    if launcher.opensAWindow {
+                        Button("Force Quit…") { model.confirmForceQuit(launcher) }
+                            .buttonStyle(.link).font(.system(size: 10)).disabled(model.busy)
+                            .help("Close " + launcher.title + " and its games, also ones that stopped responding")
+                            .accessibilityLabel("Force quit " + launcher.title)
+                    }
                     Spacer()
                     Button("Remove…") { model.confirmRemove(launcher) }
                         .buttonStyle(.link).font(.system(size: 10)).disabled(model.busy)

@@ -106,9 +106,12 @@ fi
 
 REAPER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju-reaper.sh"
 SWEEP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/soju-sweep.sh"   # orphaned-service cleanup
+source "$(dirname "${BASH_SOURCE[0]}")/bottle-leftovers.sh"
 start_reaper(){
   # Watchdog: reaps game processes that outlive their windows, and shuts the
   # prefix down once everything is closed: so "quit" really means quit.
+  # Processes left from a session whose wineserver died would run beside the new one.
+  bottle_clear_orphans "$WINEPREFIX"
   pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 && return 0
   [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" >/dev/null 2>&1 & )
   return 0   # a missing reaper must not abort the launch (set -e)
@@ -241,6 +244,7 @@ case "$MODE" in
   epic-kill)   # Stop everything in the Epic bottle
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+    bottle_kill_leftovers "$WINEPREFIX" || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
   gog)         # GOG GALAXY, same engine and env as Battle.net (verified 2026-08-30)
@@ -273,6 +277,7 @@ case "$MODE" in
   gog-kill)    # Stop everything in the GOG bottle
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+    bottle_kill_leftovers "$WINEPREFIX" || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
   ea|rockstar|ubisoft)   # EA app, Rockstar Games Launcher, Ubisoft Connect (verified 2026-11-10)
@@ -295,6 +300,7 @@ case "$MODE" in
   ea-kill|rockstar-kill|ubisoft-kill)   # Stop everything in that launcher's bottle
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+    bottle_kill_leftovers "$WINEPREFIX" || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
   steam)       # Steam client, wine-stable + webhelper wrapper (verified 2026-08-27)
@@ -458,6 +464,7 @@ case "$MODE" in
   kill)        # Stop everything in the Battle.net bottle
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
+    bottle_kill_leftovers "$WINEPREFIX" || true
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
   steam-kill)  # Stop everything in the Steam bottle, note this bottle runs on
@@ -470,6 +477,7 @@ case "$MODE" in
     WINEPREFIX="$S_BASE/steam-bottle" "$STEAM_WINE_ROOT/bin/wineserver" -k 2>/dev/null || true
     [ ! -d "$S_BASE/steam-gptk-bottle" ] || [ ! -x "$S_BASE/cx26-engine-steam/bin/wineserver" ] || \
       WINEPREFIX="$S_BASE/steam-gptk-bottle" "$S_BASE/cx26-engine-steam/bin/wineserver" -k 2>/dev/null || true
+    for b in "$S_BASE/steam-bottle" "$S_BASE/steam-gptk-bottle"; do [ ! -d "$b" ] || bottle_kill_leftovers "$b" || true; done
     sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
     ;;
   *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|gog|gog-kill|ea|ea-kill|rockstar|rockstar-kill|ubisoft|ubisoft-kill|steam|kill|steam-kill]"; exit 1;;
