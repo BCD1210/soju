@@ -25,6 +25,9 @@
 #   - winemac-patched.so also lists low fullscreen modes (640x480 and up) that macOS does not
 #     mark "safe", so GoldSrc games switch to them instead of staying black (#153)
 #   - wow64cpu-x64.dll: lretq back to 32-bit code under Rosetta 2 (#153)
+#   - opengl32-i386.dll + opengl32-unix.so: 32-bit immediate-mode OpenGL calls cross to 64-bit code
+#     in batches (patches/opengl32-wow64-batch.patch), and hl.exe/svencoop.exe run without
+#     GL_ARB_multitexture (scripts/gl-app-defaults.sh): Counter-Strike 1.6 frame rate (#153)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -110,6 +113,16 @@ if [ -f "$SUP/wow64cpu-x64.dll" ]; then
   [ -f "$WLIB/x86_64-windows/wow64cpu.dll.vanilla" ] || cp -f "$WLIB/x86_64-windows/wow64cpu.dll" "$WLIB/x86_64-windows/wow64cpu.dll.vanilla"
   cp -f "$SUP/wow64cpu-x64.dll" "$WLIB/x86_64-windows/wow64cpu.dll"
 fi
+# 32-bit OpenGL games (#153): opengl32 that sends immediate-mode calls to the Unix side in batches.
+# The i386 dll and the Unix library go together. They replace files by a new inode (rm, then cp):
+# Rosetta refused a library rewritten in place ("Attachment of code signature supplement failed").
+if [ -f "$SUP/opengl32-i386.dll" ] && [ -f "$SUP/opengl32-unix.so" ]; then
+  [ -f "$WLIB/i386-windows/opengl32.dll.vanilla" ] || cp -f "$WLIB/i386-windows/opengl32.dll" "$WLIB/i386-windows/opengl32.dll.vanilla"
+  [ -f "$WLIB/x86_64-unix/opengl32.so.vanilla" ] || cp -f "$WLIB/x86_64-unix/opengl32.so" "$WLIB/x86_64-unix/opengl32.so.vanilla"
+  rm -f "$WLIB/i386-windows/opengl32.dll" "$WLIB/x86_64-unix/opengl32.so"
+  cp "$SUP/opengl32-i386.dll" "$WLIB/i386-windows/opengl32.dll"
+  cp "$SUP/opengl32-unix.so" "$WLIB/x86_64-unix/opengl32.so"
+fi
 # MoltenVK 1.4.2 with Soju's patch for undescribed vertex inputs (scripts/build-moltenvk.sh), for
 # games that draw with Vulkan and for DXVK. Older support packages have none: the runtime's stays.
 if [ -f "$SUP/libMoltenVK.dylib" ]; then
@@ -150,6 +163,9 @@ for APP in steam.exe steamwebhelper.exe steamwebhelper_real.exe steamservice.exe
   done
   "$WINE" reg add "HKCU\\Software\\Wine\\AppDefaults\\$APP\\DllOverrides" /v winemetal /t REG_SZ /d disabled /f >/dev/null 2>&1
 done
+
+# GoldSrc games draw several times faster without multitexture on Apple's OpenGL (#153).
+bash "$ROOT/scripts/gl-app-defaults.sh" "$WINE"
 
 echo "==> 5/5 Removing the fullscreen-forcing AppCompat token (allows windowed mode)"
 # The reg adds above left a wineserver up with a dirty HKCU; it rewrites

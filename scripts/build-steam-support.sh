@@ -42,6 +42,8 @@ apply_once wine "$ROOT/patches/steam-wine-audio.patch"
 # low fullscreen modes macOS does not mark "safe" (CrossOver hack 18576); GoldSrc games crashed or stayed black (#153).
 apply_once wine "$ROOT/patches/wow64cpu-rosetta2-far-jump.patch"
 apply_once wine "$ROOT/patches/winemac-unsafe-display-modes.patch"
+# 32-bit OpenGL games: queue immediate-mode calls and cross to 64-bit code once per batch (#153).
+apply_once wine "$ROOT/patches/opengl32-wow64-batch.patch"
 apply_once dxmt "$ROOT/patches/steam-dxmt-build.patch"
 apply_once dxmt "$ROOT/patches/dxmt-max-tess-factor.patch"
 apply_once dxmt "$ROOT/patches/dxmt-nonfatal-pure-virtual.patch"
@@ -78,6 +80,13 @@ cd build
   CXXFLAGS='-fvisibility=default -O2 -Wno-error -mmacosx-version-min=14.0'
 arch -x86_64 make -j"$JOBS" dlls/winemac.drv/winemac.so dlls/winecoreaudio.drv/winecoreaudio.so \
   dlls/mmdevapi/x86_64-windows/mmdevapi.dll dlls/wow64cpu/x86_64-windows/wow64cpu.dll
+# The 32-bit opengl32.dll needs an i386 PE build, which the directory above (64-bit only) does not have.
+# A second build directory makes it and the Unix side that replays its batches.
+mkdir -p ../build-wow64
+cd ../build-wow64
+[ -f Makefile ] || arch -x86_64 ../configure --enable-archs=i386,x86_64 --disable-tests --without-freetype \
+  CFLAGS='-fvisibility=default -O2 -Wno-error -mmacosx-version-min=14.0'
+arch -x86_64 make -j"$JOBS" dlls/opengl32/i386-windows/opengl32.dll dlls/opengl32/opengl32.so
 cd "$BUILD"
 mkdir -p output/dxmt-x64 output/licenses
 for dll in d3d11 dxgi d3d10core winemetal; do
@@ -89,6 +98,8 @@ cp wine/build/dlls/winemac.drv/winemac.so output/winemac-patched.so
 cp wine/build/dlls/winecoreaudio.drv/winecoreaudio.so output/winecoreaudio-patched.so
 x86_64-w64-mingw32-strip -o output/mmdevapi-x64.dll wine/build/dlls/mmdevapi/x86_64-windows/mmdevapi.dll
 x86_64-w64-mingw32-strip -o output/wow64cpu-x64.dll wine/build/dlls/wow64cpu/x86_64-windows/wow64cpu.dll
+i686-w64-mingw32-strip -o output/opengl32-i386.dll wine/build-wow64/dlls/opengl32/i386-windows/opengl32.dll
+cp wine/build-wow64/dlls/opengl32/opengl32.so output/opengl32-unix.so
 x86_64-w64-mingw32-gcc -O2 -Wall -municode -DUNICODE -D_UNICODE \
   -o output/steamwebhelper-wrapper.exe "$ROOT/third_party/steam-on-m1-wine/steamwebhelper-wrapper.c" -static -lshell32 -mwindows
 cp "$ROOT/third_party/steam-on-m1-wine/LICENSE" output/licenses/wrapper-MIT.txt
