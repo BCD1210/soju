@@ -38,6 +38,10 @@ apply_once(){
 apply_once wine "$ROOT/patches/steam-winemac.patch"
 # Surround audio on stereo Macs and short dropouts at 48 kHz (#93).
 apply_once wine "$ROOT/patches/steam-wine-audio.patch"
+# 32-bit games: return to 32-bit code with lretq under Rosetta 2 (CrossOver hack 20760), and accept the
+# low fullscreen modes macOS does not mark "safe" (CrossOver hack 18576); GoldSrc games crashed or stayed black (#153).
+apply_once wine "$ROOT/patches/wow64cpu-rosetta2-far-jump.patch"
+apply_once wine "$ROOT/patches/winemac-unsafe-display-modes.patch"
 apply_once dxmt "$ROOT/patches/steam-dxmt-build.patch"
 apply_once dxmt "$ROOT/patches/dxmt-max-tess-factor.patch"
 apply_once dxmt "$ROOT/patches/dxmt-nonfatal-pure-virtual.patch"
@@ -73,7 +77,7 @@ cd build
   CFLAGS='-fvisibility=default -O2 -Wno-error -mmacosx-version-min=14.0' \
   CXXFLAGS='-fvisibility=default -O2 -Wno-error -mmacosx-version-min=14.0'
 arch -x86_64 make -j"$JOBS" dlls/winemac.drv/winemac.so dlls/winecoreaudio.drv/winecoreaudio.so \
-  dlls/mmdevapi/x86_64-windows/mmdevapi.dll
+  dlls/mmdevapi/x86_64-windows/mmdevapi.dll dlls/wow64cpu/x86_64-windows/wow64cpu.dll
 cd "$BUILD"
 mkdir -p output/dxmt-x64 output/licenses
 for dll in d3d11 dxgi d3d10core winemetal; do
@@ -84,6 +88,7 @@ cp dxmt/build/src/winemetal/unix/winemetal.so output/dxmt-x64/
 cp wine/build/dlls/winemac.drv/winemac.so output/winemac-patched.so
 cp wine/build/dlls/winecoreaudio.drv/winecoreaudio.so output/winecoreaudio-patched.so
 x86_64-w64-mingw32-strip -o output/mmdevapi-x64.dll wine/build/dlls/mmdevapi/x86_64-windows/mmdevapi.dll
+x86_64-w64-mingw32-strip -o output/wow64cpu-x64.dll wine/build/dlls/wow64cpu/x86_64-windows/wow64cpu.dll
 x86_64-w64-mingw32-gcc -O2 -Wall -municode -DUNICODE -D_UNICODE \
   -o output/steamwebhelper-wrapper.exe "$ROOT/third_party/steam-on-m1-wine/steamwebhelper-wrapper.c" -static -lshell32 -mwindows
 cp "$ROOT/third_party/steam-on-m1-wine/LICENSE" output/licenses/wrapper-MIT.txt
