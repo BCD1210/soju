@@ -276,6 +276,18 @@ class SupportManifestTests(unittest.TestCase):
         self.assertIn("winecoreaudio-patched.so", files)
         self.assertIn("mmdevapi-x64.dll", files)
 
+    def test_goldsrc_32bit_fixes_are_built_and_installed(self):
+        # #153: Counter-Strike 1.6 crashed reading 0x4ecd in wow64 32-bit code and stayed black in fullscreen.
+        script = (ROOT/"scripts/build-steam-support.sh").read_text()
+        for patch, needle in (("wow64cpu-rosetta2-far-jump.patch", "lretq"),
+                              ("winemac-unsafe-display-modes.patch", "kDisplayModeSafeFlag) || is_translated()")):
+            self.assertIn('apply_once wine "$ROOT/patches/' + patch + '"', script)
+            self.assertIn(needle, (ROOT/"patches"/patch).read_text())
+        self.assertIn("output/wow64cpu-x64.dll", script)
+        setup = (ROOT/"scripts/setup-steam-games.sh").read_text()
+        self.assertIn('cp -f "$SUP/wow64cpu-x64.dll" "$WLIB/x86_64-windows/wow64cpu.dll"', setup)
+        self.assertIn("wow64cpu-x64.dll", json.loads((ROOT/"resources/steam-support.json").read_text())["files"])
+
 class GptkShimListTests(unittest.TestCase):
     def test_known_shims_are_well_formed_and_cover_4_0_beta_3(self):
         import re
