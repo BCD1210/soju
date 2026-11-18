@@ -10,7 +10,7 @@ Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
-**[Download Soju 1.14.30 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.30/Soju-1.14.30-macos-arm64.zip)**, or install from the terminal:
+**[Download Soju 1.14.31 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.31/Soju-1.14.31-macos-arm64.zip)**, or install from the terminal:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -85,7 +85,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.30/Soju-1.14.30-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.31/Soju-1.14.31-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
@@ -232,7 +232,7 @@ soju xbox-logout             # sign out; downloaded games stay
 
 **Force Quit.** If a launcher or a game stops responding, or is still running after you quit it, use **Platforms → Force Quit…** on that launcher (or `soju kill`, `soju steam-kill`, ...). It also ends processes whose Wine server has already gone. Those ignore a normal quit and can stop the Mac from shutting down, and Soju now clears them by itself before the next launch.
 
-**Older 32-bit games** such as Counter-Strike 1.6, Half-Life and Sven Co-op crashed under Rosetta 2 when a level loaded ("page fault on read access to 0x00004ecd in wow64 32-bit code"), and showed a black screen in low-resolution fullscreen. Steam support v8 fixes both with two patches from CrossOver (#153).
+**Older 32-bit games** such as Counter-Strike 1.6, Half-Life and Sven Co-op crashed under Rosetta 2 when a level loaded ("page fault on read access to 0x00004ecd in wow64 32-bit code"), and showed a black screen in low-resolution fullscreen. Steam support v8 fixes both with two patches from CrossOver (#153). They were also slow: Counter-Strike 1.6 at 20 to 25 fps at 1440p on an M3. Since Steam support v9 these games run without multitexture, which avoids a slow path in Apple's OpenGL, and their drawing calls reach the graphics driver in batches: a Sven Co-op scene went from 7 to about 36 fps at 2560 pixels wide. To get the old rendering back, set `DisabledExtensions` to an empty value under `HKCU\Software\Wine\AppDefaults\hl.exe\OpenGL`.
 
 **Surround sound on stereo speakers.** A game that opens a 5.1 or 7.1 output (Skyrim Special Edition does) used to lose its centre and back channels on a Mac's speakers, and with them most dialogue. Steam support installs Wine's audio driver with Soju's patch, which folds such output to stereo before it reaches the speakers: centre to both sides, each surround channel to its side (#93).
 

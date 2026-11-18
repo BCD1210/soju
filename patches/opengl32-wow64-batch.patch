@@ -1,0 +1,323 @@
+opengl32: queue simple immediate-mode calls of 32-bit programs and send them in one unix call.
+
+Soju patch (LGPL-2.1-or-later, like Wine). A 32-bit process switches to 64-bit code and back for every
+unix call, which is slow under Rosetta 2. GoldSrc games (Counter-Strike 1.6, Half-Life, Sven Co-op) make
+about 45,000 OpenGL calls per frame, nearly all glVertex/glTexCoord/glColor/glBegin/glEnd. Calls without
+results or pointers are queued per thread and replayed in order by one unix call before any other
+GL/WGL call. SOJU_GL_BATCH=0 turns it off (#153).
+
+diff --git a/dlls/opengl32/unix_private.h b/dlls/opengl32/unix_private.h
+index ffae783..332cb03 100644
+--- a/dlls/opengl32/unix_private.h
++++ b/dlls/opengl32/unix_private.h
+@@ -69,6 +69,8 @@ static inline void *copy_wow64_ptr32s( UINT_PTR address, ULONG count )
+     return tmp;
+ }
+ 
++extern NTSTATUS wow64_wine_gl_batch( void *args );
++
+ static inline TEB *get_teb64( ULONG teb32 )
+ {
+     TEB32 *teb32_ptr = ULongToPtr( teb32 );
+@@ -85,6 +87,7 @@ extern NTSTATUS return_wow64_string( const void *str, PTR32 *wow64_str );
+ extern pthread_mutex_t wgl_lock;
+ 
+ extern NTSTATUS process_attach( void *args );
++extern NTSTATUS wine_gl_batch( void *args );
+ extern NTSTATUS thread_attach( void *args );
+ extern NTSTATUS process_detach( void *args );
+ extern NTSTATUS get_pixel_formats( void *args );
+diff --git a/dlls/opengl32/unix_thunks.c b/dlls/opengl32/unix_thunks.c
+index cac9ef8..dbab1ac 100644
+--- a/dlls/opengl32/unix_thunks.c
++++ b/dlls/opengl32/unix_thunks.c
+@@ -33611,6 +33611,7 @@ const unixlib_entry_t __wine_unix_call_funcs[] =
+     ext_wglSetPbufferAttribARB,
+     ext_wglSetPixelFormatWINE,
+     ext_wglSwapIntervalEXT,
++    wine_gl_batch,
+ };
+ 
+ C_ASSERT(ARRAYSIZE(__wine_unix_call_funcs) == funcs_count);
+@@ -89966,6 +89967,7 @@ const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
+     wow64_ext_wglSetPbufferAttribARB,
+     wow64_ext_wglSetPixelFormatWINE,
+     wow64_ext_wglSwapIntervalEXT,
++    wow64_wine_gl_batch,
+ };
+ 
+ C_ASSERT(ARRAYSIZE(__wine_unix_call_wow64_funcs) == funcs_count);
+diff --git a/dlls/opengl32/unix_wgl.c b/dlls/opengl32/unix_wgl.c
+index ee899b1..6721eab 100644
+--- a/dlls/opengl32/unix_wgl.c
++++ b/dlls/opengl32/unix_wgl.c
+@@ -3000,3 +3000,49 @@ NTSTATUS wow64_get_pixel_formats( void *args )
+ }
+ 
+ #endif
++
++/* Soju: replay a batch of queued 32-bit immediate-mode calls (see wgl.c) through the regular
++ * per-function entry points, in order, so context state tracking stays the same. */
++extern const unixlib_entry_t __wine_unix_call_funcs[];
++
++static NTSTATUS replay_gl_batch( TEB *teb, const BYTE *data, UINT32 size )
++{
++    struct
++    {
++        TEB *teb;
++        BYTE data[64];
++    } DECLSPEC_ALIGN(8) args;
++
++    while (size >= 2 * sizeof(UINT32))
++    {
++        UINT32 code = ((const UINT32 *)data)[0], len = ((const UINT32 *)data)[1];
++        UINT32 step = 2 * sizeof(UINT32) + ((len + 3) & ~3);
++
++        if (code >= funcs_count || len > sizeof(args.data) || step > size) return STATUS_INVALID_PARAMETER;
++        args.teb = teb;
++        memcpy( args.data, data + 2 * sizeof(UINT32), len );
++        __wine_unix_call_funcs[code]( &args );
++        data += step;
++        size -= step;
++    }
++    return STATUS_SUCCESS;
++}
++
++NTSTATUS wine_gl_batch( void *args )
++{
++    struct wine_gl_batch_params *params = args;
++    return replay_gl_batch( params->teb, params->data, params->size );
++}
++
++#ifdef _WIN64
++NTSTATUS wow64_wine_gl_batch( void *args )
++{
++    struct
++    {
++        PTR32 teb;
++        PTR32 data;
++        UINT32 size;
++    } *params = args;
++    return replay_gl_batch( get_teb64( params->teb ), ULongToPtr( params->data ), params->size );
++}
++#endif
+diff --git a/dlls/opengl32/unixlib.h b/dlls/opengl32/unixlib.h
+index 2791b00..1a65c2c 100644
+--- a/dlls/opengl32/unixlib.h
++++ b/dlls/opengl32/unixlib.h
+@@ -28954,6 +28954,7 @@ enum unix_funcs
+     unix_wglSetPbufferAttribARB,
+     unix_wglSetPixelFormatWINE,
+     unix_wglSwapIntervalEXT,
++    unix_wine_gl_batch,
+     funcs_count
+ };
+ 
+@@ -28970,6 +28971,21 @@ struct gl_debug_message_callback_params
+     char message[1];
+ };
+ 
++/* Soju: 32-bit callers queue simple immediate-mode calls (glVertex, glColor, glBegin...) and
++ * send them in one unix call, see wgl.c. Each record is a UINT32 code, a UINT32 byte count and
++ * the call's parameters after the TEB pointer, padded to 4 bytes. */
++struct wine_gl_batch_params
++{
++    TEB *teb;
++    const void *data;
++    UINT32 size;
++};
++
++#if !defined(WINE_UNIX_LIB) && !defined(_WIN64)
++extern NTSTATUS wine_gl_call( UINT code, void *params );
++#define UNIX_CALL( func, params ) wine_gl_call( unix_ ## func, params )
++#else
+ #define UNIX_CALL( func, params ) WINE_UNIX_CALL( unix_ ## func, params )
++#endif
+ 
+ #endif /* __WINE_OPENGL32_UNIXLIB_H */
+diff --git a/dlls/opengl32/wgl.c b/dlls/opengl32/wgl.c
+index e18c5ee..2d14998 100644
+--- a/dlls/opengl32/wgl.c
++++ b/dlls/opengl32/wgl.c
+@@ -48,6 +48,172 @@ static const MAT2 identity = { {0,1},{0,0},{0,0},{0,1} };
+ #define WINE_GL_RESERVED_FORMATS_PTR      3
+ #define WINE_GL_RESERVED_FORMATS_NUM      4
+ #define WINE_GL_RESERVED_FORMATS_ONSCREEN 5
++#define WINE_GL_RESERVED_BATCH            6
++
++#ifndef _WIN64
++
++/* Soju: a 32-bit process pays for a switch to 64-bit code and back on every unix call, which
++ * Rosetta 2 makes slow. GoldSrc games (Counter-Strike 1.6, Half-Life) draw with ~45,000
++ * immediate-mode calls per frame and ran at 10-25 fps. Simple calls without results or
++ * pointers are queued per thread and sent in one unix call before any other GL/WGL call,
++ * which keeps their order. SOJU_GL_BATCH=0 turns it off. */
++#define GL_BATCH_SIZE 0x10000
++
++struct gl_batch
++{
++    UINT32 used;
++    BYTE data[GL_BATCH_SIZE];
++};
++
++static int gl_batch_enabled = -1;
++
++static BOOL gl_batch_on(void)
++{
++    if (gl_batch_enabled == -1)
++    {
++        char buffer[8];
++        DWORD len = GetEnvironmentVariableA( "SOJU_GL_BATCH", buffer, sizeof(buffer) );
++        gl_batch_enabled = !(len && len < sizeof(buffer) && buffer[0] == '0');
++    }
++    return gl_batch_enabled;
++}
++
++static void gl_batch_flush(void)
++{
++    TEB *teb = NtCurrentTeb();
++    struct gl_batch *batch = teb->glReserved1[WINE_GL_RESERVED_BATCH];
++    struct wine_gl_batch_params params;
++
++    if (!batch || !batch->used) return;
++    params.teb = teb;
++    params.data = batch->data;
++    params.size = batch->used;
++    batch->used = 0;
++    WINE_UNIX_CALL( unix_wine_gl_batch, &params );
++}
++
++static NTSTATUS gl_batch_add( UINT code, const void *data, UINT size )
++{
++    TEB *teb = NtCurrentTeb();
++    struct gl_batch *batch = teb->glReserved1[WINE_GL_RESERVED_BATCH];
++    UINT step = 2 * sizeof(UINT32) + ((size + 3) & ~3);
++    UINT32 *rec;
++
++    if (!batch)
++    {
++        if (!(batch = malloc( sizeof(*batch) ))) return STATUS_NO_MEMORY;
++        batch->used = 0;
++        teb->glReserved1[WINE_GL_RESERVED_BATCH] = batch;
++    }
++    if (batch->used + step > sizeof(batch->data)) gl_batch_flush();
++    rec = (UINT32 *)(batch->data + batch->used);
++    rec[0] = code;
++    rec[1] = size;
++    memcpy( rec + 2, data, size );
++    batch->used += step;
++    return STATUS_SUCCESS;
++}
++
++NTSTATUS wine_gl_call( UINT code, void *params )
++{
++    if (code < unix_wine_gl_batch && gl_batch_on())
++    {
++        switch (code)
++        {
++    case unix_glBegin: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glBegin_params) - sizeof(TEB *) );
++    case unix_glEnd: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glEnd_params) - sizeof(TEB *) );
++    case unix_glVertex2f: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glVertex2f_params) - sizeof(TEB *) );
++    case unix_glVertex3f: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glVertex3f_params) - sizeof(TEB *) );
++    case unix_glVertex4f: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glVertex4f_params) - sizeof(TEB *) );
++    case unix_glTexCoord2f: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glTexCoord2f_params) - sizeof(TEB *) );
++    case unix_glColor3f: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glColor3f_params) - sizeof(TEB *) );
++    case unix_glColor4f: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glColor4f_params) - sizeof(TEB *) );
++    case unix_glColor3ub: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glColor3ub_params) - sizeof(TEB *) );
++    case unix_glColor4ub: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glColor4ub_params) - sizeof(TEB *) );
++    case unix_glNormal3f: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glNormal3f_params) - sizeof(TEB *) );
++    case unix_glMultiTexCoord2f: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glMultiTexCoord2f_params) - sizeof(TEB *) );
++    case unix_glMultiTexCoord2fARB: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glMultiTexCoord2fARB_params) - sizeof(TEB *) );
++    case unix_glTexEnvf: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glTexEnvf_params) - sizeof(TEB *) );
++    case unix_glTexEnvi: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glTexEnvi_params) - sizeof(TEB *) );
++    case unix_glActiveTexture: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glActiveTexture_params) - sizeof(TEB *) );
++    case unix_glActiveTextureARB: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glActiveTextureARB_params) - sizeof(TEB *) );
++    case unix_glEnable: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glEnable_params) - sizeof(TEB *) );
++    case unix_glDisable: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glDisable_params) - sizeof(TEB *) );
++    case unix_glBindTexture: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glBindTexture_params) - sizeof(TEB *) );
++    case unix_glBlendFunc: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glBlendFunc_params) - sizeof(TEB *) );
++    case unix_glDepthMask: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glDepthMask_params) - sizeof(TEB *) );
++    case unix_glAlphaFunc: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glAlphaFunc_params) - sizeof(TEB *) );
++    case unix_glDepthFunc: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glDepthFunc_params) - sizeof(TEB *) );
++    case unix_glShadeModel: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glShadeModel_params) - sizeof(TEB *) );
++    case unix_glCullFace: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glCullFace_params) - sizeof(TEB *) );
++    case unix_glTexParameterf: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glTexParameterf_params) - sizeof(TEB *) );
++    case unix_glTexParameteri: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glTexParameteri_params) - sizeof(TEB *) );
++    case unix_glMatrixMode: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glMatrixMode_params) - sizeof(TEB *) );
++    case unix_glLoadIdentity: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glLoadIdentity_params) - sizeof(TEB *) );
++    case unix_glPushMatrix: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glPushMatrix_params) - sizeof(TEB *) );
++    case unix_glPopMatrix: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glPopMatrix_params) - sizeof(TEB *) );
++    case unix_glTranslatef: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glTranslatef_params) - sizeof(TEB *) );
++    case unix_glRotatef: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glRotatef_params) - sizeof(TEB *) );
++    case unix_glScalef: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glScalef_params) - sizeof(TEB *) );
++    case unix_glPolygonOffset: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glPolygonOffset_params) - sizeof(TEB *) );
++    case unix_glColorMask: return gl_batch_add( code, (char *)params + sizeof(TEB *), sizeof(struct glColorMask_params) - sizeof(TEB *) );
++        case unix_glVertex2fv:
++        {
++            const GLfloat *v = ((struct glVertex2fv_params *)params)->v;
++            struct glVertex2f_params args = { .x = v[0], .y = v[1] };
++            return gl_batch_add( unix_glVertex2f, &args.x, sizeof(args) - sizeof(TEB *) );
++        }
++        case unix_glVertex3fv:
++        {
++            const GLfloat *v = ((struct glVertex3fv_params *)params)->v;
++            struct glVertex3f_params args = { .x = v[0], .y = v[1], .z = v[2] };
++            return gl_batch_add( unix_glVertex3f, &args.x, sizeof(args) - sizeof(TEB *) );
++        }
++        case unix_glTexCoord2fv:
++        {
++            const GLfloat *v = ((struct glTexCoord2fv_params *)params)->v;
++            struct glTexCoord2f_params args = { .s = v[0], .t = v[1] };
++            return gl_batch_add( unix_glTexCoord2f, &args.s, sizeof(args) - sizeof(TEB *) );
++        }
++        case unix_glColor3fv:
++        {
++            const GLfloat *v = ((struct glColor3fv_params *)params)->v;
++            struct glColor3f_params args = { .red = v[0], .green = v[1], .blue = v[2] };
++            return gl_batch_add( unix_glColor3f, &args.red, sizeof(args) - sizeof(TEB *) );
++        }
++        case unix_glColor4fv:
++        {
++            const GLfloat *v = ((struct glColor4fv_params *)params)->v;
++            struct glColor4f_params args = { .red = v[0], .green = v[1], .blue = v[2], .alpha = v[3] };
++            return gl_batch_add( unix_glColor4f, &args.red, sizeof(args) - sizeof(TEB *) );
++        }
++        case unix_glColor4ubv:
++        {
++            const GLubyte *v = ((struct glColor4ubv_params *)params)->v;
++            struct glColor4ub_params args = { .red = v[0], .green = v[1], .blue = v[2], .alpha = v[3] };
++            return gl_batch_add( unix_glColor4ub, &args.red, sizeof(args) - sizeof(TEB *) );
++        }
++        case unix_glNormal3fv:
++        {
++            const GLfloat *v = ((struct glNormal3fv_params *)params)->v;
++            struct glNormal3f_params args = { .nx = v[0], .ny = v[1], .nz = v[2] };
++            return gl_batch_add( unix_glNormal3f, &args.nx, sizeof(args) - sizeof(TEB *) );
++        }
++        case unix_glMultiTexCoord2fvARB:
++        {
++            struct glMultiTexCoord2fvARB_params *p = params;
++            struct glMultiTexCoord2fARB_params args = { .target = p->target, .s = p->v[0], .t = p->v[1] };
++            return gl_batch_add( unix_glMultiTexCoord2fARB, &args.target, sizeof(args) - sizeof(TEB *) );
++        }
++        default:
++            gl_batch_flush();
++            break;
++        }
++    }
++    return WINE_UNIX_CALL( code, params );
++}
++
++#endif /* _WIN64 */
+ 
+ #ifndef _WIN64
+ 
+@@ -1747,6 +1913,8 @@ BOOL WINAPI DllMain( HINSTANCE hinst, DWORD reason, LPVOID reserved )
+         /* fallthrough */
+     case DLL_THREAD_DETACH:
+         free( NtCurrentTeb()->glReserved1[WINE_GL_RESERVED_FORMATS_PTR] );
++        free( NtCurrentTeb()->glReserved1[WINE_GL_RESERVED_BATCH] );
++        NtCurrentTeb()->glReserved1[WINE_GL_RESERVED_BATCH] = NULL;
+         return TRUE;
+     }
+     return TRUE;

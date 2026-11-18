@@ -1,4 +1,4 @@
-# Steam support release v8
+# Steam support release v9
 
 The package contains only these open-source components:
 
@@ -19,6 +19,9 @@ The package contains only these open-source components:
   also with `patches/winemac-unsafe-display-modes.patch` (both rebased from CrossOver 26, LGPL-2.1-or-later):
   32-bit games return from system calls with `lretq` under Rosetta 2, and low fullscreen modes such as
   640x480 can be selected (#153).
+- Wine 11.0 opengl32 (i386 PE and Unix side), same revision, with `patches/opengl32-wow64-batch.patch`
+  (Soju's, LGPL-2.1-or-later): a 32-bit game's immediate-mode OpenGL calls cross to 64-bit code in
+  batches instead of one by one (#153).
 - Steam webhelper wrapper: vendored notpop source (MIT).
 - MoltenVK v1.4.2: `db66022459ffb663aa2b50f6b018bc2e124f5edf` (Apache-2.0), x86_64, with
   `patches/moltenvk/zero-missing-vertex-attributes.patch`, built by `scripts/build-moltenvk.sh`. It replaces the
@@ -30,8 +33,8 @@ The package contains only these open-source components:
 - LLVM 15.0.7: `8dfdcc7b7bf66834a761bd8de445840ef68e4d1a`
   (Apache-2.0 with LLVM exceptions), statically linked into the renderer.
 
-[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v8)
-([v7](https://github.com/BCD1210/soju/releases/tag/steam-support-v7) is the same without the wow64cpu and display-mode patches; [v4](https://github.com/BCD1210/soju/releases/tag/steam-support-v4) is the same without MoltenVK; [v3](https://github.com/BCD1210/soju/releases/tag/steam-support-v3) is the same without the audio components;
+[Binary and corresponding source release](https://github.com/BCD1210/soju/releases/tag/steam-support-v9)
+([v8](https://github.com/BCD1210/soju/releases/tag/steam-support-v8) is the same without the opengl32 patch; [v7](https://github.com/BCD1210/soju/releases/tag/steam-support-v7) is the same without the wow64cpu and display-mode patches; [v4](https://github.com/BCD1210/soju/releases/tag/steam-support-v4) is the same without MoltenVK; [v3](https://github.com/BCD1210/soju/releases/tag/steam-support-v3) is the same without the audio components;
 [v2](https://github.com/BCD1210/soju/releases/tag/steam-support-v2) is the same without the pure virtual
 backport; [v1](https://github.com/BCD1210/soju/releases/tag/steam-support-v1) also lacks the tessellation backport.)
 
@@ -95,3 +98,18 @@ in #153: `syscall_32to64`'s `movl cs32_sel(%rip),%edx` decoded as 32-bit code. W
 from the command line and from Steam's Play button. Fullscreen at 640x480 showed only black on v7 and the
 scaled menu on v8; the desktop mode came back after the game quit. The Steam client (32-bit) still signed in
 and installed games. Counter-Strike 1.6 itself was not run (not owned on the test account).
+
+v9, on M4 Pro / macOS 26: v8 plus `opengl32-i386.dll` and `opengl32-unix.so`; every other file is v8's.
+Sven Co-op (GoldSrc, like Counter-Strike 1.6), map `crystal`, same spot, frames counted from buffer swaps
+over 10 s while the Mac was busy with other work (load 15 to 60, so the absolute numbers are low):
+
+| | 640x480 window | 2560-wide window |
+|---|---|---|
+| v8 | 10 fps | 7 fps |
+| v8, game started with `-nomtex` | 22 fps | |
+| v9 with `scripts/gl-app-defaults.sh` (no launch option) | 30 fps | 36 to 39 fps |
+
+A trace of one v8 frame had 45,509 OpenGL calls, 880 of them `glTexSubImage2D` on 128-wide lightmap rows
+between draws; a sample showed the time in Apple's `gldModifyTexSubImage`, `flushContext` and
+`beginRenderPass`. Without `GL_ARB_multitexture` the engine uploads each lightmap page once per frame.
+Counter-Strike 1.6 itself was not run (not owned on the test account).
