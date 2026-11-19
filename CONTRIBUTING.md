@@ -56,6 +56,16 @@ Pull requests:
 Not sure where to start? Issues labelled
 [good first issue](https://github.com/BCD1210/soju/labels/good%20first%20issue) are small and self-contained.
 
+## Releasing (maintainers)
+
+After the pull request is merged: `scripts/build-app.sh` with the Developer ID, `scripts/notarize-app.sh`, then
+`scripts/publish-release.sh <notes-file>`. That one command creates the GitHub release, moves the Homebrew tap
+to it and runs `scripts/release-health.py`. Do not create the release by hand: the tap stays behind.
+
+Engine and support releases (`engine-v*`, `launcher-support-v*`, `steam-support-v*` and the like) are pinned by
+the app versions that shipped with them. Never delete one while a version that names it can still be installed.
+CI runs `scripts/release-health.py`, which fails when a pinned file is gone or the tap is behind the newest release.
+
 ## Security
 
 Please do not open a public issue for a security problem. See [SECURITY.md](SECURITY.md).
