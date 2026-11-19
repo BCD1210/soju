@@ -68,6 +68,12 @@ class LibraryTests(unittest.TestCase):
             db.execute('INSERT INTO Products VALUES (?, ?)', (uid, name))
         return database
 
+    def test_steam_tools_are_not_listed_as_games(self):
+        self.steam(uid='228980', title='Steamworks Common Redistributables', folder='Steamworks Shared')
+        self.steam(uid='123')
+        ids = [g['id'] for g in self.lib.scan()['games']]
+        self.assertEqual(ids, ['steam:123'])
+
     def test_four_platforms_and_launch_argv(self):
         self.steam(); self.epic(); self.bnet(); database = self.gog()
         before = database.read_bytes()

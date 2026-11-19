@@ -309,6 +309,9 @@ case "$MODE" in
     # wrapper (forces --disable-gpu --single-process) + -no-cef-sandbox
     # -cef-single-process. Source: github.com/notpop/steam-on-m1-wine (MIT),
     # vendored in third_party/.
+    # Count games started from Steam's own window too (play counts; does nothing when they are off,
+    # and only one watcher runs however often Steam is opened).
+    ( nohup python3 "$(dirname "${BASH_SOURCE[0]}")/play-stats.py" watch >/dev/null 2>&1 & )
     if [ "${SOJU_STEAM_GPTK:-0}" = 1 ]; then
       # Steam with Apple GPTK: the CX engine plus the cross-process winemac
       # (scripts/steam-gptk-engine.sh). Same wrapper and flags as below; games

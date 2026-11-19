@@ -4,6 +4,9 @@
   soju stats play <library id> --launcher L --title T --path P [--pid N]
       Waits for the game to start, counts the minutes it stays open, then sends the
       game, its store and the minutes, with the Mac model, chip, macOS and Soju version.
+      Also sends how the start went: ran, quick_exit (closed within a minute) or no_start.
+  soju stats watch
+      While Steam runs, counts games started from Steam's own window the same way.
   soju stats library
       Which games are installed (library id, title, store), only when that list changed.
   soju stats on | off | status
@@ -95,6 +98,18 @@ def running(found, pid=None):
 
 def track(found, pid=None, clock=time.monotonic, sleep=time.sleep, poll=POLL):
     """Minutes the game was open, 0 if it never started."""
+    return track_run(found, pid, clock, sleep, poll)[1]
+
+
+def outcome(started, minutes):
+    """How a start went: the game never appeared, closed within about a minute, or ran."""
+    if not started:
+        return "no_start"
+    return "ran" if minutes >= 1 else "quick_exit"
+
+
+def track_run(found, pid=None, clock=time.monotonic, sleep=time.sleep, poll=POLL):
+    """(started, minutes): whether the game appeared at all, and how long it stayed open."""
     begun = clock()
     first = last = None
     misses = 0
@@ -107,14 +122,87 @@ def track(found, pid=None, clock=time.monotonic, sleep=time.sleep, poll=POLL):
             misses = 0
         elif first is None:
             if now - begun > START_WITHIN:
-                return 0
+                return False, 0
         else:
             misses += 1
             if misses >= GONE_AFTER:
                 break
         if first is not None and now - first > MAX_HOURS * 3600:
             break
-    return int((last - first + poll) // 60)
+    return True, int((last - first + poll) // 60)
+
+
+def report(game, title, launcher, started, minutes, how):
+    """One start: its outcome always, and the minutes when there were any."""
+    item = {"game": game[:120], "title": title[:120], "launcher": launcher[:20]}
+    send({"kind": "launch", "games": [dict(item, result=outcome(started, minutes), how=how)]})
+    if minutes >= 1:
+        send({"kind": "play", "games": [dict(item, minutes=min(minutes, MAX_HOURS * 60))]})
+
+
+STEAM_PROCESS = "\\steam\\steam.exe"
+STEAM_GRACE = 5 * 60              # Steam may take this long to show its window
+
+
+def steam_games(snapshot):
+    """Installed Steam games with the strings their processes carry."""
+    out = {}
+    for g in snapshot.get("games", []):
+        if g.get("platform") != "steam" or not installed(g):
+            continue
+        found = needles(g.get("install_path"))
+        if found:
+            out[g["id"]] = (g.get("title", ""), found)
+    return out
+
+
+def load_snapshot():
+    try:
+        return json.loads((BASE / "logs/library-scan.log").read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def watch(clock=time.monotonic, sleep=time.sleep, poll=POLL, table=None, snapshot=load_snapshot, deliver=report):
+    """While Steam runs, count the games started from Steam's own window. A game that the
+    library's Play button is already counting (its lock is held) is left to that count."""
+    table = table or (lambda: run("ps", "-axww", "-o", "command=").lower())
+    begun = clock()
+    games, seen, missing, polls = {}, {}, 0, 0
+    try:
+        while True:
+            if polls % 15 == 0:
+                games = steam_games(snapshot())
+            polls += 1
+            sleep(poll)
+            now = clock()
+            lines = table().splitlines()
+            missing = 0 if any(STEAM_PROCESS in line for line in lines) else missing + 1
+            for gid, (title, found) in games.items():
+                up = any(n in line for line in lines for n in found)
+                st = seen.get(gid)
+                if up and st is None:
+                    lock = claim(gid)
+                    if lock is not None:
+                        seen[gid] = {"first": now, "last": now, "misses": 0, "lock": lock, "title": title}
+                elif up:
+                    st["last"], st["misses"] = now, 0
+                elif st is not None:
+                    st["misses"] += 1
+                    if st["misses"] >= GONE_AFTER:
+                        finish(gid, seen.pop(gid), poll, deliver)
+            if missing >= GONE_AFTER and now - begun > STEAM_GRACE:
+                break
+            if now - begun > 24 * 3600:
+                break
+    finally:
+        for gid in list(seen):
+            finish(gid, seen.pop(gid), poll, deliver)
+
+
+def finish(gid, st, poll, deliver):
+    st["lock"].unlink(missing_ok=True)
+    deliver(gid, st["title"], "steam", True, int((st["last"] - st["first"] + poll) // 60), "steam")
 
 
 def post(body):
@@ -197,6 +285,7 @@ def main(argv):
     p.add_argument("--path", default="")
     p.add_argument("--pid", type=int)
     sub.add_parser("library")
+    sub.add_parser("watch")
     for name in ("on", "off", "status"):
         sub.add_parser(name)
     a = ap.parse_args(argv)
@@ -229,6 +318,15 @@ def main(argv):
         if send(payload):
             stamp.write_text(digest + "\n")
         return 0
+    if a.cmd == "watch":
+        lock = claim("steam-watch")
+        if lock is None:
+            return 0   # Steam is already being watched
+        try:
+            watch()
+        finally:
+            lock.unlink(missing_ok=True)
+        return 0
     found = needles(a.path)
     pid = a.pid if a.launcher in RUNS_IN_SOJU else None
     if not found and not pid:
@@ -237,12 +335,10 @@ def main(argv):
     if lock is None:
         return 0   # this game is already being counted
     try:
-        minutes = track(found, pid)
+        started, minutes = track_run(found, pid)
     finally:
         lock.unlink(missing_ok=True)
-    if minutes >= 1:
-        send({"kind": "play", "games": [{"game": a.game[:120], "title": a.title[:120], "launcher": a.launcher[:20],
-                                         "minutes": min(minutes, MAX_HOURS * 60)}]})
+    report(a.game, a.title, a.launcher, started, minutes, "soju")
     return 0
 
 
