@@ -98,6 +98,53 @@ class PlayStats(unittest.TestCase):
                 first.write_text('999999')          # a count that died without cleaning up
                 self.assertIsNotNone(ps.claim('steam:1'))
 
+    def test_track_run_tells_a_start_that_never_happened_from_a_quick_exit(self):
+        clock = Clock()
+        with mock.patch.object(ps, 'running', lambda found, pid=None: False):
+            self.assertEqual(ps.track_run(['x'], clock=clock.now, sleep=clock.sleep, poll=60), (False, 0))
+        clock = Clock()
+        up = iter([True, False, False, False])
+        with mock.patch.object(ps, 'running', lambda found, pid=None: next(up)):
+            self.assertEqual(ps.track_run(['x'], clock=clock.now, sleep=clock.sleep, poll=20), (True, 0))
+        self.assertEqual([ps.outcome(False, 0), ps.outcome(True, 0), ps.outcome(True, 5)], ['no_start', 'quick_exit', 'ran'])
+
+    def test_every_start_reports_its_outcome_and_minutes_only_when_there_are_some(self):
+        sent = []
+        with mock.patch.object(ps, 'send', side_effect=lambda p: sent.append(p) or True):
+            ps.report('steam:1', 'A', 'steam', True, 0, 'soju')
+            ps.report('steam:1', 'A', 'steam', True, 7, 'steam')
+        self.assertEqual([p['kind'] for p in sent], ['launch', 'launch', 'play'])
+        self.assertEqual(sent[0]['games'][0]['result'], 'quick_exit')
+        self.assertEqual((sent[1]['games'][0]['result'], sent[1]['games'][0]['how']), ('ran', 'steam'))
+        self.assertEqual(sent[2]['games'][0]['minutes'], 7)
+
+    def test_watch_counts_games_started_from_steam_and_leaves_play_button_counts_alone(self):
+        snap = {'games': [
+            {'id': 'steam:1', 'platform': 'steam', 'title': 'A', 'install_path': '/b/drive_c/Program Files (x86)/Steam/steamapps/common/A'},
+            {'id': 'steam:2', 'platform': 'steam', 'title': 'B', 'install_path': '/b/drive_c/Program Files (x86)/Steam/steamapps/common/B'},
+            {'id': 'gog:3', 'platform': 'gog', 'title': 'C', 'install_path': '/g/drive_c/C'}]}
+        steam = 'c:\\program files (x86)\\steam\\steam.exe -no-cef-sandbox'
+        a = 'c:\\program files (x86)\\steam\\steamapps\\common\\a\\a.exe'
+        b = 'c:\\program files (x86)\\steam\\steamapps\\common\\b\\b.exe'
+        frames = [steam] * 2 + [steam + '\n' + a + '\n' + b] * 10 + [steam] * 4 + [''] * 4
+        it = iter(frames)
+        clock, got = Clock(), []
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(ps, 'BASE', Path(d)), \
+             mock.patch.object(ps, 'STEAM_GRACE', 0):
+            held = ps.claim('steam:2')            # the Play button is already counting B
+            ps.watch(clock=clock.now, sleep=clock.sleep, poll=20, table=lambda: next(it, ''),
+                     snapshot=lambda: snap, deliver=lambda *x: got.append(x))
+            self.assertTrue(held.exists())
+            self.assertFalse((Path(d) / 'stats-running' / 'steam-1.pid').exists())
+        self.assertEqual(got, [('steam:1', 'A', 'steam', True, 3, 'steam')])
+
+    def test_watch_stops_when_steam_is_gone(self):
+        clock = Clock()
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(ps, 'BASE', Path(d)), \
+             mock.patch.object(ps, 'STEAM_GRACE', 60):
+            ps.watch(clock=clock.now, sleep=clock.sleep, poll=20, table=lambda: '', snapshot=lambda: {}, deliver=None)
+        self.assertLess(clock.t, 200)
+
 
 if __name__ == '__main__':
     unittest.main()
