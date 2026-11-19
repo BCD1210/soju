@@ -23,6 +23,8 @@ FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
 # Steam games that stop without Apple GPTK (soju steam-gptk on): Overwatch 2, and
 # Diablo II: Resurrected, whose loader needs GPTK's libd3dshared.
 STEAM_GPTK_GAMES = {'2357570', '2536520'}
+# Installed by Steam itself, not games: Steamworks Common Redistributables.
+STEAM_TOOLS = {'228980'}
 CLIENTS = {
     'steam': 'Program Files (x86)/Steam/steam.exe',
     'epic': 'Program Files/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe',
@@ -207,6 +209,7 @@ class Library:
                     uid = item['appid']
                     if not uid.isdigit() or f.stem != 'appmanifest_' + uid:
                         raise ValueError('mismatched Steam app ID')
+                    if uid in STEAM_TOOLS: continue  # installed with Steam itself, not a game
                     location = case_path(root / 'steamapps/common', PureWindowsPath(item['installdir']).parts)
                     if PureWindowsPath(item['installdir']).drive: raise ValueError('invalid relative path')
                     artroot = client / 'appcache/librarycache'
