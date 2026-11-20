@@ -11,6 +11,9 @@
       Which games are installed (library id, title, store), only when that list changed.
   soju stats on | off | status
 
+Each finished game is also written to play-log.jsonl in the Soju folder (start, minutes, game,
+title) for the Soju Garden in the app. That file stays on the Mac, with sharing on or off.
+
 Nothing else leaves the Mac: no account, email, user name or file path. A random id
 (stats-id in the Soju folder) lets the site count players rather than sessions.
 Turn it off in Soju (Platforms > Share which games I play), with `soju stats off`,
@@ -25,6 +28,7 @@ import sys
 import time
 import urllib.request
 import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -132,8 +136,28 @@ def track_run(found, pid=None, clock=time.monotonic, sleep=time.sleep, poll=POLL
     return True, int((last - first + poll) // 60)
 
 
+def log_local(game, title, minutes, now=None):
+    """This Mac's own play history, read by the Soju Garden (app/GardenStats.swift). Never sent."""
+    if minutes < 1:
+        return
+    now = now or datetime.now().astimezone()
+    minutes = min(minutes, MAX_HOURS * 60)
+    line = {"start": (now - timedelta(minutes=minutes)).isoformat(timespec="seconds"),
+            "minutes": minutes, "game": game[:120], "title": title[:120]}
+    path = BASE / "play-log.jsonl"
+    try:
+        BASE.mkdir(parents=True, exist_ok=True)
+        with open(path, "a") as f:
+            f.write(json.dumps(line, ensure_ascii=False) + "\n")
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
 def report(game, title, launcher, started, minutes, how):
-    """One start: its outcome always, and the minutes when there were any. Nothing once sharing is off."""
+    """One start: its outcome always, and the minutes when there were any. Nothing once sharing is off.
+    The minutes also go to this Mac's own play log, sharing or not."""
+    log_local(game, title, minutes)
     if not enabled():
         return
     item = {"game": game[:120], "title": title[:120], "launcher": launcher[:20]}
