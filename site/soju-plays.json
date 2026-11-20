@@ -1,0 +1,76 @@
+{
+ "games": [
+  {
+   "game": "battlenet:osi",
+   "title": "Diablo II: Resurrected",
+   "players": 2,
+   "minutes": 271
+  },
+  {
+   "game": "steam:3164500",
+   "title": "Schedule I",
+   "players": 2,
+   "minutes": 97
+  },
+  {
+   "game": "battlenet:prometheus",
+   "title": "Overwatch 2",
+   "players": 2,
+   "minutes": 9
+  },
+  {
+   "game": "steam:2142790",
+   "title": "Fields of Mistria",
+   "players": 1,
+   "minutes": 58
+  },
+  {
+   "game": "steam:582010",
+   "title": "Monster Hunter: World",
+   "players": 1,
+   "minutes": 56
+  },
+  {
+   "game": "xbox:9N98Z825TNFW",
+   "title": "Minecraft Legends - Windows",
+   "players": 1,
+   "minutes": 54
+  },
+  {
+   "game": "steam:582500",
+   "title": "We Were Here",
+   "players": 1,
+   "minutes": 50
+  },
+  {
+   "game": "steam:1449850",
+   "title": "Yu-Gi-Oh!  Master Duel",
+   "players": 1,
+   "minutes": 34
+  },
+  {
+   "game": "steam:3981100",
+   "title": "Leaf it Alone",
+   "players": 1,
+   "minutes": 19
+  },
+  {
+   "game": "steam:374320",
+   "title": "DARK SOULS™ III",
+   "players": 1,
+   "minutes": 18
+  },
+  {
+   "game": "steam:250900",
+   "title": "The Binding of Isaac: Rebirth",
+   "players": 1,
+   "minutes": 12
+  },
+  {
+   "game": "steam:3241660",
+   "title": "R.E.P.O.",
+   "players": 1,
+   "minutes": 3
+  }
+ ]
+}
