@@ -43,6 +43,7 @@ swiftc app/PurchaseLinks.swift tests/test_purchase_links.swift -o /tmp/t1 && /tm
 swiftc app/UpdateCheck.swift tests/test_update_check.swift -o /tmp/t2 && /tmp/t2
 swiftc app/StarAsk.swift tests/test_star_ask.swift -o /tmp/t3 && /tmp/t3
 swiftc app/DownloadMeter.swift tests/test_download_meter.swift -o /tmp/t4 && /tmp/t4
+swiftc app/GardenStats.swift tests/test_garden_stats.swift -o /tmp/t5 && /tmp/t5
 bash scripts/build-app.sh
 ```
 

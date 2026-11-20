@@ -376,6 +376,7 @@ struct LibraryView: View {
                 }.disabled(model.busy).help("Install a native Mac game from a downloaded .zip")
             }
             if model.busy { BusyBanner() }
+            if page == "library" { SojuGardenCard() }
             if page == "library", model.starAsk.shouldAsk(), let id = model.starAsk.favorite() {
                 StarCard(title: model.games.first(where: { $0.id == id })?.title)
             }
