@@ -133,7 +133,9 @@ def track_run(found, pid=None, clock=time.monotonic, sleep=time.sleep, poll=POLL
 
 
 def report(game, title, launcher, started, minutes, how):
-    """One start: its outcome always, and the minutes when there were any."""
+    """One start: its outcome always, and the minutes when there were any. Nothing once sharing is off."""
+    if not enabled():
+        return
     item = {"game": game[:120], "title": title[:120], "launcher": launcher[:20]}
     send({"kind": "launch", "games": [dict(item, result=outcome(started, minutes), how=how)]})
     if minutes >= 1:
@@ -157,6 +159,19 @@ def steam_games(snapshot):
 
 
 def load_snapshot():
+    """Steam games as installed now: read from Steam's own records, so a game installed after the
+    library's last refresh is counted too. Falls back to that refresh's list."""
+    try:
+        import importlib.util
+        sys.path.insert(0, str(ROOT / "scripts"))
+        spec = importlib.util.spec_from_file_location("soju_game_library", ROOT / "scripts/game-library.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        lib = module.Library(BASE)
+        lib.steam()
+        return {"games": list(lib.games.values())}
+    except Exception:
+        pass
     try:
         return json.loads((BASE / "logs/library-scan.log").read_text())
     except (OSError, ValueError):
@@ -165,7 +180,8 @@ def load_snapshot():
 
 def watch(clock=time.monotonic, sleep=time.sleep, poll=POLL, table=None, snapshot=load_snapshot, deliver=report):
     """While Steam runs, count the games started from Steam's own window. A game that the
-    library's Play button is already counting (its lock is held) is left to that count."""
+    library's Play button is already counting (its lock is held) is left to that count.
+    Turning sharing off stops the watch at once and drops what it was counting."""
     table = table or (lambda: run("ps", "-axww", "-o", "command=").lower())
     begun = clock()
     games, seen, missing, polls = {}, {}, 0, 0
@@ -176,6 +192,10 @@ def watch(clock=time.monotonic, sleep=time.sleep, poll=POLL, table=None, snapsho
             polls += 1
             sleep(poll)
             now = clock()
+            if not enabled():
+                for gid in list(seen):
+                    seen.pop(gid)["lock"].unlink(missing_ok=True)
+                return
             lines = table().splitlines()
             missing = 0 if any(STEAM_PROCESS in line for line in lines) else missing + 1
             for gid, (title, found) in games.items():

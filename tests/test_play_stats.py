@@ -145,6 +145,40 @@ class PlayStats(unittest.TestCase):
             ps.watch(clock=clock.now, sleep=clock.sleep, poll=20, table=lambda: '', snapshot=lambda: {}, deliver=None)
         self.assertLess(clock.t, 200)
 
+    def test_turning_sharing_off_stops_the_watch_and_sends_nothing(self):
+        snap = {'games': [{'id': 'steam:1', 'platform': 'steam', 'title': 'A',
+                           'install_path': '/b/drive_c/Program Files (x86)/Steam/steamapps/common/A'}]}
+        line = 'c:\\program files (x86)\\steam\\steam.exe\nc:\\program files (x86)\\steam\\steamapps\\common\\a\\a.exe'
+        clock, got, polls = Clock(), [], []
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(ps, 'BASE', Path(d)), \
+             mock.patch.object(ps, 'OFF', Path(d) / 'stats-off'):
+            def table():
+                polls.append(1)
+                if len(polls) == 5:
+                    (Path(d) / 'stats-off').touch()   # the user turns sharing off mid-game
+                return line
+            ps.watch(clock=clock.now, sleep=clock.sleep, poll=20, table=table,
+                     snapshot=lambda: snap, deliver=lambda *x: got.append(x))
+            self.assertEqual(list((Path(d) / 'stats-running').glob('*.pid')), [])
+        self.assertEqual(got, [])
+        self.assertLess(len(polls), 8)
+        with mock.patch.object(ps, 'enabled', lambda: False), \
+             mock.patch.object(ps, 'send', side_effect=AssertionError('sent while off')):
+            ps.report('steam:1', 'A', 'steam', True, 9, 'soju')
+
+    def test_the_watch_reads_steam_itself_for_games_installed_after_the_last_refresh(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            client = base / 'steam-bottle/drive_c/Program Files (x86)/Steam'
+            (client / 'steamapps/common/New Game').mkdir(parents=True)
+            (client / 'steam.exe').write_text('')
+            (client / 'steamapps/appmanifest_42.acf').write_text(
+                '"AppState" { "appid" "42" "name" "New Game" "StateFlags" "4" "installdir" "New Game" }')
+            with mock.patch.object(ps, 'BASE', base):
+                games = ps.steam_games(ps.load_snapshot())
+        self.assertIn('steam:42', games)
+        self.assertTrue(any('steamapps\\common\\new game' in n for n in games['steam:42'][1]))
+
 
 if __name__ == '__main__':
     unittest.main()

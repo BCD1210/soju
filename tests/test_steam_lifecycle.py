@@ -49,6 +49,7 @@ class SteamSessionTests(unittest.TestCase):
             with patch.dict(os.environ, {"WINEPREFIX": "/unrelated", "WINESERVER": "/wrong",
                                         "DYLD_FALLBACK_LIBRARY_PATH": "/wrong", "CX_TEST": "bad"}), \
                  patch.object(session.subprocess, "run") as run:
+                run.return_value.returncode = 0
                 session.stop(prefix, runtime)
             self.assertEqual([c.args[0][-1] for c in run.call_args_list], ["-k", "-w"])
             for call in run.call_args_list:
@@ -57,7 +58,8 @@ class SteamSessionTests(unittest.TestCase):
                 self.assertNotIn("WINESERVER", env)
                 self.assertNotIn("DYLD_FALLBACK_LIBRARY_PATH", env)
                 self.assertNotIn("CX_TEST", env)
-                self.assertTrue(call.kwargs["check"])
+                # -k may fail when nothing runs; -w has to succeed
+                self.assertEqual(call.kwargs["check"], call.args[0][-1] == "-w")
                 self.assertEqual(call.kwargs["timeout"], 30)
 
     def test_timeout_propagates_instead_of_allowing_delete(self):
@@ -193,12 +195,19 @@ if [ "$1" = -w ]; then echo final > "$WINEPREFIX/shutdown-write"; fi
         self.assertEqual([line.rsplit(" ", 1)[1] for line in (d / "events").read_text().splitlines()], ["-k", "-w"])
 
     def test_failed_kill_or_wait_preserves_game_and_runtime(self):
-        for failure in ("-k", "-w"):
-            with self.subTest(failure=failure):
-                d, base, result = self.scenario(failure=failure)
+        # A failed wait, or a failed kill while a Steam Wine server is still running (or ps fails).
+        for kwargs in ({"failure": "-w"}, {"failure": "-k", "live": True}, {"failure": "-k", "ps_failure": True}):
+            with self.subTest(**kwargs):
+                d, base, result = self.scenario(**kwargs)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertTrue((base / "steam-bottle/saved-game").exists())
                 self.assertTrue((base / "steam-runtime/bin/wine").exists())
+
+    def test_kill_failing_because_nothing_runs_still_removes(self):
+        # wineserver -k exits 1 when the bottle has no server, e.g. after a failed Steam install (Discord, 2026-11-19).
+        d, base, result = self.scenario(failure="-k")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((base / "steam-bottle").exists())
 
     def test_declining_all_does_not_stop_or_remove_anything(self):
         d, base, result = self.scenario(answers="n\nn\n")
