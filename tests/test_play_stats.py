@@ -19,6 +19,29 @@ class Clock:
 
 
 class PlayStats(unittest.TestCase):
+    def setUp(self):
+        # report() writes the local play log under BASE: keep tests away from the real one.
+        self._tmp = tempfile.TemporaryDirectory()
+        self._base = mock.patch.object(ps, 'BASE', Path(self._tmp.name))
+        self._base.start()
+
+    def tearDown(self):
+        self._base.stop()
+        self._tmp.cleanup()
+
+    def test_finished_games_go_to_the_local_play_log_with_sharing_off_too(self):
+        from datetime import datetime, timezone, timedelta
+        now = datetime(2026, 11, 20, 2, 30, tzinfo=timezone(timedelta(hours=-8)))
+        ps.log_local('steam:1', 'A', 45, now=now)
+        ps.log_local('steam:2', 'B', 0, now=now)
+        with mock.patch.object(ps, 'enabled', lambda: False), \
+             mock.patch.object(ps, 'send', side_effect=AssertionError('sent while off')):
+            ps.report('steam:3', 'C', 'steam', True, 5, 'soju')
+        lines = [json.loads(l) for l in (ps.BASE / 'play-log.jsonl').read_text().splitlines()]
+        self.assertEqual([l['game'] for l in lines], ['steam:1', 'steam:3'])
+        self.assertEqual((lines[0]['start'], lines[0]['minutes']), ('2026-11-20T01:45:00-08:00', 45))
+        self.assertEqual(oct(os.stat(ps.BASE / 'play-log.jsonl').st_mode & 0o777), '0o600')
+
     def test_needles_match_the_wine_command_line(self):
         found = ps.needles('/Users/a/.battlenet-macos/bottle/drive_c/Program Files (x86)/Diablo II Resurrected')
         self.assertIn('c:\\program files (x86)\\diablo ii resurrected\\', found)
