@@ -19,6 +19,8 @@ EST = json.loads((ROOT / "site/protondb-estimates.json").read_text())
 AC = json.loads((ROOT / "site/anticheat.json").read_text())["games"]   # site/anticheat_update.py
 _rep = ROOT / "site/soju-reports.json"
 REPORTS = json.loads(_rep.read_text())["reports"] if _rep.exists() else []
+_plays = ROOT / "site/soju-plays.json"   # site/soju_plays.py: games Soju users have played
+PLAYS = json.loads(_plays.read_text())["games"] if _plays.exists() else []
 AWACY = "https://areweanticheatyet.com/"
 HIDDEN = set()            # canonical URLs of noindex pages, left out of the sitemap
 KO_ESTIMATES = 3000   # Korean pages for the most-reported estimated games
@@ -39,22 +41,22 @@ LAUNCHER = {
     "none": ("its own launcher", None),
 }
 STATUS = {
-    "en": {"verified": ("Runs in Soju", "ok"), "untested": ("Not checked in Soju yet", "unknown"),
+    "en": {"verified": ("Plays", "ok"), "untested": ("Not checked in Soju yet", "unknown"),
            "blocked": ("Does not run: anti-cheat", "no"), "blocked-online": ("Online blocked by anti-cheat", "no"),
            "native": ("Has a Mac version", "native"),
            "likely": ("Estimate: likely runs", "likely"), "mixed": ("Estimate: may have problems", "unknown"),
            "unlikely": ("Estimate: unlikely to run", "no"), "few": ("Estimate: few reports", "unknown"),
-           "mac-verified": ("Runs on Mac", "ok"), "mac-reported": ("Mac players report it runs", "likely"),
-           "mac-problems": ("Mac players report problems", "no"),
-           "soju-works": ("Soju users report it runs", "likely"), "soju-problems": ("Soju users report problems", "no")},
-    "ko": {"verified": ("소주에서 됨", "ok"), "untested": ("소주에서 아직 미확인", "unknown"),
+           "mac-verified": ("Plays", "ok"), "mac-reported": ("Plays", "ok"),
+           "mac-problems": ("Not checked in Soju yet", "unknown"),
+           "soju-works": ("Plays", "ok"), "soju-problems": ("Not checked in Soju yet", "unknown")},
+    "ko": {"verified": ("플레이됨", "ok"), "untested": ("소주에서 아직 미확인", "unknown"),
            "blocked": ("안 됨: 안티치트", "no"), "blocked-online": ("온라인은 안티치트로 막힘", "no"),
            "native": ("맥 버전 있음", "native"),
            "likely": ("추정: 될 가능성 높음", "likely"), "mixed": ("추정: 문제 있을 수 있음", "unknown"),
            "unlikely": ("추정: 안 될 가능성 높음", "no"), "few": ("추정: 보고 적음", "unknown"),
-           "mac-verified": ("맥에서 됨", "ok"), "mac-reported": ("맥 사용자 보고: 됨", "likely"),
-           "mac-problems": ("맥 사용자 보고: 문제 있음", "no"),
-           "soju-works": ("소주 사용자 보고: 됨", "likely"), "soju-problems": ("소주 사용자 보고: 문제 있음", "no")},
+           "mac-verified": ("플레이됨", "ok"), "mac-reported": ("플레이됨", "ok"),
+           "mac-problems": ("소주에서 아직 미확인", "unknown"),
+           "soju-works": ("플레이됨", "ok"), "soju-problems": ("소주에서 아직 미확인", "unknown")},
 }
 ESTIMATE = ("likely", "mixed", "unlikely", "few")
 MACDATA = ("mac-verified", "mac-reported", "mac-problems", "soju-works", "soju-problems")
@@ -225,15 +227,6 @@ def game_page(lang, g):
         cap = ("소주에서 실행한 화면" if lang == "ko" else "Running in Soju") + (f', {g["verified_on"]}' if g.get("verified_on") else "")
         extra = (f'<figure><img class="shot" src="{shot}" loading="lazy" alt="{esc(name)} {cap}">'
                  f'<figcaption>{cap}</figcaption></figure>\n') + extra
-    if g.get("soju_reports"):
-        items = []
-        for r in g["soju_reports"]:
-            ok = ("됨" if r["works"] else "문제") if lang == "ko" else ("runs" if r["works"] else "problem")
-            bits = [x for x in (r.get("mac"), ("macOS " + re.sub(r"^(macOS\s*)+", "", r["macos"], flags=re.I)) if r.get("macos") else "", ("Soju " + r["soju"].replace("Soju ", "")) if r.get("soju") else "",
-                                (("FPS " if lang != "ko" else "프레임 ") + r["fps"]) if r.get("fps") else "") if x]
-            items.append(f'<li>{r["date"]}: {esc(ok)}, {esc(r.get("title") or r.get("result", ""))} ({esc(", ".join(bits))}) '
-                         f'<a href="{r["url"]}">#{r["number"]}</a></li>')
-        extra = ("<h2>" + ("소주 사용자 보고" if lang == "ko" else "Reports from Soju users") + "</h2>\n<ul>" + "".join(items) + "</ul>\n") + extra
     rel = [r for r in g.get("related", []) if lang == "en" or "ko" in r]
     related = ""
     if rel:
@@ -455,22 +448,22 @@ def index_page(lang, curated, est, letters):
     canonical = SITE + ("ko/mac/" if lang == "ko" else "mac/")
     order = ["verified", "untested", "blocked-online", "blocked", "native"]
     cur = sorted(curated, key=lambda g: (order.index(g["status"]), g["name"]))
-    macdata = sorted([g for g in est if g["status"] in MACDATA], key=lambda g: (MACDATA.index(g["status"]), g["name"].lower()))
+    macdata = sorted([g for g in est if g["status"] in MACDATA and STATUS["en"][g["status"]][1] == "ok"], key=lambda g: (MACDATA.index(g["status"]), g["name"].lower()))
     top = sorted([g for g in est if g["status"] in ESTIMATE], key=lambda g: -g["reports"])[:INDEX_ESTIMATES]
     if lang == "ko":
         title, h1 = f"맥에서 되는 윈도우 게임 목록 ({CHECKED[:4]}) | 소주", "맥(애플 실리콘)에서 이 게임 되나요?"
         desc = "디아블로, 오버워치, 배틀그라운드, 발로란트, GTA 5와 스팀 게임 수천 개가 애플 실리콘 맥에서 되는지: 직접 확인한 것과 리눅스 사용자 보고(ProtonDB) 기반 추정."
-        intro = ("'됨'은 소주에서 직접 실행해 본 게임입니다. '추정'은 리눅스(Proton) 사용자 보고를 바탕으로 한 예상이고 맥에서는 아직 확인하지 않았습니다.")
+        intro = ("'플레이됨'은 소주에서 실행되는 게임입니다. '추정'은 리눅스(Proton) 사용자 보고를 바탕으로 한 예상이고 맥에서는 아직 확인하지 않았습니다.")
         h_cur, h_est = "직접 확인했거나 확실한 게임", f"추정 (ProtonDB 보고가 많은 {INDEX_ESTIMATES}개)"
-        h_mac = "소주 사용자 보고"
+        h_mac = "소주에서 플레이되는 게임"
         more = "알파벳순 전체 목록(영문): " 
     else:
         title, h1 = f"Which Windows games run on Apple Silicon Macs ({CHECKED[:4]}) | Soju", "Does this game run on a Mac?"
         desc = f"Diablo, Overwatch, GTA V, Apex, Fortnite, Valorant and {len(est):,} Steam games on Apple Silicon: what was run in Soju, and estimates from Linux player reports (ProtonDB)."
-        intro = ("'Runs in Soju' means we ran it. 'Estimate' pages are based on Linux (Proton) player reports from "
+        intro = ("'Plays' means it runs in Soju. 'Estimate' pages are based on Linux (Proton) player reports from "
                  "ProtonDB and have not been run on a Mac yet.")
         h_cur, h_est = "Checked or known", f"Estimates (the {INDEX_ESTIMATES} most reported)"
-        h_mac = "Reports from Soju users"
+        h_mac = "Played in Soju"
         more = "All estimated games A–Z: "
     lp = "../../mac/" if lang == "ko" else ""
     links = " ".join(f'<a href="{lp}list-{c}.html">{c.upper() if c != "0" else "0–9"}</a>' for c in letters)
@@ -503,8 +496,8 @@ def letter_page(c, games, letters):
 
 
 def attach_reports(games):
-    """Soju users' reports (site/soju_reports.py) go on the matching page; on a page
-    nobody here has checked they also set the label."""
+    """A game Soju users report running, or have played in Soju (site/soju_plays.py), is labelled
+    as playing, unless it is already checked, blocked by anti-cheat or has a Mac version."""
     by_app, by_slug = {}, {}
     for r in REPORTS:
         if r.get("appid"):
@@ -514,13 +507,20 @@ def attach_reports(games):
         roman = re.sub(r"(?<=-)(2|3|4|5)$", lambda m: {"2": "ii", "3": "iii", "4": "iv", "5": "v"}[m.group(1)], slug)
         if roman != slug:
             by_slug.setdefault(roman, []).append(r)   # "Dark Souls 3" is the page dark-souls-iii
+    played_app = {p["game"].split(":", 1)[1] for p in PLAYS if p["game"].startswith("steam:")}
+    played_slug = {slugify(p["title"]) for p in PLAYS if p.get("title")}
     for g in games:
-        reps = by_app.get(g.get("appid") or "") or by_slug.get(g["slug"]) or by_slug.get(slugify(g["name"]))
-        if not reps:
+        if g["status"] in ("verified", "blocked", "blocked-online", "native"):
             continue
-        g["soju_reports"] = reps
-        if g["status"] not in ("verified", "blocked", "blocked-online", "native"):
-            g["status"] = "soju-works" if reps[-1]["works"] else "soju-problems"
+        reps = by_app.get(g.get("appid") or "") or by_slug.get(g["slug"]) or by_slug.get(slugify(g["name"])) or []
+        played = (g.get("appid") or "") in played_app or g["slug"] in played_slug or slugify(g["name"]) in played_slug
+        if played or any(r["works"] for r in reps):
+            g["status"] = "soju-works"
+            g["detail"] = ("Soju users play this game on Apple Silicon Macs. Install Soju, sign in to the game's "
+                           "launcher, install the game and press Play.")
+            g["linux"] = None
+            if "ko" in g:
+                g["ko"]["detail"] = "소주로 애플 실리콘 맥에서 플레이되는 게임입니다. 소주를 설치하고 런처에 로그인한 뒤 게임을 설치해 실행하면 됩니다."
 
 
 def main():
