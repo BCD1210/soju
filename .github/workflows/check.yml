@@ -31,5 +31,7 @@ jobs:
           /tmp/soju-update-tests
           swiftc app/StarAsk.swift tests/test_star_ask.swift -o /tmp/soju-star-tests
           /tmp/soju-star-tests
+          swiftc app/DownloadMeter.swift tests/test_download_meter.swift -o /tmp/soju-meter-tests
+          /tmp/soju-meter-tests
       - name: Build and verify the native app
         run: bash scripts/build-app.sh

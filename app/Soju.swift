@@ -121,6 +121,11 @@ struct SojuLogo: View {
     @Published var activity = "Ready."
     @Published var log = "Choose a launcher to get started. Existing installations are detected automatically."
     @Published var failed = false
+    /// How far the running operation's download is (0...1), read from curl's meter in its log;
+    /// nil while it reports none (unpacking, checking).
+    @Published var progress: Double?
+    /// Speed and time left for that download, or what happens after it.
+    @Published var progressDetail = ""
     @Published var launching: Set<Launcher> = []
     @Published var requestedPage: String?
     /// A game the store should start checking out, from a soju://store/<game>?buy=1 link.
@@ -269,7 +274,7 @@ struct SojuLogo: View {
 
     func run(_ args: [String], title: String, environment: [String: String] = [:]) {
         guard !busy else { return }
-        busy = true; failed = false; activity = title; log = ""
+        busy = true; failed = false; activity = title; log = ""; progress = nil; progressDetail = ""
         do {
             let (p, url) = try task(args, logName: "desktop", environment: environment)
             logReader = try FileHandle(forReadingFrom: url)
@@ -280,7 +285,7 @@ struct SojuLogo: View {
                     self.readLog()
                     self.poller?.invalidate(); self.poller = nil
                     try? self.logReader?.close(); self.logReader = nil
-                    self.busy = false; self.operation = nil
+                    self.busy = false; self.operation = nil; self.progress = nil; self.progressDetail = ""
                     self.failed = process.terminationStatus != 0
                     self.activity = self.failed ? "Needs attention. See the details below." : "Finished."
                     self.refresh(); self.refreshLibrary()
@@ -371,6 +376,10 @@ struct SojuLogo: View {
             .replacingOccurrences(of: "\u{001B}\\[[0-9;]*[A-Za-z]", with: "", options: .regularExpression)
             .replacingOccurrences(of: "\r", with: "\n")
         log = String((log + text).suffix(60000))
+        if let meter = DownloadMeter.last(in: text) {
+            progress = meter.done ? nil : meter.fraction
+            progressDetail = meter.done ? "Downloaded. Setting it up…" : meter.detail
+        }
     }
 
 

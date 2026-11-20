@@ -375,6 +375,7 @@ struct LibraryView: View {
                     Label("Add Didim Labs game", systemImage: "plus")
                 }.disabled(model.busy).help("Install a native Mac game from a downloaded .zip")
             }
+            if model.busy { BusyBanner() }
             if page == "library", model.starAsk.shouldAsk(), let id = model.starAsk.favorite() {
                 StarCard(title: model.games.first(where: { $0.id == id })?.title)
             }
@@ -427,7 +428,8 @@ struct LibraryView: View {
             }
             HStack(spacing: 8) {
                 Circle().fill(model.failed ? Color.orange : green).frame(width: 5, height: 5)
-                Text(model.activity == "Ready." ? "\(model.games.count) games · \(model.games.filter { $0.isInstalled }.count) installed · Stored locally" : model.activity)
+                Text(model.activity == "Ready." ? "\(model.games.count) games · \(model.games.filter { $0.isInstalled }.count) installed · Stored locally"
+                     : model.activity + (model.progress.map { " " + String(Int($0 * 100)) + "%" } ?? ""))
                     .lineLimit(1)
                 Spacer()
                 Button("Diagnostics") { showDiagnostics = true }.buttonStyle(.plain)
@@ -564,6 +566,7 @@ struct LibraryView: View {
                 Divider()
                 GameSettingsSection(game: game, close: { selected = nil })
             }
+            if model.busy { BusyBanner(compact: true) }
             HStack {
                 Button("Show files") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: game.installPath) }.disabled(!game.isInstalled || game.isOnUnpluggedDrive)
                 Button("Diagnose") { diagnose(game) }.disabled(model.busy)
@@ -697,5 +700,37 @@ struct StarCard: View {
             .background(Color.yellow.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.yellow.opacity(0.35)))
             .accessibilityElement(children: .contain)
+    }
+}
+
+/// Shown while Soju runs an operation (an engine update, an install): the buttons that start
+/// games are off until it ends, so say what runs, how far it is and that Play comes back.
+struct BusyBanner: View {
+    @EnvironmentObject var model: SojuModel
+    var compact = false
+    @Environment(\.colorScheme) private var scheme
+    private var green: Color { scheme == .dark ? Color(red: 0.42, green: 0.83, blue: 0.67) : Color(red: 0.12, green: 0.34, blue: 0.28) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.down.circle.fill").font(.system(size: compact ? 16 : 20)).foregroundStyle(green)
+                Text(model.activity).font(.system(size: compact ? 13 : 15, weight: .semibold))
+                Spacer()
+                if let p = model.progress {
+                    Text(String(Int(p * 100)) + "%").font(.system(size: compact ? 13 : 15, weight: .semibold).monospacedDigit())
+                }
+            }
+            if let p = model.progress {
+                ProgressView(value: p).tint(green)
+            } else {
+                ProgressView().progressViewStyle(.linear).tint(green)
+            }
+            Text(([model.progressDetail].filter { !$0.isEmpty } + ["Play comes back when this finishes."]).joined(separator: " · "))
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+        }.padding(compact ? 12 : 16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(green.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(green.opacity(0.25), lineWidth: 1))
+            .accessibilityElement(children: .combine)
     }
 }
