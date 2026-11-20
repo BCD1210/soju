@@ -40,9 +40,14 @@ def stop(prefix, runtime, timeout=30):
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(("DYLD_", "WINE", "CX_", "ROSETTA_"))}
     env.update(WINEPREFIX=str(prefix.resolve()), WINEDEBUG="-all")
-    for flag in ("-k", "-w"):
-        subprocess.run([str(server), flag], env=env, check=True,
-                       capture_output=True, text=True, timeout=timeout)
+    # -k also exits 1 when this prefix has no Wine server at all (nothing ran, or a failed install).
+    # That is only safe to pass over when no Steam Wine server is running anywhere; -w must succeed.
+    killed = subprocess.run([str(server), "-k"], env=env, check=False,
+                            capture_output=True, text=True, timeout=timeout)
+    if killed.returncode != 0 and any(is_steam_server(path, runtime) for path in server_paths()):
+        raise RuntimeError("Could not stop Windows Steam. Quit Steam and its games, then retry.")
+    subprocess.run([str(server), "-w"], env=env, check=True,
+                   capture_output=True, text=True, timeout=timeout)
 
 
 if __name__ == "__main__":

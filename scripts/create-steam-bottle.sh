@@ -41,9 +41,19 @@ echo "==> Initializing the prefix: $WINEPREFIX"
 SETUP="$WORK/SteamSetup.exe"
 [ -f "$SETUP" ] || { curl -fL "https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe" -o "$SETUP.part" && mv -f "$SETUP.part" "$SETUP"; }
 echo "==> Installing Steam silently"
-"$WINE" "$SETUP" /S >/dev/null 2>&1 || true
+LOG="$BASE/logs/steam-install.log"; mkdir -p "$BASE/logs"
+{ echo "== $(date) macOS $(sw_vers -productVersion 2>/dev/null) $(uname -m) Rosetta: $(/usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null && echo yes || echo no)"
+  echo "== installer $(shasum -a 256 "$SETUP" | cut -c1-16) $(stat -f%z "$SETUP") bytes"; } > "$LOG"
+WINEDEBUG=err+all "$WINE" "$SETUP" /S >>"$LOG" 2>&1 || echo "== installer exit $?" >>"$LOG"
 "$STEAM_WINE_ROOT/bin/wineserver" -w 2>/dev/null || true
-[ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ] || { echo "Install failed"; exit 1; }
+if [ ! -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe" ]; then
+  # A cut-off download is the usual cause: fetch the installer again on the next try.
+  rm -f "$SETUP"
+  echo "Install failed. The installer's output is in $LOG; these are its last lines:"
+  tail -n 15 "$LOG" | sed 's/^/    /'
+  echo "Press Install again to retry with a fresh download. If it fails the same way, post $LOG on Discord or GitHub."
+  exit 1
+fi
 
 # ---------- 4. Full client before configuring the renderer ----------
 python3 "$REPO_ROOT/scripts/bootstrap-steam.py" "$WINE"
