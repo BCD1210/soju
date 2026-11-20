@@ -3,8 +3,8 @@
   {
    "game": "battlenet:osi",
    "title": "Diablo II: Resurrected",
-   "players": 2,
-   "minutes": 271
+   "players": 3,
+   "minutes": 309
   },
   {
    "game": "steam:3164500",
@@ -17,6 +17,12 @@
    "title": "Overwatch 2",
    "players": 2,
    "minutes": 9
+  },
+  {
+   "game": "steam:1158160",
+   "title": "Coral Island",
+   "players": 1,
+   "minutes": 143
   },
   {
    "game": "steam:1449850",
@@ -71,6 +77,12 @@
    "title": "The Binding of Isaac: Rebirth",
    "players": 1,
    "minutes": 12
+  },
+  {
+   "game": "steam:223810",
+   "title": "Ys I",
+   "players": 1,
+   "minutes": 4
   },
   {
    "game": "steam:3241660",
