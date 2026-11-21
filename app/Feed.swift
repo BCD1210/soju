@@ -8,6 +8,8 @@ import UniformTypeIdentifiers
 /// A photo on a post: its id on the site and its size, so its place is kept before it loads.
 struct FeedImage: Identifiable, Hashable {
     let id: Int
+    /// The photo's own key: the site gives the picture only to an address that carries it.
+    let k: String
     let w: Int
     let h: Int
     var ratio: CGFloat { h > 0 ? CGFloat(w) / CGFloat(h) : 1.5 }
@@ -84,7 +86,7 @@ struct FeedPost: Identifiable {
         tail = ((d["tail"] as? [[String: Any]]) ?? []).compactMap(FeedPost.init)
         images = ((d["images"] as? [[String: Any]]) ?? []).compactMap { i in
             guard let id = i["id"] as? Int else { return nil }
-            return FeedImage(id: id, w: (i["w"] as? Int) ?? 3, h: (i["h"] as? Int) ?? 2)
+            return FeedImage(id: id, k: (i["k"] as? String) ?? "", w: (i["w"] as? Int) ?? 3, h: (i["h"] as? Int) ?? 2)
         }
     }
 }
@@ -150,7 +152,8 @@ enum FeedToken {
     }
 
     static func imageURL(_ image: FeedImage, full: Bool) -> URL? {
-        URL(string: site + "/api/feed/image/" + String(image.id) + "?s=" + (full ? "full" : "thumb"))
+        guard image.k.range(of: "^[A-Za-z0-9_-]{20,64}$", options: .regularExpression) != nil else { return nil }
+        return URL(string: site + "/api/feed/image/" + String(image.id) + "?k=" + image.k + "&s=" + (full ? "full" : "thumb"))
     }
 
     private func send(_ method: String, _ path: String, _ body: [String: Any]? = nil, done: @escaping (Int, [String: Any]) -> Void) {
@@ -178,9 +181,11 @@ enum FeedToken {
 
     func load() {
         hasToken = !FeedToken.load().isEmpty
+        guard hasToken else { posts = []; opened = []; nick = ""; admin = false; more = false; loaded = false; return }
         let asked = filter
         send("GET", query(before: nil)) { status, value in
             guard asked == self.filter else { return }
+            if status == 401 { self.hasToken = false; self.posts = []; self.loaded = false; return }
             guard status == 200, let list = value["posts"] as? [[String: Any]] else { self.offline = true; self.loaded = true; return }
             var fresh = list.compactMap(FeedPost.init)
             // A thread that was open stays open, with what it showed, unless replies came or went meanwhile.
@@ -231,7 +236,7 @@ enum FeedToken {
             guard let photo = rest.first else { finish(); return }
             send("POST", "/image", ["full": photo.full.base64EncodedString(), "thumb": photo.thumb.base64EncodedString(), "w": photo.w, "h": photo.h]) { status, value in
                 if self.failed(status, value) { self.busy = false; return }
-                if let id = value["image"] as? Int { sent.append(FeedImage(id: id, w: photo.w, h: photo.h)) }
+                if let id = value["image"] as? Int { sent.append(FeedImage(id: id, k: (value["k"] as? String) ?? "", w: photo.w, h: photo.h)) }
                 next(rest.dropFirst())
             }
         }
@@ -318,6 +323,28 @@ struct FeedGameChoice: Identifiable, Hashable {
     let title: String
 }
 
+/// A quiet button of the feed (like, reply, add a photo): an icon and maybe a count, with a soft ground under the pointer.
+private struct FeedAction: View {
+    let symbol: String
+    var text: String = ""
+    var tint: Color = .secondary
+    var bounce: Bool = false
+    let action: () -> Void
+    @State private var over = false
+    @Environment(\.isEnabled) private var enabled
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: symbol).symbolEffect(.bounce, value: bounce)
+                if !text.isEmpty { Text(text).contentTransition(.numericText()) }
+            }.font(.system(size: 13.5, weight: .medium)).monospacedDigit().foregroundStyle(tint)
+                .padding(.horizontal, 9).padding(.vertical, 5)
+                .background(Color.primary.opacity(over && enabled ? 0.08 : 0), in: Capsule()).contentShape(Capsule())
+        }.buttonStyle(.plain).onHover { over = $0 }.animation(.easeOut(duration: 0.12), value: over)
+    }
+}
+
 struct FeedShelfView: View {
     @ObservedObject var feed: FeedModel
     @ObservedObject var account: AccountModel
@@ -338,36 +365,47 @@ struct FeedShelfView: View {
     @State private var detail: Int?
     @State private var dropping = false
     @State private var preparing = 0
+    @FocusState private var writing: Bool
     private static let ago: RelativeDateTimeFormatter = { let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated; return f }()
     private let limit = 500
+    /// The feed reads as one column, as a thread does, however wide the window is.
+    private let column: CGFloat = 680
+
+    /// Signed in to Didim Labs, with the feed's token: the feed is for people who are.
+    private var signedIn: Bool { !account.email.isEmpty && feed.hasToken }
+    private var canWrite: Bool { signedIn && !feed.nick.isEmpty }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                composer
-                HStack(spacing: 10) {
-                    Picker("Show", selection: $feed.filter) {
-                        Text("Everything").tag("all"); Text("News").tag("news"); Text("Players").tag("player")
-                    }.pickerStyle(.segmented).labelsHidden().fixedSize()
-                    if !feed.note.isEmpty { Text(feed.note).font(.system(size: 12)).foregroundStyle(.orange).lineLimit(2) }
-                    Spacer(minLength: 0)
-                }
-                ForEach(feed.posts) { post in
-                    card(post).transition(.asymmetric(insertion: .move(edge: .top).combined(with: .opacity), removal: .opacity.combined(with: .scale(scale: 0.97))))
-                }
-                if feed.posts.isEmpty {
-                    if feed.loaded || feed.offline {
-                        Text(feed.offline ? "The feed is unavailable right now. Check the internet connection." : "Nothing here yet. Be the first to post about a game.")
-                            .foregroundStyle(.secondary).padding(.top, 30).frame(maxWidth: .infinity).transition(.opacity)
-                    } else {
-                        // The shape of what is coming, so the page does not jump when it arrives.
-                        ForEach(0..<3, id: \.self) { _ in placeholder }.transition(.opacity)
+            VStack(alignment: .leading, spacing: 0) {
+                if !signedIn {
+                    gate
+                } else {
+                    if feed.nick.isEmpty && feed.loaded { nickCard } else if !feed.nick.isEmpty { composer }
+                    tabs.padding(.top, 18)
+                    Divider().opacity(0.6)
+                    ForEach(feed.posts) { post in
+                        VStack(spacing: 0) { card(post); Divider().opacity(0.45) }
+                            .transition(.asymmetric(insertion: .move(edge: .top).combined(with: .opacity), removal: .opacity.combined(with: .scale(scale: 0.97))))
                     }
+                    if feed.posts.isEmpty {
+                        if feed.loaded || feed.offline {
+                            VStack(spacing: 8) {
+                                Image(systemName: feed.offline ? "wifi.slash" : "bubble.left.and.bubble.right").font(.system(size: 28, weight: .light)).foregroundStyle(.tertiary)
+                                Text(feed.offline ? "The feed is unavailable right now." : "Nothing here yet").font(.system(size: 15, weight: .semibold))
+                                Text(feed.offline ? "Check the internet connection." : "Be the first to post about a game.").font(.system(size: 13)).foregroundStyle(.secondary)
+                            }.frame(maxWidth: .infinity).padding(.top, 44).transition(.opacity)
+                        } else {
+                            // The shape of what is coming, so the page does not jump when it arrives.
+                            ForEach(0..<3, id: \.self) { _ in placeholder }.transition(.opacity)
+                        }
+                    }
+                    if feed.more { Button("Show older posts") { feed.loadMore() }.buttonStyle(.link).frame(maxWidth: .infinity).padding(.vertical, 16) }
                 }
-                if feed.more { Button("Show older posts") { feed.loadMore() }.frame(maxWidth: .infinity) }
-            }.frame(maxWidth: .infinity, alignment: .leading)
+            }.frame(maxWidth: column, alignment: .leading).frame(maxWidth: .infinity)
         }
         .animation(.smooth(duration: 0.28), value: feed.note)
+        .animation(.smooth(duration: 0.3), value: signedIn)
         .onChange(of: feed.filter) { feed.load() }
         .onChange(of: account.email) { feed.load() }
         .alert("Set your nickname to @" + cleanNick + "?", isPresented: $confirmNick) {
@@ -381,43 +419,164 @@ struct FeedShelfView: View {
         .sheet(isPresented: Binding(get: { detail != nil }, set: { if !$0 { detail = nil } })) { detailSheet }
     }
 
-    /// One post in full: all of its text, its photos at their real size, every reply, and a place to answer.
-    @ViewBuilder private var detailSheet: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Post").font(.system(size: 16, weight: .bold, design: .rounded))
-                Spacer()
-                Button("Done") { detail = nil }.keyboardShortcut(.cancelAction)
-            }.padding(.horizontal, 20).padding(.vertical, 12)
-            Divider()
-            if let post = feed.posts.first(where: { $0.id == detail }) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        entry(post, parent: nil, size: 38, full: true)
-                        if !post.tail.isEmpty {
-                            Divider()
-                            ForEach(post.tail) { reply in entry(reply, parent: post.id, size: 26, full: true).transition(.opacity.combined(with: .move(edge: .top))) }
-                        }
-                    }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if canWrite {
-                    Divider()
-                    HStack(spacing: 8) {
-                        TextField("Reply as " + feed.nick, text: Binding(get: { replyDraft }, set: { replyDraft = String($0.prefix(limit)) }))
-                            .textFieldStyle(.roundedBorder).onSubmit { sendReply(post.id) }
-                        Button("Reply") { sendReply(post.id) }.disabled(replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 || feed.busy)
-                    }.padding(.horizontal, 20).padding(.vertical, 12)
-                }
+    // MARK: before signing in
+
+    /// Signed out, the feed shows nothing of itself: only how to come in.
+    private var gate: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 36)).foregroundStyle(accent)
+            Text("The feed is for players who are signed in").font(.system(size: 20, weight: .bold, design: .rounded)).multilineTextAlignment(.center)
+            Text(account.email.isEmpty ? "Sign in to read game news from Didim Labs and what other players are saying, and to post about the games you play."
+                 : "Sign in once more to open the feed: it was added after you signed in.")
+                .font(.system(size: 14)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 420).fixedSize(horizontal: false, vertical: true)
+            if account.signingIn != nil {
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    Text("Finish signing in in your browser.").font(.system(size: 13))
+                    Button("Cancel") { account.cancel() }
+                }.padding(.top, 4)
             } else {
-                Text("This post is gone.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+                HStack(spacing: 10) {
+                    if account.providers.contains("apple") { Button { account.signIn("apple") } label: { Label("Sign in with Apple", systemImage: "apple.logo").padding(.horizontal, 4) }.controlSize(.large) }
+                    if account.providers.contains("google") { Button { account.signIn("google") } label: { Label("Sign in with Google", systemImage: "g.circle").padding(.horizontal, 4) }.controlSize(.large) }
+                }.padding(.top, 4)
+                if account.providers.isEmpty { Text("Sign-in is unavailable right now. Check the internet connection.").font(.system(size: 12)).foregroundStyle(.secondary) }
             }
-        }.frame(width: 640, height: 620)
+            if !account.message.isEmpty && account.signingIn == nil { Text(account.message).font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.center) }
+        }.frame(maxWidth: .infinity).padding(.vertical, 56).padding(.horizontal, 24)
+            .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 18))
+            .padding(.top, 8).transition(.opacity)
     }
 
-    private func show(_ post: Int) {
-        replyTo = nil; replyDraft = ""
-        detail = post
-        if !feed.opened.contains(post) { feed.open(post) }
+    private var nickCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Pick a nickname").font(.system(size: 16, weight: .bold, design: .rounded))
+            HStack(spacing: 8) {
+                TextField("nickname (e.g. nyang_maker)", text: $nickDraft).textFieldStyle(.roundedBorder).frame(maxWidth: 260)
+                    .onSubmit { if nickOK { confirmNick = true } }
+                Button("Set nickname") { confirmNick = true }.buttonStyle(.borderedProminent).tint(accent).disabled(!nickOK || feed.busy)
+            }
+            Text("It is the name on your posts. Start with a letter; lower-case letters, digits and _ only, 3 to 20 long. It can't be changed once set. Your email is never shown.")
+                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if !feed.note.isEmpty { Text(feed.note).font(.system(size: 12)).foregroundStyle(.orange) }
+        }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var cleanNick: String {
+        nickDraft.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "@", with: "").lowercased()
+    }
+    private var nickOK: Bool { cleanNick.range(of: "^[a-z][a-z0-9_]{2,19}$", options: .regularExpression) != nil }
+
+    private func avatar(_ name: String, news: Bool, size: CGFloat) -> some View {
+        Text(news ? "D" : String(name.prefix(1)).uppercased()).font(.system(size: size * 0.42, weight: .bold, design: .rounded))
+            .foregroundStyle(.white).frame(width: size, height: size)
+            .background(news ? AnyShapeStyle(LinearGradient(colors: [accent, accent.opacity(0.65)], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(Self.tint(name)), in: Circle())
+    }
+    /// One steady colour per nickname.
+    private static func tint(_ name: String) -> Color {
+        let hues: [Double] = [0.03, 0.42, 0.58, 0.75, 0.12, 0.5, 0.9, 0.33]
+        let sum = name.unicodeScalars.reduce(0) { ($0 + Int($1.value)) % 9973 }
+        return Color(hue: hues[sum % hues.count], saturation: 0.45, brightness: 0.6)
+    }
+
+    private var tabs: some View {
+        HStack(spacing: 4) {
+            ForEach([("all", "Everything"), ("news", "News"), ("player", "Players")], id: \.0) { id, title in
+                Button { feed.filter = id } label: {
+                    VStack(spacing: 7) {
+                        Text(title).font(.system(size: 14, weight: feed.filter == id ? .semibold : .regular)).foregroundStyle(feed.filter == id ? Color.primary : Color.secondary)
+                        Capsule().fill(feed.filter == id ? accent : Color.clear).frame(height: 2)
+                    }.padding(.horizontal, 10).fixedSize().contentShape(Rectangle())
+                }.buttonStyle(.plain)
+            }
+            Spacer(minLength: 8)
+            if !feed.note.isEmpty && !feed.nick.isEmpty { Text(feed.note).font(.system(size: 12)).foregroundStyle(.orange).lineLimit(2).padding(.bottom, 8) }
+        }.animation(.snappy(duration: 0.2), value: feed.filter)
+    }
+
+    private var placeholder: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                Circle().fill(Color.primary.opacity(0.08)).frame(width: 38, height: 38)
+                VStack(alignment: .leading, spacing: 8) {
+                    RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.08)).frame(width: 120, height: 11)
+                    RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)).frame(height: 11)
+                    RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)).frame(width: 260, height: 11)
+                }
+            }.padding(.vertical, 16).frame(maxWidth: .infinity, alignment: .leading)
+            Divider().opacity(0.45)
+        }
+    }
+
+    // MARK: writing
+
+    private var composer: some View {
+        HStack(alignment: .top, spacing: 12) {
+            avatar(feed.nick, news: asNews, size: 38)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(asNews ? "Didim Labs" : feed.nick).font(.system(size: 14.5, weight: .semibold))
+                if asNews { TextField("Title", text: $newsTitle).textFieldStyle(.plain).font(.system(size: 17, weight: .bold, design: .rounded)) }
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: Binding(get: { draft }, set: { draft = String($0.prefix(asNews ? 4000 : limit)) }))
+                        .font(.system(size: 15)).scrollContentBackground(.hidden).frame(minHeight: writing || !draft.isEmpty ? 64 : 24, maxHeight: 160).focused($writing)
+                        .padding(.leading, -5)
+                    if draft.isEmpty {
+                        Text("What are you playing? Share a tip, a moment, a question.").font(.system(size: 15)).foregroundStyle(.tertiary).allowsHitTesting(false)
+                    }
+                }
+                if !photos.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(photos) { photo in
+                            Image(nsImage: photo.preview).resizable().scaledToFill().frame(width: 120, height: 80).clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay(alignment: .topTrailing) {
+                                    Button { withAnimation(.snappy(duration: 0.22)) { photos.removeAll { $0.id == photo.id } } } label: {
+                                        Image(systemName: "xmark.circle.fill").font(.system(size: 17)).foregroundStyle(.white, .black.opacity(0.6))
+                                    }.buttonStyle(.plain).padding(4).help("Remove this photo")
+                                }.transition(.scale(scale: 0.9).combined(with: .opacity))
+                        }
+                    }
+                }
+                HStack(spacing: 2) {
+                    FeedAction(symbol: "photo", action: addPhotos).disabled(photos.count + preparing >= 2 || feed.busy).help("Add up to 2 photos, or drop them here")
+                    Menu {
+                        if asNews { Button("No game") { game = "" } }
+                        ForEach(games) { choice in Button(choice.title) { game = choice.id } }
+                    } label: {
+                        Label(games.first { $0.id == game }?.title ?? (asNews ? "No game" : "Tag a game"), systemImage: "gamecontroller").font(.system(size: 13.5, weight: .medium)).lineLimit(1)
+                    }.menuStyle(.borderlessButton).fixedSize().foregroundStyle(game.isEmpty ? Color.secondary : accent).padding(.horizontal, 6)
+                    if feed.admin {
+                        FeedAction(symbol: asNews ? "megaphone.fill" : "megaphone", text: "News", tint: asNews ? accent : .secondary) { withAnimation(.snappy(duration: 0.2)) { asNews.toggle() } }
+                            .help("Post as news from Didim Labs")
+                    }
+                    if preparing > 0 { ProgressView().controlSize(.small).padding(.leading, 6) }
+                    Spacer(minLength: 8)
+                    if feed.busy { ProgressView().controlSize(.small) }
+                    if !draft.isEmpty {
+                        Text(String(draft.count) + " / " + String(asNews ? 4000 : limit)).font(.system(size: 12)).monospacedDigit()
+                            .foregroundStyle(draft.count > (asNews ? 3900 : limit - 40) ? Color.orange : Color.secondary).padding(.trailing, 6)
+                    }
+                    Button("Post") { submit() }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule).tint(accent).disabled(!canPost)
+                }
+            }
+        }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(dropping ? 0.09 : 0.045), in: RoundedRectangle(cornerRadius: 16))
+            .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(dropping ? accent : Color.primary.opacity(writing ? 0.16 : 0.06), style: StrokeStyle(lineWidth: dropping ? 2 : 1, dash: dropping ? [6, 4] : [])) }
+            .overlay(alignment: .bottom) { if dropping { Text("Drop up to 2 photos").font(.system(size: 12, weight: .semibold)).foregroundStyle(accent).padding(.bottom, 6) } }
+            .animation(.easeOut(duration: 0.15), value: dropping).animation(.smooth(duration: 0.2), value: writing)
+            .onDrop(of: [.fileURL, .image], isTargeted: $dropping) { dropped($0) }
+    }
+
+    private var canPost: Bool {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count >= 2, !feed.busy, preparing == 0 else { return false }
+        return asNews ? !newsTitle.trimmingCharacters(in: .whitespaces).isEmpty : !game.isEmpty
+    }
+
+    private func submit() {
+        let title = games.first { $0.id == game }?.title ?? ""
+        feed.post(body: draft.trimmingCharacters(in: .whitespacesAndNewlines), game: game, gameTitle: title, news: asNews && feed.admin,
+                  title: newsTitle.trimmingCharacters(in: .whitespaces), photos: photos) { draft = ""; newsTitle = ""; asNews = false; photos = []; writing = false }
     }
 
     private func addPhotos() {
@@ -466,147 +625,68 @@ struct FeedShelfView: View {
         return taken
     }
 
-    private var cleanNick: String {
-        nickDraft.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "@", with: "").lowercased()
-    }
-    private var nickOK: Bool { cleanNick.range(of: "^[a-z][a-z0-9_]{2,19}$", options: .regularExpression) != nil }
-
-    private func avatar(_ name: String, news: Bool, size: CGFloat) -> some View {
-        Text(news ? "D" : String(name.prefix(1)).uppercased()).font(.system(size: size * 0.42, weight: .bold, design: news ? .rounded : .default))
-            .foregroundStyle(news ? Color(red: 0.88, green: 0.7, blue: 0.35) : .white)
-            .frame(width: size, height: size)
-            .background(news ? Color.black.opacity(0.55) : Self.tint(name), in: Circle())
-    }
-    /// One steady colour per nickname.
-    private static func tint(_ name: String) -> Color {
-        let hues: [Double] = [0.03, 0.42, 0.58, 0.75, 0.12, 0.5, 0.9, 0.33]
-        let sum = name.unicodeScalars.reduce(0) { ($0 + Int($1.value)) % 9973 }
-        return Color(hue: hues[sum % hues.count], saturation: 0.5, brightness: 0.62)
-    }
-
-    private var placeholder: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Circle().fill(Color.primary.opacity(0.08)).frame(width: 34, height: 34)
-            VStack(alignment: .leading, spacing: 8) {
-                RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.08)).frame(width: 120, height: 11)
-                RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)).frame(height: 11)
-                RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)).frame(width: 260, height: 11)
-            }
-        }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
-    }
-
-    // MARK: writing
-
-    @ViewBuilder private var composer: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            if account.email.isEmpty || !feed.hasToken {
-                Text(account.email.isEmpty ? "Sign in to post about the games you play." : "Sign in once more to post: posting was added after you signed in.")
-                    .font(.system(size: 13)).foregroundStyle(.secondary)
-                HStack(spacing: 10) {
-                    if account.signingIn != nil {
-                        ProgressView().controlSize(.small)
-                        Text("Finish signing in in your browser.").font(.system(size: 13))
-                        Button("Cancel") { account.cancel() }
-                    } else {
-                        if account.providers.contains("apple") { Button { account.signIn("apple") } label: { Label("Sign in with Apple", systemImage: "apple.logo") } }
-                        if account.providers.contains("google") { Button { account.signIn("google") } label: { Label("Sign in with Google", systemImage: "g.circle") } }
-                    }
-                }
-            } else if feed.nick.isEmpty {
-                Text("Pick a nickname").font(.system(size: 14, weight: .semibold))
-                HStack(spacing: 8) {
-                    TextField("nickname (e.g. nyang_maker)", text: $nickDraft).textFieldStyle(.roundedBorder).frame(maxWidth: 260)
-                        .onSubmit { if nickOK { confirmNick = true } }
-                    Button("Set nickname") { confirmNick = true }.disabled(!nickOK || feed.busy)
-                }
-                Text("It is the name on your posts. Start with a letter; lower-case letters, digits and _ only, 3 to 20 long. It can't be changed once set. Your email is never shown.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            } else {
-                HStack(alignment: .top, spacing: 12) {
-                    avatar(feed.nick, news: asNews, size: 34)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(asNews ? "Didim Labs · news" : feed.nick).font(.system(size: 14, weight: .semibold))
-                        if asNews { TextField("Title", text: $newsTitle).textFieldStyle(.roundedBorder) }
-                        ZStack(alignment: .topLeading) {
-                            TextEditor(text: Binding(get: { draft }, set: { draft = String($0.prefix(asNews ? 4000 : limit)) }))
-                                .font(.system(size: 14)).scrollContentBackground(.hidden).frame(minHeight: 44, maxHeight: 110)
-                            if draft.isEmpty {
-                                Text("What are you playing? Share a tip, a moment, a question.").font(.system(size: 14)).foregroundStyle(.tertiary)
-                                    .padding(.leading, 5).allowsHitTesting(false)
-                            }
-                        }
-                        if !photos.isEmpty {
-                            HStack(spacing: 8) {
-                                ForEach(photos) { photo in
-                                    Image(nsImage: photo.preview).resizable().scaledToFill().frame(width: 96, height: 64).clipShape(RoundedRectangle(cornerRadius: 8))
-                                        .overlay(alignment: .topTrailing) {
-                                            Button { withAnimation(.snappy(duration: 0.22)) { photos.removeAll { $0.id == photo.id } } } label: {
-                                                Image(systemName: "xmark.circle.fill").font(.system(size: 16)).foregroundStyle(.white, .black.opacity(0.6))
-                                            }.buttonStyle(.plain).padding(3).help("Remove this photo")
-                                        }.transition(.scale(scale: 0.9).combined(with: .opacity))
-                                }
-                            }
-                        }
-                        HStack(spacing: 10) {
-                            Button { addPhotos() } label: { Image(systemName: "photo") }.disabled(photos.count + preparing >= 2 || feed.busy).help("Add up to 2 photos, or drop them here")
-                            if preparing > 0 { ProgressView().controlSize(.small) }
-                            Picker("Game", selection: $game) {
-                                Text(asNews ? "No game" : "Tag a game").tag("")
-                                ForEach(games) { Text($0.title).tag($0.id) }
-                            }.labelsHidden().frame(maxWidth: 230)
-                            if feed.admin { Toggle("Post as news", isOn: $asNews).toggleStyle(.checkbox).font(.system(size: 13)) }
-                            Spacer(minLength: 0)
-                            if feed.busy { ProgressView().controlSize(.small) }
-                            Text(String(draft.count) + " / " + String(asNews ? 4000 : limit)).font(.system(size: 12)).monospacedDigit().foregroundStyle(.secondary)
-                            Button("Post") { submit() }.buttonStyle(.borderedProminent).tint(accent).disabled(!canPost)
-                        }
-                    }
-                }
-            }
-        }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.primary.opacity(dropping ? 0.09 : 0.04), in: RoundedRectangle(cornerRadius: 14))
-            .overlay { if dropping { RoundedRectangle(cornerRadius: 14).strokeBorder(accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4])) } }
-            .overlay(alignment: .bottom) { if dropping { Text("Drop up to 2 photos").font(.system(size: 12, weight: .semibold)).foregroundStyle(accent).padding(.bottom, 6) } }
-            .animation(.easeOut(duration: 0.15), value: dropping)
-            .onDrop(of: [.fileURL, .image], isTargeted: $dropping) { dropped($0) }
-    }
-
-    private var canPost: Bool {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.count >= 2, !feed.busy, preparing == 0 else { return false }
-        return asNews ? !newsTitle.trimmingCharacters(in: .whitespaces).isEmpty : !game.isEmpty
-    }
-
-    private func submit() {
-        let title = games.first { $0.id == game }?.title ?? ""
-        feed.post(body: draft.trimmingCharacters(in: .whitespacesAndNewlines), game: game, gameTitle: title, news: asNews && feed.admin,
-                  title: newsTitle.trimmingCharacters(in: .whitespaces), photos: photos) { draft = ""; newsTitle = ""; asNews = false; photos = [] }
-    }
-
     // MARK: reading
 
+    /// One post in full: all of its text, its photos at their real size, every reply, and a place to answer.
+    @ViewBuilder private var detailSheet: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Post").font(.system(size: 16, weight: .bold, design: .rounded))
+                Spacer()
+                Button("Done") { detail = nil }.keyboardShortcut(.cancelAction)
+            }.padding(.horizontal, 22).padding(.vertical, 12)
+            Divider()
+            if let post = feed.posts.first(where: { $0.id == detail }) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        entry(post, parent: nil, size: 40, full: true)
+                        if !post.tail.isEmpty {
+                            Divider().opacity(0.6)
+                            ForEach(post.tail) { reply in entry(reply, parent: post.id, size: 28, full: true).transition(.opacity.combined(with: .move(edge: .top))) }
+                        }
+                    }.padding(22).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if canWrite {
+                    Divider()
+                    HStack(spacing: 8) {
+                        TextField("Reply as " + feed.nick, text: Binding(get: { replyDraft }, set: { replyDraft = String($0.prefix(limit)) }))
+                            .textFieldStyle(.roundedBorder).onSubmit { sendReply(post.id) }
+                        Button("Reply") { sendReply(post.id) }.buttonStyle(.borderedProminent).tint(accent).disabled(replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 || feed.busy)
+                    }.padding(.horizontal, 22).padding(.vertical, 12)
+                }
+            } else {
+                Text("This post is gone.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }.frame(width: 660, height: 640)
+    }
+
+    private func show(_ post: Int) {
+        replyTo = nil; replyDraft = ""
+        detail = post
+        if !feed.opened.contains(post) { feed.open(post) }
+    }
+
     private func card(_ post: FeedPost) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            entry(post, parent: nil, size: 34)
+        VStack(alignment: .leading, spacing: 12) {
+            entry(post, parent: nil, size: 38)
             if !post.tail.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(post.tail) { reply in entry(reply, parent: post.id, size: 24).transition(.opacity.combined(with: .move(edge: .top))) }
-                }.padding(.leading, 16).overlay(alignment: .leading) { Rectangle().fill(Color.primary.opacity(0.14)).frame(width: 2).padding(.vertical, 2) }
-                    .padding(.leading, 16)
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(post.tail) { reply in entry(reply, parent: post.id, size: 26).transition(.opacity.combined(with: .move(edge: .top))) }
+                }.padding(.leading, 18).overlay(alignment: .leading) { Capsule().fill(Color.primary.opacity(0.12)).frame(width: 2).padding(.vertical, 2) }
+                    .padding(.leading, 18)
             }
             if post.replies > post.tail.count, !feed.opened.contains(post.id) {
-                Button("View all " + String(post.replies) + " replies") { feed.open(post.id) }.buttonStyle(.link).font(.system(size: 13)).padding(.leading, 46).transition(.opacity)
+                Button("View all " + String(post.replies) + " replies") { feed.open(post.id) }.buttonStyle(.link).font(.system(size: 13)).padding(.leading, 50).transition(.opacity)
             }
             if replyTo == post.id {
                 HStack(spacing: 8) {
                     TextField("Reply as " + feed.nick, text: Binding(get: { replyDraft }, set: { replyDraft = String($0.prefix(limit)) }))
                         .textFieldStyle(.roundedBorder).onSubmit { sendReply(post.id) }
-                    Button("Reply") { sendReply(post.id) }.disabled(replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 || feed.busy)
+                    Button("Reply") { sendReply(post.id) }.buttonStyle(.borderedProminent).tint(accent).disabled(replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 || feed.busy)
                     Button("Cancel") { withAnimation(.snappy(duration: 0.22)) { replyTo = nil }; replyDraft = "" }
-                }.padding(.leading, 46).transition(.opacity.combined(with: .move(edge: .top)))
+                }.padding(.leading, 50).transition(.opacity.combined(with: .move(edge: .top)))
             }
-        }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(post.isNews ? accent.opacity(0.1) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
+        }.padding(.vertical, 16).frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func sendReply(_ post: Int) {
@@ -615,23 +695,22 @@ struct FeedShelfView: View {
         feed.reply(to: post, body: text) { replyDraft = ""; withAnimation(.snappy(duration: 0.22)) { replyTo = nil } }
     }
 
-    private var canWrite: Bool { !account.email.isEmpty && feed.hasToken && !feed.nick.isEmpty }
-
     /// A post's photos: thumbnails in the list (pressed, they open the post), the full pictures in the post's own sheet.
     @ViewBuilder private func pictures(_ post: FeedPost, full: Bool) -> some View {
         if !post.images.isEmpty {
             if full {
                 ForEach(post.images) { image in
                     AsyncImage(url: FeedModel.imageURL(image, full: true)) { loaded in loaded.resizable().scaledToFit() } placeholder: { Color.primary.opacity(0.06) }
-                        .aspectRatio(image.ratio, contentMode: .fit).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 10))
+                        .aspectRatio(image.ratio, contentMode: .fit).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             } else {
                 HStack(spacing: 8) {
                     ForEach(post.images) { image in
                         AsyncImage(url: FeedModel.imageURL(image, full: false)) { loaded in loaded.resizable().scaledToFill() } placeholder: { Color.primary.opacity(0.06) }
-                            .frame(width: min(300, 150 * image.ratio), height: 150).clipShape(RoundedRectangle(cornerRadius: 10))
+                            .frame(width: post.images.count == 1 ? min(420, 220 * image.ratio) : min(290, 180 * image.ratio), height: post.images.count == 1 ? 220 : 180)
+                            .clipShape(RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.08)))
                     }
-                }
+                }.padding(.top, 4)
             }
         }
     }
@@ -641,49 +720,46 @@ struct FeedShelfView: View {
             avatar(post.nick, news: post.isNews, size: size)
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 7) {
-                    Text(post.nick).font(.system(size: 14, weight: .semibold))
-                    if post.isNews { Text("NEWS").font(.system(size: 11, weight: .bold)).tracking(0.8).foregroundStyle(accent) }
-                    Text(Self.ago.localizedString(for: post.at, relativeTo: Date())).font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(post.nick).font(.system(size: 14.5, weight: .semibold))
+                    if post.isNews {
+                        Text("NEWS").font(.system(size: 10.5, weight: .bold)).tracking(0.7).foregroundStyle(accent)
+                            .padding(.horizontal, 6).padding(.vertical, 2).background(accent.opacity(0.14), in: Capsule())
+                    }
+                    Text(Self.ago.localizedString(for: post.at, relativeTo: Date())).font(.system(size: 13)).foregroundStyle(.tertiary)
                     Spacer(minLength: 0)
                     Menu {
                         if post.mine || feed.admin { Button("Delete", role: .destructive) { deleting = post } }
                         if !post.mine { Button(feed.admin ? "Hide" : "Report") { feed.report(post) }.disabled(!canWrite) }
-                    } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().foregroundStyle(.secondary)
+                    } label: { Image(systemName: "ellipsis").frame(width: 22, height: 18) }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().foregroundStyle(.tertiary)
                 }
                 if full || parent != nil {
-                    if !post.title.isEmpty { Text(post.title).font(.system(size: full ? 22 : 18, weight: .bold, design: .rounded)) }
-                    Text(FeedText.shown(post.body, links: post.isNews)).font(.system(size: 14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                    if !post.title.isEmpty { Text(post.title).font(.system(size: full ? 23 : 18, weight: .bold, design: .rounded)).padding(.top, 1) }
+                    Text(FeedText.shown(post.body, links: post.isNews)).font(.system(size: 15)).lineSpacing(3).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                     pictures(post, full: true)
                 } else {
                     // The list shows the start of a post; pressing it opens the whole of it.
                     Button { show(post.id) } label: {
                         VStack(alignment: .leading, spacing: 5) {
-                            if !post.title.isEmpty { Text(post.title).font(.system(size: 18, weight: .bold, design: .rounded)) }
-                            Text(FeedText.shown(post.body, links: false)).font(.system(size: 14)).lineSpacing(2).lineLimit(post.isNews ? 4 : 6).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                            if !post.title.isEmpty { Text(post.title).font(.system(size: 18, weight: .bold, design: .rounded)).padding(.top, 1) }
+                            Text(FeedText.shown(post.body, links: false)).font(.system(size: 15)).lineSpacing(3).lineLimit(post.isNews ? 4 : 6).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
                             pictures(post, full: false)
                         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                     }.buttonStyle(.plain).help("Open this post")
                 }
                 if !post.gameTitle.isEmpty {
-                    Label(post.gameTitle, systemImage: "gamecontroller.fill").font(.system(size: 12)).lineLimit(1)
-                        .padding(.horizontal, 9).padding(.vertical, 3).background(Color.primary.opacity(0.07), in: Capsule())
+                    Label(post.gameTitle, systemImage: "gamecontroller.fill").font(.system(size: 12.5, weight: .medium)).lineLimit(1).foregroundStyle(.secondary)
+                        .padding(.horizontal, 9).padding(.vertical, 4).background(Color.primary.opacity(0.06), in: Capsule()).padding(.top, 3)
                 }
-                HStack(spacing: 16) {
-                    Button { feed.like(post, parent: parent) } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: post.liked ? "heart.fill" : "heart").symbolEffect(.bounce, value: post.liked)
-                            Text(String(post.likes)).contentTransition(.numericText(value: Double(post.likes)))
-                        }.foregroundStyle(post.liked ? Color.red : Color.secondary).contentShape(Rectangle())
-                    }.buttonStyle(.plain).disabled(!canWrite).help(canWrite ? "Like" : "Sign in and pick a nickname to like posts")
+                HStack(spacing: 2) {
+                    FeedAction(symbol: post.liked ? "heart.fill" : "heart", text: String(post.likes), tint: post.liked ? .red : .secondary, bounce: post.liked) { feed.like(post, parent: parent) }
+                        .disabled(!canWrite).help(canWrite ? "Like" : "Pick a nickname to like posts")
                     if parent == nil {
-                        Button { withAnimation(.snappy(duration: 0.22)) { replyTo = replyTo == post.id ? nil : post.id }; replyDraft = "" } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: replyTo == post.id ? "bubble.left.fill" : "bubble.left")
-                                Text(String(post.replies)).contentTransition(.numericText(value: Double(post.replies)))
-                            }.foregroundStyle(.secondary).contentShape(Rectangle())
-                        }.buttonStyle(.plain).disabled(!canWrite).help(canWrite ? "Reply" : "Sign in and pick a nickname to reply")
+                        FeedAction(symbol: replyTo == post.id ? "bubble.left.fill" : "bubble.left", text: String(post.replies)) {
+                            if full { return }
+                            withAnimation(.snappy(duration: 0.22)) { replyTo = replyTo == post.id ? nil : post.id }; replyDraft = ""
+                        }.disabled(!canWrite).help(canWrite ? "Reply" : "Pick a nickname to reply")
                     }
-                }.font(.system(size: 13)).monospacedDigit().padding(.top, 2)
+                }.padding(.leading, -9).padding(.top, 1)
             }
         }
     }
