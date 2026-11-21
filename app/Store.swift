@@ -95,11 +95,15 @@ struct StoreView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 7) {
-                Text("Didim Labs Store").font(.system(size: 30, weight: .bold, design: .rounded))
-                Text(shelf == "goat" ? "Games people made with GOAT. Press Play and they open right here."
-                     : "Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
-                    .font(.callout).foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Didim Labs Store").font(.system(size: 30, weight: .bold, design: .rounded))
+                    Text(shelf == "goat" ? "Games people made with GOAT. Press Play and they open right here."
+                         : "Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                if isSignedIn { profileChip }
             }
             Picker("Shelf", selection: $shelf) {
                 Text("Didim Labs").tag("didim")
@@ -134,7 +138,7 @@ struct StoreView: View {
 
     /// Didim Labs' own games: bought through Polar, installed natively.
     @ViewBuilder private var didimShelf: some View {
-            accountBar
+            if !isSignedIn || !account.message.isEmpty { accountBar }
             if model.busy || !model.activity.isEmpty && model.activity != "Ready." {
                 HStack(spacing: 8) {
                     if model.busy { ProgressView().controlSize(.small) }
@@ -248,17 +252,34 @@ struct StoreView: View {
         }.padding(18).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
     }
 
+    /// Signed in, and not in the middle of signing in again.
+    private var isSignedIn: Bool { !account.email.isEmpty && account.signingIn == nil }
+
+    /// Who is signed in, at the top right: the first letter and the address; Sign out is in its menu.
+    private var profileChip: some View {
+        Menu {
+            Text(account.email)
+            Divider()
+            Button("Sign out") { account.signOut() }
+        } label: {
+            HStack(spacing: 7) {
+                Text(String(account.email.prefix(1)).uppercased()).font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 22, height: 22).background(accent, in: Circle())
+                Text(account.email).font(.system(size: 12)).lineLimit(1).truncationMode(.middle).frame(maxWidth: 220)
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
+            }.padding(.leading, 5).padding(.trailing, 10).padding(.vertical, 4)
+                .background(Color.primary.opacity(0.07), in: Capsule()).contentShape(Capsule())
+        }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .help("Signed in as " + account.email)
+    }
+
     private var accountBar: some View {
         HStack(spacing: 10) {
             if account.signingIn != nil {
                 ProgressView().controlSize(.small)
                 Text("Finish signing in in your browser.").font(.system(size: 12))
                 Button("Cancel") { account.cancel() }
-            } else if !account.email.isEmpty {
-                Image(systemName: "person.crop.circle.fill").foregroundStyle(.secondary)
-                Text("Signed in as " + account.email).font(.system(size: 12))
-                Button("Sign out") { account.signOut() }
-            } else if !account.providers.isEmpty {
+            } else if account.email.isEmpty, !account.providers.isEmpty {
                 Text("Sign in to buy games and play demos.").font(.system(size: 12)).foregroundStyle(.secondary)
                 if account.providers.contains("apple") {
                     Button { account.signIn("apple") } label: { Label("Sign in with Apple", systemImage: "apple.logo") }
