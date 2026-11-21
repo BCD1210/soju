@@ -317,7 +317,7 @@ struct LibraryView: View {
             nav("library", "Library", "square.grid.2x2", count: model.games.count)
             nav("favorites", "Favorites", "star", count: model.games.filter { model.preferences.favorites.contains($0.id) }.count)
             nav("discover", "Discover", "magnifyingglass", count: nil)
-            nav("store", "Didim Labs Store", "bag", count: nil)
+            nav("store", "Didim Labs", "bag", count: nil)
             Divider().padding(.vertical, 16)
             nav("accounts", "Accounts", "person.crop.circle", count: nil)
             nav("platforms", "Platforms", "square.stack.3d.up", count: nil)
