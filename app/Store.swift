@@ -88,15 +88,52 @@ struct StoreView: View {
     @State private var afterSignIn: (() -> Void)?
     @State private var askSignIn: String?
     @State private var key = ""
+    /// Which shelf is shown: Didim Labs' own games, or games people made with GOAT.
+    @AppStorage("storeShelf") private var shelf = "didim"
+    @StateObject private var goat = GoatShelfModel()
     private let accent = Color(red: 0.79, green: 0.36, blue: 0.27)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 7) {
                 Text("Didim Labs Store").font(.system(size: 30, weight: .bold, design: .rounded))
-                Text("Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
+                Text(shelf == "goat" ? "Games people made with GOAT. Press Play and they open right here."
+                     : "Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
                     .font(.callout).foregroundStyle(.secondary)
             }
+            Picker("Shelf", selection: $shelf) {
+                Text("Didim Labs").tag("didim")
+                Text("GOAT").tag("goat")
+            }.pickerStyle(.segmented).labelsHidden().fixedSize()
+            if shelf == "goat" {
+                GoatShelfView(shelf: goat, accent: accent)
+            } else {
+                didimShelf
+            }
+        }
+        .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear { store.load(root: model.root); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
+        .onChange(of: shelf) { if shelf == "goat" { goat.load() } }
+        .onChange(of: model.requestedBuy) { if model.requestedBuy != nil { shelf = "didim" }; buyRequested() }
+        .onChange(of: model.requestedClaim) { if model.requestedClaim != nil { shelf = "didim" }; claimRequested() }
+        .onChange(of: model.requestedAuth) {
+            guard let handoff = model.requestedAuth, handoff.count == 2 else { return }
+            model.requestedAuth = nil
+            account.received(state: handoff[0], code: handoff[1])
+        }
+        .onChange(of: store.games.count) { buyRequested() }
+        .onChange(of: model.requestedDemoPlay) { demoPlayRequested() }
+        .onChange(of: model.games.count) { demoPlayRequested() }
+        .onChange(of: account.email) {
+            guard !account.email.isEmpty, let action = afterSignIn else { return }
+            afterSignIn = nil; askSignIn = nil; action()
+        }
+        .sheet(item: $keyFor) { game in keySheet(game) }
+        .sheet(isPresented: Binding(get: { askSignIn != nil }, set: { if !$0 { askSignIn = nil } })) { signInSheet }
+    }
+
+    /// Didim Labs' own games: bought through Polar, installed natively.
+    @ViewBuilder private var didimShelf: some View {
             accountBar
             if model.busy || !model.activity.isEmpty && model.activity != "Ready." {
                 HStack(spacing: 8) {
@@ -136,25 +173,6 @@ struct StoreView: View {
                     Button("Have a license key?") { key = ""; keyFor = game }.buttonStyle(.link)
                 }
             }.font(.system(size: 11)).foregroundStyle(.secondary)
-        }
-        .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { store.load(root: model.root); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
-        .onChange(of: model.requestedBuy) { buyRequested() }
-        .onChange(of: model.requestedClaim) { claimRequested() }
-        .onChange(of: model.requestedAuth) {
-            guard let handoff = model.requestedAuth, handoff.count == 2 else { return }
-            model.requestedAuth = nil
-            account.received(state: handoff[0], code: handoff[1])
-        }
-        .onChange(of: store.games.count) { buyRequested() }
-        .onChange(of: model.requestedDemoPlay) { demoPlayRequested() }
-        .onChange(of: model.games.count) { demoPlayRequested() }
-        .onChange(of: account.email) {
-            guard !account.email.isEmpty, let action = afterSignIn else { return }
-            afterSignIn = nil; askSignIn = nil; action()
-        }
-        .sheet(item: $keyFor) { game in keySheet(game) }
-        .sheet(isPresented: Binding(get: { askSignIn != nil }, set: { if !$0 { askSignIn = nil } })) { signInSheet }
     }
 
     private var lastLine: String {
