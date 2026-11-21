@@ -56,9 +56,9 @@ def state(m):
 
 def engine_problem():
     if not os.access(ENGINE / 'bin/wine', os.X_OK):
-        return 'Set up Xbox PC again in Platforms: it installs the engine Xbox PC games run on.'
+        return 'Set up Xbox PC again in Stores: it installs the engine Xbox PC games run on.'
     if not (ENGINE / 'lib/external/libd3dshared.dylib').is_file():
-        return "Add Apple's Game Porting Toolkit in Platforms before playing."
+        return "Add Apple's Game Porting Toolkit in Stores before playing."
     return None
 
 

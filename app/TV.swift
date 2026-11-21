@@ -110,6 +110,7 @@ struct TVView: View {
                     Text("In Moonlight, open Desktop. You see this Mac's screen: start a game from Soju as usual. Mouse and keyboard work, and a controller on the TV acts as mouse and keys; games that only take a controller may not respond yet.")
                 }
             }.padding(28).frame(maxWidth: 760, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)   // fills the window, so the sidebar stays at the left edge
         }
         .onAppear { refresh(); timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in DispatchQueue.main.async { refresh() } } }
         .onDisappear { timer?.invalidate(); timer = nil }
