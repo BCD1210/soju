@@ -92,6 +92,7 @@ struct StoreView: View {
     @AppStorage("didimShelf") private var shelf = "feed"
     @StateObject private var feed = FeedModel()
     @State private var showProfile = false
+    @State private var showNotices = false
     @StateObject private var goat = GoatShelfModel()
     private let accent = Color(red: 0.79, green: 0.36, blue: 0.27)
 
@@ -106,7 +107,7 @@ struct StoreView: View {
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
-                if isSignedIn { profileChip }
+                if isSignedIn { bell; profileChip }
             }
             // The page's shelves as plain tabs with a line under the one that is open (the feed's own tabs look the same).
             VStack(alignment: .leading, spacing: 0) {
@@ -134,12 +135,19 @@ struct StoreView: View {
             }.id(shelf).transition(.opacity).animation(.easeInOut(duration: 0.18), value: shelf)
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { if !["feed", "store", "goat"].contains(shelf) { shelf = "feed" }; if model.requestedBuy != nil || model.requestedClaim != nil { shelf = "store" }; store.load(root: model.root); feed.load(); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
+        .onAppear { if !["feed", "store", "goat"].contains(shelf) { shelf = "feed" }; if model.requestedBuy != nil || model.requestedClaim != nil { shelf = "store" }; store.load(root: model.root); feed.load(); feed.loadNotices(); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
         .onChange(of: shelf) { if shelf == "goat" { goat.load() } else if shelf == "feed" { feed.load() } }
         .onChange(of: model.requestedBuy) { if model.requestedBuy != nil { shelf = "store" }; buyRequested() }
         .onChange(of: model.requestedClaim) { if model.requestedClaim != nil { shelf = "store" }; claimRequested() }
         .onChange(of: store.games.count) { buyRequested() }
         .onChange(of: model.requestedDemoPlay) { demoPlayRequested() }
+        .onChange(of: account.signIns) { feed.loadNotices() }
+        // While this page is on screen and Soju is in front: what others post, like and answer arrives by itself.
+        .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
+            guard NSApp.isActive, isSignedIn else { return }
+            if shelf == "feed" { feed.refresh() }
+            feed.loadNotices()
+        }
         .onChange(of: model.games.count) { demoPlayRequested() }
         .onChange(of: account.email) {
             guard !account.email.isEmpty, let action = afterSignIn else { return }
@@ -274,6 +282,54 @@ struct StoreView: View {
 
     /// Signed in, and not in the middle of signing in again.
     private var isSignedIn: Bool { !account.email.isEmpty && account.signingIn == nil }
+
+    private static let noticeAgo: RelativeDateTimeFormatter = { let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated; return f }()
+
+    /// The bell, left of the profile chip: a dot with the number of new replies, likes and news; its list opens the post.
+    private var bell: some View {
+        Button { showNotices.toggle(); if showNotices { feed.loadNotices() } } label: {
+            Image(systemName: feed.unread > 0 ? "bell.badge.fill" : "bell").font(.system(size: 14))
+                .symbolRenderingMode(.palette).foregroundStyle(feed.unread > 0 ? accent : Color.secondary, Color.primary)
+                .frame(width: 30, height: 30).background(Color.primary.opacity(0.07), in: Circle()).contentShape(Circle())
+                .overlay(alignment: .topTrailing) {
+                    if feed.unread > 0 {
+                        Text(feed.unread > 9 ? "9+" : String(feed.unread)).font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 4).frame(minWidth: 15, minHeight: 15).background(accent, in: Capsule()).offset(x: 5, y: -4)
+                    }
+                }
+        }.buttonStyle(.plain).help(feed.unread > 0 ? String(feed.unread) + " new" : "Notifications")
+            .accessibilityLabel(feed.unread > 0 ? "Notifications, " + String(feed.unread) + " new" : "Notifications")
+            .popover(isPresented: $showNotices, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Notifications").font(.system(size: 14, weight: .bold, design: .rounded)).padding(.horizontal, 14).padding(.vertical, 10)
+                    Divider()
+                    if feed.notices.isEmpty {
+                        Text("Nothing yet. Replies to your posts, likes and news from Didim Labs show up here.")
+                            .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(14)
+                    } else {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(feed.notices) { notice in
+                                    Button { showNotices = false; shelf = "feed"; feed.show(notice.post) } label: {
+                                        HStack(alignment: .top, spacing: 10) {
+                                            Image(systemName: notice.symbol).font(.system(size: 11)).foregroundStyle(notice.fresh ? accent : Color.secondary).frame(width: 16).padding(.top, 2)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(notice.line).font(.system(size: 13, weight: notice.fresh ? .semibold : .regular))
+                                                if !notice.text.isEmpty { Text(notice.text).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2) }
+                                                Text(Self.noticeAgo.localizedString(for: notice.at, relativeTo: Date())).font(.system(size: 11)).foregroundStyle(.tertiary)
+                                            }
+                                            Spacer(minLength: 0)
+                                        }.padding(.horizontal, 14).padding(.vertical, 9).contentShape(Rectangle())
+                                    }.buttonStyle(.plain)
+                                    Divider().opacity(0.5)
+                                }
+                            }
+                        }.frame(maxHeight: 380)
+                    }
+                }.frame(width: 340)
+                    .onDisappear { feed.noticesSeen() }
+            }
+    }
 
     /// Who is signed in, at the top right: the first letter and the address; Sign out is in its menu.
     private var profileChip: some View {
@@ -510,6 +566,8 @@ struct StoreView: View {
     @Published var owned = Set(UserDefaults.standard.stringArray(forKey: "didimOwned") ?? [])
     @Published var providers: [String] = []
     @Published var signingIn: String?
+    /// Counts finished sign-ins. Signing in again with the same email changes nothing else, and the feed still has to read its new token.
+    @Published var signIns = 0
     @Published var message = ""
     private var timer: Timer?
     private var state = ""
@@ -605,6 +663,7 @@ struct StoreView: View {
         // The feed's token comes once, with this answer (site-worker/feed.js).
         if let token = body["token"] as? String { FeedToken.save(token) }
         email = address
+        signIns += 1
         owned.formUnion(found)
         UserDefaults.standard.set(address, forKey: "didimAccountEmail")
         UserDefaults.standard.set(Array(owned), forKey: "didimOwned")
