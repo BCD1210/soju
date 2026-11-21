@@ -90,6 +90,7 @@ struct StoreView: View {
     @State private var key = ""
     /// Which shelf is shown: Didim Labs' own games, or games people made with GOAT.
     @AppStorage("storeShelf") private var shelf = "didim"
+    @State private var showProfile = false
     @StateObject private var goat = GoatShelfModel()
     private let accent = Color(red: 0.79, green: 0.36, blue: 0.27)
 
@@ -257,11 +258,8 @@ struct StoreView: View {
 
     /// Who is signed in, at the top right: the first letter and the address; Sign out is in its menu.
     private var profileChip: some View {
-        Menu {
-            Text(account.email)
-            Divider()
-            Button("Sign out") { account.signOut() }
-        } label: {
+        // (A Menu redraws its label as a plain pull-down on macOS, so the chip is a button and its menu a popover.)
+        Button { showProfile.toggle() } label: {
             HStack(spacing: 7) {
                 Text(String(account.email.prefix(1)).uppercased()).font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
                     .frame(width: 22, height: 22).background(accent, in: Circle())
@@ -269,8 +267,15 @@ struct StoreView: View {
                 Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
             }.padding(.leading, 5).padding(.trailing, 10).padding(.vertical, 4)
                 .background(Color.primary.opacity(0.07), in: Capsule()).contentShape(Capsule())
-        }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        }.buttonStyle(.plain).fixedSize()
             .help("Signed in as " + account.email)
+            .popover(isPresented: $showProfile, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Signed in as").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(account.email).font(.system(size: 13, weight: .semibold)).textSelection(.enabled)
+                    Button("Sign out") { showProfile = false; account.signOut() }
+                }.padding(14).frame(minWidth: 200, alignment: .leading)
+            }
     }
 
     private var accountBar: some View {
