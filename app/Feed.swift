@@ -345,6 +345,20 @@ private struct FeedAction: View {
     }
 }
 
+/// The two ways in, drawn as the feed's own buttons: a filled one and an outlined one, the same height and shape.
+private struct GateButton: ButtonStyle {
+    let filled: Bool
+    @State private var over = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.font(.system(size: 14.5, weight: .semibold))
+            .foregroundStyle(filled ? Color(nsColor: .windowBackgroundColor) : Color.primary)
+            .padding(.horizontal, 18).frame(height: 38)
+            .background(filled ? AnyShapeStyle(Color.primary.opacity(configuration.isPressed ? 0.75 : over ? 0.88 : 1)) : AnyShapeStyle(Color.primary.opacity(configuration.isPressed ? 0.14 : over ? 0.09 : 0)), in: Capsule())
+            .overlay { if !filled { Capsule().strokeBorder(Color.primary.opacity(0.28)) } }
+            .contentShape(Capsule()).onHover { over = $0 }.animation(.easeOut(duration: 0.12), value: over)
+    }
+}
+
 struct FeedShelfView: View {
     @ObservedObject var feed: FeedModel
     @ObservedObject var account: AccountModel
@@ -382,7 +396,7 @@ struct FeedShelfView: View {
                     gate
                 } else {
                     if feed.nick.isEmpty && feed.loaded { nickCard } else if !feed.nick.isEmpty { composer }
-                    tabs.padding(.top, 18)
+                    tabs.padding(.top, 20)
                     Divider().opacity(0.6)
                     ForEach(feed.posts) { post in
                         VStack(spacing: 0) { card(post); Divider().opacity(0.45) }
@@ -402,7 +416,7 @@ struct FeedShelfView: View {
                     }
                     if feed.more { Button("Show older posts") { feed.loadMore() }.buttonStyle(.link).frame(maxWidth: .infinity).padding(.vertical, 16) }
                 }
-            }.frame(maxWidth: column, alignment: .leading).frame(maxWidth: .infinity)
+            }.frame(maxWidth: column, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
         }
         .animation(.smooth(duration: 0.28), value: feed.note)
         .animation(.smooth(duration: 0.3), value: signedIn)
@@ -421,31 +435,48 @@ struct FeedShelfView: View {
 
     // MARK: before signing in
 
-    /// Signed out, the feed shows nothing of itself: only how to come in.
+    /// Signed out, the feed shows nothing of itself: what it is, the ways in, and the outline of posts fading away below.
     private var gate: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 36)).foregroundStyle(accent)
-            Text("The feed is for players who are signed in").font(.system(size: 20, weight: .bold, design: .rounded)).multilineTextAlignment(.center)
-            Text(account.email.isEmpty ? "Sign in to read game news from Didim Labs and what other players are saying, and to post about the games you play."
-                 : "Sign in once more to open the feed: it was added after you signed in.")
-                .font(.system(size: 14)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 420).fixedSize(horizontal: false, vertical: true)
-            if account.signingIn != nil {
-                HStack(spacing: 10) {
-                    ProgressView().controlSize(.small)
-                    Text("Finish signing in in your browser.").font(.system(size: 13))
-                    Button("Cancel") { account.cancel() }
-                }.padding(.top, 4)
-            } else {
-                HStack(spacing: 10) {
-                    if account.providers.contains("apple") { Button { account.signIn("apple") } label: { Label("Sign in with Apple", systemImage: "apple.logo").padding(.horizontal, 4) }.controlSize(.large) }
-                    if account.providers.contains("google") { Button { account.signIn("google") } label: { Label("Sign in with Google", systemImage: "g.circle").padding(.horizontal, 4) }.controlSize(.large) }
-                }.padding(.top, 4)
-                if account.providers.isEmpty { Text("Sign-in is unavailable right now. Check the internet connection.").font(.system(size: 12)).foregroundStyle(.secondary) }
-            }
-            if !account.message.isEmpty && account.signingIn == nil { Text(account.message).font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.center) }
-        }.frame(maxWidth: .infinity).padding(.vertical, 56).padding(.horizontal, 24)
-            .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 18))
-            .padding(.top, 8).transition(.opacity)
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Join the feed").font(.system(size: 28, weight: .bold, design: .rounded))
+                Text(account.email.isEmpty ? "Game news from Didim Labs and posts from other players, about the games you play. Sign in to read and to write."
+                     : "Sign in once more to open the feed. It was added after you last signed in.")
+                    .font(.system(size: 15)).foregroundStyle(.secondary).lineSpacing(2).frame(maxWidth: 460, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+                if account.signingIn != nil {
+                    HStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text("Finish signing in in your browser.").font(.system(size: 14))
+                        Button("Cancel") { account.cancel() }.buttonStyle(GateButton(filled: false))
+                    }.padding(.top, 8)
+                } else if account.providers.isEmpty {
+                    Text("Sign-in is unavailable right now. Check the internet connection.").font(.system(size: 13)).foregroundStyle(.secondary).padding(.top, 8)
+                } else {
+                    HStack(spacing: 10) {
+                        if account.providers.contains("apple") { Button { account.signIn("apple") } label: { Label("Continue with Apple", systemImage: "apple.logo") }.buttonStyle(GateButton(filled: true)) }
+                        if account.providers.contains("google") {
+                            Button { account.signIn("google") } label: { Text("Continue with Google") }.buttonStyle(GateButton(filled: !account.providers.contains("apple")))
+                        }
+                    }.padding(.top, 8)
+                }
+                if !account.message.isEmpty && account.signingIn == nil { Text(account.message).font(.system(size: 13)).foregroundStyle(.secondary).padding(.top, 2) }
+            }.padding(.top, 26).padding(.bottom, 30)
+            // The outline of a feed, going faint: what is behind the door, without showing any of it.
+            VStack(spacing: 0) {
+                ForEach(0..<4, id: \.self) { i in
+                    HStack(alignment: .top, spacing: 12) {
+                        Circle().fill(Color.primary.opacity(0.09)).frame(width: 38, height: 38)
+                        VStack(alignment: .leading, spacing: 9) {
+                            RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.1)).frame(width: [110, 140, 90, 120][i], height: 11)
+                            RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.07)).frame(height: 11)
+                            RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.07)).frame(width: [300, 220, 360, 260][i], height: 11)
+                            if i == 1 { RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.06)).frame(width: 300, height: 120) }
+                        }
+                    }.padding(.vertical, 16).frame(maxWidth: .infinity, alignment: .leading)
+                    Divider().opacity(0.45)
+                }
+            }.mask(LinearGradient(colors: [.black, .black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom)).accessibilityHidden(true)
+        }.frame(maxWidth: .infinity, alignment: .leading).transition(.opacity)
     }
 
     private var nickCard: some View {
