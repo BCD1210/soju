@@ -7,6 +7,8 @@
 // that only that Soju knows. The Didim Labs account (email, provider, first and last sign-in day) is kept
 // under a:<email>; list them with: wrangler kv key list --binding AUTH --prefix a: --remote. Secrets: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APPLE_SERVICES_ID,
 // APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY (the .p8 text).
+import { issueToken } from "./feed.js";
+
 const STATE = /^[A-Za-z0-9_-]{32,64}$/;
 const TTL = 600;
 
@@ -152,7 +154,9 @@ main{max-width:440px;text-align:center}img{width:72px;height:72px}h1{font-size:2
       }
       await env.AUTH.delete("s:" + poll[1]);
       const { handoff, ...result } = saved;
-      return json(result);
+      // The feed's token (feed.js): given out here, once, to the Soju that signed in. Absent when the feed has no database.
+      const token = await issueToken(env, saved.email);
+      return json(token ? { ...result, token } : result);
     }
     if (saved.status === "failed") await env.AUTH.delete("s:" + poll[1]);
     return json(saved);

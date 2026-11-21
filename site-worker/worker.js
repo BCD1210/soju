@@ -18,6 +18,7 @@ import { EmailMessage } from "cloudflare:email";
 import { auth } from "./auth.js";
 import { notify, wishlist } from "./community.js";
 import { stats } from "./stats.js";
+import { feed } from "./feed.js";
 const HOME = "didimlabs.com";
 const POLAR = "https://api.polar.sh/v1";
 const ORG = "e7dd3a2e-a0ac-4b52-ad53-b7c7d7064420";
@@ -196,6 +197,7 @@ export default {
     if (url.pathname === "/api/notify") return notify(request, env);
     if (url.pathname === "/api/wishlist") return wishlist(request, env);
     if (url.pathname === "/api/stats") return stats(request, env, url);
+    if (url.pathname === "/api/feed" || url.pathname.startsWith("/api/feed/")) return feed(request, env, url);
     if (url.pathname.startsWith("/auth/")) return auth(request, env, url, { home: HOME, games: GAMES, polar, org: ORG });
     if (url.pathname === "/api/didim/checkout") return startCheckout(request, env);
     const checkoutPath = url.pathname.match(/^\/api\/didim\/checkout\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);

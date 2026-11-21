@@ -160,7 +160,7 @@ class XboxImportTests(unittest.TestCase):
         (self.base / 'xodus/bin/xodus-cli').unlink()
         with self.assertRaises(svc.ServiceError) as error:
             svc.xbox_owned(self.base, {'market': 'US'})
-        self.assertIn('Platforms', str(error.exception))
+        self.assertIn('Stores', str(error.exception))
 
     def test_saved_art_must_be_soju_art_for_that_game(self):
         art = self.base / 'library-artwork'
@@ -180,7 +180,7 @@ class XboxImportTests(unittest.TestCase):
         svc.save_account(self.base, 'xbox', [dict(id='xbox:9n116v0599hb', platform='xbox', title='A')], 'Xbox')
         _, owned, warnings = svc.saved_accounts(self.base)
         self.assertEqual(owned, [])
-        self.assertEqual(warnings, ['Xbox account import could not be read. Reconnect it in Accounts.'])
+        self.assertEqual(warnings, ['Xbox account import could not be read. Reconnect it in Stores.'])
 
 
 class XboxLibraryTests(unittest.TestCase):
@@ -261,7 +261,7 @@ class XboxLibraryTests(unittest.TestCase):
     def test_missing_setup_blocks_download(self):
         (self.base / 'xbox-bottle/drive_c' / library.CLIENTS['xbox']).unlink()
         svc.save_account(self.base, 'xbox', [dict(id='xbox:' + SILKSONG, platform='xbox', title='Silksong', format='MSIXVC')], 'Xbox')
-        with self.assertRaisesRegex(ValueError, 'Platforms'):
+        with self.assertRaisesRegex(ValueError, 'Stores'):
             self.lib.command('xbox:' + SILKSONG, install=True)
 
 
