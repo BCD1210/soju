@@ -81,7 +81,8 @@ struct FeedPost: Identifiable {
     let kind: String
     let nick: String
     let title: String
-    let body: String
+    var body: String
+    var edited = false
     let game: String
     let gameTitle: String
     let at: Date
@@ -92,6 +93,8 @@ struct FeedPost: Identifiable {
     var tail: [FeedPost]
     var images: [FeedImage] = []
     var isNews: Bool { kind == "news" }
+    /// The writer may change the words for 15 minutes (the server holds the same line).
+    var canEdit: Bool { mine && Date().timeIntervalSince(at) < 15 * 60 - 5 }
 
     /// A post this Mac just made, shown at once.
     init(id: Int, parent: Bool, kind: String, nick: String, title: String, body: String, game: String, gameTitle: String) {
@@ -107,7 +110,7 @@ struct FeedPost: Identifiable {
         game = (d["game"] as? String) ?? ""; gameTitle = (d["game_title"] as? String) ?? ""
         at = Date(timeIntervalSince1970: ((d["at"] as? Double) ?? 0) / 1000)
         likes = (d["likes"] as? Int) ?? 0; liked = (d["liked"] as? Bool) ?? false; replies = (d["replies"] as? Int) ?? 0
-        mine = (d["mine"] as? Bool) ?? false
+        mine = (d["mine"] as? Bool) ?? false; edited = (d["edited"] as? Bool) ?? false
         tail = ((d["tail"] as? [[String: Any]]) ?? []).compactMap(FeedPost.init)
         images = ((d["images"] as? [[String: Any]]) ?? []).compactMap { i in
             guard let id = i["id"] as? Int else { return nil }
@@ -204,7 +207,7 @@ enum FeedToken {
 
     private func query(before: Int?) -> String {
         var parts: [String] = []
-        if filter == "news" || filter == "player" { parts.append("kind=" + filter) }
+        if filter == "news" || filter == "player" || filter == "mine" { parts.append("kind=" + filter) }
         if let before { parts.append("before=" + String(before)) }
         return parts.isEmpty ? "" : "?" + parts.joined(separator: "&")
     }
@@ -301,6 +304,34 @@ enum FeedToken {
         }
     }
 
+    /// The newest page again, quietly, while the feed is on screen: new posts slide in on top and counts follow.
+    /// Nothing that is shown goes away, so older pages someone scrolled to stay where they are.
+    func refresh() {
+        guard hasToken, loaded, !busy else { return }
+        let asked = filter
+        send("GET", query(before: nil)) { status, value in
+            guard asked == self.filter, status == 200, let list = value["posts"] as? [[String: Any]] else { return }
+            var next = self.posts, changed = false, reopen: [Int] = []
+            let oldest = next.last?.id ?? 0
+            for post in list.compactMap(FeedPost.init) {
+                if let i = next.firstIndex(where: { $0.id == post.id }) {
+                    if next[i].likes != post.likes || next[i].liked != post.liked { next[i].likes = post.likes; next[i].liked = post.liked; changed = true }
+                    if next[i].body != post.body || next[i].edited != post.edited { next[i].body = post.body; next[i].edited = post.edited; changed = true }
+                    if next[i].replies != post.replies {
+                        changed = true
+                        if self.opened.contains(post.id) { reopen.append(post.id) } else { next[i].replies = post.replies; next[i].tail = post.tail }
+                    }
+                } else if post.id > oldest {
+                    next.append(post); changed = true
+                }
+            }
+            guard changed else { return }
+            next.sort { $0.id > $1.id }
+            withAnimation(.smooth(duration: 0.3)) { self.posts = next }
+            for id in reopen { self.open(id) }
+        }
+    }
+
     func loadNotices() {
         guard !FeedToken.load().isEmpty else { notices = []; unread = 0; return }
         send("GET", "/notices") { status, value in
@@ -351,6 +382,22 @@ enum FeedToken {
             if self.failed(status, value) { withAnimation(.snappy(duration: 0.2)) { self.setLike(post.id, parent: parent, likes: post.likes, liked: post.liked) }; return }
             let likes = (value["likes"] as? Int) ?? post.likes, liked = (value["liked"] as? Bool) ?? want
             withAnimation(.snappy(duration: 0.2)) { self.setLike(post.id, parent: parent, likes: likes, liked: liked) }
+        }
+    }
+
+    func edit(_ post: FeedPost, parent: Int?, body: String, done: @escaping () -> Void) {
+        guard !busy else { return }
+        busy = true
+        send("POST", "/edit", ["post": post.id, "body": body]) { status, value in
+            self.busy = false
+            if self.failed(status, value) { return }
+            let text = (value["body"] as? String) ?? body
+            if let parent, let i = self.posts.firstIndex(where: { $0.id == parent }), let j = self.posts[i].tail.firstIndex(where: { $0.id == post.id }) {
+                self.posts[i].tail[j].body = text; self.posts[i].tail[j].edited = true
+            } else if let i = self.posts.firstIndex(where: { $0.id == post.id }) {
+                self.posts[i].body = text; self.posts[i].edited = true
+            }
+            done()
         }
     }
 
@@ -456,6 +503,8 @@ struct FeedShelfView: View {
     @State private var replyTo: Int?
     @State private var replyDraft = ""
     @State private var deleting: FeedPost?
+    @State private var editing: Int?
+    @State private var editDraft = ""
     @State private var photos: [FeedPhoto] = []
     /// The post whose whole text, photos and thread are shown in a sheet.
     @State private var detail: Int?
@@ -598,7 +647,7 @@ struct FeedShelfView: View {
 
     private var tabs: some View {
         HStack(spacing: 4) {
-            ForEach([("all", "Everything"), ("news", "News"), ("player", "Players")], id: \.0) { id, title in
+            ForEach([("all", "Everything"), ("news", "News"), ("player", "Players"), ("mine", "My posts")], id: \.0) { id, title in
                 Button { feed.filter = id } label: {
                     VStack(spacing: 7) {
                         Text(title).font(.system(size: 13, weight: feed.filter == id ? .semibold : .regular)).foregroundStyle(feed.filter == id ? Color.primary : Color.secondary)
@@ -855,13 +904,32 @@ struct FeedShelfView: View {
                             .padding(.horizontal, 6).padding(.vertical, 2).background(accent.opacity(0.14), in: Capsule())
                     }
                     Text(Self.ago.localizedString(for: post.at, relativeTo: Date())).font(.system(size: 12)).foregroundStyle(.tertiary)
+                    if post.edited { Text("· edited").font(.system(size: 12)).foregroundStyle(.tertiary) }
                     Spacer(minLength: 0)
                     Menu {
+                        if post.canEdit { Button("Edit") { editDraft = post.body; withAnimation(.snappy(duration: 0.22)) { editing = post.id } } }
                         if post.mine || feed.admin { Button("Delete", role: .destructive) { deleting = post } }
                         if !post.mine { Button(feed.admin ? "Hide" : "Report") { feed.report(post) }.disabled(!canWrite) }
                     } label: { Image(systemName: "ellipsis").frame(width: 22, height: 18) }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().foregroundStyle(.tertiary)
                 }
-                if full || parent != nil {
+                if editing == post.id {
+                    let limit = post.isNews ? 4000 : 500, clean = editDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    VStack(alignment: .leading, spacing: 8) {
+                        if !post.title.isEmpty { Text(post.title).font(.system(size: 17, weight: .bold, design: .rounded)).padding(.top, 1) }
+                        TextEditor(text: Binding(get: { editDraft }, set: { editDraft = String($0.prefix(limit)) }))
+                            .font(.system(size: 14)).lineSpacing(3).scrollContentBackground(.hidden).padding(8).frame(minHeight: 84, maxHeight: 220)
+                            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(accent.opacity(0.5)))
+                        HStack(spacing: 8) {
+                            Button("Save") { feed.edit(post, parent: parent, body: clean) { withAnimation(.snappy(duration: 0.22)) { editing = nil } } }
+                                .buttonStyle(.borderedProminent).tint(accent).disabled(clean.count < 2 || clean == post.body || feed.busy || !post.canEdit)
+                            Button("Cancel") { withAnimation(.snappy(duration: 0.22)) { editing = nil } }
+                            Spacer(minLength: 0)
+                            Text(post.canEdit ? "\(editDraft.count)/\(limit)" : "The 15 minutes for editing are over.").font(.system(size: 11)).foregroundStyle(post.canEdit ? Color.secondary : Color.orange)
+                        }
+                    }
+                    pictures(post, full: full || parent != nil)
+                } else if full || parent != nil {
                     if !post.title.isEmpty { Text(post.title).font(.system(size: full ? 21 : 17, weight: .bold, design: .rounded)).padding(.top, 1) }
                     Text(FeedText.shown(post.body, links: post.isNews)).font(.system(size: 14)).lineSpacing(3).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                     pictures(post, full: true)
