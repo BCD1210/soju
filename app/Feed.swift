@@ -1,8 +1,50 @@
 import SwiftUI
 import AppKit
+import ImageIO
 
 /// The Didim Labs feed, the first shelf of the Didim Labs page: game news from Didim Labs and what signed-in players post,
 /// one stream, with replies under a post as in a thread. Served by didimlabs.com/api/feed (site-worker/feed.js).
+/// A photo on a post: its id on the site and its size, so its place is kept before it loads.
+struct FeedImage: Identifiable, Hashable {
+    let id: Int
+    let w: Int
+    let h: Int
+    var ratio: CGFloat { h > 0 ? CGFloat(w) / CGFloat(h) : 1.5 }
+}
+
+/// A photo picked for a post, already made small: the long side at most 1600 px as a JPEG under 440 KB, and a 560 px thumbnail.
+/// Good on a Retina window, a tenth or less of what a camera or a screenshot saves, so storing and sending them costs next to nothing.
+struct FeedPhoto: Identifiable {
+    let id = UUID()
+    let full: Data
+    let thumb: Data
+    let w: Int
+    let h: Int
+    let preview: NSImage
+
+    static func make(_ url: URL) -> FeedPhoto? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        func scaled(_ side: Int) -> CGImage? {
+            CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+                                                            kCGImageSourceThumbnailMaxPixelSize: side] as CFDictionary)
+        }
+        func jpeg(_ image: CGImage, _ quality: Double) -> Data? {
+            NSBitmapImageRep(cgImage: image).representation(using: .jpeg, properties: [.compressionFactor: quality, .fallbackBackgroundColor: NSColor.white])
+        }
+        // Step down only as far as needed to fit.
+        var full: (Data, CGImage)?
+        for (side, quality) in [(1600, 0.8), (1600, 0.68), (1280, 0.7), (1024, 0.66), (800, 0.6)] {
+            if let image = scaled(side), let data = jpeg(image, quality), data.count <= 440 * 1024 { full = (data, image); break }
+        }
+        var thumb: Data?
+        for (side, quality) in [(560, 0.72), (480, 0.62), (360, 0.55)] {
+            if let image = scaled(side), let data = jpeg(image, quality), data.count <= 85 * 1024 { thumb = data; break }
+        }
+        guard let full, let thumb else { return nil }
+        return FeedPhoto(full: full.0, thumb: thumb, w: full.1.width, h: full.1.height, preview: NSImage(data: thumb) ?? NSImage())
+    }
+}
+
 struct FeedPost: Identifiable {
     let id: Int
     let kind: String
@@ -17,6 +59,7 @@ struct FeedPost: Identifiable {
     var replies: Int
     let mine: Bool
     var tail: [FeedPost]
+    var images: [FeedImage] = []
     var isNews: Bool { kind == "news" }
 
     /// A post this Mac just made, shown at once.
@@ -35,6 +78,10 @@ struct FeedPost: Identifiable {
         likes = (d["likes"] as? Int) ?? 0; liked = (d["liked"] as? Bool) ?? false; replies = (d["replies"] as? Int) ?? 0
         mine = (d["mine"] as? Bool) ?? false
         tail = ((d["tail"] as? [[String: Any]]) ?? []).compactMap(FeedPost.init)
+        images = ((d["images"] as? [[String: Any]]) ?? []).compactMap { i in
+            guard let id = i["id"] as? Int else { return nil }
+            return FeedImage(id: id, w: (i["w"] as? Int) ?? 3, h: (i["h"] as? Int) ?? 2)
+        }
     }
 }
 
@@ -74,6 +121,10 @@ enum FeedToken {
         if let dev = ProcessInfo.processInfo.environment["SOJU_FEED_URL"], dev.hasPrefix("http://127.0.0.1:") || dev.hasPrefix("http://localhost:") { return dev }
         return "https://didimlabs.com"
     }()
+
+    static func imageURL(_ image: FeedImage, full: Bool) -> URL? {
+        URL(string: site + "/api/feed/image/" + String(image.id) + "?s=" + (full ? "full" : "thumb"))
+    }
 
     private func send(_ method: String, _ path: String, _ body: [String: Any]? = nil, done: @escaping (Int, [String: Any]) -> Void) {
         guard let url = URL(string: Self.site + "/api/feed" + path) else { return }
@@ -145,20 +196,34 @@ enum FeedToken {
         }
     }
 
-    func post(body: String, game: String, gameTitle: String, news: Bool, title: String, done: @escaping () -> Void) {
+    /// Sends the photos one after another, then the post that carries them.
+    func post(body: String, game: String, gameTitle: String, news: Bool, title: String, photos: [FeedPhoto], done: @escaping () -> Void) {
         busy = true
-        var payload: [String: Any] = ["body": body, "game": game, "game_title": gameTitle]
-        if news { payload["news"] = true; payload["title"] = title }
-        send("POST", "/post", payload) { status, value in
-            self.busy = false
-            guard !self.failed(status, value) else { return }
-            done()
-            // Shown at the top at once; the list is not fetched again for it.
-            if let id = value["id"] as? Int, self.filter != (news ? "player" : "news") {
-                let mine = FeedPost(id: id, parent: false, kind: news ? "news" : "player", nick: news ? "Didim Labs" : self.nick, title: news ? title : "", body: body, game: game, gameTitle: gameTitle)
-                withAnimation(.spring(duration: 0.38, bounce: 0.18)) { self.posts.insert(mine, at: 0) }
-            } else { self.load() }
+        var sent: [FeedImage] = []
+        func next(_ rest: ArraySlice<FeedPhoto>) {
+            guard let photo = rest.first else { finish(); return }
+            send("POST", "/image", ["full": photo.full.base64EncodedString(), "thumb": photo.thumb.base64EncodedString(), "w": photo.w, "h": photo.h]) { status, value in
+                if self.failed(status, value) { self.busy = false; return }
+                if let id = value["image"] as? Int { sent.append(FeedImage(id: id, w: photo.w, h: photo.h)) }
+                next(rest.dropFirst())
+            }
         }
+        func finish() {
+            var payload: [String: Any] = ["body": body, "game": game, "game_title": gameTitle, "images": sent.map(\.id)]
+            if news { payload["news"] = true; payload["title"] = title }
+            send("POST", "/post", payload) { status, value in
+                self.busy = false
+                guard !self.failed(status, value) else { return }
+                done()
+                // Shown at the top at once; the list is not fetched again for it.
+                if let id = value["id"] as? Int, self.filter != (news ? "player" : "news") {
+                    var mine = FeedPost(id: id, parent: false, kind: news ? "news" : "player", nick: news ? "Didim Labs" : self.nick, title: news ? title : "", body: body, game: game, gameTitle: gameTitle)
+                    mine.images = sent
+                    withAnimation(.spring(duration: 0.38, bounce: 0.18)) { self.posts.insert(mine, at: 0) }
+                } else { self.load() }
+            }
+        }
+        next(photos[...])
     }
 
     func reply(to post: Int, body: String, done: @escaping () -> Void) {
@@ -241,6 +306,9 @@ struct FeedShelfView: View {
     @State private var replyTo: Int?
     @State private var replyDraft = ""
     @State private var deleting: FeedPost?
+    @State private var photos: [FeedPhoto] = []
+    /// The post whose whole text, photos and thread are shown in a sheet.
+    @State private var detail: Int?
     private static let ago: RelativeDateTimeFormatter = { let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated; return f }()
     private let limit = 500
 
@@ -281,6 +349,59 @@ struct FeedShelfView: View {
             Button("Delete", role: .destructive) { if let post = deleting { feed.delete(post) }; deleting = nil }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: { Text("Its replies go with it.") }
+        .sheet(isPresented: Binding(get: { detail != nil }, set: { if !$0 { detail = nil } })) { detailSheet }
+    }
+
+    /// One post in full: all of its text, its photos at their real size, every reply, and a place to answer.
+    @ViewBuilder private var detailSheet: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Post").font(.system(size: 15, weight: .bold, design: .rounded))
+                Spacer()
+                Button("Done") { detail = nil }.keyboardShortcut(.cancelAction)
+            }.padding(.horizontal, 20).padding(.vertical, 12)
+            Divider()
+            if let post = feed.posts.first(where: { $0.id == detail }) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        entry(post, parent: nil, size: 38, full: true)
+                        if !post.tail.isEmpty {
+                            Divider()
+                            ForEach(post.tail) { reply in entry(reply, parent: post.id, size: 26, full: true).transition(.opacity.combined(with: .move(edge: .top))) }
+                        }
+                    }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if canWrite {
+                    Divider()
+                    HStack(spacing: 8) {
+                        TextField("Reply as " + feed.nick, text: Binding(get: { replyDraft }, set: { replyDraft = String($0.prefix(limit)) }))
+                            .textFieldStyle(.roundedBorder).onSubmit { sendReply(post.id) }
+                        Button("Reply") { sendReply(post.id) }.disabled(replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 || feed.busy)
+                    }.padding(.horizontal, 20).padding(.vertical, 12)
+                }
+            } else {
+                Text("This post is gone.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }.frame(width: 640, height: 620)
+    }
+
+    private func show(_ post: Int) {
+        replyTo = nil; replyDraft = ""
+        detail = post
+        if !feed.opened.contains(post) { feed.open(post) }
+    }
+
+    private func addPhotos() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.message = "Photos are made smaller before they are sent (long side 1600 px)."
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls.prefix(max(0, 2 - photos.count)) {
+            if let photo = FeedPhoto.make(url) { withAnimation(.snappy(duration: 0.22)) { photos.append(photo) } }
+            else { feed.note = "That photo could not be read. Try a JPEG, PNG or HEIC." }
+        }
     }
 
     private var cleanNick: String {
@@ -345,21 +466,35 @@ struct FeedShelfView: View {
                         Text(asNews ? "Didim Labs · news" : feed.nick).font(.system(size: 13, weight: .semibold))
                         if asNews { TextField("Title", text: $newsTitle).textFieldStyle(.roundedBorder) }
                         ZStack(alignment: .topLeading) {
-                            TextEditor(text: Binding(get: { draft }, set: { draft = String($0.prefix(limit)) }))
+                            TextEditor(text: Binding(get: { draft }, set: { draft = String($0.prefix(asNews ? 4000 : limit)) }))
                                 .font(.system(size: 13)).scrollContentBackground(.hidden).frame(minHeight: 44, maxHeight: 110)
                             if draft.isEmpty {
                                 Text("What are you playing? Share a tip, a moment, a question.").font(.system(size: 13)).foregroundStyle(.tertiary)
                                     .padding(.leading, 5).allowsHitTesting(false)
                             }
                         }
+                        if !photos.isEmpty {
+                            HStack(spacing: 8) {
+                                ForEach(photos) { photo in
+                                    Image(nsImage: photo.preview).resizable().scaledToFill().frame(width: 96, height: 64).clipShape(RoundedRectangle(cornerRadius: 8))
+                                        .overlay(alignment: .topTrailing) {
+                                            Button { withAnimation(.snappy(duration: 0.22)) { photos.removeAll { $0.id == photo.id } } } label: {
+                                                Image(systemName: "xmark.circle.fill").font(.system(size: 15)).foregroundStyle(.white, .black.opacity(0.6))
+                                            }.buttonStyle(.plain).padding(3).help("Remove this photo")
+                                        }.transition(.scale(scale: 0.9).combined(with: .opacity))
+                                }
+                            }
+                        }
                         HStack(spacing: 10) {
+                            Button { addPhotos() } label: { Image(systemName: "photo") }.disabled(photos.count >= 2 || feed.busy).help("Add up to 2 photos")
                             Picker("Game", selection: $game) {
                                 Text(asNews ? "No game" : "Tag a game").tag("")
                                 ForEach(games) { Text($0.title).tag($0.id) }
-                            }.labelsHidden().frame(maxWidth: 260)
+                            }.labelsHidden().frame(maxWidth: 230)
                             if feed.admin { Toggle("Post as news", isOn: $asNews).toggleStyle(.checkbox).font(.system(size: 12)) }
                             Spacer(minLength: 0)
-                            Text(String(draft.count) + " / " + String(limit)).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
+                            if feed.busy { ProgressView().controlSize(.small) }
+                            Text(String(draft.count) + " / " + String(asNews ? 4000 : limit)).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
                             Button("Post") { submit() }.buttonStyle(.borderedProminent).tint(accent).disabled(!canPost)
                         }
                     }
@@ -378,7 +513,7 @@ struct FeedShelfView: View {
     private func submit() {
         let title = games.first { $0.id == game }?.title ?? ""
         feed.post(body: draft.trimmingCharacters(in: .whitespacesAndNewlines), game: game, gameTitle: title, news: asNews && feed.admin,
-                  title: newsTitle.trimmingCharacters(in: .whitespaces)) { draft = ""; newsTitle = ""; asNews = false }
+                  title: newsTitle.trimmingCharacters(in: .whitespaces), photos: photos) { draft = ""; newsTitle = ""; asNews = false; photos = [] }
     }
 
     // MARK: reading
@@ -415,7 +550,26 @@ struct FeedShelfView: View {
 
     private var canWrite: Bool { !account.email.isEmpty && feed.hasToken && !feed.nick.isEmpty }
 
-    private func entry(_ post: FeedPost, parent: Int?, size: CGFloat) -> some View {
+    /// A post's photos: thumbnails in the list (pressed, they open the post), the full pictures in the post's own sheet.
+    @ViewBuilder private func pictures(_ post: FeedPost, full: Bool) -> some View {
+        if !post.images.isEmpty {
+            if full {
+                ForEach(post.images) { image in
+                    AsyncImage(url: FeedModel.imageURL(image, full: true)) { loaded in loaded.resizable().scaledToFit() } placeholder: { Color.primary.opacity(0.06) }
+                        .aspectRatio(image.ratio, contentMode: .fit).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+            } else {
+                HStack(spacing: 8) {
+                    ForEach(post.images) { image in
+                        AsyncImage(url: FeedModel.imageURL(image, full: false)) { loaded in loaded.resizable().scaledToFill() } placeholder: { Color.primary.opacity(0.06) }
+                            .frame(width: min(300, 150 * image.ratio), height: 150).clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+            }
+        }
+    }
+
+    private func entry(_ post: FeedPost, parent: Int?, size: CGFloat, full: Bool = false) -> some View {
         HStack(alignment: .top, spacing: 12) {
             avatar(post.nick, news: post.isNews, size: size)
             VStack(alignment: .leading, spacing: 5) {
@@ -429,8 +583,20 @@ struct FeedShelfView: View {
                         if !post.mine { Button(feed.admin ? "Hide" : "Report") { feed.report(post) }.disabled(!canWrite) }
                     } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().foregroundStyle(.secondary)
                 }
-                if !post.title.isEmpty { Text(post.title).font(.system(size: 17, weight: .bold, design: .rounded)) }
-                Text(post.body).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                if full || parent != nil {
+                    if !post.title.isEmpty { Text(post.title).font(.system(size: full ? 20 : 17, weight: .bold, design: .rounded)) }
+                    Text(post.body).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                    pictures(post, full: true)
+                } else {
+                    // The list shows the start of a post; pressing it opens the whole of it.
+                    Button { show(post.id) } label: {
+                        VStack(alignment: .leading, spacing: 5) {
+                            if !post.title.isEmpty { Text(post.title).font(.system(size: 17, weight: .bold, design: .rounded)) }
+                            Text(post.body).font(.system(size: 13)).lineLimit(post.isNews ? 4 : 6).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                            pictures(post, full: false)
+                        }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                    }.buttonStyle(.plain).help("Open this post")
+                }
                 if !post.gameTitle.isEmpty {
                     Label(post.gameTitle, systemImage: "gamecontroller.fill").font(.system(size: 11)).lineLimit(1)
                         .padding(.horizontal, 9).padding(.vertical, 3).background(Color.primary.opacity(0.07), in: Capsule())
