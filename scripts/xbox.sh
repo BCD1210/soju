@@ -18,7 +18,7 @@ need_backend() {
     return
   fi
   python3 "$ROOT/scripts/fetch-xodus-backend.py" --check || {
-    echo "Set up Xbox PC in Platforms first (or run: soju xbox-install)." >&2; exit 1; }
+    echo "Set up Xbox PC in Stores first (or run: soju xbox-install)." >&2; exit 1; }
 }
 
 case "${1:-}" in
@@ -37,9 +37,9 @@ case "${1:-}" in
       python3 "$ROOT/scripts/xbox-prefix.py"
     else
       if [ -x "${ENGINE:-$BASE/cx26-engine}/bin/wine" ]; then
-        echo "Playing Xbox PC games needs Apple's Game Porting Toolkit: add it in Platforms (or: soju gptk)."
+        echo "Playing Xbox PC games needs Apple's Game Porting Toolkit: add it in Stores (or: soju gptk)."
       else
-        echo "Playing Xbox PC games needs the CX engine: set up Xbox PC again in Platforms (or: soju install)."
+        echo "Playing Xbox PC games needs the CX engine: set up Xbox PC again in Stores (or: soju install)."
       fi
     fi
     echo "Xbox PC is ready. Sign in from Soju > Accounts (or: soju xbox-login)."
