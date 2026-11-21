@@ -226,3 +226,31 @@ test("a member posts a few seconds apart and a set number a day; pages go back b
   const older = await call(env, "GET", "?before=" + first.posts[9].id, tok["d@x.com"]);
   assert.equal(older.posts.length, FEED.PAGE - 10); assert.ok(older.posts.every((p) => p.id < first.posts[9].id));
 });
+
+test("the bell: replies, likes and news from others, newest first; opening it clears the count", async () => {
+  const { env, tok } = await setup();
+  const [a, b, op] = [tok["a@x.com"], tok["b@x.com"], tok["op@didimlabs.com"]];
+  for (const [t, n] of [[a, "alice"], [b, "bobby"], [op, "mike"]]) await call(env, "POST", "/nick", t, { nick: n });
+  assert.equal((await call(env, "GET", "/notices", null)).status, 401);
+  const post = (await call(env, "POST", "/post", a, { body: "It runs on my Mac", ...GAME })).id;
+  assert.deepEqual((await call(env, "GET", "/notices", a)).items, []);           // one's own post is not news to oneself
+  await call(env, "POST", "/like", a, { post, on: true });                       // nor one's own like
+  await call(env, "POST", "/like", b, { post, on: true });
+  await call(env, "POST", "/post", b, { body: "Same here", parent: post });
+  await call(env, "POST", "/post", op, { body: "A new version is out", news: true, title: "Soju 2" });
+  const seenBy = await call(env, "GET", "/notices", a);
+  assert.equal(seenBy.status, 200);
+  assert.deepEqual(seenBy.items.map((i) => i.type).sort(), ["like", "news", "reply"]);
+  assert.ok(seenBy.items.every((i) => i.post > 0 && i.at > 0));
+  assert.equal(seenBy.items.find((i) => i.type === "reply").nick, "bobby");
+  assert.equal(seenBy.items.find((i) => i.type === "reply").post, post);
+  assert.equal(seenBy.items.find((i) => i.type === "news").text, "Soju 2");
+  assert.equal(seenBy.unread, 3);
+  assert.ok(!JSON.stringify(seenBy).includes("@x.com"));                           // nicknames only, never an address
+  assert.equal((await call(env, "GET", "/notices", b)).unread, 1);               // bobby: the news only
+  assert.equal((await call(env, "GET", "/notices", op)).unread, 0);              // the operator's own news is not new to them
+  assert.equal((await call(env, "POST", "/seen", a, {})).status, 200);
+  const after = await call(env, "GET", "/notices", a);
+  assert.equal(after.unread, 0);
+  assert.equal(after.items.length, 3);
+});
