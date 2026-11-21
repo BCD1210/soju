@@ -19,6 +19,13 @@ struct FeedPost: Identifiable {
     var tail: [FeedPost]
     var isNews: Bool { kind == "news" }
 
+    /// A post this Mac just made, shown at once.
+    init(id: Int, parent: Bool, kind: String, nick: String, title: String, body: String, game: String, gameTitle: String) {
+        self.id = id; self.kind = kind; self.nick = nick; self.title = title; self.body = body
+        self.game = parent ? "" : game; self.gameTitle = parent ? "" : gameTitle
+        at = Date(); likes = 0; liked = false; replies = 0; mine = true; tail = []
+    }
+
     init?(_ d: [String: Any]) {
         guard let id = d["id"] as? Int, let body = d["body"] as? String, let nick = d["nick"] as? String else { return nil }
         self.id = id; self.body = body; self.nick = nick
@@ -97,8 +104,16 @@ enum FeedToken {
         send("GET", query(before: nil)) { status, value in
             guard asked == self.filter else { return }
             guard status == 200, let list = value["posts"] as? [[String: Any]] else { self.offline = true; self.loaded = true; return }
-            self.posts = list.compactMap(FeedPost.init); self.more = (value["more"] as? Bool) ?? false
-            self.opened = []; self.offline = false; self.loaded = true
+            var fresh = list.compactMap(FeedPost.init)
+            // A thread that was open stays open, with what it showed, unless replies came or went meanwhile.
+            var stillOpen = Set<Int>()
+            for i in fresh.indices where self.opened.contains(fresh[i].id) {
+                if let old = self.posts.first(where: { $0.id == fresh[i].id }), old.tail.count == fresh[i].replies { fresh[i].tail = old.tail; stillOpen.insert(fresh[i].id) }
+            }
+            withAnimation(.smooth(duration: 0.28)) {
+                self.posts = fresh; self.more = (value["more"] as? Bool) ?? false
+                self.opened = stillOpen; self.offline = false; self.loaded = true
+            }
             let me = value["me"] as? [String: Any]
             self.nick = (me?["nick"] as? String) ?? ""; self.admin = (me?["admin"] as? Bool) ?? false
             // A token the site no longer knows (signed out elsewhere, an old one): posting asks for a sign-in again.
@@ -111,7 +126,7 @@ enum FeedToken {
         let asked = filter
         send("GET", query(before: last.id)) { status, value in
             guard asked == self.filter, status == 200, let list = value["posts"] as? [[String: Any]] else { return }
-            self.posts += list.compactMap(FeedPost.init); self.more = (value["more"] as? Bool) ?? false
+            withAnimation(.smooth(duration: 0.28)) { self.posts += list.compactMap(FeedPost.init); self.more = (value["more"] as? Bool) ?? false }
         }
     }
 
@@ -136,7 +151,13 @@ enum FeedToken {
         if news { payload["news"] = true; payload["title"] = title }
         send("POST", "/post", payload) { status, value in
             self.busy = false
-            if !self.failed(status, value) { done(); self.load() }
+            guard !self.failed(status, value) else { return }
+            done()
+            // Shown at the top at once; the list is not fetched again for it.
+            if let id = value["id"] as? Int, self.filter != (news ? "player" : "news") {
+                let mine = FeedPost(id: id, parent: false, kind: news ? "news" : "player", nick: news ? "Didim Labs" : self.nick, title: news ? title : "", body: body, game: game, gameTitle: gameTitle)
+                withAnimation(.spring(duration: 0.38, bounce: 0.18)) { self.posts.insert(mine, at: 0) }
+            } else { self.load() }
         }
     }
 
@@ -144,7 +165,12 @@ enum FeedToken {
         busy = true
         send("POST", "/post", ["body": body, "parent": post]) { status, value in
             self.busy = false
-            if !self.failed(status, value) { done(); self.open(post) }
+            guard !self.failed(status, value) else { return }
+            done()
+            if let id = value["id"] as? Int, let i = self.posts.firstIndex(where: { $0.id == post }), self.posts[i].tail.count == self.posts[i].replies {
+                let mine = FeedPost(id: id, parent: true, kind: "player", nick: self.nick, title: "", body: body, game: "", gameTitle: "")
+                withAnimation(.spring(duration: 0.34, bounce: 0.15)) { self.posts[i].tail.append(mine); self.posts[i].replies += 1; self.opened.insert(post) }
+            } else { self.open(post) }
         }
     }
 
@@ -152,19 +178,26 @@ enum FeedToken {
     func open(_ post: Int) {
         send("GET", "/thread?id=" + String(post)) { status, value in
             guard status == 200, let list = value["replies"] as? [[String: Any]], let i = self.posts.firstIndex(where: { $0.id == post }) else { return }
-            self.posts[i].tail = list.compactMap(FeedPost.init); self.posts[i].replies = self.posts[i].tail.count; self.opened.insert(post)
+            withAnimation(.smooth(duration: 0.3)) { self.posts[i].tail = list.compactMap(FeedPost.init); self.posts[i].replies = self.posts[i].tail.count; self.opened.insert(post) }
         }
     }
 
+    private func setLike(_ id: Int, parent: Int?, likes: Int, liked: Bool) {
+        if let parent, let i = posts.firstIndex(where: { $0.id == parent }), let j = posts[i].tail.firstIndex(where: { $0.id == id }) {
+            posts[i].tail[j].likes = likes; posts[i].tail[j].liked = liked
+        } else if let i = posts.firstIndex(where: { $0.id == id }) {
+            posts[i].likes = likes; posts[i].liked = liked
+        }
+    }
+
+    /// The heart answers at once; if the site says no it goes back to what it was.
     func like(_ post: FeedPost, parent: Int?) {
-        send("POST", "/like", ["post": post.id, "on": !post.liked]) { status, value in
-            guard !self.failed(status, value) else { return }
-            let likes = (value["likes"] as? Int) ?? post.likes, liked = (value["liked"] as? Bool) ?? !post.liked
-            if let parent, let i = self.posts.firstIndex(where: { $0.id == parent }), let j = self.posts[i].tail.firstIndex(where: { $0.id == post.id }) {
-                self.posts[i].tail[j].likes = likes; self.posts[i].tail[j].liked = liked
-            } else if let i = self.posts.firstIndex(where: { $0.id == post.id }) {
-                self.posts[i].likes = likes; self.posts[i].liked = liked
-            }
+        let want = !post.liked
+        withAnimation(.snappy(duration: 0.2)) { setLike(post.id, parent: parent, likes: max(0, post.likes + (want ? 1 : -1)), liked: want) }
+        send("POST", "/like", ["post": post.id, "on": want]) { status, value in
+            if self.failed(status, value) { withAnimation(.snappy(duration: 0.2)) { self.setLike(post.id, parent: parent, likes: post.likes, liked: post.liked) }; return }
+            let likes = (value["likes"] as? Int) ?? post.likes, liked = (value["liked"] as? Bool) ?? want
+            withAnimation(.snappy(duration: 0.2)) { self.setLike(post.id, parent: parent, likes: likes, liked: liked) }
         }
     }
 
@@ -176,7 +209,13 @@ enum FeedToken {
 
     func delete(_ post: FeedPost) {
         send("POST", "/delete", ["post": post.id]) { status, value in
-            if !self.failed(status, value) { self.load() }
+            guard !self.failed(status, value) else { return }
+            withAnimation(.smooth(duration: 0.3)) {
+                if let i = self.posts.firstIndex(where: { $0.id == post.id }) { self.posts.remove(at: i) }
+                else if let i = self.posts.firstIndex(where: { p in p.tail.contains { $0.id == post.id } }) {
+                    self.posts[i].tail.removeAll { $0.id == post.id }; self.posts[i].replies = max(0, self.posts[i].replies - 1)
+                }
+            }
         }
     }
 }
@@ -216,15 +255,22 @@ struct FeedShelfView: View {
                     if !feed.note.isEmpty { Text(feed.note).font(.system(size: 12)).foregroundStyle(.orange).lineLimit(2) }
                     Spacer(minLength: 0)
                 }
-                ForEach(feed.posts) { card($0) }
+                ForEach(feed.posts) { post in
+                    card(post).transition(.asymmetric(insertion: .move(edge: .top).combined(with: .opacity), removal: .opacity.combined(with: .scale(scale: 0.97))))
+                }
                 if feed.posts.isEmpty {
-                    Text(feed.offline ? "The feed is unavailable right now. Check the internet connection."
-                         : feed.loaded ? "Nothing here yet. Be the first to post about a game." : "Loading the feed…")
-                        .foregroundStyle(.secondary).padding(.top, 30).frame(maxWidth: .infinity)
+                    if feed.loaded || feed.offline {
+                        Text(feed.offline ? "The feed is unavailable right now. Check the internet connection." : "Nothing here yet. Be the first to post about a game.")
+                            .foregroundStyle(.secondary).padding(.top, 30).frame(maxWidth: .infinity).transition(.opacity)
+                    } else {
+                        // The shape of what is coming, so the page does not jump when it arrives.
+                        ForEach(0..<3, id: \.self) { _ in placeholder }.transition(.opacity)
+                    }
                 }
                 if feed.more { Button("Show older posts") { feed.loadMore() }.frame(maxWidth: .infinity) }
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
+        .animation(.smooth(duration: 0.28), value: feed.note)
         .onChange(of: feed.filter) { feed.load() }
         .onChange(of: account.email) { feed.load() }
         .alert("Set your nickname to @" + cleanNick + "?", isPresented: $confirmNick) {
@@ -253,6 +299,17 @@ struct FeedShelfView: View {
         let hues: [Double] = [0.03, 0.42, 0.58, 0.75, 0.12, 0.5, 0.9, 0.33]
         let sum = name.unicodeScalars.reduce(0) { ($0 + Int($1.value)) % 9973 }
         return Color(hue: hues[sum % hues.count], saturation: 0.5, brightness: 0.62)
+    }
+
+    private var placeholder: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Circle().fill(Color.primary.opacity(0.08)).frame(width: 34, height: 34)
+            VStack(alignment: .leading, spacing: 8) {
+                RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.08)).frame(width: 120, height: 11)
+                RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)).frame(height: 11)
+                RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)).frame(width: 260, height: 11)
+            }
+        }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
     }
 
     // MARK: writing
@@ -331,20 +388,20 @@ struct FeedShelfView: View {
             entry(post, parent: nil, size: 34)
             if !post.tail.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    ForEach(post.tail) { entry($0, parent: post.id, size: 24) }
+                    ForEach(post.tail) { reply in entry(reply, parent: post.id, size: 24).transition(.opacity.combined(with: .move(edge: .top))) }
                 }.padding(.leading, 16).overlay(alignment: .leading) { Rectangle().fill(Color.primary.opacity(0.14)).frame(width: 2).padding(.vertical, 2) }
                     .padding(.leading, 16)
             }
             if post.replies > post.tail.count, !feed.opened.contains(post.id) {
-                Button("View all " + String(post.replies) + " replies") { feed.open(post.id) }.buttonStyle(.link).font(.system(size: 13)).padding(.leading, 46)
+                Button("View all " + String(post.replies) + " replies") { feed.open(post.id) }.buttonStyle(.link).font(.system(size: 13)).padding(.leading, 46).transition(.opacity)
             }
             if replyTo == post.id {
                 HStack(spacing: 8) {
                     TextField("Reply as " + feed.nick, text: Binding(get: { replyDraft }, set: { replyDraft = String($0.prefix(limit)) }))
                         .textFieldStyle(.roundedBorder).onSubmit { sendReply(post.id) }
                     Button("Reply") { sendReply(post.id) }.disabled(replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 || feed.busy)
-                    Button("Cancel") { replyTo = nil; replyDraft = "" }
-                }.padding(.leading, 46)
+                    Button("Cancel") { withAnimation(.snappy(duration: 0.22)) { replyTo = nil }; replyDraft = "" }
+                }.padding(.leading, 46).transition(.opacity.combined(with: .move(edge: .top)))
             }
         }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(post.isNews ? accent.opacity(0.1) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
@@ -353,7 +410,7 @@ struct FeedShelfView: View {
     private func sendReply(_ post: Int) {
         let text = replyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text.count >= 2 else { return }
-        feed.reply(to: post, body: text) { replyDraft = ""; replyTo = nil }
+        feed.reply(to: post, body: text) { replyDraft = ""; withAnimation(.snappy(duration: 0.22)) { replyTo = nil } }
     }
 
     private var canWrite: Bool { !account.email.isEmpty && feed.hasToken && !feed.nick.isEmpty }
@@ -380,11 +437,17 @@ struct FeedShelfView: View {
                 }
                 HStack(spacing: 16) {
                     Button { feed.like(post, parent: parent) } label: {
-                        Label(String(post.likes), systemImage: post.liked ? "heart.fill" : "heart").foregroundStyle(post.liked ? Color.red : Color.secondary)
+                        HStack(spacing: 5) {
+                            Image(systemName: post.liked ? "heart.fill" : "heart").symbolEffect(.bounce, value: post.liked)
+                            Text(String(post.likes)).contentTransition(.numericText(value: Double(post.likes)))
+                        }.foregroundStyle(post.liked ? Color.red : Color.secondary).contentShape(Rectangle())
                     }.buttonStyle(.plain).disabled(!canWrite).help(canWrite ? "Like" : "Sign in and pick a nickname to like posts")
                     if parent == nil {
-                        Button { replyTo = replyTo == post.id ? nil : post.id; replyDraft = "" } label: {
-                            Label(String(post.replies), systemImage: "bubble.left").foregroundStyle(.secondary)
+                        Button { withAnimation(.snappy(duration: 0.22)) { replyTo = replyTo == post.id ? nil : post.id }; replyDraft = "" } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: replyTo == post.id ? "bubble.left.fill" : "bubble.left")
+                                Text(String(post.replies)).contentTransition(.numericText(value: Double(post.replies)))
+                            }.foregroundStyle(.secondary).contentShape(Rectangle())
                         }.buttonStyle(.plain).disabled(!canWrite).help(canWrite ? "Reply" : "Sign in and pick a nickname to reply")
                     }
                 }.font(.system(size: 13)).monospacedDigit().padding(.top, 2)
