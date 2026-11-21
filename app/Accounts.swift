@@ -317,7 +317,7 @@ struct AccountsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Stores").font(.system(size: 30, weight: .bold, design: .rounded))
+                Text("Stores").font(.system(size: 32, weight: .bold, design: .rounded))
                 Text("Install a store's launcher to play its games. Sign in to see the games you own, installed or not.").foregroundStyle(.secondary)
                 HStack(spacing: 10) {
                     let all = Launcher.installable
@@ -356,7 +356,7 @@ struct AccountsView: View {
                     Text("Owned games are a snapshot: sync again after you buy something. Signing out keeps installed games; removing a store removes the games installed in it.")
                     Spacer()
                     Button("Uninstall Soju…") { model.confirmUninstallAll() }.buttonStyle(.link).disabled(model.busy)
-                }.font(.caption).foregroundStyle(.secondary).padding(.top, 10)
+                }.font(.system(size: 11)).foregroundStyle(.secondary).padding(.top, 10)
             }.padding(28)
         }.onAppear { loadUsers(); didim.loadProviders() }
             .confirmationDialog("Sign out of Xbox PC?", isPresented: $confirmDisconnect) {
@@ -487,7 +487,7 @@ struct AccountsView: View {
         Toggle("Overwatch and Diablo II mode", isOn: Binding(
             get: { model.steamGPTK },
             set: { on in task(.steam, ["steam-gptk", on ? "on" : "off"], on ? "Switching Steam to Overwatch and Diablo II mode…" : "Switching Steam back…") }))
-            .toggleStyle(.checkbox).font(.system(size: 12)).disabled(model.busy)
+            .toggleStyle(.checkbox).font(.system(size: 13)).disabled(model.busy)
             .help("Runs Steam and its games with Apple's Game Porting Toolkit, which Overwatch, Diablo II: Resurrected and other DirectX 12 games need. Steam asks you to sign in once the first time.")
     }
 
@@ -518,7 +518,7 @@ struct AccountsView: View {
                         .help("Download new Xbox PC games to a folder on an external drive (APFS, Mac OS Extended or exFAT).")
                 }
             }
-        }.font(.system(size: 12))
+        }.font(.system(size: 13))
     }
 
     // MARK: settings
@@ -557,8 +557,8 @@ struct AccountsView: View {
     private func setting<Controls: View>(_ title: String, _ text: String, @ViewBuilder controls: () -> Controls) -> some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 13, weight: .medium))
-                Text(text).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(title).font(.system(size: 14, weight: .medium))
+                Text(text).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
             controls()
@@ -571,7 +571,7 @@ struct AccountsView: View {
             HStack(spacing: 8) {
                 if model.busy { ProgressView().controlSize(.small) }
                 else { Image(systemName: model.failed ? "exclamationmark.circle" : "checkmark.circle").foregroundStyle(model.failed ? Color.orange : Color.green) }
-                Text(model.activity).font(.system(size: 12, weight: .medium)).lineLimit(2)
+                Text(model.activity).font(.system(size: 13, weight: .medium)).lineLimit(2)
                 Spacer()
                 Button(showLog || model.failed ? "Hide details" : "Details") { showLog.toggle() }
                     .buttonStyle(.plain).foregroundStyle(.secondary).disabled(model.failed)
@@ -580,7 +580,7 @@ struct AccountsView: View {
             if showLog || model.failed {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        Text(model.log).font(.system(size: 11, design: .monospaced))
+                        Text(model.log).font(.system(size: 12, design: .monospaced))
                             .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                         Color.clear.frame(height: 1).id("end")
                     }.frame(height: 180)
@@ -593,11 +593,11 @@ struct AccountsView: View {
     // MARK: pieces
 
     private func heading(_ text: String) -> some View {
-        Text(text.uppercased()).font(.system(size: 11, weight: .semibold)).tracking(0.6).foregroundStyle(.secondary)
+        Text(text.uppercased()).font(.system(size: 12, weight: .semibold)).tracking(0.6).foregroundStyle(.secondary)
             .padding(.top, 16).padding(.leading, 4)
     }
     private func chip(_ text: String) -> some View {
-        Text(text).font(.system(size: 12)).padding(.horizontal, 12).padding(.vertical, 6)
+        Text(text).font(.system(size: 13)).padding(.horizontal, 12).padding(.vertical, 6)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
     }
     private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
@@ -618,22 +618,22 @@ struct AccountsView: View {
     private func row<Buttons: View>(symbol: String, title: String, badge: String? = nil, ok: Bool, status: String, note: String, help: String = "",
                                     @ViewBuilder buttons: () -> Buttons) -> some View {
         HStack(spacing: 14) {
-            Image(systemName: symbol).font(.system(size: 16)).frame(width: 36, height: 36)
+            Image(systemName: symbol).font(.system(size: 17)).frame(width: 36, height: 36)
                 .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 9))
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
-                    Text(title).font(.system(size: 15, weight: .semibold)).help(help)
+                    Text(title).font(.system(size: 16, weight: .semibold)).help(help)
                     if let badge {
-                        Text(badge).font(.system(size: 10, weight: .medium)).padding(.horizontal, 6).padding(.vertical, 1)
+                        Text(badge).font(.system(size: 11, weight: .medium)).padding(.horizontal, 6).padding(.vertical, 1)
                             .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 4))
                     }
                 }
                 HStack(spacing: 6) {
                     Circle().fill(ok ? Color.green : Color.secondary.opacity(0.5)).frame(width: 7, height: 7)
-                    Text(verbatim: status).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+                    Text(verbatim: status).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(2)
                 }
                 if !note.isEmpty {
-                    Text(verbatim: note).font(.system(size: 12)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                    Text(verbatim: note).font(.system(size: 13)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 8)

@@ -43,20 +43,20 @@ struct GoatShelfView: View {
             ZStack {
                 LinearGradient(colors: [accent.opacity(0.5), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
                 if let url = GoatCatalog.coverURL(game.cover) {
-                    AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "gamecontroller.fill").font(.largeTitle) }
+                    AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "gamecontroller.fill").font(.system(size: 28)) }
                 } else {
-                    Image(systemName: "gamecontroller.fill").font(.largeTitle)
+                    Image(systemName: "gamecontroller.fill").font(.system(size: 28))
                 }
             }.frame(width: 320, height: 150).clipped().clipShape(RoundedRectangle(cornerRadius: 12))
             VStack(alignment: .leading, spacing: 9) {
-                Text("MADE WITH GOAT").font(.system(size: 10, weight: .bold)).tracking(0.8).foregroundStyle(accent)
-                Text(game.title).font(.system(size: 22, weight: .bold, design: .rounded)).lineLimit(2)
-                Text("by @" + game.maker).font(.system(size: 12, weight: .semibold))
-                Text(game.summary).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text("MADE WITH GOAT").font(.system(size: 11, weight: .bold)).tracking(0.8).foregroundStyle(accent)
+                Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded)).lineLimit(2)
+                Text("by @" + game.maker).font(.system(size: 13, weight: .semibold))
+                Text(game.summary).font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
                     Button { GoatPlayer.play(game) } label: { Label("Play", systemImage: "play.fill") }
                         .buttonStyle(.borderedProminent).tint(.green)
-                    Text("Free · plays right here").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text("Free · plays right here").font(.system(size: 12)).foregroundStyle(.secondary)
                 }.padding(.top, 4)
             }
             Spacer(minLength: 0)
