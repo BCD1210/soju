@@ -51,6 +51,31 @@ struct FeedPhoto: Identifiable {
     }
 }
 
+/// One line under the bell.
+struct FeedNotice: Identifiable {
+    let id: String
+    let type: String
+    let post: Int
+    let nick: String
+    let text: String
+    let at: Date
+    let fresh: Bool
+    init?(_ d: [String: Any], seen: Double) {
+        guard let type = d["type"] as? String, let post = d["post"] as? Int, let at = d["at"] as? Double else { return nil }
+        self.type = type; self.post = post; nick = (d["nick"] as? String) ?? ""; text = (d["text"] as? String) ?? ""
+        self.at = Date(timeIntervalSince1970: at / 1000); fresh = at > seen
+        id = type + ":" + String(post) + ":" + nick + ":" + String(Int(at))
+    }
+    var line: String {
+        switch type {
+        case "reply": return "@" + nick + " replied to your post"
+        case "like": return "@" + nick + " liked your post"
+        default: return "News from Didim Labs"
+        }
+    }
+    var symbol: String { type == "reply" ? "bubble.left.fill" : type == "like" ? "heart.fill" : "megaphone.fill" }
+}
+
 struct FeedPost: Identifiable {
     let id: Int
     let kind: String
@@ -135,6 +160,11 @@ enum FeedToken {
     @Published var note = ""
     /// Posts whose whole thread was fetched: their tail holds every reply.
     @Published var opened = Set<Int>()
+    /// The bell: replies to and likes on this account's posts, and news. `unread` counts what came since the bell was last opened.
+    @Published var notices: [FeedNotice] = []
+    @Published var unread = 0
+    /// A post the bell asked for: the feed shows it in full, then clears this.
+    @Published var wanted: Int?
 
     /// SOJU_FEED_URL points a development build at a worker on this machine.
     private static let site: String = {
@@ -268,6 +298,32 @@ enum FeedToken {
                 let mine = FeedPost(id: id, parent: true, kind: "player", nick: self.nick, title: "", body: body, game: "", gameTitle: "")
                 withAnimation(.spring(duration: 0.34, bounce: 0.15)) { self.posts[i].tail.append(mine); self.posts[i].replies += 1; self.opened.insert(post) }
             } else { self.open(post) }
+        }
+    }
+
+    func loadNotices() {
+        guard !FeedToken.load().isEmpty else { notices = []; unread = 0; return }
+        send("GET", "/notices") { status, value in
+            guard status == 200, let list = value["items"] as? [[String: Any]] else { return }
+            let seen = (value["seen"] as? Double) ?? 0
+            self.notices = list.compactMap { FeedNotice($0, seen: seen) }
+            self.unread = (value["unread"] as? Int) ?? 0
+        }
+    }
+    /// The bell was opened: the badge goes, and the site remembers for this account's other Macs.
+    func noticesSeen() {
+        guard unread > 0 else { return }
+        unread = 0
+        send("POST", "/seen", [:]) { _, _ in }
+    }
+    /// Shows a post in full, fetching it first when it is not on the page that is loaded.
+    func show(_ post: Int) {
+        if posts.contains(where: { $0.id == post }) { wanted = post; return }
+        send("GET", "/thread?id=" + String(post)) { status, value in
+            guard status == 200, let d = value["post"] as? [String: Any], var found = FeedPost(d) else { self.note = "That post is gone."; return }
+            found.tail = ((value["replies"] as? [[String: Any]]) ?? []).compactMap(FeedPost.init); found.replies = found.tail.count
+            if !self.posts.contains(where: { $0.id == post }) { self.posts.append(found); self.posts.sort { $0.id > $1.id } }
+            self.opened.insert(post); self.wanted = post
         }
     }
 
@@ -449,7 +505,8 @@ struct FeedShelfView: View {
         .onChange(of: feed.filter) { feed.load() }
         .onChange(of: account.email) { feed.load() }
         .onChange(of: account.signIns) { feed.load() }
-        .onAppear { feed.load() }
+        .onAppear { feed.load(); showWanted() }
+        .onChange(of: feed.wanted) { showWanted() }
         .alert("Set your nickname to @" + cleanNick + "?", isPresented: $confirmNick) {
             Button("Set nickname") { feed.setNick(cleanNick) }
             Button("Cancel", role: .cancel) {}
@@ -615,6 +672,8 @@ struct FeedShelfView: View {
                         Text(String(draft.count) + " / " + String(asNews ? 4000 : limit)).font(.system(size: 11)).monospacedDigit()
                             .foregroundStyle(draft.count > (asNews ? 3900 : limit - 40) ? Color.orange : Color.secondary).padding(.trailing, 6)
                     }
+                    // Why Post is off, said next to it: the text is there but the title (news) or the game (a post) is missing.
+                    if let missing { Text(missing).font(.system(size: 11, weight: .medium)).foregroundStyle(accent).padding(.trailing, 6) }
                     Button("Post") { submit() }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule).tint(accent).disabled(!canPost)
                 }
             }
@@ -626,6 +685,11 @@ struct FeedShelfView: View {
             .onDrop(of: [.fileURL, .image], isTargeted: $dropping) { dropped($0) }
     }
 
+    private var missing: String? {
+        guard draft.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 else { return nil }
+        if asNews { return newsTitle.trimmingCharacters(in: .whitespaces).isEmpty ? "Add a title" : nil }
+        return game.isEmpty ? "Tag a game" : nil
+    }
     private var canPost: Bool {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text.count >= 2, !feed.busy, preparing == 0 else { return false }
@@ -717,6 +781,12 @@ struct FeedShelfView: View {
                 Text("This post is gone.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }.frame(width: 660, height: 640)
+    }
+
+    private func showWanted() {
+        guard let post = feed.wanted, feed.posts.contains(where: { $0.id == post }) else { return }
+        feed.wanted = nil
+        show(post)
     }
 
     private func show(_ post: Int) {

@@ -13,6 +13,8 @@
 //   POST /api/feed/report {post}                  three accounts reporting a post hide it until an operator looks
 //   POST /api/feed/delete {post}                  one's own post (an operator: any post)
 //   POST /api/feed/signout                        forgets the token this request carries
+//   GET  /api/feed/notices                        the bell: replies to and likes on this account's posts, and news, newest first
+//   POST /api/feed/seen                           the bell was opened: nothing before now counts as new
 // Posting needs "Authorization: Bearer <token>": the token Soju gets once when a sign-in finishes (auth.js, issueToken).
 // Only the nickname is ever shown; the address stays in the database. Operators are the addresses in FEED_ADMINS
 // (comma separated): their posts may be news (shown as Didim Labs), and they may hide any post.
@@ -57,6 +59,9 @@ async function schema(db) {
     await db.batch(SCHEMA.map((s) => db.prepare(s)));
     // (A database made before photos had keys: the column is added once; the error when it is there already is nothing.)
     try { await db.prepare("ALTER TABLE images ADD COLUMN k TEXT NOT NULL DEFAULT ''").run(); } catch {}
+    // (The bell: when a like was given, and when an account last looked at its notices.)
+    try { await db.prepare("ALTER TABLE likes ADD COLUMN created INTEGER NOT NULL DEFAULT 0").run(); } catch {}
+    try { await db.prepare("ALTER TABLE accounts ADD COLUMN seen INTEGER NOT NULL DEFAULT 0").run(); } catch {}
     ready = db;
   }
 }
@@ -153,7 +158,7 @@ export async function feed(request, env, url) {
   }
   const me = await who(env, request);
   // (The photo route above answers by the photo's own key.)
-  if (request.method === "GET" && (path === "" || path === "thread") && !me) return json({ error: "Sign in to see the feed.", signin: true }, 401);
+  if (request.method === "GET" && (path === "" || path === "thread" || path === "notices") && !me) return json({ error: "Sign in to see the feed.", signin: true }, 401);
 
   if (request.method === "GET" && path === "") {
     const before = Math.floor(Number(url.searchParams.get("before"))) || 0, kind = url.searchParams.get("kind");
@@ -181,6 +186,23 @@ export async function feed(request, env, url) {
     const photos = await photosOf(db, [id]);
     return json({ post: { ...shape(post, me), images: photos.get(id) || [] }, replies: replies.map((r) => shape(r, me)), me: me ? { nick: me.nick, admin: me.admin } : null });
   }
+  if (request.method === "GET" && path === "notices") {
+    // What happened to this account's posts in the last 30 days, and news: someone else's doing, never one's own.
+    const since = Date.now() - 30 * 864e5, short = (s) => String(s || "").replace(/\s+/g, " ").slice(0, 90);
+    const [replies, likes, news, mine] = await db.batch([
+      db.prepare("SELECT c.id, c.parent AS post, c.nick, c.body, c.created FROM posts c JOIN posts p ON p.id = c.parent WHERE p.email = ?1 AND c.email <> ?1 AND c.hidden = 0 AND p.hidden = 0 AND c.created > ?2 ORDER BY c.created DESC LIMIT 30").bind(me.email, since),
+      db.prepare("SELECT COALESCE(p.parent, p.id) AS post, a.nick, p.body, l.created FROM likes l JOIN posts p ON p.id = l.post JOIN accounts a ON a.email = l.email WHERE p.email = ?1 AND l.email <> ?1 AND p.hidden = 0 AND l.created > ?2 ORDER BY l.created DESC LIMIT 30").bind(me.email, since),
+      db.prepare("SELECT id AS post, title, created FROM posts WHERE kind = 'news' AND parent IS NULL AND hidden = 0 AND email <> ?1 AND created > ?2 ORDER BY created DESC LIMIT 10").bind(me.email, since),
+      db.prepare("SELECT seen FROM accounts WHERE email = ?").bind(me.email),
+    ]);
+    const items = [
+      ...replies.results.map((r) => ({ type: "reply", post: r.post, nick: r.nick, text: short(r.body), at: r.created })),
+      ...likes.results.map((r) => ({ type: "like", post: r.post, nick: r.nick || "Someone", text: short(r.body), at: r.created })),
+      ...news.results.map((r) => ({ type: "news", post: r.post, nick: "Didim Labs", text: short(r.title), at: r.created })),
+    ].sort((a, b) => b.at - a.at).slice(0, 30);
+    const seen = (mine.results[0] && mine.results[0].seen) || 0;
+    return json({ items, seen, unread: items.filter((i) => i.at > seen).length });
+  }
   if (request.method !== "POST") return json({ error: "Not found." }, 404);
   if (!me) return json({ error: "Sign in to do that.", signin: true }, 401);
   // The length must be stated: a body sent without one could be any size.
@@ -190,6 +212,10 @@ export async function feed(request, env, url) {
   if (path === "signout") {
     const m = /^Bearer ([A-Za-z0-9_-]{40,64})$/.exec(request.headers.get("authorization") || "");
     if (m) await db.prepare("DELETE FROM tokens WHERE hash = ?").bind(await sha(m[1])).run();
+    return json({ ok: true });
+  }
+  if (path === "seen") {
+    await db.prepare("UPDATE accounts SET seen = ? WHERE email = ?").bind(Date.now(), me.email).run();
     return json({ ok: true });
   }
   let input;
@@ -268,7 +294,7 @@ export async function feed(request, env, url) {
   if (!post || (post.hidden && !me.admin)) return json({ error: "That post is gone." }, 404);
   if (path === "like") {
     if (input?.on === false) await db.prepare("DELETE FROM likes WHERE post = ? AND email = ?").bind(postId, me.email).run();
-    else await db.prepare("INSERT INTO likes (post, email) VALUES (?, ?) ON CONFLICT DO NOTHING").bind(postId, me.email).run();
+    else await db.prepare("INSERT INTO likes (post, email, created) VALUES (?, ?, ?) ON CONFLICT DO NOTHING").bind(postId, me.email, now).run();
     const n = await db.prepare("SELECT COUNT(*) AS n FROM likes WHERE post = ?").bind(postId).first();
     return json({ likes: n.n, liked: input?.on !== false });
   }
