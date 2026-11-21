@@ -54,7 +54,7 @@ test("a post is about one game, has a length, and shows the nickname and never t
   assert.equal(p.status, 200);
   const list = await call(env, "GET", "", null);
   assert.equal(list.posts.length, 1);
-  assert.deepEqual({ ...list.posts[0], at: 0 }, { id: p.id, kind: "player", nick: "nyang_maker", title: "", body: "Night four: shine the UV lamp on the ledger.", game: GAME.game, game_title: GAME.game_title, at: 0, likes: 0, liked: false, replies: 0, mine: false, tail: [] });
+  assert.deepEqual({ ...list.posts[0], at: 0 }, { id: p.id, kind: "player", nick: "nyang_maker", title: "", body: "Night four: shine the UV lamp on the ledger.", game: GAME.game, game_title: GAME.game_title, at: 0, images: [], likes: 0, liked: false, replies: 0, mine: false, tail: [] });
   assert.ok(!JSON.stringify(list).includes("a@x.com"));
   assert.equal((await call(env, "GET", "", tok["a@x.com"])).posts[0].mine, true);
 });
@@ -123,6 +123,43 @@ test("deleting is for one's own post (or an operator) and takes the replies; thr
   await call(env, "POST", "/report", tok["op@didimlabs.com"], { post: r.id });
   assert.equal((await call(env, "GET", "", null)).posts.length, 0);
   assert.equal((await call(env, "POST", "/delete", tok["op@didimlabs.com"], { post: r.id })).status, 200);
+});
+
+test("photos: small JPEGs sent before the post, shown only with a post that is shown, gone with it", async () => {
+  const { env, tok } = await setup();
+  for (const [e, n] of [["a@x.com", "aaa_one"], ["b@x.com", "bbb_two"], ["op@didimlabs.com", "mike_92"]]) await call(env, "POST", "/nick", tok[e], { nick: n });
+  const jpg = (n) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(n, 7), Buffer.from([0xff, 0xd9])]).toString("base64");
+  const pic = { full: jpg(5000), thumb: jpg(900), w: 1600, h: 900 };
+  assert.equal((await call(env, "POST", "/image", null, pic)).status, 401);
+  assert.equal((await call(env, "POST", "/image", tok["a@x.com"], { ...pic, full: Buffer.from("<svg onload=alert(1)>".repeat(40)).toString("base64") })).status, 400);   // not a JPEG
+  assert.equal((await call(env, "POST", "/image", tok["a@x.com"], { ...pic, full: jpg(FEED.FULL_MAX + 10) })).status, 400);
+  assert.equal((await call(env, "POST", "/image", tok["a@x.com"], { ...pic, w: 99999 })).status, 400);
+  const i1 = await call(env, "POST", "/image", tok["a@x.com"], pic), i2 = await call(env, "POST", "/image", tok["a@x.com"], pic), i3 = await call(env, "POST", "/image", tok["a@x.com"], pic);
+  assert.equal(i1.status, 200);
+  const get = async (id, s) => { const url = new URL(`https://didimlabs.com/api/feed/image/${id}?s=${s}`); return feed(new Request(url, { headers: { "cf-connecting-ip": "10.0.0.9" } }), env, url); };
+  assert.equal((await get(i1.image, "full")).status, 404);   // waiting for its post
+  assert.equal((await call(env, "POST", "/post", tok["a@x.com"], { body: "Three is one too many", images: [i1.image, i2.image, i3.image], ...GAME })).status, 400);
+  assert.equal((await call(env, "POST", "/post", tok["b@x.com"], { body: "Someone else's photo", images: [i1.image], ...GAME })).status, 400);
+  const p = await call(env, "POST", "/post", tok["a@x.com"], { body: "The ledger under the UV lamp", images: [i1.image, i2.image], ...GAME });
+  assert.equal(p.status, 200);
+  later(env, 60000);
+  assert.equal((await call(env, "POST", "/post", tok["a@x.com"], { body: "The same photo twice", images: [i1.image], ...GAME })).status, 400);   // already on a post
+  const list = await call(env, "GET", "", null);
+  assert.deepEqual(list.posts[0].images, [{ id: i1.image, w: 1600, h: 900 }, { id: i2.image, w: 1600, h: 900 }]);
+  assert.deepEqual((await call(env, "GET", "/thread?id=" + p.id, null)).post.images.map((x) => x.id), [i1.image, i2.image]);
+  const full = await get(i1.image, "full"), thumb = await get(i1.image, "thumb");
+  assert.equal(full.status, 200); assert.equal(full.headers.get("content-type"), "image/jpeg"); assert.match(full.headers.get("cache-control"), /immutable/);
+  assert.equal((await full.arrayBuffer()).byteLength, 5006); assert.equal((await thumb.arrayBuffer()).byteLength, 906);
+  // Hidden with its post, gone with its post.
+  await call(env, "POST", "/report", tok["op@didimlabs.com"], { post: p.id });
+  assert.equal((await get(i1.image, "thumb")).status, 404);
+  env.FEED.raw.exec("UPDATE posts SET hidden = 0");
+  assert.equal((await call(env, "POST", "/delete", tok["a@x.com"], { post: p.id })).status, 200);
+  assert.equal(env.FEED.raw.prepare("SELECT COUNT(*) AS n FROM images WHERE post IS NOT NULL").get().n, 0);
+  // News may run long; a member's post may not.
+  assert.equal((await call(env, "POST", "/post", tok["op@didimlabs.com"], { body: "n".repeat(3000), news: true, title: "A long read" })).status, 200);
+  later(env, 60000);
+  assert.equal((await call(env, "POST", "/post", tok["a@x.com"], { body: "n".repeat(3000), news: true, title: "x", ...GAME })).status, 400);
 });
 
 test("a member posts a few seconds apart and a set number a day; pages go back by id", async () => {
