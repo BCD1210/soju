@@ -89,7 +89,8 @@ struct StoreView: View {
     @State private var askSignIn: String?
     @State private var key = ""
     /// Which shelf is shown: Didim Labs' own games, or games people made with GOAT.
-    @AppStorage("storeShelf") private var shelf = "didim"
+    @AppStorage("didimShelf") private var shelf = "news"
+    @StateObject private var news = NewsModel()
     @State private var showProfile = false
     @StateObject private var goat = GoatShelfModel()
     private let accent = Color(red: 0.79, green: 0.36, blue: 0.27)
@@ -98,8 +99,9 @@ struct StoreView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("Didim Labs Store").font(.system(size: 30, weight: .bold, design: .rounded))
+                    Text("Didim Labs").font(.system(size: 30, weight: .bold, design: .rounded))
                     Text(shelf == "goat" ? "Games people made with GOAT. Press Play and they open right here."
+                         : shelf == "news" ? "What is new from Didim Labs."
                          : "Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
@@ -107,20 +109,23 @@ struct StoreView: View {
                 if isSignedIn { profileChip }
             }
             Picker("Shelf", selection: $shelf) {
-                Text("Didim Labs").tag("didim")
+                Text("News").tag("news")
+                Text("Store").tag("store")
                 Text("GOAT").tag("goat")
             }.pickerStyle(.segmented).labelsHidden().fixedSize()
-            if shelf == "goat" {
+            if shelf == "news" {
+                NewsShelfView(news: news, accent: accent)
+            } else if shelf == "goat" {
                 GoatShelfView(shelf: goat, accent: accent)
             } else {
                 didimShelf
             }
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { store.load(root: model.root); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
+        .onAppear { if model.requestedBuy != nil || model.requestedClaim != nil { shelf = "store" }; store.load(root: model.root); news.load(root: model.root); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
         .onChange(of: shelf) { if shelf == "goat" { goat.load() } }
-        .onChange(of: model.requestedBuy) { if model.requestedBuy != nil { shelf = "didim" }; buyRequested() }
-        .onChange(of: model.requestedClaim) { if model.requestedClaim != nil { shelf = "didim" }; claimRequested() }
+        .onChange(of: model.requestedBuy) { if model.requestedBuy != nil { shelf = "store" }; buyRequested() }
+        .onChange(of: model.requestedClaim) { if model.requestedClaim != nil { shelf = "store" }; claimRequested() }
         .onChange(of: model.requestedAuth) {
             guard let handoff = model.requestedAuth, handoff.count == 2 else { return }
             model.requestedAuth = nil
