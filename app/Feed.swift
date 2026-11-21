@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import ImageIO
+import UniformTypeIdentifiers
 
 /// The Didim Labs feed, the first shelf of the Didim Labs page: game news from Didim Labs and what signed-in players post,
 /// one stream, with replies under a post as in a thread. Served by didimlabs.com/api/feed (site-worker/feed.js).
@@ -22,8 +23,11 @@ struct FeedPhoto: Identifiable {
     let h: Int
     let preview: NSImage
 
-    static func make(_ url: URL) -> FeedPhoto? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+    static func make(_ url: URL) -> FeedPhoto? { CGImageSourceCreateWithURL(url as CFURL, nil).flatMap(make) }
+    static func make(_ data: Data) -> FeedPhoto? { CGImageSourceCreateWithData(data as CFData, nil).flatMap(make) }
+
+    private static func make(_ source: CGImageSource) -> FeedPhoto? {
+        guard CGImageSourceGetCount(source) > 0 else { return nil }
         func scaled(_ side: Int) -> CGImage? {
             CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
                                                             kCGImageSourceThumbnailMaxPixelSize: side] as CFDictionary)
@@ -85,6 +89,20 @@ struct FeedPost: Identifiable {
     }
 }
 
+/// A post's text as it is shown: **bold**, *italic* and `code` are drawn as such, line breaks kept. A link is live only in
+/// news from Didim Labs; in anyone else's post its words stay and the address behind them is dropped, so a post cannot dress
+/// a strange address up as something else.
+enum FeedText {
+    static func shown(_ body: String, links: Bool) -> AttributedString {
+        guard var text = try? AttributedString(markdown: body, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace, failurePolicy: .returnPartiallyParsedIfPossible)) else { return AttributedString(body) }
+        for run in text.runs where run.link != nil {
+            let safe = links && run.link?.scheme == "https"
+            if safe { text[run.range].underlineStyle = .single } else { text[run.range].link = nil }
+        }
+        return text
+    }
+}
+
 /// The feed's token: given once when a sign-in finishes (AccountModel.finish), kept in a file only this user can read.
 enum FeedToken {
     private static var file: URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".battlenet-macos/didim-feed-token") }
@@ -121,6 +139,15 @@ enum FeedToken {
         if let dev = ProcessInfo.processInfo.environment["SOJU_FEED_URL"], dev.hasPrefix("http://127.0.0.1:") || dev.hasPrefix("http://localhost:") { return dev }
         return "https://didimlabs.com"
     }()
+
+    /// Signing out: the site forgets this Mac's token too.
+    static func forget(_ token: String) {
+        guard !token.isEmpty, let url = URL(string: site + "/api/feed/signout") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"; request.httpBody = Data("{}".utf8); request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type"); request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        URLSession.shared.dataTask(with: request).resume()
+    }
 
     static func imageURL(_ image: FeedImage, full: Bool) -> URL? {
         URL(string: site + "/api/feed/image/" + String(image.id) + "?s=" + (full ? "full" : "thumb"))
@@ -309,6 +336,8 @@ struct FeedShelfView: View {
     @State private var photos: [FeedPhoto] = []
     /// The post whose whole text, photos and thread are shown in a sheet.
     @State private var detail: Int?
+    @State private var dropping = false
+    @State private var preparing = 0
     private static let ago: RelativeDateTimeFormatter = { let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated; return f }()
     private let limit = 500
 
@@ -398,10 +427,43 @@ struct FeedShelfView: View {
         panel.canChooseDirectories = false
         panel.message = "Photos are made smaller before they are sent (long side 1600 px)."
         guard panel.runModal() == .OK else { return }
-        for url in panel.urls.prefix(max(0, 2 - photos.count)) {
-            if let photo = FeedPhoto.make(url) { withAnimation(.snappy(duration: 0.22)) { photos.append(photo) } }
-            else { feed.note = "That photo could not be read. Try a JPEG, PNG or HEIC." }
+        for url in panel.urls { add { FeedPhoto.make(url) } }
+    }
+
+    /// Makes a photo small away from the main thread (a large picture takes a moment) and adds it if there is room.
+    private func add(_ make: @escaping () -> FeedPhoto?) {
+        guard photos.count + preparing < 2 else { return }
+        preparing += 1
+        DispatchQueue.global(qos: .userInitiated).async {
+            let photo = make()
+            DispatchQueue.main.async {
+                preparing = max(0, preparing - 1)
+                if let photo, photos.count < 2 { withAnimation(.snappy(duration: 0.22)) { photos.append(photo) } }
+                else if photo == nil { feed.note = "That photo could not be read. Try a JPEG, PNG or HEIC." }
+            }
         }
+    }
+
+    /// Pictures dropped on the writing box: files from the Finder, or a picture dragged out of another app.
+    private func dropped(_ providers: [NSItemProvider]) -> Bool {
+        guard canWrite else { return false }
+        var taken = false
+        for provider in providers.prefix(2) {
+            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                taken = true
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url, let type = UTType(filenameExtension: url.pathExtension), type.conforms(to: .image) else { return }
+                    DispatchQueue.main.async { add { FeedPhoto.make(url) } }
+                }
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                taken = true
+                _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+                    guard let data, data.count < 60_000_000 else { return }
+                    DispatchQueue.main.async { add { FeedPhoto.make(data) } }
+                }
+            }
+        }
+        return taken
     }
 
     private var cleanNick: String {
@@ -486,7 +548,8 @@ struct FeedShelfView: View {
                             }
                         }
                         HStack(spacing: 10) {
-                            Button { addPhotos() } label: { Image(systemName: "photo") }.disabled(photos.count >= 2 || feed.busy).help("Add up to 2 photos")
+                            Button { addPhotos() } label: { Image(systemName: "photo") }.disabled(photos.count + preparing >= 2 || feed.busy).help("Add up to 2 photos, or drop them here")
+                            if preparing > 0 { ProgressView().controlSize(.small) }
                             Picker("Game", selection: $game) {
                                 Text(asNews ? "No game" : "Tag a game").tag("")
                                 ForEach(games) { Text($0.title).tag($0.id) }
@@ -501,12 +564,16 @@ struct FeedShelfView: View {
                 }
             }
         }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
+            .background(Color.primary.opacity(dropping ? 0.09 : 0.04), in: RoundedRectangle(cornerRadius: 14))
+            .overlay { if dropping { RoundedRectangle(cornerRadius: 14).strokeBorder(accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4])) } }
+            .overlay(alignment: .bottom) { if dropping { Text("Drop up to 2 photos").font(.system(size: 11, weight: .semibold)).foregroundStyle(accent).padding(.bottom, 6) } }
+            .animation(.easeOut(duration: 0.15), value: dropping)
+            .onDrop(of: [.fileURL, .image], isTargeted: $dropping) { dropped($0) }
     }
 
     private var canPost: Bool {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.count >= 2, !feed.busy else { return false }
+        guard text.count >= 2, !feed.busy, preparing == 0 else { return false }
         return asNews ? !newsTitle.trimmingCharacters(in: .whitespaces).isEmpty : !game.isEmpty
     }
 
@@ -585,14 +652,14 @@ struct FeedShelfView: View {
                 }
                 if full || parent != nil {
                     if !post.title.isEmpty { Text(post.title).font(.system(size: full ? 20 : 17, weight: .bold, design: .rounded)) }
-                    Text(post.body).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                    Text(FeedText.shown(post.body, links: post.isNews)).font(.system(size: 13)).lineSpacing(2).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                     pictures(post, full: true)
                 } else {
                     // The list shows the start of a post; pressing it opens the whole of it.
                     Button { show(post.id) } label: {
                         VStack(alignment: .leading, spacing: 5) {
                             if !post.title.isEmpty { Text(post.title).font(.system(size: 17, weight: .bold, design: .rounded)) }
-                            Text(post.body).font(.system(size: 13)).lineLimit(post.isNews ? 4 : 6).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                            Text(FeedText.shown(post.body, links: false)).font(.system(size: 13)).lineSpacing(2).lineLimit(post.isNews ? 4 : 6).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
                             pictures(post, full: false)
                         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                     }.buttonStyle(.plain).help("Open this post")

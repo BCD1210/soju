@@ -550,6 +550,7 @@ struct StoreView: View {
 
     func signOut() {
         cancel()
+        FeedModel.forget(FeedToken.load())
         FeedToken.clear()
         email = ""; owned = []; message = "Signed out. Installed games stay installed."
         UserDefaults.standard.removeObject(forKey: "didimAccountEmail")
