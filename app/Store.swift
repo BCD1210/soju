@@ -89,8 +89,8 @@ struct StoreView: View {
     @State private var askSignIn: String?
     @State private var key = ""
     /// Which shelf is shown: Didim Labs' own games, or games people made with GOAT.
-    @AppStorage("didimShelf") private var shelf = "news"
-    @StateObject private var news = NewsModel()
+    @AppStorage("didimShelf") private var shelf = "feed"
+    @StateObject private var feed = FeedModel()
     @State private var showProfile = false
     @StateObject private var goat = GoatShelfModel()
     private let accent = Color(red: 0.79, green: 0.36, blue: 0.27)
@@ -101,7 +101,7 @@ struct StoreView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     Text("Didim Labs").font(.system(size: 32, weight: .bold, design: .rounded))
                     Text(shelf == "goat" ? "Games people made with GOAT. Press Play and they open right here."
-                         : shelf == "news" ? "What is new from Didim Labs."
+                         : shelf == "feed" ? "Game news from Didim Labs, and what players are saying."
                          : "Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
@@ -109,12 +109,12 @@ struct StoreView: View {
                 if isSignedIn { profileChip }
             }
             Picker("Shelf", selection: $shelf) {
-                Text("News").tag("news")
+                Text("Feed").tag("feed")
                 Text("Store").tag("store")
                 Text("GOAT").tag("goat")
             }.pickerStyle(.segmented).labelsHidden().fixedSize()
-            if shelf == "news" {
-                NewsShelfView(news: news, accent: accent)
+            if shelf == "feed" {
+                FeedShelfView(feed: feed, account: account, games: feedGames, accent: accent)
             } else if shelf == "goat" {
                 GoatShelfView(shelf: goat, accent: accent)
             } else {
@@ -122,8 +122,8 @@ struct StoreView: View {
             }
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { if model.requestedBuy != nil || model.requestedClaim != nil { shelf = "store" }; store.load(root: model.root); news.load(root: model.root); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
-        .onChange(of: shelf) { if shelf == "goat" { goat.load() } }
+        .onAppear { if model.requestedBuy != nil || model.requestedClaim != nil { shelf = "store" }; store.load(root: model.root); feed.load(); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
+        .onChange(of: shelf) { if shelf == "goat" { goat.load() } else if shelf == "feed" { feed.load() } }
         .onChange(of: model.requestedBuy) { if model.requestedBuy != nil { shelf = "store" }; buyRequested() }
         .onChange(of: model.requestedClaim) { if model.requestedClaim != nil { shelf = "store" }; claimRequested() }
         .onChange(of: store.games.count) { buyRequested() }
@@ -244,6 +244,20 @@ struct StoreView: View {
             }
             Spacer(minLength: 0)
         }.padding(18).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// Games a post can be about: what is in the library, then the store's and the GOAT shelf's.
+    private var feedGames: [FeedGameChoice] {
+        var seen = Set<String>(), out: [FeedGameChoice] = []
+        func add(_ id: String, _ title: String) {
+            guard id.range(of: "^(steam|battlenet|epic|gog|ea|rockstar|ubisoft|xbox|didim|goat):[A-Za-z0-9_.-]{1,80}$", options: .regularExpression) != nil,
+                  !title.isEmpty, seen.insert(id).inserted else { return }
+            out.append(FeedGameChoice(id: id, title: String(title.prefix(80))))
+        }
+        for g in model.games.sorted(by: { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }) { add(g.id, g.title) }
+        for g in store.games { add("didim:" + g.id, g.title) }
+        for g in goat.games { add("goat:" + g.id, g.title) }
+        return out
     }
 
     /// Signed in, and not in the middle of signing in again.
@@ -530,6 +544,7 @@ struct StoreView: View {
 
     func signOut() {
         cancel()
+        FeedToken.clear()
         email = ""; owned = []; message = "Signed out. Installed games stay installed."
         UserDefaults.standard.removeObject(forKey: "didimAccountEmail")
         UserDefaults.standard.removeObject(forKey: "didimOwned")
@@ -574,6 +589,8 @@ struct StoreView: View {
             save.arguments = ["add-generic-password", "-U", "-s", Self.keychainService, "-a", game, "-l", "Soju: " + game, "-w", key]
             if (try? save.run()) != nil { save.waitUntilExit(); if save.terminationStatus == 0 { found.append(game) } }
         }
+        // The feed's token comes once, with this answer (site-worker/feed.js).
+        if let token = body["token"] as? String { FeedToken.save(token) }
         email = address
         owned.formUnion(found)
         UserDefaults.standard.set(address, forKey: "didimAccountEmail")
