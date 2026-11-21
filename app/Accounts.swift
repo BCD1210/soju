@@ -274,134 +274,84 @@ extension SojuModel {
 
 struct AccountsView: View {
     @EnvironmentObject var model: SojuModel
+    @ObservedObject private var didim = AccountModel.shared
     @State private var showSteamLogin = false
     @State private var users: [GalaxyAccount] = []
     @State private var userID = ""
     @State private var userTask: Process?
     @State private var usersMessage = ""
+    @State private var confirmDisconnect = false
+    /// The store whose button was pressed last: its row shows the result message.
+    @State private var lastAction: Launcher?
     @AppStorage("soju.store.region") private var market = "US"
+    private static let imported: [Launcher] = [.steam, .gog, .xbox]
+    private static let automatic: [Launcher] = [.battlenet, .epic, .ea, .rockstar, .ubisoft]
     private var xboxLocationText: String {
-        guard let location = model.xboxLocation else { return "Downloads go to this Mac." }
-        var text = location.isDefault ? "Downloads go to this Mac" : "Downloads go to " + location.volume + " (" + location.path + ")"
+        guard let location = model.xboxLocation else { return "This Mac" }
+        var text = location.isDefault ? "This Mac" : location.volume + " (" + location.path + ")"
         if !location.available { return text + " · drive not connected" }
         if let free = location.freeBytes { text += " · " + ByteCountFormatter.string(fromByteCount: free, countStyle: .file) + " free" }
         return text
     }
-    @State private var confirmDisconnect = false
     private func summary(_ platform: Launcher) -> AccountSummary? { model.accountSummaries.first { $0.platform == platform } }
+    private func installedGames(_ platform: Launcher) -> Int { model.games.filter { $0.platform == platform && $0.isInstalled }.count }
+    private func note(_ platform: Launcher) -> String { lastAction == platform ? model.accountMessage : "" }
+    private func working(_ platform: Launcher) -> Bool { model.accountBusy && lastAction == platform }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                Text("Your accounts").font(.system(size: 30, weight: .bold, design: .rounded))
-                Text("Bring owned games into your library, including games you have not installed.").foregroundStyle(.secondary)
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 12) {
-                        accountHeader(.steam)
-                        Text("Sign in below to import your owned games. You do not need to install Windows Steam first.")
-                            .font(.callout).foregroundStyle(.secondary)
-                        Text("Steam handles your password, QR sign-in and Steam Guard. Your web session stays on this Mac.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        HStack {
-                            Button("Open Windows Steam") { model.launch(.steam) }.disabled(model.busy || !model.installed.contains(.steam))
-                            if summary(.steam) == nil {
-                                Button("Clear saved sign-in") { model.forgetAccount(.steam) }.disabled(model.accountBusy)
-                            }
-                            Spacer()
-                            Button(summary(.steam) == nil ? "Sign in to Steam" : "Sync Steam library") { showSteamLogin = true }
-                                .buttonStyle(.borderedProminent).disabled(model.accountBusy)
-                        }
-                    }.padding(12)
-                }
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 12) {
-                        accountHeader(.gog)
-                        Text("Import the owned library saved by GOG GALAXY on this Mac. Open Galaxy and let it finish refreshing before importing.")
-                            .font(.callout).foregroundStyle(.secondary)
-                        if users.count > 1 {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Accounts").font(.system(size: 30, weight: .bold, design: .rounded))
+                Text("Sign in to a store and the games you own appear in your library, installed or not.").foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    let connected = Self.imported.filter { summary($0) != nil }.count
+                    let games = Self.imported.compactMap { summary($0)?.count }.reduce(0, +)
+                    chip(String(connected) + " of " + String(Self.imported.count) + " stores connected")
+                    chip(games == 1 ? "1 game imported" : String(games) + " games imported")
+                    chip("Sign-ins stay on this Mac")
+                }.padding(.top, 10)
+
+                heading("Didim Labs")
+                card { didimRow }
+
+                heading("Import your owned games")
+                card {
+                    steamRow
+                    Divider()
+                    gogRow
+                    if users.count > 1 {
+                        detail {
                             Picker("Galaxy account", selection: $userID) {
                                 Text("Choose an account").tag("")
                                 ForEach(users) { user in Text(user.label + " · " + String(user.count) + " games").tag(user.id) }
-                            }
+                            }.frame(maxWidth: 420)
                         }
-                        if !usersMessage.isEmpty { Text(usersMessage).font(.caption).foregroundStyle(.secondary) }
-                        HStack {
-                            Button("Open Galaxy") { model.launch(.gog) }.disabled(model.busy)
-                            Button("Refresh account list", action: loadUsers).disabled(userTask != nil)
-                            Spacer()
-                            Button("Import from Galaxy") { model.syncAccount(.gog, input: userID.isEmpty ? [:] : ["user_id": userID]) }
-                                .buttonStyle(.borderedProminent).disabled(model.accountBusy || (users.count > 1 && userID.isEmpty))
-                        }
-                    }.padding(12)
+                    }
+                    Divider()
+                    xboxRow
+                    if model.installed.contains(.xbox) { detail { xboxSettings } }
                 }
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 12) {
-                        accountHeader(.xbox)
-                        Text("Sign in with your Microsoft account on Microsoft's own page. Soju imports the games you own and your PC Game Pass games, downloads them and starts them. Xbox PC support is experimental: not every game works.")
-                            .font(.callout).foregroundStyle(.secondary)
-                        Text("Your sign-in stays in the macOS Keychain; macOS may ask once to allow access. Some newer games can't be downloaded yet.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        HStack {
-                            Picker("Store region", selection: $market) {
-                                Text("US · USD").tag("US"); Text("Korea · KRW").tag("KR"); Text("UK · GBP").tag("GB")
-                                Text("Germany · EUR").tag("DE"); Text("Japan · JPY").tag("JP")
-                            }.frame(width: 230)
-                                .help("Used for the Xbox library and Discover. A connected library syncs again when you change it.")
-                                .onChange(of: market) {
-                                    if summary(.xbox) != nil && !model.accountBusy { model.syncAccount(.xbox, input: ["market": market]) }
-                                }
-                            if !model.installed.contains(.xbox) {
-                                Button("Set Up Xbox PC…") { model.requestedPage = "platforms" }.buttonStyle(.link)
-                            }
-                            Spacer()
-                            if model.signInTask != nil {
-                                Button("Cancel") { model.cancelSignIn() }
-                            }
-                            if summary(.xbox) != nil {
-                                Button("Sync Xbox Library") { model.syncAccount(.xbox, input: ["market": market]) }
-                                    .buttonStyle(.borderedProminent).disabled(model.accountBusy || !model.installed.contains(.xbox))
-                            } else {
-                                Button("Sign In to Microsoft…") { model.xboxSignIn(market: market) }
-                                    .buttonStyle(.borderedProminent).disabled(model.accountBusy || !model.installed.contains(.xbox))
-                            }
-                        }
-                        if model.installed.contains(.xbox) {
-                            HStack(spacing: 10) {
-                                Label(xboxLocationText, systemImage: model.xboxLocation?.isDefault == false ? "externaldrive" : "internaldrive")
-                                    .font(.callout).foregroundStyle(model.xboxLocation?.available == false ? .orange : .secondary)
-                                    .lineLimit(2).textSelection(.enabled)
-                                Spacer()
-                                Button("Change…") { model.chooseXboxLocation() }.disabled(model.accountBusy)
-                                    .help("Download new Xbox PC games to a folder on an external drive (APFS, Mac OS Extended or exFAT).")
-                                if model.xboxLocation?.isDefault == false {
-                                    Button("Use This Mac") { model.chooseXboxLocation(useDefault: true) }.disabled(model.accountBusy)
-                                }
-                            }
-                        }
-                    }.padding(12)
+
+                heading("Shown automatically when installed")
+                card {
+                    ForEach(Array(Self.automatic.enumerated()), id: \.element) { index, launcher in
+                        if index > 0 { Divider() }
+                        launcherRow(launcher)
+                    }
                 }
-                HStack(spacing: 12) {
-                    if model.accountBusy { ProgressView().controlSize(.small) }
-                    Text(model.accountMessage).font(.callout).textSelection(.enabled)
+
+                if lastAction == nil && !model.accountMessage.isEmpty {
+                    HStack(spacing: 10) {
+                        if model.accountBusy { ProgressView().controlSize(.small) }
+                        Text(model.accountMessage).font(.callout).textSelection(.enabled)
+                    }.padding(.top, 8)
                 }
-                GroupBox("Epic Games & Battle.net") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Installed games already appear in Soju. Full account imports for these platforms are not available yet. Open the official launcher to browse your owned games.")
-                            .font(.callout).foregroundStyle(.secondary)
-                        HStack {
-                            Button("Open Epic Games") { model.launch(.epic) }.disabled(model.busy)
-                            Button("Open Battle.net") { model.launch(.battlenet) }.disabled(model.busy)
-                        }
-                        Text("Already have a Battle.net game on this Mac or an external drive, from another app or a backup? Soju can use that folder instead of downloading again.")
-                            .font(.callout).foregroundStyle(.secondary)
-                        Button("Use Existing Battle.net Game…") { model.importBattlenetGame() }.disabled(model.busy)
-                    }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                }
-                Text("Imports are snapshots stored on this Mac. Sync again after purchases or account changes. Disconnect removes the import (and Soju’s saved Steam web session or Microsoft sign-in), without removing installed games.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text("Imports are a snapshot: press Sync after you buy something. Disconnecting never removes installed games.")
+                    .font(.caption).foregroundStyle(.secondary).padding(.top, 10)
             }.padding(28)
-        }.onAppear(perform: loadUsers)
+        }.onAppear { loadUsers(); didim.loadProviders() }
             .confirmationDialog("Sign out of Xbox PC?", isPresented: $confirmDisconnect) {
-                Button("Sign Out", role: .destructive) { model.forgetAccount(.xbox) }
+                Button("Sign Out", role: .destructive) { lastAction = .xbox; model.forgetAccount(.xbox) }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text(model.downloadTasks.isEmpty ? "Your imported Xbox library is removed. Downloaded games stay on this Mac."
@@ -414,28 +364,209 @@ struct AccountsView: View {
                 }, cancel: { showSteamLogin = false })
             }
     }
-    /// "1 game · updated Nov 2", without the internal account number some imports carry ("Galaxy · …1379").
+
+    // MARK: rows
+
+    private var didimRow: some View {
+        let signedIn = !didim.email.isEmpty
+        let owned = didim.owned.count
+        let status = didim.signingIn != nil ? "Finish signing in in your browser"
+            : signedIn ? didim.email + (owned == 0 ? "" : owned == 1 ? " · 1 game" : " · " + String(owned) + " games")
+            : "Not signed in · needed to buy games and play demos"
+        return row(symbol: "person.crop.circle", title: "Didim Labs account", ok: signedIn, status: status,
+                   note: didim.signingIn == nil ? didim.message : "") {
+            if didim.signingIn != nil {
+                ProgressView().controlSize(.small)
+                Button("Cancel") { didim.cancel() }
+            } else if signedIn {
+                Button("Sign out") { didim.signOut() }
+            } else if didim.providers.isEmpty {
+                Button("Retry") { didim.loadProviders() }.help("Sign-in is not available right now. Check the internet connection.")
+            } else {
+                if didim.providers.contains("apple") {
+                    Button { didim.signIn("apple") } label: { Label("Apple", systemImage: "apple.logo") }.buttonStyle(.borderedProminent)
+                }
+                if didim.providers.contains("google") {
+                    Button { didim.signIn("google") } label: { Label("Google", systemImage: "g.circle") }.buttonStyle(.borderedProminent)
+                }
+            }
+        }
+    }
+
+    private var steamRow: some View {
+        let value = summary(.steam)
+        return row(symbol: Launcher.steam.symbol, title: "Steam", ok: value != nil,
+                   status: value.map(summaryLine) ?? "Not connected · no need to install Steam first", note: note(.steam)) {
+            if working(.steam) { ProgressView().controlSize(.small) }
+            if value == nil {
+                Button("Sign in") { lastAction = .steam; showSteamLogin = true }.buttonStyle(.borderedProminent).disabled(model.accountBusy)
+            } else {
+                Button("Sync") { lastAction = .steam; showSteamLogin = true }.disabled(model.accountBusy)
+            }
+            more {
+                Button("Open Windows Steam") { model.launch(.steam) }.disabled(model.busy || !model.installed.contains(.steam))
+                Divider()
+                if value == nil {
+                    Button("Clear saved sign-in") { lastAction = .steam; model.forgetAccount(.steam) }.disabled(model.accountBusy)
+                } else {
+                    Button("Disconnect", role: .destructive) { lastAction = .steam; model.forgetAccount(.steam) }.disabled(model.accountBusy)
+                }
+            }
+        }
+    }
+
+    private var gogRow: some View {
+        let value = summary(.gog)
+        let status = value.map(summaryLine) ?? (usersMessage.isEmpty ? "Not connected · open Galaxy once, then import" : usersMessage)
+        return row(symbol: Launcher.gog.symbol, title: "GOG GALAXY", ok: value != nil, status: status, note: note(.gog)) {
+            if working(.gog) { ProgressView().controlSize(.small) }
+            let action = { lastAction = .gog; model.syncAccount(.gog, input: userID.isEmpty ? [:] : ["user_id": userID]) }
+            if value == nil {
+                Button("Import", action: action).buttonStyle(.borderedProminent).disabled(model.accountBusy || (users.count > 1 && userID.isEmpty))
+            } else {
+                Button("Sync", action: action).disabled(model.accountBusy || (users.count > 1 && userID.isEmpty))
+            }
+            more {
+                Button("Open GOG GALAXY") { model.launch(.gog) }.disabled(model.busy)
+                Button("Refresh account list", action: loadUsers).disabled(userTask != nil)
+                if value != nil {
+                    Divider()
+                    Button("Disconnect", role: .destructive) { lastAction = .gog; model.forgetAccount(.gog) }.disabled(model.accountBusy)
+                }
+            }
+        }
+    }
+
+    private var xboxRow: some View {
+        let value = summary(.xbox)
+        let installed = model.installed.contains(.xbox)
+        let status = value.map(summaryLine) ?? (installed ? "Not connected · your games and PC Game Pass" : "Not set up yet")
+        return row(symbol: Launcher.xbox.symbol, title: "Xbox PC", badge: "Experimental", ok: value != nil, status: status, note: note(.xbox)) {
+            if working(.xbox) { ProgressView().controlSize(.small) }
+            if model.signInTask != nil { Button("Cancel") { model.cancelSignIn() } }
+            if !installed {
+                Button("Set up in Platforms") { model.requestedPage = "platforms" }
+            } else if value == nil {
+                Button("Sign in") { lastAction = .xbox; model.xboxSignIn(market: market) }.buttonStyle(.borderedProminent).disabled(model.accountBusy)
+                    .help("Opens Microsoft's own sign-in page. The sign-in stays in the macOS Keychain.")
+            } else {
+                Button("Sync") { lastAction = .xbox; model.syncAccount(.xbox, input: ["market": market]) }.disabled(model.accountBusy)
+                more { Button("Sign Out…", role: .destructive) { confirmDisconnect = true }.disabled(model.accountBusy) }
+            }
+        }
+    }
+
+    private var xboxSettings: some View {
+        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
+            GridRow {
+                Text("Store region").foregroundStyle(.secondary)
+                Picker("Store region", selection: $market) {
+                    Text("US · USD").tag("US"); Text("Korea · KRW").tag("KR"); Text("UK · GBP").tag("GB")
+                    Text("Germany · EUR").tag("DE"); Text("Japan · JPY").tag("JP")
+                }.labelsHidden().frame(width: 160)
+                    .help("Used for the Xbox library and Discover. A connected library syncs again when you change it.")
+                    .onChange(of: market) {
+                        if summary(.xbox) != nil && !model.accountBusy { lastAction = .xbox; model.syncAccount(.xbox, input: ["market": market]) }
+                    }
+                Spacer()
+            }
+            GridRow {
+                Text("Downloads go to").foregroundStyle(.secondary)
+                Text(xboxLocationText).foregroundStyle(model.xboxLocation?.available == false ? .orange : .primary)
+                    .lineLimit(2).textSelection(.enabled)
+                HStack {
+                    Spacer()
+                    if model.xboxLocation?.isDefault == false {
+                        Button("Use This Mac") { lastAction = .xbox; model.chooseXboxLocation(useDefault: true) }.disabled(model.accountBusy)
+                    }
+                    Button("Change…") { lastAction = .xbox; model.chooseXboxLocation() }.disabled(model.accountBusy)
+                        .help("Download new Xbox PC games to a folder on an external drive (APFS, Mac OS Extended or exFAT).")
+                }
+            }
+        }.font(.system(size: 12))
+    }
+
+    private func launcherRow(_ launcher: Launcher) -> some View {
+        let installed = model.installed.contains(launcher)
+        let count = installedGames(launcher)
+        let status = !installed ? "Not installed"
+            : count == 0 ? "Installed · no games yet" : count == 1 ? "1 installed game in your library" : String(count) + " installed games in your library"
+        return row(symbol: launcher.symbol, title: launcher.title, ok: installed && count > 0, status: status, note: note(launcher)) {
+            if installed {
+                Button("Open") { model.launch(launcher) }.disabled(model.busy)
+            } else {
+                Button("Set up in Platforms") { model.requestedPage = "platforms" }
+            }
+            if launcher == .battlenet {
+                more {
+                    Button("Use Existing Battle.net Game…") { lastAction = .battlenet; model.importBattlenetGame() }.disabled(model.busy)
+                        .help("A Battle.net game already on this Mac or an external drive, from another app or a backup: Soju uses that folder instead of downloading again.")
+                }
+            }
+        }
+    }
+
+    // MARK: pieces
+
+    private func heading(_ text: String) -> some View {
+        Text(text.uppercased()).font(.system(size: 11, weight: .semibold)).tracking(0.6).foregroundStyle(.secondary)
+            .padding(.top, 16).padding(.leading, 4)
+    }
+    private func chip(_ text: String) -> some View {
+        Text(text).font(.system(size: 12)).padding(.horizontal, 12).padding(.vertical, 6)
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+    }
+    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) { content() }
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.08)))
+    }
+    /// Settings that belong to the row above, indented under its title.
+    private func detail<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        HStack { content(); Spacer(minLength: 0) }
+            .padding(.leading, 66).padding(.trailing, 16).padding(.bottom, 12)
+    }
+    private func more<Items: View>(@ViewBuilder _ items: () -> Items) -> some View {
+        Menu { items() } label: { Image(systemName: "ellipsis") }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
+    }
+    /// One store: icon, name, a status line with a dot, and its buttons on the right.
+    private func row<Buttons: View>(symbol: String, title: String, badge: String? = nil, ok: Bool, status: String, note: String,
+                                    @ViewBuilder buttons: () -> Buttons) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol).font(.system(size: 16)).frame(width: 36, height: 36)
+                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 9))
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(title).font(.system(size: 15, weight: .semibold))
+                    if let badge {
+                        Text(badge).font(.system(size: 10, weight: .medium)).padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 4))
+                    }
+                }
+                HStack(spacing: 6) {
+                    Circle().fill(ok ? Color.green : Color.secondary.opacity(0.5)).frame(width: 7, height: 7)
+                    Text(verbatim: status).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+                }
+                if !note.isEmpty {
+                    Text(verbatim: note).font(.system(size: 12)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 8)
+            buttons()
+        }.padding(.horizontal, 16).padding(.vertical, 12)
+    }
+
+    /// "1 game · synced Nov 2", without the internal account number some imports carry ("Galaxy · …1379").
     private func summaryLine(_ value: AccountSummary) -> String {
-        let label = value.label.components(separatedBy: " · ").filter { !$0.hasPrefix("…") }.joined(separator: " · ")
+        let label = value.label.components(separatedBy: " · ").filter { !$0.hasPrefix("…") && $0 != "Galaxy" }.joined(separator: " · ")
         let games = value.count == 1 ? "1 game" : "\(value.count) games"
         var updated = String(value.updatedAt.prefix(10))
         let parse = DateFormatter(); parse.dateFormat = "yyyy-MM-dd"; parse.locale = Locale(identifier: "en_US_POSIX")
         if let date = parse.date(from: updated) {
             let show = DateFormatter(); show.setLocalizedDateFormatFromTemplate("MMM d"); updated = show.string(from: date)
         }
-        return [label, games, "updated " + updated].filter { !$0.isEmpty }.joined(separator: " · ")
-    }
-    private func accountHeader(_ platform: Launcher) -> some View {
-        HStack {
-            Label(platform.title, systemImage: platform.symbol).font(.headline)
-            if let value = summary(platform) {
-                Text(verbatim: summaryLine(value)).font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Button(platform == .xbox ? "Sign Out…" : "Disconnect") {
-                    if platform == .xbox { confirmDisconnect = true } else { model.forgetAccount(platform) }
-                }.disabled(model.accountBusy)
-            } else { Spacer(); Text("Not connected").font(.caption).foregroundStyle(.secondary) }
-        }
+        return [games, "synced " + updated, label].filter { !$0.isEmpty }.joined(separator: " · ")
     }
     private func loadUsers() {
         guard userTask == nil else { return }
@@ -447,7 +578,7 @@ struct AccountsView: View {
                 users = (try? JSONDecoder().decode(Response.self, from: data).users) ?? []
                 if users.count == 1 { userID = users[0].id }
                 else if !users.contains(where: { $0.id == userID }) { userID = "" }
-                usersMessage = users.isEmpty ? "No owned Galaxy library found yet." : ""
+                usersMessage = users.isEmpty ? "No owned Galaxy library found yet · open Galaxy once" : ""
             case .failure(let error): usersMessage = error.localizedDescription
             }
         }
