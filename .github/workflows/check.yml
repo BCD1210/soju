@@ -35,5 +35,7 @@ jobs:
           /tmp/soju-meter-tests
           swiftc app/GardenStats.swift tests/test_garden_stats.swift -o /tmp/soju-garden-tests
           /tmp/soju-garden-tests
+          swiftc app/GoatCatalog.swift tests/test_goat_catalog.swift -o /tmp/soju-goat-tests
+          /tmp/soju-goat-tests
       - name: Build and verify the native app
         run: bash scripts/build-app.sh
