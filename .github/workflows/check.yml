@@ -17,6 +17,7 @@ jobs:
           python3 -m unittest discover -s tests -q
           node --test tests/test_steam_login.cjs
           node --test tests/test_stats_worker.mjs
+          node --test tests/test_feed_worker.mjs
       - name: Released files still resolve, Homebrew installs the newest release
         env:
           GITHUB_TOKEN: ${{ github.token }}
