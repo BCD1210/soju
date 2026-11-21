@@ -448,6 +448,8 @@ struct FeedShelfView: View {
         .animation(.smooth(duration: 0.3), value: signedIn)
         .onChange(of: feed.filter) { feed.load() }
         .onChange(of: account.email) { feed.load() }
+        .onChange(of: account.signIns) { feed.load() }
+        .onAppear { feed.load() }
         .alert("Set your nickname to @" + cleanNick + "?", isPresented: $confirmNick) {
             Button("Set nickname") { feed.setNick(cleanNick) }
             Button("Cancel", role: .cancel) {}

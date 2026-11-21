@@ -510,6 +510,8 @@ struct StoreView: View {
     @Published var owned = Set(UserDefaults.standard.stringArray(forKey: "didimOwned") ?? [])
     @Published var providers: [String] = []
     @Published var signingIn: String?
+    /// Counts finished sign-ins. Signing in again with the same email changes nothing else, and the feed still has to read its new token.
+    @Published var signIns = 0
     @Published var message = ""
     private var timer: Timer?
     private var state = ""
@@ -605,6 +607,7 @@ struct StoreView: View {
         // The feed's token comes once, with this answer (site-worker/feed.js).
         if let token = body["token"] as? String { FeedToken.save(token) }
         email = address
+        signIns += 1
         owned.formUnion(found)
         UserDefaults.standard.set(address, forKey: "didimAccountEmail")
         UserDefaults.standard.set(Array(owned), forKey: "didimOwned")
