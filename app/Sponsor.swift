@@ -74,16 +74,16 @@ struct SponsorCard: View {
     var body: some View {
         if let slot = sponsors.slot, let link = slot.link {
             VStack(alignment: .leading, spacing: 5) {
-                Text("SPONSOR").font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
+                Text("SPONSOR").font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
                 Link(destination: link) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(slot.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(.primary)
-                        Text(slot.line).font(.system(size: 11)).foregroundStyle(.secondary)
+                        Text(slot.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary)
+                        Text(slot.line).font(.system(size: 12)).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }.buttonStyle(.plain).help(link.host ?? "")
                 Link(destination: Self.page) {
-                    Text("Advertise here").font(.system(size: 10)).foregroundStyle(.tertiary)
+                    Text("Advertise here").font(.system(size: 11)).foregroundStyle(.tertiary)
                 }.buttonStyle(.plain)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

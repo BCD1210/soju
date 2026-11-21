@@ -43,11 +43,11 @@ struct TVView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("TV & iPad").font(.system(size: 30, weight: .bold, design: .rounded))
+                    Text("TV & iPad").font(.system(size: 32, weight: .bold, design: .rounded))
                     Text("Games keep running on this Mac. Your TV, iPad or phone shows the picture and sends the controls back over your home Wi‑Fi.")
-                        .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
-                if model.busy { Label(model.activity, systemImage: "hourglass").font(.system(size: 12)) }
+                if model.busy { Label(model.activity, systemImage: "hourglass").font(.system(size: 13)) }
                 step(1, "Turn on streaming", done: status.installed && status.running && status.permission) {
                     if !status.installed {
                         Text("Soju installs Sunshine, a free open-source streaming server signed by LizardByte. It sends no usage data, and its settings stay on this Mac.")
@@ -76,7 +76,7 @@ struct TVView: View {
                         Link("iPad, iPhone, Apple TV", destination: URL(string: "https://apps.apple.com/app/moonlight-game-streaming/id1000551566")!)
                         Link("Android, Google TV", destination: URL(string: "https://play.google.com/store/apps/details?id=com.limelight")!)
                         Link("Other devices", destination: URL(string: "https://moonlight-stream.org")!)
-                    }.font(.system(size: 12))
+                    }.font(.system(size: 13))
                 }
                 step(3, "Connect", done: !status.devices.isEmpty) {
                     Text("Open Moonlight and choose \u{201C}Soju\u{201D}. It shows a 4-digit PIN. Type it here.")
@@ -85,7 +85,7 @@ struct TVView: View {
                             .onSubmit(pair)
                         Button("Connect", action: pair).buttonStyle(.borderedProminent).tint(accent)
                             .disabled(model.busy || !status.running || pin.range(of: "^\\d{4}$", options: .regularExpression) == nil)
-                        if status.pending > 0 { Text("A device is waiting.").font(.system(size: 11)).foregroundStyle(.secondary) }
+                        if status.pending > 0 { Text("A device is waiting.").font(.system(size: 12)).foregroundStyle(.secondary) }
                     }
                     if !status.devices.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
@@ -101,9 +101,9 @@ struct TVView: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("Samsung or LG TV, or a smart monitor", systemImage: "airplayvideo").font(.system(size: 15, weight: .semibold))
+                    Label("Samsung or LG TV, or a smart monitor", systemImage: "airplayvideo").font(.system(size: 16, weight: .semibold))
                     Text("These don't have Moonlight, but most take AirPlay, built into macOS. Open Control Center, choose Screen Mirroring, then your TV. Drag the game window onto the TV (or switch the game to full screen there). Play with the keyboard, mouse or controller connected to this Mac.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
                 step(4, "Play", done: false) {
@@ -149,12 +149,12 @@ struct TVView: View {
         HStack(alignment: .top, spacing: 14) {
             ZStack {
                 Circle().fill(done ? accent : Color.primary.opacity(0.08)).frame(width: 28, height: 28)
-                if done { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white) }
-                else { Text(String(number)).font(.system(size: 13, weight: .semibold)) }
+                if done { Image(systemName: "checkmark").font(.system(size: 13, weight: .bold)).foregroundStyle(.white) }
+                else { Text(String(number)).font(.system(size: 14, weight: .semibold)) }
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text(title).font(.system(size: 15, weight: .semibold))
-                content().font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                Text(title).font(.system(size: 16, weight: .semibold))
+                content().font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
