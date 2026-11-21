@@ -1,12 +1,14 @@
 // The Didim Labs feed in the Soju app (app/Feed.swift): game news from Didim Labs and what signed-in players post, one stream.
 // Kept in the FEED D1 database. Served at didimlabs.com/api/feed (worker.js).
 //
-//   GET  /api/feed?before=<id>&kind=news|player   newest first, 30 a page; with a token, also what this account liked and wrote
+//   GET  /api/feed?before=<id>&kind=news|player   newest first, 30 a page, with what this account liked and wrote
+// The feed is for people who are signed in: reading it needs the token too. A photo is asked for by its id and its own
+// random key (given with the post), since a picture cannot carry the token.
 //   GET  /api/feed/thread?id=<id>                 one post and its replies
 //   POST /api/feed/nick   {nick}                  the name shown on posts: one per account, taken once
 //   POST /api/feed/post   {body, game, game_title, parent?, title?, news?}   a post about one game, or a reply
 //   POST /api/feed/image  {full, thumb, w, h}     one photo for a post about to be made (base64 JPEG, made small by Soju): {image}
-//   GET  /api/feed/image/<id>?s=thumb|full        a photo of a post that is shown
+//   GET  /api/feed/image/<id>?k=<key>&s=thumb|full   a photo of a post that is shown
 //   POST /api/feed/like   {post, on}
 //   POST /api/feed/report {post}                  three accounts reporting a post hide it until an operator looks
 //   POST /api/feed/delete {post}                  one's own post (an operator: any post)
@@ -36,7 +38,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, parent INTEGER, email TEXT NOT NULL, nick TEXT NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL, game TEXT NOT NULL DEFAULT '', game_title TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL, hidden INTEGER NOT NULL DEFAULT 0)",
   "CREATE INDEX IF NOT EXISTS posts_top ON posts (parent, hidden, id)",
   "CREATE INDEX IF NOT EXISTS posts_email ON posts (email, created)",
-  "CREATE TABLE IF NOT EXISTS images (id INTEGER PRIMARY KEY AUTOINCREMENT, post INTEGER, email TEXT NOT NULL, full BLOB NOT NULL, thumb BLOB NOT NULL, w INTEGER NOT NULL, h INTEGER NOT NULL, created INTEGER NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS images (id INTEGER PRIMARY KEY AUTOINCREMENT, k TEXT NOT NULL DEFAULT '', post INTEGER, email TEXT NOT NULL, full BLOB NOT NULL, thumb BLOB NOT NULL, w INTEGER NOT NULL, h INTEGER NOT NULL, created INTEGER NOT NULL)",
   "CREATE INDEX IF NOT EXISTS images_post ON images (post)",
   "CREATE INDEX IF NOT EXISTS images_email ON images (email, created)",
   "CREATE TABLE IF NOT EXISTS likes (post INTEGER NOT NULL, email TEXT NOT NULL, PRIMARY KEY (post, email))",
@@ -51,7 +53,12 @@ const sha = async (s) => [...new Uint8Array(await crypto.subtle.digest("SHA-256"
 const admins = (env) => new Set(String(env.FEED_ADMINS || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean));
 
 async function schema(db) {
-  if (ready !== db) { await db.batch(SCHEMA.map((s) => db.prepare(s))); ready = db; }
+  if (ready !== db) {
+    await db.batch(SCHEMA.map((s) => db.prepare(s)));
+    // (A database made before photos had keys: the column is added once; the error when it is there already is nothing.)
+    try { await db.prepare("ALTER TABLE images ADD COLUMN k TEXT NOT NULL DEFAULT ''").run(); } catch {}
+    ready = db;
+  }
 }
 
 // Called by auth.js when a sign-in finishes: the one time the token is given out. Null when the feed has no database.
@@ -106,8 +113,8 @@ export const jpegSize = (b) => {
 const photosOf = async (db, ids) => {
   const by = new Map();
   if (!ids.length) return by;
-  const rows = (await db.prepare(`SELECT id, post, w, h FROM images WHERE post IN (${ids.map((_, i) => "?" + (i + 1)).join(",")}) ORDER BY id`).bind(...ids).all()).results;
-  for (const r of rows) { if (!by.has(r.post)) by.set(r.post, []); by.get(r.post).push({ id: r.id, w: r.w, h: r.h }); }
+  const rows = (await db.prepare(`SELECT id, k, post, w, h FROM images WHERE post IN (${ids.map((_, i) => "?" + (i + 1)).join(",")}) ORDER BY id`).bind(...ids).all()).results;
+  for (const r of rows) { if (!by.has(r.post)) by.set(r.post, []); by.get(r.post).push({ id: r.id, k: r.k, w: r.w, h: r.h }); }
   return by;
 };
 
@@ -134,7 +141,19 @@ export async function feed(request, env, url) {
   // For trying the feed on one's own machine (wrangler dev with FEED_DEV_EMAIL in .dev.vars): a token without a sign-in.
   // The variable is never set on the deployed worker.
   if (path === "dev-token" && env.FEED_DEV_EMAIL && (url.hostname === "127.0.0.1" || url.hostname === "localhost")) return json({ token: await issueToken(env, String(env.FEED_DEV_EMAIL).toLowerCase()), email: String(env.FEED_DEV_EMAIL).toLowerCase() });
+  const pic = request.method === "GET" ? /^image\/(\d{1,12})$/.exec(path) : null;
+  if (pic) {
+    // Only a photo of a post that is shown; one waiting for its post, or of a hidden post, is nobody's to see.
+    const col = url.searchParams.get("s") === "full" ? "full" : "thumb";
+    const key = url.searchParams.get("k") || "";
+    const row = /^[A-Za-z0-9_-]{20,64}$/.test(key) ? await db.prepare(`SELECT i.${col} AS bytes FROM images i JOIN posts p ON p.id = i.post WHERE i.id = ? AND i.k = ? AND p.hidden = 0 AND p.parent IS NULL`).bind(Number(pic[1]), key).first() : null;
+    if (!row || !row.bytes) return new Response("not found", { status: 404, headers: { "cache-control": "no-store" } });
+    return new Response(row.bytes instanceof ArrayBuffer ? row.bytes : new Uint8Array(row.bytes), { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=31536000, immutable",
+      "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox" } });
+  }
   const me = await who(env, request);
+  // (The photo route above answers by the photo's own key.)
+  if (request.method === "GET" && (path === "" || path === "thread") && !me) return json({ error: "Sign in to see the feed.", signin: true }, 401);
 
   if (request.method === "GET" && path === "") {
     const before = Math.floor(Number(url.searchParams.get("before"))) || 0, kind = url.searchParams.get("kind");
@@ -161,15 +180,6 @@ export async function feed(request, env, url) {
     const replies = (await db.prepare(`SELECT ${COLS(true)} FROM posts p WHERE p.parent = ?2 AND p.hidden = 0 ORDER BY p.id LIMIT ${FEED.THREAD}`).bind(me ? me.email : "", id).all()).results;
     const photos = await photosOf(db, [id]);
     return json({ post: { ...shape(post, me), images: photos.get(id) || [] }, replies: replies.map((r) => shape(r, me)), me: me ? { nick: me.nick, admin: me.admin } : null });
-  }
-  const pic = request.method === "GET" ? /^image\/(\d{1,12})$/.exec(path) : null;
-  if (pic) {
-    // Only a photo of a post that is shown; one waiting for its post, or of a hidden post, is nobody's to see.
-    const col = url.searchParams.get("s") === "full" ? "full" : "thumb";
-    const row = await db.prepare(`SELECT i.${col} AS bytes FROM images i JOIN posts p ON p.id = i.post WHERE i.id = ? AND p.hidden = 0 AND p.parent IS NULL`).bind(Number(pic[1])).first();
-    if (!row || !row.bytes) return new Response("not found", { status: 404, headers: { "cache-control": "no-store" } });
-    return new Response(row.bytes instanceof ArrayBuffer ? row.bytes : new Uint8Array(row.bytes), { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=31536000, immutable",
-      "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox" } });
   }
   if (request.method !== "POST") return json({ error: "Not found." }, 404);
   if (!me) return json({ error: "Sign in to do that.", signin: true }, 401);
@@ -211,8 +221,9 @@ export async function feed(request, env, url) {
     }
     // Photos whose post never came are dropped after a day.
     if (Math.random() < 0.05) await db.prepare("DELETE FROM images WHERE post IS NULL AND created < ?").bind(now - 864e5).run();
-    const row = await db.prepare("INSERT INTO images (email, full, thumb, w, h, created) VALUES (?, ?, ?, ?, ?, ?) RETURNING id").bind(me.email, full, thumb, w, h, now).first();
-    return json({ image: row.id });
+    const k = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(18)))).replace(/\+/g, "-").replace(/\//g, "_");
+    const row = await db.prepare("INSERT INTO images (k, email, full, thumb, w, h, created) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id").bind(k, me.email, full, thumb, w, h, now).first();
+    return json({ image: row.id, k });
   }
   if (path === "post") {
     if (!me.nick) return json({ error: "Pick a nickname first.", nick: true }, 400);
