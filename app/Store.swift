@@ -113,13 +113,16 @@ struct StoreView: View {
                 Text("Store").tag("store")
                 Text("GOAT").tag("goat")
             }.pickerStyle(.segmented).labelsHidden().fixedSize()
-            if shelf == "feed" {
-                FeedShelfView(feed: feed, account: account, games: feedGames, accent: accent)
-            } else if shelf == "goat" {
-                GoatShelfView(shelf: goat, accent: accent)
-            } else {
-                didimShelf
-            }
+            // One shelf fades into the next instead of being swapped in one frame.
+            Group {
+                if shelf == "feed" {
+                    FeedShelfView(feed: feed, account: account, games: feedGames, accent: accent)
+                } else if shelf == "goat" {
+                    GoatShelfView(shelf: goat, accent: accent)
+                } else {
+                    VStack(alignment: .leading, spacing: 18) { didimShelf }
+                }
+            }.id(shelf).transition(.opacity).animation(.easeInOut(duration: 0.18), value: shelf)
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear { if !["feed", "store", "goat"].contains(shelf) { shelf = "feed" }; if model.requestedBuy != nil || model.requestedClaim != nil { shelf = "store" }; store.load(root: model.root); feed.load(); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
