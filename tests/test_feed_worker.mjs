@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
-import { feed, issueToken, feedReset, FEED } from "../site-worker/feed.js";
+import { feed, issueToken, feedReset, FEED, jpegSize } from "../site-worker/feed.js";
 
 function d1() {
   const db = new DatabaseSync(":memory:");
@@ -15,7 +15,8 @@ function d1() {
 const setup = async () => { feedReset(); const env = { FEED: d1(), FEED_ADMINS: "op@didimlabs.com" };
   const tok = {}; for (const e of ["a@x.com", "b@x.com", "c@x.com", "d@x.com", "op@didimlabs.com"]) tok[e] = await issueToken(env, e); return { env, tok }; };
 const call = async (env, method, path, token, body) => { const url = new URL("https://didimlabs.com/api/feed" + path);
-  const r = await feed(new Request(url, { method, headers: { "content-type": "application/json", "cf-connecting-ip": "10.0.0.1", ...(token ? { authorization: "Bearer " + token } : {}) }, body: body ? JSON.stringify(body) : undefined }), env, url);
+  const sent = body ? JSON.stringify(body) : undefined;
+  const r = await feed(new Request(url, { method, headers: { "content-type": "application/json", "cf-connecting-ip": "10.0.0.1", ...(sent ? { "content-length": String(Buffer.byteLength(sent)) } : {}), ...(token ? { authorization: "Bearer " + token } : {}) }, body: sent }), env, url);
   return { status: r.status, ...(await r.json()) }; };
 const GAME = { game: "didim:dont-sell-the-cat", game_title: "Don't Sell the Cat" };
 const later = (env, ms) => env.FEED.raw.exec(`UPDATE posts SET created = created - ${ms}`);
@@ -128,12 +129,18 @@ test("deleting is for one's own post (or an operator) and takes the replies; thr
 test("photos: small JPEGs sent before the post, shown only with a post that is shown, gone with it", async () => {
   const { env, tok } = await setup();
   for (const [e, n] of [["a@x.com", "aaa_one"], ["b@x.com", "bbb_two"], ["op@didimlabs.com", "mike_92"]]) await call(env, "POST", "/nick", tok[e], { nick: n });
-  const jpg = (n) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(n, 7), Buffer.from([0xff, 0xd9])]).toString("base64");
-  const pic = { full: jpg(5000), thumb: jpg(900), w: 1600, h: 900 };
+  // A JPEG as far as its frame header (which says how big the picture is), then filler.
+  const jpg = (n, w, h) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, h >> 8, h & 255, w >> 8, w & 255, 0x03]), Buffer.alloc(n - 14, 7), Buffer.from([0xff, 0xd9])]).toString("base64");
+  const pic = { full: jpg(5006, 1600, 900), thumb: jpg(906, 560, 315), w: 1600, h: 900 };
+  assert.deepEqual(jpegSize(Buffer.from(pic.full, "base64")), { w: 1600, h: 900 });
   assert.equal((await call(env, "POST", "/image", null, pic)).status, 401);
   assert.equal((await call(env, "POST", "/image", tok["a@x.com"], { ...pic, full: Buffer.from("<svg onload=alert(1)>".repeat(40)).toString("base64") })).status, 400);   // not a JPEG
-  assert.equal((await call(env, "POST", "/image", tok["a@x.com"], { ...pic, full: jpg(FEED.FULL_MAX + 10) })).status, 400);
+  assert.equal((await call(env, "POST", "/image", tok["a@x.com"], { ...pic, full: jpg(FEED.FULL_MAX + 10, 1600, 900) })).status, 400);
   assert.equal((await call(env, "POST", "/image", tok["a@x.com"], { ...pic, w: 99999 })).status, 400);
+  // A small file that says it is enormous (it would take gigabytes to open in everyone's Soju), or lies about its size: refused.
+  assert.equal((await call(env, "POST", "/image", tok["a@x.com"], { full: jpg(5006, 65535, 65535), thumb: pic.thumb, w: 65535, h: 65535 })).status, 400);
+  assert.equal((await call(env, "POST", "/image", tok["a@x.com"], { full: jpg(5006, 65535, 65535), thumb: pic.thumb, w: 1600, h: 900 })).status, 400);
+  assert.equal((await call(env, "POST", "/image", tok["a@x.com"], { ...pic, thumb: jpg(906, 4000, 4000) })).status, 400);
   const i1 = await call(env, "POST", "/image", tok["a@x.com"], pic), i2 = await call(env, "POST", "/image", tok["a@x.com"], pic), i3 = await call(env, "POST", "/image", tok["a@x.com"], pic);
   assert.equal(i1.status, 200);
   const get = async (id, s) => { const url = new URL(`https://didimlabs.com/api/feed/image/${id}?s=${s}`); return feed(new Request(url, { headers: { "cf-connecting-ip": "10.0.0.9" } }), env, url); };
@@ -142,6 +149,8 @@ test("photos: small JPEGs sent before the post, shown only with a post that is s
   assert.equal((await call(env, "POST", "/post", tok["b@x.com"], { body: "Someone else's photo", images: [i1.image], ...GAME })).status, 400);
   const p = await call(env, "POST", "/post", tok["a@x.com"], { body: "The ledger under the UV lamp", images: [i1.image, i2.image], ...GAME });
   assert.equal(p.status, 200);
+  later(env, 60000);
+  assert.equal((await call(env, "POST", "/post", tok["a@x.com"], { body: "A photo on a reply", parent: p.id, images: [i3.image] })).status, 400);
   later(env, 60000);
   assert.equal((await call(env, "POST", "/post", tok["a@x.com"], { body: "The same photo twice", images: [i1.image], ...GAME })).status, 400);   // already on a post
   const list = await call(env, "GET", "", null);
@@ -160,6 +169,41 @@ test("photos: small JPEGs sent before the post, shown only with a post that is s
   assert.equal((await call(env, "POST", "/post", tok["op@didimlabs.com"], { body: "n".repeat(3000), news: true, title: "A long read" })).status, 200);
   later(env, 60000);
   assert.equal((await call(env, "POST", "/post", tok["a@x.com"], { body: "n".repeat(3000), news: true, title: "x", ...GAME })).status, 400);
+});
+
+test("what an unfriendly visitor would try", async () => {
+  const { env, tok } = await setup();
+  for (const [e, n] of [["a@x.com", "aaa_one"], ["b@x.com", "bbb_two"], ["c@x.com", "ccc_three"], ["d@x.com", "ddd_four"], ["op@didimlabs.com", "mike_92"]]) await call(env, "POST", "/nick", tok[e], { nick: n });
+  // Names that pass for the house.
+  const { env: e2, tok: t2 } = await setup();
+  for (const bad of ["didimlabs_news", "soju_team", "the_official", "xadminx", "goat_staff"]) assert.equal((await call(e2, "POST", "/nick", t2["a@x.com"], { nick: bad })).status, 400, bad);
+  // Three throwaway accounts cannot take news down, nor an operator's post; they can take a member's.
+  const news = await call(env, "POST", "/post", tok["op@didimlabs.com"], { body: "The demo is out.", news: true, title: "Demo" });
+  const plain = await call(env, "POST", "/post", tok["op@didimlabs.com"], { body: "An operator's ordinary post", ...GAME });
+  for (const e of ["a@x.com", "b@x.com", "c@x.com", "d@x.com"]) { await call(env, "POST", "/report", tok[e], { post: news.id }); await call(env, "POST", "/report", tok[e], { post: plain.id }); }
+  assert.equal((await call(env, "GET", "", null)).posts.length, 2);
+  // A body without a stated length, and one that is too large.
+  const url = new URL("https://didimlabs.com/api/feed/post");
+  const noLength = await feed(new Request(url, { method: "POST", headers: { authorization: "Bearer " + tok["a@x.com"], "cf-connecting-ip": "10.0.0.2" }, body: "{}" }), env, url);
+  assert.equal(noLength.status, 411);
+  assert.equal((await call(env, "POST", "/post", tok["a@x.com"], { body: "x".repeat(20000), ...GAME })).status, 413);
+  // Text that tries to look like something else: control and direction-override characters are dropped, markup stays text.
+  const odd = await call(env, "POST", "/post", tok["a@x.com"], { body: "<script>alert(1)</script>\u202Egnp.exe\u0007", game: "steam:1", game_title: "  A\n\nGame  \u202E" });
+  const shown = (await call(env, "GET", "", null)).posts.find((p) => p.id === odd.id);
+  assert.equal(shown.body, "<script>alert(1)</script>gnp.exe"); assert.equal(shown.game_title, "A Game");
+  // Someone else's post: not theirs to delete; a like or report on a post that does not exist is nothing.
+  assert.equal((await call(env, "POST", "/delete", tok["b@x.com"], { post: odd.id })).status, 403);
+  assert.equal((await call(env, "POST", "/like", tok["b@x.com"], { post: 424242 })).status, 404);
+  assert.equal((await call(env, "POST", "/like", tok["b@x.com"], { post: "1; DROP TABLE posts" })).status, 404);
+  // Signing out forgets the token; the dev shortcut is not there without its variable, nor off this machine with it.
+  assert.equal((await call(env, "POST", "/signout", tok["b@x.com"], {})).status, 200);
+  assert.equal((await call(env, "POST", "/like", tok["b@x.com"], { post: odd.id })).status, 401);
+  assert.equal((await call(env, "GET", "/dev-token", null)).status, 404);
+  assert.equal((await call({ ...env, FEED_DEV_EMAIL: "x@y.z" }, "GET", "/dev-token", null)).status, 404);
+  // Photos do not count against the per-minute limit; everything else does.
+  for (let i = 0; i < 130; i++) { const u = new URL("https://didimlabs.com/api/feed/image/999"); assert.equal((await feed(new Request(u, { headers: { "cf-connecting-ip": "10.9.9.9" } }), env, u)).status, 404); }
+  let last = 200; for (let i = 0; i < 125; i++) { const u = new URL("https://didimlabs.com/api/feed"); last = (await feed(new Request(u, { headers: { "cf-connecting-ip": "10.9.9.9" } }), env, u)).status; }
+  assert.equal(last, 429);
 });
 
 test("a member posts a few seconds apart and a set number a day; pages go back by id", async () => {
