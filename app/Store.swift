@@ -171,7 +171,6 @@ struct StoreView: View {
                     }
                 }
             }
-            NotifyRow()
             HStack(spacing: 6) {
                 Text("Sign in with Apple or Google, press Buy, pay in your browser, and Soju installs the game by itself.")
                 if let game = store.games.first(where: { installed($0) == nil }) {
