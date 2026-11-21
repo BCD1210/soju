@@ -8,6 +8,8 @@ import SwiftUI
 struct SojuGardenCard: View {
     @EnvironmentObject var model: SojuModel
     @State private var garden = Garden(sessions: [])
+    /// What the day under the pointer says (the year is one drawing, so the tip follows the pointer).
+    @State private var hoverTip = ""
     private let refresh = Timer.publish(every: 120, on: .main, in: .common).autoconnect()
     private let ko = Locale.preferredLanguages.first?.hasPrefix("ko") == true
 
@@ -147,19 +149,27 @@ struct SojuGardenCard: View {
                         Text(label).font(.system(size: 9)).foregroundStyle(.secondary).fixedSize().frame(width: cell, height: 12, alignment: .leading)
                     }
                 }
-                HStack(alignment: .top, spacing: gap) {
-                    ForEach(Array(garden.weeks.enumerated()), id: \.offset) { _, week in
-                        VStack(spacing: gap) {
-                            ForEach(0..<7) { r in
-                                if let day = week[r] {
-                                    ShotGlass(level: day.level, accent: green).frame(width: cell, height: cell).help(tip(day))
-                                } else {
-                                    Color.clear.frame(width: cell, height: cell)
-                                }
-                            }
+                // The year is one drawing, not a view per day: some 370 small canvases, laid out twice by ViewThatFits and made
+                // again each time the library came back, held the page for a moment on every click.
+                let weeks = garden.weeks, step = cell + gap, accent = green
+                Canvas { ctx, _ in
+                    let face = Color(nsColor: .windowBackgroundColor)
+                    for (c, week) in weeks.enumerated() {
+                        for r in 0..<7 {
+                            guard r < week.count, let day = week[r] else { continue }
+                            ShotGlass.draw(&ctx, in: CGRect(x: CGFloat(c) * step, y: CGFloat(r) * step, width: cell, height: cell), level: day.level, accent: accent, face: face)
                         }
                     }
                 }
+                .frame(width: max(cell, CGFloat(weeks.count) * step - gap), height: 7 * step - gap)
+                .onContinuousHover { phase in
+                    guard case .active(let at) = phase else { hoverTip = ""; return }
+                    let c = Int(at.x / step), r = Int(at.y / step)
+                    let day = c >= 0 && c < weeks.count && r >= 0 && r < 7 && r < weeks[c].count ? weeks[c][r] : nil
+                    let now = day.map(tip) ?? ""
+                    if now != hoverTip { hoverTip = now }
+                }
+                .help(hoverTip)
             }
         }
     }
@@ -211,8 +221,16 @@ struct ShotGlass: View {
     var accent: Color
     var body: some View {
         Canvas { ctx, size in
-            let s = size.width / 16
-            func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
+            var ctx = ctx
+            ShotGlass.draw(&ctx, in: CGRect(x: 0, y: 0, width: size.width, height: size.width), level: level, accent: accent, face: Color(nsColor: .windowBackgroundColor))
+        }
+        .accessibilityHidden(true)
+    }
+
+    /// One glass drawn into `rect` (a square): used alone above, and for every day of the garden's year in one canvas.
+    static func draw(_ ctx: inout GraphicsContext, in rect: CGRect, level: Int, accent: Color, face: Color) {
+            let s = rect.width / 16
+            func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * s, y: rect.minY + y * s) }
             func poly(_ pts: [(CGFloat, CGFloat)]) -> Path {
                 var path = Path(); path.addLines(pts.map { p($0.0, $0.1) }); path.closeSubpath(); return path
             }
@@ -228,13 +246,13 @@ struct ShotGlass: View {
                 return
             }
             ctx.stroke(glass, with: .color(Color.primary.opacity(0.75)), style: StrokeStyle(lineWidth: 1.2 * s, lineJoin: .round))
-            let face = Color(nsColor: .windowBackgroundColor)   // reads on the accent in light and dark mode
+            // (face: the window's colour, which reads on the accent in light and dark mode)
             if l >= 3 {
-                for x in [6.3, 9.7] { ctx.fill(Path(ellipseIn: CGRect(x: (x - 0.75) * s, y: 8.85 * s, width: 1.5 * s, height: 1.5 * s)), with: .color(face)) }
+                for x in [6.3, 9.7] { ctx.fill(Path(ellipseIn: CGRect(x: rect.minX + (x - 0.75) * s, y: rect.minY + 8.85 * s, width: 1.5 * s, height: 1.5 * s)), with: .color(face)) }
                 var smile = Path(); smile.move(to: p(6.8, 11.3)); smile.addQuadCurve(to: p(9.2, 11.3), control: p(8, 12.4))
                 ctx.stroke(smile, with: .color(face), style: StrokeStyle(lineWidth: 0.8 * s, lineCap: .round))
                 for x in [5.2, 10.8] {
-                    ctx.fill(Path(ellipseIn: CGRect(x: (x - 0.8) * s, y: 11.35 * s, width: 1.6 * s, height: 0.9 * s)),
+                    ctx.fill(Path(ellipseIn: CGRect(x: rect.minX + (x - 0.8) * s, y: rect.minY + 11.35 * s, width: 1.6 * s, height: 0.9 * s)),
                              with: .color(Color(red: 0.96, green: 0.65, blue: 0.65).opacity(0.8)))
                 }
             }
@@ -242,7 +260,5 @@ struct ShotGlass: View {
                 ctx.fill(poly([(14.2, 0.6), (14.7, 1.7), (15.8, 2.2), (14.7, 2.7), (14.2, 3.8), (13.7, 2.7), (12.6, 2.2), (13.7, 1.7)]),
                          with: .color(Color(red: 0.91, green: 0.64, blue: 0.24)))
             }
-        }
-        .accessibilityHidden(true)
     }
 }
