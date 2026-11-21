@@ -108,11 +108,20 @@ struct StoreView: View {
                 Spacer(minLength: 0)
                 if isSignedIn { profileChip }
             }
-            Picker("Shelf", selection: $shelf) {
-                Text("Feed").tag("feed")
-                Text("Store").tag("store")
-                Text("GOAT").tag("goat")
-            }.pickerStyle(.segmented).labelsHidden().fixedSize()
+            // The page's shelves as plain tabs with a line under the one that is open (the feed's own tabs look the same).
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 22) {
+                    ForEach([("feed", "Feed"), ("store", "Store"), ("goat", "GOAT")], id: \.0) { id, title in
+                        Button { shelf = id } label: {
+                            VStack(spacing: 8) {
+                                Text(title).font(.system(size: 15, weight: shelf == id ? .semibold : .regular)).foregroundStyle(shelf == id ? Color.primary : Color.secondary)
+                                Capsule().fill(shelf == id ? accent : Color.clear).frame(height: 2.5)
+                            }.fixedSize().contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityLabel(title).accessibilityAddTraits(shelf == id ? .isSelected : [])
+                    }
+                }
+                Divider().opacity(0.6)
+            }
             // One shelf fades into the next instead of being swapped in one frame.
             Group {
                 if shelf == "feed" {
