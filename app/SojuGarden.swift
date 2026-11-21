@@ -10,6 +10,8 @@ struct SojuGardenCard: View {
     @State private var garden = Garden(sessions: [])
     /// What the day under the pointer says (the year is one drawing, so the tip follows the pointer).
     @State private var hoverTip = ""
+    /// Folded to one line by default, so the games below it are what the library shows; the year opens on a press and stays as left.
+    @AppStorage("gardenOpen") private var open = false
     private let refresh = Timer.publish(every: 120, on: .main, in: .common).autoconnect()
     private let ko = Locale.preferredLanguages.first?.hasPrefix("ko") == true
 
@@ -18,8 +20,41 @@ struct SojuGardenCard: View {
     private var green: Color { scheme == .dark ? Color(red: 0.42, green: 0.83, blue: 0.67) : Color(red: 0.12, green: 0.34, blue: 0.28) }
     private let cell: CGFloat = 14, gap: CGFloat = 3
 
+    private var fold: some View {
+        Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+            .rotationEffect(.degrees(open ? 180 : 0)).frame(width: 24, height: 24).background(Color.primary.opacity(0.06), in: Circle())
+    }
+
+    /// The garden in one line: the bottle, what it says, the numbers that matter and the rank.
+    private var strip: some View {
+        HStack(spacing: 14) {
+            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 30, height: 30).accessibilityHidden(true)
+            Text(bubble).font(.system(size: 13, weight: .medium)).lineLimit(1)
+            Spacer(minLength: 8)
+            stat(garden.shotsThisYear, ko ? "잔 올해" : garden.shotsThisYear == 1 ? "shot this year" : "shots this year")
+            stat(garden.streak, ko ? "일 연속" : "-day streak", tight: !ko)
+            rankPill
+            fold
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if open { year } else { strip }
+        }
+        .padding(.horizontal, 16).padding(.vertical, open ? 16 : 9)
+        .background(green.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.primary.opacity(0.07), lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: 14))
+        .onTapGesture { withAnimation(.snappy(duration: 0.25)) { open.toggle() } }
+        .help(open ? (ko ? "접기" : "Fold the garden") : (ko ? "한 해 잔디 보기" : "Show the year"))
+        .accessibilityAddTraits(.isButton)
+        .onAppear(perform: reload)
+        .onChange(of: model.launchingGames) { _ in reload() }
+        .onReceive(refresh) { _ in reload() }
+    }
+
+    @ViewBuilder private var year: some View {
             HStack(alignment: .top, spacing: 0) {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 52, height: 52).accessibilityHidden(true)
                 Bubble(text: bubble).padding(.leading, 16).padding(.top, 9)
@@ -29,6 +64,7 @@ struct SojuGardenCard: View {
                     Text(ko ? "게임 30분 = 소주 한 잔" : "30 minutes of play = 1 shot").font(.system(size: 12)).foregroundStyle(.secondary)
                     rankPill
                 }
+                fold.padding(.leading, 12)
             }
             HStack(alignment: .firstTextBaseline, spacing: 22) {
                 stat(garden.shotsThisYear, ko ? "잔 올해" : garden.shotsThisYear == 1 ? "shot this year" : "shots this year")
@@ -54,13 +90,6 @@ struct SojuGardenCard: View {
                 ForEach(0..<5) { ShotGlass(level: $0, accent: green).frame(width: cell, height: cell) }
                 Text(ko ? "원샷" : "Bottoms up").font(.system(size: 11)).foregroundStyle(.secondary)
             }
-        }
-        .padding(16)
-        .background(green.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.primary.opacity(0.07), lineWidth: 1))
-        .onAppear(perform: reload)
-        .onChange(of: model.launchingGames) { _ in reload() }
-        .onReceive(refresh) { _ in reload() }
     }
 
     private func reload() {
