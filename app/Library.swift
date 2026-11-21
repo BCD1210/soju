@@ -304,6 +304,12 @@ struct LibraryView: View {
         .onChange(of: model.requestedPage) {
             if let next = model.requestedPage { selected = nil; page = next; model.requestedPage = nil }
         }
+        // The browser finished a Didim Labs sign-in (soju://auth/done), whichever page started it.
+        .onChange(of: model.requestedAuth) {
+            guard let handoff = model.requestedAuth, handoff.count == 2 else { return }
+            model.requestedAuth = nil
+            AccountModel.shared.received(state: handoff[0], code: handoff[1])
+        }
     }
 
     private var sidebar: some View {

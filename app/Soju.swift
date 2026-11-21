@@ -145,7 +145,7 @@ struct SojuLogo: View {
             let state = items.first { $0.name == "state" }?.value ?? "", code = items.first { $0.name == "code" }?.value ?? ""
             let safe = "^[A-Za-z0-9_-]{32,64}$"
             if state.range(of: safe, options: .regularExpression) != nil, code.range(of: safe, options: .regularExpression) != nil {
-                requestedPage = "store"; requestedAuth = [state, code]
+                requestedAuth = [state, code]
             }
             return
         }
