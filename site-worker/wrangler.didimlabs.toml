@@ -25,3 +25,12 @@ binding = "AUTH"
 binding = "STATS"
 database_name = "soju-stats"
 database_id = "b05a49d9-36d2-4731-89ab-d3951243de0a"
+
+# The Didim Labs feed in the Soju app (feed.js), at didimlabs.com/api/feed. Create it once:
+#   npx wrangler d1 create soju-feed -c wrangler.didimlabs.toml
+# then put its id here and uncomment. Until then the feed answers "Not available right now." and sign-in gives no token.
+# FEED_ADMINS (a variable or a secret): the addresses that may post news and hide posts, comma separated.
+# [[d1_databases]]
+# binding = "FEED"
+# database_name = "soju-feed"
+# database_id = ""
