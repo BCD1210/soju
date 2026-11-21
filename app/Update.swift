@@ -110,16 +110,16 @@ struct UpdateCard: View {
             if let version = updates.available {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Soju \(version) is out", systemImage: "arrow.down.circle.fill")
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.primary)
+                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary)
                     Text(installer.state.isEmpty ? "You have \(current). It installs by itself once your games and launchers are closed." :
                          installer.state == "downloading" ? "Downloading and checking the signature…" :
                          installer.state.hasPrefix("failed") ? installer.state.replacingOccurrences(of: "failed: ", with: "Could not update: ") : "Installing…")
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
                         Button("Update and Restart") { installer.start(version) }
                             .controlSize(.small).disabled(!installer.state.isEmpty && !installer.state.hasPrefix("failed"))
-                        Link("Release notes", destination: UpdateCheck.page(for: version)).font(.system(size: 11))
+                        Link("Release notes", destination: UpdateCheck.page(for: version)).font(.system(size: 12))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

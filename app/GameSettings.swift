@@ -110,19 +110,19 @@ struct GameSettingsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Settings").font(.system(size: 13, weight: .semibold))
+            Text("Settings").font(.system(size: 14, weight: .semibold))
             if let opened = model.preferences.opened[game.id] {
                 Label("Last played " + opened.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
             }
             if game.platform != .didim {
                 Toggle("Show FPS while playing (applies to every game)", isOn: $model.fpsHUD)
-                    .toggleStyle(.checkbox).font(.system(size: 12))
+                    .toggleStyle(.checkbox).font(.system(size: 13))
             }
             if game.platform == .battlenet, let storage {
                 HStack(spacing: 10) {
                     Label(storage.moved ? "Files are on " + storage.volume : "Files are on this Mac",
-                          systemImage: storage.moved ? "externaldrive" : "internaldrive").font(.system(size: 12))
+                          systemImage: storage.moved ? "externaldrive" : "internaldrive").font(.system(size: 13))
                     if storage.moved {
                         Button("Move Back to This Mac") { close(); model.moveGameBack(game) }
                             .disabled(model.busy || !storage.connected)
@@ -132,12 +132,12 @@ struct GameSettingsSection: View {
                 }
                 Text(storage.moved ? "Keep the drive connected to play. Close Battle.net before moving."
                      : "Frees space on this Mac. Saves and settings stay here. Close Battle.net before moving.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
             }
             if let renderer = settings?.renderer {
                 if renderer.available {
                     HStack(spacing: 10) {
-                        Text("Graphics").font(.system(size: 12))
+                        Text("Graphics").font(.system(size: 13))
                         Picker("Graphics", selection: Binding(
                             get: { renderer.value ?? "dxmt" },
                             set: { choose($0) })) {
@@ -150,14 +150,14 @@ struct GameSettingsSection: View {
                     Text(renderer.recommended == "dxvk"
                          ? "DXVK is recommended for this game. " + (renderer.why ?? "")
                          : "Standard suits most games. Try DXVK if this one freezes or draws wrongly. Quit Steam before changing it.")
-                        .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 } else if renderer.reason == "gptk" {
                     Label("Steam is in Overwatch and Diablo II mode, so this game runs on Apple GPTK. Switch the mode in Stores.", systemImage: "info.circle")
-                        .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
             if let problem {
-                Label(problem, systemImage: "exclamationmark.triangle").font(.system(size: 11)).foregroundStyle(.orange)
+                Label(problem, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

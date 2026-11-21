@@ -98,10 +98,10 @@ struct StoreView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("Didim Labs Store").font(.system(size: 30, weight: .bold, design: .rounded))
+                    Text("Didim Labs Store").font(.system(size: 32, weight: .bold, design: .rounded))
                     Text(shelf == "goat" ? "Games people made with GOAT. Press Play and they open right here."
                          : "Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
-                        .font(.callout).foregroundStyle(.secondary)
+                        .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
                 if isSignedIn { profileChip }
@@ -139,23 +139,23 @@ struct StoreView: View {
                 HStack(spacing: 8) {
                     if model.busy { ProgressView().controlSize(.small) }
                     else { Image(systemName: model.failed ? "exclamationmark.circle" : "checkmark.circle").foregroundStyle(model.failed ? .orange : .green) }
-                    Text(model.busy ? lastLine : (model.failed ? lastLine : model.activity)).font(.system(size: 12)).lineLimit(2)
+                    Text(model.busy ? lastLine : (model.failed ? lastLine : model.activity)).font(.system(size: 13)).lineLimit(2)
                 }
             }
             if let pending = purchase.pending {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(pending.game.isEmpty ? "Getting your purchase from the website…" : "Finish paying for " + pending.title + " in your browser.").font(.system(size: 12, weight: .semibold))
+                        Text(pending.game.isEmpty ? "Getting your purchase from the website…" : "Finish paying for " + pending.title + " in your browser.").font(.system(size: 13, weight: .semibold))
                         Text(purchase.message.isEmpty ? "Soju installs it by itself as soon as the payment goes through." : purchase.message)
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Button("Open checkout") { NSWorkspace.shared.open(pending.url) }
                     Button("Cancel") { purchase.cancel() }
                 }.padding(12).background(accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
             } else if !purchase.message.isEmpty {
-                Text(purchase.message).font(.system(size: 12)).foregroundStyle(.secondary)
+                Text(purchase.message).font(.system(size: 13)).foregroundStyle(.secondary)
             }
             ScrollView {
                 VStack(spacing: 18) {
@@ -172,7 +172,7 @@ struct StoreView: View {
                 if let game = store.games.first(where: { installed($0) == nil }) {
                     Button("Have a license key?") { key = ""; keyFor = game }.buttonStyle(.link)
                 }
-            }.font(.system(size: 11)).foregroundStyle(.secondary)
+            }.font(.system(size: 12)).foregroundStyle(.secondary)
     }
 
     private var lastLine: String {
@@ -191,15 +191,15 @@ struct StoreView: View {
             ZStack {
                 LinearGradient(colors: [accent.opacity(0.5), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
                 if let cover = game.cover, let url = URL(string: cover) {
-                    AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "cat.fill").font(.largeTitle) }
+                    AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "cat.fill").font(.system(size: 28)) }
                 }
             }.frame(width: 320, height: 150).clipped().clipShape(RoundedRectangle(cornerRadius: 12))
             VStack(alignment: .leading, spacing: 9) {
-                Text(game.publisher.uppercased()).font(.system(size: 10, weight: .bold)).tracking(0.8).foregroundStyle(accent)
-                Text(game.title).font(.system(size: 22, weight: .bold, design: .rounded))
-                Text(game.summary).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Text(game.details).font(.system(size: 11))
-                Text(game.requires).font(.system(size: 11)).foregroundStyle(.secondary)
+                Text(game.publisher.uppercased()).font(.system(size: 11, weight: .bold)).tracking(0.8).foregroundStyle(accent)
+                Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded))
+                Text(game.summary).font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(game.details).font(.system(size: 12))
+                Text(game.requires).font(.system(size: 12)).foregroundStyle(.secondary)
                 HStack(spacing: 10) {
                     if let game = installed(game) {
                         Button { model.play(game) } label: { Label("Play", systemImage: "play.fill") }
@@ -214,7 +214,7 @@ struct StoreView: View {
                                 Label("Buy · " + game.price, systemImage: "cart")
                             }.buttonStyle(.borderedProminent).tint(accent).disabled(purchase.pending != nil)
                         } else {
-                            Label(game.price, systemImage: "clock").font(.system(size: 12, weight: .semibold))
+                            Label(game.price, systemImage: "clock").font(.system(size: 13, weight: .semibold))
                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                 .background(RoundedRectangle(cornerRadius: 6).fill(accent.opacity(0.18)))
                                 .help("Not on sale yet.")
@@ -240,7 +240,7 @@ struct StoreView: View {
                             .disabled(model.busy)
                     }
                     if let steam = game.steam, let url = URL(string: steam) {
-                        Link("Windows: Steam", destination: url).font(.system(size: 12))
+                        Link("Windows: Steam", destination: url).font(.system(size: 13))
                     }
                 }.padding(.top, 4)
             }
@@ -256,18 +256,18 @@ struct StoreView: View {
         // (A Menu redraws its label as a plain pull-down on macOS, so the chip is a button and its menu a popover.)
         Button { showProfile.toggle() } label: {
             HStack(spacing: 7) {
-                Text(String(account.email.prefix(1)).uppercased()).font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                Text(String(account.email.prefix(1)).uppercased()).font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
                     .frame(width: 22, height: 22).background(accent, in: Circle())
-                Text(account.email).font(.system(size: 12)).lineLimit(1).truncationMode(.middle).frame(maxWidth: 220)
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
+                Text(account.email).font(.system(size: 13)).lineLimit(1).truncationMode(.middle).frame(maxWidth: 220)
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
             }.padding(.leading, 5).padding(.trailing, 10).padding(.vertical, 4)
                 .background(Color.primary.opacity(0.07), in: Capsule()).contentShape(Capsule())
         }.buttonStyle(.plain).fixedSize()
             .help("Signed in as " + account.email)
             .popover(isPresented: $showProfile, arrowEdge: .bottom) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Signed in as").font(.system(size: 11)).foregroundStyle(.secondary)
-                    Text(account.email).font(.system(size: 13, weight: .semibold)).textSelection(.enabled)
+                    Text("Signed in as").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(account.email).font(.system(size: 14, weight: .semibold)).textSelection(.enabled)
                     Button("Sign out") { showProfile = false; account.signOut() }
                 }.padding(14).frame(minWidth: 200, alignment: .leading)
             }
@@ -277,10 +277,10 @@ struct StoreView: View {
         HStack(spacing: 10) {
             if account.signingIn != nil {
                 ProgressView().controlSize(.small)
-                Text("Finish signing in in your browser.").font(.system(size: 12))
+                Text("Finish signing in in your browser.").font(.system(size: 13))
                 Button("Cancel") { account.cancel() }
             } else if account.email.isEmpty, !account.providers.isEmpty {
-                Text("Sign in to buy games and play demos.").font(.system(size: 12)).foregroundStyle(.secondary)
+                Text("Sign in to buy games and play demos.").font(.system(size: 13)).foregroundStyle(.secondary)
                 if account.providers.contains("apple") {
                     Button { account.signIn("apple") } label: { Label("Sign in with Apple", systemImage: "apple.logo") }
                 }
@@ -289,7 +289,7 @@ struct StoreView: View {
                 }
             }
             if !account.message.isEmpty && account.signingIn == nil {
-                Text(account.message).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(2)
+                Text(account.message).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer()
         }
@@ -320,13 +320,13 @@ struct StoreView: View {
 
     private var signInSheet: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Sign in to Didim Labs").font(.system(size: 18, weight: .bold))
+            Text("Sign in to Didim Labs").font(.system(size: 19, weight: .bold))
             Text((askSignIn ?? "") + " We get only your email address, and use it to keep your games and demos with you.")
-                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if account.signingIn != nil {
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Finish signing in in your browser.").font(.system(size: 12)) }
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Finish signing in in your browser.").font(.system(size: 13)) }
             } else if account.providers.isEmpty {
-                Text("Sign-in is not available right now. Check the internet connection and try again.").font(.system(size: 12))
+                Text("Sign-in is not available right now. Check the internet connection and try again.").font(.system(size: 13))
             } else {
                 HStack(spacing: 10) {
                     if account.providers.contains("apple") {
@@ -337,7 +337,7 @@ struct StoreView: View {
                     }
                 }
             }
-            if !account.message.isEmpty { Text(account.message).font(.system(size: 11)).foregroundStyle(.secondary) }
+            if !account.message.isEmpty { Text(account.message).font(.system(size: 12)).foregroundStyle(.secondary) }
             HStack { Spacer(); Button("Cancel") { account.cancel(); afterSignIn = nil; askSignIn = nil } }
         }.padding(24).frame(width: 460)
     }
@@ -370,12 +370,12 @@ struct StoreView: View {
 
     private func keySheet(_ game: StoreGame) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Install " + game.title).font(.system(size: 18, weight: .bold))
+            Text("Install " + game.title).font(.system(size: 19, weight: .bold))
             Text("Paste the key from the Polar receipt email. It starts with DSTC-.")
-                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             TextField("License key", text: $key).textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
             Link("Lost the email? Find your key on Polar", destination: URL(string: "https://polar.sh/didim-labs/portal")!)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
             HStack {
                 Spacer()
                 Button("Cancel") { keyFor = nil }

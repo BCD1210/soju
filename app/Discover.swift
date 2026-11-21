@@ -63,8 +63,8 @@ struct DiscoverView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("Discover").font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("Search Steam, GOG and the Microsoft Store. Compare games and prices.").font(.callout).foregroundStyle(.secondary)
+                    Text("Discover").font(.system(size: 32, weight: .bold, design: .rounded))
+                    Text("Search Steam, GOG and the Microsoft Store. Compare games and prices.").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -87,20 +87,20 @@ struct DiscoverView: View {
                     ProgressView().controlSize(.small)
                     Button("Cancel") { store.cancel() }
                 } else if !store.searchedQuery.isEmpty {
-                    Text(String(shown.count) + " results · " + store.searchedCountry).font(.caption).foregroundStyle(.secondary)
+                    Text(String(shown.count) + " results · " + store.searchedCountry).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
             if !store.searchedQuery.isEmpty {
-                Text("Results for “" + store.searchedQuery + "”").font(.callout.bold())
+                Text("Results for “" + store.searchedQuery + "”").font(.system(size: 13, weight: .bold))
             }
             if !store.warnings.isEmpty {
-                Text(store.warnings.joined(separator: "\n")).font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+                Text(store.warnings.joined(separator: "\n")).font(.system(size: 11)).foregroundStyle(.orange).textSelection(.enabled)
             }
             if shown.isEmpty {
                 VStack(spacing: 14) {
-                    Image(systemName: "sparkle.magnifyingglass").font(.system(size: 42, weight: .light))
+                    Image(systemName: "sparkle.magnifyingglass").font(.system(size: 44, weight: .light))
                     Text(store.searching ? "Searching the stores…" : store.searchedQuery.isEmpty ? "Type a game name and press Search." : "No matching listings")
-                        .font(.title3.bold())
+                        .font(.system(size: 16, weight: .bold))
                     Text("Purchases happen in each store.").foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -112,11 +112,11 @@ struct DiscoverView: View {
             }
             if purchaseLinks.hasAffiliateLinks {
                 Text("Links marked ‘Supports Soju’ may earn us a commission if you buy, at no extra cost to you.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
             }
             Divider()
             Text("Prices are for the selected region and may change at checkout. Listings can include add-ons and bundles. Store availability does not confirm compatibility with Soju.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.system(size: 11)).foregroundStyle(.secondary)
         }.padding(28).onAppear { purchaseLinks = PurchaseLinks.load(root: model.root) }.onDisappear { store.cancel() }
     }
     private func listing(_ item: StoreItem) -> some View {
@@ -127,29 +127,29 @@ struct DiscoverView: View {
                 Color.primary.opacity(0.04)
                 AsyncImage(url: item.artwork.flatMap(URL.init(string:))) { image in
                     image.resizable().scaledToFit()
-                } placeholder: { Image(systemName: item.platform.symbol).font(.largeTitle).foregroundStyle(.secondary) }
+                } placeholder: { Image(systemName: item.platform.symbol).font(.system(size: 28)).foregroundStyle(.secondary) }
             }.frame(height: 120).clipShape(RoundedRectangle(cornerRadius: 9))
             HStack {
-                Text(item.platform == .steam ? "STEAM" : item.platform == .xbox ? "MICROSOFT STORE" : "GOG").font(.caption.bold()).foregroundStyle(.secondary)
+                Text(item.platform == .steam ? "STEAM" : item.platform == .xbox ? "MICROSOFT STORE" : "GOG").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
                 Spacer()
-                if let owned { Text(owned.isInstalled ? "Installed" : "In your library").font(.caption).foregroundStyle(.green) }
+                if let owned { Text(owned.isInstalled ? "Installed" : "In your library").font(.system(size: 11)).foregroundStyle(.green) }
             }
-            Text(item.title).font(.headline).lineLimit(2).frame(height: 38, alignment: .topLeading)
+            Text(item.title).font(.system(size: 14, weight: .bold)).lineLimit(2).frame(height: 38, alignment: .topLeading)
             HStack {
                 if item.price == "View price in store" {
-                    Text("Price shown in the store").font(.callout).foregroundStyle(.secondary)
+                    Text("Price shown in the store").font(.system(size: 13)).foregroundStyle(.secondary)
                 } else {
-                    Text(item.price).font(.system(size: 17, weight: .semibold))
+                    Text(item.price).font(.system(size: 18, weight: .semibold))
                 }
                 Spacer()
-                if item.mac { Text("macOS listed").font(.caption).foregroundStyle(.secondary) }
+                if item.mac { Text("macOS listed").font(.system(size: 11)).foregroundStyle(.secondary) }
             }
             HStack {
                 if let owned, owned.platform == .xbox {
                     if model.downloads[owned.id] != nil {
                         Button("Pause Download") { model.stopDownload(owned) }
                     } else if owned.downloadBlocked {
-                        Text("Can't be downloaded yet").font(.caption).foregroundStyle(.secondary).help(owned.issue ?? "")
+                        Text("Can't be downloaded yet").font(.system(size: 11)).foregroundStyle(.secondary).help(owned.issue ?? "")
                     } else {
                         Button(owned.isInstalled ? "Play" : owned.isPartialDownload ? "Resume Download" : "Download") {
                             if owned.isInstalled { model.play(owned) } else { model.installOwnedGame(owned) }
@@ -166,7 +166,7 @@ struct DiscoverView: View {
                         Button("View in store") { NSWorkspace.shared.open(purchase.url) }
                             .buttonStyle(.borderedProminent)
                         if purchase.isAffiliate {
-                            Text("Supports Soju").font(.caption2).foregroundStyle(.secondary)
+                            Text("Supports Soju").font(.system(size: 11)).foregroundStyle(.secondary)
                         }
                     }
                 }

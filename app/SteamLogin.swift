@@ -150,8 +150,8 @@ struct SteamLoginView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Sign in to Steam").font(.headline)
-                    Label("https://" + controller.host, systemImage: "lock.fill").font(.caption).foregroundStyle(.secondary)
+                    Text("Sign in to Steam").font(.system(size: 14, weight: .bold))
+                    Label("https://" + controller.host, systemImage: "lock.fill").font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("Retry import") { controller.retry() }.disabled(controller.reading)
@@ -160,7 +160,7 @@ struct SteamLoginView: View {
             Divider()
             SteamLoginWebView(controller: controller)
             Divider()
-            Text(controller.message).font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(16)
+            Text(controller.message).font(.system(size: 13)).frame(maxWidth: .infinity, alignment: .leading).padding(16)
         }.frame(width: 940, height: 680)
             .onAppear { controller.start(completion: completion) }
             .onDisappear { controller.stop() }
