@@ -71,6 +71,15 @@ struct GoatShelfView: View {
     private let home: URL
     private let web: WKWebView
     private let window: NSWindow
+    /// When this game last sent the browser somewhere: a page may not open one address after another by itself.
+    private var lastOutside = Date.distantPast
+
+    /// A link out of the game goes to the browser: https only, and at most one every few seconds.
+    private func outside(_ target: URL) {
+        guard target.scheme == "https", Date().timeIntervalSince(lastOutside) > 3 else { return }
+        lastOutside = Date()
+        NSWorkspace.shared.open(target)
+    }
 
     static func play(_ game: GoatGame) {
         if let player = open[game.id] { player.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
@@ -108,13 +117,15 @@ struct GoatShelfView: View {
         // What the game's page loads into itself (frames, about:blank, data it made) is its own business; where the window goes is not.
         if let frame = action.targetFrame, !frame.isMainFrame { decisionHandler(.allow); return }
         if action.targetFrame != nil, GoatCatalog.staysInGame(target, game: home) { decisionHandler(.allow); return }
-        if target.scheme == "https" || target.scheme == "http" { NSWorkspace.shared.open(target) }
+        // Anywhere else: only a link the player pressed leaves, and it leaves to the browser. A page that sends itself
+        // elsewhere (a redirect, a script) goes nowhere.
+        if action.navigationType == .linkActivated { outside(target) }
         decisionHandler(.cancel)
     }
 
     /// window.open and links to a new tab: never a second window here.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if let target = action.request.url, target.scheme == "https" || target.scheme == "http" { NSWorkspace.shared.open(target) }
+        if let target = action.request.url { outside(target) }
         return nil
     }
 
