@@ -36,10 +36,6 @@ struct GoatShelfView: View {
                 }
             }
         }
-        HStack(spacing: 6) {
-            Text("Made by people with GOAT, an AI game maker by Didim Labs. They run in a window here; nothing is installed.")
-            Link("Make your own", destination: URL(string: "https://goat.didimlabs.com/")!)
-        }.font(.system(size: 12)).foregroundStyle(.secondary)
     }
 
     private func card(_ game: GoatGame) -> some View {
