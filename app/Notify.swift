@@ -7,12 +7,12 @@ struct NotifyRow: View {
     @State private var sending = false
     var body: some View {
         HStack(spacing: 8) {
-            Text("Hear about our next game:").font(.system(size: 12))
+            Text("Hear about our next game:").font(.system(size: 13))
             TextField("Email", text: $email).textFieldStyle(.roundedBorder).frame(maxWidth: 220)
                 .onSubmit(send)
             Button(sending ? "Sending…" : "Email me", action: send)
                 .disabled(sending || email.range(of: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$", options: .regularExpression) == nil)
-            Text(status).font(.system(size: 11)).foregroundStyle(.secondary)
+            Text(status).font(.system(size: 12)).foregroundStyle(.secondary)
             Spacer()
         }
     }
@@ -53,19 +53,19 @@ struct WishlistButton: View {
     var body: some View {
         HStack(spacing: 8) {
             if done {
-                Label("Wishlisted", systemImage: "heart.fill").font(.system(size: 12, weight: .semibold)).foregroundStyle(accent)
+                Label("Wishlisted", systemImage: "heart.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(accent)
                     .help("We'll email you once when it's out.")
             } else if asking {
                 TextField("Email", text: $email).textFieldStyle(.roundedBorder).frame(width: 200).onSubmit { send(email) }
                 Button(sending ? "Saving…" : "Wishlist") { send(email) }
                     .disabled(sending || email.range(of: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$", options: .regularExpression) == nil)
-                Button("Cancel") { asking = false; status = "" }.buttonStyle(.borderless).font(.system(size: 11))
+                Button("Cancel") { asking = false; status = "" }.buttonStyle(.borderless).font(.system(size: 12))
             } else {
                 Button { signedInEmail.isEmpty ? (asking = true) : send(signedInEmail) } label: {
                     Label(sending ? "Saving…" : "Wishlist", systemImage: "heart")
                 }.disabled(sending).help("Get one email when this game comes out")
             }
-            if !status.isEmpty { Text(status).font(.system(size: 11)).foregroundStyle(.secondary) }
+            if !status.isEmpty { Text(status).font(.system(size: 12)).foregroundStyle(.secondary) }
         }
     }
 

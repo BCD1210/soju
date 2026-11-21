@@ -120,14 +120,14 @@ extension SojuModel {
             let upstream = base.appendingPathComponent("steam-wine/bin/wine").path
             let stable = "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine"
             if !FileManager.default.isExecutableFile(atPath: local) && !FileManager.default.isExecutableFile(atPath: upstream) && !FileManager.default.isExecutableFile(atPath: stable) {
-                return "Install Steam in Platforms to prepare its Windows environment."
+                return "Install Steam in Stores to prepare its Windows environment."
             }
         } else {
             if !FileManager.default.isExecutableFile(atPath: base.appendingPathComponent("cx26-engine/bin/wine").path) {
                 return "Install this platform to prepare its Windows environment."
             }
             if !FileManager.default.fileExists(atPath: base.appendingPathComponent("cx26-engine/lib/external/libd3dshared.dylib").path) {
-                return "Add Apple's Game Porting Toolkit in Platforms before playing."
+                return "Add Apple's Game Porting Toolkit in Stores (Settings, Apple GPTK) before playing."
             }
         }
         return nil
@@ -278,8 +278,7 @@ struct LibraryView: View {
         HStack(spacing: 0) {
             sidebar
             Divider()
-            if page == "platforms" { PlatformsView().frame(maxWidth: .infinity, maxHeight: .infinity) }
-            else if page == "discover" { DiscoverView() }
+            if page == "discover" { DiscoverView() }
             else if page == "store" { StoreView() }
             else if page == "tv" { TVView() }
             else if page == "accounts" { AccountsView() }
@@ -291,8 +290,8 @@ struct LibraryView: View {
         .sheet(isPresented: $showDiagnostics) { diagnostics }
         .alert(model.issueTitle, isPresented: Binding(get: { model.libraryIssue != nil }, set: { if !$0 { model.libraryIssue = nil; model.issueTitle = "Game needs attention" } })) {
             // A launcher that is not installed yet: take the player to where it is installed.
-            if model.libraryIssue?.contains("Platforms") == true {
-                Button("Open Platforms") { model.libraryIssue = nil; selected = nil; page = "platforms" }
+            if model.libraryIssue?.contains("Stores") == true {
+                Button("Open Stores") { model.libraryIssue = nil; selected = nil; page = "accounts" }
             }
             Button("Show Log") { model.libraryIssue = nil; showDiagnostics = true }
             Button("Ask on Discord") { model.libraryIssue = nil; NSWorkspace.shared.open(SojuModel.discord) }
@@ -302,31 +301,36 @@ struct LibraryView: View {
             model.refresh(); model.refreshLibrary()
         }
         .onChange(of: model.requestedPage) {
-            if let next = model.requestedPage { selected = nil; page = next; model.requestedPage = nil }
+            if let next = model.requestedPage { selected = nil; page = next == "platforms" ? "accounts" : next; model.requestedPage = nil }
+        }
+        // The browser finished a Didim Labs sign-in (soju://auth/done), whichever page started it.
+        .onChange(of: model.requestedAuth) {
+            guard let handoff = model.requestedAuth, handoff.count == 2 else { return }
+            model.requestedAuth = nil
+            AccountModel.shared.received(state: handoff[0], code: handoff[1])
         }
     }
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
-                SojuLogo(size: 40)
-                Text("Soju").font(.system(size: 26, weight: .bold, design: .rounded))
+                SojuLogo(size: 46)
+                Text("Soju").font(.system(size: 28, weight: .bold, design: .rounded))
             }.padding(.bottom, 4).padding(.top, 16)
             Text("by Didim Labs")
-                .font(.system(size: 11)).foregroundStyle(.secondary).padding(.bottom, 26)
+                .font(.system(size: 12)).foregroundStyle(.secondary).padding(.bottom, 26)
             nav("library", "Library", "square.grid.2x2", count: model.games.count)
             nav("favorites", "Favorites", "star", count: model.games.filter { model.preferences.favorites.contains($0.id) }.count)
             nav("discover", "Discover", "magnifyingglass", count: nil)
-            nav("store", "Didim Labs Store", "bag", count: nil)
+            nav("store", "Didim Labs", "bag", count: nil)
             Divider().padding(.vertical, 16)
-            nav("accounts", "Accounts", "person.crop.circle", count: nil)
-            nav("platforms", "Platforms", "square.stack.3d.up", count: nil)
+            nav("accounts", "Stores", "square.stack.3d.up", count: nil)
             nav("tv", "TV & iPad", "tv", count: nil)
             Spacer()
             VStack(alignment: .leading, spacing: 9) {
-                Label("On your Mac", systemImage: "desktopcomputer").font(.system(size: 12, weight: .medium))
-                Text("Installed games appear automatically. Connect accounts to add your owned library.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Label("On your Mac", systemImage: "desktopcomputer").font(.system(size: 13, weight: .medium))
+                Text("Installed games appear automatically. Sign in to a store in Stores to add the games you own.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }.padding(13).frame(maxWidth: .infinity, alignment: .leading)
                 .background(green.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
             UpdateCard(current: model.version, busy: model.busy, upToDate: { model.startComponentUpdateWhenIdle() })
@@ -337,7 +341,7 @@ struct LibraryView: View {
                 Button { NSWorkspace.shared.open(URL(string: "https://github.com/BCD1210/soju/releases")!) } label: {
                     Image(systemName: "arrow.up.right.square")
                 }.buttonStyle(.plain).help("Project and app updates")
-            }.font(.system(size: 11)).padding(.top, 14)
+            }.font(.system(size: 12)).padding(.top, 14)
         }.padding(20).frame(width: 205).background(Color.primary.opacity(0.025))
     }
     private func nav(_ id: String, _ title: String, _ symbol: String, count: Int?) -> some View {
@@ -348,8 +352,8 @@ struct LibraryView: View {
                 Image(systemName: symbol).frame(width: 18)
                 Text(title).fixedSize(horizontal: false, vertical: true)
                 Spacer()
-                if let count { Text(String(count)).font(.system(size: 11)).opacity(0.65) }
-            }.font(.system(size: 13, weight: page == id ? .semibold : .regular))
+                if let count { Text(String(count)).font(.system(size: 12)).opacity(0.65) }
+            }.font(.system(size: 14, weight: page == id ? .semibold : .regular))
                 .padding(.horizontal, 11).padding(.vertical, 11).contentShape(Rectangle())
                 .background(page == id ? green.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 9))
                 .foregroundStyle(page == id ? green : Color.primary)
@@ -360,8 +364,8 @@ struct LibraryView: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(page == "favorites" ? "Your favorites" : "Your library")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("Pick a game. Play it, or install it from its store.").font(.system(size: 13)).foregroundStyle(.secondary)
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                    Text("Pick a game. Play it, or install it from its store.").font(.system(size: 14)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button {
@@ -403,18 +407,18 @@ struct LibraryView: View {
             }.pickerStyle(.segmented).frame(width: 340).accessibilityLabel("Game availability")
             if !model.scanWarnings.isEmpty {
                 Label(model.scanWarnings.joined(separator: "\n"), systemImage: "exclamationmark.triangle")
-                    .font(.system(size: 11)).foregroundStyle(.orange).textSelection(.enabled)
+                    .font(.system(size: 12)).foregroundStyle(.orange).textSelection(.enabled)
             }
             if visibleGames.isEmpty {
                 Spacer()
                 VStack(spacing: 14) {
                     Image(systemName: model.scanning ? "arrow.clockwise" : page == "favorites" ? "star" : "gamecontroller")
-                        .font(.system(size: 44, weight: .light)).foregroundStyle(green)
+                        .font(.system(size: 46, weight: .light)).foregroundStyle(green)
                     Text(model.scanning ? "Finding your games…" : model.games.isEmpty ? "Your library starts here" : "No games to show")
-                        .font(.system(size: 21, weight: .semibold))
-                    Text(model.games.isEmpty ? "Connect a Steam, GOG or Xbox library in Accounts,\nor install a game through one of your platforms." : page == "favorites" ? "Star a game in your library to keep it here." : "Try another search or platform filter.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                    Button(model.games.isEmpty ? "Connect accounts" : "Show all games") {
+                        .font(.system(size: 23, weight: .semibold))
+                    Text(model.games.isEmpty ? "Open Stores to install a launcher,\nor sign in to Steam, GOG or Xbox to see the games you own." : page == "favorites" ? "Star a game in your library to keep it here." : "Try another search or platform filter.")
+                        .font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Button(model.games.isEmpty ? "Open Stores" : "Show all games") {
                         if model.games.isEmpty { page = "accounts" }
                         else { page = "library"; query = ""; platform = "all"; availability = "all" }
                     }.buttonStyle(.borderedProminent).tint(green)
@@ -434,7 +438,7 @@ struct LibraryView: View {
                     .lineLimit(1)
                 Spacer()
                 Button("Diagnostics") { showDiagnostics = true }.buttonStyle(.plain)
-            }.font(.system(size: 11)).foregroundStyle(.secondary)
+            }.font(.system(size: 12)).foregroundStyle(.secondary)
         }.padding(28).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -446,14 +450,14 @@ struct LibraryView: View {
             VStack(alignment: .leading, spacing: 11) {
                 HStack(spacing: 5) {
                     Circle().fill(game.platform.accent).frame(width: 5, height: 5)
-                    Text(game.platform.title.uppercased()).font(.system(size: 9, weight: .bold)).tracking(0.7).foregroundStyle(.secondary)
+                    Text(game.platform.title.uppercased()).font(.system(size: 10, weight: .bold)).tracking(0.7).foregroundStyle(.secondary)
                     Spacer()
                     Button { model.favorite(game) } label: {
                         Image(systemName: model.preferences.favorites.contains(game.id) ? "star.fill" : "star")
                             .foregroundStyle(model.preferences.favorites.contains(game.id) ? Color.yellow : Color.secondary)
                     }.buttonStyle(.plain).accessibilityLabel((model.preferences.favorites.contains(game.id) ? "Unfavorite " : "Favorite ") + game.title)
                 }
-                Text(game.title).font(.system(size: 14, weight: .semibold)).lineLimit(2)
+                Text(game.title).font(.system(size: 15, weight: .semibold)).lineLimit(2)
                     .frame(height: 36, alignment: .topLeading).frame(maxWidth: .infinity, alignment: .leading)
                 if let fraction = downloadFraction(game) {
                     ProgressView(value: fraction).controlSize(.small)
@@ -461,7 +465,7 @@ struct LibraryView: View {
                         .accessibilityValue(model.downloads[game.id] ?? "")
                 }
                 HStack {
-                    Text(status(game, issue: issue)).font(.system(size: 10)).lineLimit(1)
+                    Text(status(game, issue: issue)).font(.system(size: 11)).lineLimit(1)
                         .foregroundStyle(issue == nil || game.isPartialDownload ? Color.secondary : Color.orange)
                     Spacer()
                     if model.downloads[game.id] != nil {
@@ -547,19 +551,19 @@ struct LibraryView: View {
             HStack(alignment: .top, spacing: 22) {
                 GameArtwork(game: game).frame(width: 165, height: 225).clipped().clipShape(RoundedRectangle(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 13) {
-                    Text(game.platform.title).font(.system(size: 11, weight: .semibold)).foregroundStyle(game.platform.accent)
-                    Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded))
-                    Label(installedLabel(game), systemImage: !game.isInstalled ? "cloud" : game.volume.map { $0 != "this Mac" } == true ? "externaldrive" : "internaldrive").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(game.platform.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(game.platform.accent)
+                    Text(game.title).font(.system(size: 26, weight: .bold, design: .rounded))
+                    Label(installedLabel(game), systemImage: !game.isInstalled ? "cloud" : game.volume.map { $0 != "this Mac" } == true ? "externaldrive" : "internaldrive").font(.system(size: 13)).foregroundStyle(.secondary)
                     Text(game.platform == .didim ? "A native Mac game from Didim Labs. It runs without Windows or Wine." : game.platform == .xbox ? "Downloaded from the Microsoft Store. Xbox PC support is experimental: not every game works. The first launch may download about 600 MB of Xbox runtime files and take a few minutes to set up." : "Opens through " + game.platform.title + ". You may need to sign in or finish an update in the launcher.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                        .font(.system(size: 13)).foregroundStyle(.secondary)
                     if game.downloadBlocked, let issue = game.issue {
-                        Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
+                        Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 13)).foregroundStyle(.orange)
                     }
                     if let issue = model.launchIssue(for: game) {
-                        Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(.orange)
+                        Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 13)).foregroundStyle(.orange)
                     }
                     Text(game.platform == .didim ? "Files are in " + game.installPath + ". Saves stay in ~/Library/Application Support." : game.platform == .xbox ? (game.isInstalled ? "Files are in " + game.installPath + ". Saves sync with your Xbox account when the game exits." : "This game is in your Xbox library. Download it to play; compatibility varies by game.") : game.isInstalled ? "Installation detected. Compatibility varies by game and Mac." : "This game is in your imported library. Open its launcher to install it; compatibility varies by game.")
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
                     Spacer()
                 }
             }
@@ -579,7 +583,7 @@ struct LibraryView: View {
             }
             Divider()
             HStack {
-                Button("Platforms") { selected = nil; page = "platforms" }
+                Button("Stores") { selected = nil; page = "accounts" }
                 Spacer()
                 Button("Close") { selected = nil }.keyboardShortcut(.cancelAction)
                 if model.downloads[game.id] != nil {
@@ -607,16 +611,16 @@ struct LibraryView: View {
     private var diagnostics: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Diagnostics").font(.title2.bold())
+                Text("Diagnostics").font(.system(size: 19, weight: .bold))
                 Spacer()
                 Button("Done") { showDiagnostics = false }.keyboardShortcut(.cancelAction)
             }
             HStack {
                 if model.busy { ProgressView().controlSize(.small) }
-                Text(model.activity).font(.system(size: 12)).foregroundStyle(model.failed ? Color.orange : Color.secondary)
+                Text(model.activity).font(.system(size: 13)).foregroundStyle(model.failed ? Color.orange : Color.secondary)
             }
             ScrollView {
-                Text(model.log).font(.system(size: 11, design: .monospaced)).textSelection(.enabled)
+                Text(model.log).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }.padding(12).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 9))
             HStack {
@@ -651,8 +655,8 @@ struct GameArtwork: View {
                 }
             } else {
                 VStack(spacing: 18) {
-                    Image(systemName: game.platform.symbol).font(.system(size: 38, weight: .light)).opacity(0.75)
-                    Text(game.title).font(.system(size: 20, weight: .bold, design: .rounded)).multilineTextAlignment(.center).lineLimit(3)
+                    Image(systemName: game.platform.symbol).font(.system(size: 40, weight: .light)).opacity(0.75)
+                    Text(game.title).font(.system(size: 22, weight: .bold, design: .rounded)).multilineTextAlignment(.center).lineLimit(3)
                 }.foregroundStyle(.white).padding(22)
             }
         }.accessibilityHidden(true)
@@ -678,12 +682,12 @@ struct StarCard: View {
     let title: String?
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
-            Image(systemName: "star.fill").font(.system(size: 30)).foregroundStyle(.yellow)
+            Image(systemName: "star.fill").font(.system(size: 32)).foregroundStyle(.yellow)
             VStack(alignment: .leading, spacing: 5) {
                 Text((title.map { $0 + " keeps running on Soju." } ?? "Soju keeps working for you.") + " Would you star it on GitHub?")
-                    .font(.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 15, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                 Text("Soju is free and open source. Stars are how other Mac players find it, and it takes one click.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 6) {
@@ -695,7 +699,7 @@ struct StarCard: View {
                     Button("Join Discord") { NSWorkspace.shared.open(SojuModel.discord) }.buttonStyle(.link)
                     Button("Later") { model.starAsk.later(); model.starAsk.save() }.buttonStyle(.link)
                     Button("Don't ask again") { model.starAsk.finish(); model.starAsk.save() }.buttonStyle(.link)
-                }.font(.system(size: 11))
+                }.font(.system(size: 12))
             }
         }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.yellow.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
@@ -728,7 +732,7 @@ struct BusyBanner: View {
                 ProgressView().progressViewStyle(.linear).tint(green)
             }
             Text(([model.progressDetail].filter { !$0.isEmpty } + ["Play comes back when this finishes."]).joined(separator: " · "))
-                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .font(.system(size: 12)).foregroundStyle(.secondary)
         }.padding(compact ? 12 : 16).frame(maxWidth: .infinity, alignment: .leading)
             .background(green.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(green.opacity(0.25), lineWidth: 1))

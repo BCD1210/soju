@@ -169,7 +169,7 @@ def stream(pid, choice, region, dest):
         raise DownloadError('This game is already downloading. Pause that download first, or wait for it to finish.')
     if space is not None and code != 0:
         raise DownloadError('Not enough free space on ' + locations.volume_name(dest) + ': this game needs about ' +
-                            size(space) + ' more. Free up space or choose another download location in Accounts, '
+                            size(space) + ' more. Free up space or choose another download location in Stores, '
                             'then download again to resume.')
     if auth and code != 0 and not has_xbox_profile():
         raise DownloadError(NO_XBOX_PROFILE)
@@ -206,7 +206,7 @@ def main():
         pid_file.chmod(0o600)
         pid = product_id(sys.argv[1])
         if not os.access(CLI, os.X_OK):
-            raise DownloadError('Set up Xbox PC in Platforms first (or run: soju xbox-install).')
+            raise DownloadError('Set up Xbox PC in Stores first (or run: soju xbox-install).')
         region = market()
         choice = choose(resolve(pid, region), pid)
         dest = locations.destination(pid)

@@ -33,8 +33,8 @@ CLIENTS = {
     # Xbox PC has no Windows client: `xbox.sh install` writes this marker.
     'xbox': 'ProgramData/Soju/xbox.json',
 }
-XBOX_ENGINE = 'Set up Xbox PC again in Platforms: it installs the engine Xbox PC games run on.'
-XBOX_GPTK = "Add Apple's Game Porting Toolkit in Platforms before playing."
+XBOX_ENGINE = 'Set up Xbox PC again in Stores: it installs the engine Xbox PC games run on.'
+XBOX_GPTK = "Add Apple's Game Porting Toolkit in Stores before playing."
 # Product UIDs differ from the Battle.net launch command's product codes.
 BNET = {
     'osi': ('Diablo II: Resurrected', 'OSI'),
@@ -169,7 +169,7 @@ class Library:
         issue = None
         prefix = self.base / self.folders[platform]
         if not (prefix / 'drive_c' / CLIENTS[platform]).is_file():
-            issue = 'Install this platform in Platforms, then try again.'
+            issue = 'Install this platform in Stores, then try again.'
         elif unplugged:
             target = Path(os.readlink(location)).parts
             drive = target[2] if len(target) > 2 and target[1] == 'Volumes' else 'its drive'
@@ -411,7 +411,7 @@ class Library:
                 if game.get('owned') is not True and not game['install_path']: raise ValueError('This game is not in your Xbox library.')
                 if game['issue'] and not game['install_path']: raise ValueError(game['issue'])
                 if not (self.base / self.folders['xbox'] / 'drive_c' / CLIENTS['xbox']).is_file():
-                    raise ValueError('Set up Xbox PC in Platforms first.')
+                    raise ValueError('Set up Xbox PC in Stores first.')
                 return ['/bin/bash', str(root / 'xbox.sh'), 'download', game_id.split(':', 1)[1]]
             if not game.get('downloaded'): raise ValueError(game['issue'] or 'This game is owned but not downloaded. Download it first.')
             if game['issue']: raise ValueError(game['issue'])
@@ -419,7 +419,7 @@ class Library:
         if install:
             if game['install_path']: raise ValueError('This game is installed. Use Play instead.')
             client = self.base / self.folders[game['platform']] / 'drive_c' / CLIENTS[game['platform']]
-            if not client.is_file(): raise ValueError('Install this launcher in Platforms first.')
+            if not client.is_file(): raise ValueError('Install this launcher in Stores first.')
             args = ['steam://install/' + game_id.split(':', 1)[1]] if game['platform'] == 'steam' else []
             return ['/bin/bash', str(Path(__file__).resolve().parent / 'play.sh'), game['platform']] + args
         if not game['install_path']: raise ValueError('This game is owned but not installed. Open its launcher to install it.')

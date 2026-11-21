@@ -82,43 +82,97 @@ struct StoreView: View {
     @EnvironmentObject var model: SojuModel
     @StateObject private var store = StoreModel()
     @StateObject private var purchase = PurchaseWatcher()
-    @StateObject private var account = AccountModel()
+    @ObservedObject private var account = AccountModel.shared
     @State private var keyFor: StoreGame?
     /// What to do once the sign-in asked for by Buy or a demo finishes.
     @State private var afterSignIn: (() -> Void)?
     @State private var askSignIn: String?
     @State private var key = ""
+    /// Which shelf is shown: Didim Labs' own games, or games people made with GOAT.
+    @AppStorage("didimShelf") private var shelf = "feed"
+    @StateObject private var feed = FeedModel()
+    @State private var showProfile = false
+    @StateObject private var goat = GoatShelfModel()
     private let accent = Color(red: 0.79, green: 0.36, blue: 0.27)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 7) {
-                Text("Didim Labs Store").font(.system(size: 30, weight: .bold, design: .rounded))
-                Text("Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
-                    .font(.callout).foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Didim Labs").font(.system(size: 32, weight: .bold, design: .rounded))
+                    Text(shelf == "goat" ? "Games people made with GOAT. Press Play and they open right here."
+                         : shelf == "feed" ? "Game news from Didim Labs, and what players are saying."
+                         : "Games we make at Didim Labs. Mac builds for M1 and later, no Wine needed.")
+                        .font(.system(size: 13)).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                if isSignedIn { profileChip }
             }
-            accountBar
+            // The page's shelves as plain tabs with a line under the one that is open (the feed's own tabs look the same).
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 22) {
+                    ForEach([("feed", "Feed"), ("store", "Store"), ("goat", "GOAT")], id: \.0) { id, title in
+                        Button { shelf = id } label: {
+                            VStack(spacing: 8) {
+                                Text(title).font(.system(size: 15, weight: shelf == id ? .semibold : .regular)).foregroundStyle(shelf == id ? Color.primary : Color.secondary)
+                                Capsule().fill(shelf == id ? accent : Color.clear).frame(height: 2.5)
+                            }.fixedSize().contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityLabel(title).accessibilityAddTraits(shelf == id ? .isSelected : [])
+                    }
+                }
+                Divider().opacity(0.6)
+            }
+            // One shelf fades into the next instead of being swapped in one frame.
+            Group {
+                if shelf == "feed" {
+                    FeedShelfView(feed: feed, account: account, games: feedGames, accent: accent)
+                } else if shelf == "goat" {
+                    GoatShelfView(shelf: goat, accent: accent)
+                } else {
+                    VStack(alignment: .leading, spacing: 18) { didimShelf }
+                }
+            }.id(shelf).transition(.opacity).animation(.easeInOut(duration: 0.18), value: shelf)
+        }
+        .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear { if !["feed", "store", "goat"].contains(shelf) { shelf = "feed" }; if model.requestedBuy != nil || model.requestedClaim != nil { shelf = "store" }; store.load(root: model.root); feed.load(); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
+        .onChange(of: shelf) { if shelf == "goat" { goat.load() } else if shelf == "feed" { feed.load() } }
+        .onChange(of: model.requestedBuy) { if model.requestedBuy != nil { shelf = "store" }; buyRequested() }
+        .onChange(of: model.requestedClaim) { if model.requestedClaim != nil { shelf = "store" }; claimRequested() }
+        .onChange(of: store.games.count) { buyRequested() }
+        .onChange(of: model.requestedDemoPlay) { demoPlayRequested() }
+        .onChange(of: model.games.count) { demoPlayRequested() }
+        .onChange(of: account.email) {
+            guard !account.email.isEmpty, let action = afterSignIn else { return }
+            afterSignIn = nil; askSignIn = nil; action()
+        }
+        .sheet(item: $keyFor) { game in keySheet(game) }
+        .sheet(isPresented: Binding(get: { askSignIn != nil }, set: { if !$0 { askSignIn = nil } })) { signInSheet }
+    }
+
+    /// Didim Labs' own games: bought through Polar, installed natively.
+    @ViewBuilder private var didimShelf: some View {
+            if !isSignedIn || !account.message.isEmpty { accountBar }
             if model.busy || !model.activity.isEmpty && model.activity != "Ready." {
                 HStack(spacing: 8) {
                     if model.busy { ProgressView().controlSize(.small) }
                     else { Image(systemName: model.failed ? "exclamationmark.circle" : "checkmark.circle").foregroundStyle(model.failed ? .orange : .green) }
-                    Text(model.busy ? lastLine : (model.failed ? lastLine : model.activity)).font(.system(size: 12)).lineLimit(2)
+                    Text(model.busy ? lastLine : (model.failed ? lastLine : model.activity)).font(.system(size: 13)).lineLimit(2)
                 }
             }
             if let pending = purchase.pending {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(pending.game.isEmpty ? "Getting your purchase from the website…" : "Finish paying for " + pending.title + " in your browser.").font(.system(size: 12, weight: .semibold))
+                        Text(pending.game.isEmpty ? "Getting your purchase from the website…" : "Finish paying for " + pending.title + " in your browser.").font(.system(size: 13, weight: .semibold))
                         Text(purchase.message.isEmpty ? "Soju installs it by itself as soon as the payment goes through." : purchase.message)
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Button("Open checkout") { NSWorkspace.shared.open(pending.url) }
                     Button("Cancel") { purchase.cancel() }
                 }.padding(12).background(accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
             } else if !purchase.message.isEmpty {
-                Text(purchase.message).font(.system(size: 12)).foregroundStyle(.secondary)
+                Text(purchase.message).font(.system(size: 13)).foregroundStyle(.secondary)
             }
             ScrollView {
                 VStack(spacing: 18) {
@@ -129,32 +183,6 @@ struct StoreView: View {
                     }
                 }
             }
-            NotifyRow()
-            HStack(spacing: 6) {
-                Text("Sign in with Apple or Google, press Buy, pay in your browser, and Soju installs the game by itself.")
-                if let game = store.games.first(where: { installed($0) == nil }) {
-                    Button("Have a license key?") { key = ""; keyFor = game }.buttonStyle(.link)
-                }
-            }.font(.system(size: 11)).foregroundStyle(.secondary)
-        }
-        .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { store.load(root: model.root); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
-        .onChange(of: model.requestedBuy) { buyRequested() }
-        .onChange(of: model.requestedClaim) { claimRequested() }
-        .onChange(of: model.requestedAuth) {
-            guard let handoff = model.requestedAuth, handoff.count == 2 else { return }
-            model.requestedAuth = nil
-            account.received(state: handoff[0], code: handoff[1])
-        }
-        .onChange(of: store.games.count) { buyRequested() }
-        .onChange(of: model.requestedDemoPlay) { demoPlayRequested() }
-        .onChange(of: model.games.count) { demoPlayRequested() }
-        .onChange(of: account.email) {
-            guard !account.email.isEmpty, let action = afterSignIn else { return }
-            afterSignIn = nil; askSignIn = nil; action()
-        }
-        .sheet(item: $keyFor) { game in keySheet(game) }
-        .sheet(isPresented: Binding(get: { askSignIn != nil }, set: { if !$0 { askSignIn = nil } })) { signInSheet }
     }
 
     private var lastLine: String {
@@ -173,15 +201,15 @@ struct StoreView: View {
             ZStack {
                 LinearGradient(colors: [accent.opacity(0.5), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
                 if let cover = game.cover, let url = URL(string: cover) {
-                    AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "cat.fill").font(.largeTitle) }
+                    AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "cat.fill").font(.system(size: 28)) }
                 }
             }.frame(width: 320, height: 150).clipped().clipShape(RoundedRectangle(cornerRadius: 12))
             VStack(alignment: .leading, spacing: 9) {
-                Text(game.publisher.uppercased()).font(.system(size: 10, weight: .bold)).tracking(0.8).foregroundStyle(accent)
-                Text(game.title).font(.system(size: 22, weight: .bold, design: .rounded))
-                Text(game.summary).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Text(game.details).font(.system(size: 11))
-                Text(game.requires).font(.system(size: 11)).foregroundStyle(.secondary)
+                Text(game.publisher.uppercased()).font(.system(size: 11, weight: .bold)).tracking(0.8).foregroundStyle(accent)
+                Text(game.title).font(.system(size: 24, weight: .bold, design: .rounded))
+                Text(game.summary).font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(game.details).font(.system(size: 12))
+                Text(game.requires).font(.system(size: 12)).foregroundStyle(.secondary)
                 HStack(spacing: 10) {
                     if let game = installed(game) {
                         Button { model.play(game) } label: { Label("Play", systemImage: "play.fill") }
@@ -196,7 +224,7 @@ struct StoreView: View {
                                 Label("Buy · " + game.price, systemImage: "cart")
                             }.buttonStyle(.borderedProminent).tint(accent).disabled(purchase.pending != nil)
                         } else {
-                            Label(game.price, systemImage: "clock").font(.system(size: 12, weight: .semibold))
+                            Label(game.price, systemImage: "clock").font(.system(size: 13, weight: .semibold))
                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                 .background(RoundedRectangle(cornerRadius: 6).fill(accent.opacity(0.18)))
                                 .help("Not on sale yet.")
@@ -222,7 +250,7 @@ struct StoreView: View {
                             .disabled(model.busy)
                     }
                     if let steam = game.steam, let url = URL(string: steam) {
-                        Link("Windows: Steam", destination: url).font(.system(size: 12))
+                        Link("Windows: Steam", destination: url).font(.system(size: 13))
                     }
                 }.padding(.top, 4)
             }
@@ -230,18 +258,53 @@ struct StoreView: View {
         }.padding(18).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
     }
 
+    /// Games a post can be about: what is in the library, then the store's and the GOAT shelf's.
+    private var feedGames: [FeedGameChoice] {
+        var seen = Set<String>(), out: [FeedGameChoice] = []
+        func add(_ id: String, _ title: String) {
+            guard id.range(of: "^(steam|battlenet|epic|gog|ea|rockstar|ubisoft|xbox|didim|goat):[A-Za-z0-9_.-]{1,80}$", options: .regularExpression) != nil,
+                  !title.isEmpty, seen.insert(id).inserted else { return }
+            out.append(FeedGameChoice(id: id, title: String(title.prefix(80))))
+        }
+        for g in model.games.sorted(by: { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }) { add(g.id, g.title) }
+        for g in store.games { add("didim:" + g.id, g.title) }
+        for g in goat.games { add("goat:" + g.id, g.title) }
+        return out
+    }
+
+    /// Signed in, and not in the middle of signing in again.
+    private var isSignedIn: Bool { !account.email.isEmpty && account.signingIn == nil }
+
+    /// Who is signed in, at the top right: the first letter and the address; Sign out is in its menu.
+    private var profileChip: some View {
+        // (A Menu redraws its label as a plain pull-down on macOS, so the chip is a button and its menu a popover.)
+        Button { showProfile.toggle() } label: {
+            HStack(spacing: 7) {
+                Text(String(account.email.prefix(1)).uppercased()).font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 22, height: 22).background(accent, in: Circle())
+                Text(account.email).font(.system(size: 13)).lineLimit(1).truncationMode(.middle).frame(maxWidth: 220)
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+            }.padding(.leading, 5).padding(.trailing, 10).padding(.vertical, 4)
+                .background(Color.primary.opacity(0.07), in: Capsule()).contentShape(Capsule())
+        }.buttonStyle(.plain).fixedSize()
+            .help("Signed in as " + account.email)
+            .popover(isPresented: $showProfile, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Signed in as").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(account.email).font(.system(size: 14, weight: .semibold)).textSelection(.enabled)
+                    Button("Sign out") { showProfile = false; account.signOut() }
+                }.padding(14).frame(minWidth: 200, alignment: .leading)
+            }
+    }
+
     private var accountBar: some View {
         HStack(spacing: 10) {
             if account.signingIn != nil {
                 ProgressView().controlSize(.small)
-                Text("Finish signing in in your browser.").font(.system(size: 12))
+                Text("Finish signing in in your browser.").font(.system(size: 13))
                 Button("Cancel") { account.cancel() }
-            } else if !account.email.isEmpty {
-                Image(systemName: "person.crop.circle.fill").foregroundStyle(.secondary)
-                Text("Signed in as " + account.email).font(.system(size: 12))
-                Button("Sign out") { account.signOut() }
-            } else if !account.providers.isEmpty {
-                Text("Sign in to buy games and play demos.").font(.system(size: 12)).foregroundStyle(.secondary)
+            } else if account.email.isEmpty, !account.providers.isEmpty {
+                Text("Sign in to buy games and play demos.").font(.system(size: 13)).foregroundStyle(.secondary)
                 if account.providers.contains("apple") {
                     Button { account.signIn("apple") } label: { Label("Sign in with Apple", systemImage: "apple.logo") }
                 }
@@ -250,7 +313,7 @@ struct StoreView: View {
                 }
             }
             if !account.message.isEmpty && account.signingIn == nil {
-                Text(account.message).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(2)
+                Text(account.message).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer()
         }
@@ -281,13 +344,13 @@ struct StoreView: View {
 
     private var signInSheet: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Sign in to Didim Labs").font(.system(size: 18, weight: .bold))
+            Text("Sign in to Didim Labs").font(.system(size: 19, weight: .bold))
             Text((askSignIn ?? "") + " We get only your email address, and use it to keep your games and demos with you.")
-                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if account.signingIn != nil {
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Finish signing in in your browser.").font(.system(size: 12)) }
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Finish signing in in your browser.").font(.system(size: 13)) }
             } else if account.providers.isEmpty {
-                Text("Sign-in is not available right now. Check the internet connection and try again.").font(.system(size: 12))
+                Text("Sign-in is not available right now. Check the internet connection and try again.").font(.system(size: 13))
             } else {
                 HStack(spacing: 10) {
                     if account.providers.contains("apple") {
@@ -298,7 +361,7 @@ struct StoreView: View {
                     }
                 }
             }
-            if !account.message.isEmpty { Text(account.message).font(.system(size: 11)).foregroundStyle(.secondary) }
+            if !account.message.isEmpty { Text(account.message).font(.system(size: 12)).foregroundStyle(.secondary) }
             HStack { Spacer(); Button("Cancel") { account.cancel(); afterSignIn = nil; askSignIn = nil } }
         }.padding(24).frame(width: 460)
     }
@@ -331,12 +394,12 @@ struct StoreView: View {
 
     private func keySheet(_ game: StoreGame) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Install " + game.title).font(.system(size: 18, weight: .bold))
+            Text("Install " + game.title).font(.system(size: 19, weight: .bold))
             Text("Paste the key from the Polar receipt email. It starts with DSTC-.")
-                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             TextField("License key", text: $key).textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
             Link("Lost the email? Find your key on Polar", destination: URL(string: "https://polar.sh/didim-labs/portal")!)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
             HStack {
                 Spacer()
                 Button("Cancel") { keyFor = nil }
@@ -441,6 +504,8 @@ struct StoreView: View {
 /// Sign in with Apple or Google (through didimlabs.com) to find games bought with that email.
 /// The keys go straight into the Keychain; Soju remembers only the email and which games are owned.
 @MainActor final class AccountModel: ObservableObject {
+    /// One Didim Labs sign-in for the whole app: the store and the Accounts page show the same state.
+    static let shared = AccountModel()
     @Published var email = UserDefaults.standard.string(forKey: "didimAccountEmail") ?? ""
     @Published var owned = Set(UserDefaults.standard.stringArray(forKey: "didimOwned") ?? [])
     @Published var providers: [String] = []
@@ -491,6 +556,8 @@ struct StoreView: View {
 
     func signOut() {
         cancel()
+        FeedModel.forget(FeedToken.load())
+        FeedToken.clear()
         email = ""; owned = []; message = "Signed out. Installed games stay installed."
         UserDefaults.standard.removeObject(forKey: "didimAccountEmail")
         UserDefaults.standard.removeObject(forKey: "didimOwned")
@@ -535,6 +602,8 @@ struct StoreView: View {
             save.arguments = ["add-generic-password", "-U", "-s", Self.keychainService, "-a", game, "-l", "Soju: " + game, "-w", key]
             if (try? save.run()) != nil { save.waitUntilExit(); if save.terminationStatus == 0 { found.append(game) } }
         }
+        // The feed's token comes once, with this answer (site-worker/feed.js).
+        if let token = body["token"] as? String { FeedToken.save(token) }
         email = address
         owned.formUnion(found)
         UserDefaults.standard.set(address, forKey: "didimAccountEmail")
