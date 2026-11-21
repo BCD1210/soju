@@ -274,7 +274,7 @@ def steam_owned(settings):
     try:
         value = json.loads(settings.get('snapshot', ''))
     except (ValueError, TypeError):
-        raise ServiceError('Sign in to Steam in Accounts to import your library.') from None
+        raise ServiceError('Sign in to Steam in Stores to import your library.') from None
     if not isinstance(value, dict) or value.get('state') != 'ready':
         raise ServiceError('Steam did not share a complete library. Your previous import is unchanged.')
     profile = value.get('steamid')
@@ -371,7 +371,7 @@ def xodus(base, args, timeout):
     the documented credential code is read from it."""
     cli = xodus_cli(base)
     if not os.access(cli, os.X_OK):
-        raise ServiceError('Set up Xbox PC in Platforms first.')
+        raise ServiceError('Set up Xbox PC in Stores first.')
     env = {'PATH': '/usr/bin:/bin', 'HOME': os.environ.get('HOME', str(Path.home())), 'XODUS_LOG': 'error'}
     try:
         result = subprocess.run([cli] + args, env=env, stdin=subprocess.DEVNULL, capture_output=True,
@@ -379,13 +379,13 @@ def xodus(base, args, timeout):
     except subprocess.TimeoutExpired:
         raise ServiceError('Xbox did not answer in time. Your previous import is unchanged.') from None
     except OSError:
-        raise ServiceError('The Xbox backend could not start. Run Diagnose in Platforms.') from None
+        raise ServiceError('The Xbox backend could not start. Run Diagnose in Stores (Settings).') from None
     if result.returncode != 0:
         if re.search(r'unavailable \(xsts\)', result.stderr or ''):
             raise XboxProfileMissing(NO_XBOX_PROFILE)
         if re.search(r'NEXUS_CREDENTIAL_ERROR_V1 [A-Za-z0-9_-]+', result.stderr or ''):
-            raise ServiceError('Sign in to your Microsoft account in Accounts. Your previous import is unchanged.')
-        raise ServiceError('Xbox did not share your library. Sign in again in Accounts, or retry later. Your previous import is unchanged.')
+            raise ServiceError('Sign in to your Microsoft account in Stores. Your previous import is unchanged.')
+        raise ServiceError('Xbox did not share your library. Sign in again in Stores, or retry later. Your previous import is unchanged.')
     try:
         return json.loads(result.stdout)
     except ValueError:
@@ -570,5 +570,5 @@ def saved_accounts(base):
             games.extend(imported.values())
             accounts.append(dict(platform=platform, label=text(data.get('label')), updated_at=text(data.get('updated_at')), count=len(imported)))
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
-            warnings.append({'steam': 'Steam', 'gog': 'Gog', 'xbox': 'Xbox'}[platform] + ' account import could not be read. Reconnect it in Accounts.')
+            warnings.append({'steam': 'Steam', 'gog': 'Gog', 'xbox': 'Xbox'}[platform] + ' account import could not be read. Reconnect it in Stores.')
     return accounts, games, warnings

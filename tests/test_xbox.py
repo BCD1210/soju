@@ -180,7 +180,7 @@ class XboxImportTests(unittest.TestCase):
         svc.save_account(self.base, 'xbox', [dict(id='xbox:9n116v0599hb', platform='xbox', title='A')], 'Xbox')
         _, owned, warnings = svc.saved_accounts(self.base)
         self.assertEqual(owned, [])
-        self.assertEqual(warnings, ['Xbox account import could not be read. Reconnect it in Accounts.'])
+        self.assertEqual(warnings, ['Xbox account import could not be read. Reconnect it in Stores.'])
 
 
 class XboxLibraryTests(unittest.TestCase):
