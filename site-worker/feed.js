@@ -13,6 +13,8 @@
 //   POST /api/feed/report {post}                  three accounts reporting a post hide it until an operator looks
 //   POST /api/feed/delete {post}                  one's own post (an operator: any post)
 //   POST /api/feed/signout                        forgets the token this request carries
+//   GET  /api/feed/notices                        the bell: replies to and likes on this account's posts, and news, newest first
+//   POST /api/feed/seen                           the bell was opened: nothing before now counts as new
 // Posting needs "Authorization: Bearer <token>": the token Soju gets once when a sign-in finishes (auth.js, issueToken).
 // Only the nickname is ever shown; the address stays in the database. Operators are the addresses in FEED_ADMINS
 // (comma separated): their posts may be news (shown as Didim Labs), and they may hide any post.
@@ -22,7 +24,7 @@
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 // Photos: Soju sends each one already made small (long side 1600, JPEG) with a 560 px thumbnail, so nothing here resizes and
 // nothing is paid for: they sit in the same database as the posts (a D1 row holds 2 MB), and are served to be kept by caches.
-export const FEED = { BODY_MAX: 500, NEWS_MAX: 4000, BODY_MIN: 2, TITLE_MAX: 100, PAGE: 30, THREAD: 200, PER_DAY: 30, GAP_MS: 10000, REPORTS_HIDE: 3, TAIL: 2,
+export const FEED = { BODY_MAX: 500, NEWS_MAX: 4000, BODY_MIN: 2, TITLE_MAX: 100, PAGE: 30, THREAD: 200, PER_DAY: 30, GAP_MS: 10000, REPORTS_HIDE: 3, EDIT_MS: 15 * 60000, TAIL: 2,
   PHOTOS: 2, FULL_MAX: 450 * 1024, THUMB_MAX: 90 * 1024, PHOTOS_PER_DAY: 30, FULL_SIDE: 2048, THUMB_SIDE: 640,
   // Everyone together, a day: a ceiling on what a crowd of throwaway accounts can fill the database with.
   ALL_POSTS_PER_DAY: 5000, ALL_PHOTOS_PER_DAY: 2000 };
@@ -57,6 +59,11 @@ async function schema(db) {
     await db.batch(SCHEMA.map((s) => db.prepare(s)));
     // (A database made before photos had keys: the column is added once; the error when it is there already is nothing.)
     try { await db.prepare("ALTER TABLE images ADD COLUMN k TEXT NOT NULL DEFAULT ''").run(); } catch {}
+    // (The bell: when a like was given, and when an account last looked at its notices.)
+    try { await db.prepare("ALTER TABLE likes ADD COLUMN created INTEGER NOT NULL DEFAULT 0").run(); } catch {}
+    try { await db.prepare("ALTER TABLE accounts ADD COLUMN seen INTEGER NOT NULL DEFAULT 0").run(); } catch {}
+    // (When a post's words were last changed by its writer; 0 when never.)
+    try { await db.prepare("ALTER TABLE posts ADD COLUMN edited INTEGER NOT NULL DEFAULT 0").run(); } catch {}
     ready = db;
   }
 }
@@ -119,8 +126,8 @@ const photosOf = async (db, ids) => {
 };
 
 const shape = (r, me) => ({ id: r.id, kind: r.kind, nick: r.kind === "news" ? "Didim Labs" : r.nick, title: r.title || "", body: r.body, game: r.game || "", game_title: r.game_title || "",
-  at: r.created, images: [], likes: r.likes || 0, liked: !!r.liked, replies: r.replies || 0, mine: !!(me && r.email === me.email) });
-const COLS = (mail) => `p.id, p.parent, p.email, p.nick, p.kind, p.title, p.body, p.game, p.game_title, p.created,
+  at: r.created, images: [], likes: r.likes || 0, liked: !!r.liked, replies: r.replies || 0, mine: !!(me && r.email === me.email), edited: !!r.edited });
+const COLS = (mail) => `p.id, p.parent, p.email, p.nick, p.kind, p.title, p.body, p.game, p.game_title, p.created, p.edited,
   (SELECT COUNT(*) FROM likes l WHERE l.post = p.id) AS likes,
   (SELECT COUNT(*) FROM posts c WHERE c.parent = p.id AND c.hidden = 0) AS replies,
   ${mail ? "(SELECT 1 FROM likes l WHERE l.post = p.id AND l.email = ?1)" : "0"} AS liked`;
@@ -153,13 +160,14 @@ export async function feed(request, env, url) {
   }
   const me = await who(env, request);
   // (The photo route above answers by the photo's own key.)
-  if (request.method === "GET" && (path === "" || path === "thread") && !me) return json({ error: "Sign in to see the feed.", signin: true }, 401);
+  if (request.method === "GET" && (path === "" || path === "thread" || path === "notices") && !me) return json({ error: "Sign in to see the feed.", signin: true }, 401);
 
   if (request.method === "GET" && path === "") {
     const before = Math.floor(Number(url.searchParams.get("before"))) || 0, kind = url.searchParams.get("kind");
     const where = ["p.parent IS NULL", "p.hidden = 0"], args = [me ? me.email : ""];
     if (before > 0) { where.push("p.id < ?" + (args.length + 1)); args.push(before); }
     if (kind === "news" || kind === "player") { where.push("p.kind = ?" + (args.length + 1)); args.push(kind); }
+    if (kind === "mine") where.push("p.email = ?1");
     const rows = (await db.prepare(`SELECT ${COLS(true)} FROM posts p WHERE ${where.join(" AND ")} ORDER BY p.id DESC LIMIT ${FEED.PAGE + 1}`).bind(...args).all()).results;
     const page = rows.slice(0, FEED.PAGE), posts = page.map((r) => ({ ...shape(r, me), tail: [] }));
     // The first replies of each post shown under it, as a thread does.
@@ -181,6 +189,23 @@ export async function feed(request, env, url) {
     const photos = await photosOf(db, [id]);
     return json({ post: { ...shape(post, me), images: photos.get(id) || [] }, replies: replies.map((r) => shape(r, me)), me: me ? { nick: me.nick, admin: me.admin } : null });
   }
+  if (request.method === "GET" && path === "notices") {
+    // What happened to this account's posts in the last 30 days, and news: someone else's doing, never one's own.
+    const since = Date.now() - 30 * 864e5, short = (s) => String(s || "").replace(/\s+/g, " ").slice(0, 90);
+    const [replies, likes, news, mine] = await db.batch([
+      db.prepare("SELECT c.id, c.parent AS post, c.nick, c.body, c.created FROM posts c JOIN posts p ON p.id = c.parent WHERE p.email = ?1 AND c.email <> ?1 AND c.hidden = 0 AND p.hidden = 0 AND c.created > ?2 ORDER BY c.created DESC LIMIT 30").bind(me.email, since),
+      db.prepare("SELECT COALESCE(p.parent, p.id) AS post, a.nick, p.body, l.created FROM likes l JOIN posts p ON p.id = l.post JOIN accounts a ON a.email = l.email WHERE p.email = ?1 AND l.email <> ?1 AND p.hidden = 0 AND l.created > ?2 ORDER BY l.created DESC LIMIT 30").bind(me.email, since),
+      db.prepare("SELECT id AS post, title, created FROM posts WHERE kind = 'news' AND parent IS NULL AND hidden = 0 AND email <> ?1 AND created > ?2 ORDER BY created DESC LIMIT 10").bind(me.email, since),
+      db.prepare("SELECT seen FROM accounts WHERE email = ?").bind(me.email),
+    ]);
+    const items = [
+      ...replies.results.map((r) => ({ type: "reply", post: r.post, nick: r.nick, text: short(r.body), at: r.created })),
+      ...likes.results.map((r) => ({ type: "like", post: r.post, nick: r.nick || "Someone", text: short(r.body), at: r.created })),
+      ...news.results.map((r) => ({ type: "news", post: r.post, nick: "Didim Labs", text: short(r.title), at: r.created })),
+    ].sort((a, b) => b.at - a.at).slice(0, 30);
+    const seen = (mine.results[0] && mine.results[0].seen) || 0;
+    return json({ items, seen, unread: items.filter((i) => i.at > seen).length });
+  }
   if (request.method !== "POST") return json({ error: "Not found." }, 404);
   if (!me) return json({ error: "Sign in to do that.", signin: true }, 401);
   // The length must be stated: a body sent without one could be any size.
@@ -190,6 +215,10 @@ export async function feed(request, env, url) {
   if (path === "signout") {
     const m = /^Bearer ([A-Za-z0-9_-]{40,64})$/.exec(request.headers.get("authorization") || "");
     if (m) await db.prepare("DELETE FROM tokens WHERE hash = ?").bind(await sha(m[1])).run();
+    return json({ ok: true });
+  }
+  if (path === "seen") {
+    await db.prepare("UPDATE accounts SET seen = ? WHERE email = ?").bind(Date.now(), me.email).run();
     return json({ ok: true });
   }
   let input;
@@ -264,11 +293,11 @@ export async function feed(request, env, url) {
     return json({ id: row.id });
   }
   const postId = Math.floor(Number(input?.post)) || 0;
-  const post = postId ? await db.prepare("SELECT id, email, kind, hidden FROM posts WHERE id = ?").bind(postId).first() : null;
+  const post = postId ? await db.prepare("SELECT id, email, kind, hidden, created FROM posts WHERE id = ?").bind(postId).first() : null;
   if (!post || (post.hidden && !me.admin)) return json({ error: "That post is gone." }, 404);
   if (path === "like") {
     if (input?.on === false) await db.prepare("DELETE FROM likes WHERE post = ? AND email = ?").bind(postId, me.email).run();
-    else await db.prepare("INSERT INTO likes (post, email) VALUES (?, ?) ON CONFLICT DO NOTHING").bind(postId, me.email).run();
+    else await db.prepare("INSERT INTO likes (post, email, created) VALUES (?, ?, ?) ON CONFLICT DO NOTHING").bind(postId, me.email, now).run();
     const n = await db.prepare("SELECT COUNT(*) AS n FROM likes WHERE post = ?").bind(postId).first();
     return json({ likes: n.n, liked: input?.on !== false });
   }
@@ -280,6 +309,16 @@ export async function feed(request, env, url) {
     const house = post.kind === "news" || admins(env).has(post.email);
     if (me.admin || (n.n >= FEED.REPORTS_HIDE && !house)) await db.prepare("UPDATE posts SET hidden = 1 WHERE id = ?").bind(postId).run();
     return json({ ok: true });
+  }
+  if (path === "edit") {
+    // The writer may put the words right for a quarter of an hour; after that a post says what it said.
+    if (post.email !== me.email) return json({ error: "That isn't your post." }, 403);
+    if (now - post.created > FEED.EDIT_MS) return json({ error: "A post can be edited for 15 minutes after it is written." }, 403);
+    const bodyMax = post.kind === "news" ? FEED.NEWS_MAX : FEED.BODY_MAX;
+    const body = text(input?.body, bodyMax + 50).replace(/\n{3,}/g, "\n\n");
+    if (body.length < FEED.BODY_MIN || body.length > bodyMax) return json({ error: `A post has ${FEED.BODY_MIN} to ${bodyMax} characters.` }, 400);
+    await db.prepare("UPDATE posts SET body = ?, edited = ? WHERE id = ?").bind(body, now, postId).run();
+    return json({ ok: true, body });
   }
   if (path === "delete") {
     if (post.email !== me.email && !me.admin) return json({ error: "That isn't your post." }, 403);
