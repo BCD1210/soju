@@ -142,6 +142,12 @@ struct StoreView: View {
         .onChange(of: store.games.count) { buyRequested() }
         .onChange(of: model.requestedDemoPlay) { demoPlayRequested() }
         .onChange(of: account.signIns) { feed.loadNotices() }
+        // While this page is on screen and Soju is in front: what others post, like and answer arrives by itself.
+        .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
+            guard NSApp.isActive, isSignedIn else { return }
+            if shelf == "feed" { feed.refresh() }
+            feed.loadNotices()
+        }
         .onChange(of: model.games.count) { demoPlayRequested() }
         .onChange(of: account.email) {
             guard !account.email.isEmpty, let action = afterSignIn else { return }

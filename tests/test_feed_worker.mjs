@@ -58,7 +58,7 @@ test("a post is about one game, has a length, and shows the nickname and never t
   assert.equal(p.status, 200);
   const list = await call(env, "GET", "", tok["d@x.com"]);
   assert.equal(list.posts.length, 1);
-  assert.deepEqual({ ...list.posts[0], at: 0 }, { id: p.id, kind: "player", nick: "nyang_maker", title: "", body: "Night four: shine the UV lamp on the ledger.", game: GAME.game, game_title: GAME.game_title, at: 0, images: [], likes: 0, liked: false, replies: 0, mine: false, tail: [] });
+  assert.deepEqual({ ...list.posts[0], at: 0 }, { id: p.id, kind: "player", nick: "nyang_maker", title: "", body: "Night four: shine the UV lamp on the ledger.", game: GAME.game, game_title: GAME.game_title, at: 0, images: [], likes: 0, liked: false, replies: 0, mine: false, edited: false, tail: [] });
   assert.ok(!JSON.stringify(list).includes("a@x.com"));
   assert.equal((await call(env, "GET", "", tok["a@x.com"])).posts[0].mine, true);
 });
@@ -127,6 +127,24 @@ test("deleting is for one's own post (or an operator) and takes the replies; thr
   await call(env, "POST", "/report", tok["op@didimlabs.com"], { post: r.id });
   assert.equal((await call(env, "GET", "", tok["d@x.com"])).posts.length, 0);
   assert.equal((await call(env, "POST", "/delete", tok["op@didimlabs.com"], { post: r.id })).status, 200);
+});
+
+test("editing: the writer, for fifteen minutes, and the post says it was edited; My posts shows one's own", async () => {
+  const { env, tok } = await setup();
+  for (const [e, n] of [["a@x.com", "aaa_one"], ["b@x.com", "bbb_two"]]) await call(env, "POST", "/nick", tok[e], { nick: n });
+  const p = await call(env, "POST", "/post", tok["a@x.com"], { body: "A tpyo here", ...GAME });
+  await call(env, "POST", "/post", tok["b@x.com"], { body: "Someone else's", ...GAME });
+  assert.equal((await call(env, "GET", "", tok["a@x.com"])).posts.find((x) => x.id === p.id).edited, false);
+  assert.equal((await call(env, "POST", "/edit", tok["b@x.com"], { post: p.id, body: "Not mine to change" })).status, 403);
+  assert.equal((await call(env, "POST", "/edit", tok["a@x.com"], { post: p.id, body: "x" })).status, 400);
+  assert.equal((await call(env, "POST", "/edit", tok["a@x.com"], { post: p.id, body: "A typo fixed" })).status, 200);
+  const seen = (await call(env, "GET", "", tok["b@x.com"])).posts.find((x) => x.id === p.id);
+  assert.equal(seen.body, "A typo fixed"); assert.equal(seen.edited, true);
+  const mine = (await call(env, "GET", "?kind=mine", tok["a@x.com"])).posts;
+  assert.equal(mine.length, 1); assert.equal(mine[0].id, p.id);
+  later(env, 16 * 60000);
+  assert.equal((await call(env, "POST", "/edit", tok["a@x.com"], { post: p.id, body: "Too late now" })).status, 403);
+  assert.equal((await call(env, "GET", "", tok["b@x.com"])).posts.find((x) => x.id === p.id).body, "A typo fixed");
 });
 
 test("photos: small JPEGs sent before the post, shown only with a post that is shown, gone with it", async () => {
