@@ -166,12 +166,6 @@ struct StoreView: View {
                     }
                 }
             }
-            HStack(spacing: 6) {
-                Text("Sign in with Apple or Google, press Buy, pay in your browser, and Soju installs the game by itself.")
-                if let game = store.games.first(where: { installed($0) == nil }) {
-                    Button("Have a license key?") { key = ""; keyFor = game }.buttonStyle(.link)
-                }
-            }.font(.system(size: 12)).foregroundStyle(.secondary)
     }
 
     private var lastLine: String {
