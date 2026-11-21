@@ -71,7 +71,7 @@ class SteamGPTKTests(unittest.TestCase):
 
     def test_app_action_is_wired(self):
         # The app runs `steam-gptk on|off` through desktop-action.sh, not the soju command.
-        self.assertIn('"steam-gptk", on ? "on" : "off"', (ROOT / 'app/Soju.swift').read_text())
+        self.assertIn('"steam-gptk", on ? "on" : "off"', (ROOT / 'app/Accounts.swift').read_text())
         self.assertIn('steam-gptk) exec bash "$ROOT/scripts/steam-gptk.sh"', (ROOT / 'scripts/desktop-action.sh').read_text())
 
     def test_engine_keeps_apple_shims(self):

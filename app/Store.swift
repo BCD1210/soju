@@ -82,7 +82,7 @@ struct StoreView: View {
     @EnvironmentObject var model: SojuModel
     @StateObject private var store = StoreModel()
     @StateObject private var purchase = PurchaseWatcher()
-    @StateObject private var account = AccountModel()
+    @ObservedObject private var account = AccountModel.shared
     @State private var keyFor: StoreGame?
     /// What to do once the sign-in asked for by Buy or a demo finishes.
     @State private var afterSignIn: (() -> Void)?
@@ -116,11 +116,6 @@ struct StoreView: View {
         .onChange(of: shelf) { if shelf == "goat" { goat.load() } }
         .onChange(of: model.requestedBuy) { if model.requestedBuy != nil { shelf = "didim" }; buyRequested() }
         .onChange(of: model.requestedClaim) { if model.requestedClaim != nil { shelf = "didim" }; claimRequested() }
-        .onChange(of: model.requestedAuth) {
-            guard let handoff = model.requestedAuth, handoff.count == 2 else { return }
-            model.requestedAuth = nil
-            account.received(state: handoff[0], code: handoff[1])
-        }
         .onChange(of: store.games.count) { buyRequested() }
         .onChange(of: model.requestedDemoPlay) { demoPlayRequested() }
         .onChange(of: model.games.count) { demoPlayRequested() }
@@ -459,6 +454,8 @@ struct StoreView: View {
 /// Sign in with Apple or Google (through didimlabs.com) to find games bought with that email.
 /// The keys go straight into the Keychain; Soju remembers only the email and which games are owned.
 @MainActor final class AccountModel: ObservableObject {
+    /// One Didim Labs sign-in for the whole app: the store and the Accounts page show the same state.
+    static let shared = AccountModel()
     @Published var email = UserDefaults.standard.string(forKey: "didimAccountEmail") ?? ""
     @Published var owned = Set(UserDefaults.standard.stringArray(forKey: "didimOwned") ?? [])
     @Published var providers: [String] = []

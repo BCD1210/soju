@@ -120,14 +120,14 @@ extension SojuModel {
             let upstream = base.appendingPathComponent("steam-wine/bin/wine").path
             let stable = "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine"
             if !FileManager.default.isExecutableFile(atPath: local) && !FileManager.default.isExecutableFile(atPath: upstream) && !FileManager.default.isExecutableFile(atPath: stable) {
-                return "Install Steam in Platforms to prepare its Windows environment."
+                return "Install Steam in Stores to prepare its Windows environment."
             }
         } else {
             if !FileManager.default.isExecutableFile(atPath: base.appendingPathComponent("cx26-engine/bin/wine").path) {
                 return "Install this platform to prepare its Windows environment."
             }
             if !FileManager.default.fileExists(atPath: base.appendingPathComponent("cx26-engine/lib/external/libd3dshared.dylib").path) {
-                return "Add Apple's Game Porting Toolkit in Platforms before playing."
+                return "Add Apple's Game Porting Toolkit in Stores (Settings, Apple GPTK) before playing."
             }
         }
         return nil
@@ -278,8 +278,7 @@ struct LibraryView: View {
         HStack(spacing: 0) {
             sidebar
             Divider()
-            if page == "platforms" { PlatformsView().frame(maxWidth: .infinity, maxHeight: .infinity) }
-            else if page == "discover" { DiscoverView() }
+            if page == "discover" { DiscoverView() }
             else if page == "store" { StoreView() }
             else if page == "tv" { TVView() }
             else if page == "accounts" { AccountsView() }
@@ -291,8 +290,8 @@ struct LibraryView: View {
         .sheet(isPresented: $showDiagnostics) { diagnostics }
         .alert(model.issueTitle, isPresented: Binding(get: { model.libraryIssue != nil }, set: { if !$0 { model.libraryIssue = nil; model.issueTitle = "Game needs attention" } })) {
             // A launcher that is not installed yet: take the player to where it is installed.
-            if model.libraryIssue?.contains("Platforms") == true {
-                Button("Open Platforms") { model.libraryIssue = nil; selected = nil; page = "platforms" }
+            if model.libraryIssue?.contains("Stores") == true {
+                Button("Open Stores") { model.libraryIssue = nil; selected = nil; page = "accounts" }
             }
             Button("Show Log") { model.libraryIssue = nil; showDiagnostics = true }
             Button("Ask on Discord") { model.libraryIssue = nil; NSWorkspace.shared.open(SojuModel.discord) }
@@ -302,7 +301,13 @@ struct LibraryView: View {
             model.refresh(); model.refreshLibrary()
         }
         .onChange(of: model.requestedPage) {
-            if let next = model.requestedPage { selected = nil; page = next; model.requestedPage = nil }
+            if let next = model.requestedPage { selected = nil; page = next == "platforms" ? "accounts" : next; model.requestedPage = nil }
+        }
+        // The browser finished a Didim Labs sign-in (soju://auth/done), whichever page started it.
+        .onChange(of: model.requestedAuth) {
+            guard let handoff = model.requestedAuth, handoff.count == 2 else { return }
+            model.requestedAuth = nil
+            AccountModel.shared.received(state: handoff[0], code: handoff[1])
         }
     }
 
@@ -319,13 +324,12 @@ struct LibraryView: View {
             nav("discover", "Discover", "magnifyingglass", count: nil)
             nav("store", "Didim Labs Store", "bag", count: nil)
             Divider().padding(.vertical, 16)
-            nav("accounts", "Accounts", "person.crop.circle", count: nil)
-            nav("platforms", "Platforms", "square.stack.3d.up", count: nil)
+            nav("accounts", "Stores", "square.stack.3d.up", count: nil)
             nav("tv", "TV & iPad", "tv", count: nil)
             Spacer()
             VStack(alignment: .leading, spacing: 9) {
                 Label("On your Mac", systemImage: "desktopcomputer").font(.system(size: 12, weight: .medium))
-                Text("Installed games appear automatically. Connect accounts to add your owned library.")
+                Text("Installed games appear automatically. Sign in to a store in Stores to add the games you own.")
                     .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }.padding(13).frame(maxWidth: .infinity, alignment: .leading)
                 .background(green.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
@@ -412,9 +416,9 @@ struct LibraryView: View {
                         .font(.system(size: 44, weight: .light)).foregroundStyle(green)
                     Text(model.scanning ? "Finding your games…" : model.games.isEmpty ? "Your library starts here" : "No games to show")
                         .font(.system(size: 21, weight: .semibold))
-                    Text(model.games.isEmpty ? "Connect a Steam, GOG or Xbox library in Accounts,\nor install a game through one of your platforms." : page == "favorites" ? "Star a game in your library to keep it here." : "Try another search or platform filter.")
+                    Text(model.games.isEmpty ? "Open Stores to install a launcher,\nor sign in to Steam, GOG or Xbox to see the games you own." : page == "favorites" ? "Star a game in your library to keep it here." : "Try another search or platform filter.")
                         .font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                    Button(model.games.isEmpty ? "Connect accounts" : "Show all games") {
+                    Button(model.games.isEmpty ? "Open Stores" : "Show all games") {
                         if model.games.isEmpty { page = "accounts" }
                         else { page = "library"; query = ""; platform = "all"; availability = "all" }
                     }.buttonStyle(.borderedProminent).tint(green)
@@ -579,7 +583,7 @@ struct LibraryView: View {
             }
             Divider()
             HStack {
-                Button("Platforms") { selected = nil; page = "platforms" }
+                Button("Stores") { selected = nil; page = "accounts" }
                 Spacer()
                 Button("Close") { selected = nil }.keyboardShortcut(.cancelAction)
                 if model.downloads[game.id] != nil {

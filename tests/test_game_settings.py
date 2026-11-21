@@ -61,10 +61,10 @@ class HelpEntryPointTests(unittest.TestCase):
 
 
 class MissingLauncherTests(unittest.TestCase):
-    def test_the_alert_leads_to_platforms(self):
+    def test_the_alert_leads_to_stores(self):
         library = (ROOT / "app/Library.swift").read_text()
-        self.assertIn('Button("Open Platforms") { model.libraryIssue = nil; selected = nil; page = "platforms" }', library)
-        self.assertIn("is not installed in Soju yet. Open Platforms and press Install", (ROOT / "app/Accounts.swift").read_text())
+        self.assertIn('Button("Open Stores") { model.libraryIssue = nil; selected = nil; page = "accounts" }', library)
+        self.assertIn("is not installed in Soju yet. Open Stores and press Install", (ROOT / "app/Accounts.swift").read_text())
 
 
 if __name__ == "__main__":
