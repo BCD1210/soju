@@ -122,7 +122,7 @@ struct StoreView: View {
             }
         }
         .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { if model.requestedBuy != nil || model.requestedClaim != nil { shelf = "store" }; store.load(root: model.root); feed.load(); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
+        .onAppear { if !["feed", "store", "goat"].contains(shelf) { shelf = "feed" }; if model.requestedBuy != nil || model.requestedClaim != nil { shelf = "store" }; store.load(root: model.root); feed.load(); goat.load(); account.loadProviders(); buyRequested(); claimRequested(); demoPlayRequested() }
         .onChange(of: shelf) { if shelf == "goat" { goat.load() } else if shelf == "feed" { feed.load() } }
         .onChange(of: model.requestedBuy) { if model.requestedBuy != nil { shelf = "store" }; buyRequested() }
         .onChange(of: model.requestedClaim) { if model.requestedClaim != nil { shelf = "store" }; claimRequested() }
