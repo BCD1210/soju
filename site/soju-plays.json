@@ -3,8 +3,8 @@
   {
    "game": "battlenet:osi",
    "title": "Diablo II: Resurrected",
-   "players": 3,
-   "minutes": 309
+   "players": 6,
+   "minutes": 1079
   },
   {
    "game": "steam:3164500",
@@ -19,10 +19,52 @@
    "minutes": 9
   },
   {
+   "game": "steam:3241660",
+   "title": "R.E.P.O.",
+   "players": 2,
+   "minutes": 4
+  },
+  {
+   "game": "steam:934700",
+   "title": "Dead Island 2",
+   "players": 1,
+   "minutes": 261
+  },
+  {
+   "game": "steam:1223750",
+   "title": "Cloud Meadow",
+   "players": 1,
+   "minutes": 255
+  },
+  {
+   "game": "steam:2142790",
+   "title": "Fields of Mistria",
+   "players": 1,
+   "minutes": 244
+  },
+  {
    "game": "steam:1158160",
    "title": "Coral Island",
    "players": 1,
-   "minutes": 143
+   "minutes": 201
+  },
+  {
+   "game": "battlenet:s1",
+   "title": "StarCraft: Remastered",
+   "players": 1,
+   "minutes": 181
+  },
+  {
+   "game": "steam:4072240",
+   "title": "Woman Simulator",
+   "players": 1,
+   "minutes": 167
+  },
+  {
+   "game": "steam:585420",
+   "title": "Trailmakers",
+   "players": 1,
+   "minutes": 131
   },
   {
    "game": "steam:1449850",
@@ -31,10 +73,16 @@
    "minutes": 116
   },
   {
-   "game": "steam:2142790",
-   "title": "Fields of Mistria",
+   "game": "steam:2835570",
+   "title": "Buckshot Roulette",
    "players": 1,
-   "minutes": 115
+   "minutes": 111
+  },
+  {
+   "game": "steam:1286830",
+   "title": "STAR WARS™: The Old Republic™",
+   "players": 1,
+   "minutes": 78
   },
   {
    "game": "steam:374320",
@@ -43,16 +91,16 @@
    "minutes": 71
   },
   {
+   "game": "xbox:9N98Z825TNFW",
+   "title": "Minecraft Legends - Windows",
+   "players": 1,
+   "minutes": 57
+  },
+  {
    "game": "steam:582010",
    "title": "Monster Hunter: World",
    "players": 1,
    "minutes": 56
-  },
-  {
-   "game": "xbox:9N98Z825TNFW",
-   "title": "Minecraft Legends - Windows",
-   "players": 1,
-   "minutes": 54
   },
   {
    "game": "steam:582500",
@@ -61,10 +109,28 @@
    "minutes": 50
   },
   {
+   "game": "epic:fa4240e57a3c46b39f169041b7811293",
+   "title": "Hogwarts Legacy",
+   "players": 1,
+   "minutes": 48
+  },
+  {
    "game": "steam:629760",
    "title": "MORDHAU",
    "players": 1,
    "minutes": 36
+  },
+  {
+   "game": "steam:3061570",
+   "title": "Persona5: The Phantom X",
+   "players": 1,
+   "minutes": 26
+  },
+  {
+   "game": "steam:250900",
+   "title": "The Binding of Isaac: Rebirth",
+   "players": 1,
+   "minutes": 19
   },
   {
    "game": "steam:3981100",
@@ -73,8 +139,14 @@
    "minutes": 19
   },
   {
-   "game": "steam:250900",
-   "title": "The Binding of Isaac: Rebirth",
+   "game": "steam:4148530",
+   "title": "City Transport Simulator 2026",
+   "players": 1,
+   "minutes": 14
+  },
+  {
+   "game": "steam:292410",
+   "title": "Street Racing Syndicate",
    "players": 1,
    "minutes": 12
   },
@@ -82,13 +154,37 @@
    "game": "steam:223810",
    "title": "Ys I",
    "players": 1,
-   "minutes": 4
+   "minutes": 10
   },
   {
-   "game": "steam:3241660",
-   "title": "R.E.P.O.",
+   "game": "steam:2168680",
+   "title": "Nuclear Option",
    "players": 1,
-   "minutes": 3
+   "minutes": 9
+  },
+  {
+   "game": "steam:1248980",
+   "title": "Beyond: Two Souls Demo",
+   "players": 1,
+   "minutes": 8
+  },
+  {
+   "game": "steam:1168280",
+   "title": "Resident Evil 2 \"R.P.D. Demo\"",
+   "players": 1,
+   "minutes": 7
+  },
+  {
+   "game": "steam:1651790",
+   "title": "Peripeteia Demo",
+   "players": 1,
+   "minutes": 7
+  },
+  {
+   "game": "steam:990080",
+   "title": "Hogwarts Legacy",
+   "players": 1,
+   "minutes": 5
   }
  ]
 }
