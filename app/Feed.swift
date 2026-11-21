@@ -345,6 +345,32 @@ private struct FeedAction: View {
     }
 }
 
+/// Google's "G" in its four colours, drawn (the app ships no picture files): a ring in four parts, open at the upper right,
+/// with the bar running in from the right.
+struct GoogleG: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let s = min(size.width, size.height), c = CGPoint(x: size.width / 2, y: size.height / 2)
+            let width = s * 0.21, r = s / 2 - width / 2
+            func arc(_ from: Double, _ to: Double, _ colour: Color) {
+                var p = Path()
+                p.addArc(center: c, radius: r, startAngle: .degrees(from), endAngle: .degrees(to), clockwise: false)
+                ctx.stroke(p, with: .color(colour), style: StrokeStyle(lineWidth: width, lineCap: .butt))
+            }
+            // (Angles run clockwise from three o'clock.)
+            arc(205, 316, Color(red: 0.918, green: 0.263, blue: 0.208))   // red, across the top
+            arc(134, 206, Color(red: 0.984, green: 0.737, blue: 0.020))   // yellow, down the left
+            arc(44, 135, Color(red: 0.204, green: 0.659, blue: 0.325))    // green, along the bottom
+            let blue = Color(red: 0.259, green: 0.522, blue: 0.957)
+            arc(0, 45, blue)                                              // blue, the lower right
+            // The bar, kept inside the ring's outer edge so its corner does not stick out.
+            var inside = ctx
+            inside.clip(to: Path(ellipseIn: CGRect(x: c.x - s / 2, y: c.y - s / 2, width: s, height: s)))
+            inside.fill(Path(CGRect(x: c.x, y: c.y - width / 2, width: s / 2, height: width)), with: .color(blue))
+        }.accessibilityHidden(true)
+    }
+}
+
 /// The two ways in, drawn as the feed's own buttons: a filled one and an outlined one, the same height and shape.
 private struct GateButton: ButtonStyle {
     let filled: Bool
@@ -455,7 +481,7 @@ struct FeedShelfView: View {
                     HStack(spacing: 10) {
                         if account.providers.contains("apple") { Button { account.signIn("apple") } label: { Label("Continue with Apple", systemImage: "apple.logo") }.buttonStyle(GateButton(filled: true)) }
                         if account.providers.contains("google") {
-                            Button { account.signIn("google") } label: { Text("Continue with Google") }.buttonStyle(GateButton(filled: !account.providers.contains("apple")))
+                            Button { account.signIn("google") } label: { HStack(spacing: 8) { GoogleG().frame(width: 15, height: 15); Text("Continue with Google") } }.buttonStyle(GateButton(filled: !account.providers.contains("apple")))
                         }
                     }.padding(.top, 8)
                 }
