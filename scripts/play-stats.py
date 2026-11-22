@@ -37,6 +37,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+from soju_anticheat import anticheat  # noqa: E402
 BASE = Path(os.environ.get("SOJU_BASE", str(Path.home() / ".battlenet-macos")))
 URL = os.environ.get("SOJU_STATS_URL", "https://didimlabs.com/api/stats")
 OFF = BASE / "stats-off"
@@ -159,35 +161,7 @@ def log_local(game, title, minutes, now=None):
         pass
 
 
-ANTICHEAT = (("eac", ("easyanticheat", "easyanticheat_eos", "start_protected_game.exe")),
-             ("battleye", ("battleye", "beservice.exe", "beservice_x64.exe")),
-             ("vanguard", ("vgk.sys", "vgc.exe")),
-             ("gameguard", ("gameguard", "gameguard.des")),
-             ("xigncode", ("xigncode",)),
-             ("punkbuster", ("pb", "punkbuster")))
 SAFE = re.compile(r"[^A-Za-z0-9._+-]")
-
-
-def anticheat(path):
-    """Which anti-cheat the game folder carries, by the names those leave in it (two levels deep)."""
-    root = Path(str(path or ""))
-    if len(str(root)) < 8 or not root.is_dir():
-        return ""
-    names = set()
-    try:
-        for entry in os.scandir(root):
-            names.add(entry.name.lower())
-            if entry.is_dir(follow_symlinks=False) and len(names) < 4000:
-                try:
-                    names.update(e.name.lower() for e in os.scandir(entry.path))
-                except OSError:
-                    pass
-    except OSError:
-        return ""
-    for name, marks in ANTICHEAT:
-        if any(m in names for m in marks):
-            return name
-    return ""
 
 
 def log_marks(game, launcher):
