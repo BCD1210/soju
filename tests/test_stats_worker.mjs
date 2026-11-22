@@ -22,6 +22,16 @@ test("a launch is counted once per install, game, result and how", async () => {
   assert.deepEqual(insert.args.slice(0, 6), [id, "steam:1", "A", "steam", "quick_exit", "soju"]);
 });
 
+test("a start that did not run carries a reason: one known word, one plain name, a known anti-cheat", async () => {
+  const db = fakeDb();
+  await stats(post({ id, kind: "launch", games: [
+    { game: "steam:1", title: "A", launcher: "steam", result: "quick_exit", how: "steam", why: "missing_dll", detail: "vcruntime140.dll", ac: "eac" },
+    { game: "steam:2", title: "B", launcher: "steam", result: "no_start", how: "soju", why: "/Users/someone", detail: "C:\\Users\\me\\x.dll", ac: "mine" }] }, "10.0.0.9"), { STATS: db });
+  const rows = db.ran.filter((s) => s.sql.startsWith("INSERT INTO launches"));
+  assert.deepEqual(rows[0].args.slice(-3), ["missing_dll", "vcruntime140.dll", "eac"]);
+  assert.deepEqual(rows[1].args.slice(-3), ["", "", ""]);
+});
+
 test("unknown results, ways of starting and kinds are refused or ignored", async () => {
   const db = fakeDb();
   await stats(post({ id, kind: "launch", games: [{ game: "steam:1", launcher: "steam", result: "exploded", how: "soju" },
