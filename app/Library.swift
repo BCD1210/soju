@@ -8,6 +8,8 @@ struct InstalledGame: Decodable, Identifiable {
     let installPath: String
     let artwork: String?
     let issue: String?
+    /// Something worth knowing that does not stop Play: the game carries an anti-cheat that may close it on a Mac.
+    let note: String?
     let owned: Bool?
     let downloaded: Bool?
     let format: String?
@@ -22,7 +24,7 @@ struct InstalledGame: Decodable, Identifiable {
     /// Owned but not downloadable (for example MSIXVC2 packages).
     var downloadBlocked: Bool { platform == .xbox && !isInstalled && !isPartialDownload && issue != nil }
     enum CodingKeys: String, CodingKey {
-        case id, platform, title, artwork, issue, owned, downloaded, format, available, volume
+        case id, platform, title, artwork, issue, note, owned, downloaded, format, available, volume
         case installPath = "install_path"
     }
 }
@@ -467,6 +469,7 @@ struct LibraryView: View {
                 HStack {
                     Text(status(game, issue: issue)).font(.system(size: 11)).lineLimit(1)
                         .foregroundStyle(issue == nil || game.isPartialDownload ? Color.secondary : Color.orange)
+                        .help(issue == nil ? game.note ?? "" : "")
                     Spacer()
                     if model.downloads[game.id] != nil {
                         Button { model.stopDownload(game) } label: { Label("Pause", systemImage: "pause.fill") }
@@ -531,7 +534,7 @@ struct LibraryView: View {
             if game.isPartialDownload { return "Paused" }
             if game.downloadBlocked { return "Not supported" }
         }
-        return !game.isInstalled ? "Not installed" : issue == nil ? "Installed" : "Needs attention"
+        return !game.isInstalled ? "Not installed" : issue != nil ? "Needs attention" : game.note != nil ? "Installed · anti-cheat" : "Installed"
     }
 
     private func installedLabel(_ game: InstalledGame) -> String {
@@ -561,6 +564,8 @@ struct LibraryView: View {
                     }
                     if let issue = model.launchIssue(for: game) {
                         Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 13)).foregroundStyle(.orange)
+                    } else if let note = game.note {
+                        Label(note, systemImage: "shield.lefthalf.filled").font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                     Text(game.platform == .didim ? "Files are in " + game.installPath + ". Saves stay in ~/Library/Application Support." : game.platform == .xbox ? (game.isInstalled ? "Files are in " + game.installPath + ". Saves sync with your Xbox account when the game exits." : "This game is in your Xbox library. Download it to play; compatibility varies by game.") : game.isInstalled ? "Installation detected. Compatibility varies by game and Mac." : "This game is in your imported library. Open its launcher to install it; compatibility varies by game.")
                         .font(.system(size: 12)).foregroundStyle(.secondary)

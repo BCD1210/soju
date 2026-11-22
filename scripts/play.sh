@@ -347,7 +347,7 @@ case "$MODE" in
     fi
     WINESTABLE="$STEAM_WINE_ROOT/bin/wine"
     WINESTABLE_SERVER="$STEAM_WINE_ROOT/bin/wineserver"
-    [[ -x "$WINESTABLE" ]] || { echo "Steam runtime not found. Reinstall Steam from Platforms or run: soju steam-install"; exit 1; }
+    [[ -x "$WINESTABLE" ]] || { echo "Steam runtime not found. Reinstall Steam from Stores or run: soju steam-install"; exit 1; }
     ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
     [[ -f "$ST" ]] || { echo "Steam not found, run scripts/create-steam-bottle.sh first"; exit 1; }
     # A newer Steam support package (resources/steam-support.json) is set up before Steam

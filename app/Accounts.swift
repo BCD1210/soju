@@ -529,7 +529,7 @@ struct AccountsView: View {
                 Toggle("Show FPS in games", isOn: $model.fpsHUD).labelsHidden().toggleStyle(.switch).controlSize(.small)
             }
             Divider()
-            setting("Share which games I play", "Anonymous: the games you install and how long they stay open, with your Mac model and macOS. No account, email or file paths.") {
+            setting("Share which games I play", "Anonymous: the games you install, how long they stay open and a one-word reason when one will not start, with your Mac model and macOS. No account, email or file paths.") {
                 Toggle("Share which games I play", isOn: $model.shareStats).labelsHidden().toggleStyle(.switch).controlSize(.small)
             }
             Divider()
