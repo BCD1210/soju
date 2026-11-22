@@ -5,6 +5,10 @@
       Waits for the game to start, counts the minutes it stays open, then sends the
       game, its store and the minutes, with the Mac model, chip, macOS and Soju version.
       Also sends how the start went: ran, quick_exit (closed within a minute) or no_start.
+      For a start that did not run, a short reason read on this Mac from Soju's own launch log:
+      one word (crash, missing_dll, graphics, memory, dotnet), at most one name with it (the
+      missing file, or the error number), and which anti-cheat the game folder carries.
+      The log itself is never sent.
   soju stats watch
       While Steam runs, counts games started from Steam's own window the same way.
   soju stats library
@@ -16,13 +20,14 @@ title) for the Soju Garden in the app. That file stays on the Mac, with sharing 
 
 Nothing else leaves the Mac: no account, email, user name or file path. A random id
 (stats-id in the Soju folder) lets the site count players rather than sessions.
-Turn it off in Soju (Platforms > Share which games I play), with `soju stats off`,
+Turn it off in Soju (Stores > Share which games I play), with `soju stats off`,
 or with SOJU_NO_STATS=1.
 """
 import argparse
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import time
@@ -154,14 +159,109 @@ def log_local(game, title, minutes, now=None):
         pass
 
 
-def report(game, title, launcher, started, minutes, how):
+ANTICHEAT = (("eac", ("easyanticheat", "easyanticheat_eos", "start_protected_game.exe")),
+             ("battleye", ("battleye", "beservice.exe", "beservice_x64.exe")),
+             ("vanguard", ("vgk.sys", "vgc.exe")),
+             ("gameguard", ("gameguard", "gameguard.des")),
+             ("xigncode", ("xigncode",)),
+             ("punkbuster", ("pb", "punkbuster")))
+SAFE = re.compile(r"[^A-Za-z0-9._+-]")
+
+
+def anticheat(path):
+    """Which anti-cheat the game folder carries, by the names those leave in it (two levels deep)."""
+    root = Path(str(path or ""))
+    if len(str(root)) < 8 or not root.is_dir():
+        return ""
+    names = set()
+    try:
+        for entry in os.scandir(root):
+            names.add(entry.name.lower())
+            if entry.is_dir(follow_symlinks=False) and len(names) < 4000:
+                try:
+                    names.update(e.name.lower() for e in os.scandir(entry.path))
+                except OSError:
+                    pass
+    except OSError:
+        return ""
+    for name, marks in ANTICHEAT:
+        if any(m in names for m in marks):
+            return name
+    return ""
+
+
+def log_marks(game, launcher):
+    """Where Soju's launch logs end now, so that only what a start adds to them is read afterwards."""
+    logs = BASE / "logs"
+    out = {}
+    for path in (logs / ("game-" + game.replace(":", "-") + ".log"), logs / ("desktop-" + launcher + ".log")):
+        try:
+            st = path.stat()
+            out[str(path)] = (st.st_ino, st.st_size)
+        except OSError:
+            out[str(path)] = (0, 0)
+    return out
+
+
+def log_since(marks, limit=400_000):
+    """What the launch logs gained since log_marks (all of a log that was started again meanwhile)."""
+    text = []
+    for name, (inode, size) in (marks or {}).items():
+        try:
+            st = os.stat(name)
+            start = size if st.st_ino == inode and st.st_size >= size else 0
+            with open(name, "rb") as f:
+                f.seek(max(start, st.st_size - limit))
+                text.append(f.read(limit).decode("utf-8", "replace"))
+        except OSError:
+            pass
+    return "\n".join(text)
+
+
+def why(text, found=()):
+    """(word, name) for a start that did not run, from what Wine wrote: the first cause that is clearly there.
+    A file is counted as missing only when the game's own folder asked for it; Steam's helpers miss a few always."""
+    low = text.lower()
+    for m in re.finditer(r'err:module:import_dll library (\S+) \(which is needed by l?"([^"]*)"\) not found', low):
+        needed = m.group(2).replace("\\\\", "\\")
+        if any(n.startswith("c:") and needed.startswith(n) for n in found):
+            return "missing_dll", SAFE.sub("", m.group(1))[:40]
+    if "wine mono is not installed" in low or "mscoree" in low and "could not" in low:
+        return "dotnet", ""
+    m = re.search(r"unhandled exception:? (?:0x)?([0-9a-f]{8})|unhandled exception: ([a-z ]+?) (?:on|in) ", low)
+    if m:
+        return "crash", SAFE.sub("_", (m.group(1) or m.group(2) or "").strip())[:40]
+    if "unhandled page fault" in low:
+        return "crash", "page_fault"
+    if "virtual_setup_exception" in low:
+        return "crash", "nested_exception"
+    if "stack overflow" in low or "out of memory" in low:
+        return "memory", ""
+    # (Wine says a good deal about graphics in a start that goes well; only what says something failed counts.)
+    m = re.search(r"err:(vkd3d|vulkan)|vk_error_|failed to (?:create|initiali[sz]e)[^\n]{0,60}(device|swapchain|vulkan|metal|d3d)"
+                  r"|no (?:suitable|compatible)[^\n]{0,40}(adapter|device)|suitable (pixel format)", low)
+    if m:
+        return "graphics", SAFE.sub("_", next((g for g in m.groups() if g), "vulkan"))[:40]
+    return "", ""
+
+
+def reason(started, minutes, marks, found, path):
+    """What to add to a start that did not run; nothing for one that ran."""
+    if outcome(started, minutes) == "ran":
+        return {}
+    word, name = why(log_since(marks), found)
+    out = {"why": word, "detail": name, "ac": anticheat(path)}
+    return {k: v for k, v in out.items() if v}
+
+
+def report(game, title, launcher, started, minutes, how, extra=None):
     """One start: its outcome always, and the minutes when there were any. Nothing once sharing is off.
     The minutes also go to this Mac's own play log, sharing or not."""
     log_local(game, title, minutes)
     if not enabled():
         return
     item = {"game": game[:120], "title": title[:120], "launcher": launcher[:20]}
-    send({"kind": "launch", "games": [dict(item, result=outcome(started, minutes), how=how)]})
+    send({"kind": "launch", "games": [dict(item, result=outcome(started, minutes), how=how, **(extra or {}))]})
     if minutes >= 1:
         send({"kind": "play", "games": [dict(item, minutes=min(minutes, MAX_HOURS * 60))]})
 
@@ -178,7 +278,7 @@ def steam_games(snapshot):
             continue
         found = needles(g.get("install_path"))
         if found:
-            out[g["id"]] = (g.get("title", ""), found)
+            out[g["id"]] = (g.get("title", ""), found, g.get("install_path"))
     return out
 
 
@@ -208,7 +308,7 @@ def watch(clock=time.monotonic, sleep=time.sleep, poll=POLL, table=None, snapsho
     Turning sharing off stops the watch at once and drops what it was counting."""
     table = table or (lambda: run("ps", "-axww", "-o", "command=").lower())
     begun = clock()
-    games, seen, missing, polls = {}, {}, 0, 0
+    games, seen, missing, polls, marks = {}, {}, 0, 0, {}
     try:
         while True:
             if polls % 15 == 0:
@@ -222,19 +322,22 @@ def watch(clock=time.monotonic, sleep=time.sleep, poll=POLL, table=None, snapsho
                 return
             lines = table().splitlines()
             missing = 0 if any(STEAM_PROCESS in line for line in lines) else missing + 1
-            for gid, (title, found) in games.items():
+            for gid, (title, found, path) in games.items():
                 up = any(n in line for line in lines for n in found)
                 st = seen.get(gid)
                 if up and st is None:
                     lock = claim(gid)
                     if lock is not None:
-                        seen[gid] = {"first": now, "last": now, "misses": 0, "lock": lock, "title": title}
+                        # (The logs as they stood at the check before this one: the game started after it.)
+                        seen[gid] = {"first": now, "last": now, "misses": 0, "lock": lock, "title": title,
+                                     "marks": marks.get(gid), "found": found, "path": path}
                 elif up:
                     st["last"], st["misses"] = now, 0
                 elif st is not None:
                     st["misses"] += 1
                     if st["misses"] >= GONE_AFTER:
                         finish(gid, seen.pop(gid), poll, deliver)
+            marks = {gid: log_marks(gid, "steam") for gid in games if gid not in seen}
             if missing >= GONE_AFTER and now - begun > STEAM_GRACE:
                 break
             if now - begun > 24 * 3600:
@@ -246,7 +349,12 @@ def watch(clock=time.monotonic, sleep=time.sleep, poll=POLL, table=None, snapsho
 
 def finish(gid, st, poll, deliver):
     st["lock"].unlink(missing_ok=True)
-    deliver(gid, st["title"], "steam", True, int((st["last"] - st["first"] + poll) // 60), "steam")
+    minutes = int((st["last"] - st["first"] + poll) // 60)
+    extra = reason(True, minutes, st.get("marks"), st.get("found") or (), st.get("path"))
+    if extra:
+        deliver(gid, st["title"], "steam", True, minutes, "steam", extra)
+    else:
+        deliver(gid, st["title"], "steam", True, minutes, "steam")
 
 
 def post(body):
@@ -378,11 +486,12 @@ def main(argv):
     lock = claim(a.game)
     if lock is None:
         return 0   # this game is already being counted
+    marks = log_marks(a.game, a.launcher)
     try:
         started, minutes = track_run(found, pid)
     finally:
         lock.unlink(missing_ok=True)
-    report(a.game, a.title, a.launcher, started, minutes, "soju")
+    report(a.game, a.title, a.launcher, started, minutes, "soju", reason(started, minutes, marks, found, a.path))
     return 0
 
 
