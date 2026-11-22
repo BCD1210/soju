@@ -99,7 +99,9 @@ EOT
     esac
   done
 fi
-for p in $PLATFORMS; do case " $ALL " in *" $p "*) ;; *) echo "Unknown platform: $p"; exit 1;; esac; done
+# "engine" is not a launcher: SOJU_PLATFORMS=engine installs only the CX engine and Apple GPTK, for a Steam game
+# that needs Direct3D 12 on a Mac that has Steam alone (scripts/steam-gptk.sh play).
+for p in $PLATFORMS; do case " $ALL engine " in *" $p "*) ;; *) echo "Unknown platform: $p"; exit 1;; esac; done
 [ -n "${PLATFORMS// /}" ] || { echo "Nothing selected."; exit 64; }
 echo "  Installing:$PLATFORMS"
 
