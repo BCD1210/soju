@@ -202,6 +202,29 @@ case "$MODE" in
     BN_EXE="C:\\Program Files (x86)\\Battle.net\\Battle.net.exe"
     BN_ARGS="--disable-gpu-compositing --from-launcher --in-process-gpu --use-gl=swiftshader"
     export WINE_DOCK_REOPEN_CMD="'$ENGINE/bin/wine' '$BN_EXE' $BN_ARGS"
+    # Play from the library passes --exec="launch <game>". A Battle.net that is already open takes it and starts
+    # the game; one that is just starting drops it and stops at its own Play button (seen 2026-11-22: signed in,
+    # "What's New?" on top, no LaunchBinary in its log). So after a cold start the same request is sent again once
+    # Battle.net's log says it is signed in, until the log shows the game being launched. Someone who has to type
+    # a password first gets the game right after signing in, without pressing Play again.
+    if [[ " ${*:2} " == *" --exec="* ]] && ! pgrep -f 'Battle\.net\.exe' >/dev/null 2>&1; then
+      BN_MARK="$WINEPREFIX/.soju-launch-mark"; : > "$BN_MARK"
+      (
+        sent=0; last=0
+        for tick in $(seq 1 120); do               # ten minutes
+          sleep 5
+          [ "$tick" -lt 4 ] || pgrep -f 'Battle\.net\.exe' >/dev/null 2>&1 || exit 0   # Battle.net was closed
+          logs=$(find "$WINEPREFIX/drive_c/users"/*/AppData/Local/Battle.net/Logs -name 'battle.net-*.log' -newer "$BN_MARK" 2>/dev/null)
+          [ -n "$logs" ] || continue
+          if echo "$logs" | tr '\n' '\0' | xargs -0 grep -qa 'LaunchBinary: uid=' 2>/dev/null; then exit 0; fi
+          echo "$logs" | tr '\n' '\0' | xargs -0 grep -qa 'Logged into Battle.net successfully' 2>/dev/null || continue
+          [ "$sent" -lt 4 ] || exit 0
+          [ $((tick - last)) -ge 6 ] || continue   # half a minute between tries
+          "$ENGINE/bin/wine" "$BN_EXE" $BN_ARGS "${@:2}" >/dev/null 2>&1 || true
+          sent=$((sent + 1)); last=$tick
+        done
+      ) >/dev/null 2>&1 &
+    fi
     exec "$ENGINE/bin/wine" "$BN_EXE" $BN_ARGS "${@:2}"
     ;;
   d2r)         # Launch the game directly (offline / previous session)
