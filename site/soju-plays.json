@@ -3,8 +3,26 @@
   {
    "game": "battlenet:osi",
    "title": "Diablo II: Resurrected",
-   "players": 6,
-   "minutes": 1079
+   "players": 8,
+   "minutes": 1475
+  },
+  {
+   "game": "steam:250900",
+   "title": "The Binding of Isaac: Rebirth",
+   "players": 3,
+   "minutes": 43
+  },
+  {
+   "game": "epic:fa4240e57a3c46b39f169041b7811293",
+   "title": "Hogwarts Legacy",
+   "players": 2,
+   "minutes": 295
+  },
+  {
+   "game": "steam:3241660",
+   "title": "R.E.P.O.",
+   "players": 2,
+   "minutes": 231
   },
   {
    "game": "steam:3164500",
@@ -19,10 +37,28 @@
    "minutes": 9
   },
   {
-   "game": "steam:3241660",
-   "title": "R.E.P.O.",
-   "players": 2,
-   "minutes": 4
+   "game": "steam:1158160",
+   "title": "Coral Island",
+   "players": 1,
+   "minutes": 418
+  },
+  {
+   "game": "steam:489830",
+   "title": "The Elder Scrolls V: Skyrim Special Edition",
+   "players": 1,
+   "minutes": 368
+  },
+  {
+   "game": "steam:1223750",
+   "title": "Cloud Meadow",
+   "players": 1,
+   "minutes": 335
+  },
+  {
+   "game": "steam:2835570",
+   "title": "Buckshot Roulette",
+   "players": 1,
+   "minutes": 276
   },
   {
    "game": "steam:934700",
@@ -31,22 +67,16 @@
    "minutes": 261
   },
   {
-   "game": "steam:1223750",
-   "title": "Cloud Meadow",
-   "players": 1,
-   "minutes": 255
-  },
-  {
    "game": "steam:2142790",
    "title": "Fields of Mistria",
    "players": 1,
    "minutes": 244
   },
   {
-   "game": "steam:1158160",
-   "title": "Coral Island",
+   "game": "steam:292410",
+   "title": "Street Racing Syndicate",
    "players": 1,
-   "minutes": 201
+   "minutes": 195
   },
   {
    "game": "battlenet:s1",
@@ -61,10 +91,22 @@
    "minutes": 167
   },
   {
+   "game": "steam:582010",
+   "title": "Monster Hunter: World",
+   "players": 1,
+   "minutes": 135
+  },
+  {
    "game": "steam:585420",
    "title": "Trailmakers",
    "players": 1,
    "minutes": 131
+  },
+  {
+   "game": "steam:3442120",
+   "title": "Book Bound Demo",
+   "players": 1,
+   "minutes": 126
   },
   {
    "game": "steam:1449850",
@@ -73,10 +115,10 @@
    "minutes": 116
   },
   {
-   "game": "steam:2835570",
-   "title": "Buckshot Roulette",
+   "game": "steam:3962460",
+   "title": "THE CANON OF BALLS",
    "players": 1,
-   "minutes": 111
+   "minutes": 84
   },
   {
    "game": "steam:1286830",
@@ -91,16 +133,22 @@
    "minutes": 71
   },
   {
+   "game": "steam:990080",
+   "title": "Hogwarts Legacy",
+   "players": 1,
+   "minutes": 65
+  },
+  {
+   "game": "steam:2433730",
+   "title": "Unsorted Horror",
+   "players": 1,
+   "minutes": 64
+  },
+  {
    "game": "xbox:9N98Z825TNFW",
    "title": "Minecraft Legends - Windows",
    "players": 1,
    "minutes": 57
-  },
-  {
-   "game": "steam:582010",
-   "title": "Monster Hunter: World",
-   "players": 1,
-   "minutes": 56
   },
   {
    "game": "steam:582500",
@@ -109,10 +157,10 @@
    "minutes": 50
   },
   {
-   "game": "epic:fa4240e57a3c46b39f169041b7811293",
-   "title": "Hogwarts Legacy",
+   "game": "steam:365160",
+   "title": "Kona",
    "players": 1,
-   "minutes": 48
+   "minutes": 49
   },
   {
    "game": "steam:629760",
@@ -121,16 +169,16 @@
    "minutes": 36
   },
   {
+   "game": "steam:2358720",
+   "title": "Black Myth: Wukong",
+   "players": 1,
+   "minutes": 28
+  },
+  {
    "game": "steam:3061570",
    "title": "Persona5: The Phantom X",
    "players": 1,
    "minutes": 26
-  },
-  {
-   "game": "steam:250900",
-   "title": "The Binding of Isaac: Rebirth",
-   "players": 1,
-   "minutes": 19
   },
   {
    "game": "steam:3981100",
@@ -145,14 +193,20 @@
    "minutes": 14
   },
   {
-   "game": "steam:292410",
-   "title": "Street Racing Syndicate",
+   "game": "steam:2344520",
+   "title": "Diablo® IV",
    "players": 1,
-   "minutes": 12
+   "minutes": 11
   },
   {
    "game": "steam:223810",
    "title": "Ys I",
+   "players": 1,
+   "minutes": 10
+  },
+  {
+   "game": "steam:264710",
+   "title": "Subnautica",
    "players": 1,
    "minutes": 10
   },
@@ -169,6 +223,12 @@
    "minutes": 8
   },
   {
+   "game": "steam:1599600",
+   "title": "PlateUp!",
+   "players": 1,
+   "minutes": 8
+  },
+  {
    "game": "steam:1168280",
    "title": "Resident Evil 2 \"R.P.D. Demo\"",
    "players": 1,
@@ -181,10 +241,34 @@
    "minutes": 7
   },
   {
-   "game": "steam:990080",
-   "title": "Hogwarts Legacy",
+   "game": "steam:11020",
+   "title": "TrackMania Nations Forever",
    "players": 1,
-   "minutes": 5
+   "minutes": 4
+  },
+  {
+   "game": "steam:4335510",
+   "title": "Horses of Hoofprint Bay Demo",
+   "players": 1,
+   "minutes": 4
+  },
+  {
+   "game": "steam:784150",
+   "title": "Workers & Resources: Soviet Republic",
+   "players": 1,
+   "minutes": 4
+  },
+  {
+   "game": "steam:1566200",
+   "title": "Tape to Tape",
+   "players": 1,
+   "minutes": 3
+  },
+  {
+   "game": "xbox:9NBLGGH2JHXJ",
+   "title": "Minecraft for Windows",
+   "players": 1,
+   "minutes": 3
   }
  ]
 }
