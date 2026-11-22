@@ -209,7 +209,7 @@ class Service:
     def __init__(self):
         binary = CLI.parent / 'xodus-service'
         if not os.access(binary, os.X_OK):
-            raise LaunchError('The Xodus backend has no xodus-service. Run Update components in Platforms.')
+            raise LaunchError('The Xodus backend has no xodus-service. Run Update components in Stores.')
         # macOS limits socket paths to 104 bytes, so the session lives in /tmp.
         self.directory = Path(tempfile.mkdtemp(prefix='soju-xbox-', dir='/tmp'))
         self.socket = str(self.directory / 'xodus.sock')

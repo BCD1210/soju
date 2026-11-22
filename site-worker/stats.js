@@ -4,7 +4,7 @@
 // POST /api/stats {id, kind: "play" | "library", games: [...], mac, chip, macos, soju}
 //   play:    games [{game, title, launcher, minutes}]  adds minutes to that install's total for the game
 //   library: games [{game, title, launcher}]           replaces that install's list of installed games
-//   launch:  games [{game, title, launcher, result, how}] counts one start: result ran | quick_exit | no_start,
+//   launch:  games [{game, title, launcher, result, how, why?, detail?, ac?}] counts one start: result ran | quick_exit | no_start,
 //            how soju (the library's Play button) | steam (Steam's own window)
 // Nothing is published: the counts are read with wrangler (below).
 //
@@ -21,6 +21,10 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS library (install TEXT NOT NULL, game TEXT NOT NULL, title TEXT, launcher TEXT, mac TEXT, chip TEXT, macos TEXT, soju TEXT, updated TEXT, PRIMARY KEY (install, game))",
 ];
 const RESULTS = new Set(["ran", "quick_exit", "no_start"]);
+// Why a start did not run, as the Mac read it from its own launch log: one word, one name, and the game's anti-cheat.
+const WHY = new Set(["crash", "missing_dll", "graphics", "memory", "dotnet"]);
+const AC = new Set(["eac", "battleye", "vanguard", "gameguard", "xigncode", "punkbuster"]);
+const name = (v) => { const s = text(v, 40); return /^[A-Za-z0-9._+-]*$/.test(s) ? s : ""; };
 const HOW = new Set(["soju", "steam"]);
 let ready = false, minute = 0, count = 0, perAddress = new Map();
 
@@ -29,6 +33,8 @@ const text = (v, n) => String(v ?? "").replace(/[\u0000-\u001f]/g, " ").trim().s
 async function schema(db) {
   if (ready) return;
   await db.batch(SCHEMA.map((s) => db.prepare(s)));
+  // (A database made before reasons were kept: the columns are added once; the error when they are there is nothing.)
+  for (const c of ["why", "detail", "ac"]) { try { await db.prepare(`ALTER TABLE launches ADD COLUMN ${c} TEXT NOT NULL DEFAULT ''`).run(); } catch {} }
   ready = true;
 }
 
@@ -62,16 +68,17 @@ export async function stats(request, env, url) {
   const now = new Date().toISOString();
   const games = (Array.isArray(input.games) ? input.games : []).slice(0, kind === "library" ? 200 : 5)
     .map((g) => ({ game: text(g?.game, 120), title: text(g?.title, 120), launcher: text(g?.launcher, 20), minutes: Math.floor(Number(g?.minutes)),
-      result: text(g?.result, 12), how: text(g?.how, 8) }))
+      result: text(g?.result, 12), how: text(g?.how, 8),
+      why: WHY.has(g?.why) ? g.why : "", detail: name(g?.detail), ac: AC.has(g?.ac) ? g.ac : "" }))
     .filter((g) => g.game && LAUNCHERS.has(g.launcher) && (kind === "library" ||
       (kind === "launch" ? RESULTS.has(g.result) && HOW.has(g.how) : g.minutes >= 1 && g.minutes <= 720)));
   if (!games.length) return json({ ok: true });
   if (kind === "launch") {
     await db.batch(games.map((g) => db.prepare(
-      "INSERT INTO launches (install, game, title, launcher, result, how, n, mac, chip, macos, soju, updated) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?) " +
+      "INSERT INTO launches (install, game, title, launcher, result, how, n, mac, chip, macos, soju, updated, why, detail, ac) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?) " +
       "ON CONFLICT (install, game, result, how) DO UPDATE SET n = n + 1, title = excluded.title, mac = excluded.mac, chip = excluded.chip, " +
-      "macos = excluded.macos, soju = excluded.soju, updated = excluded.updated",
-    ).bind(id, g.game, g.title, g.launcher, g.result, g.how, ...machine, now)));
+      "macos = excluded.macos, soju = excluded.soju, updated = excluded.updated, why = excluded.why, detail = excluded.detail, ac = excluded.ac",
+    ).bind(id, g.game, g.title, g.launcher, g.result, g.how, ...machine, now, g.why, g.detail, g.ac)));
   } else if (kind === "play") {
     await db.batch(games.map((g) => db.prepare(
       "INSERT INTO plays (install, game, title, launcher, minutes, sessions, mac, chip, macos, soju, updated) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?) " +

@@ -161,6 +161,30 @@ class PlayStats(unittest.TestCase):
             self.assertFalse((Path(d) / 'stats-running' / 'steam-1.pid').exists())
         self.assertEqual(got, [('steam:1', 'A', 'steam', True, 3, 'steam')])
 
+    def test_a_start_that_did_not_run_says_why_from_the_launch_log_and_the_game_folder(self):
+        found = ['/x/steam-bottle/drive_c/games/thing/', 'c:\\games\\thing\\']
+        noise = '02fc:err:module:import_dll Library SDL2.dll (which is needed by L"C:\\\\Program Files (x86)\\\\Steam\\\\bin\\\\gldriverquery.exe") not found\n'
+        self.assertEqual(ps.why(noise, found), ('', ''))
+        mine = noise + '0123:err:module:import_dll Library VCRUNTIME140.dll (which is needed by L"C:\\\\games\\\\thing\\\\Thing.exe") not found\n'
+        self.assertEqual(ps.why(mine, found), ('missing_dll', 'vcruntime140.dll'))
+        self.assertEqual(ps.why('wine: Unhandled page fault on read access to 0000000000000000 at address 0000000140001000 (thread 0124)', found), ('crash', 'page_fault'))
+        self.assertEqual(ps.why('Unhandled exception: page fault on read access to 0x00000000 in 64-bit code (0x0000000140001000).', found), ('crash', 'page_fault'))
+        self.assertEqual(ps.why('wine: Unhandled exception 0xc000001d in thread 124 at address 0000000140001000', found)[0], 'crash')
+        self.assertEqual(ps.why('0124:err:d3d:wined3d_caps_gl_ctx_create Failed to find a suitable pixel format.', found)[0], 'graphics')
+        with tempfile.TemporaryDirectory() as d:
+            game = Path(d) / 'steamapps-common-thing'
+            (game / 'EasyAntiCheat').mkdir(parents=True)
+            self.assertEqual(ps.anticheat(game), 'eac')
+            self.assertEqual(ps.anticheat(Path(d) / 'nowhere-at-all'), '')
+            with mock.patch.object(ps, 'BASE', Path(d)):
+                (Path(d) / 'logs').mkdir()
+                log = Path(d) / 'logs/desktop-steam.log'
+                log.write_text('earlier: wine: Unhandled page fault on read access\n')
+                marks = ps.log_marks('steam:9', 'steam')
+                with open(log, 'a') as f: f.write(mine)
+                self.assertEqual(ps.reason(True, 0, marks, found, game), {'why': 'missing_dll', 'detail': 'vcruntime140.dll', 'ac': 'eac'})
+                self.assertEqual(ps.reason(True, 5, marks, found, game), {})
+
     def test_watch_stops_when_steam_is_gone(self):
         clock = Clock()
         with tempfile.TemporaryDirectory() as d, mock.patch.object(ps, 'BASE', Path(d)), \
