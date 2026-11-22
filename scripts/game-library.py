@@ -22,8 +22,9 @@ from urllib.parse import quote
 FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
            'battlenet': 'bottle', 'gog': 'gog-bottle', 'xbox': 'xbox-bottle'}
 # Steam games that stop without Apple GPTK (soju steam-gptk on): Overwatch 2, and
-# Diablo II: Resurrected, whose loader needs GPTK's libd3dshared.
-STEAM_GPTK_GAMES = {'2357570', '2536520'}
+# Diablo II: Resurrected, whose loader needs GPTK's libd3dshared. Order of the Sinking Star
+# asks for Direct3D feature level 12_0 and shows an error window under the Direct3D 11 setup (#171).
+STEAM_GPTK_GAMES = {'2357570', '2536520', '499170'}
 # Installed by Steam itself, not games: Steamworks Common Redistributables.
 STEAM_TOOLS = {'228980'}
 CLIENTS = {
