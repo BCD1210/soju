@@ -6,7 +6,8 @@
       game, its store and the minutes, with the Mac model, chip, macOS and Soju version.
       Also sends how the start went: ran, quick_exit (closed within a minute) or no_start.
       For a start that did not run, a short reason read on this Mac from Soju's own launch log:
-      one word (crash, missing_dll, graphics, memory, dotnet), at most one name with it (the
+      one word (crash, missing_dll, graphics, memory, dotnet, or whether the store was still
+      open when the game never appeared), at most one name with it (the
       missing file, or the error number), and which anti-cheat the game folder carries.
       The log itself is never sent.
   soju stats watch
@@ -219,11 +220,27 @@ def why(text, found=()):
     return "", ""
 
 
-def reason(started, minutes, marks, found, path):
+LAUNCHER_EXE = {"battlenet": "battle.net.exe", "steam": "\\steam.exe", "epic": "epicgameslauncher.exe", "gog": "galaxyclient.exe",
+                "ea": "eadesktop.exe", "rockstar": "launcher.exe", "ubisoft": "upc.exe"}
+
+
+def launcher_state(launcher, table=None):
+    """For a game that never appeared: was its store still open (waiting at a sign-in, an update or a dialog),
+    or gone as well?"""
+    exe = LAUNCHER_EXE.get(launcher)
+    if not exe:
+        return ""
+    text = table if table is not None else run("ps", "-axww", "-o", "command=").lower()
+    return "launcher_open" if exe in text else "launcher_closed"
+
+
+def reason(started, minutes, marks, found, path, launcher=""):
     """What to add to a start that did not run; nothing for one that ran."""
     if outcome(started, minutes) == "ran":
         return {}
     word, name = why(log_since(marks), found)
+    if not word and not started:
+        word = launcher_state(launcher)
     out = {"why": word, "detail": name, "ac": anticheat(path)}
     return {k: v for k, v in out.items() if v}
 
@@ -465,7 +482,7 @@ def main(argv):
         started, minutes = track_run(found, pid)
     finally:
         lock.unlink(missing_ok=True)
-    report(a.game, a.title, a.launcher, started, minutes, "soju", reason(started, minutes, marks, found, a.path))
+    report(a.game, a.title, a.launcher, started, minutes, "soju", reason(started, minutes, marks, found, a.path, a.launcher))
     return 0
 
 
