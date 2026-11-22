@@ -28,7 +28,7 @@ steam_running(){
 
 case "${1:-status}" in
   on)
-    [ -f "$PLAIN/$CLIENT" ] || { echo "soju: install Steam first (Platforms, or soju steam-install)" >&2; exit 1; }
+    [ -f "$PLAIN/$CLIENT" ] || { echo "soju: install Steam first (Stores, or soju steam-install)" >&2; exit 1; }
     if steam_running; then echo "soju: quit Steam first (soju steam-kill)" >&2; exit 1; fi
     bash "$ROOT/scripts/steam-gptk-engine.sh" >/dev/null || exit 1
     if [ ! -f "$GPTK/$CLIENT" ]; then

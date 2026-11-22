@@ -73,7 +73,7 @@ if [ "${1:-}" = launcher ]; then
     rm -rf "$HOME/Applications/$app.app"; found=1
   fi
   [ "$found" = 1 ] || { echo "Nothing to remove for ${2}."; exit 0; }
-  echo "Removed. Your account and purchases stay with the store; install it again from Platforms any time."
+  echo "Removed. Your account and purchases stay with the store; install it again from Stores any time."
   exit 0
 fi
 

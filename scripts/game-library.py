@@ -16,6 +16,7 @@ from game_artwork import executable_icon
 from library_services import saved_accounts
 import xbox_locations
 import didim_games
+from soju_anticheat import note as anticheat_note
 from urllib.parse import quote
 
 FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
@@ -177,11 +178,12 @@ class Library:
         elif not ready: issue = 'Finish the installation or update in the official launcher.'
         elif not arguments: issue = 'Open the official launcher to play this title.'
         elif platform == 'steam' and uid in STEAM_GPTK_GAMES and self.folders['steam'] == 'steam-bottle':
-            issue = ('This game needs Apple GPTK. In Platforms, turn on "Overwatch and Diablo II mode" '
+            issue = ('This game needs Apple GPTK. In Stores, turn on "Overwatch and Diablo II mode" '
                      'on the Steam card; Steam asks you to sign in once there, and the game shows up again.')
         self.games[key] = dict(id=key, platform=platform, title=title.strip()[:300],
                                install_path=str(location), artwork=artwork,
-                               issue=issue, arguments=arguments)
+                               issue=issue, arguments=arguments,
+                               note=None if unplugged else anticheat_note(location))
         if location.is_symlink():
             # Moved to another drive with scripts/game-storage.py: say where it is.
             target = Path(os.readlink(location)).parts
