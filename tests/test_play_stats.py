@@ -184,6 +184,10 @@ class PlayStats(unittest.TestCase):
                 with open(log, 'a') as f: f.write(mine)
                 self.assertEqual(ps.reason(True, 0, marks, found, game), {'why': 'missing_dll', 'detail': 'vcruntime140.dll', 'ac': 'eac'})
                 self.assertEqual(ps.reason(True, 5, marks, found, game), {})
+        # A game that never appeared and left nothing in the log: say whether its store was still open.
+        self.assertEqual(ps.launcher_state('battlenet', 'c:\\program files (x86)\\battle.net\\battle.net.exe --exec=launch osi'), 'launcher_open')
+        self.assertEqual(ps.launcher_state('battlenet', 'something else'), 'launcher_closed')
+        self.assertEqual(ps.launcher_state('didim', 'anything'), '')
 
     def test_watch_stops_when_steam_is_gone(self):
         clock = Clock()
