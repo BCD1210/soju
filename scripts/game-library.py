@@ -22,8 +22,9 @@ from urllib.parse import quote
 FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
            'battlenet': 'bottle', 'gog': 'gog-bottle', 'xbox': 'xbox-bottle'}
 # Steam games that stop without Apple GPTK (soju steam-gptk on): Overwatch 2, and
-# Diablo II: Resurrected, whose loader needs GPTK's libd3dshared.
-STEAM_GPTK_GAMES = {'2357570', '2536520'}
+# Diablo II: Resurrected, whose loader needs GPTK's libd3dshared. Order of the Sinking Star
+# asks for Direct3D feature level 12_0 and shows an error window under the Direct3D 11 setup (#171).
+STEAM_GPTK_GAMES = {'2357570', '2536520', '499170'}
 # Installed by Steam itself, not games: Steamworks Common Redistributables.
 STEAM_TOOLS = {'228980'}
 CLIENTS = {
@@ -177,13 +178,12 @@ class Library:
             issue = 'This game is on ' + drive + '. Connect the drive, then try again.'
         elif not ready: issue = 'Finish the installation or update in the official launcher.'
         elif not arguments: issue = 'Open the official launcher to play this title.'
-        elif platform == 'steam' and uid in STEAM_GPTK_GAMES and self.folders['steam'] == 'steam-bottle':
-            issue = ('This game needs Apple GPTK. In Stores, turn on "Overwatch and Diablo II mode" '
-                     'on the Steam card; Steam asks you to sign in once there, and the game shows up again.')
+        # A Steam game that needs Apple GPTK while Steam is in its plain mode: Play switches the mode itself.
+        gptk = issue is None and platform == 'steam' and uid in STEAM_GPTK_GAMES and self.folders['steam'] == 'steam-bottle'
         self.games[key] = dict(id=key, platform=platform, title=title.strip()[:300],
                                install_path=str(location), artwork=artwork,
                                issue=issue, arguments=arguments,
-                               note=None if unplugged else anticheat_note(location))
+                               note=None if unplugged else anticheat_note(location), gptk=gptk)
         if location.is_symlink():
             # Moved to another drive with scripts/game-storage.py: say where it is.
             target = Path(os.readlink(location)).parts
@@ -426,6 +426,7 @@ class Library:
             return ['/bin/bash', str(Path(__file__).resolve().parent / 'play.sh'), game['platform']] + args
         if not game['install_path']: raise ValueError('This game is owned but not installed. Open its launcher to install it.')
         if game['issue']: raise ValueError(game['issue'])
+        if game.get('gptk'): return ['/bin/bash', str(root / 'steam-gptk.sh'), 'play'] + game['arguments']
         return ['/bin/bash', str(root / 'play.sh'), game['platform']] + game['arguments']
 
 

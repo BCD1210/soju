@@ -57,8 +57,27 @@ class SteamGPTKTests(unittest.TestCase):
             (root / 'steamapps' / f'appmanifest_{uid}.acf').write_text(
                 f'"AppState" {{ "appid" "{uid}" "name" "{folder}" "StateFlags" "4" "installdir" "{folder}" }}')
         lib = library.Library(self.base); lib.steam()
-        self.assertIn('Overwatch and Diablo II mode', lib.games['steam:2357570']['issue'])
+        # No message to act on: Play itself switches Steam to the mode the game needs.
+        self.assertIsNone(lib.games['steam:2357570']['issue'])
         self.assertIsNone(lib.games['steam:70']['issue'])
+        self.assertEqual(lib.command('steam:2357570')[1:], [str(ROOT / 'scripts/steam-gptk.sh'), 'play', 'steam://rungameid/2357570'])
+        self.assertEqual(lib.command('steam:70')[1:], [str(ROOT / 'scripts/play.sh'), 'steam', 'steam://rungameid/70'])
+
+    def test_turning_the_mode_on_brings_over_games_installed_since(self):
+        self.put('steam-bottle/' + CLIENT); self.put('steam-gptk-bottle/' + CLIENT)
+        apps = 'drive_c/Program Files (x86)/Steam/steamapps'
+        (self.base / 'steam-bottle' / apps / 'common/Sinking Star').mkdir(parents=True)
+        (self.base / 'steam-bottle' / apps / 'common/Sinking Star/game.exe').write_text('x')
+        (self.base / 'steam-bottle' / apps / 'appmanifest_499170.acf').write_text(
+            '"AppState"\n{\n\t"appid"\t\t"499170"\n\t"installdir"\t\t"Sinking Star"\n}\n')
+        (self.base / 'steam-gptk-bottle' / apps).mkdir(parents=True, exist_ok=True)
+        text = (ROOT / 'scripts/steam-gptk.sh').read_text()
+        body = text.split('sync_games(){', 1)[1].split('\n}\n', 1)[0]
+        script = 'PLAIN=%r; GPTK=%r\nsync_games(){%s\n}\nsync_games\n' % (str(self.base / 'steam-bottle'), str(self.base / 'steam-gptk-bottle'), body)
+        result = subprocess.run(['/bin/bash', '-c', script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.base / 'steam-gptk-bottle' / apps / 'appmanifest_499170.acf').is_file())
+        self.assertTrue((self.base / 'steam-gptk-bottle' / apps / 'common/Sinking Star/game.exe').is_file())
 
     def test_play_sh_picks_the_gptk_bottle(self):
         text = (ROOT / 'scripts/play.sh').read_text()

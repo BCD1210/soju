@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# soju steam-gptk on|off|status
+# soju steam-gptk on|off|status|play <steam url>
 #
 # "Steam with Apple GPTK": Steam and its games run on the CX engine with Apple's
 # Game Porting Toolkit (scripts/steam-gptk-engine.sh) instead of the private
@@ -26,7 +26,48 @@ steam_running(){
   ! python3 "$ROOT/scripts/steam-session.py" idle "$STEAM_WINE_ROOT" >/dev/null 2>&1
 }
 
+# Games installed in the plain bottle since the GPTK bottle was made: bring them over (APFS clones, no extra
+# space), so the library and Steam show the same games in both modes and nothing is downloaded twice.
+sync_games(){
+  local apps="drive_c/Program Files (x86)/Steam/steamapps" f name dir
+  [ -d "$PLAIN/$apps" ] && [ -d "$GPTK/$apps" ] || return 0
+  for f in "$PLAIN/$apps"/appmanifest_*.acf; do
+    [ -f "$f" ] || continue
+    name=$(basename "$f")
+    [ ! -e "$GPTK/$apps/$name" ] || continue
+    dir=$(sed -n 's/^[[:space:]]*"installdir"[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$f" | head -1)
+    [ -n "$dir" ] && [ -d "$PLAIN/$apps/common/$dir" ] || continue
+    case "$dir" in */*|*\\*|.|..) continue ;; esac
+    mkdir -p "$GPTK/$apps/common"
+    if [ ! -e "$GPTK/$apps/common/$dir" ]; then
+      cp -Rc "$PLAIN/$apps/common/$dir" "$GPTK/$apps/common/$dir" 2>/dev/null || { rm -rf "$GPTK/$apps/common/$dir"; continue; }
+    fi
+    cp -c "$f" "$GPTK/$apps/$name" 2>/dev/null || cp "$f" "$GPTK/$apps/$name"
+    echo "Brought over to the GPTK bottle: $dir"
+  done
+}
+
 case "${1:-status}" in
+  play)   # Play for a game that needs Direct3D 12: whatever is missing for the GPTK mode is done first, then the game starts.
+    shift
+    if [ "$(bash "${BASH_SOURCE[0]}" status)" != on ]; then
+      echo "This game needs Direct3D 12, so Steam switches to its Apple GPTK mode. This happens once; your other Steam games stay."
+      if [ ! -x "$BASE/cx26-engine/bin/wine" ] || [ ! -f "$BASE/cx26-engine/lib/external/libd3dshared.dylib" ]; then
+        echo "Downloading what that mode needs (the engine and Apple's Game Porting Toolkit, about 600 MB, once)"
+        SOJU_PLATFORMS=engine SOJU_NONINTERACTIVE=1 bash "$ROOT/install.sh" </dev/null \
+          || { echo "soju: the Direct3D 12 engine could not be installed. Check your connection and press Play again." >&2; exit 1; }
+        [ -f "$BASE/cx26-engine/lib/external/libd3dshared.dylib" ] \
+          || { echo "soju: Apple's Game Porting Toolkit could not be downloaded. In Stores, open Settings, Apple GPTK, Download and install, then press Play again." >&2; exit 1; }
+      fi
+      if steam_running; then
+        echo "Closing Steam to switch"
+        bash "$ROOT/scripts/play.sh" steam-kill >/dev/null 2>&1 || true
+        for _ in $(seq 1 30); do steam_running || break; sleep 1; done
+      fi
+      bash "${BASH_SOURCE[0]}" on || exit 1
+    fi
+    exec bash "$ROOT/scripts/play.sh" steam "$@"
+    ;;
   on)
     [ -f "$PLAIN/$CLIENT" ] || { echo "soju: install Steam first (Stores, or soju steam-install)" >&2; exit 1; }
     if steam_running; then echo "soju: quit Steam first (soju steam-kill)" >&2; exit 1; fi
@@ -38,6 +79,8 @@ case "${1:-status}" in
       # The copy belongs to the other engine now; drop marks that only the Wine 11 setup reads.
       rm -f "$GPTK.new/.soju-steam-games" "$GPTK.new/.soju-auto-profiles.json"
       mv "$GPTK.new" "$GPTK"
+    else
+      sync_games
     fi
     touch "$FLAG"
     echo "Steam with Apple GPTK: on. Steam asks you to sign in once the first time."
@@ -50,5 +93,5 @@ case "${1:-status}" in
   status)
     if [ -f "$FLAG" ] && [ -f "$GPTK/$CLIENT" ]; then echo on; else echo off; fi
     ;;
-  *) echo "usage: soju steam-gptk on|off|status" >&2; exit 64 ;;
+  *) echo "usage: soju steam-gptk on|off|status|play <steam url>" >&2; exit 64 ;;
 esac
