@@ -22,7 +22,7 @@ const SCHEMA = [
 ];
 const RESULTS = new Set(["ran", "quick_exit", "no_start"]);
 // Why a start did not run, as the Mac read it from its own launch log: one word, one name, and the game's anti-cheat.
-const WHY = new Set(["crash", "missing_dll", "graphics", "memory", "dotnet", "launcher_open", "launcher_closed", "steam_error", "steam_waiting", "steam_updating"]);
+const WHY = new Set(["crash", "missing_dll", "graphics", "memory", "dotnet", "launcher_open", "launcher_closed", "steam_error", "steam_waiting", "steam_updating", "bnet_launched", "bnet_session", "bnet_updating", "bnet_signin"]);
 const AC = new Set(["eac", "battleye", "vanguard", "gameguard", "xigncode", "punkbuster"]);
 const name = (v) => { const s = text(v, 40); return /^[A-Za-z0-9._+-]*$/.test(s) ? s : ""; };
 const HOW = new Set(["soju", "steam"]);
