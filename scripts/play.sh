@@ -335,6 +335,14 @@ case "$MODE" in
     # Count games started from Steam's own window too (play counts; does nothing when they are off,
     # and only one watcher runs however often Steam is opened).
     ( nohup python3 "$(dirname "${BASH_SOURCE[0]}")/play-stats.py" watch >/dev/null 2>&1 & )
+    # Play on a game while Steam is open: Steam takes the request and may refuse it (no licence, offline) or wait
+    # for an answer in its window, which may be hidden. Follow Steam's own log for that game and say so
+    # (scripts/steam_launch.py); a start that goes through ends quietly. A cold start is Steam itself, so not here.
+    STEAM_WATCH=()
+    STEAM_APP=$(printf '%s\n' "${@:2}" | sed -n 's#^steam://rungameid/\([0-9][0-9]*\)$#\1#p' | head -1)
+    if [ -n "$STEAM_APP" ] && pgrep -f 'Steam.steam\.exe' >/dev/null 2>&1; then
+      STEAM_WATCH=(python3 "$(dirname "${BASH_SOURCE[0]}")/steam_launch.py" watch "$WINEPREFIX/drive_c/Program Files (x86)/Steam" "$STEAM_APP" --)
+    fi
     if [ "${SOJU_STEAM_GPTK:-0}" = 1 ]; then
       # Steam with Apple GPTK: the CX engine plus the cross-process winemac
       # (scripts/steam-gptk-engine.sh). Same wrapper and flags as below; games
@@ -366,7 +374,7 @@ case "$MODE" in
         { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" steam >/dev/null 2>&1 & ); }
       STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process)
       [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steamui.dll" ] && STEAM_CMD+=(-noverifyfiles)
-      exec "$ENGINE/bin/wine" "${STEAM_CMD[@]}" "${@:2}"
+      exec ${STEAM_WATCH[@]+"${STEAM_WATCH[@]}"} "$ENGINE/bin/wine" "${STEAM_CMD[@]}" "${@:2}"
     fi
     WINESTABLE="$STEAM_WINE_ROOT/bin/wine"
     WINESTABLE_SERVER="$STEAM_WINE_ROOT/bin/wineserver"
@@ -479,7 +487,7 @@ case "$MODE" in
     # rest of the bottle down so no Dock icon / winedevice lingers.
     pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
       { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$WINESTABLE_SERVER" steam >/dev/null 2>&1 & ); }
-    "${STEAM_ENV[@]}" \
+    exec ${STEAM_WATCH[@]+"${STEAM_WATCH[@]}"} "${STEAM_ENV[@]}" \
       WINEDLLOVERRIDES="bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d" \
       WINE_NO_DOCK_ICON="steam.exe;steamservice.exe" \
       WINE_DOCK_REOPEN_CMD="'$WINESTABLE' 'C:\\Program Files (x86)\\Steam\\steam.exe' steam://open/main" \

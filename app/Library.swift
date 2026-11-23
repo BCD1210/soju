@@ -158,7 +158,8 @@ extension SojuModel {
                     } else if process.terminationStatus != 0 {
                         let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
                         let reason = text.split(separator: "\n").last(where: { $0.hasPrefix("soju: ") }).map { String($0.dropFirst(6)) }
-                        self.issueTitle = "Couldn't start " + game.title
+                        // Steam waiting on the player or updating first is not a failure to start: name the game only.
+                        self.issueTitle = reason?.hasPrefix("Steam is ") == true ? game.title : "Couldn't start " + game.title
                         self.libraryIssue = reason ?? (game.platform.opensAWindow
                             ? "Use Diagnose or open " + game.platform.title + " to check its installation and login."
                             : "Use Diagnose to check the game and your Xbox sign-in.")
