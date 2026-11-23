@@ -47,10 +47,32 @@ class SteamLaunchTests(unittest.TestCase):
             clock, sleep = fake_time()
             self.assertEqual(sl.watch(d, "999", [sys.executable, "-c", "pass"], clock=clock, sleep=sleep), 0)
 
+    def test_a_wait_brings_steams_window_forward_and_a_sign_in_is_named(self):
+        with tempfile.TemporaryDirectory() as d:
+            logs = Path(d) / "logs"
+            logs.mkdir()
+            (logs / "console_log.txt").write_text("")
+            shown = Path(d) / "shown"
+            show = [sys.executable, "-c", "open(%r,'w').write('x')" % str(shown)]
+            cmd = [sys.executable, "-c", "open(%r,'a').write(%r)" % (str(logs / "console_log.txt"), ASK)]
+            clock, sleep = fake_time()
+            self.assertEqual(sl.watch(d, "70", cmd, show=show, clock=clock, sleep=sleep), 4)
+            self.assertTrue(shown.exists())
+            shown.unlink()
+            (logs / "connection_log.txt").write_text("[t] [Logged Off, 4, 0] [U:1:1] LogOn() called\n")
+            clock, sleep = fake_time()
+            self.assertEqual(sl.watch(d, "71", [], show=show, seconds=150, clock=clock, sleep=sleep), 4)
+            self.assertTrue(shown.exists())
+            # Signed in and simply nothing yet: no message.
+            (logs / "connection_log.txt").write_text("[t] [Logged On, 4, 7] [U:1:1] RecvMsgClientLogOnResponse() : processing complete\n")
+            clock, sleep = fake_time()
+            self.assertEqual(sl.watch(d, "72", [], seconds=150, clock=clock, sleep=sleep), 0)
+
     def test_play_sh_follows_the_start_only_when_steam_is_open(self):
         text = (ROOT / "scripts/play.sh").read_text()
         self.assertIn('steam_launch.py" watch', text)
         self.assertEqual(text.count('${STEAM_WATCH[@]+"${STEAM_WATCH[@]}"}'), 2)
+        self.assertEqual(text.count('exec "${STEAM_WATCH[@]}"'), 2)   # a cold start, in both Steam modes
 
 
 if __name__ == "__main__":

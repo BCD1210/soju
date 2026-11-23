@@ -338,10 +338,16 @@ case "$MODE" in
     # Play on a game while Steam is open: Steam takes the request and may refuse it (no licence, offline) or wait
     # for an answer in its window, which may be hidden. Follow Steam's own log for that game and say so
     # (scripts/steam_launch.py); a start that goes through ends quietly. A cold start is Steam itself, so not here.
-    STEAM_WATCH=()
+    # When Steam is not open yet, Steam starts in the background and the same watch follows the start, a
+    # little longer, so a sign-in or a question in Steam's window is shown rather than waited on unseen.
+    STEAM_WATCH=(); STEAM_COLD=0
     STEAM_APP=$(printf '%s\n' "${@:2}" | sed -n 's#^steam://rungameid/\([0-9][0-9]*\)$#\1#p' | head -1)
-    if [ -n "$STEAM_APP" ] && pgrep -f 'Steam.steam\.exe' >/dev/null 2>&1; then
-      STEAM_WATCH=(python3 "$(dirname "${BASH_SOURCE[0]}")/steam_launch.py" watch "$WINEPREFIX/drive_c/Program Files (x86)/Steam" "$STEAM_APP" --)
+    if [ -n "$STEAM_APP" ]; then
+      pgrep -f 'Steam.steam\.exe' >/dev/null 2>&1 || STEAM_COLD=1
+      STEAM_WATCH=(python3 "$(dirname "${BASH_SOURCE[0]}")/steam_launch.py" watch "$WINEPREFIX/drive_c/Program Files (x86)/Steam" "$STEAM_APP")
+      [ "$STEAM_COLD" = 0 ] || STEAM_WATCH+=(--seconds 150)
+      STEAM_WATCH+=(--)
+      export SOJU_STEAM_SHOW="/bin/bash"$'\x1f'"${BASH_SOURCE[0]}"$'\x1f'"steam"$'\x1f'"steam://open/main"
     fi
     if [ "${SOJU_STEAM_GPTK:-0}" = 1 ]; then
       # Steam with Apple GPTK: the CX engine plus the cross-process winemac
@@ -374,6 +380,10 @@ case "$MODE" in
         { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$ENGINE/bin/wineserver" steam >/dev/null 2>&1 & ); }
       STEAM_CMD=("C:\\Program Files (x86)\\Steam\\steam.exe" -no-cef-sandbox -cef-single-process)
       [ -f "$WINEPREFIX/drive_c/Program Files (x86)/Steam/steamui.dll" ] && STEAM_CMD+=(-noverifyfiles)
+      if [ "$STEAM_COLD" = 1 ]; then
+        ( "$ENGINE/bin/wine" "${STEAM_CMD[@]}" "${@:2}" & )
+        exec "${STEAM_WATCH[@]}"
+      fi
       exec ${STEAM_WATCH[@]+"${STEAM_WATCH[@]}"} "$ENGINE/bin/wine" "${STEAM_CMD[@]}" "${@:2}"
     fi
     WINESTABLE="$STEAM_WINE_ROOT/bin/wine"
@@ -487,11 +497,16 @@ case "$MODE" in
     # rest of the bottle down so no Dock icon / winedevice lingers.
     pgrep -f "soju-reaper.sh $WINEPREFIX" >/dev/null 2>&1 || \
       { [ -x "$REAPER" ] && ( "$REAPER" "$WINEPREFIX" "$WINESTABLE_SERVER" steam >/dev/null 2>&1 & ); }
-    exec ${STEAM_WATCH[@]+"${STEAM_WATCH[@]}"} "${STEAM_ENV[@]}" \
-      WINEDLLOVERRIDES="bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d" \
-      WINE_NO_DOCK_ICON="steam.exe;steamservice.exe" \
-      WINE_DOCK_REOPEN_CMD="'$WINESTABLE' 'C:\\Program Files (x86)\\Steam\\steam.exe' steam://open/main" \
-      "$WINESTABLE" "${STEAM_CMD[@]}"
+    STEAM_RUN=("${STEAM_ENV[@]}" 
+      WINEDLLOVERRIDES="bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d" 
+      WINE_NO_DOCK_ICON="steam.exe;steamservice.exe" 
+      WINE_DOCK_REOPEN_CMD="'$WINESTABLE' 'C:\\Program Files (x86)\\Steam\\steam.exe' steam://open/main" 
+      "$WINESTABLE" "${STEAM_CMD[@]}")
+    if [ "$STEAM_COLD" = 1 ]; then
+      ( "${STEAM_RUN[@]}" & )
+      exec "${STEAM_WATCH[@]}"
+    fi
+    exec ${STEAM_WATCH[@]+"${STEAM_WATCH[@]}"} "${STEAM_RUN[@]}"
     ;;
   controllers) # Game Controllers panel of the Battle.net bottle (Wine's joy.cpl):
     # shows what the bottle sees (DirectInput, XInput slots) and the SDL/hidraw
