@@ -207,7 +207,9 @@ case "$MODE" in
     # "What's New?" on top, no LaunchBinary in its log). So after a cold start the same request is sent again once
     # Battle.net's log says it is signed in, until the log shows the game being launched. Someone who has to type
     # a password first gets the game right after signing in, without pressing Play again.
-    if [[ " ${*:2} " == *" --exec="* ]] && ! pgrep -f 'Battle\.net\.exe' >/dev/null 2>&1; then
+    BN_COLD=0
+    pgrep -f 'Battle\.net\.exe' >/dev/null 2>&1 || BN_COLD=1
+    if [[ " ${*:2} " == *" --exec="* ]] && [ "$BN_COLD" = 1 ]; then
       BN_MARK="$WINEPREFIX/.soju-launch-mark"; : > "$BN_MARK"
       (
         sent=0; last=0
@@ -224,6 +226,18 @@ case "$MODE" in
           sent=$((sent + 1)); last=$tick
         done
       ) >/dev/null 2>&1 &
+    fi
+    # Then follow the start in Battle.net's own log (scripts/battlenet_launch.py): quiet when the game starts;
+    # a sign-in, an update first, or a game Battle.net thinks is still running is shown and said.
+    BN_UID=$(printf '%s\n' "${@:2}" | sed -n 's/^--exec=launch \(.*\)$/\1/p' | head -1)
+    if [ -n "$BN_UID" ]; then
+      export SOJU_BNET_SHOW="/bin/bash"$'\x1f'"${BASH_SOURCE[0]}"$'\x1f'"battlenet"
+      BN_WATCH=(python3 "$(dirname "${BASH_SOURCE[0]}")/battlenet_launch.py" watch "$WINEPREFIX" "$BN_UID")
+      if [ "$BN_COLD" = 1 ]; then
+        ( "$ENGINE/bin/wine" "$BN_EXE" $BN_ARGS "${@:2}" & )
+        exec "${BN_WATCH[@]}" --seconds 150
+      fi
+      exec "${BN_WATCH[@]}" -- "$ENGINE/bin/wine" "$BN_EXE" $BN_ARGS "${@:2}"
     fi
     exec "$ENGINE/bin/wine" "$BN_EXE" $BN_ARGS "${@:2}"
     ;;
