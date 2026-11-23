@@ -169,7 +169,10 @@ def log_marks(game, launcher):
     """Where Soju's launch logs end now, so that only what a start adds to them is read afterwards."""
     logs = BASE / "logs"
     out = {}
-    for path in (logs / ("game-" + game.replace(":", "-") + ".log"), logs / ("desktop-" + launcher + ".log")):
+    paths = [logs / ("game-" + game.replace(":", "-") + ".log"), logs / ("desktop-" + launcher + ".log")]
+    if launcher == "steam":   # Steam's own log of each start, in whichever bottle it runs from
+        paths += [BASE / b / "drive_c/Program Files (x86)/Steam/logs/console_log.txt" for b in ("steam-bottle", "steam-gptk-bottle")]
+    for path in paths:
         try:
             st = path.stat()
             out[str(path)] = (st.st_ino, st.st_size)
@@ -234,11 +237,22 @@ def launcher_state(launcher, table=None):
     return "launcher_open" if exe in text else "launcher_closed"
 
 
-def reason(started, minutes, marks, found, path, launcher=""):
+def reason(started, minutes, marks, found, path, launcher="", game=""):
     """What to add to a start that did not run; nothing for one that ran."""
     if outcome(started, minutes) == "ran":
         return {}
-    word, name = why(log_since(marks), found)
+    text = log_since(marks)
+    word, name = "", ""
+    if launcher == "steam" and ":" in game:
+        try:
+            import steam_launch
+            kind, step = steam_launch.outcome(text, game.split(":", 1)[1])
+            if kind in ("error", "waiting", "updating"):
+                word, name = "steam_" + kind, SAFE.sub("", step)[:40]
+        except Exception:
+            pass
+    if not word:
+        word, name = why(text, found)
     if not word and not started:
         word = launcher_state(launcher)
     out = {"why": word, "detail": name, "ac": anticheat(path)}
@@ -341,7 +355,7 @@ def watch(clock=time.monotonic, sleep=time.sleep, poll=POLL, table=None, snapsho
 def finish(gid, st, poll, deliver):
     st["lock"].unlink(missing_ok=True)
     minutes = int((st["last"] - st["first"] + poll) // 60)
-    extra = reason(True, minutes, st.get("marks"), st.get("found") or (), st.get("path"))
+    extra = reason(True, minutes, st.get("marks"), st.get("found") or (), st.get("path"), "steam", gid)
     if extra:
         deliver(gid, st["title"], "steam", True, minutes, "steam", extra)
     else:
@@ -482,7 +496,7 @@ def main(argv):
         started, minutes = track_run(found, pid)
     finally:
         lock.unlink(missing_ok=True)
-    report(a.game, a.title, a.launcher, started, minutes, "soju", reason(started, minutes, marks, found, a.path, a.launcher))
+    report(a.game, a.title, a.launcher, started, minutes, "soju", reason(started, minutes, marks, found, a.path, a.launcher, a.game))
     return 0
 
 
