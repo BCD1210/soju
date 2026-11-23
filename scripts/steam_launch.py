@@ -58,51 +58,106 @@ def message(kind, detail):
         number = detail.split("_")[-1]
         return "Steam could not start the game (" + detail + "). " + HINTS.get(number, "Open Steam to see why, then press Play again.")
     if kind == "waiting":
-        return "Steam is waiting for you before it starts the game (" + detail + "). Click Steam in the Dock to see its window and answer; the game starts after that."
+        return "Steam is waiting for you before it starts the game (" + detail + "). Its window is open now: answer there and the game starts."
     if kind == "updating":
         return "Steam is updating the game first. It starts by itself when the download in Steam finishes."
+    if kind == "signin":
+        return "Steam is waiting for you to sign in. Its window is open now: sign in there and the game starts."
     return ""
 
 
-def watch(steam_dir, appid, command, seconds=60, waiting_after=15, poll=1.0, clock=time.monotonic, sleep=time.sleep):
-    log = os.path.join(steam_dir, "logs", "console_log.txt")
+def read_from(path, mark):
+    """The log since mark (inode, size); all of it when Steam started a new log meanwhile."""
     try:
-        start = os.path.getsize(log)
+        st = os.stat(path)
+        start = mark[1] if st.st_ino == mark[0] and st.st_size >= mark[1] else 0
+        with open(path, "rb") as f:
+            f.seek(start)
+            return f.read().decode("utf-8", "replace")
     except OSError:
-        start = 0
+        return ""
+
+
+def signed_state(conn):
+    """Steam's sign-in state from the last state tag in connection_log.txt: "Logged On", "Logged Off", ..."""
+    try:
+        with open(conn, "rb") as f:
+            f.seek(max(0, os.path.getsize(conn) - 20000))
+            tail = f.read().decode("utf-8", "replace")
+    except OSError:
+        return ""
+    found = re.findall(r"\] \[(Logged On|Logged Off|Logging On|Logging Off|Connected|Connecting|Disconnected)[,\]]", tail)
+    return found[-1] if found else ""
+
+
+def mark_of(path):
+    try:
+        st = os.stat(path)
+        return (st.st_ino, st.st_size)
+    except OSError:
+        return (0, 0)
+
+
+def watch(steam_dir, appid, command, seconds=60, waiting_after=15, show=None, signin_after=40,
+          poll=1.0, clock=time.monotonic, sleep=time.sleep):
+    """Follow one start in Steam's log. Steam's window is brought forward when it waits for the player
+    (a question, or its sign-in), since a closed Steam window sits in a tray macOS does not show."""
+    log = os.path.join(steam_dir, "logs", "console_log.txt")
+    conn = os.path.join(steam_dir, "logs", "connection_log.txt")
+    marks = mark_of(log), mark_of(conn)
     code = subprocess.call(command) if command else 0
     if code != 0:
         return code
     begun = clock()
-    since = None
+    since, shown = None, False
+
+    def bring():
+        nonlocal shown
+        if show and not shown:
+            shown = True
+            try:
+                subprocess.call(show, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+            except (OSError, subprocess.SubprocessError):
+                pass
+
     while clock() - begun < seconds:
         sleep(poll)
-        try:
-            with open(log, "rb") as f:
-                f.seek(start if os.path.getsize(log) >= start else 0)
-                text = f.read().decode("utf-8", "replace")
-        except OSError:
-            continue
+        text = read_from(log, marks[0])
         kind, detail = outcome(text, appid)
         if kind == "ok":
             return 0
         if kind == "error":
             print("soju: " + message(kind, detail), flush=True)
             return 3
-        if kind in ("waiting", "updating"):
+        if kind == "waiting":
+            since = since or clock()
+            if clock() - since >= 3:
+                bring()
+            if clock() - since >= waiting_after:
+                print("soju: " + message(kind, detail), flush=True)
+                return 4
+        elif kind == "updating":
             since = since or clock()
             if clock() - since >= waiting_after:
                 print("soju: " + message(kind, detail), flush=True)
                 return 4
         else:
             since = None
+            # Nothing for this game yet: Steam holds a start until it is signed in.
+            if not kind and clock() - begun >= signin_after and signed_state(conn) not in ("", "Logged On"):
+                bring()
+                print("soju: " + message("signin", ""), flush=True)
+                return 4
     return 0
 
 
 def main(argv):
     if len(argv) >= 3 and argv[0] == "watch":
         command = argv[argv.index("--") + 1:] if "--" in argv else []
-        return watch(argv[1], argv[2], command)
+        head = argv[:argv.index("--")] if "--" in argv else argv
+        seconds = int(head[head.index("--seconds") + 1]) if "--seconds" in head else 60
+        show = os.environ.get("SOJU_STEAM_SHOW")
+        return watch(argv[1], argv[2], command, seconds=seconds, show=show.split("\x1f") if show else None)
     print("usage: steam_launch.py watch <Steam folder> <appid> -- <command>", file=sys.stderr)
     return 64
 
