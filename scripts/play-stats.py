@@ -178,13 +178,14 @@ def log_marks(game, launcher):
             out[str(path)] = (st.st_ino, st.st_size)
         except OSError:
             out[str(path)] = (0, 0)
+    out["_t"] = time.time()
     return out
 
 
 def log_since(marks, limit=400_000):
     """What the launch logs gained since log_marks (all of a log that was started again meanwhile)."""
     text = []
-    for name, (inode, size) in (marks or {}).items():
+    for name, (inode, size) in ((k, v) for k, v in (marks or {}).items() if not k.startswith("_")):
         try:
             st = os.stat(name)
             start = size if st.st_ino == inode and st.st_size >= size else 0
@@ -251,6 +252,15 @@ def reason(started, minutes, marks, found, path, launcher="", game=""):
                 word, name = "steam_" + kind, SAFE.sub("", step)[:40]
         except Exception:
             pass
+    if not word and launcher == "battlenet" and ":" in game and isinstance(marks, dict) and marks.get("_t"):
+        try:
+            import battlenet_launch
+            word = battlenet_launch.reason(BASE / "bottle", game.split(":", 1)[1], marks["_t"])
+        except Exception:
+            word = ""
+        # Battle.net started it and the game was never seen: what Wine said, if anything, goes along.
+        if word == "bnet_launched":
+            name = "_".join(x for x in why(text, found) if x)[:40]
     if not word:
         word, name = why(text, found)
     if not word and not started:
