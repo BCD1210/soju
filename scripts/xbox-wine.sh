@@ -22,6 +22,10 @@ export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
 if [ "${1:-}" = "--soju-stop-prefix" ]; then
   exec "$ENGINE/bin/wineserver" -k
 fi
+# NVIDIA DLSS through MetalFX, as in play.sh (scripts/gptk-dlss.sh); after WINEMSYNC is set, since it may start the wineserver.
+if [ "${SOJU_DLSS:-1}" = 1 ] && bash "$(dirname "$0")/gptk-dlss.sh" "$ENGINE" "$WINEPREFIX"; then
+  export D3DM_ENABLE_METALFX=1
+fi
 # xodus-cli stops a game by signalling this script. A shell waiting on a
 # foreground child ignores SIGINT, so wine runs in the background and the
 # signal is forwarded: the game gets a TERM, and anything still running in
