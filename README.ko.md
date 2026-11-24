@@ -48,11 +48,11 @@ soju install
 | Hogwarts Legacy | Epic | ✅ 인게임 | 시작할 때 뜨는 "AMD 드라이버" 경고는 무시해도 됩니다. 입력 소스는 영어로 |
 | StarCraft: Remastered | Battle.net | ✅ 인게임 | 컴퓨터 상대 대전까지 확인, 멀티플레이는 미확인, [가이드](https://didimlabs.com/guides/ko/starcraft-mac.html) |
 | 디트로이트: 비컴 휴먼 (데모) | Steam | ✅ 인게임 | 맥 미니 M4 Pro, macOS 26.5. Steam 지원 v6의 MoltenVK로 Vulkan을 그립니다. 처음 실행할 때 셰이더 준비에 몇 분 걸립니다. "그래픽카드가 공식 지원되지 않는다" 경고는 OK를 누르면 됩니다 |
-| 오버워치 2 | Steam | ✅ 메인 메뉴, 온라인 | Platforms > Steam > **Overwatch and Diablo II mode**를 켭니다(`soju steam-gptk on`). 처음 한 번 배틀넷 계정 연결을 묻습니다. [가이드](https://didimlabs.com/guides/ko/overwatch-2-mac.html) |
+| 오버워치 2 | Steam | ✅ 메인 메뉴, 온라인 | Play를 누르면 Steam이 **DirectX 12 mode**로 알아서 바뀝니다(Stores > Steam, `soju steam-gptk on`). 처음 한 번 배틀넷 계정 연결을 묻습니다. [가이드](https://didimlabs.com/guides/ko/overwatch-2-mac.html) |
 | The Elder Scrolls V: Skyrim Special Edition | Steam | ✅ 인게임 (사용자 제보) | M5 Pro, macOS 27.2, Soju 1.14.8. 대사와 서라운드 소리 확인 ([#95](https://github.com/BCD1210/soju/issues/95)) |
 | Guilt Free (Unity Direct3D 11 게임) | Steam | ✅ 인게임, 창 모드 | [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | The Witcher 3 (Remastered) | Steam | 🟡 메뉴까지 (사용자 제보) | Apple GPTK 4.0 beta 3 필요. Soju 1.14.10부터 설치됩니다 ([#112](https://github.com/BCD1210/soju/issues/112)) |
-| Diablo II: Resurrected (Steam판) | Steam | 🟡 실행됨 (사용자 제보) | Overwatch and Diablo II mode에서. 디스코드에서 사용자가 잘 된다고 알려 줬습니다(2026-11-17). Steam판이 없어 저희가 직접 확인하지는 못했습니다 |
+| Diablo II: Resurrected (Steam판) | Steam | 🟡 실행됨 (사용자 제보) | DirectX 12 mode에서. 디스코드에서 사용자가 잘 된다고 알려 줬습니다(2026-11-17). Steam판이 없어 저희가 직접 확인하지는 못했습니다 |
 | Diablo II: Resurrected VR (오프라인) | Battle.net | 🧪 시뮬레이터만 확인 | `soju vr setup` 다음 `soju vr play`, [docs/VR.md](docs/VR.md) |
 
 **안 되는 것:** 커널 안티치트(EAC, BattlEye, Vanguard)가 붙은 게임 전부.
@@ -213,7 +213,7 @@ soju xbox-logout             # 로그아웃 (받은 게임은 유지)
 
 ## Steam 지원 (Steam판 D2R 포함)
 
-**Steam GPTK 모드** (`soju steam-gptk on`, 또는 Platforms > Steam > Overwatch and Diablo II mode): Steam과 Steam 게임이 배틀넷과 같은 엔진·애플 GPTK에서 돌고, Steam 브라우저 창을 그릴 수 있는 Mac 드라이버를 씁니다. D3D12 게임과 Steam에서 파는 블리자드 게임(오버워치 2는 온라인 메인 메뉴까지 확인, D2R은 GPTK의 `libd3dshared`가 필요)에 씁니다. 기존 Steam 보틀을 복제한 별도 보틀을 써서 용량이 늘지 않고 설치한 게임도 그대로 보이며, 거기서 Steam 로그인을 한 번 합니다. `soju steam-gptk off`로 Wine 11 + DXMT로 돌아가면 기존 로그인이 그대로 있습니다.
+**Steam GPTK 모드** (`soju steam-gptk on`, 또는 Stores > Steam > DirectX 12 mode. Steam 페이지가 DirectX 12를 요구하는 게임은 Play가 알아서 켭니다): Steam과 Steam 게임이 배틀넷과 같은 엔진·애플 GPTK에서 돌고, Steam 브라우저 창을 그릴 수 있는 Mac 드라이버를 씁니다. D3D12 게임과 Steam에서 파는 블리자드 게임(오버워치 2는 온라인 메인 메뉴까지 확인, D2R은 GPTK의 `libd3dshared`가 필요)에 씁니다. 기존 Steam 보틀을 복제한 별도 보틀을 써서 용량이 늘지 않고 설치한 게임도 그대로 보이며, 거기서 Steam 로그인을 한 번 합니다. `soju steam-gptk off`로 Wine 11 + DXMT로 돌아가면 기존 로그인이 그대로 있습니다.
 
 **WMA 음성**(스카이림 SE 대사 등)은 Wine이 GStreamer로 디코딩합니다. Steam을 설치할 때와 `soju update` 때 소주가 gstreamer.freedesktop.org의 공식 macOS 패키지(SHA-256 고정, 처음 한 번 약 150MB)를 받아 Wine이 쓰는 오디오 플러그인과 라이브러리 42MB(음성·동영상 부품)만 `~/.battlenet-macos/gstreamer`에 남깁니다. 소주로 실행한 Steam이 이를 씁니다. Wine 11 Steam에 해당하며, Apple GPTK 엔진은 아직 GStreamer를 지원하지 않습니다.
 

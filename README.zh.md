@@ -48,11 +48,11 @@ soju install
 | Hogwarts Legacy | Epic | ✅ 进入游戏 | 启动时的“AMD 驱动”警告可以忽略 |
 | StarCraft: Remastered | Battle.net | ✅ 进入游戏 | 已确认与电脑对战；多人未测试 |
 | Detroit: Become Human（试玩版） | Steam | ✅ 游戏内 | Mac mini M4 Pro，macOS 26.5。通过 Steam 支持包 v6 中的 MoltenVK 用 Vulkan 绘制；首次启动需要几分钟编译着色器。出现“显卡未受官方支持”提示时按 OK |
-| 守望先锋 2 | Steam | ✅ 主菜单，在线 | 打开 Platforms > Steam > **Overwatch and Diablo II mode**（`soju steam-gptk on`）；首次会要求连接一次 Battle.net 账号 |
+| 守望先锋 2 | Steam | ✅ 主菜单，在线 | 按 Play 时 Steam 会自动切换到 **DirectX 12 mode**（Stores > Steam；`soju steam-gptk on`）；首次会要求连接一次 Battle.net 账号 |
 | The Elder Scrolls V: Skyrim Special Edition | Steam | ✅ 进入游戏（玩家反馈） | M5 Pro，macOS 27.2，Soju 1.14.8；对白和环绕声已确认（[#95](https://github.com/BCD1210/soju/issues/95)） |
 | Guilt Free（Unity Direct3D 11 游戏） | Steam | ✅ 进入游戏，窗口模式 | 见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | The Witcher 3（Remastered） | Steam | 🟡 能到菜单（玩家反馈） | 需要 Apple GPTK 4.0 beta 3，Soju 自 1.14.10 起可安装（[#112](https://github.com/BCD1210/soju/issues/112)） |
-| Diablo II: Resurrected（Steam 版） | Steam | 🟡 可运行（用户反馈） | 在 Overwatch and Diablo II mode 下；有玩家在 Discord 反馈可以运行（2026-11-17）。我们没有 Steam 版，未亲自验证 |
+| Diablo II: Resurrected（Steam 版） | Steam | 🟡 可运行（用户反馈） | 在 DirectX 12 mode 下；有玩家在 Discord 反馈可以运行（2026-11-17）。我们没有 Steam 版，未亲自验证 |
 | Diablo II: Resurrected VR（离线） | Battle.net | 🧪 仅模拟器 | 先 `soju vr setup`，再 `soju vr play`；[docs/VR.md](docs/VR.md) |
 
 **跑不了的：** 任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。
@@ -206,7 +206,7 @@ soju xbox-logout             # 退出登录（已下载的游戏保留）
 
 ## Steam（包括 Steam 版 D2R）
 
-**Steam GPTK 模式**（`soju steam-gptk on`，或 Platforms > Steam > Overwatch and Diablo II mode）：Steam 和 Steam 游戏使用与 Battle.net 相同的引擎和 Apple GPTK，并换用能显示 Steam 浏览器窗口的 Mac 驱动。适用于 D3D12 游戏和 Steam 上的暴雪游戏（守望先锋 2 已在线进入主菜单；D2R 需要 GPTK 的 `libd3dshared`）。它使用复制自 Steam bottle 的独立 bottle，不额外占用空间，已安装的游戏仍在；需要在其中登录一次 Steam。`soju steam-gptk off` 可回到 Wine 11 + DXMT，原登录仍在。
+**Steam GPTK 模式**（`soju steam-gptk on`，或 Stores > Steam > DirectX 12 mode；Steam 页面要求 DirectX 12 的游戏按 Play 时会自动打开）：Steam 和 Steam 游戏使用与 Battle.net 相同的引擎和 Apple GPTK，并换用能显示 Steam 浏览器窗口的 Mac 驱动。适用于 D3D12 游戏和 Steam 上的暴雪游戏（守望先锋 2 已在线进入主菜单；D2R 需要 GPTK 的 `libd3dshared`）。它使用复制自 Steam bottle 的独立 bottle，不额外占用空间，已安装的游戏仍在；需要在其中登录一次 Steam。`soju steam-gptk off` 可回到 Wine 11 + DXMT，原登录仍在。
 
 **Windows Media Audio 语音**（如 Skyrim SE 的对白）由 Wine 通过 GStreamer 解码。安装 Steam 时以及 `soju update` 时，Soju 会从 gstreamer.freedesktop.org 下载官方 macOS 包（固定 SHA-256，首次约 150 MB），只在 `~/.battlenet-macos/gstreamer` 保留 Wine 需要的 42 MB 音频、视频插件和库，由 Soju 启动的 Steam 会使用它们。适用于 Wine 11 的 Steam；Apple GPTK 引擎目前还不支持 GStreamer。
 
