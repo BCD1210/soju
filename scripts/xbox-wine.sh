@@ -6,6 +6,7 @@
 BASE="${SOJU_BASE:-$HOME/.battlenet-macos}"
 ENGINE="${ENGINE:-$BASE/cx26-engine}"
 export WINEPREFIX="$BASE/xbox-bottle"
+python3 "$(dirname "${BASH_SOURCE[0]}")/ue_driver_warning.py" "$WINEPREFIX" >/dev/null 2>&1 || true   # Unreal games: no driver warning window
 # xbox-run.py drops WINE* variables from the environment; SOJU_XBOX_WINEDEBUG
 # passes a Wine debug channel list through for diagnosis.
 export WINEDEBUG="${SOJU_XBOX_WINEDEBUG:-${WINEDEBUG:-fixme-all}}"
