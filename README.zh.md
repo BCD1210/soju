@@ -53,6 +53,7 @@ soju install
 | Guilt Free（Unity Direct3D 11 游戏） | Steam | ✅ 进入游戏，窗口模式 | 见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | The Witcher 3（Remastered） | Steam | 🟡 能到菜单（玩家反馈） | 需要 Apple GPTK 4.0 beta 3，Soju 自 1.14.10 起可安装（[#112](https://github.com/BCD1210/soju/issues/112)） |
 | Diablo II: Resurrected（Steam 版） | Steam | 🟡 可运行（用户反馈） | 在 DirectX 12 mode 下；有玩家在 Discord 反馈可以运行（2026-11-17）。我们没有 Steam 版，未亲自验证 |
+| Diablo IV（Steam 版） | Steam | ✅ 游戏内（用户反馈） | M5 Pro 48GB，macOS 27.2.1：1800×1169 约 60 FPS，光线追踪可用，复杂场景略有卡顿；约玩了 5 小时。从 1.14.43 起按 Play 会自动打开 DirectX 12 mode（[#186](https://github.com/BCD1210/soju/issues/186)） |
 | Diablo II: Resurrected VR（离线） | Battle.net | 🧪 仅模拟器 | 先 `soju vr setup`，再 `soju vr play`；[docs/VR.md](docs/VR.md) |
 
 **跑不了的：** 任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。
