@@ -76,7 +76,7 @@ def set_renderer(game, mode):
     if platform != "steam" or not re.fullmatch(r"\d{1,10}", key) or mode not in ("dxmt", "dxvk"):
         raise ValueError("usage: game-settings.py renderer steam:<appid> dxmt|dxvk")
     if gptk_mode():
-        raise ValueError("Steam is in Overwatch and Diablo II mode, where games use Apple GPTK.")
+        raise ValueError("Steam is in DirectX 12 mode, where games use Apple GPTK.")
     exe = steam_exe(key)
     if exe is None:
         raise ValueError("This game has no 64-bit program Soju can set up.")

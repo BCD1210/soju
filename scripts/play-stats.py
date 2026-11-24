@@ -76,11 +76,16 @@ def run(*cmd):
         return ""
 
 
+try:
+    # Read once, when this process starts: a count can wait a quarter of an hour, and Soju may update itself
+    # meanwhile; the version sent is the one whose code did the counting.
+    STARTED_VERSION = (ROOT / "VERSION").read_text().strip()
+except OSError:
+    STARTED_VERSION = ""
+
+
 def machine():
-    try:
-        version = (ROOT / "VERSION").read_text().strip()
-    except OSError:
-        version = ""
+    version = STARTED_VERSION
     return {"mac": run("sysctl", "-n", "hw.model")[:40], "chip": run("sysctl", "-n", "machdep.cpu.brand_string")[:60],
             "macos": platform.mac_ver()[0][:20], "soju": version[:20]}
 
