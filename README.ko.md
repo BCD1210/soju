@@ -8,7 +8,7 @@ Soju는 M1 이후 맥에 **Battle.net·Steam·Epic Games·GOG GALAXY·EA 앱·Ro
 
 ![Soju 통합 게임 라이브러리](docs/assets/soju-library.png)
 
-**[Soju 1.14.43 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.43/Soju-1.14.43-macos-arm64.zip)**, 또는 터미널에서 설치:
+**[Soju 1.14.44 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.44/Soju-1.14.44-macos-arm64.zip)**, 또는 터미널에서 설치:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -53,7 +53,7 @@ soju install
 | Guilt Free (Unity Direct3D 11 게임) | Steam | ✅ 인게임, 창 모드 | [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | The Witcher 3 (Remastered) | Steam | 🟡 메뉴까지 (사용자 제보) | Apple GPTK 4.0 beta 3 필요. Soju 1.14.10부터 설치됩니다 ([#112](https://github.com/BCD1210/soju/issues/112)) |
 | Diablo II: Resurrected (Steam판) | Steam | 🟡 실행됨 (사용자 제보) | DirectX 12 mode에서. 디스코드에서 사용자가 잘 된다고 알려 줬습니다(2026-11-17). Steam판이 없어 저희가 직접 확인하지는 못했습니다 |
-| Diablo IV (Steam판) | Steam | ✅ 게임 안 (사용자 제보) | M5 Pro 48GB, macOS 27.2.1: 1800×1169에서 약 60 FPS, 레이 트레이싱 작동, 복잡한 장면에서 조금 끊김. 약 5시간 플레이. 1.14.43부터 Play가 DirectX 12 모드를 알아서 켭니다 ([#186](https://github.com/BCD1210/soju/issues/186)) |
+| Diablo IV (Steam판) | Steam | ✅ 게임 안 (사용자 제보) | M5 Pro 48GB, macOS 27.2.1: 1800×1169에서 약 60 FPS, 레이 트레이싱 작동, 복잡한 장면에서 조금 끊김. 약 5시간 플레이. 1.14.44부터 Play가 DirectX 12 모드를 알아서 켭니다 ([#186](https://github.com/BCD1210/soju/issues/186)) |
 | Diablo II: Resurrected VR (오프라인) | Battle.net | 🧪 시뮬레이터만 확인 | `soju vr setup` 다음 `soju vr play`, [docs/VR.md](docs/VR.md) |
 
 **안 되는 것:** 커널 안티치트(EAC, BattlEye, Vanguard)가 붙은 게임 전부.
@@ -84,7 +84,7 @@ soju install     # 이후: soju battlenet / soju d2r / soju steam / soju epic / 
 
 설치기는 **다운로드 전에 원하는 런처부터 선택**합니다. Steam만 선택하면 CX 엔진과 애플 GPTK를 받지 않습니다. Steam 그래픽 구성요소는 SHA-256으로 검증한 뒤 Soju 전용 Wine 11.0 환경에 자동으로 설치합니다. Battle.net·Epic·GOG는 공통 CX 엔진과 사용자가 별도로 받은 애플 GPTK를 사용합니다. 각 런처의 보틀·로그인·게임은 독립적으로 유지합니다.
 
-[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.14.43/Soju-1.14.43-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
+[Soju 맥 앱 다운로드](https://github.com/BCD1210/soju/releases/download/v1.14.44/Soju-1.14.44-macos-arm64.zip): 네이티브 앱 프리뷰에서 설치된 게임과 보유 게임, 스토어 검색, 즐겨찾기, 게임 실행, 플랫폼 관리를 한 화면에서 다룰 수 있습니다. [설치 안내와 요구 사항](docs/DESKTOP.md)을 확인해 주세요.
 
 ## 일상 명령
 
