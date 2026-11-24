@@ -25,6 +25,41 @@ FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
 # Diablo II: Resurrected, whose loader needs GPTK's libd3dshared. Order of the Sinking Star
 # asks for Direct3D feature level 12_0 and shows an error window under the Direct3D 11 setup (#171).
 STEAM_GPTK_GAMES = {'2357570', '2536520', '499170'}
+# Any other Steam game whose store page asks for DirectX 12 at minimum gets the same treatment: in the
+# Direct3D 11 setup such games close within a minute (Order of the Sinking Star said so in a window, #171;
+# Resident Evil 4, Dead Island 2 and Hogwarts Legacy closed at once in the play counts, 2026-11-23).
+# The answer is kept per game in steam-dx12.json, so the store is asked once.
+STEAM_STORE = 'https://store.steampowered.com/api/appdetails?appids={}&filters=basic,pc_requirements'
+
+
+def needs_dx12(base, uid, fetch=None):
+    """True when Steam's store lists DirectX 12 under the minimum requirements of this game."""
+    cache = Path(base) / 'steam-dx12.json'
+    try: known = json.loads(cache.read_text())
+    except (OSError, ValueError): known = {}
+    if uid in known: return bool(known[uid])
+    try:
+        if fetch is None:
+            import urllib.request
+            req = urllib.request.Request(STEAM_STORE.format(uid), headers={'user-agent': 'soju'})
+            with urllib.request.urlopen(req, timeout=5) as res: body = res.read().decode('utf-8', 'replace')
+        else:
+            body = fetch(uid)
+        data = json.loads(body).get(uid, {})
+        if not data.get('success'): return False
+        info = data.get('data') if isinstance(data.get('data'), dict) else {}
+        req = info.get('pc_requirements') or {}
+        minimum = req.get('minimum', '') if isinstance(req, dict) else ''
+        found = re.search(r'DirectX:?\s*(?:</strong>)?\s*(?:Version\s*)?(\d+)', minimum, re.I)
+        answer = bool(found and int(found.group(1)) >= 12)
+    except Exception:
+        return False   # offline or the store did not answer: start the game as before, ask again next time
+    known[uid] = answer
+    try:
+        cache.write_text(json.dumps(known)); os.chmod(cache, 0o600)
+    except OSError: pass
+    return answer
+
 # Installed by Steam itself, not games: Steamworks Common Redistributables.
 STEAM_TOOLS = {'228980'}
 CLIENTS = {
@@ -426,7 +461,9 @@ class Library:
             return ['/bin/bash', str(Path(__file__).resolve().parent / 'play.sh'), game['platform']] + args
         if not game['install_path']: raise ValueError('This game is owned but not installed. Open its launcher to install it.')
         if game['issue']: raise ValueError(game['issue'])
-        if game.get('gptk'): return ['/bin/bash', str(root / 'steam-gptk.sh'), 'play'] + game['arguments']
+        if game.get('gptk') or (game['platform'] == 'steam' and self.folders['steam'] == 'steam-bottle'
+                                and needs_dx12(self.base, game_id.split(':', 1)[1])):
+            return ['/bin/bash', str(root / 'steam-gptk.sh'), 'play'] + game['arguments']
         return ['/bin/bash', str(root / 'play.sh'), game['platform']] + game['arguments']
 
 

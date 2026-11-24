@@ -184,6 +184,15 @@ class PlayStats(unittest.TestCase):
                 with open(log, 'a') as f: f.write(mine)
                 self.assertEqual(ps.reason(True, 0, marks, found, game), {'why': 'missing_dll', 'detail': 'vcruntime140.dll', 'ac': 'eac'})
                 self.assertEqual(ps.reason(True, 5, marks, found, game), {})
+        # Steam started it and it closed: the exit code Steam saw goes along.
+        with tempfile.TemporaryDirectory() as d2, mock.patch.object(ps, 'BASE', Path(d2)):
+            logs2 = Path(d2) / 'steam-bottle/drive_c/Program Files (x86)/Steam/logs'
+            logs2.mkdir(parents=True)
+            gp = logs2 / 'gameprocess_log.txt'
+            gp.write_text('[t] AppID 70 no longer tracking PID 5, exit code 0\n')
+            marks = ps.log_marks('steam:70', 'steam')
+            with open(gp, 'a') as f: f.write('[t] AppID 70 no longer tracking PID 9, exit code -1073741819\n')
+            self.assertEqual(ps.reason(True, 0, marks, [], None, 'steam', 'steam:70'), {'why': 'steam_exit', 'detail': 'exit_-1073741819'})
         # A game that never appeared and left nothing in the log: say whether its store was still open.
         self.assertEqual(ps.launcher_state('battlenet', 'c:\\program files (x86)\\battle.net\\battle.net.exe --exec=launch osi'), 'launcher_open')
         self.assertEqual(ps.launcher_state('battlenet', 'something else'), 'launcher_closed')

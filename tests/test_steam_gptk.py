@@ -63,6 +63,20 @@ class SteamGPTKTests(unittest.TestCase):
         self.assertEqual(lib.command('steam:2357570')[1:], [str(ROOT / 'scripts/steam-gptk.sh'), 'play', 'steam://rungameid/2357570'])
         self.assertEqual(lib.command('steam:70')[1:], [str(ROOT / 'scripts/play.sh'), 'steam', 'steam://rungameid/70'])
 
+    def test_a_game_whose_store_page_asks_for_directx_12_goes_to_the_gptk_mode(self):
+        calls = []
+        def fetch(uid):
+            calls.append(uid)
+            dx = {'2050650': '12', '70': '9'}.get(uid)
+            if dx is None: return '{"%s": {"success": false}}' % uid
+            return '{"%s": {"success": true, "data": {"pc_requirements": {"minimum": "<li><strong>DirectX:</strong> Version %s<br></li>"}}}}' % (uid, dx)
+        self.assertTrue(library.needs_dx12(self.base, '2050650', fetch))
+        self.assertFalse(library.needs_dx12(self.base, '70', fetch))
+        self.assertFalse(library.needs_dx12(self.base, '1', fetch))
+        self.assertTrue(library.needs_dx12(self.base, '2050650', fetch))   # asked once, then kept
+        self.assertEqual(calls.count('2050650'), 1)
+        self.assertFalse(library.needs_dx12(self.base, '3', lambda uid: (_ for _ in ()).throw(OSError('offline'))))
+
     def test_turning_the_mode_on_brings_over_games_installed_since(self):
         self.put('steam-bottle/' + CLIENT); self.put('steam-gptk-bottle/' + CLIENT)
         apps = 'drive_c/Program Files (x86)/Steam/steamapps'
