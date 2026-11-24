@@ -105,6 +105,25 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(len(result['games']), 3)
         self.assertEqual(len(result['warnings']), 2)
 
+    def test_epic_games_stay_when_epic_drops_their_record_and_its_own_parts_stay_out(self):
+        manifests = self.base / 'epic-bottle/drive_c/ProgramData/Epic/EpicGamesLauncher/Data/Manifests'
+        self.epic(uid='fa4240e57a3c46b39f169041b7811293')   # Epic's app ids are 32 hex characters
+        self.put(self.base / 'epic-bottle/drive_c/Games/Epic/.egstore/x.manifest', '')
+        self.put(manifests / 'eosh.item', json.dumps(dict(AppName='c9e2eb9993a1496c99dc529b49a07339', DisplayName='EOSH Application',
+                 InstallLocation='C:\\Program Files (x86)\\Epic Games\\Epic Online Services', AppCategories=['application'])))
+        ids = [g['id'] for g in self.lib.scan()['games'] if g['platform'] == 'epic']
+        self.assertEqual(len(ids), 1)                       # the game, not Epic's own service
+        uid = ids[0]
+        # Epic's launcher drops the game's record (its EOSH move, 2026-11): the game stays, and Play reaches Epic.
+        for f in manifests.glob('*.item'): f.unlink()
+        lib = library.Library(self.base)
+        games = [g for g in lib.scan()['games'] if g['platform'] == 'epic']
+        self.assertEqual([g['id'] for g in games], [uid])
+        self.assertIsNone(games[0]['issue'])
+        # The folder is gone as well: then the game is gone.
+        import shutil; shutil.rmtree(self.base / 'epic-bottle/drive_c/Games/Epic')
+        self.assertEqual([g for g in library.Library(self.base).scan()['games'] if g['platform'] == 'epic'], [])
+
     def test_launch_rescans_deleted_installation(self):
         _, game = self.steam()
         self.lib.scan(); game.rmdir()

@@ -261,11 +261,33 @@ class Library:
     def epic(self):
         prefix = self.base / self.folders['epic']
         manifests = prefix / 'drive_c/ProgramData/Epic/EpicGamesLauncher/Data/Manifests'
-        for f in sorted(manifests.glob('*.item')):
+        # Epic's launcher moved installs to its EOSH service in 2026-11 and, on that first start, dropped the
+        # record of games it did not find there ("EOSH reconciliation: removing installation not reported by
+        # EOSH"); the game's files stay. Soju keeps a copy of each game record it has seen, so such a game stays
+        # in the library while its folder is there; Play then makes Epic find it again ("Install" into the same
+        # folder: Epic checks the files and downloads nothing). A record Epic is rebuilding sits in Pending.
+        known = self.base / 'epic-known'
+        seen = {}
+        for f in sorted(manifests.glob('*.item')) + sorted((manifests / 'Pending').glob('*.item')):
+            try: seen.setdefault(read_json(f)['AppName'], (f, f.parent.name == 'Pending'))
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                self.warn('epic', 'An installation record could not be read. Refresh after Epic finishes updating.')
+        for f in sorted(known.glob('*.item')) if known.is_dir() else []:
+            try: seen.setdefault(read_json(f)['AppName'], (f, 'known'))
+            except (OSError, ValueError, KeyError, TypeError): pass
+        for uid, (f, origin) in sorted(seen.items()):
             try:
                 item = read_json(f)
                 uid = item['AppName']
                 if item.get('MainGameAppName') not in (None, '', uid): continue  # DLC
+                # Epic's own parts (EOSH, its overlay) have records too: only games go in the library.
+                if 'games' not in (item.get('AppCategories') or ['games']): continue
+                if origin == 'known' and not (windows_path(prefix, item['InstallLocation']) / '.egstore').is_dir(): continue
+                if origin is False and re.fullmatch(r'[0-9a-f]{32}', uid):
+                    try:
+                        known.mkdir(parents=True, exist_ok=True)
+                        (known / (uid + '.item')).write_text(f.read_text(encoding='utf-8-sig'), encoding='utf-8')
+                    except OSError: pass
                 location = windows_path(prefix, item['InstallLocation'])
                 namespace, catalog = item.get('CatalogNamespace'), item.get('CatalogItemId')
                 parts = [namespace, catalog, uid] if namespace and catalog else [uid]
@@ -273,7 +295,7 @@ class Library:
                 uri = 'com.epicgames.launcher://apps/' + quote(':'.join(parts), safe='')
                 uri += '?action=launch&silent=true'
                 art = first_file(sorted(location.glob('*.ico')))
-                ready = not item.get('bIsIncompleteInstall', False)
+                ready = not item.get('bIsIncompleteInstall', False) or origin == 'known'
                 executable = item.get('LaunchExecutable')
                 if executable:
                     relative = PureWindowsPath(executable)
