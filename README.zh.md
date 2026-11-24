@@ -8,7 +8,7 @@ Soju 在 M1 及更新的 Mac 上安装 **Battle.net、Steam、Epic Games、GOG G
 
 ![Soju 统一游戏库](docs/assets/soju-library.png)
 
-**[下载 Soju 1.14.43（Mac）](https://github.com/BCD1210/soju/releases/download/v1.14.43/Soju-1.14.43-macos-arm64.zip)**，或在终端安装：
+**[下载 Soju 1.14.44（Mac）](https://github.com/BCD1210/soju/releases/download/v1.14.44/Soju-1.14.44-macos-arm64.zip)**，或在终端安装：
 
 ```bash
 brew install BCD1210/soju/soju
@@ -53,7 +53,7 @@ soju install
 | Guilt Free（Unity Direct3D 11 游戏） | Steam | ✅ 进入游戏，窗口模式 | 见 [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | The Witcher 3（Remastered） | Steam | 🟡 能到菜单（玩家反馈） | 需要 Apple GPTK 4.0 beta 3，Soju 自 1.14.10 起可安装（[#112](https://github.com/BCD1210/soju/issues/112)） |
 | Diablo II: Resurrected（Steam 版） | Steam | 🟡 可运行（用户反馈） | 在 DirectX 12 mode 下；有玩家在 Discord 反馈可以运行（2026-11-17）。我们没有 Steam 版，未亲自验证 |
-| Diablo IV（Steam 版） | Steam | ✅ 游戏内（用户反馈） | M5 Pro 48GB，macOS 27.2.1：1800×1169 约 60 FPS，光线追踪可用，复杂场景略有卡顿；约玩了 5 小时。从 1.14.43 起按 Play 会自动打开 DirectX 12 mode（[#186](https://github.com/BCD1210/soju/issues/186)） |
+| Diablo IV（Steam 版） | Steam | ✅ 游戏内（用户反馈） | M5 Pro 48GB，macOS 27.2.1：1800×1169 约 60 FPS，光线追踪可用，复杂场景略有卡顿；约玩了 5 小时。从 1.14.44 起按 Play 会自动打开 DirectX 12 mode（[#186](https://github.com/BCD1210/soju/issues/186)） |
 | Diablo II: Resurrected VR（离线） | Battle.net | 🧪 仅模拟器 | 先 `soju vr setup`，再 `soju vr play`；[docs/VR.md](docs/VR.md) |
 
 **跑不了的：** 任何带内核级反作弊（EAC、BattlEye、Vanguard）的游戏。
@@ -84,7 +84,7 @@ soju install     # 然后：soju battlenet / soju d2r / soju steam / soju epic /
 
 安装器会**先询问要安装哪些启动器，再下载对应组件**。仅选择 Steam 时，不会下载 CX 引擎或 Apple GPTK。Steam 图形组件经过 SHA-256 校验后，自动安装到 Soju 专用的 Wine 11.0 环境中。战网、Epic 和 GOG 使用共享 CX 引擎及用户单独下载的 Apple GPTK。各客户端的 bottle、账户和游戏分别保留。
 
-[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.14.43/Soju-1.14.43-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
+[下载 Soju Mac 应用](https://github.com/BCD1210/soju/releases/download/v1.14.44/Soju-1.14.44-macos-arm64.zip)：原生桌面预览版在一个窗口中管理已安装和已拥有的游戏、商店搜索、收藏、游戏启动和平台管理。[安装说明与要求](docs/DESKTOP.md)。
 
 ## 日常维护
 

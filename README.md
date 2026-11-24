@@ -10,7 +10,7 @@ Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
-**[Download Soju 1.14.43 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.43/Soju-1.14.43-macos-arm64.zip)**, or install from the terminal:
+**[Download Soju 1.14.44 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.44/Soju-1.14.44-macos-arm64.zip)**, or install from the terminal:
 
 ```bash
 brew install BCD1210/soju/soju
@@ -55,7 +55,7 @@ Tested by us on an M4 Pro with macOS 26.5, unless a row says it is a player's re
 | Guilt Free (a Unity Direct3D 11 game) | Steam | ✅ in-game, windowed | see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | The Witcher 3 (Remastered) | Steam | 🟡 reaches its menu (player's report) | needs Apple GPTK 4.0 beta 3, which Soju accepts since 1.14.10 ([#112](https://github.com/BCD1210/soju/issues/112)) |
 | Diablo II: Resurrected (Steam edition) | Steam | 🟡 runs (user report) | in DirectX 12 mode; a player reported it running on Discord (2026-11-17). Not checked by us: we don't own the Steam edition |
-| Diablo IV (Steam edition) | Steam | ✅ in-game (player's report) | M5 Pro 48 GB, macOS 27.2.1: about 60 FPS at 1800×1169, ray tracing works, some slowdown in busy scenes; about 5 hours played. Play switches Steam to DirectX 12 mode by itself from 1.14.43 ([#186](https://github.com/BCD1210/soju/issues/186)) |
+| Diablo IV (Steam edition) | Steam | ✅ in-game (player's report) | M5 Pro 48 GB, macOS 27.2.1: about 60 FPS at 1800×1169, ray tracing works, some slowdown in busy scenes; about 5 hours played. Play switches Steam to DirectX 12 mode by itself from 1.14.44 ([#186](https://github.com/BCD1210/soju/issues/186)) |
 | Diablo II: Resurrected in VR (offline) | Battle.net | 🧪 simulator only | `soju vr setup`, then `soju vr play`; [docs/VR.md](docs/VR.md) |
 
 **Will not run:** anything with kernel anti-cheat (EAC, BattlEye, Vanguard).
@@ -86,7 +86,7 @@ soju install     # then: soju battlenet / soju d2r / soju steam / soju epic / so
 
 The installer asks which launchers you want **before downloading anything**. Steam-only installs skip the CX engine and Apple GPTK. Steam rendering components are downloaded with SHA-256 verification and installed in a Soju-owned Wine 11.0 runtime. Battle.net, Epic and GOG use the shared CX engine and your separately downloaded Apple GPTK. Each official client keeps its own bottle and shortcut in `~/Applications`.
 
-[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.43/Soju-1.14.43-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
+[Download Soju for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.44/Soju-1.14.44-macos-arm64.zip): the native desktop preview includes installed and owned games, store search, favorites, game launching and platform management. See [desktop setup and requirements](docs/DESKTOP.md).
 
 ## Everyday commands
 
