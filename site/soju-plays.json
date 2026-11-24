@@ -3,32 +3,38 @@
   {
    "game": "battlenet:osi",
    "title": "Diablo II: Resurrected",
-   "players": 8,
-   "minutes": 2266
+   "players": 11,
+   "minutes": 3298
   },
   {
    "game": "steam:250900",
    "title": "The Binding of Isaac: Rebirth",
    "players": 4,
-   "minutes": 242
+   "minutes": 390
+  },
+  {
+   "game": "epic:fa4240e57a3c46b39f169041b7811293",
+   "title": "Hogwarts Legacy",
+   "players": 3,
+   "minutes": 416
   },
   {
    "game": "steam:2344520",
    "title": "Diablo® IV",
    "players": 2,
-   "minutes": 626
+   "minutes": 1464
   },
   {
-   "game": "epic:fa4240e57a3c46b39f169041b7811293",
+   "game": "steam:990080",
    "title": "Hogwarts Legacy",
    "players": 2,
-   "minutes": 295
+   "minutes": 267
   },
   {
    "game": "steam:3241660",
    "title": "R.E.P.O.",
    "players": 2,
-   "minutes": 231
+   "minutes": 246
   },
   {
    "game": "steam:3164500",
@@ -46,13 +52,19 @@
    "game": "steam:1158160",
    "title": "Coral Island",
    "players": 1,
-   "minutes": 584
+   "minutes": 728
   },
   {
    "game": "steam:1223750",
    "title": "Cloud Meadow",
    "players": 1,
-   "minutes": 519
+   "minutes": 535
+  },
+  {
+   "game": "steam:365160",
+   "title": "Kona",
+   "players": 1,
+   "minutes": 388
   },
   {
    "game": "steam:489830",
@@ -61,10 +73,16 @@
    "minutes": 368
   },
   {
+   "game": "steam:2142790",
+   "title": "Fields of Mistria",
+   "players": 1,
+   "minutes": 333
+  },
+  {
    "game": "steam:934700",
    "title": "Dead Island 2",
    "players": 1,
-   "minutes": 327
+   "minutes": 331
   },
   {
    "game": "steam:1449850",
@@ -79,22 +97,22 @@
    "minutes": 300
   },
   {
+   "game": "steam:1658280",
+   "title": "Eiyuden Chronicle: Hundred Heroes",
+   "players": 1,
+   "minutes": 298
+  },
+  {
    "game": "steam:292410",
    "title": "Street Racing Syndicate",
    "players": 1,
    "minutes": 278
   },
   {
-   "game": "steam:2142790",
-   "title": "Fields of Mistria",
+   "game": "steam:784150",
+   "title": "Workers & Resources: Soviet Republic",
    "players": 1,
-   "minutes": 244
-  },
-  {
-   "game": "steam:1658280",
-   "title": "Eiyuden Chronicle: Hundred Heroes",
-   "players": 1,
-   "minutes": 226
+   "minutes": 257
   },
   {
    "game": "battlenet:s1",
@@ -107,6 +125,12 @@
    "title": "Woman Simulator",
    "players": 1,
    "minutes": 167
+  },
+  {
+   "game": "steam:4197610",
+   "title": "Librarian: Tidy Up the Arcane Library!",
+   "players": 1,
+   "minutes": 162
   },
   {
    "game": "steam:582010",
@@ -127,28 +151,10 @@
    "minutes": 126
   },
   {
-   "game": "steam:990080",
-   "title": "Hogwarts Legacy",
-   "players": 1,
-   "minutes": 116
-  },
-  {
-   "game": "steam:365160",
-   "title": "Kona",
-   "players": 1,
-   "minutes": 94
-  },
-  {
-   "game": "steam:784150",
-   "title": "Workers & Resources: Soviet Republic",
-   "players": 1,
-   "minutes": 93
-  },
-  {
    "game": "steam:2433730",
    "title": "Unsorted Horror",
    "players": 1,
-   "minutes": 87
+   "minutes": 108
   },
   {
    "game": "steam:3962460",
@@ -181,6 +187,12 @@
    "minutes": 57
   },
   {
+   "game": "steam:5069790",
+   "title": "Sudoku Mansion Demo",
+   "players": 1,
+   "minutes": 56
+  },
+  {
    "game": "steam:582500",
    "title": "We Were Here",
    "players": 1,
@@ -201,6 +213,18 @@
   {
    "game": "steam:2358720",
    "title": "Black Myth: Wukong",
+   "players": 1,
+   "minutes": 34
+  },
+  {
+   "game": "steam:2507640",
+   "title": "Pyroworks",
+   "players": 1,
+   "minutes": 29
+  },
+  {
+   "game": "steam:2050650",
+   "title": "Resident Evil 4",
    "players": 1,
    "minutes": 28
   },
@@ -247,10 +271,28 @@
    "minutes": 14
   },
   {
-   "game": "steam:4197610",
-   "title": "Librarian: Tidy Up the Arcane Library!",
+   "game": "steam:220",
+   "title": "Half-Life 2",
    "players": 1,
-   "minutes": 14
+   "minutes": 12
+  },
+  {
+   "game": "steam:340",
+   "title": "Half-Life 2: Lost Coast",
+   "players": 1,
+   "minutes": 12
+  },
+  {
+   "game": "steam:380",
+   "title": "Half-Life 2: Episode One",
+   "players": 1,
+   "minutes": 12
+  },
+  {
+   "game": "steam:420",
+   "title": "Half-Life 2: Episode Two",
+   "players": 1,
+   "minutes": 12
   },
   {
    "game": "steam:223810",
@@ -313,6 +355,12 @@
    "minutes": 4
   },
   {
+   "game": "steam:1721470",
+   "title": "Poppy Playtime",
+   "players": 1,
+   "minutes": 4
+  },
+  {
    "game": "steam:4335510",
    "title": "Horses of Hoofprint Bay Demo",
    "players": 1,
@@ -327,6 +375,12 @@
   {
    "game": "steam:1566200",
    "title": "Tape to Tape",
+   "players": 1,
+   "minutes": 3
+  },
+  {
+   "game": "steam:2141910",
+   "title": "Magic: The Gathering Arena",
    "players": 1,
    "minutes": 3
   },
