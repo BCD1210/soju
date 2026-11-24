@@ -270,6 +270,14 @@
                 "game": "steam:2536520"
               },
               {
+                "title": "Diablo IV (Steam)",
+                "store": "Steam",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Soju user: about 60 FPS at 1800\u00d71169 on an M5 Pro, ray tracing works, about 5 hours played. Play turns on Steam\u2019s DirectX 12 mode by itself.",
+                "game": "steam:2344520"
+              },
+              {
                 "title": "The Elder Scrolls V: Skyrim Special Edition",
                 "store": "Steam",
                 "status": "Plays",
