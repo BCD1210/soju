@@ -152,7 +152,7 @@ struct GameSettingsSection: View {
                          : "Standard suits most games. Try DXVK if this one freezes or draws wrongly. Quit Steam before changing it.")
                         .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 } else if renderer.reason == "gptk" {
-                    Label("Steam is in Overwatch and Diablo II mode, so this game runs on Apple GPTK. Switch the mode in Stores.", systemImage: "info.circle")
+                    Label("Steam is in DirectX 12 mode, so this game runs on Apple GPTK. Switch the mode in Stores.", systemImage: "info.circle")
                         .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }

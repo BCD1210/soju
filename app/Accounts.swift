@@ -484,11 +484,11 @@ struct AccountsView: View {
 
     private var steamMode: some View {
         // Steam games that need Apple's toolkit (D3D12, Blizzard games sold on Steam): scripts/steam-gptk.sh
-        Toggle("Overwatch and Diablo II mode", isOn: Binding(
+        Toggle("DirectX 12 mode (Apple GPTK)", isOn: Binding(
             get: { model.steamGPTK },
-            set: { on in task(.steam, ["steam-gptk", on ? "on" : "off"], on ? "Switching Steam to Overwatch and Diablo II mode…" : "Switching Steam back…") }))
+            set: { on in task(.steam, ["steam-gptk", on ? "on" : "off"], on ? "Switching Steam to DirectX 12 mode…" : "Switching Steam back…") }))
             .toggleStyle(.checkbox).font(.system(size: 13)).disabled(model.busy)
-            .help("Runs Steam and its games with Apple's Game Porting Toolkit, which Overwatch, Diablo II: Resurrected and other DirectX 12 games need. Steam asks you to sign in once the first time.")
+            .help("Runs Steam and its games with Apple's Game Porting Toolkit, which DirectX 12 games, Overwatch and Diablo II: Resurrected need. It turns on by itself when you press Play on such a game. Steam asks you to sign in once the first time.")
     }
 
     private var xboxSettings: some View {

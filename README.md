@@ -50,11 +50,11 @@ Tested by us on an M4 Pro with macOS 26.5, unless a row says it is a player's re
 | Hogwarts Legacy | Epic | ✅ in-game | the "AMD driver" warning at start is harmless |
 | StarCraft: Remastered | Battle.net | ✅ in-game | a match against the computer; multiplayer not tried; [guide](https://didimlabs.com/guides/starcraft-remastered-apple-silicon.html) |
 | Detroit: Become Human (demo) | Steam | ✅ in-game | Mac mini M4 Pro, macOS 26.5. Draws with Vulkan through the MoltenVK in Steam support v6; the first start compiles shaders for a few minutes. Press OK on the "graphics card is not officially supported" warning |
-| Overwatch 2 | Steam | ✅ main menu, online | turn on Platforms > Steam > **Overwatch and Diablo II mode** (`soju steam-gptk on`); the game asks once to connect a Battle.net account; [guide](https://didimlabs.com/guides/overwatch-2-apple-silicon.html) |
+| Overwatch 2 | Steam | ✅ main menu, online | Play switches Steam to **DirectX 12 mode** by itself (Stores > Steam; `soju steam-gptk on`); the game asks once to connect a Battle.net account; [guide](https://didimlabs.com/guides/overwatch-2-apple-silicon.html) |
 | The Elder Scrolls V: Skyrim Special Edition | Steam | ✅ in-game (player's report) | M5 Pro, macOS 27.2, Soju 1.14.8; dialogue and surround sound confirmed ([#95](https://github.com/BCD1210/soju/issues/95)) |
 | Guilt Free (a Unity Direct3D 11 game) | Steam | ✅ in-game, windowed | see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | The Witcher 3 (Remastered) | Steam | 🟡 reaches its menu (player's report) | needs Apple GPTK 4.0 beta 3, which Soju accepts since 1.14.10 ([#112](https://github.com/BCD1210/soju/issues/112)) |
-| Diablo II: Resurrected (Steam edition) | Steam | 🟡 runs (user report) | in Overwatch and Diablo II mode; a player reported it running on Discord (2026-11-17). Not checked by us: we don't own the Steam edition |
+| Diablo II: Resurrected (Steam edition) | Steam | 🟡 runs (user report) | in DirectX 12 mode; a player reported it running on Discord (2026-11-17). Not checked by us: we don't own the Steam edition |
 | Diablo II: Resurrected in VR (offline) | Battle.net | 🧪 simulator only | `soju vr setup`, then `soju vr play`; [docs/VR.md](docs/VR.md) |
 
 **Will not run:** anything with kernel anti-cheat (EAC, BattlEye, Vanguard).
@@ -226,7 +226,7 @@ soju xbox-logout             # sign out; downloaded games stay
 
 ## Steam (including the Steam version of D2R)
 
-**Steam with Apple GPTK** (`soju steam-gptk on`, or Platforms > Steam > Overwatch and Diablo II mode): Steam and its games run on the same engine and Apple GPTK as Battle.net, plus a Mac driver that can show Steam's browser window. Use it for D3D12 games and for Blizzard games sold on Steam (Overwatch 2 reaches its main menu online; Diablo II: Resurrected needs GPTK's `libd3dshared`). It uses its own bottle, made as a copy of the Steam bottle that takes no extra space, so installed games stay; Steam asks you to sign in once there. `soju steam-gptk off` goes back to Wine 11 + DXMT, still signed in.
+**Steam with Apple GPTK** (`soju steam-gptk on`, or Stores > Steam > DirectX 12 mode; Play turns it on by itself for a game whose Steam page asks for DirectX 12): Steam and its games run on the same engine and Apple GPTK as Battle.net, plus a Mac driver that can show Steam's browser window. Use it for D3D12 games and for Blizzard games sold on Steam (Overwatch 2 reaches its main menu online; Diablo II: Resurrected needs GPTK's `libd3dshared`). It uses its own bottle, made as a copy of the Steam bottle that takes no extra space, so installed games stay; Steam asks you to sign in once there. `soju steam-gptk off` goes back to Wine 11 + DXMT, still signed in.
 
 **Game voices in Windows Media Audio** (Skyrim Special Edition's dialogue, among others) need GStreamer, which Wine uses to decode them. When Steam is set up, and on `soju update`, Soju downloads the official GStreamer macOS package from gstreamer.freedesktop.org (SHA-256 pinned, about 150 MB once) and keeps only the 42 MB of audio and video plugins and libraries Wine loads, in `~/.battlenet-macos/gstreamer`. Steam started by Soju finds them. This applies to Steam on Wine 11; the Apple GPTK engine has no GStreamer support yet.
 
