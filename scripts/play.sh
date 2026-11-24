@@ -54,6 +54,9 @@ elif [[ "$MODE" =~ ^(ea|rockstar|ubisoft)(-kill)?$ ]]; then
 else
   export WINEPREFIX="${WINEPREFIX:-${SOJU_BASE:-$HOME/.battlenet-macos}/bottle}"
 fi
+# Unreal Engine games that ran here before start without the "Known issues with graphics driver" window
+# that otherwise holds them at start (scripts/ue_driver_warning.py).
+case "$MODE" in *-kill|kill|controllers) ;; *) python3 "$(dirname "${BASH_SOURCE[0]}")/ue_driver_warning.py" "$WINEPREFIX" >/dev/null 2>&1 || true ;; esac
 
 # The EA app, Rockstar Games Launcher and Ubisoft Connect run on the launcher
 # engine: the CX engine plus a Mac driver and DXMT that let their browser UIs
