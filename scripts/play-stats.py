@@ -171,7 +171,8 @@ def log_marks(game, launcher):
     out = {}
     paths = [logs / ("game-" + game.replace(":", "-") + ".log"), logs / ("desktop-" + launcher + ".log")]
     if launcher == "steam":   # Steam's own log of each start, in whichever bottle it runs from
-        paths += [BASE / b / "drive_c/Program Files (x86)/Steam/logs/console_log.txt" for b in ("steam-bottle", "steam-gptk-bottle")]
+        paths += [BASE / b / "drive_c/Program Files (x86)/Steam/logs" / f for b in ("steam-bottle", "steam-gptk-bottle")
+                  for f in ("console_log.txt", "gameprocess_log.txt")]
     for path in paths:
         try:
             st = path.stat()
@@ -250,6 +251,11 @@ def reason(started, minutes, marks, found, path, launcher="", game=""):
             kind, step = steam_launch.outcome(text, game.split(":", 1)[1])
             if kind in ("error", "waiting", "updating"):
                 word, name = "steam_" + kind, SAFE.sub("", step)[:40]
+            else:
+                # Steam started it: how the game's process ended, as Steam saw it ("exit code -1073741819" is a crash).
+                codes = re.findall(r"AppID %s no longer tracking PID \d+, exit code (-?\d+)" % re.escape(game.split(":", 1)[1]), text)
+                if codes:
+                    word, name = "steam_exit", "exit_" + codes[-1][:20]
         except Exception:
             pass
     if not word and launcher == "battlenet" and ":" in game and isinstance(marks, dict) and marks.get("_t"):
