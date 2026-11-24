@@ -68,6 +68,16 @@ case "$MODE" in
     ENGINE=$(SOJU_CX_ENGINE="$ENGINE" bash "$(dirname "${BASH_SOURCE[0]}")/launcher-engine.sh") || exit 1 ;;
 esac
 
+# NVIDIA DLSS in D3DMetal games, done by Apple's MetalFX (scripts/gptk-dlss.sh): games that offer DLSS list it
+# in their settings. SOJU_DLSS=0 leaves it off. A launcher already running keeps its old environment.
+# Called once the Wine environment below is exported: the script may start the bottle's wineserver (wine reg),
+# and a server started without WINEMSYNC=1 turns away the launcher that comes after it (msync_init fails).
+dlss_on() {
+  [ "${SOJU_DLSS:-1}" = 1 ] || return 0
+  bash "$(dirname "${BASH_SOURCE[0]}")/gptk-dlss.sh" "$ENGINE" "$WINEPREFIX" && export D3DM_ENABLE_METALFX=1
+  return 0
+}
+
 export WINEDEBUG="${WINEDEBUG:-fixme-all}"
 # SOJU_KEYLOG=1: record every key event the Mac driver sees and every focus
 # change, to ~/.battlenet-macos/logs/keys-<mode>-<time>.log. For "a key stays
@@ -98,6 +108,7 @@ export CX_ACTIVE_GRAPHICS_BACKEND=d3dmetal
 export CX_GRAPHICS_BACKEND=d3dmetal
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
+case "$MODE" in battlenet|d2r|epic|gog|ea|rockstar|ubisoft) dlss_on ;; esac
 
 # Agent signature-check fix: sync the signed exe into each versioned subfolder
 BN="$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
@@ -371,6 +382,7 @@ case "$MODE" in
       # (scripts/steam-gptk-engine.sh). Same wrapper and flags as below; games
       # get D3DMetal like Battle.net games, and no Wine 11 steps apply.
       ENGINE=$(bash "$(dirname "${BASH_SOURCE[0]}")/steam-gptk-engine.sh") || exit 1
+      dlss_on
       export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
       export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
       ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
