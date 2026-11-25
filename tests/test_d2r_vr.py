@@ -75,19 +75,34 @@ class ManifestTests(unittest.TestCase):
         for field in ('installed', 'current', 'source_build', 'source_supported'):
             self.assertIn(field, sheet)
 
-    def test_flat_play_sets_the_mods_mode_and_view(self):
+    def test_flat_play_sets_the_mods_mode_view_and_mouse_look(self):
         with tempfile.TemporaryDirectory() as d:
             game = Path(d)
             ini = game / 'mods/D2R-PCVR/d2rloader/plugins/d2r_pcvr.ini'
+            reshade = game / 'mods/D2R-PCVR/reshade/ReShade.ini'
             ini.parent.mkdir(parents=True)
-            ini.write_bytes(b'[stereo]\r\nplatform = 9\r\n[mode]\r\nplatform = 1\r\nflat_view = 3\r\nvr_mode = 4\r\n')
+            reshade.parent.mkdir(parents=True)
+            ini.write_bytes(b'[camera]\r\npitch = -30\r\n[stereo]\r\nplatform = 9\r\n[mode]\r\nplatform = 1\r\nflat_view = 3\r\nvr_mode = 4\r\n'
+                            b'\r\n[input]\r\nmouse_look = 0\r\nmouse_speed = 0.15\r\n')
+            reshade.write_bytes(b'[GENERAL]\r\nPresetPath=.\\D2R_Frame_ReShade.ini\r\n\r\n[INPUT]\r\nKeyOverlay=36,0,0,0\r\n\r\n')
             vr.set_mode(game, True, 'third')
             self.assertEqual(ini.read_bytes(),
-                             b'[stereo]\r\nplatform = 9\r\n[mode]\r\nplatform = 0\r\nflat_view = 2\r\nvr_mode = 4\r\n')
-            vr.set_mode(game, True, 'classic')
+                             b'[camera]\r\npitch = -85\r\n[stereo]\r\nplatform = 9\r\n[mode]\r\nplatform = 0\r\nflat_view = 2\r\nvr_mode = 4\r\n'
+                             b'\r\n[input]\r\nmouse_look = 1\r\nmouse_speed = 0.15\r\n')
+            self.assertEqual(reshade.read_bytes(), b'[GENERAL]\r\nPresetPath=.\\D2R_Frame_ReShade.ini\r\n\r\n'
+                             b'[INPUT]\r\nKeyOverlay=36,0,0,0\r\n\r\n[OVERLAY]\r\nTutorialProgress=4\r\n')
+            vr.set_mode(game, True, 'third')   # nothing left to change
+            self.assertEqual(reshade.read_bytes().count(b'TutorialProgress'), 1)
+            vr.set_mode(game, True, 'classic')   # the game's own camera: the mouse clicks as usual
             self.assertIn(b'flat_view = 1\r\n', ini.read_bytes())
+            self.assertIn(b'mouse_look = 0\r\n', ini.read_bytes())
             vr.set_mode(game, False)   # VR again: the headset, the flat view kept for next time
             self.assertIn(b'[mode]\r\nplatform = 1\r\nflat_view = 1\r\n', ini.read_bytes())
+            self.assertIn(b'mouse_look = 0\r\n', ini.read_bytes())
+            self.assertIn(b'[camera]\r\npitch = -30\r\n', ini.read_bytes())   # the headset's tilt back
+            ini.write_bytes(b'[mode]\nplatform = 1\n')   # no [input] yet: added
+            vr.set_mode(game, True)
+            self.assertEqual(ini.read_bytes(), b'[mode]\nplatform = 0\nflat_view = 3\n\n[input]\nmouse_look = 1\n\n[camera]\npitch = -85\n')
             vr.set_mode(Path(d) / 'missing', True)   # no mod installed: nothing to do, no error
 
     def test_dlss_follows_the_metalfx_bridge(self):
