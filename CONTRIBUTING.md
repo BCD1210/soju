@@ -39,11 +39,15 @@ Before opening a pull request, run what CI runs:
 bash -n install.sh; for s in scripts/*.sh scripts/soju; do bash -n "$s"; done
 python3 -m unittest discover -s tests -q
 node --test tests/test_steam_login.cjs
+node --test tests/test_stats_worker.mjs
+node --test tests/test_feed_worker.mjs
+python3 scripts/release-health.py
 swiftc app/PurchaseLinks.swift tests/test_purchase_links.swift -o /tmp/t1 && /tmp/t1
 swiftc app/UpdateCheck.swift tests/test_update_check.swift -o /tmp/t2 && /tmp/t2
 swiftc app/StarAsk.swift tests/test_star_ask.swift -o /tmp/t3 && /tmp/t3
 swiftc app/DownloadMeter.swift tests/test_download_meter.swift -o /tmp/t4 && /tmp/t4
 swiftc app/GardenStats.swift tests/test_garden_stats.swift -o /tmp/t5 && /tmp/t5
+swiftc app/GoatCatalog.swift tests/test_goat_catalog.swift -o /tmp/t6 && /tmp/t6
 bash scripts/build-app.sh
 ```
 

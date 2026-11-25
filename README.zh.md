@@ -144,7 +144,7 @@ Apple 的 Game Porting Toolkit 文件在第 4 步下载。如果想用自己从 
 # 1. 获取脚本
 git clone https://github.com/BCD1210/soju.git && cd soju
 
-# 2. 获取运行时组件（x86_64 动态库 + wine-mono，全部来自免费的 GPL 发布）
+# 2. 获取运行时组件（x86_64 动态库 + wine-mono，全部来自免费的开源发布）
 scripts/get-components.sh
 
 # 3. 从 GPL 源码构建引擎（30-60 分钟）
@@ -226,17 +226,17 @@ soju xbox-logout             # 退出登录（已下载的游戏保留）
 
 **立体声扬声器上的 5.1/7.1 声音。** 以 5.1 或 7.1 声道输出的游戏（如 Skyrim Special Edition）在 Mac 扬声器上会丢失中置和后置声道，大部分对白也随之消失。Steam 组件附带打了 Soju 补丁的 Wine 音频驱动，这类声音会先混成立体声再送到扬声器：中置分到两侧，环绕声道分到各自一侧 (#93)。
 
-D2R 于 2026 年 2 月以 *Infernal Edition* 上架 Steam。Steam 支持用的是**另一个免费引擎**：新版 Steam 客户端的 CEF 界面在 CrossOver 源码构建上无法渲染（黑窗口，跨进程交换链 + CEF 沙箱问题），但在 Homebrew 的 `wine-stable` 11 上，配合一个强制 `--disable-gpu --single-process` 的小 `steamwebhelper` 包装器就能工作。该修复来自 [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)（MIT，包装器源码收录在 `third_party/`）。Steam 有自己独立的 bottle，两套栈互不干扰：
+D2R 于 2026 年 2 月以 *Infernal Edition* 上架 Steam。Steam 支持用的是**另一个免费引擎**：新版 Steam 客户端的 CEF 界面在 CrossOver 源码构建上无法渲染（黑窗口，跨进程交换链 + CEF 沙箱问题），但在一个固定版本的上游 Wine 11 构建上，配合一个强制 `--disable-gpu --single-process` 的小 `steamwebhelper` 包装器就能工作。该修复来自 [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)（MIT，包装器源码收录在 `third_party/`）。Steam 有自己独立的 bottle，两套栈互不干扰：
 
 ```bash
-scripts/create-steam-bottle.sh   # 安装 wine-stable + 包装器 + Valve 官方安装包
+scripts/create-steam-bottle.sh   # 安装专用 Wine 11 + 包装器 + Valve 官方安装包
 scripts/play.sh steam            # 登录 -> 安装并游玩
 scripts/play.sh steam-kill       # 停止 Steam bottle
 ```
 
 在 M4 Pro / macOS 26.5 上验证：登录、游戏库，以及一个真实 D3D11（Unity）游戏通过 DXMT 分支在游戏内渲染。完整接线见 `docs/STEAM-GAMES.md`（`scripts/setup-steam-games.sh`）。注意：在 Steam 里打字时把 macOS 输入法切到英文（ABC），否则输入法合成会显示为 `?`。
 
-**前提条件**：Apple Silicon Mac、Rosetta 2、Xcode 命令行工具、Homebrew、以及你自己的战网账号/游戏。**《暗黑破坏神 II：狱火重生》需要 macOS 26.4 或更高**：暴雪 2026 年 1 月加入的反作弊会触发一个 Rosetta 2 的 bug，Apple 在 26.4 修复了它。在 macOS 15 上游戏启动后立刻退出（战网随后显示"更新"并卡在正在初始化），CrossOver 也一样。启动器和其他游戏不受这个 bug 影响，但所有验证都只在 macOS 26.5 上做过。本仓库不再分发 Apple、Blizzard 或 CodeWeavers 的任何文件。
+**前提条件**：Apple Silicon Mac、Rosetta 2、Xcode 命令行工具、Homebrew、以及你自己的战网账号/游戏。**《暗黑破坏神 II：狱火重生》需要 macOS 26.4 或更高**：暴雪 2026 年 1 月加入的反作弊会触发一个 Rosetta 2 的 bug，Apple 在 26.4 修复了它。在 macOS 15 上游戏启动后立刻退出（战网随后显示"更新"并卡在正在初始化），CrossOver 也一样。启动器和其他游戏不受这个 bug 影响，但所有验证都只在 macOS 26.5 上做过。本仓库不分发 Apple、Blizzard 或 CodeWeavers 的任何文件。
 
 ### 为什么必须要 GPTK？
 
@@ -261,7 +261,7 @@ scripts/play.sh steam-kill       # 停止 Steam bottle
 
 ### 残留的 Wine 进程
 
-每次启动 bottle 都会附带一组空闲的 Windows 服务进程（`services.exe`、`winedevice.exe`、`plugplay.exe`、`rpcss.exe`、`explorer.exe /desktop`，每组约 100 MB）。如果 bottle 的 `wineserver` 被强杀（崩溃、中断的运行），这些服务不会察觉，会一直挂着。`scripts/soju-sweep.sh` 负责清掉它们，`play.sh kill` / `epic-kill` / `steam-kill` 和守护进程会自动调用。它它只清理不属于任何运行中 `wineserver` 的服务进程（存活 bottle 的每个进程都在其服务端 socket 目录里打开着文件），因此正在运行的游戏或登录器绝不会被误伤，即使其他 bottle 还在运行也一样。可用 `soju sweep` 手动执行。
+每次启动 bottle 都会附带一组空闲的 Windows 服务进程（`services.exe`、`winedevice.exe`、`plugplay.exe`、`rpcss.exe`、`explorer.exe /desktop`，每组约 100 MB）。如果 bottle 的 `wineserver` 被强杀（崩溃、中断的运行），这些服务不会察觉，会一直挂着。`scripts/soju-sweep.sh` 负责清掉它们，`play.sh kill` / `epic-kill` / `steam-kill` 和守护进程会自动调用。它只清理不属于任何运行中 `wineserver` 的服务进程（存活 bottle 的每个进程都在其服务端 socket 目录里打开着文件），因此正在运行的游戏或登录器绝不会被误伤，即使其他 bottle 还在运行也一样。可用 `soju sweep` 手动执行。
 
 ## 仓库里有什么
 
@@ -273,7 +273,7 @@ scripts/play.sh steam-kill       # 停止 Steam bottle
 
 ## 许可
 
-- 本仓库的脚本和文档：**GPL-3.0**（见 LICENSE）
+- 本仓库的脚本和文档：**GPL-3.0-or-later**（见 LICENSE）
 - 引擎构建自 CodeWeavers 公开的 Wine 源码（GPL/LGPL）。来源：`media.codeweavers.com/pub/crossover/source/`
 - **不包含且永远不会包含**：Apple D3DMetal/GPTK 二进制（禁止再分发）、CrossOver 应用二进制、任何 Blizzard 文件
 - 本项目与 CodeWeavers、Apple、Blizzard Entertainment 均无关联。Battle.net 和 Diablo 是 Blizzard Entertainment 的商标。使用风险自负；使用第三方兼容层进行在线游戏请自行斟酌。
