@@ -87,5 +87,50 @@ class FetchGptkTests(unittest.TestCase):
             self.unpack([e for e in payload() if not e[0].endswith("dxgi.dll")])
 
 
+class BuildChoiceTests(unittest.TestCase):
+    def setUp(self):
+        import json
+        self.manifest = json.loads((ROOT / "resources/gptk.json").read_text())
+
+    def test_reads_the_chip_generation(self):
+        self.assertEqual(fetch_gptk.chip_generation("Apple M6 Pro"), 6)
+        self.assertEqual(fetch_gptk.chip_generation("Apple M4"), 4)
+        self.assertEqual(fetch_gptk.chip_generation("Apple M10 Max"), 10)
+        self.assertEqual(fetch_gptk.chip_generation("Intel(R) Core(TM) i9"), 0)
+        self.assertEqual(fetch_gptk.chip_generation(""), 0)
+
+    def test_m6_and_newer_get_the_beta_others_keep_3_0(self):
+        self.assertEqual(fetch_gptk.choose(self.manifest, 6)["version"], "4.0 beta 3")
+        self.assertEqual(fetch_gptk.choose(self.manifest, 7)["version"], "4.0 beta 3")
+        for gen in (0, 1, 4, 5):
+            self.assertEqual(fetch_gptk.choose(self.manifest, gen)["version"], "3.0")
+
+    def test_the_beta_build_is_pinned_like_the_default(self):
+        newer = self.manifest["newer_chips"]
+        self.assertTrue(newer["url"].startswith("https://github.com/BCD1210/soju/releases/download/"))
+        self.assertRegex(newer["sha256"], "^[0-9a-f]{64}$")
+        self.assertIn("d3d12core.dll", newer["shims"])
+        for shim in ("d3d11.dll", "d3d12.dll", "dxgi.dll"):
+            self.assertIn(shim, newer["shims"])
+        known = (ROOT / "scripts/get-gptk.sh").read_text()
+        self.assertIn("4.0 beta 3", known)
+
+    def test_installed_needs_every_shim_of_the_build(self):
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        engine = Path(tmp.name)
+        pe = engine / "lib/wine/x86_64-windows"; pe.mkdir(parents=True)
+        (engine / "lib/external").mkdir(parents=True)
+        (engine / "lib/external/libd3dshared.dylib").write_bytes(b"x")
+        build = {"shims": ["d3d12.dll", "d3d12core.dll"]}
+        (pe / "d3d12.dll").write_bytes(b"..D3DMetalDLLsBase..")
+        self.assertFalse(fetch_gptk.installed(engine, build))
+        (pe / "d3d12core.dll").write_bytes(b"wine's own")
+        self.assertFalse(fetch_gptk.installed(engine, build))
+        (pe / "d3d12core.dll").write_bytes(b"..D3DMetalDLLsBase..")
+        self.assertTrue(fetch_gptk.installed(engine, build))
+        (engine / "lib/external/libd3dshared.dylib").unlink()
+        self.assertFalse(fetch_gptk.installed(engine, build))
+
+
 if __name__ == "__main__":
     unittest.main()
