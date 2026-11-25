@@ -8,6 +8,14 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+_BEFORE = os.environ.get("SOJU_BASE")
+
+
+def restore_base():
+    if _BEFORE is None: os.environ.pop("SOJU_BASE", None)
+    else: os.environ["SOJU_BASE"] = _BEFORE
+
+
 def load(base):
     os.environ["SOJU_BASE"] = str(base)
     spec = importlib.util.spec_from_file_location("game_settings", ROOT / "scripts/game-settings.py")
@@ -20,6 +28,7 @@ class GameSettingsTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="soju settings ' ")
         self.addCleanup(self.temp.cleanup)
+        self.addCleanup(restore_base)
         self.base = Path(self.temp.name)
         self.g = load(self.base)
 

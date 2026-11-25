@@ -20,6 +20,12 @@ ask(){
   case "$a" in y|Y|yes) return 0;; *) return 1;; esac
 }
 
+# Does this launcher script belong to this install? install.sh writes the engine path with
+# printf %q (no quotes); older ones wrote it in double quotes.
+names_engine(){
+  grep -qxF "$(printf 'export ENGINE=%q' "$ENGINE")" "$1" || grep -qF "ENGINE=\"$ENGINE\"" "$1"
+}
+
 [ "${1:-}" = launcher ] || echo "soju uninstall: this removes things soju created. Nothing is touched without a yes."
 
 # Stop only after this bottle's removal (or engine removal) was accepted.
@@ -69,7 +75,7 @@ if [ "${1:-}" = launcher ]; then
   done
   [ "${2}" != steam ] || rm -f "$BASE/steam-gptk"
   l="$HOME/Applications/$app.app/Contents/MacOS/launcher"
-  if [ -n "$app" ] && [ -f "$l" ] && grep -q "scripts/play.sh" "$l" && grep -qF "ENGINE=\"$ENGINE\"" "$l"; then
+  if [ -n "$app" ] && [ -f "$l" ] && grep -q "scripts/play.sh" "$l" && names_engine "$l"; then
     rm -rf "$HOME/Applications/$app.app"; found=1
   fi
   [ "$found" = 1 ] || { echo "Nothing to remove for ${2}."; exit 0; }
@@ -83,7 +89,7 @@ fi
 apps=()
 for a in "Battle.net" "Steam (Windows)" "Epic Games Launcher" "GOG GALAXY" "EA app" "Rockstar Games Launcher" "Ubisoft Connect"; do
   l="$HOME/Applications/$a.app/Contents/MacOS/launcher"
-  [ -f "$l" ] && grep -q "scripts/play.sh" "$l" && grep -qF "ENGINE=\"$ENGINE\"" "$l" && apps+=("$HOME/Applications/$a.app")
+  [ -f "$l" ] && grep -q "scripts/play.sh" "$l" && names_engine "$l" && apps+=("$HOME/Applications/$a.app")
 done
 if [ "${#apps[@]}" -gt 0 ]; then
   printf 'Apps: %s\n' "${apps[@]}"

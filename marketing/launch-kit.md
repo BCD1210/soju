@@ -2,7 +2,7 @@
 
 Publication copy and assets. Positioning: a free, open-source game launcher toolkit for Apple Silicon Macs.
 
-Soju sets up Battle.net, Steam, Epic Games Launcher and GOG GALAXY. It provides terminal setup, separate Wine environments and a Mac launch app for each store. The store clients retain their own interfaces; a unified library UI is not currently provided.
+Soju sets up Battle.net, Steam, Epic Games Launcher and GOG GALAXY. It provides terminal setup, separate Wine environments and a Mac launch app for each store. The store clients retain their own interfaces. (Written 2026-09-06, before the Soju app and its unified library; kept as the record of that launch.)
 
 ## English community post
 

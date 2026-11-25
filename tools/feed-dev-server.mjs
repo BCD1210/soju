@@ -1,7 +1,7 @@
 // The Didim Labs feed on this machine, for trying the app's Feed shelf without the deployed site:
 //   node tools/feed-dev-server.mjs [port] [email] [database file]
 // then start Soju with SOJU_FEED_URL=http://127.0.0.1:<port>. It runs site-worker/feed.js against a local SQLite file,
-// prints a token for <email> (an operator here, so news can be posted), and writes it where Soju reads it when asked with --save-token.
+// makes a token for <email> (an operator here, so news can be posted) and, with --save-token, writes it where Soju reads it. The token is never printed.
 import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";

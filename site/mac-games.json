@@ -7,11 +7,11 @@
    "name": "Diablo II: Resurrected",
    "launcher": "battlenet",
    "status": "verified",
-   "detail": "Played in-game and online on an M4 Pro with macOS 26.5. Direct3D 12 through Apple's D3DMetal. Needs macOS 26.4 or later: the game requires AVX, which Rosetta 2 offers from 26.4.",
+   "detail": "Played in-game and online on an M4 Pro with macOS 26.5. Direct3D 12 through Apple's D3DMetal. Needs macOS 26.4 or later: the anti-cheat Blizzard added in January 2026 trips a Rosetta 2 bug that Apple fixed in 26.4.",
    "guide": "../guides/diablo-2-resurrected-apple-silicon.html",
    "ko": {
     "name": "디아블로 2 레저렉션",
-    "detail": "M4 Pro, macOS 26.5에서 게임 안까지 들어가 온라인으로 플레이했습니다. Direct3D 12를 애플 D3DMetal로 돌립니다. macOS 26.4 이상이 필요합니다(게임이 AVX를 요구하고, 로제타 2가 26.4부터 지원).",
+    "detail": "M4 Pro, macOS 26.5에서 게임 안까지 들어가 온라인으로 플레이했습니다. Direct3D 12를 애플 D3DMetal로 돌립니다. macOS 26.4 이상이 필요합니다(2026년 1월 블리자드가 넣은 안티치트가 로제타 2 버그를 건드리는데, 애플이 26.4에서 고쳤습니다).",
     "guide": "../../guides/ko/diablo-2-mac.html"
    },
    "verified_on": "2026-08-27"

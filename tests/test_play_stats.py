@@ -247,10 +247,6 @@ class PlayStats(unittest.TestCase):
         self.assertTrue(any('steamapps\\common\\new game' in n for n in games['steam:42'][1]))
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class BlizzardCrashTests(unittest.TestCase):
     def test_reads_the_crash_report_the_game_wrote(self):
         import tempfile, time
@@ -268,3 +264,7 @@ class BlizzardCrashTests(unittest.TestCase):
             self.assertEqual(ps.blizzard_crash(Path(d) / "missing", 0), ("", ""))
             (report / "Crash.txt").write_text("")   # an empty report says nothing
             self.assertEqual(ps.blizzard_crash(d, 0), ("", ""))
+
+
+if __name__ == '__main__':
+    unittest.main()

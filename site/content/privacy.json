@@ -28,7 +28,7 @@
       "props": {
         "title": "Privacy",
         "lead": "Soju is a Mac app made by Didim Labs. It keeps your game library on your Mac. This page lists everything that leaves it.",
-        "meta": "Last updated November 9, 2026"
+        "meta": "Last updated November 25, 2026"
       }
     },
     {
@@ -82,8 +82,27 @@
               "When it opens, Soju asks GitHub for the list of Soju releases to tell you if a newer version is out. The request says nothing about you or your games.",
               "Account connections you add (Steam, GOG and others) talk to those services directly from your Mac.",
               "If you turn on TV & iPad streaming, Soju installs Sunshine (open source, LizardByte) on your Mac. It streams only to devices you pair with a PIN on your own network, keeps its settings page on your Mac, and only contacts GitHub to check for new versions.",
-              "Play counts (on unless you turn them off): Soju sends which games are installed (once a day) and how many minutes a game stayed open, with your Mac model, chip, macOS and Soju version and a random id made on your Mac. When a game closes within a minute or does not start, it also sends a short reason read on your Mac from Soju's launch log: one word (such as crash or missing file), the name of the missing file or the error number, and which anti-cheat the game uses. The log itself stays on your Mac. No account, email, name or file path. We use it only to see which games run, and publish no one's data. Turn it off under Stores (Share which games I play) or with soju stats off.",
+              "Play counts (on unless you turn them off): Soju sends which games are installed (once a day) and how many minutes a game stayed open, with your Mac model, chip, macOS and Soju version and a random id made on your Mac. When a game closes within a minute or does not start, it also sends a short reason read on your Mac from Soju's launch log: one word (such as crash or missing file), the name of the missing file or the error number, and which anti-cheat the game uses. The log itself stays on your Mac. No account, email, name or file path. The server keeps the internet address a report came from for about two hours, only to limit abuse, and then deletes it. We use the counts to see which games run. The game pages on this site may show a game as played in Soju from the totals for that game; nothing about one person or one Mac is published. Turn it off under Stores (Share which games I play) or with soju stats off.",
               "Soju has no ads tracking or crash reporting."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "Section",
+      "props": {
+        "id": "feed",
+        "title": "The Didim Labs feed"
+      },
+      "children": [
+        {
+          "type": "Bullets",
+          "props": {
+            "items": [
+              "The feed in Soju's Didim Labs page is for people signed in with Apple or Google. Reading it sends a sign-in token that Soju keeps on your Mac.",
+              "If you post, we keep the nickname you pick, your posts and replies, the photos you attach, your likes and your reports of other posts, tied to your account email. Other people see the nickname, never the email.",
+              "Deleting a post in Soju deletes it, its photos and its replies from our server. To delete the account and everything posted under it, write to hello@didimlabs.com."
             ]
           }
         }
@@ -144,7 +163,7 @@
         {
           "type": "Text",
           "props": {
-            "text": "디딤랩스 스토어에서 게임을 사거나 데모를 받을 때 애플·구글 로그인을 합니다. 이메일 주소만 받아, Polar에서 그 이메일로 산 게임의 라이선스 키를 찾는 데 한 번 씁니다. 로그인 결과는 서버에 최대 10분만 남고, 디딤랩스 계정으로 이메일·로그인 방식·처음과 마지막 로그인 날짜를 보관합니다. 소주에서 결제할 때도 같은 이메일을 씁니다. 결제 정보는 Polar가 처리하며 우리는 카드 번호를 보지 않습니다. 소주 앱은 설치한 게임 목록(하루 한 번)과 게임별 플레이 시간을 맥 기종·macOS·소주 버전, 맥에서 만든 무작위 번호와 함께 보냅니다. 계정, 이메일, 이름, 파일 경로는 보내지 않고, 어떤 게임이 되는지 보는 데만 쓰고 개인별 기록은 공개하지 않습니다. Platforms의 Share which games I play나 soju stats off로 끌 수 있습니다. 웹사이트는 쿠키 없이 방문 수와 로딩 속도만 세는 Cloudflare Web Analytics를 씁니다. 출시 알림을 신청한 이메일은 새 게임 소식에만 씁니다. 문의와 삭제 요청: hello@didimlabs.com"
+            "text": "디딤랩스 스토어에서 게임을 사거나 데모를 받을 때 애플·구글 로그인을 합니다. 이메일 주소만 받아, Polar에서 그 이메일로 산 게임의 라이선스 키를 찾는 데 한 번 씁니다. 로그인 결과는 서버에 최대 10분만 남고, 디딤랩스 계정으로 이메일·로그인 방식·처음과 마지막 로그인 날짜를 보관합니다. 소주에서 결제할 때도 같은 이메일을 씁니다. 결제 정보는 Polar가 처리하며 우리는 카드 번호를 보지 않습니다. 소주 앱은 설치한 게임 목록(하루 한 번)과 게임별 플레이 시간을 맥 기종·macOS·소주 버전, 맥에서 만든 무작위 번호와 함께 보냅니다. 계정, 이메일, 이름, 파일 경로는 보내지 않고, 보고가 온 인터넷 주소는 남용을 막는 용도로 약 2시간만 보관한 뒤 지웁니다. 어떤 게임이 되는지 보는 데 쓰고, 게임별 합계로 사이트의 게임 페이지에 '플레이됨'을 표시할 수 있지만 개인별 기록은 공개하지 않습니다. 소주의 Didim Labs 피드에 글을 쓰면 닉네임, 글과 답글, 첨부 사진, 좋아요와 신고 기록을 계정 이메일과 함께 보관합니다(다른 사람에게는 닉네임만 보입니다). 글을 지우면 서버에서도 지워지고, 계정 전체 삭제는 hello@didimlabs.com으로 요청하면 됩니다. Platforms의 Share which games I play나 soju stats off로 끌 수 있습니다. 웹사이트는 쿠키 없이 방문 수와 로딩 속도만 세는 Cloudflare Web Analytics를 씁니다. 출시 알림을 신청한 이메일은 새 게임 소식에만 씁니다. 문의와 삭제 요청: hello@didimlabs.com"
           }
         }
       ]

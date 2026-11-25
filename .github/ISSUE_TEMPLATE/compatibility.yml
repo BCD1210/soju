@@ -70,7 +70,7 @@ body:
     attributes:
       label: Engine and graphics setup
       description: Include the engine version and D3DMetal or DXMT setup if known. Unknown is OK.
-      placeholder: Soju engine v1.5 + D3DMetal, or Wine Stable + custom DXMT
+      placeholder: Soju engine v1.10 + D3DMetal, or Wine Stable + custom DXMT
   - type: input
     id: fps
     attributes:
