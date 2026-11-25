@@ -3,8 +3,10 @@ import SwiftUI
 /// While streaming is meant to be on, bring Sunshine back if it quits by itself (it can when a stream drops).
 enum TVKeeper {
     static let app = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/Sunshine.app")
+    private static var timer: Timer?
     static func start() {
-        Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in check() }
+        guard timer == nil else { return }   // the main window's onAppear runs every time it is reopened
+        timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in check() }
     }
     static func check() {
         guard UserDefaults.standard.bool(forKey: "tvStreaming"), FileManager.default.fileExists(atPath: app.path) else { return }
@@ -129,8 +131,12 @@ struct TVView: View {
     private func refresh() {
         guard !model.busy else { return }
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-        process.arguments = [model.root.appendingPathComponent("scripts/stream_tv.py").path, "status"]
+        // python3 from PATH, Homebrew's first, as the other screens do: /usr/bin/python3 is a stub without the Command Line Tools.
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["python3", model.root.appendingPathComponent("scripts/stream_tv.py").path, "status"]
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+        process.environment = environment
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice

@@ -255,6 +255,29 @@ class UninstallTests(unittest.TestCase):
         self.assertTrue(x["stopped"])
         self.assertFalse(x["base"])
 
+    def test_apps_written_by_the_installer_are_removed(self):
+        # install.sh writes the launcher with printf %q; uninstall must recognise that line,
+        # and leave an app that names another install's engine alone.
+        with tempfile.TemporaryDirectory(prefix="soju test-") as t:
+            d = Path(t); home = d / "home"; base = d / "base"; engine = base / "cx26-engine"
+            (engine / "bin").mkdir(parents=True)
+            def app(name, engine_path):
+                macos = home / "Applications" / (name + ".app") / "Contents/MacOS"
+                macos.mkdir(parents=True)
+                made = subprocess.run([BASH, "-c", 'printf \'#!/bin/bash\\n\'; printf \'export ENGINE=%q\\nexport SOJU_BASE=%q\\n\' "$1" "$2"; '
+                                       'printf \'exec /bin/bash %q %q\\n\' /x/scripts/play.sh battlenet', "_", str(engine_path), str(base)],
+                                      capture_output=True, text=True, check=True)
+                (macos / "launcher").write_text(made.stdout)
+            app("Battle.net", engine); app("Epic Games Launcher", d / "other/cx26-engine")
+            script = d / "scripts/uninstall.sh"; script.parent.mkdir()
+            for helper in ("steam-runtime.sh", "steam-session.py", "uninstall.sh"):
+                (script.parent / helper).write_text((ROOT / "scripts" / helper).read_text())
+            x = subprocess.run([BASH, str(script), "--yes"], env={**os.environ, "HOME": str(home), "SOJU_BASE": str(base), "ENGINE": str(engine)},
+                               capture_output=True, text=True, timeout=15, start_new_session=True)
+            self.assertEqual(x.returncode, 0, x.stderr)
+            self.assertFalse((home / "Applications/Battle.net.app").exists())
+            self.assertTrue((home / "Applications/Epic Games Launcher.app").exists())
+
 
 class HelperTests(unittest.TestCase):
     def test_build_failure_retry_and_existing_helper(self):

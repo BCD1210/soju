@@ -117,7 +117,7 @@ class D2RMacOSTests(unittest.TestCase):
                 result = self.run_script('doctor.sh', '26.0.1', scope)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn('warn  D2R', result.stdout)
-                self.assertNotIn('All good', result.stdout)
+                self.assertNotIn('Environment checks passed', result.stdout)
                 self.assertIn('review the warnings', result.stdout)
 
     def test_explicit_d2r_diagnosis_fails_on_old_os(self):
@@ -128,7 +128,7 @@ class D2RMacOSTests(unittest.TestCase):
     def test_doctor_unknown_version_is_not_green(self):
         result = self.run_script('doctor.sh', '', 'battlenet')
         self.assertIn('warn  D2R', result.stdout)
-        self.assertNotIn('All good', result.stdout)
+        self.assertNotIn('Environment checks passed', result.stdout)
 
     def test_doctor_supported_os_does_not_claim_game_was_tested(self):
         result = self.run_script('doctor.sh', '26.5', 'd2r')

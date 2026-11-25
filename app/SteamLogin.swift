@@ -5,7 +5,12 @@ enum SteamWebSession {
     // WebKit's store belongs to Soju, separate from Safari and the Steam client.
     static let dataStore = WKWebsiteDataStore.default()
     static func clear(completion: @escaping () -> Void) {
-        dataStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast, completionHandler: completion)
+        // The store is shared with the GOAT games, whose saves live in it: remove Steam's sites only.
+        let types = WKWebsiteDataStore.allWebsiteDataTypes()
+        dataStore.fetchDataRecords(ofTypes: types) { records in
+            let steam = records.filter { r in ["steampowered.com", "steamcommunity.com", "steamstatic.com", "valvesoftware.com", "steam-chat.com"].contains { r.displayName == $0 || r.displayName.hasSuffix("." + $0) } }
+            dataStore.removeData(ofTypes: types, for: steam, completionHandler: completion)
+        }
     }
 }
 

@@ -158,6 +158,7 @@ def activate(uid):
     info = fetch_json(STORE + '/api/didim/download', {'game': uid, 'key': key})
     name, size, digest, url = info.get('name'), info.get('size'), info.get('sha256'), info.get('url')
     if not (isinstance(name, str) and name.endswith('.zip') and '/' not in name and isinstance(size, int)
+            and 0 < size < 4 * 1024 ** 3
             and isinstance(digest, str) and re.fullmatch(r'[0-9a-f]{64}', digest)
             and isinstance(url, str) and url.startswith('https://')):
         raise ValueError('The store sent an unexpected answer.')
@@ -174,17 +175,17 @@ def download_install(name, size, digest, url, expect):
     print('Downloading ' + name + ' (' + str(size // (1024 * 1024)) + ' MB)…', flush=True)
     sha = hashlib.sha256(); done = 0; shown = -1
     request = urllib.request.Request(url, headers={'User-Agent': 'Soju'})
-    with urllib.request.urlopen(request, timeout=60) as response, target.open('wb') as out:
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk: break
-            out.write(chunk); sha.update(chunk); done += len(chunk)
-            if done > size: raise ValueError('The download is larger than expected.')
-            percent = done * 100 // size
-            if percent // 5 != shown:
-                shown = percent // 5
-                print('Downloading… ' + str(percent) + '%', flush=True)
     try:
+        with urllib.request.urlopen(request, timeout=60) as response, target.open('wb') as out:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk: break
+                out.write(chunk); sha.update(chunk); done += len(chunk)
+                if done > size: raise ValueError('The download is larger than expected.')
+                percent = done * 100 // size
+                if percent // 5 != shown:
+                    shown = percent // 5
+                    print('Downloading… ' + str(percent) + '%', flush=True)
         if done != size or sha.hexdigest() != digest:
             raise ValueError('The download was damaged. Try again.')
         install(target, expect=expect)

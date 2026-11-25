@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Diablo II: Resurrected: fully free stack launcher (final verified combination)
+# Starts every launcher Soju supports (Battle.net, Steam, Epic, GOG, EA, Rockstar, Ubisoft) and stops their bottles.
+# It began as the Diablo II: Resurrected launcher; that verified combination is below.
 #
 # Stack: self-built wine 11.0 (CrossOver 26.3 GPL sources) + D3DMetal (Apple GPTK)
 # Verified 2026-08-27: Battle.net login / Agent / D2R in-game.
@@ -298,7 +299,7 @@ case "$MODE" in
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     bottle_kill_leftovers "$WINEPREFIX" || true
-    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
+    sleep 2; [ ! -x "$SWEEP" ] || "$SWEEP"
     ;;
   gog)         # GOG GALAXY, same engine and env as Battle.net (verified 2026-08-30)
     # GOG GALAXY 2.x is Qt6 + QtWebEngine. Its D3D11 compositing path needs
@@ -331,7 +332,7 @@ case "$MODE" in
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     bottle_kill_leftovers "$WINEPREFIX" || true
-    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
+    sleep 2; [ ! -x "$SWEEP" ] || "$SWEEP"
     ;;
   ea|rockstar|ubisoft)   # EA app, Rockstar Games Launcher, Ubisoft Connect (verified 2026-11-10)
     # Installed by create-launcher-bottle.sh. Closing a window parks EA and
@@ -354,7 +355,7 @@ case "$MODE" in
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     bottle_kill_leftovers "$WINEPREFIX" || true
-    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
+    sleep 2; [ ! -x "$SWEEP" ] || "$SWEEP"
     ;;
   steam)       # Steam client, wine-stable + webhelper wrapper (verified 2026-08-27)
     # Steam's CEF does not render on the CX engine (black screen / SEGV storm).
@@ -406,6 +407,8 @@ case "$MODE" in
       done
       pgrep -f 'Steam.steam\.exe' >/dev/null 2>&1 || \
         python3 "$(dirname "${BASH_SOURCE[0]}")/steam-profiles.py" options || true
+      # NW.js games (RPG Maker MV/MZ) need --in-process-gpu here too; Steam restores package.json on updates.
+      python3 "$(dirname "${BASH_SOURCE[0]}")/steam-profiles.py" nwjs || true
       export WINEDLLOVERRIDES="winemenubuilder.exe=;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d"
       "$ENGINE/bin/wine" reg delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run' /v Steam /f >/dev/null 2>&1 || true
       # GoldSrc OpenGL setting (#153), once per bottle; the Wine 11 bottle gets it from setup-steam-games.sh.
@@ -558,7 +561,7 @@ case "$MODE" in
     pkill -f "soju-reaper.sh $WINEPREFIX" 2>/dev/null || true
     "$ENGINE/bin/wineserver" -k 2>/dev/null || true
     bottle_kill_leftovers "$WINEPREFIX" || true
-    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
+    sleep 2; [ ! -x "$SWEEP" ] || "$SWEEP"
     ;;
   steam-kill)  # Stop everything in the Steam bottle, note this bottle runs on
     # wine-stable, so it needs wine-stable's wineserver. Killing the CX engine's
@@ -571,7 +574,7 @@ case "$MODE" in
     [ ! -d "$S_BASE/steam-gptk-bottle" ] || [ ! -x "$S_BASE/cx26-engine-steam/bin/wineserver" ] || \
       WINEPREFIX="$S_BASE/steam-gptk-bottle" "$S_BASE/cx26-engine-steam/bin/wineserver" -k 2>/dev/null || true
     for b in "$S_BASE/steam-bottle" "$S_BASE/steam-gptk-bottle"; do [ ! -d "$b" ] || bottle_kill_leftovers "$b" || true; done
-    sleep 2; [ -x "$SWEEP" ] && "$SWEEP"
+    sleep 2; [ ! -x "$SWEEP" ] || "$SWEEP"
     ;;
   *) echo "usage: play.sh [battlenet|d2r|epic|epic-kill|gog|gog-kill|ea|ea-kill|rockstar|rockstar-kill|ubisoft|ubisoft-kill|steam|kill|steam-kill]"; exit 1;;
 esac

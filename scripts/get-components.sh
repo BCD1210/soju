@@ -29,7 +29,7 @@ LIBS_SHA256="01f3a1b43b98065fe20c529c1023b61dd79a6d2ad93bba6040865f646481ccf3"
 fetch_checked "$LIBS_URL" "$WORK/whisky-libs.tar.gz" "$LIBS_SHA256"
 mkdir -p "$WORK/whisky-libs"
 tar -xzf "$WORK/whisky-libs.tar.gz" -C "$WORK/whisky-libs"
-cp -f "$WORK/whisky-libs/Libraries/Wine/lib/"*.dylib "$DEPS/lib/" 2>/dev/null
+cp -f "$WORK/whisky-libs/Libraries/Wine/lib/"*.dylib "$DEPS/lib/" || { echo "Could not copy the dylibs into $DEPS/lib" >&2; exit 1; }
 echo "    Got $(ls "$DEPS/lib"/*.dylib | wc -l | tr -d ' ') dylibs"
 
 echo "==> Downloading wine-mono 10.4.1 (official release)"

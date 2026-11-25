@@ -493,7 +493,10 @@ def setup(refresh=False):
         quiet_loader_warning(game, game_build(BOTTLE))
     (VR / 'dlss').mkdir(exist_ok=True)
     shutil.copy2(ngx_unwrap, VR / 'dlss/nvngx.dll')
-    fix_settings(BOTTLE / SAVES_REL, dlss=dlss_bridge(m))
+    try:
+        fix_settings(BOTTLE / SAVES_REL, dlss=dlss_bridge(m))
+    except (OSError, ValueError):
+        pass   # no Settings.json before the game's first start; play applies them again
     isolate_user_folders(BOTTLE)
     write_runtime_routing(m)
     stop_bottle(BOTTLE)

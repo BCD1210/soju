@@ -7,6 +7,14 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+_BEFORE = os.environ.get("SOJU_BASE")
+
+
+def restore_base():
+    if _BEFORE is None: os.environ.pop("SOJU_BASE", None)
+    else: os.environ["SOJU_BASE"] = _BEFORE
+
+
 def load(base):
     os.environ["SOJU_BASE"] = str(base)
     spec = importlib.util.spec_from_file_location("game_storage", ROOT / "scripts/game-storage.py")
@@ -19,6 +27,7 @@ class GameStorageTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="soju storage ' ")
         self.addCleanup(self.temp.cleanup)
+        self.addCleanup(restore_base)
         top = Path(self.temp.name).resolve()
         self.base = top / "base"
         self.drive = top / "drive"
@@ -82,6 +91,13 @@ class GameStorageTests(unittest.TestCase):
             self.s.move("battlenet:fenris", str(self.drive))
         self.assertFalse(self.game.is_symlink())
         self.assertTrue((self.game / "Data/a.bin").is_file())
+        # The stopped move left files on the drive: moving the same game again carries on.
+        self.s.tree = real
+        target = self.drive / "Soju Games/battlenet/Diablo IV"
+        (target / "stale.bin").write_text("left by the first try")
+        self.assertTrue(self.s.move("battlenet:fenris", str(self.drive))["moved"])
+        self.assertFalse((target / "stale.bin").exists())
+        self.assertFalse((target.parent / "Diablo IV.soju-copying").exists())
 
     def test_import_links_an_existing_game_without_copying(self):
         have = self.drive / "Games/Overwatch"

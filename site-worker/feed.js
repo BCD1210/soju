@@ -11,6 +11,7 @@
 //   GET  /api/feed/image/<id>?k=<key>&s=thumb|full   a photo of a post that is shown
 //   POST /api/feed/like   {post, on}
 //   POST /api/feed/report {post}                  three accounts reporting a post hide it until an operator looks
+//   POST /api/feed/edit   {post, body}            one's own post, for 15 minutes after it is written
 //   POST /api/feed/delete {post}                  one's own post (an operator: any post)
 //   POST /api/feed/signout                        forgets the token this request carries
 //   GET  /api/feed/notices                        the bell: replies to and likes on this account's posts, and news, newest first

@@ -6,7 +6,7 @@
 //   library: games [{game, title, launcher}]           replaces that install's list of installed games
 //   launch:  games [{game, title, launcher, result, how, why?, detail?, ac?}] counts one start: result ran | quick_exit | no_start,
 //            how soju (the library's Play button) | steam (Steam's own window)
-// Nothing is published: the counts are read with wrangler (below).
+// Per-game totals feed the "Plays" label on the game pages (site/soju_plays.py); nothing about one install is published.
 //
 // Read everything: wrangler d1 execute soju-stats --remote --command "select * from plays" -c wrangler.didimlabs.toml
 
@@ -51,7 +51,12 @@ export async function stats(request, env, url) {
   if (sent > 10) return json({ error: "Busy, try later." }, 429);
   if (Number(request.headers.get("content-length") || 0) > 64 * 1024) return json({ error: "Too large." }, 413);
   let input;
-  try { input = await request.json(); } catch { return json({ error: "Send JSON." }, 400); }
+  try {
+    // A body sent without a length is measured after it is read, before anything is parsed.
+    const body = await request.text();
+    if (body.length > 64 * 1024) return json({ error: "Too large." }, 413);
+    input = JSON.parse(body);
+  } catch { return json({ error: "Send JSON." }, 400); }
   const id = text(input?.id, 40).toLowerCase();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) return json({ error: "Bad id." }, 400);
   const kind = input.kind;
@@ -62,7 +67,9 @@ export async function stats(request, env, url) {
   const hour = Math.floor(Date.now() / 3600000);
   const hit = await db.prepare("INSERT INTO hits (address, hour, n) VALUES (?, ?, 1) ON CONFLICT (address, hour) DO UPDATE SET n = n + 1 RETURNING n")
     .bind(address || "none", hour).first();
-  if (Math.random() < 0.02) await db.prepare("DELETE FROM hits WHERE hour < ?").bind(hour - 1).run();
+  // Addresses are kept for this hour and the one before (the privacy page says about two hours): an address's
+  // first report of an hour clears the older rows.
+  if ((hit?.n || 0) === 1) await db.prepare("DELETE FROM hits WHERE hour < ?").bind(hour - 1).run();
   if ((hit?.n || 0) > 30) return json({ error: "Busy, try later." }, 429);
   const machine = [text(input.mac, 40), text(input.chip, 60), text(input.macos, 20), text(input.soju, 20)];
   const now = new Date().toISOString();
