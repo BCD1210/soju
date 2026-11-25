@@ -3,8 +3,13 @@
 Used by the library (a note on the game: these usually close right after starting on a Mac)
 and by the play counts (scripts/play-stats.py), which send the short name with a start that did not run.
 """
+import json
 import os
+import re
+import sys
 from pathlib import Path
+
+DENIED = Path(__file__).resolve().parent.parent / "resources" / "anticheat-denied.json"
 
 ANTICHEAT = (("eac", "Easy Anti-Cheat", ("easyanticheat", "easyanticheat_eos", "start_protected_game.exe")),
              ("battleye", "BattlEye", ("battleye", "beservice.exe", "beservice_x64.exe")),
@@ -50,3 +55,41 @@ def note(path):
     label = next(l for n, l, _ in ANTICHEAT if n == found)
     return ("This game uses " + label + ". Anti-cheat of this kind looks for Windows itself, so the game may close "
             "right after it starts, or play offline only.")
+
+
+def _key(title):
+    return re.sub(r"[^a-z0-9]+", "", re.sub(r"[™®©]", "", str(title or "").lower()))
+
+
+def denied(title, appid=None, path=None, table=None):
+    """The anti-cheat that stops this game outside Windows by its makers' choice, or "": games listed as
+    Denied on Are We Anti-Cheat Yet? (resources/anticheat-denied.json), and any game carrying Riot Vanguard,
+    a kernel driver Wine cannot load. Such a game never starts on a Mac, so Play says so first."""
+    try:
+        games = table if table is not None else json.loads(DENIED.read_text())["games"]
+    except (OSError, ValueError, KeyError):
+        games = []
+    key = _key(title)
+    for g in games:
+        if (appid and g.get("appid") == str(appid)) or (key and _key(g.get("title")) == key):
+            return g.get("anticheat") or "its anti-cheat"
+    if path and anticheat(path) == "vanguard":
+        return "Riot Vanguard"
+    return ""
+
+
+def refresh(source):
+    """Rewrite resources/anticheat-denied.json from site/anticheat.json (scripts/ for the site keep that one current)."""
+    data = json.loads(Path(source).read_text())
+    out = [{"title": g["title"], "appid": g.get("appid"), "anticheat": ", ".join(g.get("anticheats") or [])}
+           for g in data["games"].values() if g.get("status") == "Denied" and "(" not in g["title"]]
+    out += [{"title": t, "appid": None, "anticheat": "BattlEye"} for t in ("Grand Theft Auto V Enhanced", "Grand Theft Auto V Legacy")]
+    out.sort(key=lambda g: g["title"].lower())
+    DENIED.write_text(json.dumps({"_source": "Are We Anti-Cheat Yet? (MIT), games whose makers deny Wine/Proton; "
+                                  "refresh with scripts/soju_anticheat.py --refresh", "games": out},
+                                 ensure_ascii=False, indent=1) + "\n")
+    return len(out)
+
+
+if __name__ == "__main__" and sys.argv[1:2] == ["--refresh"]:
+    print(refresh(Path(__file__).resolve().parent.parent / "site" / "anticheat.json"))

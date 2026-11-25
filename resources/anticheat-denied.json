@@ -1,0 +1,250 @@
+{
+ "_source": "Are We Anti-Cheat Yet? (MIT), games whose makers deny Wine/Proton; refresh with scripts/soju_anticheat.py --refresh",
+ "games": [
+  {
+   "title": "2XKO",
+   "appid": null,
+   "anticheat": "Vanguard"
+  },
+  {
+   "title": "Apex Legends",
+   "appid": "1172470",
+   "anticheat": "Easy Anti-Cheat, Hyperion"
+  },
+  {
+   "title": "Arena Breakout: Infinite",
+   "appid": "2073620",
+   "anticheat": "Anti-Cheat Expert"
+  },
+  {
+   "title": "Battlefield 1",
+   "appid": "1238840",
+   "anticheat": "FairFight, EA anticheat"
+  },
+  {
+   "title": "Battlefield 6",
+   "appid": "2807960",
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "Battlefield REDSEC",
+   "appid": null,
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "Battlefield V",
+   "appid": "1238810",
+   "anticheat": "FairFight, EA anticheat"
+  },
+  {
+   "title": "Battlefield™ 2042",
+   "appid": "1517290",
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "Breachers",
+   "appid": "1922010",
+   "anticheat": "Easy Anti-Cheat"
+  },
+  {
+   "title": "Call of Duty: Black Ops 7",
+   "appid": "3606480",
+   "anticheat": "Ricochet"
+  },
+  {
+   "title": "Concord",
+   "appid": "907630",
+   "anticheat": "Easy Anti-Cheat"
+  },
+  {
+   "title": "CRSED: Cuisine Royale",
+   "appid": null,
+   "anticheat": "BattlEye"
+  },
+  {
+   "title": "Delta Force: Hawk Ops",
+   "appid": null,
+   "anticheat": "Anti-Cheat Expert"
+  },
+  {
+   "title": "Destiny 2",
+   "appid": "1085660",
+   "anticheat": "BattlEye"
+  },
+  {
+   "title": "EA SPORTS FC™ 24",
+   "appid": null,
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "EA SPORTS FC™ 25",
+   "appid": "2669320",
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "EA SPORTS FC™ 26",
+   "appid": null,
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "EA SPORTS™ FIFA 23",
+   "appid": "1811260",
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "EA SPORTS™ Madden NFL 24",
+   "appid": "2140330",
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "EA SPORTS™ Madden NFL 25",
+   "appid": null,
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "EA SPORTS™ Madden NFL 26",
+   "appid": "3230400",
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "EA SPORTS™ WRC 24",
+   "appid": "1849250",
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "Exoborne",
+   "appid": "2705130",
+   "anticheat": "Easy Anti-Cheat, AnyBrain"
+  },
+  {
+   "title": "F1® 24",
+   "appid": "2488620",
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "F1® 25",
+   "appid": null,
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "Farlight 84",
+   "appid": "1928420",
+   "anticheat": "NetEase Yidun"
+  },
+  {
+   "title": "FiveM",
+   "appid": null,
+   "anticheat": "Unknown (Custom)"
+  },
+  {
+   "title": "Forefront",
+   "appid": null,
+   "anticheat": "Easy Anti-Cheat"
+  },
+  {
+   "title": "Fortnite",
+   "appid": null,
+   "anticheat": "Easy Anti-Cheat"
+  },
+  {
+   "title": "Ghost of Tsushima Director's Cut",
+   "appid": "2215430",
+   "anticheat": "PlayStation Overlay"
+  },
+  {
+   "title": "Ghosts of Tabor",
+   "appid": null,
+   "anticheat": "BattlEye"
+  },
+  {
+   "title": "Grand Theft Auto V",
+   "appid": "271590",
+   "anticheat": "BattlEye"
+  },
+  {
+   "title": "Grand Theft Auto V Enhanced",
+   "appid": null,
+   "anticheat": "BattlEye"
+  },
+  {
+   "title": "Grand Theft Auto V Legacy",
+   "appid": null,
+   "anticheat": "BattlEye"
+  },
+  {
+   "title": "Grand Theft Auto VI",
+   "appid": null,
+   "anticheat": "BattlEye"
+  },
+  {
+   "title": "League of Legends",
+   "appid": null,
+   "anticheat": "Vanguard"
+  },
+  {
+   "title": "Marathon",
+   "appid": "3065800",
+   "anticheat": "BattlEye"
+  },
+  {
+   "title": "Plants vs Zombies: Garden Warfare 2",
+   "appid": null,
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "Plants vs. Zombies: Battle for Neighborville",
+   "appid": "1262240",
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "Post Scriptum",
+   "appid": "736220",
+   "anticheat": "Easy Anti-Cheat"
+  },
+  {
+   "title": "Roblox",
+   "appid": null,
+   "anticheat": "Hyperion"
+  },
+  {
+   "title": "Rust",
+   "appid": "252490",
+   "anticheat": "Easy Anti-Cheat, VAC"
+  },
+  {
+   "title": "skate.",
+   "appid": null,
+   "anticheat": "EA anticheat"
+  },
+  {
+   "title": "Spectre Divide",
+   "appid": "2641470",
+   "anticheat": "BattlEye"
+  },
+  {
+   "title": "Teamfight Tactics",
+   "appid": null,
+   "anticheat": "Vanguard"
+  },
+  {
+   "title": "Tom Clancy's Rainbow Six® Siege",
+   "appid": "359550",
+   "anticheat": "FairFight, BattlEye"
+  },
+  {
+   "title": "Tom Clancy's Rainbow Six® Siege X",
+   "appid": "359550",
+   "anticheat": "FairFight, BattlEye, R6 ShieldGuard"
+  },
+  {
+   "title": "Valorant",
+   "appid": null,
+   "anticheat": "Vanguard"
+  },
+  {
+   "title": "Vampire: The Masquerade - Bloodhunt",
+   "appid": "760160",
+   "anticheat": "Easy Anti-Cheat, Anti-Cheat Expert"
+  }
+ ]
+}
