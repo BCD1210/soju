@@ -26,7 +26,6 @@ HIDDEN = set()            # canonical URLs of noindex pages, left out of the sit
 KO_ESTIMATES = 3000   # Korean pages for the most-reported estimated games
 INDEX_ESTIMATES = 300
 WELL_SUPPORTED = 40      # ProtonDB reports for a likely estimate to be indexable
-PLAYED_MINUTES = 30      # minutes Soju users kept a game open, in all, for its page to say "Plays"
 CHECKED = DATA["checked"]
 REPORT = "https://github.com/BCD1210/soju/issues/new?template=compatibility.yml"
 DISCORD = "https://discord.gg/ttBDcF5ftz"
@@ -504,18 +503,14 @@ def attach_reports(games):
         roman = re.sub(r"(?<=-)(2|3|4|5)$", lambda m: {"2": "ii", "3": "iii", "4": "iv", "5": "v"}[m.group(1)], slug)
         if roman != slug:
             by_slug.setdefault(roman, []).append(r)   # "Dark Souls 3" is the page dark-souls-iii
-    # A few minutes open is a start, not play: an error window or a menu stays up that long too.
-    long_enough = [p for p in PLAYS if p.get("minutes", 0) >= PLAYED_MINUTES]
-    played_app = {p["game"].split(":", 1)[1] for p in long_enough if p["game"].startswith("steam:")}
-    played_slug = {slugify(p["title"]) for p in long_enough if p.get("title")}
+    played_app = {p["game"].split(":", 1)[1] for p in PLAYS if p["game"].startswith("steam:")}
+    played_slug = {slugify(p["title"]) for p in PLAYS if p.get("title")}
     for g in games:
         if g["status"] in ("verified", "blocked", "blocked-online", "native"):
             continue
         reps = by_app.get(g.get("appid") or "") or by_slug.get(g["slug"]) or by_slug.get(slugify(g["name"])) or []
         played = (g.get("appid") or "") in played_app or g["slug"] in played_slug or slugify(g["name"]) in played_slug
-        # A report that it works decides; a report of trouble with none that it works outranks minutes played.
-        works = any(r["works"] for r in reps)
-        if works or (played and not reps):
+        if played or any(r["works"] for r in reps):
             g["status"] = "soju-works"
             g["detail"] = ("Soju users play this game on Apple Silicon Macs. Install Soju, sign in to the game's "
                            "launcher, install the game and press Play.")
