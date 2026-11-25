@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Wine runner for Xbox PC games: `xodus-cli run` calls this with the game's
 # decrypted launch view (Z:\...\Game.exe). Same engine and environment as the
 # other CX-engine platforms (wine 11.0 from CrossOver sources + D3DMetal),
