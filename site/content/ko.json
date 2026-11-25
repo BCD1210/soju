@@ -167,17 +167,17 @@
               {
                 "title": "Retro Classics",
                 "store": "Xbox PC",
-                "status": "메뉴까지",
-                "tone": "partial",
-                "result": "Xbox PC 앱에서 메인 메뉴까지 뜹니다(실험 기능). 다른 Xbox PC 게임은 미확인.",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "Xbox PC 앱에서 플레이 됨.",
                 "game": "xbox:9MTVJ3HHTQGS"
               },
               {
-                "title": "GOG GALAXY",
+                "title": "GOG GALAXY 게임",
                 "store": "GOG",
-                "status": "런처까지",
-                "tone": "partial",
-                "result": "로그인, 라이브러리, 설치까지 확인. 게임은 아직 거의 못 해 봤습니다."
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "로그인 후 라이브러리에서 설치·플레이 됨."
               },
               {
                 "title": "디아블로 II: 레저렉션 (스팀판)",
@@ -202,6 +202,13 @@
                 "tone": "plays",
                 "result": "소주 사용자 확인(M5 Pro): 1800×1169에서 약 60 FPS, 레이 트레이싱 작동, 약 5시간 플레이. Play를 누르면 스팀 DirectX 12 모드가 알아서 켜집니다.",
                 "game": "steam:2344520"
+              },
+              {
+                "title": "콜 오브 듀티 4: 모던 워페어 (데모)",
+                "store": "스팀",
+                "status": "플레이 됨",
+                "tone": "plays",
+                "result": "데모 미션 로드·플레이 됨."
               }
             ],
             "head": [

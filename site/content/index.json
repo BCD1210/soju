@@ -249,17 +249,17 @@
               {
                 "title": "Retro Classics",
                 "store": "Xbox PC",
-                "status": "Menu",
-                "tone": "partial",
-                "result": "Reaches its main menu from the Xbox PC app (experimental). Other Xbox PC games not tried.",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Plays from the Xbox PC app.",
                 "game": "xbox:9MTVJ3HHTQGS"
               },
               {
-                "title": "GOG GALAXY",
+                "title": "GOG GALAXY games",
                 "store": "GOG",
-                "status": "Launcher",
-                "tone": "partial",
-                "result": "Sign-in, library and installing work. Few games tried yet."
+                "status": "Plays",
+                "tone": "plays",
+                "result": "Sign in, install from the library and play."
               },
               {
                 "title": "Diablo II: Resurrected (Steam)",
@@ -284,6 +284,13 @@
                 "tone": "plays",
                 "result": "Soju user, M5 Pro: about 12 minutes of play with dialogue. [Report](https://github.com/BCD1210/soju/issues/95)",
                 "game": "steam:489830"
+              },
+              {
+                "title": "Call of Duty 4: Modern Warfare (demo)",
+                "store": "Steam",
+                "status": "Plays",
+                "tone": "plays",
+                "result": "The demo mission loads and plays."
               }
             ],
             "head": [
