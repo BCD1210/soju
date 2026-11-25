@@ -5,17 +5,18 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+SHIM = b"MZ ... D3DMetalDLLsBase ... nvngx"   # Apple's PE shims carry this build path
 SCRIPT = ROOT / "scripts/gptk-dlss.sh"
 
 
-def fake_engine(base, shim=True):
+def fake_engine(base, shim=True, name="nvngx-on-metalfx.dll"):
     eng = Path(base) / "engine"
     (eng / "lib/wine/x86_64-windows").mkdir(parents=True)
     (eng / "lib/wine/x86_64-unix").mkdir(parents=True)
     (eng / "lib/external").mkdir(parents=True)
     (eng / "lib/external/libd3dshared.dylib").write_bytes(b"dylib")
     if shim:
-        (eng / "lib/wine/x86_64-windows/nvngx-on-metalfx.dll").write_bytes(b"apple shim")
+        (eng / "lib/wine/x86_64-windows" / name).write_bytes(SHIM)
     (eng / "bin").mkdir()
     wine = eng / "bin/wine"   # records its arguments instead of running Windows code
     wine.write_text('#!/bin/sh\necho "$@" >> "$WINEPREFIX/wine-calls"\n'
@@ -38,8 +39,8 @@ class GptkDlssTests(unittest.TestCase):
             (sys32 / "nvngx.dll").write_bytes(b"wine placeholder")
             for _ in range(2):   # the second run changes nothing
                 self.assertEqual(run(eng, prefix), 0)
-            self.assertEqual((eng / "lib/wine/x86_64-windows/nvngx.dll").read_bytes(), b"apple shim")
-            self.assertEqual((sys32 / "nvngx.dll").read_bytes(), b"apple shim")
+            self.assertEqual((eng / "lib/wine/x86_64-windows/nvngx.dll").read_bytes(), SHIM)
+            self.assertEqual((sys32 / "nvngx.dll").read_bytes(), SHIM)
             so = eng / "lib/wine/x86_64-unix/nvngx.so"
             # A copied unixlib looks for D3DMetal next to itself and aborts the process.
             self.assertTrue(so.is_symlink())
@@ -58,6 +59,26 @@ class GptkDlssTests(unittest.TestCase):
             self.assertEqual(run(eng, prefix), 0)
             self.assertTrue((eng / "lib/wine/x86_64-unix/nvngx.so").is_symlink())
 
+    def test_a_payload_from_crossover_already_names_the_shim_nvngx(self):
+        with tempfile.TemporaryDirectory() as d:
+            eng = fake_engine(d, name="nvngx.dll")
+            prefix = Path(d) / "bottle"; prefix.mkdir()
+            (prefix / "system.reg").write_text("x\n")
+            sys32 = prefix / "drive_c/windows/system32"; sys32.mkdir(parents=True)
+            self.assertEqual(run(eng, prefix), 0)
+            self.assertEqual((sys32 / "nvngx.dll").read_bytes(), SHIM)
+            self.assertTrue((eng / "lib/wine/x86_64-unix/nvngx.so").is_symlink())
+
+    def test_an_nvngx_that_is_not_apples_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as d:
+            eng = fake_engine(d, shim=False)
+            (eng / "lib/wine/x86_64-windows/nvngx.dll").write_bytes(b"wine placeholder")
+            prefix = Path(d) / "bottle"; prefix.mkdir()
+            (prefix / "system.reg").write_text("x\n")
+            self.assertEqual(run(eng, prefix), 1)
+            self.assertFalse((eng / "lib/wine/x86_64-unix/nvngx.so").exists())
+            self.assertFalse((prefix / "wine-calls").exists())
+
     def test_without_apples_shim_nothing_is_touched(self):
         with tempfile.TemporaryDirectory() as d:
             eng = fake_engine(d, shim=False)
@@ -75,6 +96,8 @@ class GptkDlssTests(unittest.TestCase):
         # It may start the bottle's wineserver; one started before WINEMSYNC=1 turns the launcher away.
         call = text.index("dlss_on ;; esac")
         self.assertLess(text.index("export WINEMSYNC=1"), call)
+        # ...and the Command-as-Ctrl keys are written only while no wineserver runs, so they go first.
+        self.assertLess(text.index('"LeftCommandIsCtrl"="y"'), call)
         xbox = (ROOT / "scripts/xbox-wine.sh").read_text()
         self.assertLess(xbox.index("WINEMSYNC"), xbox.index("gptk-dlss.sh"))
         self.assertIn("D3DM_ENABLE_METALFX=1", xbox)

@@ -2,7 +2,7 @@
 # gptk-dlss.sh <engine> <prefix>: make NVIDIA DLSS work in games through
 # Apple's MetalFX (D3DMetal's NGX bridge). Run before every launch; it only
 # writes when something is missing, and does nothing on an engine without
-# Apple's nvngx-on-metalfx shim (no GPTK, or a toolkit older than 3.0).
+# Apple's NGX shim (no GPTK, or a toolkit older than 3.0).
 # Exit status 0 when the bridge is ready (the caller then sets
 # D3DM_ENABLE_METALFX=1), 1 otherwise.
 #
@@ -24,11 +24,16 @@
 set -u
 ENGINE="${1:?engine}"; PREFIX="${2:?prefix}"
 W="$ENGINE/lib/wine/x86_64-windows"; U="$ENGINE/lib/wine/x86_64-unix"
-[ -f "$W/nvngx-on-metalfx.dll" ] && [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] || exit 1
-
-if ! cmp -s "$W/nvngx-on-metalfx.dll" "$W/nvngx.dll" 2>/dev/null; then
-  cp -f "$W/nvngx-on-metalfx.dll" "$W/nvngx.dll.new" && mv -f "$W/nvngx.dll.new" "$W/nvngx.dll" || exit 1
+[ -f "$ENGINE/lib/external/libd3dshared.dylib" ] || exit 1
+# Apple's own build only (its PE shims name D3DMetalDLLsBase): a toolkit dmg installs it as
+# nvngx-on-metalfx.dll, a payload taken from CrossOver (get-gptk.sh) as nvngx.dll already.
+apple() { [ -f "$1" ] && grep -q D3DMetalDLLsBase "$1" 2>/dev/null; }
+if apple "$W/nvngx-on-metalfx.dll"; then
+  if ! cmp -s "$W/nvngx-on-metalfx.dll" "$W/nvngx.dll" 2>/dev/null; then
+    cp -f "$W/nvngx-on-metalfx.dll" "$W/nvngx.dll.new" && mv -f "$W/nvngx.dll.new" "$W/nvngx.dll" || exit 1
+  fi
 fi
+apple "$W/nvngx.dll" || exit 1
 if [ "$(readlink "$U/nvngx.so" 2>/dev/null)" != ../../external/libd3dshared.dylib ]; then
   rm -f "$U/nvngx.so"; ln -s ../../external/libd3dshared.dylib "$U/nvngx.so" || exit 1
 fi
