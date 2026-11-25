@@ -56,7 +56,7 @@ Tested by us on an M4 Pro with macOS 26.5, unless a row says it is a player's re
 | The Witcher 3 (Remastered) | Steam | 🟡 reaches its menu (player's report) | needs Apple GPTK 4.0 beta 3, which Soju accepts since 1.14.10 ([#112](https://github.com/BCD1210/soju/issues/112)) |
 | Diablo II: Resurrected (Steam edition) | Steam | 🟡 runs (user report) | in DirectX 12 mode; a player reported it running on Discord (2026-11-17). Not checked by us: we don't own the Steam edition |
 | Diablo IV (Steam edition) | Steam | ✅ in-game (player's report) | M5 Pro 48 GB, macOS 27.2.1: about 60 FPS at 1800×1169, ray tracing works, some slowdown in busy scenes; about 5 hours played. Play switches Steam to DirectX 12 mode by itself from 1.14.44 ([#186](https://github.com/BCD1210/soju/issues/186)) |
-| Diablo II: Resurrected in VR (offline) | Battle.net | 🧪 simulator only | `soju vr setup`, then `soju vr play`; [docs/VR.md](docs/VR.md) |
+| Diablo II: Resurrected in VR or first person on the Mac (offline) | Battle.net | 🧪 simulator only (VR); ✅ Mac screen | the **VR** badge on its card; [docs/VR.md](docs/VR.md) |
 
 **Will not run:** anything with kernel anti-cheat (EAC, BattlEye, Vanguard).
 

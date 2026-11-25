@@ -35,8 +35,10 @@ case "$ACTION" in
       steam|epic|gog|ea|rockstar|ubisoft) exec bash "$ROOT/scripts/play.sh" "$1-kill" ;;
       *) echo "Choose one of the launchers."; exit 64 ;; esac ;;
   vr)
-    case "${1:-}" in setup|play|status) exec python3 "$ROOT/scripts/d2r-vr.py" "$1" ;;
-      flat) exec python3 "$ROOT/scripts/d2r-vr.py" play --flat ;;
+    case "${1:-}" in setup|play) exec python3 "$ROOT/scripts/d2r-vr.py" "$1" ;;
+      status) exec python3 "$ROOT/scripts/d2r-vr.py" status --json ;;
+      flat) case "${2:-first}" in first|third|classic) ;; *) echo "soju vr: unknown view" >&2; exit 64 ;; esac
+            exec python3 "$ROOT/scripts/d2r-vr.py" play --flat --view "${2:-first}" ;;
       *) echo "Unknown VR action."; exit 64 ;; esac ;;
   tv)
     case "${1:-}" in setup|start|stop|status) exec python3 "$ROOT/scripts/stream_tv.py" "$1" ;;

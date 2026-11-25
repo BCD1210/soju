@@ -60,12 +60,42 @@ class ManifestTests(unittest.TestCase):
 
     def test_app_actions_are_routed(self):
         action = (ROOT / 'scripts/desktop-action.sh').read_text()
-        self.assertIn('setup|play|status) exec python3 "$ROOT/scripts/d2r-vr.py" "$1"', action)
+        self.assertIn('setup|play) exec python3 "$ROOT/scripts/d2r-vr.py" "$1"', action)
+        self.assertIn('status) exec python3 "$ROOT/scripts/d2r-vr.py" status --json', action)
+        self.assertIn('play --flat --view "${2:-first}"', action)
         library = (ROOT / 'app/Library.swift').read_text()
-        self.assertIn('model.run(["vr", "setup"]', library)
-        self.assertIn('task(["vr", flat ? "flat" : "play"]', library)
-        self.assertIn('flat) exec python3 "$ROOT/scripts/d2r-vr.py" play --flat', action)
-        self.assertIn('model.playVR(game, flat: true)', library)
+        sheet = (ROOT / 'app/VRSheet.swift').read_text()
+        self.assertIn('model.run(["vr", "setup"]', sheet)
+        self.assertIn('task(flat ? ["vr", "flat", view] : ["vr", "play"]', library)
+        self.assertIn('model.playVR(game, flat: true, view: flatView)', sheet)
+        self.assertIn('D2RVRSheet(model: model, game: game', library)
+        self.assertIn('VRSheet.swift', (ROOT / 'scripts/build-app.sh').read_text())
+        # the sheet reads these fields from `soju vr status --json`
+        for field in ('installed', 'current', 'source_build', 'source_supported'):
+            self.assertIn(field, sheet)
+
+    def test_flat_play_sets_the_mods_mode_and_view(self):
+        with tempfile.TemporaryDirectory() as d:
+            game = Path(d)
+            ini = game / 'mods/D2R-PCVR/d2rloader/plugins/d2r_pcvr.ini'
+            ini.parent.mkdir(parents=True)
+            ini.write_bytes(b'[stereo]\r\nplatform = 9\r\n[mode]\r\nplatform = 1\r\nflat_view = 3\r\nvr_mode = 4\r\n')
+            vr.set_mode(game, True, 'third')
+            self.assertEqual(ini.read_bytes(),
+                             b'[stereo]\r\nplatform = 9\r\n[mode]\r\nplatform = 0\r\nflat_view = 2\r\nvr_mode = 4\r\n')
+            vr.set_mode(game, True, 'classic')
+            self.assertIn(b'flat_view = 1\r\n', ini.read_bytes())
+            vr.set_mode(game, False)   # VR again: the headset, the flat view kept for next time
+            self.assertIn(b'[mode]\r\nplatform = 1\r\nflat_view = 1\r\n', ini.read_bytes())
+            vr.set_mode(Path(d) / 'missing', True)   # no mod installed: nothing to do, no error
+
+    def test_the_copy_keeps_dlss_off(self):
+        with tempfile.TemporaryDirectory() as d:
+            saves = Path(d)
+            (saves / 'Settings.json').write_text(json.dumps({'Screen Resolution (Windowed)': '1920x1080',
+                                                             'Window Mode': 0, 'NVIDIA DLSS': 2}))
+            vr.fix_settings(saves)
+            self.assertEqual(json.loads((saves / 'Settings.json').read_text())['NVIDIA DLSS'], 0)
 
     def test_user_folder_links_become_folders_in_the_copy(self):
         with tempfile.TemporaryDirectory() as d:

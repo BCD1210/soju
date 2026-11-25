@@ -242,10 +242,14 @@ def isolate_user_folders(bottle):
 def fix_settings(saves):
     settings = saves / 'Settings.json'
     data = json.loads(settings.read_text(encoding='utf-8-sig'))
-    if data.get('Screen Resolution (Windowed)') == '1920x1080' and str(data.get('Window Mode')) == '0':
+    # NVIDIA DLSS off in the copy: with it on (copied from the player's normal D2R, where Soju's
+    # MetalFX bridge makes it work) the modded game stops at the title, seen 2026-11-25.
+    if (data.get('Screen Resolution (Windowed)') == '1920x1080' and str(data.get('Window Mode')) == '0'
+            and str(data.get('NVIDIA DLSS', 0)) == '0'):
         return
     data['Screen Resolution (Windowed)'] = '1920x1080'
     data['Window Mode'] = 0
+    data['NVIDIA DLSS'] = 0
     settings.write_text(json.dumps(data, indent=4), encoding='utf-8')
 
 
@@ -453,6 +457,7 @@ def status():
         'game_build': game_build(BOTTLE) if BOTTLE.is_dir() else None,
         'supported_build': ', '.join(builds(m)),
         'source_build': game_build(SOURCE),
+        'source_supported': game_build(SOURCE) in builds(m),
         'mod': m['mod']['name'],
         'path': str(VR),
     }
@@ -477,6 +482,37 @@ def stage_mod_patch(mod, plugin, spec):
         'Apply the accompanying patch to this base.\n')
 
 
+VIEWS = {'classic': 1, 'third': 2, 'first': 3}   # the mod's flat views, F1 - F3
+
+
+def set_mode(game, flat, view='first'):
+    """The mod plays to the headset ([mode] platform = 1) or to the Mac screen with mouse look and
+    W A S D (platform = 0), in the view flat_view names. Mac keyboards send F1 - F3 as brightness keys
+    unless fn is held, so the view is chosen before the game starts."""
+    ini = game / 'mods' / 'D2R-PCVR' / 'd2rloader/plugins/d2r_pcvr.ini'
+    try:
+        text = ini.read_text(encoding='utf-8', newline='')
+    except OSError:
+        return
+    want = {'platform': '0' if flat else '1'}
+    if flat:
+        want['flat_view'] = str(VIEWS.get(view, 3))
+    out, section = [], ''
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith('['):
+            section = stripped
+        elif section == '[mode]' and '=' in stripped:
+            key = stripped.split('=', 1)[0].strip()
+            if key in want:
+                end = '\r\n' if line.endswith('\r\n') else '\n'
+                line = key + ' = ' + want[key] + end
+        out.append(line)
+    new = ''.join(out)
+    if new != text:
+        ini.write_text(new, encoding='utf-8', newline='')
+
+
 def play_env(flat):
     env = wine_env(BOTTLE)
     if not flat:
@@ -488,7 +524,7 @@ def play_env(flat):
     return env
 
 
-def play(extra, flat=False):
+def play(extra, flat=False, view='first'):
     info = status()
     if not info['installed'] or not info['current']:
         raise VRError('D2R VR is not set up for this Soju version. Run: soju vr setup')
@@ -496,8 +532,15 @@ def play(extra, flat=False):
         raise VRError('Diablo II: Resurrected is already running.')
     isolate_user_folders(BOTTLE)   # copies set up by 1.8.0/1.8.1 still have the links
     env = play_env(flat)
+    set_mode(BOTTLE / GAME_REL, flat, view)
+    try:
+        fix_settings(BOTTLE / SAVES_REL)   # DLSS may have been turned on in the copy's options since setup
+    except (OSError, ValueError):
+        pass
     if flat:
-        say('Opening the VR copy without VR. Create or check offline characters, then quit and run: soju vr play')
+        label = {'first': 'first person', 'third': 'third person', 'classic': "the game's own camera"}[view]
+        say('Opening the VR copy on the Mac screen in ' + label + ': mouse look, W A S D walk. '
+            'In the game fn+F1 / fn+F2 / fn+F3 switch between the game camera, third and first person.')
     if not flat:
         say('Connect the OXRSys headset/Simulator before the title screen. Use stick + A for offline character creation.')
         say('Use the VR name keyboard: stick + A types, X erases, Y changes case; select Create + A. B goes back.')
@@ -530,7 +573,9 @@ def main(argv):
     p.add_argument('--refresh', action='store_true', help='copy the Battle.net bottle again (after a game update)')
     p = sub.add_parser('play')
     p.add_argument('--flat', action='store_true',
-                   help='open the VR copy on the Mac screen without VR (optional desktop mode)')
+                   help='play the VR copy on the Mac screen: mouse look and W A S D, no headset')
+    p.add_argument('--view', choices=sorted(VIEWS), default='first',
+                   help='with --flat: first or third person, or classic (the game\'s own camera)')
     p = sub.add_parser('status')
     p.add_argument('--json', action='store_true')
     p = sub.add_parser('remove')
@@ -540,7 +585,7 @@ def main(argv):
         if args.command == 'setup':
             return setup(args.refresh)
         if args.command == 'play':
-            return play(extra, args.flat)
+            return play(extra, args.flat, args.view)
         if args.command == 'status':
             info = status()
             if args.json:

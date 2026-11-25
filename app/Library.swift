@@ -190,11 +190,11 @@ extension SojuModel {
         }
     }
     /// D2R VR Unleashed in the VR copy of the Battle.net bottle (`soju vr play`, offline).
-    /// `flat` opens the same copy without VR so offline characters can be made with the mouse.
-    func playVR(_ game: InstalledGame, flat: Bool = false) {
+    /// `flat` plays the same copy on the Mac screen (mouse look, W A S D) in `view`: first, third or classic.
+    func playVR(_ game: InstalledGame, flat: Bool = false, view: String = "first") {
         guard !busy, !launchingGames.contains(game.id) else { return }
         do {
-            let (p, url) = try task(["vr", flat ? "flat" : "play"], logName: "d2r-vr")
+            let (p, url) = try task(flat ? ["vr", "flat", view] : ["vr", "play"], logName: "d2r-vr")
             launchingGames.insert(game.id); gameLaunches[game.id] = p
             p.terminationHandler = { [weak self] process in
                 DispatchQueue.main.async {
@@ -213,7 +213,7 @@ extension SojuModel {
                 }
             }
             try p.run()
-            activity = flat ? "Opening the VR copy of " + game.title + " without VR (create offline characters)…"
+            activity = flat ? "Starting " + game.title + " on the Mac screen (" + (view == "classic" ? "game camera" : view + " person") + ", offline characters)…"
                 : "Starting " + game.title + " in VR (offline characters)…"
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak p] in
                 guard let self, let p, self.gameLaunches[game.id] === p else { return }
@@ -257,6 +257,7 @@ struct LibraryView: View {
     @State private var order = "name"
     @State private var availability = "all"
     @State private var selected: InstalledGame?
+    @State private var vrGame: InstalledGame?
     @State private var showDiagnostics = false
     @Environment(\.colorScheme) private var scheme
     private var green: Color { scheme == .dark ? Color(red: 0.42, green: 0.83, blue: 0.67) : Color(red: 0.12, green: 0.34, blue: 0.28) }
@@ -290,6 +291,7 @@ struct LibraryView: View {
         .frame(minWidth: 1010, minHeight: 710)
         .background(Color(nsColor: .windowBackgroundColor))
         .sheet(item: $selected) { game in detail(game) }
+        .sheet(item: $vrGame) { game in D2RVRSheet(model: model, game: game, close: { vrGame = nil }) }
         .sheet(isPresented: $showDiagnostics) { diagnostics }
         .alert(model.issueTitle, isPresented: Binding(get: { model.libraryIssue != nil }, set: { if !$0 { model.libraryIssue = nil; model.issueTitle = "Game needs attention" } })) {
             // A launcher that is not installed yet: take the player to where it is installed.
@@ -454,6 +456,13 @@ struct LibraryView: View {
                 HStack(spacing: 5) {
                     Circle().fill(game.platform.accent).frame(width: 5, height: 5)
                     Text(game.platform.title.uppercased()).font(.system(size: 10, weight: .bold)).tracking(0.7).foregroundStyle(.secondary)
+                    if game.id == "battlenet:osi" && game.isInstalled {
+                        Button { vrGame = game } label: {
+                            Text("VR").font(.system(size: 9, weight: .heavy)).padding(.horizontal, 5).padding(.vertical, 1.5)
+                                .background(Color.purple.opacity(0.18), in: Capsule()).foregroundStyle(.purple)
+                        }.buttonStyle(.plain).help("Play in VR or in first person on this Mac")
+                            .accessibilityLabel("VR and first person for " + game.title)
+                    }
                     Spacer()
                     Button { model.favorite(game) } label: {
                         Image(systemName: model.preferences.favorites.contains(game.id) ? "star.fill" : "star")
@@ -509,11 +518,7 @@ struct LibraryView: View {
                 Button("Report How It Ran…") { model.report(game) }
                 if game.id == "battlenet:osi" && game.isInstalled {
                     Divider()
-                    Button("Set Up VR (offline)") { model.run(["vr", "setup"], title: "Setting up D2R VR…") }
-                        .disabled(model.busy)
-                    Button("Play in VR") { model.playVR(game) }.disabled(model.busy)
-                    Button("Create Offline Character (without VR)") { model.playVR(game, flat: true) }
-                        .disabled(model.busy)
+                    Button("VR and First Person…") { vrGame = game }
                 }
             }
     }
@@ -586,6 +591,11 @@ struct LibraryView: View {
                 }
                 if game.isInstalled { Button("Report How It Ran…") { model.report(game) } }
                 Spacer()
+                if game.id == "battlenet:osi" && game.isInstalled {
+                    Button { selected = nil; DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { vrGame = game } } label: {
+                        Label("VR and First Person", systemImage: "eyeglasses")
+                    }
+                }
             }
             Divider()
             HStack {
