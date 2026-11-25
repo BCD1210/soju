@@ -10,6 +10,17 @@ Soju installs the official Windows launchers for **Battle.net, Steam, Epic Games
 
 ![Soju unified game library](docs/assets/soju-library.png)
 
+<table>
+<tr>
+<td width="50%"><a href="docs/assets/hogwarts-dlss-mac.mp4"><img src="docs/assets/hogwarts-dlss-mac.webp" alt="Hogwarts Legacy on a Mac with NVIDIA DLSS through MetalFX"></a></td>
+<td width="50%"><a href="docs/assets/d2r-first-person-mac.mp4"><img src="docs/assets/d2r-first-person-mac.webp" alt="Diablo II: Resurrected in first person on a Mac"></a></td>
+</tr>
+<tr>
+<td><b>Hogwarts Legacy</b> (Epic) with NVIDIA DLSS on. Apple's MetalFX upscales 2295×961 to 3440×1440. M4 Pro, about 35–40 fps.</td>
+<td><b>Diablo II: Resurrected in first person</b> on the Mac screen: mouse look, W A S D, DLSS on. M4 Pro, 1920×1080 window, about 60–110 fps.</td>
+</tr>
+</table>
+
 **[Download Soju 1.14.45 for Mac](https://github.com/BCD1210/soju/releases/download/v1.14.45/Soju-1.14.45-macos-arm64.zip)**, or install from the terminal:
 
 ```bash
@@ -24,6 +35,8 @@ The app runs on macOS 14 or later. Diablo II: Resurrected needs macOS 26.4 or la
 Compatibility varies by game, and games with kernel anti-cheat will not run. Games and store clients are not included. Soju downloads Apple's Game Porting Toolkit files during setup.
 
 ## What you get
+
+**NVIDIA DLSS on a Mac.** Games that offer DLSS list it in their settings, and Apple's MetalFX does the upscaling (Battle.net, Epic, GOG, EA, Rockstar, Ubisoft, Steam's DirectX 12 mode and Xbox PC games; needs Apple GPTK 3.0, which Soju installs). Measured on an M4 Pro at 3440×1440: Diablo II: Resurrected in first person went from 51–66 to 63–74 fps; Hogwarts Legacy stayed at about 39 fps, the same as with AMD FSR 2 Quality, because the processor is the limit there.
 
 **One library for every store.** Games from Battle.net, Steam, Epic, GOG, EA, Rockstar, Ubisoft and Xbox PC sit in one window with their cover art. Press Play and Soju opens the right launcher.
 

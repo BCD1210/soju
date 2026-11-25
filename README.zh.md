@@ -8,6 +8,17 @@ Soju 在 M1 及更新的 Mac 上安装 **Battle.net、Steam、Epic Games、GOG G
 
 ![Soju 统一游戏库](docs/assets/soju-library.png)
 
+<table>
+<tr>
+<td width="50%"><a href="docs/assets/hogwarts-dlss-mac.mp4"><img src="docs/assets/hogwarts-dlss-mac.webp" alt="在 Mac 上通过 MetalFX 开启 NVIDIA DLSS 的《霍格沃茨之遗》"></a></td>
+<td width="50%"><a href="docs/assets/d2r-first-person-mac.mp4"><img src="docs/assets/d2r-first-person-mac.webp" alt="在 Mac 上以第一人称玩《暗黑破坏神 II：狱火重生》"></a></td>
+</tr>
+<tr>
+<td><b>《霍格沃茨之遗》</b>（Epic），开启 NVIDIA DLSS，由 Apple MetalFX 把 2295×961 放大到 3440×1440。M4 Pro，约 35–40 FPS。</td>
+<td><b>《暗黑破坏神 II：狱火重生》第一人称</b>，在 Mac 屏幕上用鼠标转视角、W A S D 移动，开启 DLSS。M4 Pro，1920×1080 窗口，约 60–110 FPS。</td>
+</tr>
+</table>
+
 **[下载 Soju 1.14.45（Mac）](https://github.com/BCD1210/soju/releases/download/v1.14.45/Soju-1.14.45-macos-arm64.zip)**，或在终端安装：
 
 ```bash
@@ -22,6 +33,8 @@ soju install
 各游戏的兼容性不同，带内核级反作弊的游戏无法运行。项目不包含游戏和商店客户端。Apple GPTK 文件由 Soju 在安装时下载。
 
 ## Soju 能做什么
+
+**在 Mac 上用 NVIDIA DLSS。** 支持 DLSS 的游戏会在设置里列出 DLSS，由 Apple MetalFX 负责放大（Battle.net、Epic、GOG、EA、Rockstar、Ubisoft、Steam 的 DirectX 12 模式和 Xbox PC 游戏；需要 Soju 安装的 Apple GPTK 3.0）。M4 Pro、3440×1440 实测：《暗黑破坏神 II：狱火重生》第一人称从 51–66 FPS 提升到 63–74 FPS；《霍格沃茨之遗》约 39 FPS，与 AMD FSR 2 Quality 相同，因为瓶颈在处理器。
 
 **不同商店，一个游戏库。** Battle.net、Steam、Epic、GOG、EA、Rockstar、Ubisoft 和 Xbox PC 的游戏连同封面放在同一个窗口里。按 Play，Soju 会打开对应的启动器。
 

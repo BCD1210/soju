@@ -8,6 +8,17 @@ Soju는 M1 이후 맥에 **Battle.net·Steam·Epic Games·GOG GALAXY·EA 앱·Ro
 
 ![Soju 통합 게임 라이브러리](docs/assets/soju-library.png)
 
+<table>
+<tr>
+<td width="50%"><a href="docs/assets/hogwarts-dlss-mac.mp4"><img src="docs/assets/hogwarts-dlss-mac.webp" alt="맥에서 MetalFX로 NVIDIA DLSS를 켠 호그와트 레거시"></a></td>
+<td width="50%"><a href="docs/assets/d2r-first-person-mac.mp4"><img src="docs/assets/d2r-first-person-mac.webp" alt="맥에서 1인칭으로 하는 디아블로 2 레저렉션"></a></td>
+</tr>
+<tr>
+<td><b>호그와트 레거시</b>(에픽), NVIDIA DLSS 켬. 애플 MetalFX가 2295×961을 3440×1440으로 키웁니다. M4 Pro, 약 35~40 FPS.</td>
+<td><b>디아블로 2 레저렉션 1인칭</b>, 맥 화면에서 마우스로 시점, W A S D로 이동, DLSS 켬. M4 Pro, 1920×1080 창, 약 60~110 FPS.</td>
+</tr>
+</table>
+
 **[Soju 1.14.45 맥 앱 받기](https://github.com/BCD1210/soju/releases/download/v1.14.45/Soju-1.14.45-macos-arm64.zip)**, 또는 터미널에서 설치:
 
 ```bash
@@ -22,6 +33,8 @@ soju install
 게임마다 호환성이 다르고, 커널 안티치트가 붙은 게임은 실행되지 않습니다. 게임과 스토어 클라이언트는 포함하지 않습니다. Apple GPTK 파일은 설치할 때 Soju가 받아 옵니다.
 
 ## Soju가 해 주는 것
+
+**맥에서 NVIDIA DLSS.** DLSS를 지원하는 게임은 설정에 DLSS가 나오고, 확대는 애플 MetalFX가 합니다(Battle.net, Epic, GOG, EA, Rockstar, Ubisoft, Steam의 DirectX 12 모드, Xbox PC 게임. Soju가 설치하는 애플 GPTK 3.0 필요). M4 Pro, 3440×1440에서 잰 값: 디아블로 2 레저렉션 1인칭은 51~66 FPS에서 63~74 FPS로 올랐고, 호그와트 레거시는 AMD FSR 2 Quality와 같은 약 39 FPS였습니다(이 게임은 CPU가 한계).
 
 **스토어가 달라도 라이브러리는 하나.** Battle.net, Steam, Epic, GOG, EA, Rockstar, Ubisoft, Xbox PC 게임이 표지와 함께 한 창에 모입니다. Play를 누르면 Soju가 맞는 런처를 엽니다.
 
