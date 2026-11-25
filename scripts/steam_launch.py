@@ -99,9 +99,12 @@ def mark_of(path):
 
 
 def watch(steam_dir, appid, command, seconds=60, waiting_after=15, show=None, signin_after=40,
-          poll=1.0, clock=time.monotonic, sleep=time.sleep):
+          poll=1.0, clock=time.monotonic, sleep=time.sleep, resend=None, resend_after=25):
     """Follow one start in Steam's log. Steam's window is brought forward when it waits for the player
-    (a question, or its sign-in), since a closed Steam window sits in a tray macOS does not show."""
+    (a question, or its sign-in), since a closed Steam window sits in a tray macOS does not show.
+    A request Steam never took up (signed in, yet not a word about this game for resend_after seconds) is
+    handed to it once more: play counts showed starts of games that ran on other days end with Steam open
+    and nothing in its log for them (Garry's Mod, Dead Island 2, Japanese Ramen Simulator, 2026-11-22..25)."""
     log = os.path.join(steam_dir, "logs", "console_log.txt")
     conn = os.path.join(steam_dir, "logs", "connection_log.txt")
     marks = mark_of(log), mark_of(conn)
@@ -110,6 +113,7 @@ def watch(steam_dir, appid, command, seconds=60, waiting_after=15, show=None, si
         return code
     begun = clock()
     since, shown = None, False
+    on_since, resent = None, False
 
     def bring():
         nonlocal shown
@@ -143,6 +147,17 @@ def watch(steam_dir, appid, command, seconds=60, waiting_after=15, show=None, si
                 return 4
         else:
             since = None
+            if not kind and resend and not resent:
+                if signed_state(conn) == "Logged On":
+                    on_since = on_since or clock()
+                    if clock() - max(begun, on_since) >= resend_after:
+                        resent = True
+                        try:
+                            subprocess.call(resend, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60,
+                                            env=dict(os.environ, SOJU_STEAM_RESENT="1"))
+                        except (OSError, subprocess.SubprocessError):
+                            pass
+                        begun = clock()   # a full wait again for the second request
             # Nothing for this game yet: Steam holds a start until it is signed in.
             if not kind and clock() - begun >= signin_after and signed_state(conn) not in ("", "Logged On"):
                 bring()
@@ -157,7 +172,9 @@ def main(argv):
         head = argv[:argv.index("--")] if "--" in argv else argv
         seconds = int(head[head.index("--seconds") + 1]) if "--seconds" in head else 60
         show = os.environ.get("SOJU_STEAM_SHOW")
-        return watch(argv[1], argv[2], command, seconds=seconds, show=show.split("\x1f") if show else None)
+        resend = os.environ.get("SOJU_STEAM_RESEND")
+        return watch(argv[1], argv[2], command, seconds=seconds, show=show.split("\x1f") if show else None,
+                     resend=resend.split("\x1f") if resend else None)
     print("usage: steam_launch.py watch <Steam folder> <appid> -- <command>", file=sys.stderr)
     return 64
 

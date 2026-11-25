@@ -24,7 +24,9 @@ FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
 # Steam games that stop without Apple GPTK (soju steam-gptk on): Overwatch 2, and
 # Diablo II: Resurrected, whose loader needs GPTK's libd3dshared. Order of the Sinking Star
 # asks for Direct3D feature level 12_0 and shows an error window under the Direct3D 11 setup (#171).
-STEAM_GPTK_GAMES = {'2357570', '2536520', '499170'}
+# R.E.P.O. (Unity 2022, Direct3D 11) is rated Runs Great in CrossOver with D3DMetal; it did not start in Soju's
+# Direct3D 11 setup (play counts, 2026-11-21).
+STEAM_GPTK_GAMES = {'2357570', '2536520', '499170', '3241660'}
 # Any other Steam game whose store page asks for DirectX 12 at minimum gets the same treatment: in the
 # Direct3D 11 setup such games close within a minute (Order of the Sinking Star said so in a window, #171;
 # Resident Evil 4, Dead Island 2 and Hogwarts Legacy closed at once in the play counts, 2026-11-23).

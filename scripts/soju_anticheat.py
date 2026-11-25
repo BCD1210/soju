@@ -57,6 +57,20 @@ def note(path):
             "right after it starts, or play offline only.")
 
 
+# Games missing from Are We Anti-Cheat Yet? (or listed as working on Linux only) that never start on a Mac.
+# Easy Anti-Cheat's Wine support loads a Linux library, so "works on Proton" does not mean "works on a Mac"
+# (CodeWeavers, 2026-08-31: why most games with anti-cheat do not work with CrossOver Mac).
+EXTRA = [
+    {"title": "Grand Theft Auto V Enhanced", "appid": None, "anticheat": "BattlEye"},
+    {"title": "Grand Theft Auto V Legacy", "appid": None, "anticheat": "BattlEye"},
+    {"title": "Rocket League", "appid": "252950", "anticheat": "Easy Anti-Cheat"},
+    # Tested on a Mac in Soju, 2026-11-25: Easy Anti-Cheat says it has no module for this platform.
+    {"title": "ROB RUN", "appid": "4262460", "anticheat": "Easy Anti-Cheat"},
+    # Tested the same day: closes two seconds after start, before Unity loads (Anti-Cheat Expert, per PCGamingWiki).
+    {"title": "ヘブンバーンズレッド", "appid": "1973710", "anticheat": "Anti-Cheat Expert"},
+]
+
+
 def _key(title):
     return re.sub(r"[^a-z0-9]+", "", re.sub(r"[™®©]", "", str(title or "").lower()))
 
@@ -83,7 +97,7 @@ def refresh(source):
     data = json.loads(Path(source).read_text())
     out = [{"title": g["title"], "appid": g.get("appid"), "anticheat": ", ".join(g.get("anticheats") or [])}
            for g in data["games"].values() if g.get("status") == "Denied" and "(" not in g["title"]]
-    out += [{"title": t, "appid": None, "anticheat": "BattlEye"} for t in ("Grand Theft Auto V Enhanced", "Grand Theft Auto V Legacy")]
+    out += [dict(g) for g in EXTRA]
     out.sort(key=lambda g: g["title"].lower())
     DENIED.write_text(json.dumps({"_source": "Are We Anti-Cheat Yet? (MIT), games whose makers deny Wine/Proton; "
                                   "refresh with scripts/soju_anticheat.py --refresh", "games": out},

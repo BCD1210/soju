@@ -202,9 +202,19 @@
    "anticheat": "Easy Anti-Cheat"
   },
   {
+   "title": "ROB RUN",
+   "appid": "4262460",
+   "anticheat": "Easy Anti-Cheat"
+  },
+  {
    "title": "Roblox",
    "appid": null,
    "anticheat": "Hyperion"
+  },
+  {
+   "title": "Rocket League",
+   "appid": "252950",
+   "anticheat": "Easy Anti-Cheat"
   },
   {
    "title": "Rust",
@@ -245,6 +255,11 @@
    "title": "Vampire: The Masquerade - Bloodhunt",
    "appid": "760160",
    "anticheat": "Easy Anti-Cheat, Anti-Cheat Expert"
+  },
+  {
+   "title": "ヘブンバーンズレッド",
+   "appid": "1973710",
+   "anticheat": "Anti-Cheat Expert"
   }
  ]
 }
