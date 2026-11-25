@@ -4,7 +4,8 @@
   soju report [<library id> | <game title>]
 
 The page opens in the browser; nothing is sent until you press Submit there.
-Fills: game, store, Mac model / chip / memory, macOS, Soju version, engine.
+Fills: game, store, Mac model / chip / memory, macOS, Soju version, engine, and how long
+you have played it through Soju (play-log.jsonl).
 Reports feed the game pages at didimlabs.com/mac/.
 """
 import json
@@ -53,6 +54,26 @@ def engine():
     return "; ".join(parts) or "unknown"
 
 
+def played(game_id):
+    """Total time played through Soju, from play-log.jsonl: '' when there is none."""
+    minutes = 0
+    try:
+        for line in (BASE / "play-log.jsonl").read_text(errors="replace").splitlines():
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if entry.get("game") == game_id:
+                minutes += int(entry.get("minutes") or 0)
+    except OSError:
+        return ""
+    if minutes <= 0:
+        return ""
+    if minutes < 60:
+        return "about %d minutes (Soju's play log)" % minutes
+    return "about %.1f hours (Soju's play log)" % (minutes / 60)
+
+
 def find(arg):
     """A library id (battlenet:osi) or a title gives the game and its store."""
     if not arg:
@@ -70,12 +91,14 @@ def find(arg):
 
 
 def main():
-    title, store = find(" ".join(sys.argv[1:]).strip())
+    arg = " ".join(sys.argv[1:]).strip()
+    title, store = find(arg)
     fields = {"template": "compatibility.yml", "title": "[Compatibility]: " + title, "game": title,
               "mac": mac(), "macos": platform.mac_ver()[0], "engine": engine(),
               "soju": (ROOT / "VERSION").read_text().strip() if (ROOT / "VERSION").exists() else "unknown"}
     if store:
         fields["store"] = store
+    fields["played"] = played(arg)
     url = NEW + "?" + urllib.parse.urlencode({k: v for k, v in fields.items() if v})
     if os.environ.get("SOJU_REPORT_PRINT") == "1":
         print(url)
