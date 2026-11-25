@@ -249,3 +249,22 @@ class PlayStats(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class BlizzardCrashTests(unittest.TestCase):
+    def test_reads_the_crash_report_the_game_wrote(self):
+        import tempfile, time
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as d:
+            report = Path(d) / "errors/2026-11-25 09.00.00 abcd1234"
+            report.mkdir(parents=True)
+            (report / "Crash.txt").write_text(
+                "<BlizzardError.ProjectId>4\r\n<BlizzardError.Summary:>\r\n"
+                "ACCESS_VIOLATION (Failed to write address 0x00006FFFFF9F0F00 at instruction 0x00006FFFFF3D7455)\r\n"
+                "<:BlizzardError.Summary>\r\n<BlizzardError.Assertion:>\r\nThread 0x24 \"Main Thread\"\r\n"
+                'DBG-ADDR<00006FFFFF3D7455>("kernelbase.dll")\r\nDBG-ADDR<00006FFFF9E87BCF>("D3DMetal.dll")\r\n')
+            self.assertEqual(ps.blizzard_crash(d, time.time() - 60), ("crash", "ACCESS_VIOLATION+D3DMetal.dll"))
+            self.assertEqual(ps.blizzard_crash(d, time.time() + 3600), ("", ""))   # older than this start
+            self.assertEqual(ps.blizzard_crash(Path(d) / "missing", 0), ("", ""))
+            (report / "Crash.txt").write_text("")   # an empty report says nothing
+            self.assertEqual(ps.blizzard_crash(d, 0), ("", ""))
