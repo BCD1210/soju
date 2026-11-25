@@ -188,6 +188,38 @@ class HelperTests(unittest.TestCase):
             self.assertIn('was kept', str(caught.exception))
             self.assertTrue((bottle / vr.GAME_REL / 'D2R.exe').exists())
 
+    def test_builds_checked_since_are_accepted(self):
+        m = vr.manifest()
+        self.assertEqual(vr.builds(m)[0], m['game_build'])
+        self.assertIn('3.4.95032', vr.builds(m))
+        for extra in m['extra_builds']:
+            self.assertTrue(extra['checked'].strip())   # every added build says what was checked
+
+    def test_the_mods_installer_takes_a_listed_build(self):
+        with tempfile.TemporaryDirectory() as d:
+            mod = Path(d)
+            (mod / 'steamvr').mkdir()
+            gate = mod / 'steamvr/game_install.py'
+            gate.write_bytes(b"BATTLENET_VERSIONS = ('3.3.93847',)\r\nSTEAM = 1\r\n")
+            for _ in range(2):
+                vr.allow_installer_build(mod, '3.4.95032')
+            self.assertEqual(gate.read_bytes(),
+                             b"BATTLENET_VERSIONS = ('3.4.95032', '3.3.93847',)\r\nSTEAM = 1\r\n")
+            vr.allow_installer_build(mod, '3.3.93847')   # already there: unchanged
+            self.assertEqual(gate.read_bytes().count(b'3.3.93847'), 1)
+
+    def test_loader_warning_is_answered_for_the_new_version(self):
+        with tempfile.TemporaryDirectory() as d:
+            game = Path(d)
+            for _ in range(2):
+                vr.quiet_loader_warning(game, '3.4.95032')
+            state = json.loads((game / 'd2rloader/data/loader-state.json').read_text())
+            self.assertEqual(state['ignored_unsupported_versions'], ['3.4.0'])
+            (game / 'd2rloader/data/loader-state.json').write_text('{"ignored_unsupported_versions": ["3.3.0"], "x": 1}')
+            vr.quiet_loader_warning(game, '3.4.95032')
+            state = json.loads((game / 'd2rloader/data/loader-state.json').read_text())
+            self.assertEqual(state, {'ignored_unsupported_versions': ['3.3.0', '3.4.0'], 'x': 1})
+
     def test_windows_paths_go_through_z(self):
         self.assertTrue(vr.winpath('/tmp').startswith('Z:\\'))
 
