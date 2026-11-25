@@ -27,6 +27,8 @@ clone(){
 }
 clone https://github.com/notpop/dxmt.git dxmt debug/present-path-tracing
 if [ "${SOJU_SOURCE_ARCHIVE:-0}" != 1 ]; then
+  # The pinned commit by name: the shallow clone only has the branch tip, which moves when the fork is pushed to.
+  git -C dxmt cat-file -e 924a607e3eee06fad5be6f176d8510bb08bc418d 2>/dev/null || git -C dxmt fetch -q --depth 1 origin 924a607e3eee06fad5be6f176d8510bb08bc418d
   git -C dxmt checkout --detach 924a607e3eee06fad5be6f176d8510bb08bc418d
   git -C dxmt submodule update --init --recursive
 fi
