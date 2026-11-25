@@ -78,8 +78,8 @@ Tested by us on an M4 Pro with macOS 26.5, unless a row says it is a player's re
 | Battle.net | ✅ | ✅ | |
 | Steam (Windows client) | ✅ | ✅ | has its own Wine 11 setup |
 | Epic Games Launcher | ✅ | ✅ | closing the window keeps it in the menu bar |
-| GOG GALAXY | ✅ | ✅ | games not broadly tested yet |
-| Xbox PC / Microsoft Store | ✅ | ✅ | experimental; Retro Classics reaches its menu |
+| GOG GALAXY | ✅ | ✅ | sign in, install from the library and play |
+| Xbox PC / Microsoft Store | ✅ | ✅ | experimental; Retro Classics plays |
 | EA app, Rockstar Games Launcher, Ubisoft Connect | sign-in window opens | not tested yet | |
 
 More games: [status game by game](https://didimlabs.com/mac/) and [players' reports](docs/COMPATIBILITY.md). Got another game running, or stuck on one? Use **Report How It Ran** in the game's sheet, post in [Discussions](https://github.com/BCD1210/soju/discussions), or ask on [Discord](https://discord.gg/ttBDcF5ftz).
@@ -123,7 +123,7 @@ soju fps on      # frame rate and frame time in the corner of games (Apple's Met
 - **Owned games:** sign in to Steam to import your owned library, or import the library cached by GOG GALAXY. Installed and uninstalled games share one library, with availability filters and official-client install actions. Epic and Battle.net account imports are not included yet. See [account connections and store search](docs/ACCOUNTS.md): official Steam sign-in, no API key required, and account imports stay on your Mac.
 - **Discover:** searches Steam, GOG and Microsoft Store listings and prices, with links to buy from the stores.
 - **Platforms:** handles launcher setup, component updates and diagnostics. The CLI and individual shortcuts remain available.
-- **Xbox PC (experimental):** sign in to a Microsoft account to import owned and PC Game Pass games, download them through the [Xodus](https://github.com/xodus-gaming/xodus) backend and start them on Soju's engine. Retro Classics reaches its main menu on Soju; other games are untested. Purchases, downloads and updates stay with the official stores. Details [below](#xbox-pc--microsoft-store-xodus-backend-experimental).
+- **Xbox PC (experimental):** sign in to a Microsoft account to import owned and PC Game Pass games, download them through the [Xodus](https://github.com/xodus-gaming/xodus) backend and start them on Soju's engine. Retro Classics plays on Soju; other games are untested. Purchases, downloads and updates stay with the official stores. Details [below](#xbox-pc--microsoft-store-xodus-backend-experimental).
 - **TV & iPad:** turn on streaming in Soju, install the free Moonlight app on your TV, iPad or phone, type the PIN it shows, and play Soju games on that screen while they run on your Mac.
 - **Didim Labs Store:** we sell our own Mac games here. Press Buy, pay on Polar, and Soju downloads the game, checks its SHA-256 and signature, and installs it. No Wine. The key stays in the Keychain, so reinstalling doesn't ask again. If you already have the .zip, use Library → Add Didim Labs game or `soju didim install <zip>`.
 
@@ -220,7 +220,7 @@ Games have not been broadly tested yet; anything that needs kernel anti-cheat (E
 Xbox Series X|S console games are a separate, earlier experiment: `soju xcl` runs [XCL](https://github.com/xcl-dev/xcl) on Soju's engine without CrossOver. Nothing is playable yet; see [docs/XCL.md](docs/XCL.md).
 
 
-Soju can sign in to a Microsoft account, import owned and PC Game Pass games, search the Microsoft Store, download games and start them. **Starting games is experimental.** On an M4 Pro / macOS 26.5, Retro Classics reaches its main menu; other titles are untested. Per-game Wine settings live in `resources/xbox-compat.json`. The launch follows the path [MACxus](https://github.com/fladnaG86/MACxus) uses on macOS, where Vampire Survivors, TUNIC, Deep Rock Galactic and others reach gameplay on a CrossOver 26 based engine like Soju's.
+Soju can sign in to a Microsoft account, import owned and PC Game Pass games, search the Microsoft Store, download games and start them. **Starting games is experimental.** On an M4 Pro / macOS 26.5, Retro Classics plays; other titles are untested. Per-game Wine settings live in `resources/xbox-compat.json`. The launch follows the path [MACxus](https://github.com/fladnaG86/MACxus) uses on macOS, where Vampire Survivors, TUNIC, Deep Rock Galactic and others reach gameplay on a CrossOver 26 based engine like Soju's.
 
 How a launch works: `xodus-cli run` gets the licence and decrypts the game into a temporary RAM-disk view; `scripts/xbox-wine.sh` starts it on the CX engine with D3DMetal in its own prefix (`xbox-bottle`). That prefix gets the Xbox game runtime DLLs (xgameruntime and friends, LGPL, from the Xodus Nexus runtime as MACxus rebuilt them for macOS; pinned in `resources/xbox-runtime.json`, about 600 MB downloaded once) and Microsoft's VC++ runtime. `xodus-service` runs during the session for sign-in, licences and cloud saves; the game reaches it through a keyed 127.0.0.1 bridge. Files the game writes are copied back into its folder when it exits. Playing needs the CX engine and Apple GPTK; setting up Xbox PC installs the engine, and GPTK is added in Platforms like for Battle.net, Epic and GOG.
 
