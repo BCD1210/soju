@@ -108,7 +108,6 @@ export CX_ACTIVE_GRAPHICS_BACKEND=d3dmetal
 export CX_GRAPHICS_BACKEND=d3dmetal
 export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
 export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
-case "$MODE" in battlenet|d2r|epic|gog|ea|rockstar|ubisoft) dlss_on ;; esac
 
 # Agent signature-check fix: sync the signed exe into each versioned subfolder
 BN="$WINEPREFIX/drive_c/Program Files (x86)/Battle.net"
@@ -152,6 +151,9 @@ case "$MODE" in *-kill|controllers) ;; *)
     fi
   fi ;;
 esac
+# DLSS after the keys above: its first run starts the wineserver (wine reg), and the keys are written only while
+# no server runs.
+case "$MODE" in battlenet|d2r|epic|gog|ea|rockstar|ubisoft) dlss_on ;; esac
 
 # Preflight for the CX engine modes: without the GPTK payload, or with a
 # payload whose PE shims are missing (an engine refreshed by an older
