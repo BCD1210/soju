@@ -41,6 +41,13 @@ Simulator on the Mac for testing. The Mac and the headset need to be on the same
 Status (November 2026): verified on M4 Pro / macOS 26.5 with the OXRSys Simulator: first-person view in Act 1 at
 72 fps. **Not yet tested on a real headset.** Physical Quest controller input therefore has not been checked.
 
+D2R 3.4.95032 (the Battle.net build since November 2026) is accepted too, listed under `extra_builds` in
+`resources/d2r-vr.json`. Checked 2026-11-25 on the same Mac with the simulator: setup, the title, the VR character
+list and first-person play in the Rogue Encampment at 58-74 fps, with the same mod release; its game hooks and
+combat checks all found their code. One thing is not found on this build: the see-through wall fade, so walls fade
+as the game has them. Setup also answers D2RLoader's "This D2R version hasn't been fully tested yet" window for
+that version (`d2rloader/data/loader-state.json`), which nobody in a headset could press.
+
 ## Create an offline character inside VR
 
 Connect the OXRSys headset/client or Simulator **before `soju vr play`**. If the
@@ -109,5 +116,6 @@ version. Setup deliberately cannot substitute an unpatched or unchecked DLL.
 - Use **offline characters** only. Characters you make in VR live in the copy; `--refresh` keeps them.
 - D2R requires an online sign-in within the last 30 days even for offline play. If it says so, play D2R online once
   from Battle.net, then run `soju vr setup --refresh`.
-- The mod supports D2R 3.3.93847. Setup refuses other builds.
+- Setup accepts D2R 3.3.93847 (the mod release's own build) and 3.4.95032 (checked by Soju, above), and refuses
+  other builds.
 - Modding is your choice and the mod is not Blizzard's. Online play is never used by this mode.

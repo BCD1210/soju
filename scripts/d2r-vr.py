@@ -82,9 +82,16 @@ def fetch(entry, name, label):
         raise VRError(label + ' is not published yet for this Soju version.')
     say('Downloading ' + label + ' (' + str(max(1, entry['size'] // 1000000)) + ' MB)…')
     part = dest.with_suffix(dest.suffix + '.part')
-    subprocess.run(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
-                    '--proto-redir', '=https', '--retry', '3', '--connect-timeout', '20', '--max-time', '1800',
-                    entry['url'], '--output', str(part)], check=True)
+    got = subprocess.run(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
+                          '--proto-redir', '=https', '--retry', '3', '--connect-timeout', '20', '--max-time', '1800',
+                          entry['url'], '--output', str(part)], capture_output=True, text=True)
+    if got.returncode:
+        part.unlink(missing_ok=True)
+        host = entry['url'].split('/')[2]
+        # Seen 2026-11-25: an internet provider's security filter (Spectrum) answers d2rloader.net
+        # with its own warning page, so the TLS connection fails ("wrong version number").
+        raise VRError('Could not download ' + label + ' from ' + host + ': ' + (got.stderr.strip() or 'curl failed')
+                      + '. If your network or internet provider filters websites, allow ' + host + ' and run setup again.')
     if part.stat().st_size != entry['size'] or digest(part) != entry['sha256']:
         part.unlink(missing_ok=True)
         raise VRError(label + ' did not match its pinned checksum; nothing was installed.')
@@ -261,6 +268,48 @@ def write_runtime_routing(m):
          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
 
+def builds(m):
+    """The D2R builds setup accepts: the one the mod release was verified on, then the ones
+    Soju checked it on since (manifest "extra_builds", each with what was checked)."""
+    return [m['game_build']] + [b['build'] for b in m.get('extra_builds', [])]
+
+
+def allow_installer_build(mod, build):
+    """The mod's own installer (0.3.31) refuses every Battle.net build but 3.3.93847 before it
+    installs anything. For a build listed in extra_builds, add it to that list in the extracted copy."""
+    gate = mod / 'steamvr/game_install.py'
+    text = gate.read_text(encoding='utf-8', newline='')
+    old = "BATTLENET_VERSIONS = ('3.3.93847',)"
+    if build and build not in text and old in text:
+        gate.write_text(text.replace(old, "BATTLENET_VERSIONS = ('" + build + "', '3.3.93847',)"),
+                        encoding='utf-8', newline='')
+
+
+def quiet_loader_warning(game, build):
+    """D2RLoader 1.3.1 stops before the game on a D2R it has not been tested with ("This D2R version
+    hasn't been fully tested yet", OK to go on), a window nobody in a headset can press. Its
+    "Don't remind me again" choice is kept per major.minor version in d2rloader/data/loader-state.json;
+    set it for a build listed in extra_builds."""
+    parts = str(build or '').split('.')
+    if len(parts) < 2:
+        return
+    version = parts[0] + '.' + parts[1] + '.0'
+    state_file = game / 'd2rloader/data/loader-state.json'
+    try:
+        state = json.loads(state_file.read_text())
+    except (OSError, ValueError):
+        state = {}
+    if not isinstance(state, dict):
+        state = {}
+    ignored = state.get('ignored_unsupported_versions')
+    if not isinstance(ignored, list):
+        ignored = []
+    if version not in ignored:
+        state['ignored_unsupported_versions'] = ignored + [version]
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        state_file.write_text(json.dumps(state, indent=2) + '\n')
+
+
 def setup(refresh=False):
     m = manifest()
     if not (ENGINE / 'bin/wine').is_file():
@@ -275,9 +324,9 @@ def setup(refresh=False):
         # Check the new source first: a D2R update the mod does not support
         # must not cost the copy that still works.
         build = game_build(SOURCE)
-        if build != m['game_build']:
+        if build not in builds(m):
             raise VRError('Battle.net now has D2R ' + str(build) + '; D2R VR Unleashed supports '
-                          + m['game_build'] + '. Your current VR copy was kept.')
+                          + ', '.join(builds(m)) + '. Your current VR copy was kept.')
         if running(['Battle.net.exe']):
             raise VRError('Close Battle.net first, so the copy is consistent.')
         stop_bottle(BOTTLE)
@@ -291,8 +340,8 @@ def setup(refresh=False):
         STATE.unlink(missing_ok=True)
     if not BOTTLE.exists():
         build = game_build(SOURCE)
-        if build != m['game_build']:
-            raise VRError('D2R VR Unleashed supports D2R ' + m['game_build'] + '; this install is '
+        if build not in builds(m):
+            raise VRError('D2R VR Unleashed supports D2R ' + ', '.join(builds(m)) + '; this install is '
                           + str(build) + '.')
         if running(['Battle.net.exe']):
             raise VRError('Close Battle.net first, so the copy is consistent.')
@@ -310,9 +359,9 @@ def setup(refresh=False):
             saves.parent.mkdir(parents=True, exist_ok=True)
             kept.rename(saves)
             say('Kept the saves and settings of the previous VR copy.')
-    elif game_build(BOTTLE) != m['game_build']:
+    elif game_build(BOTTLE) not in builds(m):
         raise VRError('The VR copy has D2R ' + str(game_build(BOTTLE)) + '; D2R VR Unleashed supports '
-                      + m['game_build'] + '.')
+                      + ', '.join(builds(m)) + '.')
 
     state = {}
     try:
@@ -336,6 +385,7 @@ def setup(refresh=False):
     safe_extract_zip(python_zip, VR / 'python')
     safe_extract_zip(mod_zip, VR / 'mod')
     mod = VR / 'mod' / m['mod']['folder']
+    allow_installer_build(mod, game_build(BOTTLE))
     stage_mod_patch(mod, patched_plugin, m['mod_patch'])
     deps = VR / 'deps'
     (deps / 'reshade-6.8').mkdir(parents=True)
@@ -374,6 +424,8 @@ def setup(refresh=False):
     patch_reshade(game / 'mods' / m['mod']['mod_name'] / 'reshade/ReShade64.dll', m['reshade'])
     if (game / 'd3d12.dll').exists():
         (game / 'd3d12.dll').rename(off)
+    if game_build(BOTTLE) != m['game_build']:
+        quiet_loader_warning(game, game_build(BOTTLE))
     fix_settings(BOTTLE / SAVES_REL)
     isolate_user_folders(BOTTLE)
     write_runtime_routing(m)
@@ -399,7 +451,7 @@ def status():
         'installed': BOTTLE.is_dir() and (BOTTLE / GAME_REL / 'D2RLoader.exe').is_file(),
         'current': state.get('recipe') == recipe(m),
         'game_build': game_build(BOTTLE) if BOTTLE.is_dir() else None,
-        'supported_build': m['game_build'],
+        'supported_build': ', '.join(builds(m)),
         'source_build': game_build(SOURCE),
         'mod': m['mod']['name'],
         'path': str(VR),
