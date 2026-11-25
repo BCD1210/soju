@@ -9,11 +9,16 @@ them to get-gptk.sh, which installs nothing that is not signed by Apple (the Mac
 or a known Apple build (the PE shims).
 
     scripts/fetch-gptk.py            download and install into $ENGINE
+    scripts/fetch-gptk.py --check    exit 0 when $ENGINE already has every shim of the build this Mac uses
     SOJU_GPTK_DOWNLOAD=0             callers skip this and ask for a dmg instead
+
+Macs with an M6 or newer chip get the build under "newer_chips" (4.0 beta 3): D3DMetal 3.0
+does not start Diablo II: Resurrected there.
 """
 import hashlib
 import json
 import os
+import re
 from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
@@ -29,6 +34,37 @@ def digest(path):
     with open(path, "rb") as f:
         for block in iter(lambda: f.read(1024 * 1024), b""): h.update(block)
     return h.hexdigest()
+
+def chip_generation(brand=None):
+    """6 for "Apple M6 Pro", 0 when unknown (Intel, or sysctl missing)."""
+    if brand is None:
+        try:
+            brand = subprocess.run(["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"],
+                                   capture_output=True, text=True).stdout
+        except OSError:
+            brand = ""
+    m = re.search(r"\bApple M(\d+)\b", brand or "")
+    return int(m.group(1)) if m else 0
+
+def choose(manifest, generation):
+    """The build for this Mac: the newer one on chips it names, else the default."""
+    newer = manifest.get("newer_chips")
+    if newer and generation >= newer["min_chip"]:
+        return newer
+    return manifest
+
+def installed(engine, build):
+    """Every shim of the build is in the engine and is one of Apple's (they all name D3DMetalDLLsBase)."""
+    pe = Path(engine) / "lib/wine/x86_64-windows"
+    if not (Path(engine) / "lib/external/libd3dshared.dylib").is_file():
+        return False
+    for shim in build["shims"]:
+        try:
+            if b"D3DMetalDLLsBase" not in (pe / shim).read_bytes():
+                return False
+        except OSError:
+            return False
+    return True
 
 def wanted(name, manifest):
     """Path under the stage for an archive member Soju takes, else None."""
@@ -76,12 +112,14 @@ def unpack(archive, stage, manifest):
             raise ValueError("The archive is missing " + shim)
 
 def main():
-    manifest = json.loads(MANIFEST.read_text())
+    manifest = choose(json.loads(MANIFEST.read_text()), chip_generation())
     base = Path(os.environ.get("SOJU_BASE", Path.home() / ".battlenet-macos"))
     engine = Path(os.environ.get("ENGINE", base / "cx26-engine"))
     if not (engine / "lib").is_dir():
         print("Engine not found at %s. Install Battle.net, Epic or GOG first; that prepares the engine." % engine)
         return 1
+    if "--check" in sys.argv[1:]:
+        return 0 if installed(engine, manifest) else 1
     print("Downloading Apple's Game Porting Toolkit %s (%d MB)" % (manifest["version"], manifest["size"] // 1000000), flush=True)
     base.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".gptk-download-", dir=base) as work:
