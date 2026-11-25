@@ -2,7 +2,7 @@ name: Discord posts
 # Posts to the Soju Discord: the day's releases, new compatibility reports, a weekly summary.
 on:
   schedule:
-    - cron: "7 17 * * *"   # daily, 09:07 Pacific: releases of the last 24 hours
+    - cron: "7 17 * * *"   # daily, 17:07 UTC (09:07 Pacific in winter, 10:07 in summer): releases of the last 24 hours
     - cron: "37 18 * * 1"  # Mondays: the week
   issues:
     types: [opened]
@@ -49,5 +49,6 @@ jobs:
         run: |
           case "$MODE" in
             weekly) python3 scripts/discord-digest.py weekly ;;
-            *) python3 scripts/discord-digest.py releases --hours "$((HOURS + 0))" ;;
+            *) case "$HOURS" in ''|*[!0-9]*) HOURS=24 ;; esac
+               python3 scripts/discord-digest.py releases --hours "$HOURS" ;;
           esac

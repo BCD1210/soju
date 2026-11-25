@@ -68,6 +68,20 @@ case "$ACTION" in
     mkdir -p "$MANAGED"
     ditto "$ROOT" "$MANAGED"
     exec bash "$MANAGED/install.sh" ;;
+  sync-scripts)
+    # The Dock shortcuts run $BASE/desktop-scripts, copied once at install and
+    # never touched by the app's self-update. Swap in this app's scripts when
+    # they are newer, so a shortcut runs the same release as the app.
+    MANAGED="$BASE/desktop-scripts"
+    [ -f "$MANAGED/VERSION" ] || exit 0
+    [ "$(cd "$MANAGED" && pwd -P)" != "$(cd "$ROOT" && pwd -P)" ] || exit 0
+    NEW=$(tr -d '[:space:]' <"$ROOT/VERSION"); OLD=$(tr -d '[:space:]' <"$MANAGED/VERSION")
+    [ "$NEW" != "$OLD" ] || exit 0
+    [ "$(printf '%s\n%s\n' "$OLD" "$NEW" | sort -V | tail -1)" = "$NEW" ] || exit 0
+    rm -rf "$MANAGED.new" "$MANAGED.old"
+    ditto "$ROOT" "$MANAGED.new"
+    mv "$MANAGED" "$MANAGED.old" && mv "$MANAGED.new" "$MANAGED" && rm -rf "$MANAGED.old"
+    echo "Shortcut scripts $OLD -> $NEW" ;;
   gptk)
     [ -x "$BASE/cx26-engine/bin/wine" ] || {
       echo "Install Battle.net, Epic, GOG, EA, Rockstar or Ubisoft first to prepare its engine, then add GPTK."; exit 1;

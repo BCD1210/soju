@@ -58,7 +58,7 @@ soju install
 | --- | --- | :-: | --- |
 | Diablo II: Resurrected | Battle.net | ✅ 인게임, 온라인 | **macOS 26.4 이상** 필요, [가이드](https://didimlabs.com/guides/ko/diablo-2-mac.html) |
 | 디아블로 4 | Battle.net | ✅ 인게임 (무료 체험판) | 캐릭터 생성, 첫 지역 진입까지 확인. 소리와 프레임은 미확인. 고해상도 에셋 제외 97GB. [가이드](https://didimlabs.com/guides/ko/diablo-4-mac.html) |
-| Hogwarts Legacy | Epic | ✅ 인게임 | 시작할 때 뜨는 "AMD 드라이버" 경고는 무시해도 됩니다. 입력 소스는 영어로 |
+| Hogwarts Legacy | Epic | ✅ 인게임 | 시작할 때 뜨는 "AMD 드라이버" 경고는 무시해도 됩니다 |
 | StarCraft: Remastered | Battle.net | ✅ 인게임 | 컴퓨터 상대 대전까지 확인, 멀티플레이는 미확인, [가이드](https://didimlabs.com/guides/ko/starcraft-mac.html) |
 | 디트로이트: 비컴 휴먼 (데모) | Steam | ✅ 인게임 | 맥 미니 M4 Pro, macOS 26.5. Steam 지원 v6의 MoltenVK로 Vulkan을 그립니다. 처음 실행할 때 셰이더 준비에 몇 분 걸립니다. "그래픽카드가 공식 지원되지 않는다" 경고는 OK를 누르면 됩니다 |
 | 오버워치 2 | Steam | ✅ 메인 메뉴, 온라인 | Play를 누르면 Steam이 **DirectX 12 mode**로 알아서 바뀝니다(Stores > Steam, `soju steam-gptk on`). 처음 한 번 배틀넷 계정 연결을 묻습니다. [가이드](https://didimlabs.com/guides/ko/overwatch-2-mac.html) |
@@ -117,7 +117,7 @@ soju fps on      # 게임 화면 구석에 프레임(FPS)·프레임 시간 표�
 - **보유 게임 가져오기:** Steam 공식 로그인으로 보유 게임을 가져오고(API 키 불필요), GOG GALAXY가 저장해 둔 보유 목록도 가져옵니다. 설치된 게임과 설치 안 된 게임이 한 라이브러리에 같이 보입니다. Epic·Battle.net 보유 목록 연동은 아직 없습니다. [설정 안내](docs/ACCOUNTS.md)
 - **Discover:** Steam·GOG·Microsoft Store의 상품과 가격을 검색하고 공식 스토어로 연결합니다.
 - **Platforms:** 런처 설치, 구성요소 업데이트, 진단을 한 화면에서 합니다. CLI와 런처별 바로가기도 그대로 쓸 수 있습니다.
-- **Xbox PC (실험 기능), TV·아이패드 스트리밍, Didim Labs Store:** 아래 [Didim Labs Store](#didim-labs-store)와 [Xbox PC](#xbox-pc--microsoft-store-xodus-백엔드-실험-기능) 항목에 있습니다.
+- **Xbox PC (실험 기능), TV·아이패드 스트리밍, Didim Labs Store:** 아래 [TV·아이패드](#tv아이패드), [Didim Labs Store](#didim-labs-store)와 [Xbox PC](#xbox-pc--microsoft-store-xodus-백엔드-실험-기능) 항목에 있습니다.
 
 기본 Wine 엔진은 CodeWeavers 공개 소스로 빌드하고, Steam은 별도의 Wine 11 환경을 씁니다.
 
@@ -141,7 +141,7 @@ soju fps on      # 게임 화면 구석에 프레임(FPS)·프레임 시간 표�
 # 1. 스크립트 받기
 git clone https://github.com/BCD1210/soju.git && cd soju
 
-# 2. 런타임 구성요소 확보 (x86_64 dylib + wine-mono, 전부 무료 GPL 릴리스에서)
+# 2. 런타임 구성요소 확보 (x86_64 dylib + wine-mono, 전부 무료 오픈소스 릴리스에서)
 scripts/get-components.sh
 
 # 3. GPL 소스에서 엔진 빌드 (30~60분)
@@ -198,9 +198,11 @@ scripts/play.sh gog-kill          # GOG 보틀 종료 (창을 닫으면 메뉴�
 
 게임은 아직 폭넓게 테스트하지 않았습니다. 커널 안티치트(EAC/BattlEye)가 필요한 게임은 Wine에서 돌지 않습니다.
 
-## Didim Labs Store
+## TV·아이패드
 
-TV·아이패드: 소주에서 스트리밍을 켜고, TV·아이패드·휴대폰에 무료 Moonlight 앱을 받아 화면에 나온 PIN을 소주에 넣으면, 맥에서 도는 게임을 그 화면에서 할 수 있습니다.
+소주에서 스트리밍을 켜고, TV·아이패드·휴대폰에 무료 Moonlight 앱을 받아 화면에 나온 PIN을 소주에 넣으면, 맥에서 도는 게임을 그 화면에서 할 수 있습니다.
+
+## Didim Labs Store
 
 저희가 만든 맥 게임을 파는 탭입니다. 구매 버튼을 누르고 Polar에서 결제하면, 소주가 게임을 받아 SHA-256과 서명을 확인한 뒤 알아서 설치합니다. Wine 없이 돌아갑니다. 키는 키체인에 저장돼서 다시 설치할 때 또 묻지 않습니다. zip 파일이 이미 있으면 Library → Add Didim Labs game이나 `soju didim install <zip>`으로 설치하면 됩니다. 세이브는 `~/Library/Application Support`에 남습니다.
 
@@ -233,10 +235,10 @@ soju xbox-logout             # 로그아웃 (받은 게임은 유지)
 
 **스테레오 스피커에서 5.1·7.1 소리.** 5.1이나 7.1 채널로 소리를 내는 게임(Skyrim Special Edition 등)은 맥 스피커에서 가운데와 뒤 채널, 곧 대사 대부분이 들리지 않았습니다. Steam 부품은 소주 패치를 넣은 Wine 오디오 드라이버를 함께 깔아, 이런 소리를 스테레오로 접어 스피커로 보냅니다. 가운데는 양쪽으로, 뒤와 옆 채널은 각자 쪽으로 갑니다 (#93).
 
-D2R은 2026년 2월 Steam에도 *Infernal Edition*으로 출시됐습니다. Steam은 **다른 무료 엔진**을 씁니다: 최신 Steam 클라이언트의 CEF UI는 CrossOver 소스 계열 빌드에서 렌더링되지 않지만(검은 창, 크로스 프로세스 스왑체인 + CEF 샌드박스 문제), homebrew `wine-stable` 11 + `steamwebhelper` 래퍼(`--disable-gpu --single-process` 강제)로는 동작합니다. 이 해법은 [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)(MIT, 래퍼 소스는 `third_party/`에 동봉)에서 왔습니다. Steam은 별도 보틀이라 두 스택이 서로 간섭하지 않습니다:
+D2R은 2026년 2월 Steam에도 *Infernal Edition*으로 출시됐습니다. Steam은 **다른 무료 엔진**을 씁니다: 최신 Steam 클라이언트의 CEF UI는 CrossOver 소스 계열 빌드에서 렌더링되지 않지만(검은 창, 크로스 프로세스 스왑체인 + CEF 샌드박스 문제), 고정된 upstream Wine 11 빌드 + `steamwebhelper` 래퍼(`--disable-gpu --single-process` 강제)로는 동작합니다. 이 해법은 [notpop/steam-on-m1-wine](https://github.com/notpop/steam-on-m1-wine)(MIT, 래퍼 소스는 `third_party/`에 동봉)에서 왔습니다. Steam은 별도 보틀이라 두 스택이 서로 간섭하지 않습니다:
 
 ```bash
-scripts/create-steam-bottle.sh   # wine-stable + 래퍼 + Valve 공식 설치기
+scripts/create-steam-bottle.sh   # 전용 Wine 11 + 래퍼 + Valve 공식 설치기
 scripts/play.sh steam            # 로그인 → 게임 설치·플레이
 scripts/play.sh steam-kill       # Steam 보틀 종료
 ```
@@ -258,7 +260,7 @@ GPTK 안의 `libd3dshared.dylib`는 그래픽만이 아닙니다. **D2R 로더(�
 - **언리얼 엔진 게임 시작 시 "AMD graphics driver has known issues" 경고**(Hogwarts Legacy 등): D3DMetal이 자신을 구형 드라이버의 AMD 카드로 소개해 UE4의 드라이버 검사가 걸리는 것입니다. 무해하며 OK로 넘어가면 됩니다. 없애려면 게임의 사용자 `Engine.ini`(`AppData/Local/<게임>/Saved/Config/WindowsNoEditor/`)에 `[SystemSettings]` / `r.WarnOfBadDrivers=0`을 추가하세요.
 - **GOG GALAXY: 알림 토스트가 뜨는 동안 오른쪽 아래가 검은 사각형으로 가려짐**, 토스트가 사라지면 함께 사라짐. 토스트는 GOG 알림 렌더러의 투명 레이어 창인데 Wine에는 DWM 합성이 없어 투명 영역이 검게 칠해집니다. 무해하며, GOG 설정에서 데스크톱 알림을 끄면 안 뜹니다.
 - **이동키가 눌린 채로 고정되거나, 마우스는 되는데 키보드가 죽는 경우** (Hogwarts Legacy에서 확인): 키를 누른 사이에 키보드 포커스가 다른 Wine 창으로 넘어간 것입니다. 주범은 Epic(EOS) 오버레이라 `soju epic`은 이제 오버레이를 끕니다(`SOJU_EPIC_OVERLAY=1`로 복구, 적용하려면 `soju epic-kill` 후 재실행). v1.5 이전 엔진에서는 한글/일본어/중국어 입력기가 두 번째 원인입니다: 글자키가 자모나 가나로 번역돼 언리얼 게임이 버리고(ESC·방향키·F키만 됨), 전환 순간 누르고 있던 키는 고정됩니다. 그 엔진에서는 입력기를 영어(ABC)로 두거나 엔진을 업데이트하세요(`soju update`). 그래도 재발하면 `SOJU_KEYLOG=1 soju epic`이 `~/.battlenet-macos/logs/`에 키·포커스 로그를 남기니 이슈에 첨부해 주세요.
-- **Epic: "your account has too many active logins"**, 모든 기기에서 로그아웃하거나 비밀번호를 재설정해도 그대로인 경우. 서버가 실제로 답하는 것은 `too_many_sessions`(18048)이고, 이는 보유 중인 세션이 아니라 *발급된* 세션 수에 대한 제한이라 재시도할수록 나빠진다. 예전 엔진에서는 런처의 기기 키를 wine이 저장하지 못해 몇 번만 실행해도 걸렸다(`patches/ncrypt-persisted-keys.patch` 참고). 보틀을 끄고(`soju epic-kill`) 몇 시간 두어 카운터가 비워진 뒤 한 번만 실행하세요.
+- **Epic: "your account has too many active logins"**, 모든 기기에서 로그아웃하거나 비밀번호를 재설정해도 그대로인 경우. 서버가 실제로 답하는 것은 `too_many_sessions`(18048)이고, 이는 보유 중인 세션이 아니라 *발급된* 세션 수에 대한 제한이라 재시도할수록 나빠집니다. 예전 엔진에서는 런처의 기기 키를 wine이 저장하지 못해 몇 번만 실행해도 걸렸습니다(`patches/ncrypt-persisted-keys.patch` 참고). 보틀을 끄고(`soju epic-kill`) 몇 시간 두어 카운터가 비워진 뒤 한 번만 실행하세요.
 
 - **게임 종료 후(또는 실행이 죽은 뒤) 배틀넷이 "업데이트"(초기화 중)에 멈추고 플레이 버튼이 사라짐**: 게임 프로세스가 끝날 때마다 런처가 설치를 다시 점검합니다. 업데이트를 일시정지했다가 재개하면 플레이 버튼이 돌아오고 정상 실행됩니다. 설치 후 첫 플레이가 1분 안에 죽으면 플레이를 한 번 더 누르세요: 한 번 보고된 사례에서 두 번째 실행은 정상이었습니다. 일시정지 버튼이 아예 반응하지 않으면 클라이언트 자체가 멈춘 것입니다(일주일 넘게 켜 둔 뒤 Battle.net.exe가 CPU를 다 쓰며 돌던 사례): 독에서 배틀넷을 종료하고 다시 열면 플레이 버튼이 돌아옵니다.
 - **플레이스테이션 패드(듀얼쇼크 4, 듀얼센스)를 페어링해서 macOS는 인식하는데 게임이 무시함** (블루투스 듀얼쇼크 4 + D2R, #42): `soju controllers`를 열면 DirectInput에만 보이고 XInput 슬롯은 전부 비어 있습니다. Wine은 소니 패드를 기본으로 raw HID 백엔드로 붙이는데, macOS에서는 그 백엔드가 패드를 XInput으로 내놓지 않고, 블리자드 게임은 XInput만 봅니다. 이제 `soju battlenet`이 소니 패드만 SDL 경로로 돌립니다(제조사 단위 레지스트리 항목이라 raw HID가 필요한 휠·스틱은 그대로). 그러면 Xbox 패드처럼 동작합니다. 이 설정은 보틀이 뜰 때 한 번 읽으므로, 배틀넷이 이미 켜져 있었다면 `soju kill`로 완전히 내렸다가(창만 닫으면 보틀이 한동안 살아 있을 수 있습니다) 다시 여세요. `soju controllers`의 "Disable hidraw"를 켜면 모든 장치에 같은 효과입니다. 소니 패드에 raw HID를 되돌리려면 `HKLM\System\CurrentControlSet\Services\WineBus\Devices\054C`의 `Hidraw`를 1로 두면 됩니다.
@@ -267,7 +269,7 @@ GPTK 안의 `libd3dshared.dylib`는 그래픽만이 아닙니다. **D2R 로더(�
 
 ## 라이선스
 
-- 이 레포의 스크립트·문서: **GPL-3.0**
+- 이 레포의 스크립트·문서: **GPL-3.0-or-later** (LICENSE 참고)
 - 엔진은 CodeWeavers 공개 Wine 소스(GPL/LGPL)로 빌드. 소스: `media.codeweavers.com/pub/crossover/source/`
 - 미포함(앞으로도): 애플 D3DMetal/GPTK(재배포 금지), CrossOver 앱 바이너리, 블리자드 파일 일체
 - 본 프로젝트는 CodeWeavers·Apple·Blizzard와 무관합니다. Battle.net과 Diablo는 Blizzard Entertainment의 상표입니다.

@@ -50,7 +50,7 @@ static DWORD find_vtable_rva(const BYTE *img, DWORD size)
     for (i = 0; i + 24 <= size; i += 4)
     {
         const DWORD *d = (const DWORD *)(img + i);
-        if (d[0] == 1 && d[1] == 0 && d[3] == td_rva) { col_rva = off_to_rva(img, i); if (d[5] == col_rva) break; }
+        if (d[0] == 1 && d[1] == 0 && d[3] == td_rva) { col_rva = off_to_rva(img, i); if (d[5] == col_rva) break; col_rva = 0; }
     }
     if (!col_rva) return 0;
 

@@ -49,7 +49,7 @@ built DLL that will be published. No game assets are included.
 
 ## Release gate
 
-No artifact has been uploaded by this change. After simulator qualification (real Quest remains unverified):
+The `vr-mod-v2` assets are published (2026-11-24); a real Quest remains unverified. For the next build:
 
 1. Publish the staged DLL at the `vr-mod-v2` URL in resources/d2r-vr.json (with soju-nvngx.dll from tools/ngx-unwrap/build.sh). Confirm
    its size and SHA-256 match `mod_patch`; never replace a published artifact.
@@ -61,6 +61,3 @@ No artifact has been uploaded by this change. After simulator qualification (rea
    downloader; none bypass checksum validation.
 4. Smoke-test fresh setup and upgrade, then distribute Soju. Do not distribute
    this manifest while the pinned release asset is absent.
-
-For the current local test, only `mods/pcvr-dev/d2rloader/plugins/d2rl-pcvr.dll`
-is replaced, with a verified backup. The installed release mod stays untouched.

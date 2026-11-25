@@ -98,7 +98,7 @@ class DidimStore(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
 
     def run_activate(self, key, store='http://127.0.0.1:9'):
-        env = dict(os.environ, SOJU_BASE=tempfile.mkdtemp(), SOJU_DIDIM_STORE=store, SOJU_DIDIM_KEY=key)
+        env = dict(os.environ, SOJU_BASE=str(self.dir / 'activate-base'), SOJU_DIDIM_STORE=store, SOJU_DIDIM_KEY=key)
         return subprocess.run([sys.executable, str(SCRIPT), 'activate', 'no-such-game-for-tests'], env=env,
                               capture_output=True, text=True)
 

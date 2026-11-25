@@ -67,7 +67,7 @@ Tested by us on an M4 Pro with macOS 26.5, unless a row says it is a player's re
 | The Elder Scrolls V: Skyrim Special Edition | Steam | ✅ in-game (player's report) | M5 Pro, macOS 27.2, Soju 1.14.8; dialogue and surround sound confirmed ([#95](https://github.com/BCD1210/soju/issues/95)) |
 | Guilt Free (a Unity Direct3D 11 game) | Steam | ✅ in-game, windowed | see [docs/STEAM-GAMES.md](docs/STEAM-GAMES.md) |
 | The Witcher 3 (Remastered) | Steam | 🟡 reaches its menu (player's report) | needs Apple GPTK 4.0 beta 3, which Soju accepts since 1.14.10 ([#112](https://github.com/BCD1210/soju/issues/112)) |
-| Diablo II: Resurrected (Steam edition) | Steam | 🟡 runs (user report) | in DirectX 12 mode; a player reported it running on Discord (2026-11-17). Not checked by us: we don't own the Steam edition |
+| Diablo II: Resurrected (Steam edition) | Steam | 🟡 runs (player's report) | in DirectX 12 mode; a player reported it running on Discord (2026-11-17). Not checked by us: we don't own the Steam edition |
 | Diablo IV (Steam edition) | Steam | ✅ in-game (player's report) | M5 Pro 48 GB, macOS 27.2.1: about 60 FPS at 1800×1169, ray tracing works, some slowdown in busy scenes; about 5 hours played. Play switches Steam to DirectX 12 mode by itself from 1.14.44 ([#186](https://github.com/BCD1210/soju/issues/186)) |
 | Diablo II: Resurrected in VR or first person on the Mac (offline) | Battle.net | 🧪 simulator only (VR); ✅ Mac screen | the **VR** badge on its card; [docs/VR.md](docs/VR.md) |
 
@@ -159,7 +159,7 @@ Apple's Game Porting Toolkit files are downloaded in step 4. To use your own cop
 # 1. Get the scripts
 git clone https://github.com/BCD1210/soju.git && cd soju
 
-# 2. Fetch runtime components (x86_64 dylibs + wine-mono, all from free GPL releases)
+# 2. Fetch runtime components (x86_64 dylibs + wine-mono, all from free open-source releases)
 scripts/get-components.sh
 
 # 3. Build the engine from GPL sources (30-60 min)
@@ -300,7 +300,7 @@ Every bottle start also spawns idle Windows service processes (`services.exe`, `
 
 ## Licensing
 
-- Scripts and docs in this repo: **GPL-3.0** (see LICENSE)
+- Scripts and docs in this repo: **GPL-3.0-or-later** (see LICENSE)
 - The engine is built from CodeWeavers' published Wine sources (GPL/LGPL). Sources:  `media.codeweavers.com/pub/crossover/source/`
 - **Not in this repo or the app**: Apple D3DMetal/GPTK binaries, CrossOver application binaries, any Blizzard files. Soju downloads Apple's unmodified GPTK files during setup and installs only what Apple signed
 - This project is not affiliated with CodeWeavers, Apple, or Blizzard Entertainment. Battle.net and Diablo are trademarks of Blizzard Entertainment. Use at your own risk; online play with third-party compatibility layers is at your own discretion.

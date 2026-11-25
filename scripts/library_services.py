@@ -344,8 +344,9 @@ def gog_owned(base, settings):
         uid = numeric_id(release.removeprefix('gog_'))
         title = text(name)
         if not title and value:
-            parsed = json.loads(value)
-            title = text(parsed.get('title')) if isinstance(parsed, dict) else text(parsed)
+            try: parsed = json.loads(value)
+            except ValueError: parsed = None   # a row Galaxy is still writing
+            title = text(parsed.get('title')) if isinstance(parsed, dict) else text(parsed) if parsed is not None else ''
         if not title:
             raise ServiceError('Galaxy is still loading game names. Open its library and retry. Your previous import is unchanged.')
         games[uid] = dict(id='gog:' + uid, platform='gog', title=title)

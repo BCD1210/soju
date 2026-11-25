@@ -133,6 +133,9 @@ fi
 
 BACKUP="$BASE/steam-support/prefix-backup-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP"
+# Keep this backup and the two before it; every run used to leave one more behind.
+ls -d "$BASE"/steam-support/prefix-backup-* 2>/dev/null | sort | awk -v keep=3 '{a[NR]=$0} END{for(i=1;i<=NR-keep;i++) print a[i]}' |
+  while IFS= read -r old; do case "$old" in "$BASE"/steam-support/prefix-backup-2*) rm -rf "$old" ;; esac; done
 cp "$WINEPREFIX/user.reg" "$BACKUP/user.reg"
 for D in d3d11 dxgi d3d10core winemetal; do
   [ ! -f "$B/system32/$D.dll" ] || cp "$B/system32/$D.dll" "$BACKUP/$D.dll"

@@ -117,10 +117,10 @@ def check_target(folder, need_bytes, has_links):
     return folder
 
 
-def copy_verified(src, dst):
+def copy_verified(src, dst, delete=False):
     dst.parent.mkdir(parents=True, exist_ok=True)
     print(f"Copying {src.name} ...", flush=True)
-    done = subprocess.run(["/usr/bin/rsync", "-a", str(src) + "/", str(dst) + "/"])
+    done = subprocess.run(["/usr/bin/rsync", "-a"] + (["--delete"] if delete else []) + [str(src) + "/", str(dst) + "/"])
     if done.returncode != 0:
         fail("Copying stopped before it finished. The game was left where it was.")
     print("Checking the copy ...", flush=True)
@@ -152,9 +152,15 @@ def move(game_id, folder):
     if mount_of(folder)[0] == mount_of(path)[0]:
         fail("That folder is on the same disk as the game.")
     dst = folder / "Soju Games" / platform / path.name
-    if dst.exists() and any(dst.iterdir()):
+    copying = dst.parent / (path.name + ".soju-copying")
+    resumed = copying.is_file() and copying.read_text().strip() == game_id
+    if dst.exists() and any(dst.iterdir()) and not resumed:
         fail(f"{dst} already has files in it.")
-    copy_verified(path, dst)
+    # An earlier move of this game that stopped midway left its files there: rsync carries on from them.
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    copying.write_text(game_id + "\n")
+    copy_verified(path, dst, delete=True)
+    copying.unlink(missing_ok=True)
     (dst.parent / (path.name + MARK)).write_text(json.dumps({"game": game_id, "from": str(path)}) + "\n")
     aside = path.with_name(path.name + ".soju-moving")
     path.rename(aside)

@@ -42,6 +42,36 @@
    "mac": "Apple Silicon (M3, macOS 26)",
    "macos": "26",
    "soju": "Steam support v7"
+  },
+  {
+   "number": 171,
+   "url": "https://github.com/BCD1210/soju/issues/171",
+   "date": "2026-11-22",
+   "name": "Order of the Sinking Star",
+   "appid": null,
+   "title": "Order of the Sinking Star",
+   "works": false,
+   "store": "Steam",
+   "result": "Fails to launch",
+   "mac": "Mac14,7, Apple M2, 16 GB",
+   "macos": "27.2.1",
+   "soju": "1.14.38"
+  },
+  {
+   "number": 186,
+   "url": "https://github.com/BCD1210/soju/issues/186",
+   "date": "2026-11-24",
+   "name": "Diablo IV",
+   "appid": null,
+   "title": "Diablo IV Native Steam Launcher Working",
+   "works": true,
+   "store": "Steam",
+   "result": "Works in-game",
+   "mac": "Macbook Pro, M5 Pro, 48 GB",
+   "macos": "27.2.1",
+   "soju": "1.14.36",
+   "fps": "~60 FPS at 1800x1169",
+   "played": "~5 hours"
   }
  ]
 }

@@ -311,6 +311,7 @@ enum FeedToken {
         let asked = filter
         send("GET", query(before: nil)) { status, value in
             guard asked == self.filter, status == 200, let list = value["posts"] as? [[String: Any]] else { return }
+            if self.offline { self.offline = false }
             var next = self.posts, changed = false, reopen: [Int] = []
             let oldest = next.last?.id ?? 0
             for post in list.compactMap(FeedPost.init) {

@@ -197,7 +197,9 @@ def remove(yes):
         return 0
     if not yes:
         raise XCLError('This deletes ' + str(XCL) + ' (XCL saves in its bottle included). Run again with --yes.')
-    subprocess.run([str(ENGINE / 'bin/wineserver'), '-k'], env=wine_env(), capture_output=True)
+    server = ENGINE / 'bin/wineserver'
+    if server.is_file():   # the engine may have been removed first
+        subprocess.run([str(server), '-k'], env=wine_env(), capture_output=True)
     shutil.rmtree(XCL)
     say('Removed ' + str(XCL) + '.')
     return 0
