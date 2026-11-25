@@ -4,25 +4,43 @@
    "game": "battlenet:osi",
    "title": "Diablo II: Resurrected",
    "players": 11,
-   "minutes": 3298
+   "minutes": 4219
   },
   {
    "game": "steam:250900",
    "title": "The Binding of Isaac: Rebirth",
    "players": 4,
-   "minutes": 390
+   "minutes": 417
+  },
+  {
+   "game": "steam:2344520",
+   "title": "Diablo® IV",
+   "players": 3,
+   "minutes": 1471
   },
   {
    "game": "epic:fa4240e57a3c46b39f169041b7811293",
    "title": "Hogwarts Legacy",
    "players": 3,
-   "minutes": 416
+   "minutes": 435
   },
   {
-   "game": "steam:2344520",
-   "title": "Diablo® IV",
+   "game": "steam:1449850",
+   "title": "Yu-Gi-Oh!  Master Duel",
+   "players": 3,
+   "minutes": 425
+  },
+  {
+   "game": "steam:3164500",
+   "title": "Schedule I",
+   "players": 3,
+   "minutes": 98
+  },
+  {
+   "game": "steam:934700",
+   "title": "Dead Island 2",
    "players": 2,
-   "minutes": 1464
+   "minutes": 592
   },
   {
    "game": "steam:990080",
@@ -37,10 +55,16 @@
    "minutes": 246
   },
   {
-   "game": "steam:3164500",
-   "title": "Schedule I",
+   "game": "steam:2168680",
+   "title": "Nuclear Option",
    "players": 2,
-   "minutes": 97
+   "minutes": 228
+  },
+  {
+   "game": "battlenet:s1",
+   "title": "StarCraft: Remastered",
+   "players": 2,
+   "minutes": 182
   },
   {
    "game": "battlenet:prometheus",
@@ -52,7 +76,7 @@
    "game": "steam:1158160",
    "title": "Coral Island",
    "players": 1,
-   "minutes": 728
+   "minutes": 848
   },
   {
    "game": "steam:1223750",
@@ -61,34 +85,28 @@
    "minutes": 535
   },
   {
-   "game": "steam:365160",
-   "title": "Kona",
+   "game": "steam:2142790",
+   "title": "Fields of Mistria",
    "players": 1,
-   "minutes": 388
+   "minutes": 530
+  },
+  {
+   "game": "steam:1658280",
+   "title": "Eiyuden Chronicle: Hundred Heroes",
+   "players": 1,
+   "minutes": 504
   },
   {
    "game": "steam:489830",
    "title": "The Elder Scrolls V: Skyrim Special Edition",
    "players": 1,
-   "minutes": 368
+   "minutes": 465
   },
   {
-   "game": "steam:2142790",
-   "title": "Fields of Mistria",
+   "game": "steam:365160",
+   "title": "Kona",
    "players": 1,
-   "minutes": 333
-  },
-  {
-   "game": "steam:934700",
-   "title": "Dead Island 2",
-   "players": 1,
-   "minutes": 331
-  },
-  {
-   "game": "steam:1449850",
-   "title": "Yu-Gi-Oh!  Master Duel",
-   "players": 1,
-   "minutes": 303
+   "minutes": 388
   },
   {
    "game": "steam:2835570",
@@ -97,16 +115,16 @@
    "minutes": 300
   },
   {
-   "game": "steam:1658280",
-   "title": "Eiyuden Chronicle: Hundred Heroes",
-   "players": 1,
-   "minutes": 298
-  },
-  {
    "game": "steam:292410",
    "title": "Street Racing Syndicate",
    "players": 1,
    "minutes": 278
+  },
+  {
+   "game": "steam:4197610",
+   "title": "Librarian: Tidy Up the Arcane Library!",
+   "players": 1,
+   "minutes": 270
   },
   {
    "game": "steam:784150",
@@ -115,22 +133,10 @@
    "minutes": 257
   },
   {
-   "game": "battlenet:s1",
-   "title": "StarCraft: Remastered",
-   "players": 1,
-   "minutes": 181
-  },
-  {
    "game": "steam:4072240",
    "title": "Woman Simulator",
    "players": 1,
    "minutes": 167
-  },
-  {
-   "game": "steam:4197610",
-   "title": "Librarian: Tidy Up the Arcane Library!",
-   "players": 1,
-   "minutes": 162
   },
   {
    "game": "steam:582010",
@@ -157,6 +163,12 @@
    "minutes": 108
   },
   {
+   "game": "steam:631510",
+   "title": "Devil May Cry HD Collection",
+   "players": 1,
+   "minutes": 85
+  },
+  {
    "game": "steam:3962460",
    "title": "THE CANON OF BALLS",
    "players": 1,
@@ -181,6 +193,12 @@
    "minutes": 62
   },
   {
+   "game": "steam:1977530",
+   "title": "One-armed cook",
+   "players": 1,
+   "minutes": 57
+  },
+  {
    "game": "xbox:9N98Z825TNFW",
    "title": "Minecraft Legends - Windows",
    "players": 1,
@@ -199,10 +217,22 @@
    "minutes": 50
   },
   {
+   "game": "steam:1222140",
+   "title": "Detroit: Become Human",
+   "players": 1,
+   "minutes": 47
+  },
+  {
    "game": "steam:4000",
    "title": "Garry's Mod",
    "players": 1,
    "minutes": 42
+  },
+  {
+   "game": "steam:1705180",
+   "title": "Gunner, HEAT, PC!",
+   "players": 1,
+   "minutes": 37
   },
   {
    "game": "steam:629760",
@@ -229,6 +259,12 @@
    "minutes": 28
   },
   {
+   "game": "steam:3527290",
+   "title": "PEAK",
+   "players": 1,
+   "minutes": 28
+  },
+  {
    "game": "steam:3061570",
    "title": "Persona5: The Phantom X",
    "players": 1,
@@ -239,6 +275,12 @@
    "title": "Jotunnslayer: Hordes of Hel",
    "players": 1,
    "minutes": 25
+  },
+  {
+   "game": "steam:3405340",
+   "title": "Megabonk",
+   "players": 1,
+   "minutes": 24
   },
   {
    "game": "steam:1057090",
@@ -259,6 +301,12 @@
    "minutes": 19
   },
   {
+   "game": "steam:1665460",
+   "title": "eFootball™",
+   "players": 1,
+   "minutes": 14
+  },
+  {
    "game": "steam:2357570",
    "title": "Overwatch®",
    "players": 1,
@@ -267,6 +315,12 @@
   {
    "game": "steam:4148530",
    "title": "City Transport Simulator 2026",
+   "players": 1,
+   "minutes": 14
+  },
+  {
+   "game": "steam:41500",
+   "title": "Torchlight",
    "players": 1,
    "minutes": 14
   },
@@ -307,10 +361,16 @@
    "minutes": 10
   },
   {
-   "game": "steam:2168680",
-   "title": "Nuclear Option",
+   "game": "steam:552500",
+   "title": "Warhammer: Vermintide 2",
    "players": 1,
    "minutes": 9
+  },
+  {
+   "game": "steam:1222690",
+   "title": "Dragon Age™ Inquisition",
+   "players": 1,
+   "minutes": 8
   },
   {
    "game": "steam:1248980",
@@ -331,22 +391,34 @@
    "minutes": 7
   },
   {
+   "game": "steam:1385950",
+   "title": "Guilt Free",
+   "players": 1,
+   "minutes": 7
+  },
+  {
    "game": "steam:1651790",
    "title": "Peripeteia Demo",
    "players": 1,
    "minutes": 7
   },
   {
-   "game": "steam:1385950",
-   "title": "Guilt Free",
-   "players": 1,
-   "minutes": 6
-  },
-  {
    "game": "steam:227300",
    "title": "Euro Truck Simulator 2",
    "players": 1,
    "minutes": 6
+  },
+  {
+   "game": "steam:4968640",
+   "title": "Japanese Ramen Simulator",
+   "players": 1,
+   "minutes": 5
+  },
+  {
+   "game": "steam:766570",
+   "title": "Russian Fishing 4",
+   "players": 1,
+   "minutes": 5
   },
   {
    "game": "steam:11020",
