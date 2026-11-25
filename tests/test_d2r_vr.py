@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -60,12 +61,76 @@ class ManifestTests(unittest.TestCase):
 
     def test_app_actions_are_routed(self):
         action = (ROOT / 'scripts/desktop-action.sh').read_text()
-        self.assertIn('setup|play|status) exec python3 "$ROOT/scripts/d2r-vr.py" "$1"', action)
+        self.assertIn('setup|play) exec python3 "$ROOT/scripts/d2r-vr.py" "$1"', action)
+        self.assertIn('status) exec python3 "$ROOT/scripts/d2r-vr.py" status --json', action)
+        self.assertIn('play --flat --view "${2:-first}"', action)
         library = (ROOT / 'app/Library.swift').read_text()
-        self.assertIn('model.run(["vr", "setup"]', library)
-        self.assertIn('task(["vr", flat ? "flat" : "play"]', library)
-        self.assertIn('flat) exec python3 "$ROOT/scripts/d2r-vr.py" play --flat', action)
-        self.assertIn('model.playVR(game, flat: true)', library)
+        sheet = (ROOT / 'app/VRSheet.swift').read_text()
+        self.assertIn('model.run(["vr", "setup"]', sheet)
+        self.assertIn('task(flat ? ["vr", "flat", view] : ["vr", "play"]', library)
+        self.assertIn('model.playVR(game, flat: true, view: flatView)', sheet)
+        self.assertIn('D2RVRSheet(model: model, game: game', library)
+        self.assertIn('VRSheet.swift', (ROOT / 'scripts/build-app.sh').read_text())
+        # the sheet reads these fields from `soju vr status --json`
+        for field in ('installed', 'current', 'source_build', 'source_supported'):
+            self.assertIn(field, sheet)
+
+    def test_flat_play_sets_the_mods_mode_and_view(self):
+        with tempfile.TemporaryDirectory() as d:
+            game = Path(d)
+            ini = game / 'mods/D2R-PCVR/d2rloader/plugins/d2r_pcvr.ini'
+            ini.parent.mkdir(parents=True)
+            ini.write_bytes(b'[stereo]\r\nplatform = 9\r\n[mode]\r\nplatform = 1\r\nflat_view = 3\r\nvr_mode = 4\r\n')
+            vr.set_mode(game, True, 'third')
+            self.assertEqual(ini.read_bytes(),
+                             b'[stereo]\r\nplatform = 9\r\n[mode]\r\nplatform = 0\r\nflat_view = 2\r\nvr_mode = 4\r\n')
+            vr.set_mode(game, True, 'classic')
+            self.assertIn(b'flat_view = 1\r\n', ini.read_bytes())
+            vr.set_mode(game, False)   # VR again: the headset, the flat view kept for next time
+            self.assertIn(b'[mode]\r\nplatform = 1\r\nflat_view = 1\r\n', ini.read_bytes())
+            vr.set_mode(Path(d) / 'missing', True)   # no mod installed: nothing to do, no error
+
+    def test_dlss_follows_the_metalfx_bridge(self):
+        with tempfile.TemporaryDirectory() as d:
+            saves = Path(d)
+            settings = saves / 'Settings.json'
+            settings.write_text(json.dumps({'Screen Resolution (Windowed)': '3440x1440', 'Window Mode': 2, 'NVIDIA DLSS': 2}))
+            vr.fix_settings(saves, flat=True, dlss=True)   # Mac screen, bridge ready: all as the player chose
+            self.assertEqual(json.loads(settings.read_text()),
+                             {'Screen Resolution (Windowed)': '3440x1440', 'Window Mode': 2, 'NVIDIA DLSS': 2})
+            vr.fix_settings(saves, flat=True, dlss=False)  # no Apple shim on this engine: DLSS off
+            self.assertEqual(json.loads(settings.read_text())['NVIDIA DLSS'], 0)
+            self.assertEqual(json.loads(settings.read_text())['Window Mode'], 2)
+
+    def test_dlss_bridge_puts_the_unwrapper_in_front_of_apples_shim(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            engine, vrdir = base / 'engine', base / 'd2r-vr'
+            win, unix = engine / 'lib/wine/x86_64-windows', engine / 'lib/wine/x86_64-unix'
+            for folder in (win, unix, engine / 'lib/external', vrdir / 'dlss', vrdir / 'bottle/drive_c/windows/system32'):
+                folder.mkdir(parents=True)
+            (engine / 'lib/external/libd3dshared.dylib').write_bytes(b'x')
+            (win / 'nvngx.dll').write_bytes(b'MZ apple D3DMetalDLLsBase shim')
+            (vrdir / 'dlss/nvngx.dll').write_bytes(b'MZ soju unwrapper')
+            (vrdir / 'bottle/system.reg').write_text('[Software\\\\NVIDIA Corporation\\\\Global\\\\NGXCore] 1\n')
+            m = {'ngx_unwrap': {'sha256': vr.digest(vrdir / 'dlss/nvngx.dll')}}
+            with mock.patch.multiple(vr, ENGINE=engine, VR=vrdir, BOTTLE=vrdir / 'bottle'), \
+                    mock.patch.object(vr, 'wine') as wine:
+                self.assertTrue(vr.dlss_bridge(m))
+                wine.assert_not_called()   # the copy already has the NGXCore key
+            system32 = vrdir / 'bottle/drive_c/windows/system32'
+            self.assertEqual((system32 / 'nvngx.dll').read_bytes(), b'MZ soju unwrapper')
+            self.assertEqual((system32 / 'nvngx_metalfx.dll').read_bytes(), b'MZ apple D3DMetalDLLsBase shim')
+            self.assertEqual((win / 'nvngx_metalfx.dll').read_bytes(), b'MZ apple D3DMetalDLLsBase shim')
+            self.assertEqual(os.readlink(unix / 'nvngx_metalfx.so'), '../../external/libd3dshared.dylib')
+            (win / 'nvngx.dll').write_bytes(b'MZ wine placeholder')   # no Apple shim: no DLSS
+            with mock.patch.multiple(vr, ENGINE=engine, VR=vrdir, BOTTLE=vrdir / 'bottle'):
+                self.assertFalse(vr.dlss_bridge(m))
+        env = vr.play_env(True, dlss=True)
+        self.assertEqual(env['D3DM_ENABLE_METALFX'], '1')
+        self.assertEqual(env['WINEDLLOVERRIDES'], 'nvngx=n')
+        self.assertNotIn('D3DM_ENABLE_METALFX', vr.play_env(True))
 
     def test_user_folder_links_become_folders_in_the_copy(self):
         with tempfile.TemporaryDirectory() as d:
