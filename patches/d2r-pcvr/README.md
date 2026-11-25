@@ -23,6 +23,10 @@ modifier state; they never activate the desktop window. Physical typing stays on
 the original input path. Front-end, native-panel, composition and atlas tests cover
 the portable state and layout rules; name entry is also verified live.
 
+With NVIDIA DLSS (MetalFX on macOS) the render-scale tracking also watches D3D12
+render passes: under D3DMetal the game binds its depth buffer that way, and the fog
+and sky read the wrong part of it otherwise (2026-11-25).
+
 ## Rebuild
 
 Use local copies of the upstream source and SDK checkouts. The script archives
@@ -47,7 +51,7 @@ built DLL that will be published. No game assets are included.
 
 No artifact has been uploaded by this change. After simulator qualification (real Quest remains unverified):
 
-1. Publish the staged DLL at the `vr-mod-v1` URL in resources/d2r-vr.json. Confirm
+1. Publish the staged DLL at the `vr-mod-v2` URL in resources/d2r-vr.json (with soju-nvngx.dll from tools/ngx-unwrap/build.sh). Confirm
    its size and SHA-256 match `mod_patch`; never replace a published artifact.
 2. Publish `d2r-pcvr-soju-source.tar.xz`, LICENSE, and the patch alongside it.
    Keep the source available for recipients under MPL-2.0, and publish this repo's

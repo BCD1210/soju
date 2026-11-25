@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -89,13 +90,47 @@ class ManifestTests(unittest.TestCase):
             self.assertIn(b'[mode]\r\nplatform = 1\r\nflat_view = 1\r\n', ini.read_bytes())
             vr.set_mode(Path(d) / 'missing', True)   # no mod installed: nothing to do, no error
 
-    def test_the_copy_keeps_dlss_off(self):
+    def test_dlss_follows_the_metalfx_bridge(self):
         with tempfile.TemporaryDirectory() as d:
             saves = Path(d)
-            (saves / 'Settings.json').write_text(json.dumps({'Screen Resolution (Windowed)': '1920x1080',
-                                                             'Window Mode': 0, 'NVIDIA DLSS': 2}))
-            vr.fix_settings(saves)
-            self.assertEqual(json.loads((saves / 'Settings.json').read_text())['NVIDIA DLSS'], 0)
+            settings = saves / 'Settings.json'
+            settings.write_text(json.dumps({'Screen Resolution (Windowed)': '3440x1440', 'Window Mode': 2, 'NVIDIA DLSS': 2}))
+            vr.fix_settings(saves, flat=True, dlss=True)   # Mac screen, bridge ready: all as the player chose
+            self.assertEqual(json.loads(settings.read_text()),
+                             {'Screen Resolution (Windowed)': '3440x1440', 'Window Mode': 2, 'NVIDIA DLSS': 2})
+            vr.fix_settings(saves, flat=True, dlss=False)  # no Apple shim on this engine: DLSS off
+            self.assertEqual(json.loads(settings.read_text())['NVIDIA DLSS'], 0)
+            self.assertEqual(json.loads(settings.read_text())['Window Mode'], 2)
+
+    def test_dlss_bridge_puts_the_unwrapper_in_front_of_apples_shim(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            engine, vrdir = base / 'engine', base / 'd2r-vr'
+            win, unix = engine / 'lib/wine/x86_64-windows', engine / 'lib/wine/x86_64-unix'
+            for folder in (win, unix, engine / 'lib/external', vrdir / 'dlss', vrdir / 'bottle/drive_c/windows/system32'):
+                folder.mkdir(parents=True)
+            (engine / 'lib/external/libd3dshared.dylib').write_bytes(b'x')
+            (win / 'nvngx.dll').write_bytes(b'MZ apple D3DMetalDLLsBase shim')
+            (vrdir / 'dlss/nvngx.dll').write_bytes(b'MZ soju unwrapper')
+            (vrdir / 'bottle/system.reg').write_text('[Software\\\\NVIDIA Corporation\\\\Global\\\\NGXCore] 1\n')
+            m = {'ngx_unwrap': {'sha256': vr.digest(vrdir / 'dlss/nvngx.dll')}}
+            with mock.patch.multiple(vr, ENGINE=engine, VR=vrdir, BOTTLE=vrdir / 'bottle'), \
+                    mock.patch.object(vr, 'wine') as wine:
+                self.assertTrue(vr.dlss_bridge(m))
+                wine.assert_not_called()   # the copy already has the NGXCore key
+            system32 = vrdir / 'bottle/drive_c/windows/system32'
+            self.assertEqual((system32 / 'nvngx.dll').read_bytes(), b'MZ soju unwrapper')
+            self.assertEqual((system32 / 'nvngx_metalfx.dll').read_bytes(), b'MZ apple D3DMetalDLLsBase shim')
+            self.assertEqual((win / 'nvngx_metalfx.dll').read_bytes(), b'MZ apple D3DMetalDLLsBase shim')
+            self.assertEqual(os.readlink(unix / 'nvngx_metalfx.so'), '../../external/libd3dshared.dylib')
+            (win / 'nvngx.dll').write_bytes(b'MZ wine placeholder')   # no Apple shim: no DLSS
+            with mock.patch.multiple(vr, ENGINE=engine, VR=vrdir, BOTTLE=vrdir / 'bottle'):
+                self.assertFalse(vr.dlss_bridge(m))
+        env = vr.play_env(True, dlss=True)
+        self.assertEqual(env['D3DM_ENABLE_METALFX'], '1')
+        self.assertEqual(env['WINEDLLOVERRIDES'], 'nvngx=n')
+        self.assertNotIn('D3DM_ENABLE_METALFX', vr.play_env(True))
 
     def test_user_folder_links_become_folders_in_the_copy(self):
         with tempfile.TemporaryDirectory() as d:
