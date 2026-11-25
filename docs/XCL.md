@@ -27,7 +27,7 @@ when something fails); the game folder is only read.
 | `xcl --version`, `--help` | runs |
 | Shader disassembly and RPF archive tests | 3 of 3 pass |
 | GPU compute with wave64 and mesh shaders | 3 of 3 pass |
-| XCL's synthetic console title (opens its window, draws, presents) | runs to the end: 37 checks pass, 3 fail |
+| XCL's synthetic console title (opens its window, draws, presents) | runs to the end: 47 checks pass, 3 fail |
 
 The synthetic title renders a triangle on the GPU and reads it back, creates its swap chain and shows its first
 frame. Its three failures are the same kinds MacBox lists as open on CrossOver: the console window is not cloaked
