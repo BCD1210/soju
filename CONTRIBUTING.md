@@ -51,7 +51,6 @@ Pull requests:
 
 - One change per pull request. Say which Mac and macOS you ran it on.
 - A new or changed behaviour comes with a test where the code is testable (see `tests/`).
-- Commits and pull request text carry no AI attribution lines; the `commits` check fails on them.
 - Do not add Apple Game Porting Toolkit binaries, CrossOver binaries, store clients or game files.
 - Soju is GPL-3.0-or-later, and contributions are accepted under the same licence.
 
