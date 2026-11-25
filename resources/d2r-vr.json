@@ -1,6 +1,12 @@
 {
   "schema": 1,
   "game_build": "3.3.93847",
+  "extra_builds": [
+    {
+      "build": "3.4.95032",
+      "checked": "2026-11-25, M4 Pro, macOS 26.5, OXRSys Simulator: setup, title, VR character list and first-person play in the Rogue Encampment at 58-74 fps with mod 0.3.31; its game hooks and combat checks all found their code. Not found on this build: the see-through wall fade (walls fade as the game has them). Not tried on a headset."
+    }
+  ],
   "note": "Offline only: D2R VR Unleashed runs through D2RLoader with -mod, which keeps D2R off Battle.net game servers.",
   "runtime": {
     "url": "https://github.com/BCD1210/soju/releases/download/vr-runtime-v1/soju-vr-runtime.tar.xz",
