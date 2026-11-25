@@ -19,9 +19,13 @@ class Denied(unittest.TestCase):
         self.assertEqual(ac.denied('Grand Theft Auto V Enhanced'), 'BattlEye')
         self.assertEqual(ac.denied('Fortnite'), 'Easy Anti-Cheat')
         self.assertIn('BattlEye', ac.denied('Rainbow Six', '359550'))
+        # Easy Anti-Cheat that only allows Linux (Proton) still stops it on a Mac.
+        self.assertEqual(ac.denied('Rocket League®'), 'Easy Anti-Cheat')
+        self.assertEqual(ac.denied('x', '4262460'), 'Easy Anti-Cheat')
+        self.assertEqual(ac.denied('Heaven Burns Red', '1973710'), 'Anti-Cheat Expert')
         self.assertEqual(ac.denied("Tom Clancy's Rainbow Six® Siege"), ac.denied('x', '359550'))
         # Games that run (or whose anti-cheat allows Proton) are not touched.
-        for title in ('Hogwarts Legacy', 'Rocket League®', 'Diablo II: Resurrected', 'Elden Ring'):
+        for title in ('Hogwarts Legacy', 'Diablo II: Resurrected', 'Elden Ring'):
             self.assertEqual(ac.denied(title), '', title)
 
     def test_vanguard_in_the_folder_blocks_any_game(self):
