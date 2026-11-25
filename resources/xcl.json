@@ -1,0 +1,21 @@
+{
+  "bundle": {
+    "commit": "5e8c6c5215880731cc70effcac89ad5454d72da3",
+    "source_url": "https://github.com/aykhanium/MacBox/tree/5e8c6c5215880731cc70effcac89ad5454d72da3",
+    "url": "https://github.com/BCD1210/soju/releases/download/xcl-v1/soju-xcl-5e8c6c5.tar.xz",
+    "size": 2140656,
+    "sha256": "c6f8a9247ee2a437e7893d7a814d2440e06378cd9eb3ea75518dfd652ac5d556",
+    "license": "GPL-2.0-only (XCL / MacBox); rebuild with scripts/build-xcl.sh"
+  },
+  "dxc": {
+    "url": "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2609/dxc_2026_09_29.zip",
+    "size": 32287592,
+    "sha256": "ad31b1fc8443175d204f77a611fdb3ef2ec42759bdc2f1167368de24a4a7e7f1",
+    "members": [
+      "bin\\x64\\dxcompiler.dll",
+      "bin\\x64\\dxil.dll",
+      "LICENSE-MS.txt",
+      "LICENSE-LLVM.txt"
+    ]
+  }
+}
