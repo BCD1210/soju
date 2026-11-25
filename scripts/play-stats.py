@@ -244,6 +244,31 @@ def launcher_state(launcher, table=None):
     return "launcher_open" if exe in text else "launcher_closed"
 
 
+def blizzard_crash(path, since):
+    """(word, name) from the crash report a Blizzard game writes itself (errors/<time>/Crash.txt in its
+    folder) when it caught its own crash: the exception and the module it happened in, nothing else.
+    Wine says nothing then, because the game handles the crash and only its reporter runs."""
+    try:
+        root = Path(path) / "errors"
+        reports = [d for d in root.iterdir() if d.is_dir() and d.stat().st_mtime >= since - 5]
+    except (OSError, TypeError):
+        return "", ""
+    for d in sorted(reports, key=lambda d: d.stat().st_mtime, reverse=True):
+        try:
+            text = (d / "Crash.txt").read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        m = re.search(r"<BlizzardError\.Summary:>\s*([A-Z][A-Z0-9_]+)", text)
+        if not m:
+            continue
+        # The first module on the stack that is not Windows' own (kernelbase raises most exceptions).
+        modules = [x for x in re.findall(r'DBG-ADDR<[0-9A-Fa-f]+>\("([^"]+)"\)', text)
+                   if x.lower() not in ("kernelbase.dll", "ntdll.dll", "kernel32.dll", "ucrtbase.dll", "msvcrt.dll")]
+        name = m.group(1) + ("+" + modules[0] if modules else "")
+        return "crash", SAFE.sub("_", name)[:40]
+    return "", ""
+
+
 def reason(started, minutes, marks, found, path, launcher="", game=""):
     """What to add to a start that did not run; nothing for one that ran."""
     if outcome(started, minutes) == "ran":
@@ -272,6 +297,11 @@ def reason(started, minutes, marks, found, path, launcher="", game=""):
         # Battle.net started it and the game was never seen: what Wine said, if anything, goes along.
         if word == "bnet_launched":
             name = "_".join(x for x in why(text, found) if x)[:40]
+    if launcher == "battlenet" and isinstance(marks, dict) and marks.get("_t"):
+        # The game caught its own crash and wrote a report: that says more than anything above.
+        crash = blizzard_crash(path, marks["_t"])
+        if crash[0]:
+            word, name = crash
     if not word:
         word, name = why(text, found)
     if not word and not started:
