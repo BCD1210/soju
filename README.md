@@ -217,6 +217,9 @@ Games have not been broadly tested yet; anything that needs kernel anti-cheat (E
 
 ## Xbox PC / Microsoft Store (Xodus backend, experimental)
 
+Xbox Series X|S console games are a separate, earlier experiment: `soju xcl` runs [XCL](https://github.com/xcl-dev/xcl) on Soju's engine without CrossOver. Nothing is playable yet; see [docs/XCL.md](docs/XCL.md).
+
+
 Soju can sign in to a Microsoft account, import owned and PC Game Pass games, search the Microsoft Store, download games and start them. **Starting games is experimental.** On an M4 Pro / macOS 26.5, Retro Classics reaches its main menu; other titles are untested. Per-game Wine settings live in `resources/xbox-compat.json`. The launch follows the path [MACxus](https://github.com/fladnaG86/MACxus) uses on macOS, where Vampire Survivors, TUNIC, Deep Rock Galactic and others reach gameplay on a CrossOver 26 based engine like Soju's.
 
 How a launch works: `xodus-cli run` gets the licence and decrypts the game into a temporary RAM-disk view; `scripts/xbox-wine.sh` starts it on the CX engine with D3DMetal in its own prefix (`xbox-bottle`). That prefix gets the Xbox game runtime DLLs (xgameruntime and friends, LGPL, from the Xodus Nexus runtime as MACxus rebuilt them for macOS; pinned in `resources/xbox-runtime.json`, about 600 MB downloaded once) and Microsoft's VC++ runtime. `xodus-service` runs during the session for sign-in, licences and cloud saves; the game reaches it through a keyed 127.0.0.1 bridge. Files the game writes are copied back into its folder when it exits. Playing needs the CX engine and Apple GPTK; setting up Xbox PC installs the engine, and GPTK is added in Platforms like for Battle.net, Epic and GOG.
