@@ -372,12 +372,15 @@ case "$MODE" in
     # little longer, so a sign-in or a question in Steam's window is shown rather than waited on unseen.
     STEAM_WATCH=(); STEAM_COLD=0
     STEAM_APP=$(printf '%s\n' "${@:2}" | sed -n 's#^steam://rungameid/\([0-9][0-9]*\)$#\1#p' | head -1)
+    # A second hand-off from steam_launch.py (Steam had not taken up the first): the first watch follows it.
+    [ "${SOJU_STEAM_RESENT:-0}" = 1 ] && STEAM_APP=""
     if [ -n "$STEAM_APP" ]; then
       pgrep -f 'Steam.steam\.exe' >/dev/null 2>&1 || STEAM_COLD=1
       STEAM_WATCH=(python3 "$(dirname "${BASH_SOURCE[0]}")/steam_launch.py" watch "$WINEPREFIX/drive_c/Program Files (x86)/Steam" "$STEAM_APP")
       [ "$STEAM_COLD" = 0 ] || STEAM_WATCH+=(--seconds 150)
       STEAM_WATCH+=(--)
       export SOJU_STEAM_SHOW="/bin/bash"$'\x1f'"${BASH_SOURCE[0]}"$'\x1f'"steam"$'\x1f'"steam://open/main"
+      export SOJU_STEAM_RESEND="/bin/bash"$'\x1f'"${BASH_SOURCE[0]}"$'\x1f'"steam"$'\x1f'"steam://rungameid/$STEAM_APP"
     fi
     if [ "${SOJU_STEAM_GPTK:-0}" = 1 ]; then
       # Steam with Apple GPTK: the CX engine plus the cross-process winemac

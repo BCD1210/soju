@@ -68,6 +68,34 @@ class SteamLaunchTests(unittest.TestCase):
             clock, sleep = fake_time()
             self.assertEqual(sl.watch(d, "72", [], seconds=150, clock=clock, sleep=sleep), 0)
 
+    def test_a_request_steam_never_took_up_is_handed_over_once_more(self):
+        with tempfile.TemporaryDirectory() as d:
+            logs = Path(d) / "logs"
+            logs.mkdir()
+            log = logs / "console_log.txt"
+            log.write_text("")
+            (logs / "connection_log.txt").write_text("[t] [Logged On, 4, 7] [U:1:1] RecvMsgClientLogOnResponse() : processing complete\n")
+            count = Path(d) / "count"
+            # The second hand-off goes through: Steam starts the game.
+            resend = [sys.executable, "-c", "import os; open(%r,'a').write(os.environ.get('SOJU_STEAM_RESENT','?')); open(%r,'a').write(%r)"
+                      % (str(count), str(log), OK)]
+            clock, sleep = fake_time()
+            self.assertEqual(sl.watch(d, "70", [], resend=resend, clock=clock, sleep=sleep), 0)
+            self.assertEqual(count.read_text(), "1")
+            # Steam answers the first one: nothing is sent again.
+            count.unlink()
+            log.write_text("")
+            first = [sys.executable, "-c", "open(%r,'a').write(%r)" % (str(log), OK)]
+            clock, sleep = fake_time()
+            self.assertEqual(sl.watch(d, "70", first, resend=resend, clock=clock, sleep=sleep), 0)
+            self.assertFalse(count.exists())
+            # Never more than once, and not before Steam is signed in.
+            log.write_text("")
+            (logs / "connection_log.txt").write_text("[t] [Logging On, 4, 7] x\n")
+            clock, sleep = fake_time()
+            sl.watch(d, "71", [], resend=resend, seconds=150, signin_after=1000, clock=clock, sleep=sleep)
+            self.assertFalse(count.exists())
+
     def test_play_sh_follows_the_start_only_when_steam_is_open(self):
         text = (ROOT / "scripts/play.sh").read_text()
         self.assertIn('steam_launch.py" watch', text)
