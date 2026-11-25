@@ -1,0 +1,7 @@
+{
+ "_note": "Launch options Soju sets for a Steam game, once, while Steam is closed (scripts/steam-profiles.py options). Only when the player has none for that game; a player's own options, or removing ours, are kept. Sources in 'why'.",
+ "options": {
+  "4000": {"title": "Garry's Mod", "options": "-nochromium",
+           "why": "Its built-in Chromium (menus, loading screens) fails on macOS and the game stays on the loading screen or closes; -nochromium is the known fix (AppleGamingWiki, Garry's Mod)."}
+ }
+}

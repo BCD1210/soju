@@ -401,6 +401,8 @@ case "$MODE" in
           cp -f "$WRAP" "$d/steamwebhelper.exe"
         fi
       done
+      pgrep -f 'Steam.steam\.exe' >/dev/null 2>&1 || \
+        python3 "$(dirname "${BASH_SOURCE[0]}")/steam-profiles.py" options || true
       export WINEDLLOVERRIDES="winemenubuilder.exe=;bcrypt=b;ncrypt=b;gameoverlayrenderer,gameoverlayrenderer64=d"
       "$ENGINE/bin/wine" reg delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run' /v Steam /f >/dev/null 2>&1 || true
       # GoldSrc OpenGL setting (#153), once per bottle; the Wine 11 bottle gets it from setup-steam-games.sh.
@@ -444,6 +446,10 @@ case "$MODE" in
     # starts; the renderer switch refuses while this bottle is running anyway.
     pgrep -f "$WINESTABLE_SERVER" >/dev/null 2>&1 || \
       python3 "$(dirname "${BASH_SOURCE[0]}")/steam-profiles.py" apply || true
+    # Launch options known games need (resources/steam-launch-options.json): only while Steam is closed,
+    # since Steam writes its config back when it quits.
+    pgrep -f "$WINESTABLE_SERVER" >/dev/null 2>&1 || \
+      python3 "$(dirname "${BASH_SOURCE[0]}")/steam-profiles.py" options || true
     # NW.js games (RPG Maker MV/MZ) need --in-process-gpu or their window stays empty;
     # Steam restores package.json on updates, so check every launch.
     python3 "$(dirname "${BASH_SOURCE[0]}")/steam-profiles.py" nwjs || true

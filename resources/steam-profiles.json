@@ -1,6 +1,7 @@
 {
   "_note": "Steam games that run better on DXVK than on Soju's default DXMT. scripts/steam-profiles.py switches an installed one to DXVK when Steam starts, once, and never again after the player changes it (soju steam-games renderer ... reset/dxmt). Only Direct3D 11 games: the switch replaces d3d11/d3d10core/dxgi. Sources: Soju compatibility reports.",
   "profiles": {
+    "1260320": {"title": "Party Animals", "renderer": "dxvk", "why": "Direct3D 11 Unity game rated Perfect on CrossOver with DXVK (AppleGamingWiki); it closes right after starting under DXMT in Soju launch reports."},
     "374320":  {"title": "DARK SOULS III", "renderer": "dxvk", "why": "Under DXMT the game freezes for about a minute on every enemy kill; DXVK plays at about 30 FPS (Soju report #48)."},
     "489830":  {"title": "The Elder Scrolls V: Skyrim Special Edition", "renderer": "dxvk", "why": "DXMT and D3DMetal crash right after the menu; DXVK plays."},
     "1158310": {"title": "Crusader Kings III", "renderer": "dxvk", "why": "Reported playable on DXVK over 73 minutes."},
