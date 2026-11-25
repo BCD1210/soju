@@ -10,6 +10,8 @@ struct InstalledGame: Decodable, Identifiable {
     let issue: String?
     /// Something worth knowing that does not stop Play: the game carries an anti-cheat that may close it on a Mac.
     let note: String?
+    /// The game's anti-cheat is kept off Wine by its makers (Are We Anti-Cheat Yet? says Denied): it never starts.
+    let blocked: String?
     let owned: Bool?
     let downloaded: Bool?
     let format: String?
@@ -24,7 +26,7 @@ struct InstalledGame: Decodable, Identifiable {
     /// Owned but not downloadable (for example MSIXVC2 packages).
     var downloadBlocked: Bool { platform == .xbox && !isInstalled && !isPartialDownload && issue != nil }
     enum CodingKeys: String, CodingKey {
-        case id, platform, title, artwork, issue, note, owned, downloaded, format, available, volume
+        case id, platform, title, artwork, issue, note, blocked, owned, downloaded, format, available, volume
         case installPath = "install_path"
     }
 }
@@ -138,6 +140,15 @@ extension SojuModel {
         guard game.isInstalled else { libraryIssue = "Install this game through its official launcher first."; return }
         guard !busy, !launchingGames.contains(game.id) else { return }
         if let issue = launchIssue(for: game) { libraryIssue = issue; return }
+        if let blocked = game.blocked {
+            // Starting it only ends in an error window from its anti-cheat: say so first, and let a player try anyway.
+            let alert = NSAlert()
+            alert.messageText = game.title + " won't start on a Mac"
+            alert.informativeText = blocked
+            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: "Try Anyway")
+            guard alert.runModal() == .alertSecondButtonReturn else { return }
+        }
         if game.platform == .didim, game.id.hasSuffix("-demo"), !didimSignedIn {
             requestedPage = "store"; requestedDemoPlay = game.id; return
         }
@@ -540,7 +551,7 @@ struct LibraryView: View {
             if game.isPartialDownload { return "Paused" }
             if game.downloadBlocked { return "Not supported" }
         }
-        return !game.isInstalled ? "Not installed" : issue != nil ? "Needs attention" : game.note != nil ? "Installed · anti-cheat" : "Installed"
+        return !game.isInstalled ? "Not installed" : issue != nil ? "Needs attention" : game.blocked != nil ? "Installed · blocked by anti-cheat" : game.note != nil ? "Installed · anti-cheat" : "Installed"
     }
 
     private func installedLabel(_ game: InstalledGame) -> String {
@@ -570,6 +581,8 @@ struct LibraryView: View {
                     }
                     if let issue = model.launchIssue(for: game) {
                         Label(issue, systemImage: "exclamationmark.triangle").font(.system(size: 13)).foregroundStyle(.orange)
+                    } else if let blocked = game.blocked {
+                        Label(blocked, systemImage: "shield.slash").font(.system(size: 13)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
                     } else if let note = game.note {
                         Label(note, systemImage: "shield.lefthalf.filled").font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }

@@ -16,7 +16,7 @@ from game_artwork import executable_icon
 from library_services import saved_accounts
 import xbox_locations
 import didim_games
-from soju_anticheat import note as anticheat_note
+from soju_anticheat import note as anticheat_note, denied as anticheat_denied
 from urllib.parse import quote
 
 FOLDERS = {'steam': 'steam-bottle', 'epic': 'epic-bottle',
@@ -196,6 +196,14 @@ class Library:
         text = platform + ': ' + message
         if text not in self.warnings: self.warnings.append(text)
 
+    @staticmethod
+    def blocked(platform, uid, title, location):
+        """Why Play cannot work here, for a game whose anti-cheat its makers keep off Wine (or None)."""
+        found = anticheat_denied(title, uid if platform == 'steam' else None, location)
+        if not found: return None
+        return (title.strip() + ' uses ' + found + ', and its makers do not let it run outside Windows. '
+                'It does not start on a Mac, in Soju or with any other Windows layer.')
+
     def add(self, platform, uid, title, location, arguments, artwork=None, ready=True):
         if not isinstance(uid, str) or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,200}', uid):
             raise ValueError('invalid game identifier')
@@ -218,7 +226,8 @@ class Library:
         self.games[key] = dict(id=key, platform=platform, title=title.strip()[:300],
                                install_path=str(location), artwork=artwork,
                                issue=issue, arguments=arguments,
-                               note=None if unplugged else anticheat_note(location), gptk=gptk)
+                               note=None if unplugged else anticheat_note(location), gptk=gptk,
+                               blocked=self.blocked(platform, uid, title, None if unplugged else location))
         if location.is_symlink():
             # Moved to another drive with scripts/game-storage.py: say where it is.
             target = Path(os.readlink(location)).parts
