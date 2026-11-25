@@ -39,12 +39,12 @@ class MacGamePages(unittest.TestCase):
         # Pages with only a Linux-based estimate are noindex and absent from the sitemap;
         # checked pages and pages with Mac reports are indexable and listed.
         import re
-        sitemap = (ROOT / "docs/sitemap.xml").read_text()
+        sitemap = set(re.findall(r"<loc>https://didimlabs\.com/mac/([^<]+)</loc>", (ROOT / "docs/sitemap.xml").read_text()))
         hidden = listed = 0
-        for page in sorted((ROOT / "docs/mac").glob("*.html"))[:4000]:
+        for page in sorted((ROOT / "docs/mac").glob("*.html")):   # every page, not the first few thousand
             text = page.read_text()
             noindex = '<meta name="robots" content="noindex,follow">' in text
-            in_sitemap = ("https://didimlabs.com/mac/%s</loc>" % page.name) in sitemap
+            in_sitemap = page.name in sitemap
             if page.name == "index.html":
                 continue
             self.assertNotEqual(noindex, in_sitemap, page.name)

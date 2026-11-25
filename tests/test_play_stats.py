@@ -204,6 +204,9 @@ class PlayStats(unittest.TestCase):
         self.assertEqual(ps.launcher_state('battlenet', 'c:\\program files (x86)\\battle.net\\battle.net.exe --exec=launch osi'), 'launcher_open')
         self.assertEqual(ps.launcher_state('battlenet', 'something else'), 'launcher_closed')
         self.assertEqual(ps.launcher_state('didim', 'anything'), '')
+        # Battle.net's own 'Battle.net Launcher.exe' is not the Rockstar Games Launcher.
+        self.assertEqual(ps.launcher_state('rockstar', 'c:\\program files (x86)\\battle.net\\battle.net launcher.exe --exec'), 'launcher_closed')
+        self.assertEqual(ps.launcher_state('rockstar', 'c:\\program files\\rockstar games\\launcher\\launcher.exe'), 'launcher_open')
 
     def test_watch_stops_when_steam_is_gone(self):
         clock = Clock()
