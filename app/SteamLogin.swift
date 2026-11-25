@@ -94,9 +94,10 @@ enum SteamWebSession {
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         if (error as NSError).code != NSURLErrorCancelled { message = "Steam could not load. Check your connection and retry." }
     }
-    private func importFailed() {
+    private func importFailed(_ why: String? = nil) {
         failures += 1
-        message = "Steam’s game list could not be read yet. Let the page load or choose Retry import. Your previous library is kept."
+        let code = why.map { " (\($0))" } ?? ""
+        message = "Steam’s game list could not be read yet\(code). Let the page load or choose Retry import. Your previous library is kept."
         if failures >= 5 { timer?.invalidate(); timer = nil }
     }
     private func checkLibrary() {
@@ -123,7 +124,7 @@ enum SteamWebSession {
                     self.web.load(URLRequest(url: URL(string: "https://steamcommunity.com/my/games/?tab=all")!))
                 } else { self.message = "Let your All Games page load, then choose Retry import if needed." }
             case "unavailable":
-                self.importFailed()
+                self.importFailed(value["why"] as? String)
             case "sign-in":
                 self.message = "Finish signing in on Steam’s page. Your games will import automatically; installing Windows Steam is not required."
             default: break

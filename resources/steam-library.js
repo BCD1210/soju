@@ -28,19 +28,20 @@ function reactToken() {
 
 function snapshot(rows, count) {
     if (!Array.isArray(rows) || !Number.isInteger(count) || count < 0 ||
-        count > 20000 || rows.length !== count) return { state: "unavailable" };
+        count > 20000 || rows.length !== count) return { state: "unavailable", why: "count" };
     const games = [];
     const seen = new Set();
     for (const row of rows) {
-        if (!row || !/^[1-9][0-9]{0,9}$/.test(String(row.appid)) ||
-            typeof row.name !== "string" || !row.name.trim() || row.name.length > 1000) {
-            return { state: "unavailable" };
-        }
+        if (!row || !/^[1-9][0-9]{0,9}$/.test(String(row.appid))) return { state: "unavailable", why: "appid" };
         const appid = String(row.appid);
-        if (seen.has(appid)) return { state: "unavailable" };
+        // Steam lists some apps without a name (delisted games, test servers, tools).
+        // Skip those rows instead of refusing the whole library; repeated rows count once.
+        if (typeof row.name !== "string" || !row.name.trim() || row.name.length > 1000 || seen.has(appid)) continue;
         seen.add(appid);
         games.push({ appid, name: row.name.trim().slice(0, 300) });
     }
+    // Rows that all lack a name must not replace a library with an empty one.
+    if (count > 0 && games.length === 0) return { state: "unavailable", why: "names" };
     return { state: "ready", steamid, game_count: games.length, games };
 }
 
@@ -93,10 +94,10 @@ try {
     const payload = await readJSON("https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?" + params,
                                    "omit", 8 * 1024 * 1024);
     const value = payload.response;
-    if (!value || !Object.prototype.hasOwnProperty.call(value, "game_count")) return { state: "unavailable" };
+    if (!value || !Object.prototype.hasOwnProperty.call(value, "game_count")) return { state: "unavailable", why: "private" };
     return snapshot(value.games || [], value.game_count);
 } catch {
-    return { state: "unavailable" };
+    return { state: "unavailable", why: "request" };
 } finally {
     clearTimeout(timer);
 }

@@ -42,12 +42,21 @@ test("the web session stays in the Steam request and never the returned snapshot
     assert.equal(value.state, "ready");
     assert.ok(!JSON.stringify(value).includes(user.webapi_token));
 });
-test("private, incomplete, duplicate and invalid responses do not become empty libraries", async () => {
-    for (const response of [{}, {game_count:1,games:[]}, {game_count:2,games:[{appid:10,name:"A"},{appid:10,name:"A"}]},
-                            {game_count:1,games:[{appid:"../10",name:"A"}]}, {game_count:1,games:[{appid:10,name:""}]}]) {
+test("private, incomplete and invalid responses do not become empty libraries", async () => {
+    for (const response of [{}, {game_count:1,games:[]}, {game_count:1,games:[{appid:"../10",name:"A"}]},
+                            {game_count:1,games:[{appid:10,name:""}]}, {game_count:2,games:[{appid:10},{appid:20,name:" "}]}]) {
         const value = await run(...context({logged_in:true,steamid:id,webapi_token:"test"}), async () => ({ok:true,text:async()=>JSON.stringify({response})}));
         assert.equal(value.state, "unavailable");
+        assert.ok(typeof value.why === "string");
     }
+});
+test("unnamed and repeated rows are skipped, not the whole library", async () => {
+    const response = {game_count:5, games:[{appid:730,name:"Counter-Strike 2"},{appid:1097150,name:"Fall Guys"},
+                                           {appid:578080,name:"PUBG: BATTLEGROUNDS"},{appid:622590},{appid:730,name:"Counter-Strike 2"}]};
+    const value = await run(...context({logged_in:true,steamid:id,webapi_token:"test"}), async () => ({ok:true,text:async()=>JSON.stringify({response})}));
+    assert.equal(value.state, "ready");
+    assert.deepEqual(value.games.map(g => g.appid), ["730", "1097150", "578080"]);
+    assert.equal(value.game_count, 3);
 });
 test("an explicitly empty owned library is valid", async () => {
     const value = await run(...context({logged_in:true,steamid:id,webapi_token:"test"}), async()=>({ok:true,text:async()=>JSON.stringify({response:{game_count:0}})}));
@@ -55,7 +64,7 @@ test("an explicitly empty owned library is valid", async () => {
 });
 test("request failures return no raw URL, session or exception", async () => {
     const value = await run(...context({logged_in:true,steamid:id,webapi_token:"test-secret"}), async()=>{throw Error("test-secret");});
-    assert.deepEqual(value, {state:"unavailable"});
+    assert.deepEqual(value, {state:"unavailable", why:"request"});
 });
 
 test("conflicting account identity cannot import a stale profile", async () => {
