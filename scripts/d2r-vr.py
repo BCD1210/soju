@@ -18,8 +18,12 @@ Python inside the copy, with the dependencies passed in already checked.
 Three things the mod needs on Soju's engine, all inside the copy:
 - the game folder's d3d12.dll is renamed, so D3D12 loads from system32, where
   ReShade watches for it (Wine already uses its builtin d3d12 either way);
-- the windowed resolution is fixed at 1920x1080, the size the game first creates
-  its swapchain at, so it never resizes it;
+- in VR the windowed resolution is fixed at 1920x1080, the size the game first
+  creates its swapchain at, so it never resizes it (on the Mac screen it is the
+  player's own setting);
+- NVIDIA DLSS goes through Apple's MetalFX bridge like normal D2R, with a small
+  nvngx.dll in front (tools/ngx-unwrap) that hands the bridge the real D3D12
+  objects instead of ReShade's wrappers;
 - one jump in ReShade64.dll skips work on a resource D3DMetal already destroyed
   (resources/d2r-vr.json, reshade.patch).
 """
@@ -69,6 +73,18 @@ def manifest():
 
 def recipe(m):
     return hashlib.sha256(json.dumps(m, sort_keys=True).encode()).hexdigest()
+
+
+def read_raw(path):
+    """Text with its line endings as they are (Path.read_text has no newline= before Python 3.13,
+    and the app runs this with macOS's /usr/bin/python3, 3.9)."""
+    with open(path, encoding='utf-8', newline='') as f:
+        return f.read()
+
+
+def write_raw(path, text):
+    with open(path, 'w', encoding='utf-8', newline='') as f:
+        f.write(text)
 
 
 def fetch(entry, name, label):
@@ -239,18 +255,63 @@ def isolate_user_folders(bottle):
     return changed
 
 
-def fix_settings(saves):
+def fix_settings(saves, flat=False, dlss=False):
+    """In VR: windowed 1920x1080 (above). On the Mac screen the player's own resolution stays.
+    NVIDIA DLSS stays as chosen when the MetalFX bridge is ready, else it is turned off."""
     settings = saves / 'Settings.json'
     data = json.loads(settings.read_text(encoding='utf-8-sig'))
-    # NVIDIA DLSS off in the copy: with it on (copied from the player's normal D2R, where Soju's
-    # MetalFX bridge makes it work) the modded game stops at the title, seen 2026-11-25.
-    if (data.get('Screen Resolution (Windowed)') == '1920x1080' and str(data.get('Window Mode')) == '0'
-            and str(data.get('NVIDIA DLSS', 0)) == '0'):
+    want = {} if flat else {'Screen Resolution (Windowed)': '1920x1080', 'Window Mode': 0}
+    if not dlss:
+        want['NVIDIA DLSS'] = 0
+    if all(str(data.get(k)) == str(v) for k, v in want.items()):
         return
-    data['Screen Resolution (Windowed)'] = '1920x1080'
-    data['Window Mode'] = 0
-    data['NVIDIA DLSS'] = 0
+    data.update(want)
     settings.write_text(json.dumps(data, indent=4), encoding='utf-8')
+
+
+def apple_shim(path):
+    try:
+        return path.is_file() and b'D3DMetalDLLsBase' in path.read_bytes()
+    except OSError:
+        return False
+
+
+def dlss_bridge(m):
+    """NVIDIA DLSS in the copy through Apple's NGX shim (as scripts/gptk-dlss.sh does for normal
+    games), with Soju's nvngx.dll in front of it. The modded game runs under ReShade, whose
+    D3D12 wrappers crash the shim when they reach it directly (hang at the title, 2026-11-25).
+    True when ready; False on an engine without Apple's shim, where DLSS stays off."""
+    win, unix = ENGINE / 'lib/wine/x86_64-windows', ENGINE / 'lib/wine/x86_64-unix'
+    shim = next((p for p in (win / 'nvngx-on-metalfx.dll', win / 'nvngx.dll') if apple_shim(p)), None)
+    unwrap = VR / 'dlss/nvngx.dll'
+    spec = m.get('ngx_unwrap') or {}
+    if (shim is None or not (ENGINE / 'lib/external/libd3dshared.dylib').is_file() or not unwrap.is_file()
+            or digest(unwrap) != spec.get('sha256')):
+        return False
+    system32 = BOTTLE / 'drive_c/windows/system32'
+    try:
+        # The shim under its own name, loaded by the unwrapper. Wine finds its unixlib by that
+        # name, so the engine gets the same copy and link next to its nvngx.dll.
+        for target in (win / 'nvngx_metalfx.dll', system32 / 'nvngx_metalfx.dll'):
+            if not target.is_file() or digest(target) != digest(shim):
+                shutil.copy2(shim, target)
+        link = unix / 'nvngx_metalfx.so'
+        if (os.readlink(link) if link.is_symlink() else None) != '../../external/libd3dshared.dylib':
+            link.unlink(missing_ok=True)
+            link.symlink_to('../../external/libd3dshared.dylib')
+        if not (system32 / 'nvngx.dll').is_file() or digest(system32 / 'nvngx.dll') != spec['sha256']:
+            shutil.copy2(unwrap, system32 / 'nvngx.dll')
+    except OSError:
+        return False
+    reg = BOTTLE / 'system.reg'
+    try:
+        has_key = '[Software\\\\NVIDIA Corporation\\\\Global\\\\NGXCore]' in reg.read_text(errors='replace')
+    except OSError:
+        return False
+    if not has_key:
+        wine(BOTTLE, ['reg', 'add', 'HKLM\\SOFTWARE\\NVIDIA Corporation\\Global\\NGXCore', '/v', 'FullPath',
+                      '/t', 'REG_SZ', '/d', 'C:\\Windows\\System32', '/f'], capture_output=True)
+    return True
 
 
 def write_runtime_routing(m):
@@ -282,11 +343,10 @@ def allow_installer_build(mod, build):
     """The mod's own installer (0.3.31) refuses every Battle.net build but 3.3.93847 before it
     installs anything. For a build listed in extra_builds, add it to that list in the extracted copy."""
     gate = mod / 'steamvr/game_install.py'
-    text = gate.read_text(encoding='utf-8', newline='')
+    text = read_raw(gate)
     old = "BATTLENET_VERSIONS = ('3.3.93847',)"
     if build and build not in text and old in text:
-        gate.write_text(text.replace(old, "BATTLENET_VERSIONS = ('" + build + "', '3.3.93847',)"),
-                        encoding='utf-8', newline='')
+        write_raw(gate, text.replace(old, "BATTLENET_VERSIONS = ('" + build + "', '3.3.93847',)"))
 
 
 def quiet_loader_warning(game, build):
@@ -380,6 +440,7 @@ def setup(refresh=False):
     python_zip = fetch(m['python'], 'python-embed-amd64.zip', 'Windows Python (python.org)')
     mod_zip = fetch(m['mod'], 'd2r-pcvr-windows.zip', m['mod']['name'])
     patched_plugin = fetch(m['mod_patch'], 'd2rl-pcvr-soju.dll', 'the VR character creation fix')
+    ngx_unwrap = fetch(m['ngx_unwrap'], 'soju-nvngx.dll', 'the DLSS fix for the VR copy')
     loader_zip = fetch(m['loader'], m['loader']['file'], 'D2RLoader (d2rloader.net)')
     reshade_exe = fetch(m['reshade'], 'ReShade_Setup_Addon.exe', 'ReShade (reshade.me)')
 
@@ -430,7 +491,9 @@ def setup(refresh=False):
         (game / 'd3d12.dll').rename(off)
     if game_build(BOTTLE) != m['game_build']:
         quiet_loader_warning(game, game_build(BOTTLE))
-    fix_settings(BOTTLE / SAVES_REL)
+    (VR / 'dlss').mkdir(exist_ok=True)
+    shutil.copy2(ngx_unwrap, VR / 'dlss/nvngx.dll')
+    fix_settings(BOTTLE / SAVES_REL, dlss=dlss_bridge(m))
     isolate_user_folders(BOTTLE)
     write_runtime_routing(m)
     stop_bottle(BOTTLE)
@@ -491,7 +554,7 @@ def set_mode(game, flat, view='first'):
     unless fn is held, so the view is chosen before the game starts."""
     ini = game / 'mods' / 'D2R-PCVR' / 'd2rloader/plugins/d2r_pcvr.ini'
     try:
-        text = ini.read_text(encoding='utf-8', newline='')
+        text = read_raw(ini)
     except OSError:
         return
     want = {'platform': '0' if flat else '1'}
@@ -510,11 +573,14 @@ def set_mode(game, flat, view='first'):
         out.append(line)
     new = ''.join(out)
     if new != text:
-        ini.write_text(new, encoding='utf-8', newline='')
+        write_raw(ini, new)
 
 
-def play_env(flat):
+def play_env(flat, dlss=False):
     env = wine_env(BOTTLE)
+    if dlss:
+        env['D3DM_ENABLE_METALFX'] = '1'
+        env['WINEDLLOVERRIDES'] = 'nvngx=n'   # Soju's nvngx.dll in system32, not the engine's shim
     if not flat:
         env['WINEDLLPATH'] = str(VR / 'runtime/wine')
         env['OXR_BRIDGE_ENV_FILE'] = str(VR / 'bridge.env')
@@ -531,10 +597,11 @@ def play(extra, flat=False, view='first'):
     if running(['D2R.exe', 'D2RLoader.exe']):
         raise VRError('Diablo II: Resurrected is already running.')
     isolate_user_folders(BOTTLE)   # copies set up by 1.8.0/1.8.1 still have the links
-    env = play_env(flat)
+    dlss = dlss_bridge(manifest())
+    env = play_env(flat, dlss)
     set_mode(BOTTLE / GAME_REL, flat, view)
     try:
-        fix_settings(BOTTLE / SAVES_REL)   # DLSS may have been turned on in the copy's options since setup
+        fix_settings(BOTTLE / SAVES_REL, flat, dlss)
     except (OSError, ValueError):
         pass
     if flat:

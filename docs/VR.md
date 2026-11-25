@@ -25,8 +25,22 @@ The mod's flat mode (`[mode] platform = 0` in `d2r_pcvr.ini`, view in `flat_view
 (fn+F1 / fn+F2 / fn+F3 still switch in the game). Checked 2026-11-25 on D2R 3.4.95032: first and third person in the
 Rogue Encampment, offline character select with the mouse.
 
-NVIDIA DLSS stays off in the copy (setup and every start set it to off): with it on the modded game stops at the
-title. Normal D2R from Battle.net is not affected and uses DLSS through MetalFX when it is chosen in its options.
+On the Mac screen the game keeps your own resolution and window mode (in VR it is fixed at windowed 1920x1080).
+
+NVIDIA DLSS works in the copy through Apple's MetalFX bridge, like normal D2R, when the engine has Apple's NGX shim.
+Two things were in the way and are fixed by Soju (2026-11-25, D2R 3.4.95032, GPTK 3.0, M4 Pro):
+
+- The mod runs the game under ReShade, which hands it wrappers of the D3D12 device and command lists. Apple's shim
+  treats the command list as its own object, so it crashed in `NVSDK_NGX_D3D12_CreateFeature` and the game hung at the
+  title. Soju's `nvngx.dll` (`tools/ngx-unwrap`, built into the `vr-mod-v2` release) sits in front of the shim in the
+  copy's system32 and passes it the original objects; the shim itself is loaded as `nvngx_metalfx.dll`.
+- The mod reads the depth buffer from the part DLSS draws into (2/3 of the screen at Quality), found from the depth
+  buffer binds. Under D3DMetal the game binds it with D3D12 render passes, which the mod did not watch, so fog and sky
+  were drawn over a 2/3 box. The mod patch (`patches/d2r-pcvr`) now watches render passes too.
+
+Measured in the Rogue Encampment, first person, fog and sky on: at 3440x1440 full screen 51 - 66 fps without DLSS and
+63 - 74 fps with DLSS Quality (MetalFX 2293x960 -> 3440x1440). In a 1920x1080 window the GPU is not the limit and DLSS
+gives no gain (about 130 fps either way). The headset path with DLSS is not checked yet.
 
 ## What it does
 
