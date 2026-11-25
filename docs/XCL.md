@@ -27,13 +27,16 @@ when something fails); the game folder is only read.
 | `xcl --version`, `--help` | runs |
 | Shader disassembly and RPF archive tests | 3 of 3 pass |
 | GPU compute with wave64 and mesh shaders | 3 of 3 pass |
-| Graphics draw (`gpu_graphics_vs_ps_draw`) | crashes |
+| XCL's synthetic console title (opens its window, draws, presents) | runs to the end: 37 checks pass, 3 fail |
 
-The graphics test compiles its shaders and creates its pipeline, then the process dies inside Apple's D3DMetal once
-the draw is submitted (SIGSEGV on a Metal thread, not a Windows exception). D3DMetal 4.0 beta 3 crashes the same way.
-MacBox reports this test passing on macOS 27.2, so the difference is most likely Apple's Metal compiler in macOS 26;
-macOS 26 also logged MTLCompilerService crashes on an atomic built-in during XCL's broader test run. Games draw with
-the same path, so on macOS 26 they are expected to stop at their first frame.
+The synthetic title renders a triangle on the GPU and reads it back, creates its swap chain and shows its first
+frame. Its three failures are the same kinds MacBox lists as open on CrossOver: the console window is not cloaked
+(Wine's DWM does not implement cloaking, so it may show as an empty window), no GPU timestamps, and XMA2 audio.
+
+One of XCL's unit tests, `gpu_graphics_vs_ps_draw`, crashes inside Apple's D3DMetal on this Mac: it draws
+offscreen with no window at all, even with two-line shaders, and the process dies once the draw is submitted
+(D3DMetal 3.0 and 4.0 beta 3 alike; MacBox reports it passing on macOS 27.2). The same draw with a window, as a game
+does it, works.
 
 ## Where the pieces come from
 
