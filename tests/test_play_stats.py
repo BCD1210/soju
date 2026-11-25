@@ -176,6 +176,13 @@ class PlayStats(unittest.TestCase):
             (game / 'EasyAntiCheat').mkdir(parents=True)
             self.assertEqual(ps.anticheat(game), 'eac')
             self.assertEqual(ps.anticheat(Path(d) / 'nowhere-at-all'), '')
+            # Unreal games keep it under <project>/Binaries/Win64 (Fortnite from Epic, 2026-11-24).
+            fn = Path(d) / 'Epic Games' / 'Fortnite'
+            (fn / 'FortniteGame' / 'Binaries' / 'Win64' / 'EasyAntiCheat').mkdir(parents=True)
+            self.assertEqual(ps.anticheat(fn), 'eac')
+            plain = Path(d) / 'Epic Games' / 'Plain'
+            (plain / 'PlainGame' / 'Binaries' / 'Win64').mkdir(parents=True)
+            self.assertEqual(ps.anticheat(plain), '')
             with mock.patch.object(ps, 'BASE', Path(d)):
                 (Path(d) / 'logs').mkdir()
                 log = Path(d) / 'logs/desktop-steam.log'

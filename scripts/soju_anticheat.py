@@ -15,19 +15,25 @@ ANTICHEAT = (("eac", "Easy Anti-Cheat", ("easyanticheat", "easyanticheat_eos", "
 
 
 def anticheat(path):
-    """Its short name ("eac", "battleye", ...) or "": the game folder and the folders right under it are looked at."""
+    """Its short name ("eac", "battleye", ...) or "": the game folder, the folders right under it, and the
+    <project>/Binaries/Win64 folder of an Unreal game, where those keep it (Fortnite's EasyAntiCheat is
+    Fortnite/FortniteGame/Binaries/Win64/EasyAntiCheat), are looked at."""
     root = Path(str(path or ""))
     if len(str(root)) < 8 or not root.is_dir():
         return ""
     names = set()
+
+    def add(folder):
+        try:
+            names.update(e.name.lower() for e in os.scandir(folder))
+        except OSError:
+            pass
     try:
         for entry in os.scandir(root):
             names.add(entry.name.lower())
             if entry.is_dir(follow_symlinks=False) and len(names) < 4000:
-                try:
-                    names.update(e.name.lower() for e in os.scandir(entry.path))
-                except OSError:
-                    pass
+                add(entry.path)
+                add(os.path.join(entry.path, "Binaries", "Win64"))
     except OSError:
         return ""
     for name, _, marks in ANTICHEAT:
