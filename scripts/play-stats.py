@@ -231,7 +231,7 @@ def why(text, found=()):
 
 
 LAUNCHER_EXE = {"battlenet": "battle.net.exe", "steam": "\\steam.exe", "epic": "epicgameslauncher.exe", "gog": "galaxyclient.exe",
-                "ea": "eadesktop.exe", "rockstar": "launcher.exe", "ubisoft": "upc.exe"}
+                "ea": "eadesktop.exe", "rockstar": "\\launcher.exe", "ubisoft": "upc.exe"}
 
 
 def launcher_state(launcher, table=None):
