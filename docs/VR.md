@@ -6,14 +6,41 @@ first-person VR mod for **offline characters**, and stream it to a headset from 
 ```bash
 soju vr setup      # once (about 2 minutes, ~125 MB of downloads)
 soju vr play       # after connecting the headset or simulator
-soju vr play --flat   # optional desktop mode
+soju vr play --flat                 # no headset: first person on the Mac screen
+soju vr play --flat --view third    # or third person, or --view classic (the game's own camera)
 soju vr status
 soju vr setup --refresh   # after a D2R update or when the 30-day check appears
 soju vr remove --yes
 ```
 
-In the app: right-click Diablo II: Resurrected in the library, then **Set Up VR (offline)** and **Play in VR**.
-**Create Offline Character (without VR)** opens the same copy on the Mac screen.
+In the app: the **VR** badge on the Battle.net Diablo II: Resurrected card (or **VR and First Person** in its details
+or right-click menu) opens a three-step sheet: the headset app, Set Up, Connect and Play in VR. Its lower part,
+**No headset? Play on this Mac**, starts the same copy on the Mac screen in first person, third person or the classic
+camera, with mouse look and W A S D.
+
+## On the Mac screen (no headset)
+
+The mod's flat mode (`[mode] platform = 0` in `d2r_pcvr.ini`, view in `flat_view`: 1 classic, 2 third person,
+3 first person) is set before each start, because Mac keyboards send F1 - F3 as brightness keys unless fn is held
+(fn+F1 / fn+F2 / fn+F3 still switch in the game). Checked 2026-11-25 on D2R 3.4.95032: first and third person in the
+Rogue Encampment, offline character select with the mouse.
+
+On the Mac screen the game keeps your own resolution and window mode (in VR it is fixed at windowed 1920x1080).
+
+NVIDIA DLSS works in the copy through Apple's MetalFX bridge, like normal D2R, when the engine has Apple's NGX shim.
+Two things were in the way and are fixed by Soju (2026-11-25, D2R 3.4.95032, GPTK 3.0, M4 Pro):
+
+- The mod runs the game under ReShade, which hands it wrappers of the D3D12 device and command lists. Apple's shim
+  treats the command list as its own object, so it crashed in `NVSDK_NGX_D3D12_CreateFeature` and the game hung at the
+  title. Soju's `nvngx.dll` (`tools/ngx-unwrap`, built into the `vr-mod-v2` release) sits in front of the shim in the
+  copy's system32 and passes it the original objects; the shim itself is loaded as `nvngx_metalfx.dll`.
+- The mod reads the depth buffer from the part DLSS draws into (2/3 of the screen at Quality), found from the depth
+  buffer binds. Under D3DMetal the game binds it with D3D12 render passes, which the mod did not watch, so fog and sky
+  were drawn over a 2/3 box. The mod patch (`patches/d2r-pcvr`) now watches render passes too.
+
+Measured in the Rogue Encampment, first person, fog and sky on: at 3440x1440 full screen 51 - 66 fps without DLSS and
+63 - 74 fps with DLSS Quality (MetalFX 2293x960 -> 3440x1440). In a 1920x1080 window the GPU is not the limit and DLSS
+gives no gain (about 130 fps either way). The headset path with DLSS is not checked yet.
 
 ## What it does
 

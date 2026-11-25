@@ -635,7 +635,7 @@ index 1251de1..8fd4589 100644
  bool NoticeText(int kind,char* out,uint32_t size) {
      if(kind<0||kind>=framevr::notice::Kinds||!out||!size)return false;
 diff --git a/vr/vrcam.cpp b/vr/vrcam.cpp
-index 6dcd253..a151351 100644
+index 6dcd253..3becc42 100644
 --- a/vr/vrcam.cpp
 +++ b/vr/vrcam.cpp
 @@ -21,6 +21,8 @@
@@ -708,3 +708,28 @@ index 6dcd253..a151351 100644
  #ifdef D2RVR_NATIVE_OPENXR
      LRESULT resolutionResult=0;
      if(framevr::resolution::Handle(h,msg,w,l,g_gameWndProc,resolutionResult))return resolutionResult;
+@@ -9691,6 +9727,16 @@ void OnBind(command_list* cl, uint32_t count, const resource_view* rtvs, resourc
+     }
+     Note();
+ }
++// The game can bind its targets with D3D12 render passes instead (it does under
++// D3DMetal on macOS): the same depth buffer, so the same bookkeeping (2026-11-25).
++bool OnBeginPass(command_list* cl, uint32_t count, const render_pass_render_target_desc* rts,
++                 const render_pass_depth_stencil_desc* ds, render_pass_flags) {
++    resource_view rtvs[8] = {};
++    const uint32_t n = rts ? std::min<uint32_t>(count, 8) : 0;
++    for (uint32_t i = 0; i < n; ++i) rtvs[i] = rts[i].view;
++    OnBind(cl, n, rtvs, ds ? ds->view : resource_view{0});
++    return false;
++}
+ void OnViewports(command_list* cl, uint32_t first, uint32_t count, const viewport* vps) {
+     if (first != 0 || count == 0) return;
+     if (cl != t_cl) { t_cl = cl; t_dsW = t_dsH = 0; }
+@@ -10489,6 +10535,7 @@ void TryRegister() {
+ #endif
+ #ifdef D2RVR_NATIVE_OPENXR
+     reshade::register_event<reshade::addon_event::bind_render_targets_and_depth_stencil>(&d2rvr::D3D12Only<&renderscale::OnBind>::Call);
++    reshade::register_event<reshade::addon_event::begin_render_pass>(&d2rvr::D3D12Only<&renderscale::OnBeginPass>::Call);
+ #else
+     reshade::register_event<reshade::addon_event::bind_render_targets_and_depth_stencil>(&renderscale::OnBind);
+ #endif
