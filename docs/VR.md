@@ -26,6 +26,9 @@ The mod's flat mode (`[mode] platform = 0` in `d2r_pcvr.ini`, view in `flat_view
 Rogue Encampment, offline character select with the mouse.
 
 On the Mac screen the game keeps your own resolution and window mode (in VR it is fixed at windowed 1920x1080).
+In first and third person the mouse turns the view and W A S D walk (the mod's `[input] mouse_look`, which is off in
+its own settings), and the view starts level (`[camera] pitch = -85`; -30 in the headset, where the head lifts it).
+ReShade's first-run tutorial line is turned off so it does not stay on screen.
 
 NVIDIA DLSS works in the copy through Apple's MetalFX bridge, like normal D2R, when the engine has Apple's NGX shim.
 Two things were in the way and are fixed by Soju (2026-11-25, D2R 3.4.95032, GPTK 3.0, M4 Pro):

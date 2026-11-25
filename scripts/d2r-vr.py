@@ -545,35 +545,73 @@ def stage_mod_patch(mod, plugin, spec):
         'Apply the accompanying patch to this base.\n')
 
 
+FLAT_PITCH, VR_PITCH = '-85', '-30'
 VIEWS = {'classic': 1, 'third': 2, 'first': 3}   # the mod's flat views, F1 - F3
 
 
-def set_mode(game, flat, view='first'):
-    """The mod plays to the headset ([mode] platform = 1) or to the Mac screen with mouse look and
-    W A S D (platform = 0), in the view flat_view names. Mac keyboards send F1 - F3 as brightness keys
-    unless fn is held, so the view is chosen before the game starts."""
-    ini = game / 'mods' / 'D2R-PCVR' / 'd2rloader/plugins/d2r_pcvr.ini'
+def set_ini(ini, want):
+    """Set key = value in [section]s of an ini file the mod or ReShade reads, keeping its line
+    endings; a key missing from its section is added at the section's end, a missing section at the end."""
     try:
         text = read_raw(ini)
     except OSError:
         return
-    want = {'platform': '0' if flat else '1'}
-    if flat:
-        want['flat_view'] = str(VIEWS.get(view, 3))
+    end = '\r\n' if '\r\n' in text else '\n'
+    left = {sec: dict(keys) for sec, keys in want.items()}
     out, section = [], ''
+
+    def flush():
+        for key, value in left.pop(section, {}).items():
+            out.append(key + '=' + value + end if ini.name == 'ReShade.ini' else key + ' = ' + value + end)
+
     for line in text.splitlines(keepends=True):
         stripped = line.strip()
         if stripped.startswith('['):
+            if out and not out[-1].strip():
+                blank = out.pop()
+                flush()
+                out.append(blank)
+            else:
+                flush()
             section = stripped
-        elif section == '[mode]' and '=' in stripped:
+        elif section in left and '=' in stripped:
             key = stripped.split('=', 1)[0].strip()
-            if key in want:
-                end = '\r\n' if line.endswith('\r\n') else '\n'
-                line = key + ' = ' + want[key] + end
+            if key in left[section]:
+                value = left[section].pop(key)
+                line = (key + '=' + value if ini.name == 'ReShade.ini' else key + ' = ' + value) + end
         out.append(line)
+    flush()
+    for sec, keys in left.items():
+        if keys:
+            if out and out[-1].strip():
+                out.append(end)
+            out.append(sec + end)
+            for key, value in keys.items():
+                out.append((key + '=' + value if ini.name == 'ReShade.ini' else key + ' = ' + value) + end)
     new = ''.join(out)
     if new != text:
         write_raw(ini, new)
+
+
+def set_mode(game, flat, view='first'):
+    """The mod plays to the headset ([mode] platform = 1) or to the Mac screen (platform = 0), in
+    the view flat_view names. Mac keyboards send F1 - F3 as brightness keys unless fn is held, so
+    the view is chosen before the game starts. On the Mac screen in first or third person the mouse
+    turns the view and W A S D walk ([input] mouse_look, off in the mod's own settings, where F9
+    would turn it on); in the headset and in the game's own camera it stays off."""
+    mod = game / 'mods' / 'D2R-PCVR'
+    mode = {'platform': '0' if flat else '1'}
+    if flat:
+        mode['flat_view'] = str(VIEWS.get(view, 3))
+    look = '1' if flat and view != 'classic' else '0'
+    # [camera] pitch: the view's tilt from the game's own steep camera, more negative looking higher.
+    # -30 (the mod's) suits a headset, where the head lifts it further; on the Mac screen it left first
+    # person looking down at the hero's shoulders, and -85 looks ahead (checked 2026-11-25).
+    pitch = FLAT_PITCH if flat else VR_PITCH
+    set_ini(mod / 'd2rloader/plugins/d2r_pcvr.ini',
+            {'[mode]': mode, '[input]': {'mouse_look': look}, '[camera]': {'pitch': pitch}})
+    # ReShade's first-run line ("Press 'Home' to start the tutorial") otherwise stays on screen.
+    set_ini(mod / 'reshade/ReShade.ini', {'[OVERLAY]': {'TutorialProgress': '4'}})
 
 
 def play_env(flat, dlss=False):
