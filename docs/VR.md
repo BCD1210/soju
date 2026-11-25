@@ -6,14 +6,27 @@ first-person VR mod for **offline characters**, and stream it to a headset from 
 ```bash
 soju vr setup      # once (about 2 minutes, ~125 MB of downloads)
 soju vr play       # after connecting the headset or simulator
-soju vr play --flat   # optional desktop mode
+soju vr play --flat                 # no headset: first person on the Mac screen
+soju vr play --flat --view third    # or third person, or --view classic (the game's own camera)
 soju vr status
 soju vr setup --refresh   # after a D2R update or when the 30-day check appears
 soju vr remove --yes
 ```
 
-In the app: right-click Diablo II: Resurrected in the library, then **Set Up VR (offline)** and **Play in VR**.
-**Create Offline Character (without VR)** opens the same copy on the Mac screen.
+In the app: the **VR** badge on the Battle.net Diablo II: Resurrected card (or **VR and First Person** in its details
+or right-click menu) opens a three-step sheet: the headset app, Set Up, Connect and Play in VR. Its lower part,
+**No headset? Play on this Mac**, starts the same copy on the Mac screen in first person, third person or the classic
+camera, with mouse look and W A S D.
+
+## On the Mac screen (no headset)
+
+The mod's flat mode (`[mode] platform = 0` in `d2r_pcvr.ini`, view in `flat_view`: 1 classic, 2 third person,
+3 first person) is set before each start, because Mac keyboards send F1 - F3 as brightness keys unless fn is held
+(fn+F1 / fn+F2 / fn+F3 still switch in the game). Checked 2026-11-25 on D2R 3.4.95032: first and third person in the
+Rogue Encampment, offline character select with the mouse.
+
+NVIDIA DLSS stays off in the copy (setup and every start set it to off): with it on the modded game stops at the
+title. Normal D2R from Battle.net is not affected and uses DLSS through MetalFX when it is chosen in its options.
 
 ## What it does
 
