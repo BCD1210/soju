@@ -12,9 +12,10 @@ console's system libraries; MacBox (github.com/aykhanium/MacBox) ports it to App
 with CrossOver. Here it runs on Soju's own engine and D3DMetal instead, in a bottle of its own.
 
 No game is playable yet. No game files are included: XCL needs your own unpacked copy.
-Checked 2026-11-25 on an M4 Pro, macOS 26.5: XCL starts, and its shader, compute and mesh
-tests pass; its graphics draw test crashes inside Apple's D3DMetal after the draw is
-submitted, with D3DMetal 3.0 and 4.0 beta 3 alike (MacBox reports it passing on macOS 27.2).
+Checked 2026-11-25 on an M4 Pro, macOS 26.5: XCL starts, its shader, compute and mesh tests
+pass, and its synthetic console title runs to the end (window, GPU triangle, first frame
+presented) with the same three open failures MacBox reports on CrossOver (window cloaking,
+GPU timestamps, XMA2 audio). See docs/XCL.md.
 """
 import hashlib
 import json
