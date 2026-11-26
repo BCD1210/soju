@@ -18,9 +18,6 @@
 #      scripts/get-gptk.sh /path/to/volume  # explicit path
 #      scripts/get-gptk.sh --find [path]    # only print the payload directory
 #
-# Alternative: if CrossOver (trial included) is installed, it is extracted from
-# there automatically.
-#
 # Verification. Everything copied here ends up loaded into every game process,
 # so nothing is copied unverified:
 #   - libd3dshared.dylib and D3DMetal.framework must satisfy the code
@@ -28,7 +25,7 @@
 #     cryptographically by codesign, not by reading certificate names).
 #   - The PE shims (d3d11.dll and friends) are Windows binaries, which macOS
 #     cannot verify, so each one must match the SHA-256 of a build Apple has
-#     shipped (list below, gathered from Apple's own dmgs and from CrossOver).
+#     shipped (list below, gathered from Apple's own dmgs).
 #     A shim that is not on the list is not installed. A new toolkit release
 #     therefore needs the list extended: run `soju update`, or open an issue
 #     with the version. SOJU_GPTK_UNVERIFIED=1 installs unknown shims anyway,
@@ -70,13 +67,6 @@ f6bc9d77fd1e898fec8c6339d367bd8e0f338992c9c0c66d59b30c6e9e0743e4 nvngx-on-metalf
 d53d9ea91935f0de126ba528264fc4c9b4dfea8bfe43f3f1256bd3e8963d67ee dxgi.dll
 de4872e71e6b3f54775b3e564cc487d984c52fec6711bfee250228843ba762d0 nvapi64.dll
 2e522873d2dec412c29f73096f1c1dc6bd8016dc40fd76fbeddd2eb7e226d3cb nvngx-on-metalfx.dll
-# CrossOver 26.3 (lib64/apple_gptk, the build Apple supplies to CodeWeavers)
-7c2bfeb66b18e3ec10c3ee92c9d42f4e3123692d568d14c831aec1a13aa03f79 d3d11.dll
-bbda1c4e94ee70255c528c5689b28333ca9bece2d755ede7c4197977a534704f d3d12.dll
-1b1f2d80349e043e6c628b515ba6b44478a1209c504e6c9f3dae4a9d1b06d561 dxgi.dll
-c999c40698b7fc23c864165fb1364e6a40a8572469775947845afd42f4dfc9e7 atidxx64.dll
-f073fc2377b305380bcd8c228394e48abe1caf09116e12875cb656774a14b4dc nvapi64.dll
-d7c0df74d9bb4de5e2a3cc357b2309148fd3fdc824fe7941e4d789dbd072ff99 nvngx.dll
 '
 # The shims D3DMetal cannot work without (the rest are optional extras).
 REQUIRED_SHIMS="d3d11 d3d12 dxgi"
@@ -115,7 +105,7 @@ find_payload() {
 mounted_images() {
   hdiutil info 2>/dev/null | awk -F'\t' '$1 ~ /^\/dev\/disk/ && $3 ~ /^\/Volumes\// {print $3}'
 }
-# Every candidate root: an explicit path, else mounted images, then CrossOver.
+# Every candidate root: an explicit path, else mounted images.
 find_gptk() {
   local r
   if [ -n "${1:-}" ]; then find_payload "$1"; return; fi
@@ -124,7 +114,7 @@ find_gptk() {
   done <<EOF
 $(mounted_images)
 EOF
-  find_payload "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk"
+  return 1
 }
 
 MODE=install

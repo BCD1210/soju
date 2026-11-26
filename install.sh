@@ -225,7 +225,7 @@ fi # NEEDS_CX
 
 # ---------- Apple GPTK (every platform but Steam) ----------
 if [ "$NEEDS_CX" = 1 ]; then
-# scripts/get-gptk.sh finds the payload (mounted toolkit dmg, or CrossOver),
+# scripts/get-gptk.sh finds the payload (mounted toolkit dmg),
 # verifies every file (Apple's signature on the Mach-O parts, known Apple
 # builds for the PE shims) and installs it. See the notes in that script.
 # With no local payload, scripts/fetch-gptk.py downloads one (resources/gptk.json)
