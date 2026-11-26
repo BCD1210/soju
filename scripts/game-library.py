@@ -80,6 +80,9 @@ BNET = {
     's2': ('StarCraft II', 'S2'), 's1': ('StarCraft: Remastered', 'S1'),
     'w3': ('Warcraft III', 'W3'), 'hs_beta': ('Hearthstone', 'WTCG'),
     'heroes': ('Heroes of the Storm', 'Hero'), 'prometheus': ('Overwatch 2', 'Pro'),
+    # Without its code Play only opened Battle.net (the game then needs Battle.net's own Play button).
+    # ANBS seen 2026-11-26: a cold Battle.net logged LaunchBinary: uid=anbs 13 s after signing in.
+    'anbs': ('Diablo Immortal', 'ANBS'),
 }
 MAX_METADATA = 16 * 1024 * 1024
 
@@ -331,13 +334,16 @@ class Library:
                 # An Agent record can outlive an uninstall or partial download.
                 # A game moved to another drive (scripts/game-storage.py) stays listed while unplugged.
                 unplugged = location.is_symlink() and not location.exists()
-                if not unplugged and not (location / '.build.info').is_file(): continue
+                # Diablo Immortal has no .build.info; Battle.net leaves .product.db in every finished install.
+                if not unplugged and not any((location / mark).is_file() for mark in ('.build.info', '.product.db')): continue
                 title, code = BNET.get(uid.casefold(), (location.name, None))
                 arguments = ['--exec=launch ' + code] if code else []
                 art = first_file(sorted(location.glob('*.ico')))
                 if not art:
                     executables = [p for p in location.glob('*.exe') if not any(word in p.name.lower() for word in ('launcher', 'uninstall', 'error', 'crash'))]
                     executables.sort(key=lambda p: p.stat().st_size, reverse=True)
+                    # A game whose only exe at the top is its launcher (Diablo Immortal) takes the icon from that.
+                    executables = executables or sorted(location.glob('*Launcher.exe'))
                     for exe in executables[:4]:
                         art = executable_icon(exe, self.base / 'library-artwork')
                         if art: break
