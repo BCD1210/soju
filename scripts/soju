@@ -77,7 +77,7 @@ Usage:
   soju steam-gptk on|off|status
                      Run Steam and its games on Apple GPTK (D3D12 games, Overwatch and Diablo II on Steam); sign in once
 
-  soju gptk           Install Apple's GPTK payload into the engine (downloads it; a mounted dmg or CrossOver is used if present)
+  soju gptk           Install Apple's GPTK payload into the engine (downloads it; a mounted dmg is used if present)
   soju fps on|off     Show frame rate and frame time in games (Apple's Metal HUD), from the next launch
   soju sweep          Remove orphaned Wine service processes (only when no bottle is running)
   soju doctor         Check the whole stack and print what is wrong
@@ -121,7 +121,7 @@ case "${1:-}" in
   steam-games)    shift; exec bash "$ROOT/scripts/setup-steam-games.sh" "$@" ;;
   steam-gptk)     shift; exec bash "$ROOT/scripts/steam-gptk.sh" "$@" ;;
   gptk)           shift
-    # A path, a mounted dmg or CrossOver is used as it is; otherwise Soju downloads the payload.
+    # A path or a mounted dmg is used as it is; otherwise Soju downloads the payload.
     if [ "${1:-}" = "--download" ]; then exec python3 "$ROOT/scripts/fetch-gptk.py"; fi
     if [ $# -gt 0 ] || bash "$ROOT/scripts/get-gptk.sh" --find >/dev/null 2>&1; then exec bash "$ROOT/scripts/get-gptk.sh" "$@"; fi
     exec python3 "$ROOT/scripts/fetch-gptk.py" ;;
