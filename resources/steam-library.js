@@ -53,6 +53,28 @@ const ownAllGames = () => validID(steamid) && location.hostname === "steamcommun
     new URLSearchParams(location.search).get("tab") === "all" && profile === steamid &&
     Array.isArray(window.rgGames);
 if (ownAllGames()) return snapshot(window.rgGames, window.rgGames.length);
+// Steam's current All Games page carries the owner's complete list in its own
+// server-rendered data (the "OwnedGames" query). Read it when the page says it is the
+// viewer's own profile: Steam's session token is refused (401) by the owned-games API.
+function pageOwnedGames() {
+    if (reactUser?.logged_in !== true || !validID(steamid) || location.hostname !== "steamcommunity.com") return null;
+    const parse = value => { try { return typeof value === "string" ? JSON.parse(value) : value; } catch { return null; } };
+    const loaders = Array.isArray(window.SSR?.loaderData) ? window.SSR.loaderData.map(parse) : [];
+    if (!loaders.some(item => item && item.bOwnProfile === true && String(item.steamid) === steamid)) return null;
+    const queries = parse(parse(window.SSR?.renderContext)?.queryData)?.queries;
+    if (!Array.isArray(queries)) return null;
+    for (const query of queries) {
+        const key = query?.queryKey;
+        if (Array.isArray(key) && key[0] === "OwnedGames" && String(key[1]) === steamid &&
+            query.state?.status === "success" && Array.isArray(query.state.data)) return query.state.data;
+    }
+    return null;
+}
+const pageGames = pageOwnedGames();
+if (pageGames && pageGames.length) {
+    const value = snapshot(pageGames, pageGames.length);
+    if (value.state === "ready") return value;
+}
 if (!reactUser && validID(steamid) && validID(profile) && !ownAllGames() && !user.webapi_token) {
     return { state: "open-library" };
 }
@@ -64,7 +86,7 @@ async function readJSON(url, credentials, limit) {
     const response = await fetch(url, {
         signal: controller.signal, redirect: "error", credentials, cache: "no-store"
     });
-    if (!response.ok) throw Error("request failed");
+    if (!response.ok) throw Error("http" + response.status);
     const raw = await response.text();
     if (raw.length > limit) throw Error("response too large");
     return JSON.parse(raw);
@@ -96,8 +118,9 @@ try {
     const value = payload.response;
     if (!value || !Object.prototype.hasOwnProperty.call(value, "game_count")) return { state: "unavailable", why: "private" };
     return snapshot(value.games || [], value.game_count);
-} catch {
-    return { state: "unavailable", why: "request" };
+} catch (error) {
+    // Only Steam's status code leaves this page, never a URL, token or message.
+    return { state: "unavailable", why: /^http[0-9]{3}$/.test(error?.message) ? error.message : "request" };
 } finally {
     clearTimeout(timer);
 }
