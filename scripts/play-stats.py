@@ -244,6 +244,18 @@ def launcher_state(launcher, table=None):
     return "launcher_open" if exe in text else "launcher_closed"
 
 
+def engine_gptk(base=None):
+    """Which Apple toolkit the engine has, e.g. gptk3.0: read from D3DMetal.framework's own Info.plist."""
+    import plistlib
+    plist = Path(base or BASE) / "cx26-engine/lib/external/D3DMetal.framework/Versions/A/Resources/Info.plist"
+    try:
+        with open(plist, "rb") as f:
+            version = str(plistlib.load(f).get("CFBundleShortVersionString") or "")
+    except Exception:
+        return "gptk_none"
+    return "gptk" + SAFE.sub("", version)[:12] if version else "gptk_none"
+
+
 def blizzard_crash(path, since):
     """(word, name) from the crash report a Blizzard game writes itself (errors/<time>/Crash.txt in its
     folder) when it caught its own crash: the exception and the module it happened in, nothing else.
@@ -295,8 +307,9 @@ def reason(started, minutes, marks, found, path, launcher="", game=""):
         except Exception:
             word = ""
         # Battle.net started it and the game was never seen: what Wine said, if anything, goes along.
+        # The engine's toolkit version goes too: a game that dies before it writes anything leaves no other clue.
         if word == "bnet_launched":
-            name = "_".join(x for x in why(text, found) if x)[:40]
+            name = "_".join(x for x in (*why(text, found), engine_gptk()) if x)[:40]
     if launcher == "battlenet" and isinstance(marks, dict) and marks.get("_t"):
         # The game caught its own crash and wrote a report: that says more than anything above.
         crash = blizzard_crash(path, marks["_t"])

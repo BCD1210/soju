@@ -14,23 +14,7 @@
     "nvapi64.dll",
     "nvngx-on-metalfx.dll"
   ],
-  "newer_chips": {
-    "min_chip": 6,
-    "why": "D3DMetal 3.0 does not start Diablo II: Resurrected on M6 Macs (macOS 27); 4.0 beta 3 does",
-    "version": "4.0 beta 3",
-    "source": "Apple's Evaluation environment for Windows games 4.0 beta 3, /redist folder unchanged (Soju component release gptk-4.0b3)",
-    "url": "https://github.com/BCD1210/soju/releases/download/gptk-4.0b3/soju-gptk-4.0b3.tar.xz",
-    "sha256": "55e6877bfbea1756d6f8d0a6af944d633a869f3d60ac0d7bc10ff763c31835d6",
-    "size": 16545788,
-    "prefix": "lib",
-    "shims": [
-      "d3d10.dll",
-      "d3d11.dll",
-      "d3d12.dll",
-      "d3d12core.dll",
-      "dxgi.dll",
-      "nvapi64.dll",
-      "nvngx-on-metalfx.dll"
-    ]
-  }
+  "retired_shims": [
+    "d3d12core.dll"
+  ]
 }

@@ -12,8 +12,10 @@ or a known Apple build (the PE shims).
     scripts/fetch-gptk.py --check    exit 0 when $ENGINE already has every shim of the build this Mac uses
     SOJU_GPTK_DOWNLOAD=0             callers skip this and ask for a dmg instead
 
-Macs with an M6 or newer chip get the build under "newer_chips" (4.0 beta 3): D3DMetal 3.0
-does not start Diablo II: Resurrected there.
+From 1.14.47 to 1.14.52 Macs with an M6 chip were given 4.0 beta 3 instead, on the belief that
+D3DMetal 3.0 did not start Diablo II: Resurrected there. Play counts then showed an M6 running it
+on 3.0, and the one M6 that could not start it kept failing after the change. Engines that got the
+beta are put back on the pinned build ("retired_shims" names what only the beta installed).
 """
 import hashlib
 import json
@@ -35,36 +37,38 @@ def digest(path):
         for block in iter(lambda: f.read(1024 * 1024), b""): h.update(block)
     return h.hexdigest()
 
-def chip_generation(brand=None):
-    """6 for "Apple M6 Pro", 0 when unknown (Intel, or sysctl missing)."""
-    if brand is None:
-        try:
-            brand = subprocess.run(["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"],
-                                   capture_output=True, text=True).stdout
-        except OSError:
-            brand = ""
-    m = re.search(r"\bApple M(\d+)\b", brand or "")
-    return int(m.group(1)) if m else 0
+APPLE = b"D3DMetalDLLsBase"   # every PE shim of Apple's names it
 
-def choose(manifest, generation):
-    """The build for this Mac: the newer one on chips it names, else the default."""
-    newer = manifest.get("newer_chips")
-    if newer and generation >= newer["min_chip"]:
-        return newer
-    return manifest
+def apple_shim(path):
+    try:
+        return APPLE in Path(path).read_bytes()
+    except OSError:
+        return False
 
 def installed(engine, build):
-    """Every shim of the build is in the engine and is one of Apple's (they all name D3DMetalDLLsBase)."""
+    """The engine has every shim of the build, and none that only a retired build installed."""
     pe = Path(engine) / "lib/wine/x86_64-windows"
     if not (Path(engine) / "lib/external/libd3dshared.dylib").is_file():
         return False
-    for shim in build["shims"]:
-        try:
-            if b"D3DMetalDLLsBase" not in (pe / shim).read_bytes():
-                return False
-        except OSError:
-            return False
-    return True
+    if any(apple_shim(pe / shim) for shim in build.get("retired_shims", [])):
+        return False
+    return all(apple_shim(pe / shim) for shim in build["shims"])
+
+def retire(engine, build):
+    """Take out the shims a retired build left: Wine's own DLL comes back where get-gptk.sh kept it."""
+    lib = Path(engine) / "lib/wine"
+    for shim in build.get("retired_shims", []):
+        dll = lib / "x86_64-windows" / shim
+        if not apple_shim(dll):
+            continue
+        kept = dll.with_name(dll.name + ".wine")
+        if kept.is_file():
+            os.replace(kept, dll)
+        else:
+            dll.unlink()
+        link = lib / "x86_64-unix" / (dll.stem + ".so")
+        if link.is_symlink() and os.readlink(link).endswith("libd3dshared.dylib"):
+            link.unlink()
 
 def wanted(name, manifest):
     """Path under the stage for an archive member Soju takes, else None."""
@@ -112,7 +116,7 @@ def unpack(archive, stage, manifest):
             raise ValueError("The archive is missing " + shim)
 
 def main():
-    manifest = choose(json.loads(MANIFEST.read_text()), chip_generation())
+    manifest = json.loads(MANIFEST.read_text())
     base = Path(os.environ.get("SOJU_BASE", Path.home() / ".battlenet-macos"))
     engine = Path(os.environ.get("ENGINE", base / "cx26-engine"))
     if not (engine / "lib").is_dir():
@@ -145,6 +149,7 @@ def main():
         env = dict(os.environ, ENGINE=str(engine))
         if subprocess.run(["/bin/bash", str(ROOT / "scripts/get-gptk.sh"), str(stage)], env=env).returncode != 0:
             return 1
+        retire(engine, manifest)
     return 0
 
 if __name__ == "__main__":
