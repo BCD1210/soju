@@ -212,6 +212,8 @@ case "$MODE" in
     # spawns a separate GPU process that dies on init and the frameless main
     # window stays fully transparent (Dock icon, no window). See docs/DIAGNOSIS.md.
     start_reaper
+    # Diablo Immortal stops on its loading screen with Wine's own d3dcompiler (#221): give it the one it ships.
+    ENGINE="$ENGINE" bash "$(dirname "${BASH_SOURCE[0]}")/own-d3dcompiler.sh" || true
     # By default Battle.net exits when its window is closed (same as Windows).
     # With Settings > "When I close the app" set to the tray (Client.HideOnClose),
     # the window hides instead; a Dock-icon click then starts a second
