@@ -76,9 +76,17 @@ class LibraryTests(unittest.TestCase):
 
     def test_diablo_immortal_starts_from_play(self):
         self.bnet(uid='anbs', folder='Diablo Immortal')
+        # Its folder has .product.db and no .build.info.
+        folder = self.base / 'bottle/drive_c/Games/Diablo Immortal'
+        (folder / '.build.info').rename(folder / '.product.db')
         result = self.lib.scan()
         self.assertEqual([g['title'] for g in result['games']], ['Diablo Immortal'])
         self.assertEqual(self.lib.command('battlenet:anbs')[-2:], ['battlenet', '--exec=launch ANBS'])
+
+    def test_a_battle_net_folder_with_neither_mark_is_not_a_game(self):
+        self.bnet(uid='anbs', folder='Diablo Immortal')
+        (self.base / 'bottle/drive_c/Games/Diablo Immortal/.build.info').unlink()
+        self.assertEqual(self.lib.scan()['games'], [])
 
     def test_four_platforms_and_launch_argv(self):
         self.steam(); self.epic(); self.bnet(); database = self.gog()
