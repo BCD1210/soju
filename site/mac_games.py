@@ -442,7 +442,7 @@ def index_page(lang, curated, est, letters):
     base = "../../" if lang == "ko" else "../"
     path = "ko/mac/index.html" if lang == "ko" else "mac/index.html"
     canonical = SITE + ("ko/mac/" if lang == "ko" else "mac/")
-    order = ["verified", "untested", "blocked-online", "blocked", "native"]
+    order = ["verified", "soju-works", "untested", "blocked-online", "blocked", "native"]   # soju-works: a curated game players ran in Soju (Counter-Strike 2, 2026-11-26)
     cur = sorted(curated, key=lambda g: (order.index(g["status"]), g["name"]))
     macdata = sorted([g for g in est if g["status"] in MACDATA and STATUS["en"][g["status"]][1] == "ok"], key=lambda g: (MACDATA.index(g["status"]), g["name"].lower()))
     top = sorted([g for g in est if g["status"] in ESTIMATE], key=lambda g: -g["reports"])[:INDEX_ESTIMATES]
