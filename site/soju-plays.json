@@ -3,26 +3,32 @@
   {
    "game": "battlenet:osi",
    "title": "Diablo II: Resurrected",
-   "players": 11,
-   "minutes": 4219
+   "players": 13,
+   "minutes": 4947
   },
   {
    "game": "steam:250900",
    "title": "The Binding of Isaac: Rebirth",
    "players": 4,
-   "minutes": 417
+   "minutes": 698
+  },
+  {
+   "game": "epic:fa4240e57a3c46b39f169041b7811293",
+   "title": "霍格沃茨之遗",
+   "players": 4,
+   "minutes": 437
+  },
+  {
+   "game": "steam:3164500",
+   "title": "Schedule I",
+   "players": 4,
+   "minutes": 144
   },
   {
    "game": "steam:2344520",
    "title": "Diablo® IV",
    "players": 3,
-   "minutes": 1471
-  },
-  {
-   "game": "epic:fa4240e57a3c46b39f169041b7811293",
-   "title": "Hogwarts Legacy",
-   "players": 3,
-   "minutes": 435
+   "minutes": 1762
   },
   {
    "game": "steam:1449850",
@@ -31,16 +37,22 @@
    "minutes": 425
   },
   {
-   "game": "steam:3164500",
-   "title": "Schedule I",
-   "players": 3,
-   "minutes": 98
-  },
-  {
    "game": "steam:934700",
    "title": "Dead Island 2",
    "players": 2,
-   "minutes": 592
+   "minutes": 1300
+  },
+  {
+   "game": "steam:1158160",
+   "title": "Coral Island",
+   "players": 2,
+   "minutes": 949
+  },
+  {
+   "game": "steam:2168680",
+   "title": "Nuclear Option",
+   "players": 2,
+   "minutes": 584
   },
   {
    "game": "steam:990080",
@@ -55,12 +67,6 @@
    "minutes": 246
   },
   {
-   "game": "steam:2168680",
-   "title": "Nuclear Option",
-   "players": 2,
-   "minutes": 228
-  },
-  {
    "game": "battlenet:s1",
    "title": "StarCraft: Remastered",
    "players": 2,
@@ -73,10 +79,22 @@
    "minutes": 9
   },
   {
-   "game": "steam:1158160",
-   "title": "Coral Island",
+   "game": "steam:1658280",
+   "title": "Eiyuden Chronicle: Hundred Heroes",
    "players": 1,
-   "minutes": 848
+   "minutes": 709
+  },
+  {
+   "game": "steam:489830",
+   "title": "The Elder Scrolls V: Skyrim Special Edition",
+   "players": 1,
+   "minutes": 572
+  },
+  {
+   "game": "steam:2142790",
+   "title": "Fields of Mistria",
+   "players": 1,
+   "minutes": 550
   },
   {
    "game": "steam:1223750",
@@ -85,22 +103,10 @@
    "minutes": 535
   },
   {
-   "game": "steam:2142790",
-   "title": "Fields of Mistria",
+   "game": "steam:4348910",
+   "title": "Probably Stolen",
    "players": 1,
-   "minutes": 530
-  },
-  {
-   "game": "steam:1658280",
-   "title": "Eiyuden Chronicle: Hundred Heroes",
-   "players": 1,
-   "minutes": 504
-  },
-  {
-   "game": "steam:489830",
-   "title": "The Elder Scrolls V: Skyrim Special Edition",
-   "players": 1,
-   "minutes": 465
+   "minutes": 527
   },
   {
    "game": "steam:365160",
@@ -133,6 +139,18 @@
    "minutes": 257
   },
   {
+   "game": "xbox:9MT5NJ5W7B8Z",
+   "title": "Hogwarts Legacy",
+   "players": 1,
+   "minutes": 189
+  },
+  {
+   "game": "steam:746850",
+   "title": "Cloudpunk",
+   "players": 1,
+   "minutes": 185
+  },
+  {
    "game": "steam:4072240",
    "title": "Woman Simulator",
    "players": 1,
@@ -145,6 +163,12 @@
    "minutes": 135
   },
   {
+   "game": "steam:570940",
+   "title": "DARK SOULS™: REMASTERED",
+   "players": 1,
+   "minutes": 131
+  },
+  {
    "game": "steam:585420",
    "title": "Trailmakers",
    "players": 1,
@@ -155,6 +179,12 @@
    "title": "Book Bound Demo",
    "players": 1,
    "minutes": 126
+  },
+  {
+   "game": "steam:1422450",
+   "title": "Deadlock",
+   "players": 1,
+   "minutes": 109
   },
   {
    "game": "steam:2433730",
@@ -181,6 +211,30 @@
    "minutes": 78
   },
   {
+   "game": "steam:2166060",
+   "title": "Amanda the Adventurer",
+   "players": 1,
+   "minutes": 77
+  },
+  {
+   "game": "steam:10",
+   "title": "Counter-Strike",
+   "players": 1,
+   "minutes": 74
+  },
+  {
+   "game": "steam:70",
+   "title": "Half-Life",
+   "players": 1,
+   "minutes": 74
+  },
+  {
+   "game": "steam:80",
+   "title": "Counter-Strike: Condition Zero",
+   "players": 1,
+   "minutes": 74
+  },
+  {
    "game": "steam:374320",
    "title": "DARK SOULS™ III",
    "players": 1,
@@ -199,6 +253,12 @@
    "minutes": 57
   },
   {
+   "game": "steam:361420",
+   "title": "ASTRONEER",
+   "players": 1,
+   "minutes": 57
+  },
+  {
    "game": "xbox:9N98Z825TNFW",
    "title": "Minecraft Legends - Windows",
    "players": 1,
@@ -209,6 +269,12 @@
    "title": "Sudoku Mansion Demo",
    "players": 1,
    "minutes": 56
+  },
+  {
+   "game": "steam:109600",
+   "title": "Neverwinter",
+   "players": 1,
+   "minutes": 55
   },
   {
    "game": "steam:582500",
@@ -245,6 +311,12 @@
    "title": "Black Myth: Wukong",
    "players": 1,
    "minutes": 34
+  },
+  {
+   "game": "steam:766570",
+   "title": "Russian Fishing 4",
+   "players": 1,
+   "minutes": 33
   },
   {
    "game": "steam:2507640",
@@ -301,6 +373,18 @@
    "minutes": 19
   },
   {
+   "game": "steam:814380",
+   "title": "Sekiro™: Shadows Die Twice",
+   "players": 1,
+   "minutes": 19
+  },
+  {
+   "game": "steam:100",
+   "title": "Counter-Strike: Condition Zero Deleted Scenes",
+   "players": 1,
+   "minutes": 15
+  },
+  {
    "game": "steam:1665460",
    "title": "eFootball™",
    "players": 1,
@@ -323,6 +407,12 @@
    "title": "Torchlight",
    "players": 1,
    "minutes": 14
+  },
+  {
+   "game": "steam:730",
+   "title": "Counter-Strike 2",
+   "players": 1,
+   "minutes": 13
   },
   {
    "game": "steam:220",
@@ -359,6 +449,18 @@
    "title": "Subnautica",
    "players": 1,
    "minutes": 10
+  },
+  {
+   "game": "steam:5520650",
+   "title": "Clip Out: Backrooms",
+   "players": 1,
+   "minutes": 10
+  },
+  {
+   "game": "battlenet:s2",
+   "title": "StarCraft II",
+   "players": 1,
+   "minutes": 9
   },
   {
    "game": "steam:552500",
@@ -415,12 +517,6 @@
    "minutes": 5
   },
   {
-   "game": "steam:766570",
-   "title": "Russian Fishing 4",
-   "players": 1,
-   "minutes": 5
-  },
-  {
    "game": "steam:11020",
    "title": "TrackMania Nations Forever",
    "players": 1,
@@ -439,8 +535,20 @@
    "minutes": 4
   },
   {
+   "game": "steam:966330",
+   "title": "Flower",
+   "players": 1,
+   "minutes": 4
+  },
+  {
    "game": "steam:105600",
    "title": "Terraria",
+   "players": 1,
+   "minutes": 3
+  },
+  {
+   "game": "steam:1085660",
+   "title": "Destiny 2",
    "players": 1,
    "minutes": 3
   },
