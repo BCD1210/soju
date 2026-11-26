@@ -5,7 +5,7 @@
 //   GET  /auth/providers                                               -> which buttons Soju should show
 // The result (email and license keys) sits in the AUTH KV namespace for 10 minutes under the state
 // that only that Soju knows. The Didim Labs account (email, provider, first and last sign-in day) is kept
-// under a:<email>; list them with: wrangler kv key list --binding AUTH --prefix a: --remote. Secrets: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APPLE_SERVICES_ID,
+// under a:<email>. Secrets: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APPLE_SERVICES_ID,
 // APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY (the .p8 text).
 import { issueToken } from "./feed.js";
 

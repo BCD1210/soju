@@ -46,18 +46,3 @@ Output: `dist/vr-mod/d2rl-pcvr-soju.dll`, a complete patched source archive,
 MPL license, and patch. The build prints sizes and SHA-256 hashes. Byte-for-byte
 reproducibility across paths/toolchain versions is not assumed; pin the exact
 built DLL that will be published. No game assets are included.
-
-## Release gate
-
-The `vr-mod-v2` assets are published (2026-11-24); a real Quest remains unverified. For the next build:
-
-1. Publish the staged DLL at the `vr-mod-v2` URL in resources/d2r-vr.json (with soju-nvngx.dll from tools/ngx-unwrap/build.sh). Confirm
-   its size and SHA-256 match `mod_patch`; never replace a published artifact.
-2. Publish `d2r-pcvr-soju-source.tar.xz`, LICENSE, and the patch alongside it.
-   Keep the source available for recipients under MPL-2.0, and publish this repo's
-   patch and rebuild script with the Soju release. Preserve upstream notices.
-3. If rebuilding changes the bytes, update the manifest to the new exact size
-   and digest before release. All setup downloads use the existing verified
-   downloader; none bypass checksum validation.
-4. Smoke-test fresh setup and upgrade, then distribute Soju. Do not distribute
-   this manifest while the pinned release asset is absent.

@@ -19,8 +19,6 @@
 // Posting needs "Authorization: Bearer <token>": the token Soju gets once when a sign-in finishes (auth.js, issueToken).
 // Only the nickname is ever shown; the address stays in the database. Operators are the addresses in FEED_ADMINS
 // (comma separated): their posts may be news (shown as Didim Labs), and they may hide any post.
-//
-// Read: wrangler d1 execute soju-feed --remote --command "select id, nick, kind, body from posts order by id desc limit 50" -c wrangler.didimlabs.toml
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 // Photos: Soju sends each one already made small (long side 1600, JPEG) with a 560 px thumbnail, so nothing here resizes and
