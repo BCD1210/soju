@@ -102,15 +102,15 @@ fi
 # Engines set up from an older toolkit, or by an older Soju, can have only
 # d3d11/d3d12/dxgi of Apple's shims. Games that look for the AMD and NVIDIA
 # driver shims (Overwatch 2: "General Error 0xE0010110" without atidxx64.dll)
-# then stop at start. Macs with an M6 or newer chip need the 4.0 beta 3 build
-# (D3DMetal 3.0 does not start D2R there). fetch-gptk.py --check knows which
-# build this Mac uses; fill in or replace from the pinned download.
+# then stop at start. Engines that were given 4.0 beta 3 (M6 Macs, 1.14.47 to
+# 1.14.52) go back to the pinned build. fetch-gptk.py --check says whether the
+# engine has it; fill in or replace from the pinned download.
 complete_gptk(){
   [ -f "$ENGINE/lib/external/libd3dshared.dylib" ] || return 0
   [ "${SOJU_GPTK_DOWNLOAD:-1}" = 1 ] || return 0
   ENGINE="$ENGINE" SOJU_BASE="$BASE" python3 "$ROOT/scripts/fetch-gptk.py" --check && return 0
   if pgrep -x wineserver >/dev/null 2>&1; then
-    echo "  Apple GPTK in the engine is incomplete or too old for this Mac; close launchers and games and run soju update again"
+    echo "  Apple GPTK in the engine is incomplete or not the pinned build; close launchers and games and run soju update again"
     return 0
   fi
   echo "  updating Apple's GPTK in the engine"
