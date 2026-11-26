@@ -162,3 +162,33 @@ test("React viewer must match every other identity on the page", async () => {
         ({ok:true,text:async()=>JSON.stringify({logged_in:true,steamid:"76561198000000001",token:"other"})}));
     assert.equal(result.state, "unavailable");
 });
+
+function ownGamesPage(games, own = true, owner = id) {
+    const queryData = JSON.stringify({queries:[
+        {queryKey:["OwnedGames", "76561198000000009", "english"], state:{status:"success", data:[{appid:1, name:"Someone else's"}]}},
+        {queryKey:["OwnedGames", owner, "english"], state:{status:"success", data:games}}]});
+    const page = reactPage({logged_in:true, steamid:id}, [JSON.stringify({steamid:id}), JSON.stringify({steamid:owner, bOwnProfile:own})]);
+    page[0].SSR.renderContext = {queryData};
+    return page;
+}
+test("the current All Games page gives the list from its own data, with no request", async () => {
+    const games = [{appid:730, name:"Counter-Strike 2", playtime_forever:2220}, {appid:1097150, name:"Fall Guys"}, {appid:622590}];
+    const result = await run(...ownGamesPage(games), () => { throw Error("must not fetch"); });
+    assert.deepEqual(result, {state:"ready", steamid:id, game_count:2,
+                              games:[{appid:"730", name:"Counter-Strike 2"}, {appid:"1097150", name:"Fall Guys"}]});
+});
+test("another profile's page data is never imported", async () => {
+    const refused = async url => url === "https://steamcommunity.com/chat/clientjstoken"
+        ? {ok:true, text:async()=>JSON.stringify({logged_in:true, steamid:id, token:"session-only"})}
+        : {ok:false, status:401, text:async()=>"<html>"};
+    for (const page of [ownGamesPage([{appid:10, name:"Not mine"}], false), ownGamesPage([{appid:10, name:"Not mine"}], true, "76561198000000001")]) {
+        const result = await run(...page, refused);
+        assert.deepEqual(result, {state:"unavailable", why:"http401"});
+    }
+});
+test("an empty page list falls back to Steam's API", async () => {
+    const result = await run(...ownGamesPage([]), async url => url === "https://steamcommunity.com/chat/clientjstoken"
+        ? {ok:true, text:async()=>JSON.stringify({logged_in:true, steamid:id, token:"t"})}
+        : {ok:true, text:async()=>JSON.stringify({response:{game_count:1, games:[{appid:10, name:"Owned"}]}})});
+    assert.equal(result.state, "ready"); assert.equal(result.games.length, 1);
+});
