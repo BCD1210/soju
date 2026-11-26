@@ -19,7 +19,7 @@
         {"title": "Download", "text": "Open the Polar receipt email (or the page you saw after paying) and download `DontSellTheCat-windows-1.0.zip`, about 375 MB."},
         {"title": "Extract", "text": "Right-click the zip, choose **Extract All**, and put the folder wherever you like."},
         {"title": "Run", "text": "Open the folder and double-click `DontSellTheCat.exe`."},
-        {"title": "If Windows warns you", "text": "A blue \"Windows protected your PC\" window can appear the first time, because the game isn't from the Microsoft Store and we don't pay for a code-signing certificate. Click **More info**, then **Run anyway**."}
+        {"title": "If Windows warns you", "text": "A blue \"Windows protected your PC\" window can appear the first time, because the game isn't from the Microsoft Store. Click **More info**, then **Run anyway**."}
       ]}},
       {"type": "Table", "props": {"label": "Requirements", "head": ["", "Needed"], "rows": [
         ["Windows", "10 or 11, 64-bit"],

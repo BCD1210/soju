@@ -4,12 +4,7 @@
 Reads the anonymous play counts (site-worker/stats.js, the `plays` table) as JSON on stdin and
 writes site/soju-plays.json with one line per game: id, title, how many installs played it and
 for how many minutes in all. A game counts once it stayed open a few minutes in all. A start
-that "ran" (open for a minute) is not enough: an anti-cheat or error window stays that long too. Nothing that identifies a person or a Mac is written. Run it on a
-Mac logged in to the account that holds the soju-stats database:
-
-    cd site-worker && npx wrangler d1 execute soju-stats --remote --json -c wrangler.didimlabs.toml \\
-      --command "$(python3 ../site/soju_plays.py --sql)" \\
-      | python3 ../site/soju_plays.py
+that "ran" (open for a minute) is not enough: an anti-cheat or error window stays that long too. Nothing that identifies a person or a Mac is written.
 """
 import json
 import sys

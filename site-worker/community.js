@@ -1,7 +1,7 @@
 // Release news sign-up.
 //
 // POST /api/notify {"email", "source"} keeps the address in the AUTH KV namespace under "n:<email>"
-// (no expiry). Read the list with: wrangler kv key list --binding AUTH --prefix n: --remote
+// (no expiry).
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 let minute = 0, notifyCount = 0;
@@ -29,7 +29,6 @@ export async function notify(request, env) {
 
 // POST /api/wishlist {"email", "game"}: someone wants to hear when a game that isn't on sale yet comes out.
 // Kept in the AUTH KV namespace under "w:<game>:<email>"; one email per game at launch, nothing else.
-//   count: wrangler kv key list --binding AUTH --prefix w:<game>: --remote -c wrangler.didimlabs.toml
 export async function wishlist(request, env) {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
   if (!env.AUTH) return json({ error: "Not available right now." }, 503);

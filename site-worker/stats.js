@@ -7,8 +7,6 @@
 //   launch:  games [{game, title, launcher, result, how, why?, detail?, ac?}] counts one start: result ran | quick_exit | no_start,
 //            how soju (the library's Play button) | steam (Steam's own window)
 // Per-game totals feed the "Plays" label on the game pages (site/soju_plays.py); nothing about one install is published.
-//
-// Read everything: wrangler d1 execute soju-stats --remote --command "select * from plays" -c wrangler.didimlabs.toml
 
 const json = (body, status = 200, extra = {}) => new Response(JSON.stringify(body), {
   status, headers: { "content-type": "application/json", "cache-control": "no-store", ...extra },
