@@ -80,6 +80,9 @@ BNET = {
     's2': ('StarCraft II', 'S2'), 's1': ('StarCraft: Remastered', 'S1'),
     'w3': ('Warcraft III', 'W3'), 'hs_beta': ('Hearthstone', 'WTCG'),
     'heroes': ('Heroes of the Storm', 'Hero'), 'prometheus': ('Overwatch 2', 'Pro'),
+    # Without its code Play only opened Battle.net (the game then needs Battle.net's own Play button).
+    # ANBS seen 2026-11-26: a cold Battle.net logged LaunchBinary: uid=anbs 13 s after signing in.
+    'anbs': ('Diablo Immortal', 'ANBS'),
 }
 MAX_METADATA = 16 * 1024 * 1024
 

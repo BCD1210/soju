@@ -74,6 +74,12 @@ class LibraryTests(unittest.TestCase):
         ids = [g['id'] for g in self.lib.scan()['games']]
         self.assertEqual(ids, ['steam:123'])
 
+    def test_diablo_immortal_starts_from_play(self):
+        self.bnet(uid='anbs', folder='Diablo Immortal')
+        result = self.lib.scan()
+        self.assertEqual([g['title'] for g in result['games']], ['Diablo Immortal'])
+        self.assertEqual(self.lib.command('battlenet:anbs')[-2:], ['battlenet', '--exec=launch ANBS'])
+
     def test_four_platforms_and_launch_argv(self):
         self.steam(); self.epic(); self.bnet(); database = self.gog()
         before = database.read_bytes()
