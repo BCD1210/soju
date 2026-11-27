@@ -169,10 +169,19 @@ if [ -d "$PE" ]; then
       exit 1 ;;
     esac
   done
+  # An engine folder that lost its Windows DLLs cannot take the shims, and cp would only say
+  # "No such file or directory" about the first one (#228). Say what is wrong and how to get it back.
+  if [ ! -f "$ENGINE/lib/wine/x86_64-windows/ntdll.dll" ]; then
+    echo "ERROR: the engine at $ENGINE is incomplete (no lib/wine/x86_64-windows/ntdll.dll), so the toolkit cannot be installed into it."
+    echo "       Download the engine again:  rm -f \"$ENGINE/.soju-engine-release\" && soju update"
+    exit 1
+  fi
   for b in $SHIMS; do
     # keep Wine's own copy once, so the swap is reversible
     [ -f "$ENGINE/lib/wine/x86_64-windows/$b.dll" ] && [ ! -f "$ENGINE/lib/wine/x86_64-windows/$b.dll.wine" ] \
       && cp -p "$ENGINE/lib/wine/x86_64-windows/$b.dll" "$ENGINE/lib/wine/x86_64-windows/$b.dll.wine"
+    # A link whose target is gone makes cp -f fail with the same message; whatever is there goes first.
+    rm -f "$ENGINE/lib/wine/x86_64-windows/$b.dll"
     cp -f "$PE/$b.dll" "$ENGINE/lib/wine/x86_64-windows/$b.dll"
   done
 else
