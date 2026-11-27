@@ -3,8 +3,20 @@
   {
    "game": "battlenet:osi",
    "title": "Diablo II: Resurrected",
-   "players": 13,
-   "minutes": 4947
+   "players": 16,
+   "minutes": 6160
+  },
+  {
+   "game": "epic:fa4240e57a3c46b39f169041b7811293",
+   "title": "霍格沃茨之遗",
+   "players": 5,
+   "minutes": 863
+  },
+  {
+   "game": "steam:3164500",
+   "title": "Schedule I",
+   "players": 5,
+   "minutes": 471
   },
   {
    "game": "steam:250900",
@@ -13,52 +25,40 @@
    "minutes": 698
   },
   {
-   "game": "epic:fa4240e57a3c46b39f169041b7811293",
-   "title": "霍格沃茨之遗",
+   "game": "steam:990080",
+   "title": "Hogwarts Legacy",
    "players": 4,
-   "minutes": 437
-  },
-  {
-   "game": "steam:3164500",
-   "title": "Schedule I",
-   "players": 4,
-   "minutes": 144
+   "minutes": 615
   },
   {
    "game": "steam:2344520",
    "title": "Diablo® IV",
    "players": 3,
-   "minutes": 1762
+   "minutes": 1982
   },
   {
    "game": "steam:1449850",
    "title": "Yu-Gi-Oh!  Master Duel",
    "players": 3,
-   "minutes": 425
+   "minutes": 442
   },
   {
    "game": "steam:934700",
    "title": "Dead Island 2",
    "players": 2,
-   "minutes": 1300
+   "minutes": 1692
   },
   {
    "game": "steam:1158160",
    "title": "Coral Island",
    "players": 2,
-   "minutes": 949
+   "minutes": 1009
   },
   {
    "game": "steam:2168680",
    "title": "Nuclear Option",
    "players": 2,
-   "minutes": 584
-  },
-  {
-   "game": "steam:990080",
-   "title": "Hogwarts Legacy",
-   "players": 2,
-   "minutes": 267
+   "minutes": 847
   },
   {
    "game": "steam:3241660",
@@ -73,6 +73,18 @@
    "minutes": 182
   },
   {
+   "game": "steam:570940",
+   "title": "DARK SOULS™: REMASTERED",
+   "players": 2,
+   "minutes": 133
+  },
+  {
+   "game": "steam:1224230",
+   "title": "Detroit: Become Human Demo",
+   "players": 2,
+   "minutes": 19
+  },
+  {
    "game": "battlenet:prometheus",
    "title": "Overwatch 2",
    "players": 2,
@@ -82,13 +94,19 @@
    "game": "steam:1658280",
    "title": "Eiyuden Chronicle: Hundred Heroes",
    "players": 1,
-   "minutes": 709
+   "minutes": 845
   },
   {
    "game": "steam:489830",
    "title": "The Elder Scrolls V: Skyrim Special Edition",
    "players": 1,
-   "minutes": 572
+   "minutes": 648
+  },
+  {
+   "game": "steam:4348910",
+   "title": "Probably Stolen",
+   "players": 1,
+   "minutes": 639
   },
   {
    "game": "steam:2142790",
@@ -101,12 +119,6 @@
    "title": "Cloud Meadow",
    "players": 1,
    "minutes": 535
-  },
-  {
-   "game": "steam:4348910",
-   "title": "Probably Stolen",
-   "players": 1,
-   "minutes": 527
   },
   {
    "game": "steam:365160",
@@ -142,7 +154,7 @@
    "game": "xbox:9MT5NJ5W7B8Z",
    "title": "Hogwarts Legacy",
    "players": 1,
-   "minutes": 189
+   "minutes": 254
   },
   {
    "game": "steam:746850",
@@ -163,12 +175,6 @@
    "minutes": 135
   },
   {
-   "game": "steam:570940",
-   "title": "DARK SOULS™: REMASTERED",
-   "players": 1,
-   "minutes": 131
-  },
-  {
    "game": "steam:585420",
    "title": "Trailmakers",
    "players": 1,
@@ -181,6 +187,12 @@
    "minutes": 126
   },
   {
+   "game": "steam:1876890",
+   "title": "Wandering Sword",
+   "players": 1,
+   "minutes": 125
+  },
+  {
    "game": "steam:1422450",
    "title": "Deadlock",
    "players": 1,
@@ -191,6 +203,18 @@
    "title": "Unsorted Horror",
    "players": 1,
    "minutes": 108
+  },
+  {
+   "game": "steam:1977530",
+   "title": "One-armed cook",
+   "players": 1,
+   "minutes": 100
+  },
+  {
+   "game": "steam:1705180",
+   "title": "Gunner, HEAT, PC!",
+   "players": 1,
+   "minutes": 88
   },
   {
    "game": "steam:631510",
@@ -223,6 +247,12 @@
    "minutes": 74
   },
   {
+   "game": "steam:361420",
+   "title": "ASTRONEER",
+   "players": 1,
+   "minutes": 74
+  },
+  {
    "game": "steam:70",
    "title": "Half-Life",
    "players": 1,
@@ -241,22 +271,28 @@
    "minutes": 71
   },
   {
+   "game": "steam:488790",
+   "title": "South Park The Fractured But Whole",
+   "players": 1,
+   "minutes": 69
+  },
+  {
    "game": "steam:312520",
    "title": "Rain World",
    "players": 1,
    "minutes": 62
   },
   {
-   "game": "steam:1977530",
-   "title": "One-armed cook",
+   "game": "epic:2a86a842f0fa46d38228b590b9ea3dc5",
+   "title": "Bread and Fred",
    "players": 1,
-   "minutes": 57
+   "minutes": 61
   },
   {
-   "game": "steam:361420",
-   "title": "ASTRONEER",
+   "game": "steam:2551020",
+   "title": "One-armed robber",
    "players": 1,
-   "minutes": 57
+   "minutes": 61
   },
   {
    "game": "xbox:9N98Z825TNFW",
@@ -295,12 +331,6 @@
    "minutes": 42
   },
   {
-   "game": "steam:1705180",
-   "title": "Gunner, HEAT, PC!",
-   "players": 1,
-   "minutes": 37
-  },
-  {
    "game": "steam:629760",
    "title": "MORDHAU",
    "players": 1,
@@ -335,6 +365,18 @@
    "title": "PEAK",
    "players": 1,
    "minutes": 28
+  },
+  {
+   "game": "steam:1727650",
+   "title": "死寂（DeathlyStillness）",
+   "players": 1,
+   "minutes": 27
+  },
+  {
+   "game": "steam:2660460",
+   "title": "Aviassembly",
+   "players": 1,
+   "minutes": 27
   },
   {
    "game": "steam:3061570",
@@ -381,6 +423,12 @@
   {
    "game": "steam:100",
    "title": "Counter-Strike: Condition Zero Deleted Scenes",
+   "players": 1,
+   "minutes": 15
+  },
+  {
+   "game": "xbox:9N9RSV4F7ZR0",
+   "title": "Grand Theft Auto V Legacy (PC)",
    "players": 1,
    "minutes": 15
   },
@@ -511,6 +559,12 @@
    "minutes": 6
   },
   {
+   "game": "steam:629820",
+   "title": "Maneater",
+   "players": 1,
+   "minutes": 6
+  },
+  {
    "game": "steam:4968640",
    "title": "Japanese Ramen Simulator",
    "players": 1,
@@ -539,6 +593,12 @@
    "title": "Flower",
    "players": 1,
    "minutes": 4
+  },
+  {
+   "game": "epic:bcd55b0d87c245dd867f5b1bd496f1df",
+   "title": "Arknights: Endfield",
+   "players": 1,
+   "minutes": 3
   },
   {
    "game": "steam:105600",
