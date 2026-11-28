@@ -390,9 +390,36 @@ case "$MODE" in
       # (scripts/steam-gptk-engine.sh). Same wrapper and flags as below; games
       # get D3DMetal like Battle.net games, and no Wine 11 steps apply.
       ENGINE=$(bash "$(dirname "${BASH_SOURCE[0]}")/steam-gptk-engine.sh") || exit 1
+      # Rockstar games sold on Steam start the Rockstar Games Launcher in this bottle first. With Apple's D3D11
+      # it stops at "The Rockstar Games Launcher failed to initialize!" and Steam then says "Unable to launch
+      # game" (#236); on the launcher engine (DXMT's D3D11, D3D12 still D3DMetal) it opens, as in its own
+      # bottle. So Steam runs on that engine for these games, restarted if it is open on the other one.
+      # .soju-steam-engine says which engine the open Steam runs on (the launcher engine also runs other bottles,
+      # so its wineserver alone does not tell).
+      STEAM_ON=$(cat "$WINEPREFIX/.soju-steam-engine" 2>/dev/null || true); [ -n "$STEAM_ON" ] || STEAM_ON="$ENGINE"
+      STEAM_OPEN=0; pgrep -f 'Steam.steam\.exe' >/dev/null 2>&1 && STEAM_OPEN=1
+      case " 1174180 271590 3240220 12210 204100 2668510 1546970 1546990 1547000 " in
+        *" ${STEAM_APP:-none} "*) ENGINE=$(bash "$(dirname "${BASH_SOURCE[0]}")/launcher-engine.sh") || exit 1 ;;
+        # Opening Steam itself: hand it to Steam on the engine it is open on.
+        *) [ -z "$STEAM_APP" ] && [ "$STEAM_OPEN" = 1 ] && [ -x "$STEAM_ON/bin/wine" ] && ENGINE="$STEAM_ON" ;;
+      esac
+      if [ -n "$STEAM_APP" ] && [ "$STEAM_OPEN" = 1 ] && [ "$STEAM_ON" != "$ENGINE" ]; then
+        echo "Restarting Steam for this game: Rockstar games need another graphics setup for their launcher"
+        bash "${BASH_SOURCE[0]}" steam-kill >/dev/null 2>&1 || true
+        for _ in $(seq 1 30); do pgrep -f 'Steam.steam\.exe' >/dev/null 2>&1 || break; sleep 1; done
+        STEAM_COLD=1
+        STEAM_WATCH=(python3 "$(dirname "${BASH_SOURCE[0]}")/steam_launch.py" watch "$WINEPREFIX/drive_c/Program Files (x86)/Steam" "$STEAM_APP" --seconds 150 --)
+      fi
+      printf '%s\n' "$ENGINE" > "$WINEPREFIX/.soju-steam-engine"
       dlss_on
       export CX_APPLEGPTK_LIBD3DSHARED_PATH="$ENGINE/lib/external/libd3dshared.dylib"
       export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib:/usr/lib"
+      # The Rockstar Games Library Service starts slowly under Rosetta; Wine stops waiting after 10 s by default
+      # (create-launcher-bottle.sh sets the same for the Rockstar bottle).
+      if [ ! -f "$WINEPREFIX/.soju-services-timeout" ]; then
+        "$ENGINE/bin/wine" reg add 'HKLM\System\CurrentControlSet\Control' /v ServicesPipeTimeout /t REG_SZ /d 60000 /f >/dev/null 2>&1 \
+          && : > "$WINEPREFIX/.soju-services-timeout"
+      fi
       ST="$WINEPREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
       [[ -f "$ST" ]] || { echo "Steam not found in $WINEPREFIX; run: soju steam-gptk on"; exit 1; }
       find "$WINEPREFIX/drive_c/users/"*/AppData/Local/Steam/htmlcache -maxdepth 2 \
@@ -575,6 +602,9 @@ case "$MODE" in
     WINEPREFIX="$S_BASE/steam-bottle" "$STEAM_WINE_ROOT/bin/wineserver" -k 2>/dev/null || true
     [ ! -d "$S_BASE/steam-gptk-bottle" ] || [ ! -x "$S_BASE/cx26-engine-steam/bin/wineserver" ] || \
       WINEPREFIX="$S_BASE/steam-gptk-bottle" "$S_BASE/cx26-engine-steam/bin/wineserver" -k 2>/dev/null || true
+    # Steam on the launcher engine for a Rockstar game (see the steam case above).
+    [ ! -d "$S_BASE/steam-gptk-bottle" ] || [ ! -x "$S_BASE/cx26-engine-launchers/bin/wineserver" ] || \
+      WINEPREFIX="$S_BASE/steam-gptk-bottle" "$S_BASE/cx26-engine-launchers/bin/wineserver" -k 2>/dev/null || true
     for b in "$S_BASE/steam-bottle" "$S_BASE/steam-gptk-bottle"; do [ ! -d "$b" ] || bottle_kill_leftovers "$b" || true; done
     sleep 2; [ ! -x "$SWEEP" ] || "$SWEEP"
     ;;
