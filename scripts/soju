@@ -36,6 +36,8 @@ Usage:
   soju vr play        Play D2R in VR (OXRSys client on the headset; offline characters)
   soju vr play --flat Open the VR copy without VR to create offline characters with the mouse
   soju vr status|remove
+  soju ue <folder> [args]  Play a packaged Unreal Engine 4/5 Windows build you have as files
+                      (own bottle per project; windowed 1280x720 without args)
   soju xcl setup      Xbox Series X|S game code through XCL (experimental, nothing playable yet;
                       needs your own unpacked game files): setup, run <folder>, status, remove
 
@@ -106,6 +108,7 @@ case "${1:-}" in
   steam-install)  shift; export SOJU_PLATFORMS=steam; exec bash "$ROOT/install.sh" "$@" ;;
   vr)             shift; exec python3 "$ROOT/scripts/d2r-vr.py" "$@" ;;
   xcl)            shift; exec python3 "$ROOT/scripts/xcl.py" "$@" ;;
+  ue)             shift; exec bash "$ROOT/scripts/ue-wine.sh" "$@" ;;
   xbox-install)   exec bash "$ROOT/scripts/xbox.sh" install ;;
   xbox-login)     exec bash "$ROOT/scripts/xbox.sh" login ;;
   xbox-logout)    shift; exec bash "$ROOT/scripts/xbox.sh" logout "$@" ;;

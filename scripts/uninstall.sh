@@ -30,8 +30,14 @@ names_engine(){
 
 # Stop only after this bottle's removal (or engine removal) was accepted.
 stop_bottle() {
-  local b="$1" ws="$ENGINE/bin/wineserver"
+  local b="$1" ws="$ENGINE/bin/wineserver" p
   [ -d "$BASE/$b" ] || return 0
+  if [ "$b" = ue-bottles ]; then   # soju ue: one bottle per project
+    for p in "$BASE/$b"/*/; do
+      if [ -f "$p/system.reg" ]; then stop_bottle "$b/$(basename "$p")"; fi
+    done
+    return 0
+  fi
   case "$b" in ea-bottle|rockstar-bottle|ubisoft-bottle)
     [ -x "$BASE/cx26-engine-launchers/bin/wineserver" ] && ws="$BASE/cx26-engine-launchers/bin/wineserver" ;;
   esac
@@ -97,7 +103,7 @@ if [ "${#apps[@]}" -gt 0 ]; then
 fi
 
 # 3. Bottles (this is where installed games live; can be tens of GB).
-for b in bottle steam-bottle epic-bottle gog-bottle ea-bottle rockstar-bottle ubisoft-bottle xbox-bottle; do
+for b in bottle steam-bottle epic-bottle gog-bottle ea-bottle rockstar-bottle ubisoft-bottle xbox-bottle ue-bottles; do
   d="$BASE/$b"
   [ -d "$d" ] || continue
   sz=$(du -sh "$d" 2>/dev/null | cut -f1)
@@ -148,7 +154,7 @@ fi
 if [ -d "$ENGINE" ]; then
   sz=$(du -sh "$ENGINE" 2>/dev/null | cut -f1)
   if ask "Remove the engine ($sz, includes the GPTK payload; re-downloadable with soju install)?"; then
-    for b in bottle epic-bottle gog-bottle ea-bottle rockstar-bottle ubisoft-bottle; do stop_bottle "$b"; done
+    for b in bottle epic-bottle gog-bottle ea-bottle rockstar-bottle ubisoft-bottle ue-bottles; do stop_bottle "$b"; done
     rm -rf "$ENGINE" "$BASE/cx26-engine-launchers"; REMOVED=1; echo "  removed"
   fi
 fi

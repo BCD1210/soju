@@ -215,6 +215,10 @@ Verified 2026-08-30: install, login, library. GOG GALAXY 2.x is Qt6 + QtWebEngin
 
 Games have not been broadly tested yet; anything that needs kernel anti-cheat (EAC/BattlEye) will not run under Wine.
 
+## Packaged Unreal Engine builds
+
+A Windows build of an Unreal Engine 4 or 5 game that you have as a folder (your own project's package, or a build a developer sent you) starts with `soju ue <folder>`, in a bottle of its own, on the same engine and D3DMetal as Xbox PC games. Checked with a UE5 Direct3D 12 build on an 8 GB M1; see [docs/UNREAL.md](docs/UNREAL.md).
+
 ## Xbox PC / Microsoft Store (Xodus backend, experimental)
 
 Xbox Series X|S console games are a separate, earlier experiment: `soju xcl` runs [XCL](https://github.com/xcl-dev/xcl) on Soju's engine without CrossOver. Nothing is playable yet; see [docs/XCL.md](docs/XCL.md).
