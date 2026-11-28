@@ -39,7 +39,10 @@ def quiet(ini):
             lines.append("")
         lines += ["[SystemSettings]", LINE]
     try:
-        ini.write_text(nl.join(lines) + nl, encoding="utf-8", newline="")
+        # open(), not Path.write_text(): write_text takes newline= only from Python 3.10, and the
+        # python3 that ships with macOS is 3.9.
+        with open(ini, "w", encoding="utf-8", newline="") as f:
+            f.write(nl.join(lines) + nl)
         return True
     except OSError:
         return False

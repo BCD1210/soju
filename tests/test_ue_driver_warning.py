@@ -25,7 +25,7 @@ class UnrealDriverWarningTests(unittest.TestCase):
             self.assertEqual(text.count(b"r.WarnOfBadDrivers=0"), 1)
             self.assertIn(b"[SystemSettings]\r\nr.WarnOfBadDrivers=0\r\nr.Foo=1\r\n", text)
             self.assertIn(b"[Core.System]\r\nPaths=../../Content\r\n", text)
-            self.assertIn("[SystemSettings]\r\nr.WarnOfBadDrivers=0", (other / "Engine.ini").read_text(newline=""))
+            self.assertIn("[SystemSettings]\r\nr.WarnOfBadDrivers=0", (other / "Engine.ini").read_bytes().decode("utf-8"))
             self.assertFalse((launcher / "Engine.ini").exists())
 
     def test_play_sh_runs_it(self):
